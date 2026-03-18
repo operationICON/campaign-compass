@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
           const { data: dbLink } = await db.from('tracking_links')
             .select('id')
             .eq(externalLinkId ? 'external_tracking_link_id' : 'url',
-                externalLinkId || link.url ?? link.link)
+                externalLinkId || (link.url ?? link.link))
             .maybeSingle()
 
           if (dbLink) {
