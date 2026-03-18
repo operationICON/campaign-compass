@@ -46,7 +46,8 @@ export function TrackingTable({ links, isLoading }: TrackingTableProps) {
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Subs</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Spenders</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Revenue</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">RPC</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">EPC</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Conv %</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">RPS</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Calculated</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Created</TableHead>
