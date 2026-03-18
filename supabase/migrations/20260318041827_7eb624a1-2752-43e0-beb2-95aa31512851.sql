@@ -1,0 +1,1 @@
+ALTER VIEW public.campaign_performance SET (security_invoker = on);

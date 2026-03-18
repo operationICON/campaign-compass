@@ -10,6 +10,7 @@ interface TrackingLink {
   revenue: number;
   revenue_per_click: number;
   revenue_per_subscriber: number;
+  conversion_rate: number;
   calculated_at: string | null;
   created_at: string;
   campaigns: { name: string; traffic_source: string | null; country: string | null } | null;
@@ -45,7 +46,8 @@ export function TrackingTable({ links, isLoading }: TrackingTableProps) {
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Subs</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Spenders</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Revenue</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">RPC</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">EPC</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Conv %</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">RPS</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Calculated</TableHead>
             <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Created</TableHead>
@@ -60,8 +62,9 @@ export function TrackingTable({ links, isLoading }: TrackingTableProps) {
               <TableCell className="text-right font-mono">{link.subscribers.toLocaleString()}</TableCell>
               <TableCell className="text-right font-mono">{link.spenders.toLocaleString()}</TableCell>
               <TableCell className="text-right font-mono text-primary">${link.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-              <TableCell className="text-right font-mono">${link.revenue_per_click.toFixed(4)}</TableCell>
-              <TableCell className="text-right font-mono">${link.revenue_per_subscriber.toFixed(4)}</TableCell>
+              <TableCell className="text-right font-mono">${link.revenue_per_click.toFixed(2)}</TableCell>
+              <TableCell className="text-right font-mono">{link.conversion_rate.toFixed(2)}%</TableCell>
+              <TableCell className="text-right font-mono">${link.revenue_per_subscriber.toFixed(2)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 {link.calculated_at ? format(new Date(link.calculated_at), "MMM d, HH:mm") : "—"}
               </TableCell>
