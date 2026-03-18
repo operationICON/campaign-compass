@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
 import AdSpendPage from "./pages/AdSpendPage";
 import LogsPage from "./pages/LogsPage";
+import DebugPage from "./pages/DebugPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/ad-spend" element={<AdSpendPage />} />
           <Route path="/logs" element={<LogsPage />} />
+          <Route path="/debug" element={<DebugPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

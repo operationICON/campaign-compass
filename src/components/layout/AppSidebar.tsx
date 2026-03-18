@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { BarChart3, Users, ScrollText, AlertTriangle, LayoutDashboard } from "lucide-react";
+import { BarChart3, Users, ScrollText, AlertTriangle, LayoutDashboard, Bug } from "lucide-react";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/accounts", icon: Users, label: "Accounts" },
   { to: "/ad-spend", icon: ScrollText, label: "Ad Spend" },
   { to: "/logs", icon: AlertTriangle, label: "Sync Logs" },
+  { to: "/debug", icon: Bug, label: "API Debug" },
 ];
 
 export function AppSidebar() {
