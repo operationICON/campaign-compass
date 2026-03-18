@@ -182,6 +182,7 @@ Deno.serve(async (req) => {
             revenue,
             revenue_per_click: clicks > 0 ? revenue / clicks : 0,
             revenue_per_subscriber: subscribers > 0 ? revenue / subscribers : 0,
+            conversion_rate: clicks > 0 ? (subscribers / clicks) * 100 : 0,
             calculated_at: new Date().toISOString(),
           }, { onConflict: 'url,campaign_id' }).select().single()
 
