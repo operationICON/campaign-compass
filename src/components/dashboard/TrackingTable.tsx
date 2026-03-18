@@ -62,8 +62,9 @@ export function TrackingTable({ links, isLoading }: TrackingTableProps) {
               <TableCell className="text-right font-mono">{link.subscribers.toLocaleString()}</TableCell>
               <TableCell className="text-right font-mono">{link.spenders.toLocaleString()}</TableCell>
               <TableCell className="text-right font-mono text-primary">${link.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-              <TableCell className="text-right font-mono">${link.revenue_per_click.toFixed(4)}</TableCell>
-              <TableCell className="text-right font-mono">${link.revenue_per_subscriber.toFixed(4)}</TableCell>
+              <TableCell className="text-right font-mono">${link.revenue_per_click.toFixed(2)}</TableCell>
+              <TableCell className="text-right font-mono">{link.conversion_rate.toFixed(2)}%</TableCell>
+              <TableCell className="text-right font-mono">${link.revenue_per_subscriber.toFixed(2)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 {link.calculated_at ? format(new Date(link.calculated_at), "MMM d, HH:mm") : "—"}
               </TableCell>
