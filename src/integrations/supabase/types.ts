@@ -77,6 +77,13 @@ export type Database = {
             foreignKeyName: "ad_spend_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
+            referencedRelation: "campaign_performance"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "ad_spend_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
@@ -201,6 +208,13 @@ export type Database = {
             foreignKeyName: "manual_notes_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
+            referencedRelation: "campaign_performance"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "manual_notes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
@@ -250,6 +264,7 @@ export type Database = {
           calculated_at: string | null
           campaign_id: string
           clicks: number
+          conversion_rate: number
           created_at: string
           id: string
           revenue: number
@@ -265,6 +280,7 @@ export type Database = {
           calculated_at?: string | null
           campaign_id: string
           clicks?: number
+          conversion_rate?: number
           created_at?: string
           id?: string
           revenue?: number
@@ -280,6 +296,7 @@ export type Database = {
           calculated_at?: string | null
           campaign_id?: string
           clicks?: number
+          conversion_rate?: number
           created_at?: string
           id?: string
           revenue?: number
@@ -302,6 +319,13 @@ export type Database = {
             foreignKeyName: "tracking_links_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
+            referencedRelation: "campaign_performance"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "tracking_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
@@ -309,7 +333,35 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      campaign_performance: {
+        Row: {
+          account_id: string | null
+          account_name: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          conversion_rate: number | null
+          country: string | null
+          epc: number | null
+          profit: number | null
+          revenue_per_subscriber: number | null
+          roi: number | null
+          total_ad_spend: number | null
+          total_clicks: number | null
+          total_revenue: number | null
+          total_spenders: number | null
+          total_subscribers: number | null
+          traffic_source: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
