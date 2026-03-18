@@ -10,6 +10,7 @@ interface TrackingLink {
   revenue: number;
   revenue_per_click: number;
   revenue_per_subscriber: number;
+  conversion_rate: number;
   calculated_at: string | null;
   created_at: string;
   campaigns: { name: string; traffic_source: string | null; country: string | null } | null;
