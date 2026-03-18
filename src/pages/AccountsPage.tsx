@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,31 +103,37 @@ export default function AccountsPage() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-secondary/50 hover:bg-secondary/50">
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Display Name</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">OF Account ID</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
-                  </TableRow>
+                 <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Display Name</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Username</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">OF Account ID</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Last Synced</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
+                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {accounts.map((account: any) => (
-                    <TableRow key={account.id} className="hover:bg-secondary/30">
-                      <TableCell className="font-medium">{account.display_name}</TableCell>
-                      <TableCell className="font-mono text-muted-foreground">{account.onlyfans_account_id}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${account.is_active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"}`}>
-                          {account.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(account)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(account.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!accounts.length && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No accounts yet</TableCell></TableRow>
+                   <TableRow key={account.id} className="hover:bg-secondary/30">
+                       <TableCell className="font-medium">{account.display_name}</TableCell>
+                       <TableCell className="text-muted-foreground">{account.username || "—"}</TableCell>
+                       <TableCell className="font-mono text-muted-foreground">{account.onlyfans_account_id}</TableCell>
+                       <TableCell>
+                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${account.is_active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"}`}>
+                           {account.is_active ? "Active" : "Inactive"}
+                         </span>
+                       </TableCell>
+                       <TableCell className="text-sm text-muted-foreground">
+                         {account.last_synced_at ? format(new Date(account.last_synced_at), "MMM d, HH:mm") : "Never"}
+                       </TableCell>
+                       <TableCell className="text-right">
+                         <Button variant="ghost" size="sm" onClick={() => openEdit(account)}><Pencil className="h-4 w-4" /></Button>
+                         <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(account.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                   {!accounts.length && (
+                     <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No accounts yet. Synced accounts will appear here automatically.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

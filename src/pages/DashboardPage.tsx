@@ -7,6 +7,8 @@ import { TrackingTable } from "@/components/dashboard/TrackingTable";
 import { AdSpendDialog } from "@/components/dashboard/AdSpendDialog";
 import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, triggerSync } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { Clock } from "lucide-react";
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
@@ -41,9 +43,18 @@ export default function DashboardPage() {
 
   const syncMutation = useMutation({
     mutationFn: () => triggerSync(filters.account_id !== "all" ? filters.account_id : undefined),
-    onSuccess: () => {
-      toast.success("Sync completed");
+    onSuccess: (data) => {
+      const results = data?.results ?? [];
+      const errors = results.filter((r: any) => r.status === 'error');
+      if (errors.length > 0) {
+        toast.warning(`Sync completed with ${errors.length} error(s). Check Sync Logs.`);
+      } else {
+        toast.success(`Sync completed — ${results.length} account(s) processed`);
+      }
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
     },
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`),
@@ -68,6 +79,16 @@ export default function DashboardPage() {
   const profit = totalRevenue - totalAdSpend;
   const roi = totalAdSpend > 0 ? (profit / totalAdSpend) * 100 : 0;
 
+  // Last synced time from accounts
+  const lastSynced = useMemo(() => {
+    const syncTimes = accounts
+      .map((a: any) => a.last_synced_at)
+      .filter(Boolean)
+      .sort()
+      .reverse();
+    return syncTimes[0] ?? null;
+  }, [accounts]);
+
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
@@ -78,7 +99,15 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Campaign Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Track performance across all accounts</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm text-muted-foreground">Track performance across all accounts</p>
+              {lastSynced && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                  <Clock className="h-3 w-3" />
+                  Last synced: {format(new Date(lastSynced), "MMM d, HH:mm")}
+                </span>
+              )}
+            </div>
           </div>
           <AdSpendDialog campaigns={campaigns} onAdded={() => queryClient.invalidateQueries({ queryKey: ["ad_spend"] })} />
         </div>

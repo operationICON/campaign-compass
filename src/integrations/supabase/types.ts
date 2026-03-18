@@ -20,24 +20,30 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          last_synced_at: string | null
           onlyfans_account_id: string
           updated_at: string
+          username: string | null
         }
         Insert: {
           created_at?: string
           display_name: string
           id?: string
           is_active?: boolean
+          last_synced_at?: string | null
           onlyfans_account_id: string
           updated_at?: string
+          username?: string | null
         }
         Update: {
           created_at?: string
           display_name?: string
           id?: string
           is_active?: boolean
+          last_synced_at?: string | null
           onlyfans_account_id?: string
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -227,6 +233,7 @@ export type Database = {
           details: Json | null
           id: string
           message: string | null
+          records_processed: number
           started_at: string
           status: string
         }
@@ -236,6 +243,7 @@ export type Database = {
           details?: Json | null
           id?: string
           message?: string | null
+          records_processed?: number
           started_at?: string
           status?: string
         }
@@ -245,6 +253,7 @@ export type Database = {
           details?: Json | null
           id?: string
           message?: string | null
+          records_processed?: number
           started_at?: string
           status?: string
         }
@@ -266,6 +275,7 @@ export type Database = {
           clicks: number
           conversion_rate: number
           created_at: string
+          external_tracking_link_id: string | null
           id: string
           revenue: number
           revenue_per_click: number
@@ -282,6 +292,7 @@ export type Database = {
           clicks?: number
           conversion_rate?: number
           created_at?: string
+          external_tracking_link_id?: string | null
           id?: string
           revenue?: number
           revenue_per_click?: number
@@ -298,6 +309,7 @@ export type Database = {
           clicks?: number
           conversion_rate?: number
           created_at?: string
+          external_tracking_link_id?: string | null
           id?: string
           revenue?: number
           revenue_per_click?: number
