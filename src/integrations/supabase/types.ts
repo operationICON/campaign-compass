@@ -14,7 +14,299 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          onlyfans_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          onlyfans_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          onlyfans_account_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ad_spend: {
+        Row: {
+          amount: number
+          campaign_id: string
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          traffic_source: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          campaign_id: string
+          created_at?: string
+          date: string
+          id?: string
+          notes?: string | null
+          traffic_source: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          campaign_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          traffic_source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_spend_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          account_id: string
+          country: string | null
+          created_at: string
+          id: string
+          name: string
+          status: string
+          traffic_source: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          status?: string
+          traffic_source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string
+          traffic_source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_metrics: {
+        Row: {
+          clicks: number
+          created_at: string
+          date: string
+          id: string
+          revenue: number
+          spenders: number
+          subscribers: number
+          tracking_link_id: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          date: string
+          id?: string
+          revenue?: number
+          spenders?: number
+          subscribers?: number
+          tracking_link_id: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          date?: string
+          id?: string
+          revenue?: number
+          spenders?: number
+          subscribers?: number
+          tracking_link_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_metrics_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_notes: {
+        Row: {
+          account_id: string | null
+          campaign_id: string | null
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          campaign_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          campaign_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_notes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_notes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sync_logs: {
+        Row: {
+          account_id: string | null
+          completed_at: string | null
+          details: Json | null
+          id: string
+          message: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          account_id?: string | null
+          completed_at?: string | null
+          details?: Json | null
+          id?: string
+          message?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          account_id?: string | null
+          completed_at?: string | null
+          details?: Json | null
+          id?: string
+          message?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_links: {
+        Row: {
+          account_id: string
+          calculated_at: string | null
+          campaign_id: string
+          clicks: number
+          created_at: string
+          id: string
+          revenue: number
+          revenue_per_click: number
+          revenue_per_subscriber: number
+          spenders: number
+          subscribers: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          account_id: string
+          calculated_at?: string | null
+          campaign_id: string
+          clicks?: number
+          created_at?: string
+          id?: string
+          revenue?: number
+          revenue_per_click?: number
+          revenue_per_subscriber?: number
+          spenders?: number
+          subscribers?: number
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          account_id?: string
+          calculated_at?: string | null
+          campaign_id?: string
+          clicks?: number
+          created_at?: string
+          id?: string
+          revenue?: number
+          revenue_per_click?: number
+          revenue_per_subscriber?: number
+          spenders?: number
+          subscribers?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_links_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
