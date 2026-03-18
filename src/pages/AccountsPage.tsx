@@ -102,12 +102,14 @@ export default function AccountsPage() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-secondary/50 hover:bg-secondary/50">
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Display Name</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">OF Account ID</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
-                  </TableRow>
+                 <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Display Name</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Username</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">OF Account ID</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Last Synced</TableHead>
+                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
+                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {accounts.map((account: any) => (
