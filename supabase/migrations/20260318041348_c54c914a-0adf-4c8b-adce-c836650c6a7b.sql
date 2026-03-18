@@ -1,0 +1,1 @@
+ALTER TABLE public.tracking_links ADD CONSTRAINT tracking_links_url_campaign_id_key UNIQUE (url, campaign_id);
