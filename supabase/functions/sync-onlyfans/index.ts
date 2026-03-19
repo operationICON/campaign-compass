@@ -171,6 +171,7 @@ Deno.serve(async (req) => {
               conversion_rate: Number(link.clicksCount ?? 0) > 0
                 ? (Number(link.subscribersCount ?? 0) / Number(link.clicksCount)) * 100 : 0,
               calculated_at: link.revenue?.calculatedAt ?? startedAt,
+              created_at: link.createdAt ?? undefined,
               source: link.type ?? null,
               country: link.country ?? null,
             }, { onConflict: 'external_tracking_link_id' })
