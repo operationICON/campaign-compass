@@ -580,7 +580,7 @@ export default function TrackingLinksPage() {
                             </td>
                           </tr>
                         )}
-                      </tbody>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
