@@ -13,12 +13,19 @@ const apiHeaders = (apiKey: string) => ({
   'Accept': 'application/json',
 })
 
-// Fetch all pages using _pagination.next_page (full URL)
-async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
+/**
+ * Fetch all pages. Handles two response shapes:
+ * 1. Plain array (e.g. /accounts)
+ * 2. { data: { list: [...], hasMore }, _pagination: { next_page } }
+ */
+async function apiFetchAllPages(path: string, apiKey: string, maxPages = 5): Promise<any[]> {
   const allItems: any[] = []
   let currentUrl: string | null = `${API_BASE}${path}`
+  let page = 0
 
-  while (currentUrl) {
+  while (currentUrl && page < maxPages) {
+    page++
+    console.log(`Fetching page ${page}: ${currentUrl}`)
     const res = await fetch(currentUrl, { headers: apiHeaders(apiKey) })
     if (!res.ok) {
       const body = await res.text()
@@ -26,20 +33,28 @@ async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
     }
     const json = await res.json()
 
+    // Shape 1: plain array (e.g. /accounts)
     if (Array.isArray(json)) {
       allItems.push(...json)
       break
-    } else if (json.data && Array.isArray(json.data)) {
-      allItems.push(...json.data)
+    }
+
+    // Shape 2: { data: { list: [...] }, _pagination: { next_page } }
+    const data = json.data
+    if (data && Array.isArray(data.list)) {
+      allItems.push(...data.list)
+      const nextPage = json._pagination?.next_page ?? null
+      const hasMore = data.hasMore === true
+      currentUrl = (hasMore && nextPage) ? nextPage : null
+    } else if (data && Array.isArray(data)) {
+      allItems.push(...data)
       currentUrl = json._pagination?.next_page ?? null
-    } else if (json.data && typeof json.data === 'object') {
-      allItems.push(json.data)
-      break
     } else {
       break
     }
   }
 
+  console.log(`Fetched ${allItems.length} items from ${path} in ${page} pages`)
   return allItems
 }
 
@@ -87,7 +102,7 @@ Deno.serve(async (req) => {
     const filterAccountId = body.account_id as string | undefined
     let totalRecords = 0
 
-    // ── STEP 1: Fetch accounts ──
+    // ── STEP 1: Fetch accounts (plain array response) ──
     const accountsRaw = await apiFetch('/accounts', apiKey)
     const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
 
@@ -100,13 +115,15 @@ Deno.serve(async (req) => {
       return jsonResponse({ results: [], message: 'No accounts found' })
     }
 
-    // Upsert accounts
+    // Upsert accounts with username from onlyfans_user_data
     for (const acc of apiAccounts) {
       const externalId = String(acc.id)
+      const username = acc.onlyfans_username ?? acc.onlyfans_user_data?.username ?? null
+      const displayName = acc.display_name ?? acc.onlyfans_user_data?.name ?? username ?? externalId
       await db.from('accounts').upsert({
         onlyfans_account_id: externalId,
-        username: acc.onlyfans_username ?? acc.username ?? null,
-        display_name: acc.display_name ?? acc.onlyfans_username ?? externalId,
+        username: username,
+        display_name: displayName,
         is_active: true,
         last_synced_at: startedAt,
       }, { onConflict: 'onlyfans_account_id' })
@@ -119,34 +136,57 @@ Deno.serve(async (req) => {
 
     const results: any[] = []
 
-    // ── STEP 2: For each account, fetch tracking links, fans, earnings ──
+    // ── STEP 2: For each account, fetch tracking links + transactions ──
     for (const account of dbAccounts ?? []) {
       const acctId = account.onlyfans_account_id
+      console.log(`Syncing account: ${account.display_name} (${acctId})`)
       try {
-        // ── Tracking links: GET /{account_id}/tracking-links?limit=50 ──
+        // ── Tracking links ──
         let linkCount = 0
         try {
-          const items = await apiFetchAllPages(
-            `/${acctId}/tracking-links?limit=50`,
-            apiKey
-          )
+          const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
+          console.log(`Got ${items.length} tracking links for ${acctId}`)
+
+          // Batch: get or create campaigns first
+          const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? l.name ?? 'Unknown'))]
+          const { data: existingCampaigns } = await db.from('campaigns')
+            .select('id, name')
+            .eq('account_id', account.id)
+            .in('name', campaignNames)
+          
+          const campaignMap: Record<string, string> = {}
+          for (const c of existingCampaigns ?? []) {
+            campaignMap[c.name] = c.id
+          }
+          
+          const missingNames = campaignNames.filter(n => !campaignMap[n])
+          if (missingNames.length > 0) {
+            const { data: newCampaigns } = await db.from('campaigns')
+              .insert(missingNames.map(name => ({ account_id: account.id, name, status: 'active' })))
+              .select('id, name')
+            for (const c of newCampaigns ?? []) {
+              campaignMap[c.name] = c.id
+            }
+          }
 
           for (const link of items) {
             const clicks = Number(link.clicksCount ?? 0)
-            const subscribers = Number(link.claimsCount ?? 0)
-            const spenders = Number(link.spendersCount ?? 0)
-            const revenue = Number(link.totalEarnings ?? 0)
-            const epc = clicks > 0 ? revenue / clicks : 0
-            const rps = subscribers > 0 ? revenue / subscribers : 0
+            const subscribers = Number(link.subscribersCount ?? 0)
+            const spenders = Number(link.revenue?.spendersCount ?? 0)
+            const revenue = Number(link.revenue?.total ?? 0)
+            const epc = Number(link.revenue?.revenuePerClick ?? 0)
+            const rps = Number(link.revenue?.revenuePerSubscriber ?? 0)
             const convRate = clicks > 0 ? (subscribers / clicks) * 100 : 0
             const externalId = String(link.id ?? '')
+            const campaignName = link.campaignName ?? link.name ?? 'Unknown'
+            const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
 
             await db.from('tracking_links').upsert({
               external_tracking_link_id: externalId || null,
-              url: link.url ?? `https://onlyfans.com/${acctId}`,
-              campaign_id: account.id, // will need a real campaign later
-              campaign_name: link.name ?? 'Unknown',
-              source: link.type ?? null, // "tracking" or "trial"
+              url: link.campaignUrl ?? `https://onlyfans.com/${acctId}`,
+              campaign_id: campaignId,
+              campaign_name: campaignName,
+              source: link.type ?? null,
               country: link.country ?? null,
               account_id: account.id,
               clicks,
@@ -156,11 +196,12 @@ Deno.serve(async (req) => {
               revenue_per_click: epc,
               revenue_per_subscriber: rps,
               conversion_rate: convRate,
-              calculated_at: link.updatedAt ?? startedAt,
+              calculated_at: link.revenue?.calculatedAt ?? startedAt,
             }, { onConflict: 'external_tracking_link_id' })
             linkCount++
           }
         } catch (metricsErr: any) {
+          console.error(`Tracking links error for ${acctId}: ${metricsErr.message}`)
           await db.from('sync_logs').insert({
             account_id: account.id,
             status: 'error',
@@ -171,47 +212,39 @@ Deno.serve(async (req) => {
           })
         }
 
-        // ── Earnings: GET /{account_id}/statistics/statements/earnings ──
-        try {
-          const year = new Date().getFullYear()
-          const startDate = encodeURIComponent(`${year}-01-01 00:00:00`)
-          const endDate = encodeURIComponent(`${year}-12-31 23:59:59`)
-          await apiFetch(
-            `/${acctId}/statistics/statements/earnings?start_date=${startDate}&end_date=${endDate}&type=total`,
-            apiKey
-          )
-        } catch (_e) {
-          // non-critical
-        }
-
-        // ── Latest fans: GET /{account_id}/fans/latest?limit=50 ──
+        // ── Transactions ──
         let txCount = 0
         try {
-          const fanItems = await apiFetchAllPages(
-            `/${acctId}/fans/latest?limit=50`,
-            apiKey
-          )
+          const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey)
+          console.log(`Got ${txItems.length} transactions for ${acctId}`)
 
-          for (const tx of fanItems) {
-            const externalTxId = String(tx.id ?? tx.transaction_id ?? '')
+          for (const tx of txItems) {
+            const externalTxId = String(tx.id ?? '')
             if (!externalTxId) continue
 
             await db.from('transactions').upsert({
               external_transaction_id: externalTxId,
               account_id: account.id,
-              user_id: tx.user_id ?? tx.userId ?? null,
-              revenue: Number(tx.amount ?? tx.revenue ?? tx.total ?? 0),
-              type: tx.type ?? 'fan',
-              date: (tx.date ?? tx.created_at ?? tx.subscribedAt ?? startedAt).toString().split('T')[0],
+              revenue: Number(tx.amount ?? 0),
+              revenue_net: Number(tx.net ?? 0),
+              fee: Number(tx.fee ?? 0),
+              type: tx.type ?? null,
+              date: tx.createdAt ? tx.createdAt.split('T')[0] : startedAt.split('T')[0],
+              fan_id: tx.user?.id ? String(tx.user.id) : null,
+              fan_username: tx.user?.username ?? null,
+              currency: tx.currency ?? 'USD',
+              status: tx.status ?? null,
+              user_id: tx.user?.id ? String(tx.user.id) : null,
             }, { onConflict: 'external_transaction_id' })
             txCount++
           }
         } catch (txErr: any) {
+          console.error(`Transactions error for ${acctId}: ${txErr.message}`)
           await db.from('sync_logs').insert({
             account_id: account.id,
             status: 'error',
             success: false,
-            message: `Failed fans/latest for ${acctId}: ${txErr.message}`,
+            message: `Failed transactions for ${acctId}: ${txErr.message}`,
             error_message: txErr.message,
             records_processed: 0,
           })

@@ -36,6 +36,25 @@ export async function fetchTrackingLinks(filters?: {
   return data;
 }
 
+export async function fetchTransactions(filters?: {
+  account_id?: string;
+  date_from?: string;
+  date_to?: string;
+}) {
+  let query = supabase
+    .from("transactions")
+    .select("*")
+    .order("date", { ascending: false });
+
+  if (filters?.account_id) query = query.eq("account_id", filters.account_id);
+  if (filters?.date_from) query = query.gte("date", filters.date_from);
+  if (filters?.date_to) query = query.lte("date", filters.date_to);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchAdSpend(filters?: {
   campaign_id?: string;
   date_from?: string;
