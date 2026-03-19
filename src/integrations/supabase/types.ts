@@ -120,6 +120,63 @@ export type Database = {
           },
         ]
       }
+      alerts: {
+        Row: {
+          account_id: string | null
+          account_name: string | null
+          campaign_name: string | null
+          created_at: string
+          id: string
+          message: string | null
+          resolved: boolean
+          resolved_at: string | null
+          tracking_link_id: string | null
+          triggered_at: string
+          type: string
+        }
+        Insert: {
+          account_id?: string | null
+          account_name?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          tracking_link_id?: string | null
+          triggered_at?: string
+          type?: string
+        }
+        Update: {
+          account_id?: string | null
+          account_name?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          tracking_link_id?: string | null
+          triggered_at?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alerts_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           account_id: string
@@ -325,6 +382,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sync_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
       }
       tracking_links: {
         Row: {
