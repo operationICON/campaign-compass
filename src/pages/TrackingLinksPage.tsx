@@ -472,18 +472,18 @@ export default function TrackingLinksPage() {
                           <td className="px-2 py-2" style={{ width: "90px" }}>
                             <button
                               onClick={(e) => { e.stopPropagation(); setAdSpendSlideIn(link); }}
-                              className="flex items-center gap-1 text-[12px] transition-colors"
+                              className="inline-flex items-center gap-[4px] text-[12px] transition-colors whitespace-nowrap"
                             >
                               {link.cost > 0 ? (
-                                <span className="flex items-center gap-1 font-mono text-foreground">
+                                <>
                                   <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                  ${link.cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                </span>
+                                  <span className="font-mono text-foreground">${link.cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                </>
                               ) : (
-                                <span className="text-muted-foreground hover:text-primary flex items-center gap-1">
+                                <>
                                   <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground shrink-0" />
-                                  Set cost
-                                </span>
+                                  <span className="text-muted-foreground hover:text-primary">Set cost</span>
+                                </>
                               )}
                             </button>
                           </td>
