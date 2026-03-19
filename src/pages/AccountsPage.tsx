@@ -2,11 +2,12 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -61,7 +62,7 @@ export default function AccountsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Account Management</h1>
-            <p className="text-sm text-muted-foreground">Map OnlyFans account IDs to internal names</p>
+            <p className="text-sm text-muted-foreground">OnlyFans accounts synced from API</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
@@ -74,7 +75,7 @@ export default function AccountsPage() {
               <div className="space-y-4">
                 <div>
                   <Label>OnlyFans Account ID</Label>
-                  <Input value={form.onlyfans_account_id} onChange={e => setForm(f => ({ ...f, onlyfans_account_id: e.target.value }))} className="bg-secondary border-border" placeholder="e.g. 123456789" />
+                  <Input value={form.onlyfans_account_id} onChange={e => setForm(f => ({ ...f, onlyfans_account_id: e.target.value }))} className="bg-secondary border-border" placeholder="e.g. acct_xxx" />
                 </div>
                 <div>
                   <Label>Display Name</Label>
@@ -103,37 +104,51 @@ export default function AccountsPage() {
             ) : (
               <Table>
                 <TableHeader>
-                 <TableRow className="bg-secondary/50 hover:bg-secondary/50">
-                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Display Name</TableHead>
-                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Username</TableHead>
-                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">OF Account ID</TableHead>
-                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Last Synced</TableHead>
-                     <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
-                   </TableRow>
+                  <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Display Name</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Username</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Subscribers</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Top %</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Price</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Last Seen</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Last Synced</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                   {accounts.map((account: any) => (
-                   <TableRow key={account.id} className="hover:bg-secondary/30">
-                       <TableCell className="font-medium">{account.display_name}</TableCell>
-                       <TableCell className="text-muted-foreground">{account.username || "—"}</TableCell>
-                       <TableCell className="font-mono text-muted-foreground">{account.onlyfans_account_id}</TableCell>
-                       <TableCell>
-                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${account.is_active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"}`}>
-                           {account.is_active ? "Active" : "Inactive"}
-                         </span>
-                       </TableCell>
-                       <TableCell className="text-sm text-muted-foreground">
-                         {account.last_synced_at ? format(new Date(account.last_synced_at), "MMM d, HH:mm") : "Never"}
-                       </TableCell>
-                       <TableCell className="text-right">
-                         <Button variant="ghost" size="sm" onClick={() => openEdit(account)}><Pencil className="h-4 w-4" /></Button>
-                         <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(account.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                       </TableCell>
-                     </TableRow>
-                   ))}
-                   {!accounts.length && (
-                     <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No accounts yet. Synced accounts will appear here automatically.</TableCell></TableRow>
+                    <TableRow key={account.id} className="hover:bg-secondary/30">
+                      <TableCell className="font-medium">{account.display_name}</TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-sm">@{account.username || "—"}</TableCell>
+                      <TableCell className="text-right font-mono">{(account.subscribers_count ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {account.performer_top != null ? (
+                          <Badge variant="outline" className="font-mono">{account.performer_top}%</Badge>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {account.subscribe_price > 0 ? `$${Number(account.subscribe_price).toFixed(2)}` : "Free"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {account.last_seen ? format(new Date(account.last_seen), "MMM d, HH:mm") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${account.is_active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"}`}>
+                          {account.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {account.last_synced_at ? format(new Date(account.last_synced_at), "MMM d, HH:mm") : "Never"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(account)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(account.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!accounts.length && (
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No accounts yet. Run a sync to populate.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

@@ -13,11 +13,6 @@ const apiHeaders = (apiKey: string) => ({
   'Accept': 'application/json',
 })
 
-/**
- * Fetch all pages. Handles two response shapes:
- * 1. Plain array (e.g. /accounts)
- * 2. { data: { list: [...], hasMore }, _pagination: { next_page } }
- */
 async function apiFetchAllPages(path: string, apiKey: string, maxPages = 5): Promise<any[]> {
   const allItems: any[] = []
   let currentUrl: string | null = `${API_BASE}${path}`
@@ -33,13 +28,11 @@ async function apiFetchAllPages(path: string, apiKey: string, maxPages = 5): Pro
     }
     const json = await res.json()
 
-    // Shape 1: plain array (e.g. /accounts)
     if (Array.isArray(json)) {
       allItems.push(...json)
       break
     }
 
-    // Shape 2: { data: { list: [...] }, _pagination: { next_page } }
     const data = json.data
     if (data && Array.isArray(data.list)) {
       allItems.push(...data.list)
@@ -102,7 +95,7 @@ Deno.serve(async (req) => {
     const filterAccountId = body.account_id as string | undefined
     let totalRecords = 0
 
-    // ── STEP 1: Fetch accounts (plain array response) ──
+    // ── STEP 1: Fetch accounts (plain array) ──
     const accountsRaw = await apiFetch('/accounts', apiKey)
     const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
 
@@ -115,17 +108,19 @@ Deno.serve(async (req) => {
       return jsonResponse({ results: [], message: 'No accounts found' })
     }
 
-    // Upsert accounts with username from onlyfans_user_data
+    // Upsert accounts with rich data from onlyfans_user_data
     for (const acc of apiAccounts) {
-      const externalId = String(acc.id)
-      const username = acc.onlyfans_username ?? acc.onlyfans_user_data?.username ?? null
-      const displayName = acc.display_name ?? acc.onlyfans_user_data?.name ?? username ?? externalId
+      const ud = acc.onlyfans_user_data ?? {}
       await db.from('accounts').upsert({
-        onlyfans_account_id: externalId,
-        username: username,
-        display_name: displayName,
+        onlyfans_account_id: String(acc.id),
+        username: acc.onlyfans_username ?? ud.username ?? null,
+        display_name: acc.display_name ?? ud.name ?? acc.onlyfans_username ?? String(acc.id),
         is_active: true,
         last_synced_at: startedAt,
+        subscribers_count: ud.subscribersCount ?? 0,
+        performer_top: ud.performerTop ?? null,
+        subscribe_price: ud.subscribePrice ?? 0,
+        last_seen: ud.lastSeen ?? null,
       }, { onConflict: 'onlyfans_account_id' })
     }
 
@@ -147,68 +142,50 @@ Deno.serve(async (req) => {
           const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
           console.log(`Got ${items.length} tracking links for ${acctId}`)
 
-          // Batch: get or create campaigns first
-          const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? l.name ?? 'Unknown'))]
+          // Batch campaign creation
+          const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? 'Unknown'))]
           const { data: existingCampaigns } = await db.from('campaigns')
-            .select('id, name')
-            .eq('account_id', account.id)
-            .in('name', campaignNames)
-          
+            .select('id, name').eq('account_id', account.id).in('name', campaignNames)
           const campaignMap: Record<string, string> = {}
-          for (const c of existingCampaigns ?? []) {
-            campaignMap[c.name] = c.id
-          }
-          
+          for (const c of existingCampaigns ?? []) campaignMap[c.name] = c.id
           const missingNames = campaignNames.filter(n => !campaignMap[n])
           if (missingNames.length > 0) {
-            const { data: newCampaigns } = await db.from('campaigns')
+            const { data: newC } = await db.from('campaigns')
               .insert(missingNames.map(name => ({ account_id: account.id, name, status: 'active' })))
               .select('id, name')
-            for (const c of newCampaigns ?? []) {
-              campaignMap[c.name] = c.id
-            }
+            for (const c of newC ?? []) campaignMap[c.name] = c.id
           }
 
           for (const link of items) {
-            const clicks = Number(link.clicksCount ?? 0)
-            const subscribers = Number(link.subscribersCount ?? 0)
-            const spenders = Number(link.revenue?.spendersCount ?? 0)
-            const revenue = Number(link.revenue?.total ?? 0)
-            const epc = Number(link.revenue?.revenuePerClick ?? 0)
-            const rps = Number(link.revenue?.revenuePerSubscriber ?? 0)
-            const convRate = clicks > 0 ? (subscribers / clicks) * 100 : 0
-            const externalId = String(link.id ?? '')
-            const campaignName = link.campaignName ?? link.name ?? 'Unknown'
+            const campaignName = link.campaignName ?? 'Unknown'
             const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
 
             await db.from('tracking_links').upsert({
-              external_tracking_link_id: externalId || null,
+              external_tracking_link_id: String(link.id ?? ''),
               url: link.campaignUrl ?? `https://onlyfans.com/${acctId}`,
               campaign_id: campaignId,
               campaign_name: campaignName,
+              account_id: account.id,
+              clicks: Number(link.clicksCount ?? 0),
+              subscribers: Number(link.subscribersCount ?? 0),
+              spenders: Number(link.revenue?.spendersCount ?? 0),
+              revenue: Number(link.revenue?.total ?? 0),
+              revenue_per_click: Number(link.revenue?.revenuePerClick ?? 0),
+              revenue_per_subscriber: Number(link.revenue?.revenuePerSubscriber ?? 0),
+              conversion_rate: Number(link.clicksCount ?? 0) > 0
+                ? (Number(link.subscribersCount ?? 0) / Number(link.clicksCount)) * 100 : 0,
+              calculated_at: link.revenue?.calculatedAt ?? startedAt,
               source: link.type ?? null,
               country: link.country ?? null,
-              account_id: account.id,
-              clicks,
-              subscribers,
-              spenders,
-              revenue,
-              revenue_per_click: epc,
-              revenue_per_subscriber: rps,
-              conversion_rate: convRate,
-              calculated_at: link.revenue?.calculatedAt ?? startedAt,
             }, { onConflict: 'external_tracking_link_id' })
             linkCount++
           }
-        } catch (metricsErr: any) {
-          console.error(`Tracking links error for ${acctId}: ${metricsErr.message}`)
+        } catch (err: any) {
+          console.error(`Tracking links error for ${acctId}: ${err.message}`)
           await db.from('sync_logs').insert({
-            account_id: account.id,
-            status: 'error',
-            success: false,
-            message: `Failed tracking-links for ${acctId}: ${metricsErr.message}`,
-            error_message: metricsErr.message,
-            records_processed: 0,
+            account_id: account.id, status: 'error', success: false,
+            message: `Failed tracking-links for ${acctId}: ${err.message}`,
+            error_message: err.message, records_processed: 0,
           })
         }
 
@@ -238,33 +215,20 @@ Deno.serve(async (req) => {
             }, { onConflict: 'external_transaction_id' })
             txCount++
           }
-        } catch (txErr: any) {
-          console.error(`Transactions error for ${acctId}: ${txErr.message}`)
+        } catch (err: any) {
+          console.error(`Transactions error for ${acctId}: ${err.message}`)
           await db.from('sync_logs').insert({
-            account_id: account.id,
-            status: 'error',
-            success: false,
-            message: `Failed transactions for ${acctId}: ${txErr.message}`,
-            error_message: txErr.message,
-            records_processed: 0,
+            account_id: account.id, status: 'error', success: false,
+            message: `Failed transactions for ${acctId}: ${err.message}`,
+            error_message: err.message, records_processed: 0,
           })
         }
 
         await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', account.id)
-
         totalRecords += linkCount + txCount
-        results.push({
-          account: account.display_name,
-          status: 'success',
-          links: linkCount,
-          transactions: txCount,
-        })
+        results.push({ account: account.display_name, status: 'success', links: linkCount, transactions: txCount })
       } catch (err: any) {
-        results.push({
-          account: account.display_name,
-          status: 'error',
-          error: err.message,
-        })
+        results.push({ account: account.display_name, status: 'error', error: err.message })
       }
     }
 
