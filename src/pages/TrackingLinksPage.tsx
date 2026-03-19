@@ -505,7 +505,7 @@ export default function TrackingLinksPage() {
                             </span>
                           </td>
                           {/* Profit */}
-                          <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "90px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "85px" }}>
                             {link.profit !== null ? (
                               <span className={link.profit >= 0 ? "text-primary" : "text-destructive"}>
                                 {link.profit >= 0 ? "+" : ""}${Math.abs(link.profit).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
