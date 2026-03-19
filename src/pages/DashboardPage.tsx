@@ -9,10 +9,10 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 import {
   RefreshCw, DollarSign, MousePointerClick, Users, TrendingUp,
   Percent, PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown,
-  AlertTriangle, Download, FileText
+  AlertTriangle, Download, FileText, LayoutGrid, Search
 } from "lucide-react";
 
-type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend";
+type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend" | "created_at";
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [editingAdSpend, setEditingAdSpend] = useState<string | null>(null);
   const [adSpendValue, setAdSpendValue] = useState("");
   const adSpendInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
@@ -84,9 +85,15 @@ export default function DashboardPage() {
     return links.filter((link: any) => {
       if (filters.traffic_source !== "all" && link.source !== filters.traffic_source) return false;
       if (selectedModel && link.account_id !== selectedModel) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchName = (link.campaign_name || "").toLowerCase().includes(q);
+        const matchAccount = (link.accounts?.username || "").toLowerCase().includes(q) || (link.accounts?.display_name || "").toLowerCase().includes(q);
+        if (!matchName && !matchAccount) return false;
+      }
       return true;
     });
-  }, [links, filters.traffic_source, selectedModel]);
+  }, [links, filters.traffic_source, selectedModel, searchQuery]);
 
   const adSpendByCampaign = useMemo(() => {
     const map: Record<string, number> = {};
@@ -105,6 +112,16 @@ export default function DashboardPage() {
 
   const sortedLinks = useMemo(() => {
     const sorted = [...enrichedLinks].sort((a, b) => {
+      if (sortKey === "campaign_name") {
+        const av = (a.campaign_name || "").toLowerCase();
+        const bv = (b.campaign_name || "").toLowerCase();
+        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      if (sortKey === "created_at") {
+        const av = new Date(a.created_at || 0).getTime();
+        const bv = new Date(b.created_at || 0).getTime();
+        return sortAsc ? av - bv : bv - av;
+      }
       const av = a[sortKey] ?? 0;
       const bv = b[sortKey] ?? 0;
       return sortAsc ? av - bv : bv - av;
@@ -428,6 +445,25 @@ export default function DashboardPage() {
 
         {/* PER MODEL STRIP — clickable */}
         <div className="flex gap-3 overflow-x-auto pb-1">
+          {/* All Accounts card */}
+          <button
+            onClick={() => setSelectedModel(null)}
+            className={`min-w-[200px] bg-card border rounded-[10px] p-3 flex items-center gap-3 text-left transition-all ${
+              selectedModel === null ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/40"
+            }`}
+          >
+            <div className="w-9 h-9 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
+              <LayoutGrid className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">All Accounts</p>
+              <p className="text-[10px] text-muted-foreground">{accounts.length} models</p>
+              <div className="flex gap-3 mt-1 text-[11px]">
+                <span className="text-accent font-mono">{fmtCurrency(totalRevenue)}</span>
+                <span className="text-muted-foreground">{fmtNum(totalSubscribers)} subs</span>
+              </div>
+            </div>
+          </button>
           {modelSummary.map((model) => {
             const isSelected = selectedModel === model.id;
             return (
@@ -435,7 +471,7 @@ export default function DashboardPage() {
                 key={model.id}
                 onClick={() => setSelectedModel(isSelected ? null : model.id)}
                 className={`min-w-[200px] bg-card border rounded-[10px] p-3 flex items-center gap-3 text-left transition-all ${
-                  isSelected ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/40"
+                  isSelected ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/40"
                 }`}
               >
                 <div className="w-9 h-9 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
@@ -518,6 +554,18 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* SEARCH BAR */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search campaigns..."
+            className="w-full bg-card border border-border rounded-[10px] pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors"
+          />
+        </div>
+
         {/* CAMPAIGN TABLE */}
         <div className="bg-card border border-border rounded-[10px] overflow-hidden">
           {linksLoading ? (
@@ -541,6 +589,7 @@ export default function DashboardPage() {
                     <SortHeader label="EPC" sortField="epc" align="right" />
                     <SortHeader label="RPS" sortField="revenue_per_subscriber" align="right" />
                     <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
+                    <SortHeader label="Created" sortField="created_at" />
                     <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium text-left">Calculated</th>
                   </tr>
                 </thead>
@@ -607,6 +656,9 @@ export default function DashboardPage() {
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] text-[10px] font-semibold uppercase tracking-wide ${status.color}`}>
                             {status.emoji} {status.label}
                           </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-muted-foreground text-[10px]">
+                          {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground text-[10px]">
                           {link.calculated_at ? format(new Date(link.calculated_at), "MMM d, HH:mm") : "—"}
