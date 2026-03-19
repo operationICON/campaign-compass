@@ -1,12 +1,14 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { BarChart3, Users, ScrollText, AlertTriangle, LayoutDashboard, Bug, UserCheck } from "lucide-react";
+import { BarChart3, Users, ScrollText, AlertTriangle, LayoutDashboard, Bug, UserCheck, LineChart, Settings } from "lucide-react";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/accounts", icon: Users, label: "Accounts" },
   { to: "/ad-spend", icon: ScrollText, label: "Ad Spend" },
   { to: "/media-buyers", icon: UserCheck, label: "Media Buyers" },
+  { to: "/charts", icon: LineChart, label: "Charts" },
   { to: "/logs", icon: AlertTriangle, label: "Sync Logs" },
+  { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/debug", icon: Bug, label: "API Debug" },
 ];
 

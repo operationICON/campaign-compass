@@ -84,6 +84,53 @@ export async function fetchSyncLogs() {
   return data;
 }
 
+export async function fetchDailyMetrics(trackingLinkIds?: string[]) {
+  let query = supabase
+    .from("daily_metrics")
+    .select("*")
+    .order("date", { ascending: true });
+
+  if (trackingLinkIds && trackingLinkIds.length > 0) {
+    query = query.in("tracking_link_id", trackingLinkIds);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchAlerts(unresolvedOnly = true) {
+  let query = supabase
+    .from("alerts")
+    .select("*")
+    .order("triggered_at", { ascending: false });
+
+  if (unresolvedOnly) query = query.eq("resolved", false);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchSyncSettings() {
+  const { data, error } = await supabase
+    .from("sync_settings")
+    .select("*");
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSyncSetting(key: string, value: string) {
+  const { data, error } = await supabase
+    .from("sync_settings")
+    .update({ value, updated_at: new Date().toISOString() })
+    .eq("key", key)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function triggerSync(accountId?: string) {
   const response = await supabase.functions.invoke("sync-onlyfans", {
     body: accountId ? { account_id: accountId } : {},
