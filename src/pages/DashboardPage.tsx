@@ -157,7 +157,8 @@ export default function DashboardPage() {
   );
 
   const getStatus = (link: any) => {
-    if (link.ad_spend === 0) return { label: "PENDING", color: "bg-muted-foreground/20 text-muted-foreground" };
+    if (link.ad_spend === 0 && Number(link.revenue) > 0) return { label: "NO SPEND DATA", color: "bg-muted-foreground/20 text-muted-foreground" };
+    if (link.ad_spend === 0 && Number(link.revenue) === 0) return { label: "NO DATA", color: "bg-muted-foreground/20 text-muted-foreground" };
     if (link.roi === null || link.roi < 0 || Number(link.revenue) === 0) return { label: "KILL", color: "bg-destructive/15 text-destructive" };
     if (link.roi <= 100) return { label: "WATCH", color: "bg-[hsl(var(--warning))]/15 text-[hsl(var(--warning))]" };
     return { label: "SCALE", color: "bg-primary/15 text-primary" };
