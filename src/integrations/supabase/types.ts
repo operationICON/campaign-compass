@@ -20,8 +20,12 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          last_seen: string | null
           last_synced_at: string | null
           onlyfans_account_id: string
+          performer_top: number | null
+          subscribe_price: number | null
+          subscribers_count: number | null
           updated_at: string
           username: string | null
         }
@@ -30,8 +34,12 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          last_seen?: string | null
           last_synced_at?: string | null
           onlyfans_account_id: string
+          performer_top?: number | null
+          subscribe_price?: number | null
+          subscribers_count?: number | null
           updated_at?: string
           username?: string | null
         }
@@ -40,8 +48,12 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          last_seen?: string | null
           last_synced_at?: string | null
           onlyfans_account_id?: string
+          performer_top?: number | null
+          subscribe_price?: number | null
+          subscribers_count?: number | null
           updated_at?: string
           username?: string | null
         }
