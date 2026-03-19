@@ -435,6 +435,25 @@ export default function DashboardPage() {
 
         {/* PER MODEL STRIP — clickable */}
         <div className="flex gap-3 overflow-x-auto pb-1">
+          {/* All Accounts card */}
+          <button
+            onClick={() => setSelectedModel(null)}
+            className={`min-w-[200px] bg-card border rounded-[10px] p-3 flex items-center gap-3 text-left transition-all ${
+              selectedModel === null ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/40"
+            }`}
+          >
+            <div className="w-9 h-9 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
+              <LayoutGrid className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">All Accounts</p>
+              <p className="text-[10px] text-muted-foreground">{accounts.length} models</p>
+              <div className="flex gap-3 mt-1 text-[11px]">
+                <span className="text-accent font-mono">{fmtCurrency(totalRevenue)}</span>
+                <span className="text-muted-foreground">{fmtNum(totalSubscribers)} subs</span>
+              </div>
+            </div>
+          </button>
           {modelSummary.map((model) => {
             const isSelected = selectedModel === model.id;
             return (
@@ -442,7 +461,7 @@ export default function DashboardPage() {
                 key={model.id}
                 onClick={() => setSelectedModel(isSelected ? null : model.id)}
                 className={`min-w-[200px] bg-card border rounded-[10px] p-3 flex items-center gap-3 text-left transition-all ${
-                  isSelected ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/40"
+                  isSelected ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/40"
                 }`}
               >
                 <div className="w-9 h-9 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
