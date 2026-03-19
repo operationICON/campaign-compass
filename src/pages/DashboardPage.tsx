@@ -5,7 +5,7 @@ import { KpiCards } from "@/components/dashboard/KpiCards";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { TrackingTable } from "@/components/dashboard/TrackingTable";
 import { AdSpendDialog } from "@/components/dashboard/AdSpendDialog";
-import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, triggerSync } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, fetchTransactions, triggerSync } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Clock } from "lucide-react";
@@ -41,6 +41,11 @@ export default function DashboardPage() {
     queryFn: () => fetchAdSpend(queryFilters),
   });
 
+  const { data: transactions = [] } = useQuery({
+    queryKey: ["transactions", queryFilters],
+    queryFn: () => fetchTransactions(queryFilters),
+  });
+
   const syncMutation = useMutation({
     mutationFn: () => triggerSync(filters.account_id !== "all" ? filters.account_id : undefined),
     onSuccess: (data) => {
@@ -56,6 +61,7 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`),
   });
@@ -69,12 +75,16 @@ export default function DashboardPage() {
     });
   }, [links, filters.traffic_source, filters.country]);
 
-  // Compute KPIs
-  const totalRevenue = filteredLinks.reduce((s: number, l: any) => s + Number(l.revenue), 0);
+  // KPIs from tracking links
+  const linkRevenue = filteredLinks.reduce((s: number, l: any) => s + Number(l.revenue), 0);
   const totalClicks = filteredLinks.reduce((s: number, l: any) => s + l.clicks, 0);
   const totalSubscribers = filteredLinks.reduce((s: number, l: any) => s + l.subscribers, 0);
   const totalAdSpend = adSpendData.reduce((s: number, a: any) => s + Number(a.amount), 0);
-  const epc = totalClicks > 0 ? totalRevenue / totalClicks : 0;
+  
+  // Total revenue from all transactions (gross)
+  const totalRevenue = transactions.reduce((s: number, t: any) => s + Number(t.revenue ?? 0), 0);
+  
+  const epc = totalClicks > 0 ? linkRevenue / totalClicks : 0;
   const conversionRate = totalClicks > 0 ? (totalSubscribers / totalClicks) * 100 : 0;
   const profit = totalRevenue - totalAdSpend;
   const roi = totalAdSpend > 0 ? (profit / totalAdSpend) * 100 : 0;
