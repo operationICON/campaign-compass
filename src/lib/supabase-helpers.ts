@@ -66,10 +66,7 @@ export async function fetchSyncLogs() {
 }
 
 export async function triggerSync(accountId?: string) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("Not authenticated");
-
-  const response = await supabase.functions.invoke("sync-tracking", {
+  const response = await supabase.functions.invoke("sync-onlyfans", {
     body: accountId ? { account_id: accountId } : {},
   });
 
