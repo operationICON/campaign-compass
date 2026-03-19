@@ -63,8 +63,8 @@ export default function DashboardPage() {
 
   const filteredLinks = useMemo(() => {
     return links.filter((link: any) => {
-      if (filters.traffic_source !== "all" && link.campaigns?.traffic_source !== filters.traffic_source) return false;
-      if (filters.country !== "all" && link.campaigns?.country !== filters.country) return false;
+      if (filters.traffic_source !== "all" && link.source !== filters.traffic_source) return false;
+      if (filters.country !== "all" && link.country !== filters.country) return false;
       return true;
     });
   }, [links, filters.traffic_source, filters.country]);

@@ -54,7 +54,7 @@ export function TrackingTable({ links, isLoading }: TrackingTableProps) {
         <TableBody>
           {links.map((link) => (
             <TableRow key={link.id} className="hover:bg-secondary/30 transition-colors">
-              <TableCell className="text-muted-foreground">{link.accounts?.display_name || "—"}</TableCell>
+              <TableCell className="text-muted-foreground">{(link as any).accounts?.username ? `@${(link as any).accounts.username}` : (link as any).accounts?.display_name || "—"}</TableCell>
               <TableCell className="font-medium">{link.campaign_name || "—"}</TableCell>
               <TableCell className="text-right font-mono">{link.clicks.toLocaleString()}</TableCell>
               <TableCell className="text-right font-mono">{link.subscribers.toLocaleString()}</TableCell>
