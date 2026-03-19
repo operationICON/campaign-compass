@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [editingAdSpend, setEditingAdSpend] = useState<string | null>(null);
   const [adSpendValue, setAdSpendValue] = useState("");
   const adSpendInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
