@@ -389,26 +389,26 @@ export default function TrackingLinksPage() {
               <table className="w-full text-[13px] table-fixed">
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border bg-secondary/30">
-                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="220px" />
+                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                     <th
                       className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
-                      style={{ width: "120px", minWidth: "120px", maxWidth: "120px" }}
+                      style={{ width: "110px", minWidth: "110px", maxWidth: "110px" }}
                     >Account</th>
-                    <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />
-                    <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />
+                    <SortHeader label="Clicks" sortKeyName="clicks" width="65px" />
+                    <SortHeader label="Subs" sortKeyName="subscribers" width="65px" />
                     <th
                       className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
                       style={{ width: "90px", minWidth: "90px", maxWidth: "90px" }}
                     >Cost</th>
-                    <SortHeader label="Revenue" sortKeyName="revenue" width="110px" />
-                    <SortHeader label="Spend" sortKeyName="spenders" width="70px" />
-                    <SortHeader label="Profit" sortKeyName="profit" width="90px" />
+                    <SortHeader label="Revenue" sortKeyName="revenue" width="100px" />
+                    <SortHeader label="Spenders" sortKeyName="spenders" width="75px" />
+                    <SortHeader label="Profit" sortKeyName="profit" width="85px" />
                     <SortHeader label="ROI" sortKeyName="roi" width="70px" />
-                    <SortHeader label="ARPS" sortKeyName="arps" width="70px" />
-                    <SortHeader label="Created" sortKeyName="created_at" width="100px" />
+                    <SortHeader label="ARPS" sortKeyName="arps" width="75px" />
+                    <SortHeader label="Created" sortKeyName="created_at" width="95px" />
                     <th
                       className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
-                      style={{ width: "80px", minWidth: "80px", maxWidth: "80px" }}
+                      style={{ width: "75px", minWidth: "75px", maxWidth: "75px" }}
                     >Status</th>
                   </tr>
                 </thead>
