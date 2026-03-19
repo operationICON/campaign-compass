@@ -648,6 +648,9 @@ export default function DashboardPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground text-[10px]">
+                          {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
+                        </td>
+                        <td className="px-3 py-2.5 text-muted-foreground text-[10px]">
                           {link.calculated_at ? format(new Date(link.calculated_at), "MMM d, HH:mm") : "—"}
                         </td>
                       </tr>
