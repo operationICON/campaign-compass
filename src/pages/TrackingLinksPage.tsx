@@ -34,7 +34,10 @@ function getAccountColor(username: string | null) {
 
 function getCampaignInitials(name: string | null) {
   if (!name) return "??";
-  return name.slice(0, 2).toUpperCase();
+  // Strip leading non-alphanumeric (e.g. "1. Onlysearch" → "Onlysearch", but "50/50" → "50")
+  // Use first 2 alphanumeric chars from the cleaned name
+  const cleaned = name.replace(/^[^a-zA-Z0-9]+/, "");
+  return cleaned.slice(0, 2).toUpperCase();
 }
 
 function formatUpdatedAgo(dateStr: string | null): string | null {
