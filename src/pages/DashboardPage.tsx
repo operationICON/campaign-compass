@@ -12,7 +12,7 @@ import {
   AlertTriangle, Download, FileText, LayoutGrid, Search
 } from "lucide-react";
 
-type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend";
+type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend" | "created_at";
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
