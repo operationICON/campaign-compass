@@ -544,6 +544,18 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* SEARCH BAR */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search campaigns..."
+            className="w-full bg-card border border-border rounded-[10px] pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors"
+          />
+        </div>
+
         {/* CAMPAIGN TABLE */}
         <div className="bg-card border border-border rounded-[10px] overflow-hidden">
           {linksLoading ? (
@@ -567,6 +579,7 @@ export default function DashboardPage() {
                     <SortHeader label="EPC" sortField="epc" align="right" />
                     <SortHeader label="RPS" sortField="revenue_per_subscriber" align="right" />
                     <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
+                    <SortHeader label="Created" sortField="created_at" />
                     <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium text-left">Calculated</th>
                   </tr>
                 </thead>
