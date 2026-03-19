@@ -489,12 +489,12 @@ export default function TrackingLinksPage() {
                             </button>
                           </td>
                           {/* Revenue */}
-                          <td className="px-2 py-2" style={{ width: "110px" }}>
+                          <td className="px-2 py-2" style={{ width: "100px" }}>
                             <p className="font-mono text-[12px] text-primary font-semibold leading-tight">
                               ${Number(link.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                             {updatedAgo && (
-                              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{updatedAgo}</p>
+                              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{updatedAgo}</p>
                             )}
                           </td>
                           {/* Spenders */}
