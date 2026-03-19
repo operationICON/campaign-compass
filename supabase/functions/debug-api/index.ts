@@ -23,9 +23,9 @@ Deno.serve(async (req) => {
     accounts_count: 0,
     accounts_error: null,
     accounts_sample: null,
-    account_detail: null,
-    metrics_endpoint: null,
-    metrics_error: null,
+    tracking_links_endpoint: null,
+    tracking_links_error: null,
+    tracking_links_sample: null,
     fans_endpoint: null,
     fans_error: null,
     earnings_endpoint: null,
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Test /accounts — returns plain array
+  // Test /accounts
   let sampleAcctId: string | null = null
   try {
     const accountsRes = await fetch(`${API_BASE}/accounts`, { headers })
@@ -78,7 +78,6 @@ Deno.serve(async (req) => {
           id: items[0].id,
           display_name: items[0].display_name,
           onlyfans_username: items[0].onlyfans_username,
-          is_authenticated: items[0].is_authenticated,
           keys: Object.keys(items[0]),
         }
       }
@@ -90,33 +89,36 @@ Deno.serve(async (req) => {
   }
 
   if (sampleAcctId) {
-    // Test /{id}/account
+    // Test /{id}/tracking-links?limit=5
     try {
-      const r = await fetch(`${API_BASE}/${sampleAcctId}/account`, { headers })
-      result.account_detail = { status: r.status, ok: r.ok }
+      const r = await fetch(`${API_BASE}/${sampleAcctId}/tracking-links?limit=5`, { headers })
+      result.tracking_links_endpoint = { status: r.status, ok: r.ok }
       if (r.ok) {
         const j = await r.json()
-        result.account_detail.keys = Object.keys(j.data ?? j)
+        const items = Array.isArray(j) ? j : (j.data ?? [])
+        result.tracking_links_endpoint.count = items.length
+        if (items.length > 0) {
+          result.tracking_links_sample = {
+            keys: Object.keys(items[0]),
+            first: items[0],
+          }
+        }
+      } else {
+        result.tracking_links_error = await r.text()
       }
-    } catch (e: any) { result.account_detail = { error: e.message } }
+    } catch (e: any) { result.tracking_links_error = e.message }
 
-    // Test /{id}/sextforce/metrics
+    // Test /{id}/fans/latest?limit=5
     try {
-      const r = await fetch(`${API_BASE}/${sampleAcctId}/sextforce/metrics?limit=5&offset=0`, { headers })
-      result.metrics_endpoint = { status: r.status, ok: r.ok }
-      if (!r.ok) result.metrics_error = await r.text()
-    } catch (e: any) { result.metrics_error = e.message }
-
-    // Test /{id}/fans/latest
-    try {
-      const r = await fetch(`${API_BASE}/${sampleAcctId}/fans/latest?limit=5&offset=0`, { headers })
+      const r = await fetch(`${API_BASE}/${sampleAcctId}/fans/latest?limit=5`, { headers })
       result.fans_endpoint = { status: r.status, ok: r.ok }
       if (!r.ok) result.fans_error = await r.text()
     } catch (e: any) { result.fans_error = e.message }
 
     // Test /{id}/statistics/statements/earnings
     try {
-      const r = await fetch(`${API_BASE}/${sampleAcctId}/statistics/statements/earnings?start_date=${encodeURIComponent('2025-01-01 00:00:00')}&end_date=${encodeURIComponent('2025-12-31 23:59:59')}&type=total`, { headers })
+      const year = new Date().getFullYear()
+      const r = await fetch(`${API_BASE}/${sampleAcctId}/statistics/statements/earnings?start_date=${encodeURIComponent(`${year}-01-01 00:00:00`)}&end_date=${encodeURIComponent(`${year}-12-31 23:59:59`)}&type=total`, { headers })
       result.earnings_endpoint = { status: r.status, ok: r.ok }
       if (!r.ok) result.earnings_error = await r.text()
     } catch (e: any) { result.earnings_error = e.message }
