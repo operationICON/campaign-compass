@@ -195,7 +195,7 @@ export default function TrackingLinksPage() {
             </p>
             {!searchQuery && clickFilter === "all" && (
               <button
-                onClick={() => syncMutation.mutate()}
+                onClick={() => syncMutation.mutate(undefined)}
                 disabled={syncMutation.isPending}
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
               >
