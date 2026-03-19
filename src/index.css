@@ -9,13 +9,14 @@
     --background: 240 6% 4%;
     --foreground: 0 0% 100%;
 
-    --card: 240 5% 7%;
+    --card: 240 4% 7%;
     --card-foreground: 0 0% 100%;
+    --card-elevated: 240 4% 11%;
 
-    --popover: 240 5% 9%;
+    --popover: 240 4% 9%;
     --popover-foreground: 0 0% 100%;
 
-    --primary: 160 84% 30%;
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 240 4% 10%;
@@ -33,20 +34,29 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
     --border: 0 0% 100% / 0.06;
     --input: 0 0% 100% / 0.06;
-    --ring: 160 84% 30%;
+    --ring: 160 84% 39%;
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
     --sidebar-background: 240 6% 3%;
     --sidebar-foreground: 0 0% 53%;
-    --sidebar-primary: 160 84% 30%;
+    --sidebar-primary: 160 84% 39%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 84% 30%;
+    --sidebar-accent: 160 84% 39%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 100% / 0.06;
-    --sidebar-ring: 160 84% 30%;
+    --sidebar-ring: 160 84% 39%;
+
+    --chart-green: 160 84% 39%;
+    --chart-blue: 217 91% 60%;
+    --chart-amber: 38 92% 50%;
+    --chart-red: 0 84% 60%;
+    --chart-purple: 263 70% 50%;
   }
 }
 
@@ -68,5 +78,60 @@
 @layer utilities {
   .emerald-value {
     color: hsl(160, 64%, 55%);
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 ease-out;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+  }
+
+  .emerald-glow {
+    box-shadow: 0 0 20px -4px hsl(160 84% 39% / 0.25), 0 0 40px -8px hsl(160 84% 39% / 0.1);
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(240 4% 10%) 25%,
+      hsl(240 4% 14%) 50%,
+      hsl(240 4% 10%) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-count-up {
+    animation: count-up 0.4s ease-out forwards;
+  }
+
+  @keyframes slide-down {
+    from { opacity: 0; max-height: 0; transform: translateY(-8px); }
+    to { opacity: 1; max-height: 200px; transform: translateY(0); }
+  }
+
+  .animate-slide-down {
+    animation: slide-down 0.3s ease-out forwards;
+    overflow: hidden;
+  }
+
+  .hover-emerald-border {
+    border-left: 2px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+  .hover-emerald-border:hover {
+    border-left-color: hsl(160 84% 39%);
   }
 }
