@@ -533,7 +533,7 @@ export default function TrackingLinksPage() {
                             {formatCreatedAt(link.created_at)}
                           </td>
                           {/* Status */}
-                          <td className="px-2 py-2" style={{ width: "80px" }}>
+                          <td className="px-2 py-2" style={{ width: "75px" }}>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <button
