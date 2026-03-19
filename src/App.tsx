@@ -12,6 +12,7 @@ import AlertsPage from "./pages/AlertsPage";
 import SettingsPage from "./pages/SettingsPage";
 import LogsPage from "./pages/LogsPage";
 import DebugPage from "./pages/DebugPage";
+import TrackingLinksPage from "./pages/TrackingLinksPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/tracking-links" element={<TrackingLinksPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/ad-spend" element={<AdSpendPage />} />
           <Route path="/media-buyers" element={<MediaBuyersPage />} />
