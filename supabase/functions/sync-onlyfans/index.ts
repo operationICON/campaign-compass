@@ -139,11 +139,35 @@ Deno.serve(async (req) => {
     // ── STEP 2: For each account, fetch tracking links + transactions ──
     for (const account of dbAccounts ?? []) {
       const acctId = account.onlyfans_account_id
+      console.log(`Syncing account: ${account.display_name} (${acctId})`)
       try {
         // ── Tracking links ──
         let linkCount = 0
         try {
           const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
+          console.log(`Got ${items.length} tracking links for ${acctId}`)
+
+          // Batch: get or create campaigns first
+          const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? l.name ?? 'Unknown'))]
+          const { data: existingCampaigns } = await db.from('campaigns')
+            .select('id, name')
+            .eq('account_id', account.id)
+            .in('name', campaignNames)
+          
+          const campaignMap: Record<string, string> = {}
+          for (const c of existingCampaigns ?? []) {
+            campaignMap[c.name] = c.id
+          }
+          
+          const missingNames = campaignNames.filter(n => !campaignMap[n])
+          if (missingNames.length > 0) {
+            const { data: newCampaigns } = await db.from('campaigns')
+              .insert(missingNames.map(name => ({ account_id: account.id, name, status: 'active' })))
+              .select('id, name')
+            for (const c of newCampaigns ?? []) {
+              campaignMap[c.name] = c.id
+            }
+          }
 
           for (const link of items) {
             const clicks = Number(link.clicksCount ?? 0)
@@ -154,23 +178,8 @@ Deno.serve(async (req) => {
             const rps = Number(link.revenue?.revenuePerSubscriber ?? 0)
             const convRate = clicks > 0 ? (subscribers / clicks) * 100 : 0
             const externalId = String(link.id ?? '')
-
-            // Ensure campaign exists
             const campaignName = link.campaignName ?? link.name ?? 'Unknown'
-            const { data: existingCampaign } = await db.from('campaigns')
-              .select('id')
-              .eq('account_id', account.id)
-              .eq('name', campaignName)
-              .maybeSingle()
-
-            let campaignId = existingCampaign?.id
-            if (!campaignId) {
-              const { data: newCampaign } = await db.from('campaigns')
-                .insert({ account_id: account.id, name: campaignName, status: 'active' })
-                .select('id')
-                .single()
-              campaignId = newCampaign?.id ?? account.id
-            }
+            const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
 
             await db.from('tracking_links').upsert({
               external_tracking_link_id: externalId || null,
@@ -192,6 +201,7 @@ Deno.serve(async (req) => {
             linkCount++
           }
         } catch (metricsErr: any) {
+          console.error(`Tracking links error for ${acctId}: ${metricsErr.message}`)
           await db.from('sync_logs').insert({
             account_id: account.id,
             status: 'error',
@@ -206,6 +216,7 @@ Deno.serve(async (req) => {
         let txCount = 0
         try {
           const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey)
+          console.log(`Got ${txItems.length} transactions for ${acctId}`)
 
           for (const tx of txItems) {
             const externalTxId = String(tx.id ?? '')
@@ -228,6 +239,7 @@ Deno.serve(async (req) => {
             txCount++
           }
         } catch (txErr: any) {
+          console.error(`Transactions error for ${acctId}: ${txErr.message}`)
           await db.from('sync_logs').insert({
             account_id: account.id,
             status: 'error',
