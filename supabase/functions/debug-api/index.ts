@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const API_BASE = 'https://api.onlyfansapi.com/v2'
+const API_BASE = 'https://app.onlyfansapi.com/api'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,11 +13,8 @@ Deno.serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const apiKey = Deno.env.get('ONLYFANS_API_KEY')
-
-  // Debug endpoint — no auth required, only exposes diagnostic info (no secrets)
 
   const result: Record<string, any> = {
     api_key_present: !!apiKey,
@@ -25,6 +22,7 @@ Deno.serve(async (req) => {
     accounts_endpoint: null,
     accounts_count: 0,
     accounts_error: null,
+    accounts_sample: null,
     tracking_links_endpoint: null,
     tracking_links_count: 0,
     tracking_links_error: null,
@@ -32,7 +30,6 @@ Deno.serve(async (req) => {
     latest_sync_error: null,
   }
 
-  // Fetch last successful sync and latest error from DB
   const db = createClient(supabaseUrl, serviceKey)
 
   const { data: lastSuccess } = await db.from('sync_logs')
@@ -41,7 +38,6 @@ Deno.serve(async (req) => {
     .order('completed_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-
   result.last_successful_sync = lastSuccess ?? null
 
   const { data: lastError } = await db.from('sync_logs')
@@ -50,7 +46,6 @@ Deno.serve(async (req) => {
     .order('started_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-
   result.latest_sync_error = lastError ?? null
 
   if (!apiKey) {
@@ -77,7 +72,6 @@ Deno.serve(async (req) => {
       const json = await accountsRes.json()
       const items = Array.isArray(json) ? json : (json.data ?? json.list ?? json.results ?? [])
       result.accounts_count = items.length
-      // Include first account summary (no sensitive data)
       if (items.length > 0) {
         result.accounts_sample = {
           id: items[0].id ?? items[0].account_id ?? 'unknown',
@@ -91,19 +85,17 @@ Deno.serve(async (req) => {
     result.accounts_error = err.message
   }
 
-  // Test /tracking-links endpoint (use first account if available)
+  // Test /{account_id}/sextforce/metrics endpoint
   if (result.accounts_count > 0 && result.accounts_sample) {
     try {
-      const tlRes = await fetch(
-        `${API_BASE}/tracking-links?account_id=${result.accounts_sample.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        }
-      )
+      const acctId = result.accounts_sample.id
+      const tlRes = await fetch(`${API_BASE}/${acctId}/sextforce/metrics`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      })
       result.tracking_links_endpoint = {
         status: tlRes.status,
         status_text: tlRes.statusText,

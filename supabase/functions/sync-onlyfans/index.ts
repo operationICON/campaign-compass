@@ -5,53 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const API_BASE = 'https://api.onlyfansapi.com/v2'
+const API_BASE = 'https://app.onlyfansapi.com/api'
 
-async function apiFetchPaginated<T>(
-  path: string,
-  apiKey: string,
-  params: Record<string, string> = {}
-): Promise<T[]> {
-  const allItems: T[] = []
-  let offset = 0
-  const limit = 100
+async function apiFetch<T>(path: string, apiKey: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+  })
 
-  while (true) {
-    const url = new URL(`${API_BASE}${path}`)
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-    url.searchParams.set('limit', String(limit))
-    url.searchParams.set('offset', String(offset))
-
-    const res = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    })
-
-    if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`API ${path} returned ${res.status}: ${body}`)
-    }
-
-    const json = await res.json()
-    const items: T[] = Array.isArray(json) ? json
-      : Array.isArray(json.data) ? json.data
-      : Array.isArray(json.list) ? json.list
-      : Array.isArray(json.results) ? json.results
-      : []
-
-    allItems.push(...items)
-
-    if (json.has_more === true || items.length === limit) {
-      offset += limit
-    } else {
-      break
-    }
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`API ${path} returned ${res.status}: ${body}`)
   }
 
-  return allItems
+  return await res.json() as T
 }
 
 Deno.serve(async (req) => {
@@ -73,7 +43,6 @@ Deno.serve(async (req) => {
   const db = createClient(supabaseUrl, serviceKey)
   const startedAt = new Date().toISOString()
 
-  // Create sync log entry
   const { data: syncLog } = await db.from('sync_logs').insert({
     started_at: startedAt,
     status: 'running',
@@ -89,8 +58,8 @@ Deno.serve(async (req) => {
     const filterAccountId = body.account_id as string | undefined
     let totalRecords = 0
 
-    // ── STEP 1: Fetch accounts ──
-    const apiAccounts = await apiFetchPaginated<any>('/accounts', apiKey)
+    // ── STEP 1: Fetch accounts from API ──
+    const apiAccounts = await apiFetch<any[]>('/accounts', apiKey)
 
     if (!apiAccounts.length) {
       await updateSyncLog(db, syncLogId, {
@@ -120,57 +89,63 @@ Deno.serve(async (req) => {
 
     const results: any[] = []
 
-    // ── STEP 2: For each account, fetch tracking links & transactions ──
+    // ── STEP 2: For each account, fetch metrics & transactions ──
     for (const account of dbAccounts ?? []) {
+      const acctId = account.onlyfans_account_id
       try {
-        // Fetch tracking links
-        const links = await apiFetchPaginated<any>(
-          '/tracking-links',
-          apiKey,
-          { account_id: account.onlyfans_account_id }
-        )
-
+        // Fetch tracking/metrics via /{account_id}/sextforce/metrics
         let linkCount = 0
-        for (const link of links) {
-          const clicks = Number(link.clicks ?? 0)
-          const subscribers = Number(link.subscribers ?? 0)
-          const spenders = Number(link.spenders ?? 0)
-          const revenue = Number(link.revenue ?? 0)
-          const epc = clicks > 0 ? revenue / clicks : 0
-          const rps = subscribers > 0 ? revenue / subscribers : 0
-          const convRate = clicks > 0 ? (subscribers / clicks) * 100 : 0
-          const externalId = String(link.id ?? link.link_id ?? link.trackingId ?? '')
+        try {
+          const metrics = await apiFetch<any>(`/${acctId}/sextforce/metrics`, apiKey)
+          const items = Array.isArray(metrics) ? metrics : (metrics.data ?? metrics.list ?? metrics.results ?? [])
 
-          await db.from('tracking_links').upsert({
-            external_tracking_link_id: externalId || null,
-            url: link.url ?? link.link ?? `https://onlyfans.com/${account.onlyfans_account_id}`,
-            campaign_id: link.campaign_id ?? account.id,
-            campaign_name: link.campaign_name ?? link.campaign ?? link.name ?? 'Unknown',
-            source: link.traffic_source ?? link.source ?? null,
-            country: link.country ?? link.geo ?? null,
+          for (const link of items) {
+            const clicks = Number(link.clicks ?? 0)
+            const subscribers = Number(link.subscribers ?? 0)
+            const spenders = Number(link.spenders ?? 0)
+            const revenue = Number(link.revenue ?? 0)
+            const epc = clicks > 0 ? revenue / clicks : 0
+            const rps = subscribers > 0 ? revenue / subscribers : 0
+            const convRate = clicks > 0 ? (subscribers / clicks) * 100 : 0
+            const externalId = String(link.id ?? link.link_id ?? link.trackingId ?? '')
+
+            await db.from('tracking_links').upsert({
+              external_tracking_link_id: externalId || null,
+              url: link.url ?? link.link ?? `https://onlyfans.com/${acctId}`,
+              campaign_id: link.campaign_id ?? account.id,
+              campaign_name: link.campaign_name ?? link.campaign ?? link.name ?? 'Unknown',
+              source: link.traffic_source ?? link.source ?? null,
+              country: link.country ?? link.geo ?? null,
+              account_id: account.id,
+              clicks,
+              subscribers,
+              spenders,
+              revenue,
+              revenue_per_click: epc,
+              revenue_per_subscriber: rps,
+              conversion_rate: convRate,
+              calculated_at: startedAt,
+            }, { onConflict: 'external_tracking_link_id' })
+            linkCount++
+          }
+        } catch (metricsErr: any) {
+          await db.from('sync_logs').insert({
             account_id: account.id,
-            clicks,
-            subscribers,
-            spenders,
-            revenue,
-            revenue_per_click: epc,
-            revenue_per_subscriber: rps,
-            conversion_rate: convRate,
-            calculated_at: startedAt,
-          }, { onConflict: 'external_tracking_link_id' })
-          linkCount++
+            status: 'error',
+            success: false,
+            message: `Failed metrics for ${acctId}: ${metricsErr.message}`,
+            error_message: metricsErr.message,
+            records_processed: 0,
+          })
         }
 
-        // Fetch transactions
+        // Fetch transactions via /{account_id}/payouts/transactions
         let txCount = 0
         try {
-          const transactions = await apiFetchPaginated<any>(
-            '/transactions',
-            apiKey,
-            { account_id: account.onlyfans_account_id }
-          )
+          const transactions = await apiFetch<any>(`/${acctId}/payouts/transactions`, apiKey)
+          const txItems = Array.isArray(transactions) ? transactions : (transactions.data ?? transactions.list ?? transactions.results ?? [])
 
-          for (const tx of transactions) {
+          for (const tx of txItems) {
             const externalTxId = String(tx.id ?? tx.transaction_id ?? '')
             if (!externalTxId) continue
 
@@ -185,12 +160,11 @@ Deno.serve(async (req) => {
             txCount++
           }
         } catch (txErr: any) {
-          // Non-fatal — log but continue
           await db.from('sync_logs').insert({
             account_id: account.id,
             status: 'error',
             success: false,
-            message: `Failed /transactions: ${txErr.message}`,
+            message: `Failed transactions for ${acctId}: ${txErr.message}`,
             error_message: txErr.message,
             records_processed: 0,
           })
@@ -214,7 +188,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update master sync log
     await updateSyncLog(db, syncLogId, {
       success: results.every(r => r.status === 'success'),
       message: `Processed ${dbAccounts?.length ?? 0} accounts, ${totalRecords} records`,
@@ -250,9 +223,6 @@ async function updateSyncLog(db: any, id: string | undefined, updates: Record<st
 
 function jsonResponse(data: any) {
   return new Response(JSON.stringify(data), {
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json',
-    },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
