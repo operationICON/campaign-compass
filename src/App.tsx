@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
-import AdSpendPage from "./pages/AdSpendPage";
+// Ad Spend page removed — cost is set via Tracking Links table
 import MediaBuyersPage from "./pages/MediaBuyersPage";
 import ChartsPage from "./pages/ChartsPage";
 import AlertsPage from "./pages/AlertsPage";
