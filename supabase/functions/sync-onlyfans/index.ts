@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     const filterAccountId = body.account_id as string | undefined
     let totalRecords = 0
 
-    // ── STEP 1: Fetch accounts (plain array) ──
+    // ── STEP 1: Fetch accounts ──
     const accountsRaw = await apiFetch('/accounts', apiKey)
     const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
 
@@ -108,7 +108,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ results: [], message: 'No accounts found' })
     }
 
-    // Upsert accounts with rich data from onlyfans_user_data
     for (const acc of apiAccounts) {
       const ud = acc.onlyfans_user_data ?? {}
       await db.from('accounts').upsert({
@@ -124,7 +123,6 @@ Deno.serve(async (req) => {
       }, { onConflict: 'onlyfans_account_id' })
     }
 
-    // Get DB accounts
     let accountsQuery = db.from('accounts').select('*').eq('is_active', true)
     if (filterAccountId) accountsQuery = accountsQuery.eq('id', filterAccountId)
     const { data: dbAccounts } = await accountsQuery
@@ -136,13 +134,11 @@ Deno.serve(async (req) => {
       const acctId = account.onlyfans_account_id
       console.log(`Syncing account: ${account.display_name} (${acctId})`)
       try {
-        // ── Tracking links ──
         let linkCount = 0
         try {
           const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
           console.log(`Got ${items.length} tracking links for ${acctId}`)
 
-          // Batch campaign creation
           const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? 'Unknown'))]
           const { data: existingCampaigns } = await db.from('campaigns')
             .select('id, name').eq('account_id', account.id).in('name', campaignNames)
@@ -189,7 +185,6 @@ Deno.serve(async (req) => {
           })
         }
 
-        // ── Transactions ──
         let txCount = 0
         try {
           const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey)
@@ -230,6 +225,39 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         results.push({ account: account.display_name, status: 'error', error: err.message })
       }
+    }
+
+    // ── STEP 3: Zero-click alert check ──
+    try {
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: zeroClickLinks } = await db.from('tracking_links')
+        .select('id, campaign_name, account_id, clicks, created_at, accounts(display_name)')
+        .eq('clicks', 0)
+        .lt('created_at', threeDaysAgo)
+
+      if (zeroClickLinks && zeroClickLinks.length > 0) {
+        // Resolve old zero_clicks alerts first
+        await db.from('alerts')
+          .update({ resolved: true, resolved_at: new Date().toISOString() })
+          .eq('type', 'zero_clicks')
+          .eq('resolved', false)
+
+        // Insert new alerts
+        const alertInserts = zeroClickLinks.map((link: any) => ({
+          campaign_name: link.campaign_name || 'Unknown',
+          account_name: link.accounts?.display_name || 'Unknown',
+          account_id: link.account_id,
+          tracking_link_id: link.id,
+          type: 'zero_clicks',
+          message: `Campaign "${link.campaign_name}" has had 0 clicks for 3+ days`,
+          resolved: false,
+        }))
+
+        await db.from('alerts').insert(alertInserts)
+        console.log(`Created ${alertInserts.length} zero-click alerts`)
+      }
+    } catch (err: any) {
+      console.error(`Alert check error: ${err.message}`)
     }
 
     await updateSyncLog(db, syncLogId, {
