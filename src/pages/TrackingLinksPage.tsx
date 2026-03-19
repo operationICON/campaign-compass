@@ -2,12 +2,12 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
-import { fetchTrackingLinks, fetchAdSpend, addAdSpend, triggerSync } from "@/lib/supabase-helpers";
+import { fetchTrackingLinks, fetchAdSpend, addAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, differenceInDays, isToday } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Pencil, Users, RefreshCw, ExternalLink
+  Pencil, Users, RefreshCw, ExternalLink, DollarSign, TrendingUp, BarChart3, Trash2, Plus
 } from "lucide-react";
 import {
   Tooltip,
@@ -48,6 +48,14 @@ export default function TrackingLinksPage() {
     },
   });
 
+  const deleteSpendMutation = useMutation({
+    mutationFn: deleteAdSpend,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
+      toast.success("Ad spend deleted");
+    },
+  });
+
   const syncMutation = useMutation({
     mutationFn: triggerSync,
     onSuccess: () => {
@@ -57,6 +65,7 @@ export default function TrackingLinksPage() {
     },
   });
 
+  // Ad spend aggregation by campaign_id
   const adSpendMap = useMemo(() => {
     const map: Record<string, number> = {};
     adSpendData.forEach((s: any) => {
@@ -65,6 +74,53 @@ export default function TrackingLinksPage() {
     });
     return map;
   }, [adSpendData]);
+
+  // KPI calculations
+  const totalSpent = useMemo(() => adSpendData.reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0), [adSpendData]);
+  const totalRevenue = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0), [links]);
+  const blendedRoi = useMemo(() => {
+    if (totalSpent <= 0) return null;
+    return ((totalRevenue - totalSpent) / totalSpent) * 100;
+  }, [totalSpent, totalRevenue]);
+
+  const bestPlatform = useMemo(() => {
+    if (adSpendData.length === 0) return null;
+    // Group spend and revenue by platform
+    const platformMap: Record<string, { spend: number; revenue: number }> = {};
+    adSpendData.forEach((s: any) => {
+      const p = s.traffic_source || "unknown";
+      if (!platformMap[p]) platformMap[p] = { spend: 0, revenue: 0 };
+      platformMap[p].spend += Number(s.amount || 0);
+    });
+    // Attribute revenue from tracking links by campaign_id
+    links.forEach((l: any) => {
+      const matchingSpends = adSpendData.filter((s: any) => s.campaign_id === l.campaign_id);
+      if (matchingSpends.length > 0) {
+        const platform = matchingSpends[0].traffic_source || "unknown";
+        if (platformMap[platform]) {
+          platformMap[platform].revenue += Number(l.revenue || 0);
+        }
+      }
+    });
+    let best: string | null = null;
+    let bestRoi = -Infinity;
+    Object.entries(platformMap).forEach(([p, data]) => {
+      if (data.spend > 0) {
+        const roi = ((data.revenue - data.spend) / data.spend) * 100;
+        if (roi > bestRoi) { bestRoi = roi; best = p; }
+      }
+    });
+    return best;
+  }, [adSpendData, links]);
+
+  // Revenue map by campaign_id for spend history
+  const revenueMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    links.forEach((l: any) => {
+      map[l.campaign_id] = (map[l.campaign_id] || 0) + Number(l.revenue || 0);
+    });
+    return map;
+  }, [links]);
 
   const enrichedLinks = useMemo(() => {
     return links.map((l: any) => {
@@ -76,14 +132,11 @@ export default function TrackingLinksPage() {
       const daysSinceCreated = differenceInDays(new Date(), new Date(l.created_at));
       const isZeroClicksStale = l.clicks === 0 && daysSinceCreated >= 3;
       const isHighRevenue = revenue > 10000;
-
-      // Active/inactive logic: active if clicks > 0 or revenue > 0 in last 30 days
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
       const daysSinceActivity = calcDate ? differenceInDays(new Date(), calcDate) : 999;
       const isNaturallyActive = (l.clicks > 0 || revenue > 0) && daysSinceActivity <= 30;
       const hasOverride = manualOverrides[l.id] !== undefined;
       const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
-
       return { ...l, cost, profit, roi, arps, isZeroClicksStale, isHighRevenue, isActive, daysSinceActivity };
     });
   }, [links, adSpendMap, manualOverrides]);
@@ -166,9 +219,79 @@ export default function TrackingLinksPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
-          <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track your subscribers and revenue</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
+            <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track your subscribers and revenue</p>
+          </div>
+          <button
+            onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Add Ad Spend
+          </button>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Spent */}
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-destructive" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Spent</span>
+            </div>
+            <p className={`text-[28px] font-bold font-mono ${totalSpent > 0 ? "text-foreground" : "text-destructive"}`}>
+              ${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+
+          {/* Total Revenue */}
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</span>
+            </div>
+            <p className="text-[28px] font-bold font-mono text-primary">
+              ${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+
+          {/* Blended ROI */}
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                blendedRoi === null ? "bg-secondary" : blendedRoi >= 0 ? "bg-primary/10" : "bg-destructive/10"
+              }`}>
+                <BarChart3 className={`h-4 w-4 ${
+                  blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"
+                }`} />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Blended ROI</span>
+            </div>
+            <p className={`text-[28px] font-bold font-mono ${
+              blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"
+            }`}>
+              {blendedRoi !== null ? `${blendedRoi.toFixed(1)}%` : "—"}
+            </p>
+          </div>
+
+          {/* Best Platform */}
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                <BarChart3 className="h-4 w-4 text-info" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Best Platform</span>
+            </div>
+            <p className="text-[28px] font-bold font-mono text-foreground capitalize">
+              {bestPlatform || "—"}
+            </p>
+          </div>
         </div>
 
         {/* Toolbar */}
@@ -481,6 +604,84 @@ export default function TrackingLinksPage() {
             </div>
           </div>
         )}
+
+        {/* Spend History */}
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-base font-semibold text-foreground">Spend History</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">All recorded ad spend entries</p>
+          </div>
+          {adSpendData.length === 0 ? (
+            <div className="p-10 text-center">
+              <DollarSign className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No ad spend recorded</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Campaign</th>
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Media Buyer</th>
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Platform</th>
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Revenue</th>
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">ROI</th>
+                    <th className="h-10 px-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adSpendData.map((entry: any) => {
+                    const rev = revenueMap[entry.campaign_id] || 0;
+                    const amt = Number(entry.amount || 0);
+                    const entryRoi = amt > 0 ? ((rev - amt) / amt) * 100 : null;
+                    return (
+                      <tr key={entry.id} className="border-b border-border hover:bg-secondary/20 transition-colors">
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                          {entry.date ? format(new Date(entry.date), "MMM d, yyyy") : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-foreground font-medium">
+                          {entry.campaigns?.name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {entry.media_buyer || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground capitalize">
+                          {entry.traffic_source || "—"}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-sm text-foreground">
+                          ${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-sm text-primary">
+                          ${rev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-sm">
+                          {entryRoi !== null ? (
+                            <span className={entryRoi >= 0 ? "text-primary" : "text-destructive"}>
+                              {entryRoi.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => deleteSpendMutation.mutate(entry.id)}
+                            disabled={deleteSpendMutation.isPending}
+                            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {adSpendSlideIn && (
