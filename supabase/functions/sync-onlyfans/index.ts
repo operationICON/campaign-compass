@@ -7,39 +7,48 @@ const corsHeaders = {
 
 const API_BASE = 'https://app.onlyfansapi.com/api'
 
+const apiHeaders = (apiKey: string) => ({
+  'Authorization': `Bearer ${apiKey}`,
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+})
+
 async function apiFetch(path: string, apiKey: string): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
-  const res = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  })
-
+  const res = await fetch(url, { headers: apiHeaders(apiKey) })
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`API ${path} returned ${res.status}: ${body}`)
   }
-
   return await res.json()
 }
 
-// Fetch all pages from a paginated endpoint. Returns flat array of items.
+// The API may return a plain array OR { data: [...], _pagination }
+// This helper normalizes and handles pagination.
 async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
   const allItems: any[] = []
-  let currentPath: string | null = path
+  let currentUrl: string | null = `${API_BASE}${path}`
 
-  while (currentPath) {
-    const json = await apiFetch(currentPath, apiKey)
-    const items = json.data
-    if (Array.isArray(items)) {
-      allItems.push(...items)
-    } else if (items && typeof items === 'object') {
-      // single object in data
-      allItems.push(items)
+  while (currentUrl) {
+    const res = await fetch(currentUrl, { headers: apiHeaders(apiKey) })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`API ${path} returned ${res.status}: ${body}`)
     }
-    currentPath = json._pagination?.next_page ?? null
+    const json = await res.json()
+
+    // Normalize: could be plain array or { data: [...] }
+    if (Array.isArray(json)) {
+      allItems.push(...json)
+      break // plain arrays don't have pagination
+    } else if (json.data && Array.isArray(json.data)) {
+      allItems.push(...json.data)
+      currentUrl = json._pagination?.next_page ?? null
+    } else {
+      // single object or unknown shape
+      if (json.data) allItems.push(json.data)
+      break
+    }
   }
 
   return allItems
@@ -79,9 +88,9 @@ Deno.serve(async (req) => {
     const filterAccountId = body.account_id as string | undefined
     let totalRecords = 0
 
-    // ── STEP 1: Fetch accounts from API ──
-    const accountsJson = await apiFetch('/accounts', apiKey)
-    const apiAccounts: any[] = Array.isArray(accountsJson.data) ? accountsJson.data : []
+    // ── STEP 1: Fetch accounts (plain array response) ──
+    const accountsRaw = await apiFetch('/accounts', apiKey)
+    const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
 
     if (!apiAccounts.length) {
       await updateSyncLog(db, syncLogId, {
@@ -92,26 +101,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ results: [], message: 'No accounts found' })
     }
 
-    // Upsert accounts + fetch account details for username/display_name
+    // Upsert accounts using fields from the API response
     for (const acc of apiAccounts) {
       const externalId = String(acc.id)
-      let username = acc.username ?? null
-      let displayName = acc.name ?? acc.username ?? externalId
-
-      // Fetch account details to get username/display_name
-      try {
-        const detailJson = await apiFetch(`/${externalId}/account`, apiKey)
-        const detail = detailJson.data ?? detailJson
-        username = detail.username ?? detail.name ?? username
-        displayName = detail.name ?? detail.username ?? displayName
-      } catch (_e) {
-        // ignore — use fallback values
-      }
-
       await db.from('accounts').upsert({
         onlyfans_account_id: externalId,
-        username,
-        display_name: displayName,
+        username: acc.onlyfans_username ?? acc.username ?? null,
+        display_name: acc.display_name ?? acc.onlyfans_username ?? externalId,
         is_active: true,
         last_synced_at: startedAt,
       }, { onConflict: 'onlyfans_account_id' })
@@ -124,7 +120,7 @@ Deno.serve(async (req) => {
 
     const results: any[] = []
 
-    // ── STEP 2: For each account, fetch metrics, earnings & transactions ──
+    // ── STEP 2: For each account, fetch metrics & transactions ──
     for (const account of dbAccounts ?? []) {
       const acctId = account.onlyfans_account_id
       try {
@@ -179,30 +175,25 @@ Deno.serve(async (req) => {
         // ── Earnings / statistics ──
         try {
           const now = new Date()
-          const startDate = `${now.getFullYear()}-01-01+00:00:00`
-          const endDate = `${now.getFullYear()}-12-31+23:59:59`
-          const earningsJson = await apiFetch(
+          const startDate = encodeURIComponent(`${now.getFullYear()}-01-01 00:00:00`)
+          const endDate = encodeURIComponent(`${now.getFullYear()}-12-31 23:59:59`)
+          await apiFetch(
             `/${acctId}/statistics/statements/earnings?start_date=${startDate}&end_date=${endDate}&type=total`,
             apiKey
           )
-          // Store earnings data if available — currently just logged
-          const earnings = earningsJson.data
-          if (earnings) {
-            // Could store in a dedicated earnings table in the future
-          }
         } catch (_e) {
           // non-critical
         }
 
-        // ── Transactions (paginated) ──
+        // ── Latest fans (paginated) ──
         let txCount = 0
         try {
-          const txItems = await apiFetchAllPages(
+          const fanItems = await apiFetchAllPages(
             `/${acctId}/fans/latest?limit=50&offset=0`,
             apiKey
           )
 
-          for (const tx of txItems) {
+          for (const tx of fanItems) {
             const externalTxId = String(tx.id ?? tx.transaction_id ?? '')
             if (!externalTxId) continue
 
