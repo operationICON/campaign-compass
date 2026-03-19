@@ -71,9 +71,21 @@ Deno.serve(async (req) => {
     }
     if (accountsRes.ok) {
       const json = await accountsRes.json()
-      const items = Array.isArray(json.data) ? json.data : []
-      result.accounts_count = items.length
-      if (items.length > 0) {
+      result.accounts_raw_type = typeof json.data
+      result.accounts_raw_is_array = Array.isArray(json.data)
+      result.accounts_top_keys = Object.keys(json)
+      if (json.data) {
+        result.accounts_data_keys = Array.isArray(json.data)
+          ? (json.data.length > 0 ? Object.keys(json.data[0]) : [])
+          : Object.keys(json.data)
+      }
+      const items = Array.isArray(json.data) ? json.data
+        : Array.isArray(json) ? json
+        : json.data?.accounts ?? json.data?.items ?? json.data?.list
+          ? (json.data.accounts ?? json.data.items ?? json.data.list)
+          : [json.data]
+      result.accounts_count = Array.isArray(items) ? items.length : 0
+      if (Array.isArray(items) && items.length > 0) {
         result.accounts_sample = {
           id: items[0].id ?? 'unknown',
           username: items[0].username ?? items[0].name ?? 'unknown',
