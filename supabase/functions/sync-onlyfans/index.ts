@@ -13,18 +13,7 @@ const apiHeaders = (apiKey: string) => ({
   'Accept': 'application/json',
 })
 
-async function apiFetch(path: string, apiKey: string): Promise<any> {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
-  const res = await fetch(url, { headers: apiHeaders(apiKey) })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`API ${path} returned ${res.status}: ${body}`)
-  }
-  return await res.json()
-}
-
-// The API may return a plain array OR { data: [...], _pagination }
-// This helper normalizes and handles pagination.
+// Fetch all pages using _pagination.next_page (full URL)
 async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
   const allItems: any[] = []
   let currentUrl: string | null = `${API_BASE}${path}`
@@ -37,21 +26,31 @@ async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
     }
     const json = await res.json()
 
-    // Normalize: could be plain array or { data: [...] }
     if (Array.isArray(json)) {
       allItems.push(...json)
-      break // plain arrays don't have pagination
+      break
     } else if (json.data && Array.isArray(json.data)) {
       allItems.push(...json.data)
       currentUrl = json._pagination?.next_page ?? null
+    } else if (json.data && typeof json.data === 'object') {
+      allItems.push(json.data)
+      break
     } else {
-      // single object or unknown shape
-      if (json.data) allItems.push(json.data)
       break
     }
   }
 
   return allItems
+}
+
+async function apiFetch(path: string, apiKey: string): Promise<any> {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
+  const res = await fetch(url, { headers: apiHeaders(apiKey) })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`API ${path} returned ${res.status}: ${body}`)
+  }
+  return await res.json()
 }
 
 Deno.serve(async (req) => {
@@ -88,7 +87,7 @@ Deno.serve(async (req) => {
     const filterAccountId = body.account_id as string | undefined
     let totalRecords = 0
 
-    // ── STEP 1: Fetch accounts (plain array response) ──
+    // ── STEP 1: Fetch accounts ──
     const accountsRaw = await apiFetch('/accounts', apiKey)
     const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
 
@@ -101,7 +100,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ results: [], message: 'No accounts found' })
     }
 
-    // Upsert accounts using fields from the API response
+    // Upsert accounts
     for (const acc of apiAccounts) {
       const externalId = String(acc.id)
       await db.from('accounts').upsert({
@@ -120,35 +119,35 @@ Deno.serve(async (req) => {
 
     const results: any[] = []
 
-    // ── STEP 2: For each account, fetch metrics & transactions ──
+    // ── STEP 2: For each account, fetch tracking links, fans, earnings ──
     for (const account of dbAccounts ?? []) {
       const acctId = account.onlyfans_account_id
       try {
-        // ── Tracking links / sextforce metrics (paginated) ──
+        // ── Tracking links: GET /{account_id}/tracking-links?limit=50 ──
         let linkCount = 0
         try {
           const items = await apiFetchAllPages(
-            `/${acctId}/sextforce/metrics?limit=50&offset=0`,
+            `/${acctId}/tracking-links?limit=50`,
             apiKey
           )
 
           for (const link of items) {
-            const clicks = Number(link.clicks ?? 0)
-            const subscribers = Number(link.subscribers ?? 0)
-            const spenders = Number(link.spenders ?? 0)
-            const revenue = Number(link.revenue ?? 0)
+            const clicks = Number(link.clicksCount ?? 0)
+            const subscribers = Number(link.claimsCount ?? 0)
+            const spenders = Number(link.spendersCount ?? 0)
+            const revenue = Number(link.totalEarnings ?? 0)
             const epc = clicks > 0 ? revenue / clicks : 0
             const rps = subscribers > 0 ? revenue / subscribers : 0
             const convRate = clicks > 0 ? (subscribers / clicks) * 100 : 0
-            const externalId = String(link.id ?? link.link_id ?? link.trackingId ?? '')
+            const externalId = String(link.id ?? '')
 
             await db.from('tracking_links').upsert({
               external_tracking_link_id: externalId || null,
-              url: link.url ?? link.link ?? `https://onlyfans.com/${acctId}`,
-              campaign_id: link.campaign_id ?? account.id,
-              campaign_name: link.campaign_name ?? link.campaign ?? link.name ?? 'Unknown',
-              source: link.traffic_source ?? link.source ?? null,
-              country: link.country ?? link.geo ?? null,
+              url: link.url ?? `https://onlyfans.com/${acctId}`,
+              campaign_id: account.id, // will need a real campaign later
+              campaign_name: link.name ?? 'Unknown',
+              source: link.type ?? null, // "tracking" or "trial"
+              country: link.country ?? null,
               account_id: account.id,
               clicks,
               subscribers,
@@ -157,7 +156,7 @@ Deno.serve(async (req) => {
               revenue_per_click: epc,
               revenue_per_subscriber: rps,
               conversion_rate: convRate,
-              calculated_at: startedAt,
+              calculated_at: link.updatedAt ?? startedAt,
             }, { onConflict: 'external_tracking_link_id' })
             linkCount++
           }
@@ -166,17 +165,17 @@ Deno.serve(async (req) => {
             account_id: account.id,
             status: 'error',
             success: false,
-            message: `Failed metrics for ${acctId}: ${metricsErr.message}`,
+            message: `Failed tracking-links for ${acctId}: ${metricsErr.message}`,
             error_message: metricsErr.message,
             records_processed: 0,
           })
         }
 
-        // ── Earnings / statistics ──
+        // ── Earnings: GET /{account_id}/statistics/statements/earnings ──
         try {
-          const now = new Date()
-          const startDate = encodeURIComponent(`${now.getFullYear()}-01-01 00:00:00`)
-          const endDate = encodeURIComponent(`${now.getFullYear()}-12-31 23:59:59`)
+          const year = new Date().getFullYear()
+          const startDate = encodeURIComponent(`${year}-01-01 00:00:00`)
+          const endDate = encodeURIComponent(`${year}-12-31 23:59:59`)
           await apiFetch(
             `/${acctId}/statistics/statements/earnings?start_date=${startDate}&end_date=${endDate}&type=total`,
             apiKey
@@ -185,11 +184,11 @@ Deno.serve(async (req) => {
           // non-critical
         }
 
-        // ── Latest fans (paginated) ──
+        // ── Latest fans: GET /{account_id}/fans/latest?limit=50 ──
         let txCount = 0
         try {
           const fanItems = await apiFetchAllPages(
-            `/${acctId}/fans/latest?limit=50&offset=0`,
+            `/${acctId}/fans/latest?limit=50`,
             apiKey
           )
 
