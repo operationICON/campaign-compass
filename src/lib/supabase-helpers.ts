@@ -23,8 +23,8 @@ export async function fetchTrackingLinks(filters?: {
 }) {
   let query = supabase
     .from("tracking_links")
-    .select("*, campaigns(name, traffic_source, country, account_id), accounts(display_name)")
-    .order("created_at", { ascending: false });
+    .select("*, accounts(display_name, username)")
+    .order("revenue", { ascending: false });
 
   if (filters?.account_id) query = query.eq("account_id", filters.account_id);
   if (filters?.campaign_id) query = query.eq("campaign_id", filters.campaign_id);
