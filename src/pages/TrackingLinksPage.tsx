@@ -525,11 +525,11 @@ export default function TrackingLinksPage() {
                             )}
                           </td>
                           {/* ARPS */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "70px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "75px" }}>
                             ${link.arps.toFixed(2)}
                           </td>
                           {/* Created */}
-                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap" style={{ width: "100px" }}>
+                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap" style={{ width: "95px" }}>
                             {formatCreatedAt(link.created_at)}
                           </td>
                           {/* Status */}
