@@ -13,7 +13,7 @@ const apiHeaders = (apiKey: string) => ({
   'Accept': 'application/json',
 })
 
-async function apiFetchAllPages(path: string, apiKey: string, maxPages = 5): Promise<any[]> {
+async function apiFetchAllPages(path: string, apiKey: string, maxPages = 100): Promise<any[]> {
   const allItems: any[] = []
   let currentUrl: string | null = `${API_BASE}${path}`
   let page = 0
