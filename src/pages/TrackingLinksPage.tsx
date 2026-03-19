@@ -462,11 +462,11 @@ export default function TrackingLinksPage() {
                             </div>
                           </td>
                           {/* Clicks */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "70px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
                             {link.clicks.toLocaleString()}
                           </td>
                           {/* Subs */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "70px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
                             {link.subscribers.toLocaleString()}
                           </td>
                           {/* Cost */}
