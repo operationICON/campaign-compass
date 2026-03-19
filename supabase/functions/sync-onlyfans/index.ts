@@ -18,11 +18,14 @@ const apiHeaders = (apiKey: string) => ({
  * 1. Plain array (e.g. /accounts)
  * 2. { data: { list: [...], hasMore }, _pagination: { next_page } }
  */
-async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
+async function apiFetchAllPages(path: string, apiKey: string, maxPages = 5): Promise<any[]> {
   const allItems: any[] = []
   let currentUrl: string | null = `${API_BASE}${path}`
+  let page = 0
 
-  while (currentUrl) {
+  while (currentUrl && page < maxPages) {
+    page++
+    console.log(`Fetching page ${page}: ${currentUrl}`)
     const res = await fetch(currentUrl, { headers: apiHeaders(apiKey) })
     if (!res.ok) {
       const body = await res.text()
@@ -51,6 +54,7 @@ async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
     }
   }
 
+  console.log(`Fetched ${allItems.length} items from ${path} in ${page} pages`)
   return allItems
 }
 
