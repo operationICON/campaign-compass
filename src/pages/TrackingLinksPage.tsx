@@ -4,11 +4,16 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { fetchTrackingLinks, fetchAdSpend, addAdSpend, triggerSync } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
-import { format, formatDistanceToNow, differenceInDays } from "date-fns";
+import { format, formatDistanceToNow, differenceInDays, isToday } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Pencil, Users, RefreshCw, Plus, ExternalLink, Filter
+  Pencil, Users, RefreshCw, ExternalLink
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type SortKey = "campaign_name" | "clicks" | "subscribers" | "revenue" | "spenders" | "profit" | "roi" | "arps" | "created_at";
 type ClickFilter = "all" | "active" | "zero";
@@ -22,6 +27,7 @@ export default function TrackingLinksPage() {
   const [page, setPage] = useState(1);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
+  const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
   const perPage = 20;
 
   const { data: links = [], isLoading } = useQuery({
@@ -46,6 +52,7 @@ export default function TrackingLinksPage() {
     mutationFn: triggerSync,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       toast.success("Sync started");
     },
   });
@@ -69,9 +76,17 @@ export default function TrackingLinksPage() {
       const daysSinceCreated = differenceInDays(new Date(), new Date(l.created_at));
       const isZeroClicksStale = l.clicks === 0 && daysSinceCreated >= 3;
       const isHighRevenue = revenue > 10000;
-      return { ...l, cost, profit, roi, arps, isZeroClicksStale, isHighRevenue };
+
+      // Active/inactive logic: active if clicks > 0 or revenue > 0 in last 30 days
+      const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
+      const daysSinceActivity = calcDate ? differenceInDays(new Date(), calcDate) : 999;
+      const isNaturallyActive = (l.clicks > 0 || revenue > 0) && daysSinceActivity <= 30;
+      const hasOverride = manualOverrides[l.id] !== undefined;
+      const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
+
+      return { ...l, cost, profit, roi, arps, isZeroClicksStale, isHighRevenue, isActive, daysSinceActivity };
     });
-  }, [links, adSpendMap]);
+  }, [links, adSpendMap, manualOverrides]);
 
   const filtered = useMemo(() => {
     let result = enrichedLinks;
@@ -79,7 +94,9 @@ export default function TrackingLinksPage() {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
         (l.campaign_name || "").toLowerCase().includes(q) ||
-        (l.url || "").toLowerCase().includes(q)
+        (l.url || "").toLowerCase().includes(q) ||
+        (l.accounts?.username || "").toLowerCase().includes(q) ||
+        (l.accounts?.display_name || "").toLowerCase().includes(q)
       );
     }
     if (clickFilter === "active") result = result.filter((l: any) => l.clicks > 0);
@@ -117,6 +134,18 @@ export default function TrackingLinksPage() {
     else { setSortKey(key); setSortAsc(false); }
   };
 
+  const formatCreatedAt = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "—";
+    if (isToday(d)) return "—";
+    return format(d, "MMM d, yyyy");
+  };
+
+  const toggleActiveOverride = (id: string, currentActive: boolean) => {
+    setManualOverrides((prev) => ({ ...prev, [id]: !currentActive }));
+  };
+
   const SortHeader = ({ label, sortKeyName, className = "" }: { label: string; sortKeyName: SortKey; className?: string }) => (
     <th
       className={`h-10 px-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors ${className}`}
@@ -148,7 +177,7 @@ export default function TrackingLinksPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search campaigns..."
+              placeholder="Search by campaign or account..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors"
@@ -171,9 +200,13 @@ export default function TrackingLinksPage() {
             ))}
           </div>
 
-          <button className="ml-auto px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Create Tracking Link
+          <button
+            onClick={() => syncMutation.mutate(undefined)}
+            disabled={syncMutation.isPending}
+            className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+            {syncMutation.isPending ? "Syncing..." : "Sync Now"}
           </button>
         </div>
 
@@ -181,7 +214,7 @@ export default function TrackingLinksPage() {
         {isLoading ? (
           <div className="bg-card border border-border rounded-lg p-8">
             <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
+              {[...Array(8)].map((_, i) => (
                 <div key={i} className="skeleton-shimmer h-12 rounded" />
               ))}
             </div>
@@ -218,7 +251,8 @@ export default function TrackingLinksPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/30">
-                    <SortHeader label="Campaign" sortKeyName="campaign_name" className="min-w-[260px]" />
+                    <SortHeader label="Campaign" sortKeyName="campaign_name" className="min-w-[240px]" />
+                    <th className="h-10 px-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Account</th>
                     <SortHeader label="Clicks" sortKeyName="clicks" />
                     <SortHeader label="Subs" sortKeyName="subscribers" />
                     <th className="h-10 px-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Cost</th>
@@ -228,6 +262,7 @@ export default function TrackingLinksPage() {
                     <SortHeader label="ROI" sortKeyName="roi" />
                     <SortHeader label="ARPS" sortKeyName="arps" />
                     <SortHeader label="Created" sortKeyName="created_at" />
+                    <th className="h-10 px-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -241,15 +276,17 @@ export default function TrackingLinksPage() {
                       : link.isHighRevenue
                       ? "border-l-2 border-l-primary"
                       : "border-l-2 border-l-transparent";
+                    const rowOpacity = link.isActive ? "" : "opacity-50";
+                    const username = link.accounts?.username || link.accounts?.display_name || "—";
+                    const initial = (link.accounts?.display_name || link.accounts?.username || "?")[0]?.toUpperCase();
 
                     return (
-                      <>
+                      <tbody key={link.id}>
                         <tr
-                          key={link.id}
-                          className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass}`}
+                          className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`}
                           onClick={() => setExpandedRow(isExpanded ? null : link.id)}
                         >
-                          {/* Campaign */}
+                          {/* Campaign Name + URL */}
                           <td className="px-3 py-3">
                             <div className="flex items-start gap-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
@@ -268,10 +305,16 @@ export default function TrackingLinksPage() {
                                 >
                                   {link.url}
                                 </a>
-                                <div className="flex items-center gap-1 mt-1">
-                                  <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">+ Tag</span>
-                                </div>
                               </div>
+                            </div>
+                          </td>
+                          {/* Account */}
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                                {initial}
+                              </div>
+                              <span className="text-xs text-muted-foreground truncate">@{username}</span>
                             </div>
                           </td>
                           {/* Clicks */}
@@ -280,18 +323,23 @@ export default function TrackingLinksPage() {
                           <td className="px-3 py-3 font-mono text-foreground">{link.subscribers.toLocaleString()}</td>
                           {/* Cost */}
                           <td className="px-3 py-3">
-                            {link.cost > 0 ? (
-                              <span className="font-mono text-foreground">${link.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            ) : (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setAdSpendSlideIn(link); }}
-                                className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors text-xs"
-                              >
-                                <Pencil className="h-3 w-3" /> Set cost
-                              </button>
-                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setAdSpendSlideIn(link); }}
+                              className="flex items-center gap-1 text-xs transition-colors"
+                            >
+                              {link.cost > 0 ? (
+                                <>
+                                  <span className="font-mono text-foreground">${link.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground hover:text-primary flex items-center gap-1">
+                                  <Pencil className="h-3 w-3" /> Set cost
+                                </span>
+                              )}
+                            </button>
                           </td>
-                          {/* Revenue */}
+                          {/* Revenue (Net) */}
                           <td className="px-3 py-3">
                             <span className="font-mono text-primary font-semibold">
                               ${Number(link.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -311,7 +359,7 @@ export default function TrackingLinksPage() {
                           <td className="px-3 py-3 font-mono">
                             {link.profit !== null ? (
                               <span className={link.profit >= 0 ? "text-primary" : "text-destructive"}>
-                                {link.profit >= 0 ? "+" : ""}${link.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {link.profit >= 0 ? "+" : ""}${Math.abs(link.profit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">N/A</span>
@@ -333,12 +381,32 @@ export default function TrackingLinksPage() {
                           </td>
                           {/* Created */}
                           <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                            {format(new Date(link.created_at), "MMM d, h:mma").toLowerCase().replace("am", "am").replace("pm", "pm")}
+                            {formatCreatedAt(link.created_at)}
+                          </td>
+                          {/* Active/Inactive */}
+                          <td className="px-3 py-3">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleActiveOverride(link.id, link.isActive); }}
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
+                                    link.isActive
+                                      ? "bg-primary/20 text-primary"
+                                      : "bg-secondary text-muted-foreground"
+                                  }`}
+                                >
+                                  {link.isActive ? "Active" : "Inactive"}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Last activity: {link.daysSinceActivity < 999 ? `${link.daysSinceActivity} days ago` : "Unknown"}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr key={`${link.id}-detail`} className="border-b border-border bg-secondary/10">
-                            <td colSpan={10} className="px-6 py-4">
+                          <tr className="border-b border-border bg-secondary/10">
+                            <td colSpan={12} className="px-6 py-4">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                                 <div>
                                   <span className="text-muted-foreground block mb-1">Full URL</span>
@@ -352,7 +420,7 @@ export default function TrackingLinksPage() {
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground block mb-1">Account</span>
-                                  <span className="text-foreground">{link.accounts?.display_name || link.accounts?.username || "—"}</span>
+                                  <span className="text-foreground">{link.accounts?.display_name || "—"}</span>
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground block mb-1">Country</span>
@@ -362,7 +430,7 @@ export default function TrackingLinksPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </tbody>
                     );
                   })}
                 </tbody>

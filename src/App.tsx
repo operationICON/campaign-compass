@@ -27,7 +27,7 @@ const App = () => (
           <Route path="/" element={<DashboardPage />} />
           <Route path="/tracking-links" element={<TrackingLinksPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
-          <Route path="/ad-spend" element={<AdSpendPage />} />
+          {/* Ad Spend route removed */}
           <Route path="/media-buyers" element={<MediaBuyersPage />} />
           <Route path="/charts" element={<ChartsPage />} />
           <Route path="/alerts" element={<AlertsPage />} />

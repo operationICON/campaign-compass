@@ -7,7 +7,6 @@ const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/tracking-links", icon: Link2, label: "Tracking Links" },
   { to: "/accounts", icon: Users, label: "Accounts" },
-  { to: "/ad-spend", icon: ScrollText, label: "Ad Spend" },
   { to: "/media-buyers", icon: UserCheck, label: "Media Buyers" },
   { to: "/charts", icon: LineChart, label: "Charts" },
   { to: "/alerts", icon: Bell, label: "Alerts", hasBadge: true },
