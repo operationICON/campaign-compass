@@ -49,36 +49,49 @@ export type Database = {
       }
       ad_spend: {
         Row: {
+          account_id: string | null
           amount: number
           campaign_id: string
           created_at: string
           date: string
           id: string
+          media_buyer: string | null
           notes: string | null
           traffic_source: string
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           amount?: number
           campaign_id: string
           created_at?: string
           date: string
           id?: string
+          media_buyer?: string | null
           notes?: string | null
           traffic_source: string
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           amount?: number
           campaign_id?: string
           created_at?: string
           date?: string
           id?: string
+          media_buyer?: string | null
           notes?: string | null
           traffic_source?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ad_spend_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ad_spend_campaign_id_fkey"
             columns: ["campaign_id"]
@@ -138,9 +151,12 @@ export type Database = {
       }
       daily_metrics: {
         Row: {
+          account_id: string | null
           clicks: number
+          conversion_rate: number | null
           created_at: string
           date: string
+          epc: number | null
           id: string
           revenue: number
           spenders: number
@@ -148,9 +164,12 @@ export type Database = {
           tracking_link_id: string
         }
         Insert: {
+          account_id?: string | null
           clicks?: number
+          conversion_rate?: number | null
           created_at?: string
           date: string
+          epc?: number | null
           id?: string
           revenue?: number
           spenders?: number
@@ -158,9 +177,12 @@ export type Database = {
           tracking_link_id: string
         }
         Update: {
+          account_id?: string | null
           clicks?: number
+          conversion_rate?: number | null
           created_at?: string
           date?: string
+          epc?: number | null
           id?: string
           revenue?: number
           spenders?: number
@@ -168,6 +190,13 @@ export type Database = {
           tracking_link_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "daily_metrics_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "daily_metrics_tracking_link_id_fkey"
             columns: ["tracking_link_id"]
@@ -181,25 +210,34 @@ export type Database = {
         Row: {
           account_id: string | null
           campaign_id: string | null
+          campaign_name: string | null
           content: string
           created_at: string
+          created_by: string | null
           id: string
+          note: string | null
           updated_at: string
         }
         Insert: {
           account_id?: string | null
           campaign_id?: string | null
+          campaign_name?: string | null
           content: string
           created_at?: string
+          created_by?: string | null
           id?: string
+          note?: string | null
           updated_at?: string
         }
         Update: {
           account_id?: string | null
           campaign_id?: string | null
+          campaign_name?: string | null
           content?: string
           created_at?: string
+          created_by?: string | null
           id?: string
+          note?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -231,31 +269,40 @@ export type Database = {
           account_id: string | null
           completed_at: string | null
           details: Json | null
+          error_message: string | null
+          finished_at: string | null
           id: string
           message: string | null
           records_processed: number
           started_at: string
           status: string
+          success: boolean | null
         }
         Insert: {
           account_id?: string | null
           completed_at?: string | null
           details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
           id?: string
           message?: string | null
           records_processed?: number
           started_at?: string
           status?: string
+          success?: boolean | null
         }
         Update: {
           account_id?: string | null
           completed_at?: string | null
           details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
           id?: string
           message?: string | null
           records_processed?: number
           started_at?: string
           status?: string
+          success?: boolean | null
         }
         Relationships: [
           {
@@ -272,14 +319,17 @@ export type Database = {
           account_id: string
           calculated_at: string | null
           campaign_id: string
+          campaign_name: string | null
           clicks: number
           conversion_rate: number
+          country: string | null
           created_at: string
           external_tracking_link_id: string | null
           id: string
           revenue: number
           revenue_per_click: number
           revenue_per_subscriber: number
+          source: string | null
           spenders: number
           subscribers: number
           updated_at: string
@@ -289,14 +339,17 @@ export type Database = {
           account_id: string
           calculated_at?: string | null
           campaign_id: string
+          campaign_name?: string | null
           clicks?: number
           conversion_rate?: number
+          country?: string | null
           created_at?: string
           external_tracking_link_id?: string | null
           id?: string
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
+          source?: string | null
           spenders?: number
           subscribers?: number
           updated_at?: string
@@ -306,14 +359,17 @@ export type Database = {
           account_id?: string
           calculated_at?: string | null
           campaign_id?: string
+          campaign_name?: string | null
           clicks?: number
           conversion_rate?: number
+          country?: string | null
           created_at?: string
           external_tracking_link_id?: string | null
           id?: string
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
+          source?: string | null
           spenders?: number
           subscribers?: number
           updated_at?: string
@@ -339,6 +395,47 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          date: string | null
+          external_transaction_id: string | null
+          id: string
+          revenue: number
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          date?: string | null
+          external_transaction_id?: string | null
+          id?: string
+          revenue?: number
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          date?: string | null
+          external_transaction_id?: string | null
+          id?: string
+          revenue?: number
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
