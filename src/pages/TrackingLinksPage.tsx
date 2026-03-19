@@ -34,7 +34,10 @@ function getAccountColor(username: string | null) {
 
 function getCampaignInitials(name: string | null) {
   if (!name) return "??";
-  return name.slice(0, 2).toUpperCase();
+  // Strip leading non-alphanumeric (e.g. "1. Onlysearch" → "Onlysearch", but "50/50" → "50")
+  // Use first 2 alphanumeric chars from the cleaned name
+  const cleaned = name.replace(/^[^a-zA-Z0-9]+/, "");
+  return cleaned.slice(0, 2).toUpperCase();
 }
 
 function formatUpdatedAgo(dateStr: string | null): string | null {
@@ -386,26 +389,26 @@ export default function TrackingLinksPage() {
               <table className="w-full text-[13px] table-fixed">
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border bg-secondary/30">
-                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="220px" />
+                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                     <th
                       className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
-                      style={{ width: "120px", minWidth: "120px", maxWidth: "120px" }}
+                      style={{ width: "110px", minWidth: "110px", maxWidth: "110px" }}
                     >Account</th>
-                    <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />
-                    <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />
+                    <SortHeader label="Clicks" sortKeyName="clicks" width="65px" />
+                    <SortHeader label="Subs" sortKeyName="subscribers" width="65px" />
                     <th
                       className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
                       style={{ width: "90px", minWidth: "90px", maxWidth: "90px" }}
                     >Cost</th>
-                    <SortHeader label="Revenue" sortKeyName="revenue" width="110px" />
-                    <SortHeader label="Spend" sortKeyName="spenders" width="70px" />
-                    <SortHeader label="Profit" sortKeyName="profit" width="90px" />
+                    <SortHeader label="Revenue" sortKeyName="revenue" width="100px" />
+                    <SortHeader label="Spenders" sortKeyName="spenders" width="75px" />
+                    <SortHeader label="Profit" sortKeyName="profit" width="85px" />
                     <SortHeader label="ROI" sortKeyName="roi" width="70px" />
-                    <SortHeader label="ARPS" sortKeyName="arps" width="70px" />
-                    <SortHeader label="Created" sortKeyName="created_at" width="100px" />
+                    <SortHeader label="ARPS" sortKeyName="arps" width="75px" />
+                    <SortHeader label="Created" sortKeyName="created_at" width="95px" />
                     <th
                       className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
-                      style={{ width: "80px", minWidth: "80px", maxWidth: "80px" }}
+                      style={{ width: "75px", minWidth: "75px", maxWidth: "75px" }}
                     >Status</th>
                   </tr>
                 </thead>
@@ -430,7 +433,7 @@ export default function TrackingLinksPage() {
                           onClick={() => setExpandedRow(isExpanded ? null : link.id)}
                         >
                           {/* Campaign */}
-                          <td className="px-2 py-2" style={{ width: "220px", maxWidth: "220px" }}>
+                          <td className="px-2 py-2" style={{ width: "200px", maxWidth: "200px" }}>
                             <div className="flex items-center gap-2 min-w-0">
                               <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>
                                 {initials}
@@ -450,7 +453,7 @@ export default function TrackingLinksPage() {
                             </div>
                           </td>
                           {/* Account */}
-                          <td className="px-2 py-2" style={{ width: "120px", maxWidth: "120px" }}>
+                          <td className="px-2 py-2" style={{ width: "110px", maxWidth: "110px" }}>
                             <div className="flex items-center gap-1.5 min-w-0">
                               <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${acctColor.bg} ${acctColor.text}`}>
                                 {(link.accounts?.display_name || "?")[0]?.toUpperCase()}
@@ -459,11 +462,11 @@ export default function TrackingLinksPage() {
                             </div>
                           </td>
                           {/* Clicks */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "70px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
                             {link.clicks.toLocaleString()}
                           </td>
                           {/* Subs */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "70px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
                             {link.subscribers.toLocaleString()}
                           </td>
                           {/* Cost */}
@@ -486,23 +489,23 @@ export default function TrackingLinksPage() {
                             </button>
                           </td>
                           {/* Revenue */}
-                          <td className="px-2 py-2" style={{ width: "110px" }}>
+                          <td className="px-2 py-2" style={{ width: "100px" }}>
                             <p className="font-mono text-[12px] text-primary font-semibold leading-tight">
                               ${Number(link.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                             {updatedAgo && (
-                              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{updatedAgo}</p>
+                              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{updatedAgo}</p>
                             )}
                           </td>
                           {/* Spenders */}
-                          <td className="px-2 py-2" style={{ width: "70px" }}>
+                          <td className="px-2 py-2" style={{ width: "75px" }}>
                             <span className="flex items-center gap-1 font-mono text-[12px] text-foreground">
                               <Users className="h-3 w-3 text-muted-foreground" />
                               {link.spenders}
                             </span>
                           </td>
                           {/* Profit */}
-                          <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "90px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "85px" }}>
                             {link.profit !== null ? (
                               <span className={link.profit >= 0 ? "text-primary" : "text-destructive"}>
                                 {link.profit >= 0 ? "+" : ""}${Math.abs(link.profit).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -522,15 +525,15 @@ export default function TrackingLinksPage() {
                             )}
                           </td>
                           {/* ARPS */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "70px" }}>
+                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "75px" }}>
                             ${link.arps.toFixed(2)}
                           </td>
                           {/* Created */}
-                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap" style={{ width: "100px" }}>
+                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap" style={{ width: "95px" }}>
                             {formatCreatedAt(link.created_at)}
                           </td>
                           {/* Status */}
-                          <td className="px-2 py-2" style={{ width: "80px" }}>
+                          <td className="px-2 py-2" style={{ width: "75px" }}>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <button
