@@ -85,9 +85,15 @@ export default function DashboardPage() {
     return links.filter((link: any) => {
       if (filters.traffic_source !== "all" && link.source !== filters.traffic_source) return false;
       if (selectedModel && link.account_id !== selectedModel) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchName = (link.campaign_name || "").toLowerCase().includes(q);
+        const matchAccount = (link.accounts?.username || "").toLowerCase().includes(q) || (link.accounts?.display_name || "").toLowerCase().includes(q);
+        if (!matchName && !matchAccount) return false;
+      }
       return true;
     });
-  }, [links, filters.traffic_source, selectedModel]);
+  }, [links, filters.traffic_source, selectedModel, searchQuery]);
 
   const adSpendByCampaign = useMemo(() => {
     const map: Record<string, number> = {};
