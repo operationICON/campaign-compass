@@ -412,7 +412,9 @@ export default function TrackingLinksPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((link: any) => {
+                  {paginated.map((link: any, idx: number) => {
+                    // Debug: log first 3 rows' created_at
+                    if (idx < 3) console.log(`[TrackingLinks] Row ${idx}:`, link.campaign_name, 'created_at:', link.created_at, 'formatted:', formatCreatedAt(link.created_at));
                     const isExpanded = expandedRow === link.id;
                     const updatedAgo = formatUpdatedAgo(link.calculated_at);
                     const borderClass = link.isZeroClicksStale
@@ -426,7 +428,7 @@ export default function TrackingLinksPage() {
                     const initials = getCampaignInitials(link.campaign_name);
 
                     return (
-                      <tbody key={link.id}>
+                      <React.Fragment key={link.id}>
                         <tr
                           className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`}
                           onClick={() => setExpandedRow(isExpanded ? null : link.id)}
