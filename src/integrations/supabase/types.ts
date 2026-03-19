@@ -403,30 +403,48 @@ export type Database = {
         Row: {
           account_id: string | null
           created_at: string
+          currency: string | null
           date: string | null
           external_transaction_id: string | null
+          fan_id: string | null
+          fan_username: string | null
+          fee: number | null
           id: string
           revenue: number
+          revenue_net: number | null
+          status: string | null
           type: string | null
           user_id: string | null
         }
         Insert: {
           account_id?: string | null
           created_at?: string
+          currency?: string | null
           date?: string | null
           external_transaction_id?: string | null
+          fan_id?: string | null
+          fan_username?: string | null
+          fee?: number | null
           id?: string
           revenue?: number
+          revenue_net?: number | null
+          status?: string | null
           type?: string | null
           user_id?: string | null
         }
         Update: {
           account_id?: string | null
           created_at?: string
+          currency?: string | null
           date?: string | null
           external_transaction_id?: string | null
+          fan_id?: string | null
+          fan_username?: string | null
+          fee?: number | null
           id?: string
           revenue?: number
+          revenue_net?: number | null
+          status?: string | null
           type?: string | null
           user_id?: string | null
         }
