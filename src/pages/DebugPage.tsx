@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Bug, RefreshCw } from "lucide-react";
 
@@ -22,59 +20,49 @@ export default function DebugPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Bug className="h-6 w-6" /> API Debug — Raw Responses
+            <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <Bug className="h-5 w-5" /> API Debug
             </h1>
             <p className="text-sm text-muted-foreground">Raw JSON from OnlyFans API endpoints</p>
           </div>
-          <Button onClick={() => testMutation.mutate()} disabled={testMutation.isPending}>
-            {testMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          <button
+            onClick={() => testMutation.mutate()}
+            disabled={testMutation.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {testMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Test API
-          </Button>
+          </button>
         </div>
 
         {testMutation.isError && (
-          <Card className="border-destructive bg-destructive/10">
-            <CardContent className="pt-6">
-              <p className="text-destructive font-medium">Failed</p>
-              <pre className="mt-2 text-sm text-destructive/80 whitespace-pre-wrap">{(testMutation.error as any)?.message}</pre>
-            </CardContent>
-          </Card>
+          <div className="bg-destructive/10 border border-destructive/20 rounded-[10px] p-5">
+            <p className="text-destructive font-medium">Failed</p>
+            <pre className="mt-2 text-sm text-destructive/80 whitespace-pre-wrap">{(testMutation.error as any)?.message}</pre>
+          </div>
         )}
 
         {result && Object.entries(result).map(([name, data]) => (
-          <Card key={name} className="border-border bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
+          <div key={name} className="bg-card border border-border rounded-[10px] overflow-hidden">
+            <div className="px-5 py-3 border-b border-border">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 {name} — {data.status ?? "ERROR"} {data.status_text ?? ""}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground font-mono">{data.url}</p>
-            </CardHeader>
-            <CardContent>
-              <pre className="text-xs font-mono whitespace-pre-wrap break-all bg-muted p-4 rounded-md max-h-[600px] overflow-auto">
-                {JSON.stringify(data.body ?? data.error, null, 2)}
-              </pre>
-              {data.headers && (
-                <details className="mt-2">
-                  <summary className="text-xs text-muted-foreground cursor-pointer">Response Headers</summary>
-                  <pre className="text-xs font-mono whitespace-pre-wrap break-all bg-muted p-2 rounded-md mt-1">
-                    {JSON.stringify(data.headers, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </CardContent>
-          </Card>
+              </p>
+              <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{data.url}</p>
+            </div>
+            <pre className="text-xs font-mono whitespace-pre-wrap break-all p-5 max-h-[600px] overflow-auto text-muted-foreground">
+              {JSON.stringify(data.body ?? data.error, null, 2)}
+            </pre>
+          </div>
         ))}
 
         {!result && !testMutation.isPending && !testMutation.isError && (
-          <Card className="border-border bg-card">
-            <CardContent className="py-12 text-center text-muted-foreground">
-              Click "Test API" to fetch raw responses from 3 endpoints.
-            </CardContent>
-          </Card>
+          <div className="bg-card border border-border rounded-[10px] p-12 text-center text-muted-foreground">
+            Click "Test API" to fetch raw responses from 3 endpoints.
+          </div>
         )}
       </div>
     </DashboardLayout>

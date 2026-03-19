@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
 import AdSpendPage from "./pages/AdSpendPage";
+import MediaBuyersPage from "./pages/MediaBuyersPage";
 import LogsPage from "./pages/LogsPage";
 import DebugPage from "./pages/DebugPage";
 import NotFound from "./pages/NotFound";
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/" element={<DashboardPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/ad-spend" element={<AdSpendPage />} />
+          <Route path="/media-buyers" element={<MediaBuyersPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/debug" element={<DebugPage />} />
           <Route path="*" element={<NotFound />} />
