@@ -391,7 +391,7 @@ export default function TrackingLinksPage() {
                     <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                     <th
                       className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
-                      style={{ width: "110px", minWidth: "110px", maxWidth: "110px" }}
+                      style={{ width: "130px", minWidth: "130px", maxWidth: "130px" }}
                     >Account</th>
                     <SortHeader label="Clicks" sortKeyName="clicks" width="65px" />
                     <SortHeader label="Subs" sortKeyName="subscribers" width="65px" />
