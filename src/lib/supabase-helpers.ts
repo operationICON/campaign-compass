@@ -99,6 +99,7 @@ export async function addAdSpend(entry: {
   amount: number;
   date: string;
   notes?: string;
+  media_buyer?: string;
 }) {
   const { data, error } = await supabase.from("ad_spend").insert(entry).select().single();
   if (error) throw error;
