@@ -1,13 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Users, ScrollText, AlertTriangle, LayoutDashboard, Bug, UserCheck, LineChart, Settings, Bell, Link2 } from "lucide-react";
+import { BarChart3, Users, AlertTriangle, LayoutDashboard, Bug, UserCheck, LineChart, Settings, Bell, Link2 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/tracking-links", icon: Link2, label: "Tracking Links" },
   { to: "/accounts", icon: Users, label: "Accounts" },
-  { to: "/ad-spend", icon: ScrollText, label: "Ad Spend" },
   { to: "/media-buyers", icon: UserCheck, label: "Media Buyers" },
   { to: "/charts", icon: LineChart, label: "Charts" },
   { to: "/alerts", icon: Bell, label: "Alerts", hasBadge: true },
