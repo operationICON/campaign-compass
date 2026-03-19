@@ -112,6 +112,16 @@ export default function DashboardPage() {
 
   const sortedLinks = useMemo(() => {
     const sorted = [...enrichedLinks].sort((a, b) => {
+      if (sortKey === "campaign_name") {
+        const av = (a.campaign_name || "").toLowerCase();
+        const bv = (b.campaign_name || "").toLowerCase();
+        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      if (sortKey === "created_at") {
+        const av = new Date(a.created_at || 0).getTime();
+        const bv = new Date(b.created_at || 0).getTime();
+        return sortAsc ? av - bv : bv - av;
+      }
       const av = a[sortKey] ?? 0;
       const bv = b[sortKey] ?? 0;
       return sortAsc ? av - bv : bv - av;
