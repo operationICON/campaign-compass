@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
     accounts_count: 0,
     accounts_error: null,
     accounts_sample: null,
+    account_detail: null,
     tracking_links_endpoint: null,
     tracking_links_count: 0,
     tracking_links_error: null,
@@ -54,15 +55,15 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Test /accounts endpoint
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  }
+
+  // Test /accounts endpoint — response is { data: [...], _meta, _pagination }
   try {
-    const accountsRes = await fetch(`${API_BASE}/accounts`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    })
+    const accountsRes = await fetch(`${API_BASE}/accounts`, { headers })
     result.accounts_endpoint = {
       status: accountsRes.status,
       status_text: accountsRes.statusText,
@@ -70,12 +71,13 @@ Deno.serve(async (req) => {
     }
     if (accountsRes.ok) {
       const json = await accountsRes.json()
-      const items = Array.isArray(json) ? json : (json.data ?? json.list ?? json.results ?? [])
+      const items = Array.isArray(json.data) ? json.data : []
       result.accounts_count = items.length
       if (items.length > 0) {
         result.accounts_sample = {
-          id: items[0].id ?? items[0].account_id ?? 'unknown',
+          id: items[0].id ?? 'unknown',
           username: items[0].username ?? items[0].name ?? 'unknown',
+          raw_keys: Object.keys(items[0]),
         }
       }
     } else {
@@ -85,17 +87,23 @@ Deno.serve(async (req) => {
     result.accounts_error = err.message
   }
 
-  // Test /{account_id}/sextforce/metrics endpoint
-  if (result.accounts_count > 0 && result.accounts_sample) {
+  // Test /{account_id}/account for detail
+  if (result.accounts_sample?.id && result.accounts_sample.id !== 'unknown') {
     try {
       const acctId = result.accounts_sample.id
-      const tlRes = await fetch(`${API_BASE}/${acctId}/sextforce/metrics`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      })
+      const detailRes = await fetch(`${API_BASE}/${acctId}/account`, { headers })
+      if (detailRes.ok) {
+        const json = await detailRes.json()
+        result.account_detail = json.data ?? json
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  // Test /{account_id}/sextforce/metrics endpoint
+  if (result.accounts_sample?.id && result.accounts_sample.id !== 'unknown') {
+    try {
+      const acctId = result.accounts_sample.id
+      const tlRes = await fetch(`${API_BASE}/${acctId}/sextforce/metrics?limit=5&offset=0`, { headers })
       result.tracking_links_endpoint = {
         status: tlRes.status,
         status_text: tlRes.statusText,
@@ -103,7 +111,7 @@ Deno.serve(async (req) => {
       }
       if (tlRes.ok) {
         const json = await tlRes.json()
-        const items = Array.isArray(json) ? json : (json.data ?? json.list ?? json.results ?? [])
+        const items = Array.isArray(json.data) ? json.data : []
         result.tracking_links_count = items.length
       } else {
         result.tracking_links_error = await tlRes.text()

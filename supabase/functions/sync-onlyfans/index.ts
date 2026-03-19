@@ -7,8 +7,9 @@ const corsHeaders = {
 
 const API_BASE = 'https://app.onlyfansapi.com/api'
 
-async function apiFetch<T>(path: string, apiKey: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+async function apiFetch(path: string, apiKey: string): Promise<any> {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
+  const res = await fetch(url, {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -21,7 +22,27 @@ async function apiFetch<T>(path: string, apiKey: string): Promise<T> {
     throw new Error(`API ${path} returned ${res.status}: ${body}`)
   }
 
-  return await res.json() as T
+  return await res.json()
+}
+
+// Fetch all pages from a paginated endpoint. Returns flat array of items.
+async function apiFetchAllPages(path: string, apiKey: string): Promise<any[]> {
+  const allItems: any[] = []
+  let currentPath: string | null = path
+
+  while (currentPath) {
+    const json = await apiFetch(currentPath, apiKey)
+    const items = json.data
+    if (Array.isArray(items)) {
+      allItems.push(...items)
+    } else if (items && typeof items === 'object') {
+      // single object in data
+      allItems.push(items)
+    }
+    currentPath = json._pagination?.next_page ?? null
+  }
+
+  return allItems
 }
 
 Deno.serve(async (req) => {
@@ -59,7 +80,8 @@ Deno.serve(async (req) => {
     let totalRecords = 0
 
     // ── STEP 1: Fetch accounts from API ──
-    const apiAccounts = await apiFetch<any[]>('/accounts', apiKey)
+    const accountsJson = await apiFetch('/accounts', apiKey)
+    const apiAccounts: any[] = Array.isArray(accountsJson.data) ? accountsJson.data : []
 
     if (!apiAccounts.length) {
       await updateSyncLog(db, syncLogId, {
@@ -70,13 +92,26 @@ Deno.serve(async (req) => {
       return jsonResponse({ results: [], message: 'No accounts found' })
     }
 
-    // Upsert accounts
+    // Upsert accounts + fetch account details for username/display_name
     for (const acc of apiAccounts) {
-      const externalId = String(acc.id ?? acc.account_id ?? acc.userId)
+      const externalId = String(acc.id)
+      let username = acc.username ?? null
+      let displayName = acc.name ?? acc.username ?? externalId
+
+      // Fetch account details to get username/display_name
+      try {
+        const detailJson = await apiFetch(`/${externalId}/account`, apiKey)
+        const detail = detailJson.data ?? detailJson
+        username = detail.username ?? detail.name ?? username
+        displayName = detail.name ?? detail.username ?? displayName
+      } catch (_e) {
+        // ignore — use fallback values
+      }
+
       await db.from('accounts').upsert({
         onlyfans_account_id: externalId,
-        username: acc.username ?? acc.name ?? null,
-        display_name: acc.name ?? acc.username ?? externalId,
+        username,
+        display_name: displayName,
         is_active: true,
         last_synced_at: startedAt,
       }, { onConflict: 'onlyfans_account_id' })
@@ -89,15 +124,17 @@ Deno.serve(async (req) => {
 
     const results: any[] = []
 
-    // ── STEP 2: For each account, fetch metrics & transactions ──
+    // ── STEP 2: For each account, fetch metrics, earnings & transactions ──
     for (const account of dbAccounts ?? []) {
       const acctId = account.onlyfans_account_id
       try {
-        // Fetch tracking/metrics via /{account_id}/sextforce/metrics
+        // ── Tracking links / sextforce metrics (paginated) ──
         let linkCount = 0
         try {
-          const metrics = await apiFetch<any>(`/${acctId}/sextforce/metrics`, apiKey)
-          const items = Array.isArray(metrics) ? metrics : (metrics.data ?? metrics.list ?? metrics.results ?? [])
+          const items = await apiFetchAllPages(
+            `/${acctId}/sextforce/metrics?limit=50&offset=0`,
+            apiKey
+          )
 
           for (const link of items) {
             const clicks = Number(link.clicks ?? 0)
@@ -139,11 +176,31 @@ Deno.serve(async (req) => {
           })
         }
 
-        // Fetch transactions via /{account_id}/payouts/transactions
+        // ── Earnings / statistics ──
+        try {
+          const now = new Date()
+          const startDate = `${now.getFullYear()}-01-01+00:00:00`
+          const endDate = `${now.getFullYear()}-12-31+23:59:59`
+          const earningsJson = await apiFetch(
+            `/${acctId}/statistics/statements/earnings?start_date=${startDate}&end_date=${endDate}&type=total`,
+            apiKey
+          )
+          // Store earnings data if available — currently just logged
+          const earnings = earningsJson.data
+          if (earnings) {
+            // Could store in a dedicated earnings table in the future
+          }
+        } catch (_e) {
+          // non-critical
+        }
+
+        // ── Transactions (paginated) ──
         let txCount = 0
         try {
-          const transactions = await apiFetch<any>(`/${acctId}/payouts/transactions`, apiKey)
-          const txItems = Array.isArray(transactions) ? transactions : (transactions.data ?? transactions.list ?? transactions.results ?? [])
+          const txItems = await apiFetchAllPages(
+            `/${acctId}/fans/latest?limit=50&offset=0`,
+            apiKey
+          )
 
           for (const tx of txItems) {
             const externalTxId = String(tx.id ?? tx.transaction_id ?? '')
@@ -152,10 +209,10 @@ Deno.serve(async (req) => {
             await db.from('transactions').upsert({
               external_transaction_id: externalTxId,
               account_id: account.id,
-              user_id: tx.user_id ?? null,
-              revenue: Number(tx.amount ?? tx.revenue ?? 0),
-              type: tx.type ?? null,
-              date: (tx.date ?? tx.created_at ?? startedAt).split('T')[0],
+              user_id: tx.user_id ?? tx.userId ?? null,
+              revenue: Number(tx.amount ?? tx.revenue ?? tx.total ?? 0),
+              type: tx.type ?? 'fan',
+              date: (tx.date ?? tx.created_at ?? tx.subscribedAt ?? startedAt).toString().split('T')[0],
             }, { onConflict: 'external_transaction_id' })
             txCount++
           }
@@ -164,7 +221,7 @@ Deno.serve(async (req) => {
             account_id: account.id,
             status: 'error',
             success: false,
-            message: `Failed transactions for ${acctId}: ${txErr.message}`,
+            message: `Failed fans/latest for ${acctId}: ${txErr.message}`,
             error_message: txErr.message,
             records_processed: 0,
           })
