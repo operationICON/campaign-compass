@@ -103,9 +103,19 @@ async function recalcCostMetrics(db: any, accountId: string) {
     .eq('account_id', accountId)
   if (!allLinks || allLinks.length === 0) return
 
-  for (const link of allLinks) {
-    const metrics = calculateCostMetrics(link)
-    await db.from('tracking_links').update(metrics).eq('id', link.id)
+  // Batch update: calculate all, then update in parallel batches
+  const updates = allLinks.map((link: any) => ({
+    id: link.id,
+    ...calculateCostMetrics(link),
+  }))
+
+  // Update in batches of 50
+  for (let i = 0; i < updates.length; i += 50) {
+    const batch = updates.slice(i, i + 50)
+    await Promise.all(batch.map((u: any) => {
+      const { id, ...metrics } = u
+      return db.from('tracking_links').update(metrics).eq('id', id)
+    }))
   }
   console.log(`Recalculated cost metrics for ${allLinks.length} links`)
 }
