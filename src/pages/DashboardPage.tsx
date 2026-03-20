@@ -370,14 +370,17 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* DAILY DECISION VIEW */}
+        <DailyDecisionView links={filteredLinks} />
+
         {/* KPI CARDS */}
         {linksLoading ? (
-          <div className="grid grid-cols-8 gap-3">
+          <div className="grid grid-cols-9 gap-3">
             <SkeletonCard wide />
-            {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+            {[...Array(7)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <div className="grid grid-cols-8 gap-3">
+          <div className="grid grid-cols-9 gap-3">
             {/* Hero card - 2x wide */}
             <div className="col-span-2 bg-card border border-border rounded-lg p-5 card-hover emerald-glow">
               <div className="flex items-center gap-2 mb-2">
@@ -395,21 +398,19 @@ export default function DashboardPage() {
               { label: "Subscribers", value: fmtNum(totalSubscribers), icon: Users },
               { label: "EPC", value: fmtCurrency(epc), icon: TrendingUp },
               { label: "Conv Rate", value: fmtPct(conversionRate), icon: Percent },
+              { label: "Blended CVR", value: fmtPct(blendedCvr), icon: Percent },
+              { label: "Blended CPL", value: blendedCpl > 0 ? fmtCurrency(blendedCpl) : "—", icon: DollarSign },
               { label: "Profit", value: fmtCurrency(profit), icon: PiggyBank, colored: true, val: profit },
               { label: "ROI", value: fmtPct(roi), icon: BarChart3, colored: true, val: roi },
             ].map((kpi) => (
-              <div key={kpi.label} className="bg-card border border-border rounded-lg p-4 card-hover">
+              <div key={kpi.label} className="bg-card border border-border rounded-lg p-3 card-hover">
                 <div className="flex items-center gap-2 mb-2">
-                  <kpi.icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</span>
+                  <kpi.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</span>
                 </div>
-                <p className={`text-xl font-bold font-mono animate-count-up ${
+                <p className={`text-lg font-bold font-mono animate-count-up ${
                   kpi.colored ? ((kpi.val ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-foreground"
                 }`}>{kpi.value}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <ArrowUpRight className="h-3 w-3 text-primary" />
-                  <span className="text-xs text-muted-foreground">vs last sync</span>
-                </div>
               </div>
             ))}
           </div>
