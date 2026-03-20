@@ -12,7 +12,7 @@ import { format, differenceInDays } from "date-fns";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import {
   RefreshCw, DollarSign, MousePointerClick, Users, TrendingUp,
-  Percent, PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown,
+  Percent, PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   AlertTriangle, Download, FileText, LayoutGrid, Search, X, Columns, List
 } from "lucide-react";
 
