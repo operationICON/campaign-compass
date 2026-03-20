@@ -109,9 +109,9 @@ export default function ChartsPage() {
             <h2 className="text-sm font-bold text-foreground mb-4">Daily Revenue by Model (30 Days)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={dailyRevenueByModel}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="date" tick={{ fill: "#888", fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#888", fontSize: 10 }} tickFormatter={v => `$${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={v => `$${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, ""]} />
                 <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
                 {modelNames.map((name, i) => (
