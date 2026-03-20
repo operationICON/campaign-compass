@@ -374,17 +374,30 @@ export default function TrackingLinksPage() {
             ))}
           </div>
           <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
-            {(["all", "new", "active", "mature", "old"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => { setAgeFilter(f); setPage(1); }}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${
-                  ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
-              </button>
-            ))}
+            {(["all", "new", "active", "mature", "old"] as const).map((f) => {
+              const count = f === "all" ? enrichedLinks.length : enrichedLinks.filter((l: any) => {
+                if (!l.created_at) return false;
+                const days = differenceInDays(new Date(), new Date(l.created_at));
+                if (f === "new") return days <= 30;
+                if (f === "active") return days > 30 && days <= 90;
+                if (f === "mature") return days > 90 && days <= 180;
+                return days > 180;
+              }).length;
+              return (
+                <button
+                  key={f}
+                  onClick={() => { setAgeFilter(f); setPage(1); }}
+                  className={`px-3 py-2 text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${
+                    ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
+                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}>{count}</span>
+                </button>
+              );
+            })}
           </div>
           <button
             onClick={() => syncMutation.mutate(undefined)}
