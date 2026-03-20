@@ -152,9 +152,9 @@ export default function ChartsPage() {
             <h2 className="text-sm font-bold text-foreground mb-4">Top 10 Campaigns by Revenue</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={topCampaigns} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis type="number" tick={{ fill: "#888", fontSize: 10 }} tickFormatter={v => `$${v}`} />
-                <YAxis type="category" dataKey="name" tick={{ fill: "#888", fontSize: 9 }} width={160} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={v => `$${v}`} />
+                <YAxis type="category" dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} width={160} />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} />
                 <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
                   {topCampaigns.map((entry, i) => (
