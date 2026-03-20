@@ -170,11 +170,11 @@ export default function ChartsPage() {
             <h2 className="text-sm font-bold text-foreground mb-4">Daily Subscribers by Model (30 Days)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={dailySubsByModel}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="date" tick={{ fill: "#888", fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#888", fontSize: 10 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
                 <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 {modelNames.map((name, i) => (
                   <Area key={name} type="monotone" dataKey={name} stackId="1" stroke={MODEL_COLORS[i % MODEL_COLORS.length]} fill={MODEL_COLORS[i % MODEL_COLORS.length]} fillOpacity={0.3} />
                 ))}
