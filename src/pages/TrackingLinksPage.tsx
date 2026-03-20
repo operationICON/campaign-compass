@@ -841,6 +841,16 @@ export default function TrackingLinksPage() {
           }}
         />
       )}
+
+      <CsvCostImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+          setImportModalOpen(false);
+        }}
+        trackingLinks={links}
+      />
     </DashboardLayout>
   );
 }
