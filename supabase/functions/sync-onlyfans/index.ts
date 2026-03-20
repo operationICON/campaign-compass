@@ -93,6 +93,63 @@ async function createNotification(db: any, type: string, message: string) {
   await db.from('notifications').insert({ type, message })
 }
 
+function calculateCostMetrics(link: any) {
+  const clicks = Number(link.clicks ?? 0)
+  const subscribers = Number(link.subscribers ?? 0)
+  const revenue = Number(link.revenue ?? 0)
+  const costType = link.cost_type
+  const costValue = Number(link.cost_value ?? 0)
+  const daysSinceCreated = (Date.now() - new Date(link.created_at).getTime()) / (1000 * 60 * 60 * 24)
+
+  let cost_total = 0
+  let cvr = clicks > 0 ? subscribers / clicks : 0
+  let cpc_real = 0
+  let cpl_real = 0
+  let arpu = subscribers > 0 ? revenue / subscribers : 0
+
+  if (costType === 'CPC') {
+    cost_total = clicks * costValue
+    cpc_real = costValue
+    cpl_real = cvr > 0 ? costValue / cvr : 0
+  } else if (costType === 'CPL') {
+    cost_total = subscribers * costValue
+    cpc_real = cvr > 0 ? costValue * cvr : 0
+    cpl_real = costValue
+  } else if (costType === 'FIXED') {
+    cost_total = costValue
+    cpc_real = clicks > 0 ? cost_total / clicks : 0
+    cpl_real = subscribers > 0 ? cost_total / subscribers : 0
+  }
+
+  const profit = revenue - cost_total
+  const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
+
+  let status = 'NO_DATA'
+  if (!costType) {
+    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+    else status = 'NO_DATA'
+  } else {
+    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+    else if (roi > 150) status = 'SCALE'
+    else if (roi >= 50) status = 'WATCH'
+    else if (roi >= 0) status = 'LOW'
+    else status = 'KILL'
+  }
+
+  return { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status }
+}
+
+async function recalcAllCostMetrics(db: any) {
+  const { data: allLinks } = await db.from('tracking_links').select('id, clicks, subscribers, revenue, cost_type, cost_value, created_at')
+  if (!allLinks || allLinks.length === 0) return
+
+  for (const link of allLinks) {
+    const metrics = calculateCostMetrics(link)
+    await db.from('tracking_links').update(metrics).eq('id', link.id)
+  }
+  console.log(`Recalculated cost metrics for ${allLinks.length} tracking links`)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -111,7 +168,6 @@ Deno.serve(async (req) => {
 
   const db = createClient(supabaseUrl, serviceKey)
 
-  // Auto-mark stuck syncs before starting
   await markStuckSyncs(db)
 
   const startedAt = new Date().toISOString()
@@ -273,7 +329,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── STEP 3: Zero-click alert check ──
+    // ── STEP 3: Recalculate cost metrics for all tracking links ──
+    await recalcAllCostMetrics(db)
+
+    // ── STEP 4: Zero-click alert check ──
     try {
       const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
       const { data: zeroClickLinks } = await db.from('tracking_links')
@@ -300,7 +359,6 @@ Deno.serve(async (req) => {
         await db.from('alerts').insert(alertInserts)
         console.log(`Created ${alertInserts.length} zero-click alerts`)
 
-        // Create notification for dead campaigns
         await createNotification(db, 'dead_campaign', `${zeroClickLinks.length} campaigns have 0 clicks for 3+ days`)
       }
     } catch (err: any) {

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
+import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, fetchDailyMetrics, fetchAlerts, fetchSyncSettings, triggerSync, addAdSpend } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
@@ -139,10 +140,16 @@ export default function DashboardPage() {
   const totalClicks = filteredLinks.reduce((s: number, l: any) => s + l.clicks, 0);
   const totalSubscribers = filteredLinks.reduce((s: number, l: any) => s + l.subscribers, 0);
   const totalAdSpend = adSpendData.reduce((s: number, a: any) => s + Number(a.amount), 0);
+  const totalCostFromLinks = filteredLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
   const epc = totalClicks > 0 ? totalRevenue / totalClicks : 0;
   const conversionRate = totalClicks > 0 ? (totalSubscribers / totalClicks) * 100 : 0;
   const profit = totalRevenue - totalAdSpend;
   const roi = totalAdSpend > 0 ? (profit / totalAdSpend) * 100 : 0;
+  const blendedCvr = totalClicks > 0 ? (totalSubscribers / totalClicks) * 100 : 0;
+  const linksWithCost = filteredLinks.filter((l: any) => l.cost_type && Number(l.cost_total) > 0);
+  const totalCostForCpl = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total), 0);
+  const totalSubsForCpl = linksWithCost.reduce((s: number, l: any) => s + l.subscribers, 0);
+  const blendedCpl = totalSubsForCpl > 0 ? totalCostForCpl / totalSubsForCpl : 0;
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();
@@ -363,14 +370,17 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* DAILY DECISION VIEW */}
+        <DailyDecisionView links={filteredLinks} />
+
         {/* KPI CARDS */}
         {linksLoading ? (
-          <div className="grid grid-cols-8 gap-3">
+          <div className="grid grid-cols-9 gap-3">
             <SkeletonCard wide />
-            {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+            {[...Array(7)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <div className="grid grid-cols-8 gap-3">
+          <div className="grid grid-cols-9 gap-3">
             {/* Hero card - 2x wide */}
             <div className="col-span-2 bg-card border border-border rounded-lg p-5 card-hover emerald-glow">
               <div className="flex items-center gap-2 mb-2">
@@ -388,21 +398,19 @@ export default function DashboardPage() {
               { label: "Subscribers", value: fmtNum(totalSubscribers), icon: Users },
               { label: "EPC", value: fmtCurrency(epc), icon: TrendingUp },
               { label: "Conv Rate", value: fmtPct(conversionRate), icon: Percent },
+              { label: "Blended CVR", value: fmtPct(blendedCvr), icon: Percent },
+              { label: "Blended CPL", value: blendedCpl > 0 ? fmtCurrency(blendedCpl) : "—", icon: DollarSign },
               { label: "Profit", value: fmtCurrency(profit), icon: PiggyBank, colored: true, val: profit },
               { label: "ROI", value: fmtPct(roi), icon: BarChart3, colored: true, val: roi },
             ].map((kpi) => (
-              <div key={kpi.label} className="bg-card border border-border rounded-lg p-4 card-hover">
+              <div key={kpi.label} className="bg-card border border-border rounded-lg p-3 card-hover">
                 <div className="flex items-center gap-2 mb-2">
-                  <kpi.icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</span>
+                  <kpi.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</span>
                 </div>
-                <p className={`text-xl font-bold font-mono animate-count-up ${
+                <p className={`text-lg font-bold font-mono animate-count-up ${
                   kpi.colored ? ((kpi.val ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-foreground"
                 }`}>{kpi.value}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <ArrowUpRight className="h-3 w-3 text-primary" />
-                  <span className="text-xs text-muted-foreground">vs last sync</span>
-                </div>
               </div>
             ))}
           </div>
