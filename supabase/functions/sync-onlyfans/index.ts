@@ -245,9 +245,59 @@ Deno.serve(async (req) => {
             for (const c of newC ?? []) campaignMap[c.name] = c.id
           }
 
+          let debugLogged = false
+
           for (const link of items) {
             const campaignName = link.campaignName ?? 'Unknown'
             const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
+
+            // Debug: log full raw API object for first link of @jessie_ca_xo
+            if (!debugLogged && (account.username === 'jessie_ca_xo' || account.display_name?.toLowerCase().includes('jessie'))) {
+              await db.from('sync_logs').insert({
+                account_id: account.id,
+                status: 'info',
+                success: true,
+                message: `DEBUG: Raw API tracking link object for ${campaignName}`,
+                error_message: JSON.stringify(link).slice(0, 4000),
+                records_processed: 0,
+              })
+              debugLogged = true
+            }
+
+            // Extract cost fields from API response
+            const costPerSub = link.revenue?.costPerSubscriber
+              || link.costPerSubscriber
+              || link.cost_per_subscriber
+              || link.revenue?.cost_per_sub
+              || null
+
+            const costPerClick = link.revenue?.costPerClick
+              || link.costPerClick
+              || link.cost_per_click
+              || null
+
+            const fixedCost = link.revenue?.cost
+              || link.fixedCost
+              || link.fixed_cost
+              || null
+
+            let apiCostType: string | null = null
+            let apiCostValue: number | null = null
+
+            if (costPerSub !== null && costPerSub !== undefined && Number(costPerSub) > 0) {
+              apiCostType = 'CPL'
+              apiCostValue = Number(costPerSub)
+            } else if (costPerClick !== null && costPerClick !== undefined && Number(costPerClick) > 0) {
+              apiCostType = 'CPC'
+              apiCostValue = Number(costPerClick)
+            } else if (fixedCost !== null && fixedCost !== undefined && Number(fixedCost) > 0) {
+              apiCostType = 'FIXED'
+              apiCostValue = Number(fixedCost)
+            }
+
+            const clicks = Number(link.clicksCount ?? 0)
+            const subs = Number(link.subscribersCount ?? 0)
+            const rev = Number(link.revenue?.total ?? 0)
 
             const upsertPayload: Record<string, any> = {
               external_tracking_link_id: String(link.id ?? ''),
@@ -255,17 +305,47 @@ Deno.serve(async (req) => {
               campaign_id: campaignId,
               campaign_name: campaignName,
               account_id: account.id,
-              clicks: Number(link.clicksCount ?? 0),
-              subscribers: Number(link.subscribersCount ?? 0),
+              clicks,
+              subscribers: subs,
               spenders: Number(link.revenue?.spendersCount ?? 0),
-              revenue: Number(link.revenue?.total ?? 0),
+              revenue: rev,
               revenue_per_click: Number(link.revenue?.revenuePerClick ?? 0),
               revenue_per_subscriber: Number(link.revenue?.revenuePerSubscriber ?? 0),
-              conversion_rate: Number(link.clicksCount ?? 0) > 0
-                ? (Number(link.subscribersCount ?? 0) / Number(link.clicksCount)) * 100 : 0,
+              conversion_rate: clicks > 0 ? (subs / clicks) * 100 : 0,
               calculated_at: link.revenue?.calculatedAt ?? startedAt,
               source: link.type ?? null,
               country: link.country ?? null,
+            }
+
+            // Apply cost from API if available
+            if (apiCostType && apiCostValue !== null) {
+              upsertPayload.cost_type = apiCostType
+              upsertPayload.cost_value = apiCostValue
+
+              let cost_total = 0
+              if (apiCostType === 'CPC') cost_total = clicks * apiCostValue
+              else if (apiCostType === 'CPL') cost_total = subs * apiCostValue
+              else cost_total = apiCostValue
+
+              const cvr = clicks > 0 ? (subs / clicks) * 100 : 0
+              const cpl_real = subs > 0 ? cost_total / subs : 0
+              const cpc_real = clicks > 0 ? cost_total / clicks : 0
+              const arpu = subs > 0 ? rev / subs : 0
+              const profit = rev - cost_total
+              const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
+
+              const daysSinceCreated = link.createdAt
+                ? (Date.now() - new Date(link.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                : 0
+
+              let status = 'NO_DATA'
+              if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+              else if (roi > 150) status = 'SCALE'
+              else if (roi >= 50) status = 'WATCH'
+              else if (roi >= 0) status = 'LOW'
+              else status = 'KILL'
+
+              Object.assign(upsertPayload, { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
             }
 
             if (link.createdAt) {
