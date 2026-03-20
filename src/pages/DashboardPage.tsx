@@ -214,7 +214,13 @@ export default function DashboardPage() {
 
   const getStatus = (link: any) => {
     const daysSinceCreated = differenceInDays(new Date(), new Date(link.created_at));
-    if (link.clicks === 0 && daysSinceCreated >= 3) return { label: "DEAD", color: "bg-destructive/15 text-destructive", icon: "🔴" };
+    // DEAD = had clicks before but now 0 for 3+ days
+    if (link.clicks === 0 && daysSinceCreated >= 3) {
+      // Check if campaign ever had clicks (use daily_metrics or subscribers/spenders as proxy)
+      const everHadTraffic = (link.subscribers > 0 || link.spenders > 0 || Number(link.revenue) > 0);
+      if (everHadTraffic) return { label: "DEAD", color: "bg-destructive/15 text-destructive", icon: "🔴" };
+      return { label: "INACTIVE", color: "bg-muted text-muted-foreground", icon: "⚫" };
+    }
     if (link.ad_spend === 0) return { label: "NO DATA", color: "bg-muted text-muted-foreground", icon: "⚪" };
     if (link.roi === null || link.roi < 0) return { label: "KILL", color: "bg-destructive/15 text-destructive", icon: "🔴" };
     if (link.roi <= 50) return { label: "LOW", color: "bg-warning/15 text-warning", icon: "🟠" };
