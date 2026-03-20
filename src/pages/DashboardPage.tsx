@@ -487,7 +487,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">{accounts.length} models</p>
               </div>
             </div>
-            <p className="text-xl font-bold font-mono text-primary mb-1">{fmtCurrency(totalRevenue)}</p>
+            <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(totalRevenue)}</p>
             <div className="text-xs text-muted-foreground">{fmtNum(totalSubscribers)} subs · {fmtNum(totalClicks)} clicks</div>
           </button>
 
