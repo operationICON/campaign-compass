@@ -60,6 +60,7 @@ export default function TrackingLinksPage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
   const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
+  const [selectedLink, setSelectedLink] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
   const perPage = 20;
 
