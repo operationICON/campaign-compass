@@ -652,7 +652,7 @@ export default function TrackingLinksPage() {
                         </td>
                         {/* Revenue */}
                         <td className="px-2 py-2">
-                          <span className="font-mono text-[12px] text-primary font-semibold">{fmtC(Number(link.revenue))}</span>
+                          <span className="font-mono text-[12px] gradient-text font-semibold">{fmtC(Number(link.revenue))}</span>
                         </td>
                         {/* EPC */}
                         <td className="px-2 py-2 font-mono text-[12px] text-foreground">${epc.toFixed(2)}</td>
