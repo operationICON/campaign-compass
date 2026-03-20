@@ -410,7 +410,7 @@ export default function TrackingLinksPage() {
             <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-foreground font-medium mb-1">No tracking links found</p>
             <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery || clickFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}
+              {searchQuery || clickFilter !== "all" || ageFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}
             </p>
             {!searchQuery && clickFilter === "all" && (
               <button
