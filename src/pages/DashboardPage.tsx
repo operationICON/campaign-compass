@@ -630,7 +630,7 @@ export default function DashboardPage() {
                     const sparkTrending = spark.length >= 2 ? spark[spark.length - 1].revenue >= spark[spark.length - 2].revenue : true;
 
                     return (
-                      <tr key={link.id} className="border-b border-border hover-emerald-border hover:bg-secondary/30 transition-all duration-200">
+                      <tr key={link.id} className="border-b border-border hover-emerald-border hover:bg-secondary/30 transition-all duration-200 cursor-pointer" onClick={() => setSelectedLink(link)}>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
