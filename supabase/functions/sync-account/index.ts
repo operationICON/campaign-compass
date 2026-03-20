@@ -182,12 +182,13 @@ Deno.serve(async (req) => {
         for (const c of newC ?? []) campaignMap[c.name] = c.id
       }
 
-      // Upsert tracking links
+      // Upsert tracking links in batches of 50
+      const linkPayloads: Record<string, any>[] = []
       for (const link of items) {
         const campaignName = link.campaignName ?? 'Unknown'
         const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
 
-        const upsertPayload: Record<string, any> = {
+        const payload: Record<string, any> = {
           external_tracking_link_id: String(link.id ?? ''),
           url: link.campaignUrl ?? `https://onlyfans.com/${acctId}`,
           campaign_id: campaignId,
@@ -205,17 +206,19 @@ Deno.serve(async (req) => {
           source: link.type ?? null,
           country: link.country ?? null,
         }
+        if (link.createdAt) payload.created_at = link.createdAt
+        linkPayloads.push(payload)
+      }
 
-        if (link.createdAt) {
-          upsertPayload.created_at = link.createdAt
-        }
-
-        await db.from('tracking_links').upsert(upsertPayload, {
+      // Batch upsert in chunks of 50
+      for (let i = 0; i < linkPayloads.length; i += 50) {
+        const batch = linkPayloads.slice(i, i + 50)
+        await db.from('tracking_links').upsert(batch, {
           onConflict: 'external_tracking_link_id',
           ignoreDuplicates: false,
         })
-        linkCount++
       }
+      linkCount = linkPayloads.length
     } catch (err: any) {
       console.error(`Tracking links error for ${displayName}: ${err.message}`)
     }
