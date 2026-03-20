@@ -610,17 +610,17 @@ export default function DashboardPage() {
               <option value="all">All Sources</option>
               {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            {selectedModel && (
-              <button onClick={() => setSelectedModel(null)} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/15 text-primary hover:bg-primary/25 transition-colors">
+             {selectedModel && (
+              <button onClick={() => setSelectedModel(null)} className="px-3 py-1.5 text-xs font-medium rounded-[10px] bg-primary/15 text-primary hover:bg-primary/25 transition-colors duration-200">
                 ✕ Clear model filter
               </button>
             )}
           </div>
-          <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
-            <button onClick={() => setViewMode("compact")} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${viewMode === "compact" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          <div className="flex items-center gap-1 bg-card border border-border rounded-[10px] p-0.5">
+            <button onClick={() => setViewMode("compact")} className={`px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors duration-200 flex items-center gap-1.5 ${viewMode === "compact" ? "gradient-bg text-white" : "text-muted-foreground hover:text-foreground"}`}>
               <List className="h-3.5 w-3.5" /> Compact
             </button>
-            <button onClick={() => setViewMode("full")} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${viewMode === "full" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            <button onClick={() => setViewMode("full")} className={`px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors duration-200 flex items-center gap-1.5 ${viewMode === "full" ? "gradient-bg text-white" : "text-muted-foreground hover:text-foreground"}`}>
               <Columns className="h-3.5 w-3.5" /> Full
             </button>
           </div>
