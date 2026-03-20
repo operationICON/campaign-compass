@@ -120,7 +120,18 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Calendar className="h-3 w-3" />
               {isValidCreated ? (
-                <>Created {format(createdDate, "MMM d, yyyy")} · Active for {daysActive} days</>
+                <>
+                  Created {format(createdDate, "MMM d, yyyy")}
+                  {(() => {
+                    const calcDate = link.calculated_at ? new Date(link.calculated_at) : null;
+                    const daysSinceActivity = calcDate && !isNaN(calcDate.getTime()) ? differenceInDays(new Date(), calcDate) : 999;
+                    const isRecentlyActive = daysSinceActivity <= 30 && (link.clicks > 0 || Number(link.revenue || 0) > 0);
+                    if (isRecentlyActive) {
+                      return <> · <span className="text-primary">Active for {daysActive} days</span></>;
+                    }
+                    return <> · <span className="text-muted-foreground">Inactive for {daysSinceActivity < 999 ? `${daysSinceActivity} days` : "unknown"}</span></>;
+                  })()}
+                </>
               ) : "Created date unknown"}
             </p>
             <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${STATUS_STYLES[status] || STATUS_STYLES.NO_DATA}`}>
