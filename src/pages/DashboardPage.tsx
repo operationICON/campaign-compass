@@ -94,9 +94,16 @@ export default function DashboardPage() {
         const matchAccount = (link.accounts?.username || "").toLowerCase().includes(q) || (link.accounts?.display_name || "").toLowerCase().includes(q);
         if (!matchName && !matchAccount) return false;
       }
+      if (ageFilter !== "all" && link.created_at) {
+        const days = differenceInDays(new Date(), new Date(link.created_at));
+        if (ageFilter === "new" && days > 30) return false;
+        if (ageFilter === "active" && (days <= 30 || days > 90)) return false;
+        if (ageFilter === "mature" && (days <= 90 || days > 180)) return false;
+        if (ageFilter === "old" && days <= 180) return false;
+      }
       return true;
     });
-  }, [links, filters.traffic_source, selectedModel, searchQuery]);
+  }, [links, filters.traffic_source, selectedModel, searchQuery, ageFilter]);
 
   const adSpendByCampaign = useMemo(() => {
     const map: Record<string, number> = {};
