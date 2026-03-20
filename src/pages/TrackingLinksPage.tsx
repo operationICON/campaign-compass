@@ -412,7 +412,7 @@ export default function TrackingLinksPage() {
             <p className="text-sm text-muted-foreground mb-4">
               {searchQuery || clickFilter !== "all" || ageFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}
             </p>
-            {!searchQuery && clickFilter === "all" && (
+            {!searchQuery && clickFilter === "all" && ageFilter === "all" && (
               <button
                 onClick={() => syncMutation.mutate(undefined)}
                 disabled={syncMutation.isPending}
