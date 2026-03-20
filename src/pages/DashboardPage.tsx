@@ -294,6 +294,13 @@ export default function DashboardPage() {
   };
 
   const zeroClickAlerts = alerts.filter((a: any) => a.type === "zero_clicks" && !a.resolved);
+  // Only count truly DEAD campaigns (had traffic then lost it) for the banner
+  const trulyDeadCount = useMemo(() => {
+    return filteredLinks.filter((l: any) => {
+      const days = differenceInDays(new Date(), new Date(l.created_at));
+      return l.clicks === 0 && days >= 3 && (l.subscribers > 0 || l.spenders > 0 || Number(l.revenue) > 0);
+    }).length;
+  }, [filteredLinks]);
 
   const selectedModelData = useMemo(() => {
     if (!selectedModel) return null;
