@@ -689,6 +689,18 @@ export default function TrackingLinksPage() {
           onSubmit={(data) => addSpendMutation.mutateAsync(data)}
         />
       )}
+
+      {selectedLink && (
+        <CampaignDetailSlideIn
+          link={selectedLink}
+          cost={adSpendMap[selectedLink.campaign_id] || 0}
+          onClose={() => setSelectedLink(null)}
+          onSetCost={() => {
+            setAdSpendSlideIn(selectedLink);
+            setSelectedLink(null);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
