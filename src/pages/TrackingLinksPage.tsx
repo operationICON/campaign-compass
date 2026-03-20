@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
+import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchTrackingLinks, fetchAdSpend, addAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays, differenceInHours, isToday } from "date-fns";
@@ -16,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-type SortKey = "campaign_name" | "clicks" | "subscribers" | "revenue" | "spenders" | "profit" | "roi" | "arps" | "created_at";
+type SortKey = "campaign_name" | "clicks" | "subscribers" | "cvr" | "cost_total" | "revenue" | "spenders" | "profit" | "roi" | "arpu" | "cpl_real" | "created_at";
 type ClickFilter = "all" | "active" | "zero";
 
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
@@ -35,8 +36,6 @@ function getAccountColor(username: string | null) {
 
 function getCampaignInitials(name: string | null) {
   if (!name) return "??";
-  // Strip leading non-alphanumeric (e.g. "1. Onlysearch" → "Onlysearch", but "50/50" → "50")
-  // Use first 2 alphanumeric chars from the cleaned name
   const cleaned = name.replace(/^[^a-zA-Z0-9]+/, "");
   return cleaned.slice(0, 2).toUpperCase();
 }
@@ -52,6 +51,25 @@ function formatUpdatedAgo(dateStr: string | null): string | null {
   return `Updated ${days}d ago`;
 }
 
+const STATUS_STYLES: Record<string, string> = {
+  SCALE: "bg-primary/15 text-primary",
+  WATCH: "bg-warning/15 text-warning",
+  LOW: "bg-warning/15 text-warning",
+  KILL: "bg-destructive/15 text-destructive",
+  DEAD: "bg-destructive/15 text-destructive",
+  NO_DATA: "bg-secondary text-muted-foreground",
+};
+
+const STATUS_EMOJI: Record<string, string> = {
+  SCALE: "🟢", WATCH: "🟡", LOW: "🟠", KILL: "🔴", DEAD: "💀", NO_DATA: "⚪",
+};
+
+const COST_TYPE_STYLES: Record<string, string> = {
+  CPC: "bg-info/15 text-info",
+  CPL: "bg-primary/15 text-primary",
+  FIXED: "bg-warning/15 text-warning",
+};
+
 export default function TrackingLinksPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,6 +79,7 @@ export default function TrackingLinksPage() {
   const [page, setPage] = useState(1);
   const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
   const [selectedLink, setSelectedLink] = useState<any>(null);
+  const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
   const perPage = 20;
 
@@ -107,7 +126,7 @@ export default function TrackingLinksPage() {
     return map;
   }, [adSpendData]);
 
-  const totalSpent = useMemo(() => adSpendData.reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0), [adSpendData]);
+  const totalSpent = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.cost_total || 0), 0), [links]);
   const totalRevenue = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0), [links]);
   const blendedRoi = useMemo(() => {
     if (totalSpent <= 0) return null;
@@ -150,22 +169,17 @@ export default function TrackingLinksPage() {
 
   const enrichedLinks = useMemo(() => {
     return links.map((l: any) => {
-      const cost = adSpendMap[l.campaign_id] || 0;
-      const revenue = Number(l.revenue || 0);
-      const profit = cost > 0 ? revenue - cost : null;
-      const roi = cost > 0 ? (profit! / cost) * 100 : null;
-      const arps = l.subscribers > 0 ? revenue / l.subscribers : 0;
       const daysSinceCreated = differenceInDays(new Date(), new Date(l.created_at));
       const isZeroClicksStale = l.clicks === 0 && daysSinceCreated >= 3;
-      const isHighRevenue = revenue > 10000;
+      const isHighRevenue = Number(l.revenue) > 10000;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
       const daysSinceActivity = calcDate ? differenceInDays(new Date(), calcDate) : 999;
-      const isNaturallyActive = (l.clicks > 0 || revenue > 0) && daysSinceActivity <= 30;
+      const isNaturallyActive = (l.clicks > 0 || Number(l.revenue) > 0) && daysSinceActivity <= 30;
       const hasOverride = manualOverrides[l.id] !== undefined;
       const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
-      return { ...l, cost, profit, roi, arps, isZeroClicksStale, isHighRevenue, isActive, daysSinceActivity };
+      return { ...l, isZeroClicksStale, isHighRevenue, isActive, daysSinceActivity };
     });
-  }, [links, adSpendMap, manualOverrides]);
+  }, [links, manualOverrides]);
 
   const filtered = useMemo(() => {
     let result = enrichedLinks;
@@ -190,11 +204,14 @@ export default function TrackingLinksPage() {
         case "campaign_name": aVal = (a.campaign_name || "").toLowerCase(); bVal = (b.campaign_name || "").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "clicks": aVal = a.clicks; bVal = b.clicks; break;
         case "subscribers": aVal = a.subscribers; bVal = b.subscribers; break;
+        case "cvr": aVal = Number(a.cvr || 0); bVal = Number(b.cvr || 0); break;
+        case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "revenue": aVal = Number(a.revenue); bVal = Number(b.revenue); break;
         case "spenders": aVal = a.spenders; bVal = b.spenders; break;
-        case "profit": aVal = a.profit ?? -Infinity; bVal = b.profit ?? -Infinity; break;
-        case "roi": aVal = a.roi ?? -Infinity; bVal = b.roi ?? -Infinity; break;
-        case "arps": aVal = a.arps; bVal = b.arps; break;
+        case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
+        case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
+        case "arpu": aVal = Number(a.arpu || 0); bVal = Number(b.arpu || 0); break;
+        case "cpl_real": aVal = Number(a.cpl_real || 0); bVal = Number(b.cpl_real || 0); break;
         case "created_at": aVal = new Date(a.created_at).getTime(); bVal = new Date(b.created_at).getTime(); break;
         default: aVal = 0; bVal = 0;
       }
@@ -223,6 +240,8 @@ export default function TrackingLinksPage() {
   const toggleActiveOverride = (id: string, currentActive: boolean) => {
     setManualOverrides((prev) => ({ ...prev, [id]: !currentActive }));
   };
+
+  const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const SortHeader = ({ label, sortKeyName, width }: { label: string; sortKeyName: SortKey; width?: string }) => (
     <th
@@ -266,10 +285,10 @@ export default function TrackingLinksPage() {
               <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-destructive" />
               </div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Spent</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Cost</span>
             </div>
-            <p className={`text-[28px] font-bold font-mono ${totalSpent > 0 ? "text-foreground" : "text-destructive"}`}>
-              ${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <p className={`text-[28px] font-bold font-mono ${totalSpent > 0 ? "text-foreground" : "text-muted-foreground"}`}>
+              {fmtC(totalSpent)}
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
@@ -280,7 +299,7 @@ export default function TrackingLinksPage() {
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</span>
             </div>
             <p className="text-[28px] font-bold font-mono text-primary">
-              ${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {fmtC(totalRevenue)}
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
@@ -386,44 +405,45 @@ export default function TrackingLinksPage() {
         ) : (
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px] table-fixed">
+              <table className="w-full text-[13px]">
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border bg-secondary/30">
-                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
-                    <th
-                      className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
-                      style={{ width: "130px", minWidth: "130px", maxWidth: "130px" }}
-                    >Account</th>
-                    <SortHeader label="Clicks" sortKeyName="clicks" width="65px" />
-                    <SortHeader label="Subs" sortKeyName="subscribers" width="65px" />
-                    <th
-                      className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
-                      style={{ width: "90px", minWidth: "90px", maxWidth: "90px" }}
-                    >Cost</th>
-                    <SortHeader label="Revenue" sortKeyName="revenue" width="100px" />
-                    <SortHeader label="Spenders" sortKeyName="spenders" width="75px" />
-                    <SortHeader label="Profit" sortKeyName="profit" width="85px" />
-                    <SortHeader label="ROI" sortKeyName="roi" width="70px" />
-                    <SortHeader label="ARPS" sortKeyName="arps" width="75px" />
-                    <SortHeader label="Created" sortKeyName="created_at" width="95px" />
-                    <th
-                      className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
-                      style={{ width: "75px", minWidth: "75px", maxWidth: "75px" }}
-                    >Status</th>
+                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="180px" />
+                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
+                    <SortHeader label="Clicks" sortKeyName="clicks" width="60px" />
+                    <SortHeader label="Subs" sortKeyName="subscribers" width="55px" />
+                    <SortHeader label="CVR" sortKeyName="cvr" width="55px" />
+                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "55px" }}>Type</th>
+                    <SortHeader label="Cost" sortKeyName="cost_total" width="80px" />
+                    <SortHeader label="Revenue" sortKeyName="revenue" width="90px" />
+                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>EPC</th>
+                    <SortHeader label="ARPU" sortKeyName="arpu" width="60px" />
+                    <SortHeader label="CPL" sortKeyName="cpl_real" width="60px" />
+                    <SortHeader label="Profit" sortKeyName="profit" width="80px" />
+                    <SortHeader label="ROI" sortKeyName="roi" width="60px" />
+                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "70px" }}>Status</th>
+                    <SortHeader label="Created" sortKeyName="created_at" width="85px" />
+                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "65px" }}>Active</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((link: any, idx: number) => {
-                    const updatedAgo = formatUpdatedAgo(link.calculated_at);
-                    const borderClass = link.isZeroClicksStale
-                      ? "border-l-2 border-l-destructive"
-                      : link.isHighRevenue
-                      ? "border-l-2 border-l-primary"
-                      : "border-l-2 border-l-transparent";
-                    const rowOpacity = link.isActive ? "" : "opacity-50";
-                    const username = link.accounts?.username || link.accounts?.display_name || "—";
+                  {paginated.map((link: any) => {
                     const acctColor = getAccountColor(link.accounts?.username);
                     const initials = getCampaignInitials(link.campaign_name);
+                    const username = link.accounts?.username || link.accounts?.display_name || "—";
+                    const borderClass = link.isZeroClicksStale
+                      ? "border-l-2 border-l-destructive"
+                      : link.isHighRevenue ? "border-l-2 border-l-primary" : "border-l-2 border-l-transparent";
+                    const rowOpacity = link.isActive ? "" : "opacity-50";
+                    const epc = link.clicks > 0 ? Number(link.revenue) / link.clicks : 0;
+                    const costTotal = Number(link.cost_total || 0);
+                    const profit = Number(link.profit || 0);
+                    const roi = Number(link.roi || 0);
+                    const cvr = Number(link.cvr || 0);
+                    const arpu = Number(link.arpu || 0);
+                    const cplReal = Number(link.cpl_real || 0);
+                    const status = link.status || "NO_DATA";
+                    const hasCost = link.cost_type && costTotal > 0;
 
                     return (
                       <tr
@@ -432,115 +452,92 @@ export default function TrackingLinksPage() {
                         onClick={() => setSelectedLink(link)}
                       >
                         {/* Campaign */}
-                        <td className="px-2 py-2" style={{ width: "200px", maxWidth: "200px" }}>
+                        <td className="px-2 py-2" style={{ maxWidth: "180px" }}>
                           <div className="flex items-center gap-2 min-w-0">
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>
                               {initials}
                             </div>
                             <div className="min-w-0 overflow-hidden">
                               <p className="font-semibold text-foreground text-[13px] truncate leading-tight">{link.campaign_name || "Unnamed"}</p>
-                              <a
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-[10px] text-muted-foreground hover:text-primary truncate block transition-colors leading-tight"
-                              >
-                                {link.url}
-                              </a>
+                              <a href={link.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[10px] text-muted-foreground hover:text-primary truncate block transition-colors leading-tight">{link.url}</a>
                             </div>
                           </div>
                         </td>
                         {/* Account */}
-                        <td className="px-2 py-2" style={{ width: "130px", maxWidth: "130px" }}>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${acctColor.bg} ${acctColor.text}`}>
-                              {(link.accounts?.display_name || "?")[0]?.toUpperCase()}
-                            </div>
-                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
-                          </div>
+                        <td className="px-2 py-2" style={{ maxWidth: "100px" }}>
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
                         </td>
                         {/* Clicks */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
-                          {link.clicks.toLocaleString()}
-                        </td>
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.clicks.toLocaleString()}</td>
                         {/* Subs */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
-                          {link.subscribers.toLocaleString()}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.subscribers.toLocaleString()}</td>
+                        {/* CVR */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{(cvr * 100).toFixed(1)}%</td>
+                        {/* Cost Type */}
+                        <td className="px-2 py-2">
+                          {link.cost_type ? (
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${COST_TYPE_STYLES[link.cost_type] || "bg-secondary text-muted-foreground"}`}>
+                              {link.cost_type}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-secondary text-muted-foreground">—</span>
+                          )}
                         </td>
                         {/* Cost */}
-                        <td className="px-2 py-2" style={{ width: "90px" }}>
+                        <td className="px-2 py-2">
                           <button
-                            onClick={(e) => { e.stopPropagation(); setAdSpendSlideIn(link); }}
-                            className="inline-flex items-center gap-[4px] text-[12px] transition-colors whitespace-nowrap"
+                            onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
+                            className="text-[12px] transition-colors whitespace-nowrap"
                           >
-                            {link.cost > 0 ? (
-                              <>
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                <span className="font-mono text-foreground">${link.cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                              </>
+                            {hasCost ? (
+                              <span className="font-mono text-foreground">{fmtC(costTotal)}</span>
                             ) : (
-                              <>
-                                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground shrink-0" />
-                                <span className="text-muted-foreground hover:text-primary">Set cost</span>
-                              </>
+                              <span className="text-muted-foreground hover:text-primary">Set cost</span>
                             )}
                           </button>
                         </td>
                         {/* Revenue */}
-                        <td className="px-2 py-2" style={{ width: "100px" }}>
-                          <p className="font-mono text-[12px] text-primary font-semibold leading-tight">
-                            ${Number(link.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                          {updatedAgo && (
-                            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{updatedAgo}</p>
-                          )}
+                        <td className="px-2 py-2">
+                          <span className="font-mono text-[12px] text-primary font-semibold">{fmtC(Number(link.revenue))}</span>
                         </td>
-                        {/* Spenders */}
-                        <td className="px-2 py-2" style={{ width: "75px" }}>
-                          <span className="flex items-center gap-1 font-mono text-[12px] text-foreground">
-                            <Users className="h-3 w-3 text-muted-foreground" />
-                            {link.spenders}
-                          </span>
-                        </td>
+                        {/* EPC */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">${epc.toFixed(2)}</td>
+                        {/* ARPU */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">${arpu.toFixed(2)}</td>
+                        {/* CPL */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{cplReal > 0 ? `$${cplReal.toFixed(2)}` : "—"}</td>
                         {/* Profit */}
-                        <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "85px" }}>
-                          {link.profit !== null ? (
-                            <span className={link.profit >= 0 ? "text-primary" : "text-destructive"}>
-                              {link.profit >= 0 ? "+" : ""}${Math.abs(link.profit).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        <td className="px-2 py-2 font-mono text-[12px]">
+                          {hasCost ? (
+                            <span className={profit >= 0 ? "text-primary" : "text-destructive"}>
+                              {profit >= 0 ? "+" : ""}{fmtC(profit)}
                             </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          ) : <span className="text-muted-foreground">—</span>}
                         </td>
                         {/* ROI */}
-                        <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "70px" }}>
-                          {link.roi !== null ? (
-                            <span className={link.roi >= 0 ? "text-primary" : "text-destructive"}>
-                              {link.roi.toFixed(1)}%
+                        <td className="px-2 py-2 font-mono text-[12px]">
+                          {hasCost ? (
+                            <span className={roi >= 0 ? "text-primary" : "text-destructive"}>
+                              {roi.toFixed(1)}%
                             </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        {/* ARPS */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "75px" }}>
-                          ${link.arps.toFixed(2)}
-                        </td>
-                        {/* Created */}
-                        <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap" style={{ width: "95px" }}>
-                          {formatCreatedAt(link.created_at)}
+                          ) : <span className="text-muted-foreground">—</span>}
                         </td>
                         {/* Status */}
-                        <td className="px-2 py-2" style={{ width: "75px" }}>
+                        <td className="px-2 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_STYLES[status] || STATUS_STYLES.NO_DATA}`}>
+                            {STATUS_EMOJI[status]} {status.replace("_", " ")}
+                          </span>
+                        </td>
+                        {/* Created */}
+                        <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">{formatCreatedAt(link.created_at)}</td>
+                        {/* Active */}
+                        <td className="px-2 py-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleActiveOverride(link.id, link.isActive); }}
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
-                                  link.isActive
-                                    ? "bg-primary/20 text-primary"
-                                    : "bg-secondary text-muted-foreground"
+                                  link.isActive ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
                                 }`}
                               >
                                 {link.isActive ? "Active" : "Inactive"}
@@ -564,11 +561,7 @@ export default function TrackingLinksPage() {
                 Showing {showStart}–{showEnd} of {sorted.length} tracking links
               </span>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(Math.max(1, safePage - 1))}
-                  disabled={safePage <= 1}
-                  className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors"
-                >
+                <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
                   <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                 </button>
                 {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
@@ -582,20 +575,14 @@ export default function TrackingLinksPage() {
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
                       className={`w-8 h-8 rounded text-xs font-medium transition-colors ${
-                        pageNum === safePage
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        pageNum === safePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                       }`}
                     >
                       {pageNum}
                     </button>
                   );
                 })}
-                <button
-                  onClick={() => setPage(Math.min(totalPages, safePage + 1))}
-                  disabled={safePage >= totalPages}
-                  className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors"
-                >
+                <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
@@ -636,39 +623,19 @@ export default function TrackingLinksPage() {
                     const entryRoi = amt > 0 ? ((rev - amt) / amt) * 100 : null;
                     return (
                       <tr key={entry.id} className="border-b border-border hover:bg-secondary/20 transition-colors">
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                          {entry.date ? format(new Date(entry.date), "MMM d, yyyy") : "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-[13px] text-foreground font-medium">
-                          {entry.campaigns?.name || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                          {entry.media_buyer || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground capitalize">
-                          {entry.traffic_source || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 font-mono text-[13px] text-foreground">
-                          ${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-4 py-2.5 font-mono text-[13px] text-primary">
-                          ${rev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{entry.date ? format(new Date(entry.date), "MMM d, yyyy") : "—"}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-foreground font-medium">{entry.campaigns?.name || "—"}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{entry.media_buyer || "—"}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground capitalize">{entry.traffic_source || "—"}</td>
+                        <td className="px-4 py-2.5 font-mono text-[13px] text-foreground">{fmtC(amt)}</td>
+                        <td className="px-4 py-2.5 font-mono text-[13px] text-primary">{fmtC(rev)}</td>
                         <td className="px-4 py-2.5 font-mono text-[13px]">
                           {entryRoi !== null ? (
-                            <span className={entryRoi >= 0 ? "text-primary" : "text-destructive"}>
-                              {entryRoi.toFixed(1)}%
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                            <span className={entryRoi >= 0 ? "text-primary" : "text-destructive"}>{entryRoi.toFixed(1)}%</span>
+                          ) : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="px-4 py-2.5">
-                          <button
-                            onClick={() => deleteSpendMutation.mutate(entry.id)}
-                            disabled={deleteSpendMutation.isPending}
-                            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                          >
+                          <button onClick={() => deleteSpendMutation.mutate(entry.id)} disabled={deleteSpendMutation.isPending} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </td>
@@ -690,13 +657,25 @@ export default function TrackingLinksPage() {
         />
       )}
 
+      {costSlideIn && (
+        <CostSettingSlideIn
+          link={costSlideIn}
+          onClose={() => setCostSlideIn(null)}
+          onSaved={() => {
+            setCostSlideIn(null);
+            queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+            toast.success("Cost saved & metrics recalculated");
+          }}
+        />
+      )}
+
       {selectedLink && (
         <CampaignDetailSlideIn
           link={selectedLink}
-          cost={adSpendMap[selectedLink.campaign_id] || 0}
+          cost={Number(selectedLink.cost_total || 0)}
           onClose={() => setSelectedLink(null)}
           onSetCost={() => {
-            setAdSpendSlideIn(selectedLink);
+            setCostSlideIn(selectedLink);
             setSelectedLink(null);
           }}
         />
