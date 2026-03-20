@@ -361,6 +361,19 @@ export default function DashboardPage() {
                 className="bg-card border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-all w-64"
               />
             </div>
+            <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
+              {(["all", "new", "active", "mature", "old"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setAgeFilter(f)}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
+                </button>
+              ))}
+            </div>
             <button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all">
               <Download className="h-3.5 w-3.5" /> CSV
             </button>

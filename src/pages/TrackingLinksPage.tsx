@@ -373,6 +373,19 @@ export default function TrackingLinksPage() {
               </button>
             ))}
           </div>
+          <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
+            {(["all", "new", "active", "mature", "old"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => { setAgeFilter(f); setPage(1); }}
+                className={`px-3 py-2 text-xs font-medium transition-colors ${
+                  ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => syncMutation.mutate(undefined)}
             disabled={syncMutation.isPending}
