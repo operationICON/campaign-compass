@@ -574,7 +574,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
-                  <span className="font-mono text-sm font-semibold text-primary shrink-0">{fmtCurrency(Number(l.revenue))}</span>
+                  <span className="font-mono text-sm font-semibold gradient-text shrink-0">{fmtCurrency(Number(l.revenue))}</span>
                 </button>
               ))}
             </div>
