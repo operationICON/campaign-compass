@@ -47,7 +47,7 @@ export default function AccountsPage() {
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4 mr-2" /> Add Account</Button>
+              <Button className="gradient-bg text-white hover:opacity-90 rounded-[10px]"><Plus className="h-4 w-4 mr-2" /> Add Account</Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border">
               <DialogHeader><DialogTitle>{editAccount ? "Edit Account" : "Add Account"}</DialogTitle></DialogHeader>
