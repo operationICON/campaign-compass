@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.debug-api]
 verify_jwt = false
+
+[functions.sync-orchestrator]
+verify_jwt = false
+
+[functions.sync-account]
+verify_jwt = false

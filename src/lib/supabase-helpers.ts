@@ -136,7 +136,7 @@ export async function triggerSync(accountId?: string, force = false) {
   if (accountId) body.account_id = accountId;
   if (force) body.force = true;
 
-  const response = await supabase.functions.invoke("sync-onlyfans", { body });
+  const response = await supabase.functions.invoke("sync-orchestrator", { body });
 
   if (response.error) throw response.error;
   return response.data;
