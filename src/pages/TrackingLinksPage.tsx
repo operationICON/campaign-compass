@@ -431,6 +431,40 @@ export default function TrackingLinksPage() {
           </button>
         </div>
 
+        {/* Account Summary Bar */}
+        {accountSummary.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {accountSummary.map((acc) => {
+                const isActive = accountFilter === acc.id;
+                const color = getAccountColor(acc.username);
+                return (
+                  <button
+                    key={acc.id}
+                    onClick={() => { setAccountFilter(isActive ? null : acc.id); setPage(1); }}
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all shrink-0 ${
+                      isActive
+                        ? "bg-primary/15 border border-primary/40 text-foreground"
+                        : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${color.bg} ${color.text}`}>
+                      {acc.display_name.charAt(0)}
+                    </div>
+                    <span className="text-xs">@{acc.username}</span>
+                    <span className="text-xs text-muted-foreground">·</span>
+                    <span className="text-xs font-bold text-primary">{acc.count}</span>
+                    <span className="text-[10px] text-muted-foreground">campaigns</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+              Total: <span className="font-bold text-primary">{enrichedLinks.length}</span> campaigns across <span className="font-bold text-foreground">{accountSummary.length}</span> accounts
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         {isLoading ? (
           <div className="bg-card border border-border rounded-lg p-8">
@@ -445,9 +479,9 @@ export default function TrackingLinksPage() {
             <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-foreground font-medium mb-1">No tracking links found</p>
             <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery || clickFilter !== "all" || ageFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}
+              {searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter ? "Try adjusting your filters." : "Run a sync to get started."}
             </p>
-            {!searchQuery && clickFilter === "all" && ageFilter === "all" && (
+            {!searchQuery && clickFilter === "all" && ageFilter === "all" && !accountFilter && (
               <button
                 onClick={() => syncMutation.mutate(undefined)}
                 disabled={syncMutation.isPending}
@@ -457,9 +491,9 @@ export default function TrackingLinksPage() {
                 Sync Now
               </button>
             )}
-            {(searchQuery || clickFilter !== "all" || ageFilter !== "all") && (
+            {(searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter) && (
               <button
-                onClick={() => { setSearchQuery(""); setClickFilter("all"); setAgeFilter("all"); }}
+                onClick={() => { setSearchQuery(""); setClickFilter("all"); setAgeFilter("all"); setAccountFilter(null); }}
                 className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors"
               >
                 Clear Filters
@@ -468,6 +502,26 @@ export default function TrackingLinksPage() {
           </div>
         ) : (
           <div className="bg-card border border-border rounded-lg overflow-hidden">
+            {/* Showing count + rows per page */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+              <span className="text-xs text-muted-foreground">
+                Showing {showStart}–{showEnd} of {sorted.length} campaigns
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Rows per page:</span>
+                {[10, 25, 50, 100].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => { setPerPage(n); setPage(1); }}
+                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                      perPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead className="sticky top-0 z-10 bg-card">
