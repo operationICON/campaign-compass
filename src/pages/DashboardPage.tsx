@@ -338,7 +338,8 @@ export default function DashboardPage() {
         {/* HEADER */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Campaign Dashboard</h1>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-medium mb-1">Campaign Overview</p>
+            <h1 className="text-[19px] font-bold text-foreground">Campaign <span className="gradient-text">Performance</span></h1>
             <div className="flex items-center gap-2 mt-1">
               {lastSynced && (
                 <span className="text-xs text-muted-foreground">
@@ -360,10 +361,10 @@ export default function DashboardPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search campaigns..."
-                className="bg-card border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-all w-64"
+                className="bg-card border border-border rounded-[10px] pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-all duration-200 w-64"
               />
             </div>
-            <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
+            <div className="flex items-center bg-card border border-border rounded-[10px] overflow-hidden">
               {(["all", "new", "active", "mature", "old"] as const).map((f) => {
                 const count = f === "all" ? links.length : links.filter((l: any) => {
                   if (!l.created_at) return false;
@@ -377,28 +378,30 @@ export default function DashboardPage() {
                   <button
                     key={f}
                     onClick={() => setAgeFilter(f)}
-                    className={`px-3 py-2 text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${
-                      ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    className={`px-3 py-2 text-xs font-medium transition-colors duration-200 inline-flex items-center gap-1.5 ${
+                      ageFilter === f ? "gradient-bg text-white" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
                     <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                      ageFilter === f ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                     }`}>{count}</span>
                   </button>
                 );
               })}
             </div>
-            <button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all">
+            <button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all duration-200">
               <Download className="h-3.5 w-3.5" /> CSV
             </button>
-            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all">
+            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all duration-200">
               <FileText className="h-3.5 w-3.5" /> PDF
             </button>
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow ${
+                syncMutation.isPending ? "gradient-bg" : "gradient-bg hover:opacity-90"
+              }`}
             >
               <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
               {syncMutation.isPending ? "Syncing..." : "Sync Now"}
