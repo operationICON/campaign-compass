@@ -413,9 +413,6 @@ export default function TrackingLinksPage() {
                 </thead>
                 <tbody>
                   {paginated.map((link: any, idx: number) => {
-                    // Debug: log first 3 rows' created_at
-                    if (idx < 3) console.log(`[TrackingLinks] Row ${idx}:`, link.campaign_name, 'created_at:', link.created_at, 'formatted:', formatCreatedAt(link.created_at));
-                    const isExpanded = expandedRow === link.id;
                     const updatedAgo = formatUpdatedAgo(link.calculated_at);
                     const borderClass = link.isZeroClicksStale
                       ? "border-l-2 border-l-destructive"
@@ -428,159 +425,132 @@ export default function TrackingLinksPage() {
                     const initials = getCampaignInitials(link.campaign_name);
 
                     return (
-                      <React.Fragment key={link.id}>
-                        <tr
-                          className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`}
-                          onClick={() => setExpandedRow(isExpanded ? null : link.id)}
-                        >
-                          {/* Campaign */}
-                          <td className="px-2 py-2" style={{ width: "200px", maxWidth: "200px" }}>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>
-                                {initials}
-                              </div>
-                              <div className="min-w-0 overflow-hidden">
-                                <p className="font-semibold text-foreground text-[13px] truncate leading-tight">{link.campaign_name || "Unnamed"}</p>
-                                <a
-                                  href={link.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-[10px] text-muted-foreground hover:text-primary truncate block transition-colors leading-tight"
-                                >
-                                  {link.url}
-                                </a>
-                              </div>
+                      <tr
+                        key={link.id}
+                        className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`}
+                        onClick={() => setSelectedLink(link)}
+                      >
+                        {/* Campaign */}
+                        <td className="px-2 py-2" style={{ width: "200px", maxWidth: "200px" }}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>
+                              {initials}
                             </div>
-                          </td>
-                          {/* Account */}
-                          <td className="px-2 py-2" style={{ width: "130px", maxWidth: "130px" }}>
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${acctColor.bg} ${acctColor.text}`}>
-                                {(link.accounts?.display_name || "?")[0]?.toUpperCase()}
-                              </div>
-                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
+                            <div className="min-w-0 overflow-hidden">
+                              <p className="font-semibold text-foreground text-[13px] truncate leading-tight">{link.campaign_name || "Unnamed"}</p>
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[10px] text-muted-foreground hover:text-primary truncate block transition-colors leading-tight"
+                              >
+                                {link.url}
+                              </a>
                             </div>
-                          </td>
-                          {/* Clicks */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
-                            {link.clicks.toLocaleString()}
-                          </td>
-                          {/* Subs */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
-                            {link.subscribers.toLocaleString()}
-                          </td>
-                          {/* Cost */}
-                          <td className="px-2 py-2" style={{ width: "90px" }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setAdSpendSlideIn(link); }}
-                              className="inline-flex items-center gap-[4px] text-[12px] transition-colors whitespace-nowrap"
-                            >
-                              {link.cost > 0 ? (
-                                <>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                  <span className="font-mono text-foreground">${link.cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground shrink-0" />
-                                  <span className="text-muted-foreground hover:text-primary">Set cost</span>
-                                </>
-                              )}
-                            </button>
-                          </td>
-                          {/* Revenue */}
-                          <td className="px-2 py-2" style={{ width: "100px" }}>
-                            <p className="font-mono text-[12px] text-primary font-semibold leading-tight">
-                              ${Number(link.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                            {updatedAgo && (
-                              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{updatedAgo}</p>
+                          </div>
+                        </td>
+                        {/* Account */}
+                        <td className="px-2 py-2" style={{ width: "130px", maxWidth: "130px" }}>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${acctColor.bg} ${acctColor.text}`}>
+                              {(link.accounts?.display_name || "?")[0]?.toUpperCase()}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
+                          </div>
+                        </td>
+                        {/* Clicks */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
+                          {link.clicks.toLocaleString()}
+                        </td>
+                        {/* Subs */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "65px" }}>
+                          {link.subscribers.toLocaleString()}
+                        </td>
+                        {/* Cost */}
+                        <td className="px-2 py-2" style={{ width: "90px" }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setAdSpendSlideIn(link); }}
+                            className="inline-flex items-center gap-[4px] text-[12px] transition-colors whitespace-nowrap"
+                          >
+                            {link.cost > 0 ? (
+                              <>
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                <span className="font-mono text-foreground">${link.cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground shrink-0" />
+                                <span className="text-muted-foreground hover:text-primary">Set cost</span>
+                              </>
                             )}
-                          </td>
-                          {/* Spenders */}
-                          <td className="px-2 py-2" style={{ width: "75px" }}>
-                            <span className="flex items-center gap-1 font-mono text-[12px] text-foreground">
-                              <Users className="h-3 w-3 text-muted-foreground" />
-                              {link.spenders}
+                          </button>
+                        </td>
+                        {/* Revenue */}
+                        <td className="px-2 py-2" style={{ width: "100px" }}>
+                          <p className="font-mono text-[12px] text-primary font-semibold leading-tight">
+                            ${Number(link.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          {updatedAgo && (
+                            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{updatedAgo}</p>
+                          )}
+                        </td>
+                        {/* Spenders */}
+                        <td className="px-2 py-2" style={{ width: "75px" }}>
+                          <span className="flex items-center gap-1 font-mono text-[12px] text-foreground">
+                            <Users className="h-3 w-3 text-muted-foreground" />
+                            {link.spenders}
+                          </span>
+                        </td>
+                        {/* Profit */}
+                        <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "85px" }}>
+                          {link.profit !== null ? (
+                            <span className={link.profit >= 0 ? "text-primary" : "text-destructive"}>
+                              {link.profit >= 0 ? "+" : ""}${Math.abs(link.profit).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </span>
-                          </td>
-                          {/* Profit */}
-                          <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "85px" }}>
-                            {link.profit !== null ? (
-                              <span className={link.profit >= 0 ? "text-primary" : "text-destructive"}>
-                                {link.profit >= 0 ? "+" : ""}${Math.abs(link.profit).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          {/* ROI */}
-                          <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "70px" }}>
-                            {link.roi !== null ? (
-                              <span className={link.roi >= 0 ? "text-primary" : "text-destructive"}>
-                                {link.roi.toFixed(1)}%
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          {/* ARPS */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "75px" }}>
-                            ${link.arps.toFixed(2)}
-                          </td>
-                          {/* Created */}
-                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap" style={{ width: "95px" }}>
-                            {formatCreatedAt(link.created_at)}
-                          </td>
-                          {/* Status */}
-                          <td className="px-2 py-2" style={{ width: "75px" }}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); toggleActiveOverride(link.id, link.isActive); }}
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
-                                    link.isActive
-                                      ? "bg-primary/20 text-primary"
-                                      : "bg-secondary text-muted-foreground"
-                                  }`}
-                                >
-                                  {link.isActive ? "Active" : "Inactive"}
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Last activity: {link.daysSinceActivity < 999 ? `${link.daysSinceActivity} days ago` : "Unknown"}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </td>
-                        </tr>
-                        {isExpanded && (
-                          <tr className="border-b border-border bg-secondary/10">
-                            <td colSpan={12} className="px-4 py-3">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                                <div>
-                                  <span className="text-muted-foreground block mb-0.5">Full URL</span>
-                                  <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 break-all text-[11px]">
-                                    {link.url} <ExternalLink className="h-3 w-3 shrink-0" />
-                                  </a>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground block mb-0.5">Campaign ID</span>
-                                  <span className="font-mono text-foreground text-[11px]">{link.campaign_id}</span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground block mb-0.5">Account</span>
-                                  <span className="text-foreground text-[11px]">{link.accounts?.display_name || "—"}</span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground block mb-0.5">Country</span>
-                                  <span className="text-foreground text-[11px]">{link.country || "—"}</span>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        {/* ROI */}
+                        <td className="px-2 py-2 font-mono text-[12px]" style={{ width: "70px" }}>
+                          {link.roi !== null ? (
+                            <span className={link.roi >= 0 ? "text-primary" : "text-destructive"}>
+                              {link.roi.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        {/* ARPS */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground" style={{ width: "75px" }}>
+                          ${link.arps.toFixed(2)}
+                        </td>
+                        {/* Created */}
+                        <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap" style={{ width: "95px" }}>
+                          {formatCreatedAt(link.created_at)}
+                        </td>
+                        {/* Status */}
+                        <td className="px-2 py-2" style={{ width: "75px" }}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleActiveOverride(link.id, link.isActive); }}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
+                                  link.isActive
+                                    ? "bg-primary/20 text-primary"
+                                    : "bg-secondary text-muted-foreground"
+                                }`}
+                              >
+                                {link.isActive ? "Active" : "Inactive"}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Last activity: {link.daysSinceActivity < 999 ? `${link.daysSinceActivity} days ago` : "Unknown"}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
