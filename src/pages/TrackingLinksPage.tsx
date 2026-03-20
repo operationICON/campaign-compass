@@ -86,6 +86,25 @@ export default function TrackingLinksPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
+  const [importModalOpen, setImportModalOpen] = useState(false);
+
+  const exportCampaignsCsv = useCallback(() => {
+    const header = "campaign_name,account_username,clicks,subscribers,revenue,current_cost_type,current_cost_value";
+    const rows = links.map((l: any) => {
+      const cn = (l.campaign_name || "").replace(/,/g, " ");
+      const un = (l.accounts?.username || "").replace(/,/g, " ");
+      return `${cn},${un},${l.clicks || 0},${l.subscribers || 0},${Number(l.revenue || 0).toFixed(2)},${l.cost_type || ""},${l.cost_value ?? ""}`;
+    });
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `campaigns_export_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${links.length} campaigns`);
+  }, [links]);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
