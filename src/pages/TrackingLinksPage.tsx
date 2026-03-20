@@ -23,11 +23,11 @@ type SortKey = "campaign_name" | "clicks" | "subscribers" | "cvr" | "cost_total"
 type ClickFilter = "all" | "active" | "zero";
 
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
-  "jessie_ca_xo": { bg: "bg-primary/20", text: "text-primary" },
-  "miakitty.ts": { bg: "bg-info/20", text: "text-info" },
-  "zoey.skyy": { bg: "bg-[hsl(263_70%_50%/0.2)]", text: "text-[hsl(263_70%_50%)]" },
-  "ella_cherryy": { bg: "bg-warning/20", text: "text-warning" },
-  "aylin_bigts": { bg: "bg-[hsl(330_70%_55%/0.2)]", text: "text-[hsl(330_70%_55%)]" },
+  "jessie_ca_xo": { bg: "bg-[hsl(24_95%_53%/0.15)]", text: "text-[hsl(24_95%_53%)]" },
+  "miakitty.ts": { bg: "bg-[hsl(0_72%_51%/0.15)]", text: "text-[hsl(0_72%_51%)]" },
+  "zoey.skyy": { bg: "bg-[hsl(40_96%_53%/0.15)]", text: "text-[hsl(40_96%_53%)]" },
+  "ella_cherryy": { bg: "bg-[hsl(15_80%_45%/0.15)]", text: "text-[hsl(15_80%_45%)]" },
+  "aylin_bigts": { bg: "bg-[hsl(30_75%_40%/0.15)]", text: "text-[hsl(30_75%_40%)]" },
 };
 
 function getAccountColor(username: string | null) {
