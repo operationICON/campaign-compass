@@ -137,10 +137,10 @@ export default function ChartsPage() {
                   ))}
                 </Pie>
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 {/* Center text */}
-                <text x="50%" y="47%" textAnchor="middle" fill="#888" fontSize={11}>Total</text>
-                <text x="50%" y="55%" textAnchor="middle" fill="#fff" fontSize={16} fontWeight="bold">
+                <text x="50%" y="47%" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={11}>Total</text>
+                <text x="50%" y="55%" textAnchor="middle" fill="hsl(var(--foreground))" fontSize={16} fontWeight="bold">
                   ${totalTxRevenue >= 1000 ? `${(totalTxRevenue/1000).toFixed(1)}k` : totalTxRevenue.toFixed(0)}
                 </text>
               </PieChart>
