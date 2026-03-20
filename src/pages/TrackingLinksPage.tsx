@@ -76,14 +76,15 @@ export default function TrackingLinksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [clickFilter, setClickFilter] = useState<ClickFilter>("all");
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
+  const [accountFilter, setAccountFilter] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
   const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
-  const perPage = 20;
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
