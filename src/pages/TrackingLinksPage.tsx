@@ -187,8 +187,29 @@ export default function TrackingLinksPage() {
     });
   }, [links, manualOverrides]);
 
+  // Account summary for the summary bar
+  const accountSummary = useMemo(() => {
+    const map: Record<string, { id: string; username: string; display_name: string; count: number }> = {};
+    enrichedLinks.forEach((l: any) => {
+      const accId = l.account_id;
+      if (!map[accId]) {
+        map[accId] = {
+          id: accId,
+          username: l.accounts?.username || "unknown",
+          display_name: l.accounts?.display_name || "Unknown",
+          count: 0,
+        };
+      }
+      map[accId].count++;
+    });
+    return Object.values(map).sort((a, b) => b.count - a.count);
+  }, [enrichedLinks]);
+
   const filtered = useMemo(() => {
     let result = enrichedLinks;
+    if (accountFilter) {
+      result = result.filter((l: any) => l.account_id === accountFilter);
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
@@ -212,7 +233,7 @@ export default function TrackingLinksPage() {
       });
     }
     return result;
-  }, [enrichedLinks, searchQuery, clickFilter, ageFilter]);
+  }, [enrichedLinks, searchQuery, clickFilter, ageFilter, accountFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a: any, b: any) => {
