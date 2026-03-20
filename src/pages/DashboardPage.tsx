@@ -140,10 +140,16 @@ export default function DashboardPage() {
   const totalClicks = filteredLinks.reduce((s: number, l: any) => s + l.clicks, 0);
   const totalSubscribers = filteredLinks.reduce((s: number, l: any) => s + l.subscribers, 0);
   const totalAdSpend = adSpendData.reduce((s: number, a: any) => s + Number(a.amount), 0);
+  const totalCostFromLinks = filteredLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
   const epc = totalClicks > 0 ? totalRevenue / totalClicks : 0;
   const conversionRate = totalClicks > 0 ? (totalSubscribers / totalClicks) * 100 : 0;
   const profit = totalRevenue - totalAdSpend;
   const roi = totalAdSpend > 0 ? (profit / totalAdSpend) * 100 : 0;
+  const blendedCvr = totalClicks > 0 ? (totalSubscribers / totalClicks) * 100 : 0;
+  const linksWithCost = filteredLinks.filter((l: any) => l.cost_type && Number(l.cost_total) > 0);
+  const totalCostForCpl = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total), 0);
+  const totalSubsForCpl = linksWithCost.reduce((s: number, l: any) => s + l.subscribers, 0);
+  const blendedCpl = totalSubsForCpl > 0 ? totalCostForCpl / totalSubsForCpl : 0;
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();
