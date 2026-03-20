@@ -223,16 +223,16 @@ Deno.serve(async (req) => {
       console.error(`Tracking links error for ${displayName}: ${err.message}`)
     }
 
-    // ── Sync transactions ──
+    // ── Sync transactions (batched) ──
     try {
       const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey)
       console.log(`Got ${txItems.length} transactions for ${displayName}`)
 
+      const txPayloads: Record<string, any>[] = []
       for (const tx of txItems) {
         const externalTxId = String(tx.id ?? '')
         if (!externalTxId) continue
-
-        await db.from('transactions').upsert({
+        txPayloads.push({
           external_transaction_id: externalTxId,
           account_id: accountId,
           revenue: Number(tx.amount ?? 0),
@@ -245,9 +245,15 @@ Deno.serve(async (req) => {
           currency: tx.currency ?? 'USD',
           status: tx.status ?? null,
           user_id: tx.user?.id ? String(tx.user.id) : null,
-        }, { onConflict: 'external_transaction_id' })
-        txCount++
+        })
       }
+
+      // Batch upsert in chunks of 100
+      for (let i = 0; i < txPayloads.length; i += 100) {
+        const batch = txPayloads.slice(i, i + 100)
+        await db.from('transactions').upsert(batch, { onConflict: 'external_transaction_id' })
+      }
+      txCount = txPayloads.length
     } catch (err: any) {
       console.error(`Transactions error for ${displayName}: ${err.message}`)
     }
