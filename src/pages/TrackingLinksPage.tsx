@@ -344,7 +344,7 @@ export default function TrackingLinksPage() {
             </button>
             <button
               onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] gradient-bg text-white text-sm font-medium hover:opacity-90 transition-all duration-200 hero-glow"
             >
               <Plus className="h-4 w-4" />
               Add Ad Spend
