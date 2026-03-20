@@ -12,8 +12,8 @@ const MODEL_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "h
 const TYPE_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
 
 const tooltipStyle = {
-  contentStyle: { background: "hsl(240,17%,12%)", border: "1px solid rgba(249,115,22,0.1)", borderRadius: 14, color: "#fff", fontSize: 12 },
-  labelStyle: { color: "#888" },
+  contentStyle: { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 14, color: "hsl(var(--foreground))", fontSize: 12 },
+  labelStyle: { color: "hsl(var(--muted-foreground))" },
 };
 
 export default function ChartsPage() {
