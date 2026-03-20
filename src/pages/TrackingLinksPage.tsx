@@ -199,8 +199,19 @@ export default function TrackingLinksPage() {
     }
     if (clickFilter === "active") result = result.filter((l: any) => l.clicks > 0);
     if (clickFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
+    if (ageFilter !== "all") {
+      result = result.filter((l: any) => {
+        if (!l.created_at) return false;
+        const days = differenceInDays(new Date(), new Date(l.created_at));
+        if (ageFilter === "new") return days <= 30;
+        if (ageFilter === "active") return days > 30 && days <= 90;
+        if (ageFilter === "mature") return days > 90 && days <= 180;
+        if (ageFilter === "old") return days > 180;
+        return true;
+      });
+    }
     return result;
-  }, [enrichedLinks, searchQuery, clickFilter]);
+  }, [enrichedLinks, searchQuery, clickFilter, ageFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a: any, b: any) => {
