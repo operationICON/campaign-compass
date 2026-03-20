@@ -463,7 +463,7 @@ export default function DashboardPage() {
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</span>
                 </div>
                 <p className={`text-lg font-bold font-mono animate-count-up ${
-                  kpi.colored ? ((kpi.val ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-foreground"
+                  kpi.colored ? ((kpi.val ?? 0) >= 0 ? "gradient-text" : "text-destructive") : "text-foreground"
                 }`}>{kpi.value}</p>
               </div>
             ))}
