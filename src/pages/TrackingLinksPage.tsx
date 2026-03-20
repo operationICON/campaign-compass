@@ -86,7 +86,15 @@ export default function TrackingLinksPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
-  const [importModalOpen, setImportModalOpen] = useState(false);
+
+  const { data: links = [], isLoading } = useQuery({
+    queryKey: ["tracking_links"],
+    queryFn: () => fetchTrackingLinks(),
+  });
+  const { data: adSpendData = [] } = useQuery({
+    queryKey: ["ad_spend"],
+    queryFn: () => fetchAdSpend(),
+  });
 
   const exportCampaignsCsv = useCallback(() => {
     const header = "campaign_name,account_username,clicks,subscribers,revenue,current_cost_type,current_cost_value";
@@ -105,15 +113,6 @@ export default function TrackingLinksPage() {
     URL.revokeObjectURL(url);
     toast.success(`Exported ${links.length} campaigns`);
   }, [links]);
-
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["tracking_links"],
-    queryFn: () => fetchTrackingLinks(),
-  });
-  const { data: adSpendData = [] } = useQuery({
-    queryKey: ["ad_spend"],
-    queryFn: () => fetchAdSpend(),
-  });
 
   const addSpendMutation = useMutation({
     mutationFn: addAdSpend,
