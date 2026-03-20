@@ -422,9 +422,9 @@ export default function TrackingLinksPage() {
                 Sync Now
               </button>
             )}
-            {(searchQuery || clickFilter !== "all") && (
+            {(searchQuery || clickFilter !== "all" || ageFilter !== "all") && (
               <button
-                onClick={() => { setSearchQuery(""); setClickFilter("all"); }}
+                onClick={() => { setSearchQuery(""); setClickFilter("all"); setAgeFilter("all"); }}
                 className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors"
               >
                 Clear Filters
