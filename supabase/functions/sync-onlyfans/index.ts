@@ -61,6 +61,38 @@ async function apiFetch(path: string, apiKey: string): Promise<any> {
   return await res.json()
 }
 
+async function markStuckSyncs(db: any) {
+  const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString()
+  const { data: stuck } = await db.from('sync_logs')
+    .select('id')
+    .eq('status', 'running')
+    .lt('started_at', threeMinutesAgo)
+
+  if (stuck && stuck.length > 0) {
+    const now = new Date().toISOString()
+    for (const row of stuck) {
+      await db.from('sync_logs').update({
+        status: 'error',
+        success: false,
+        finished_at: now,
+        completed_at: now,
+        error_message: 'Sync timed out — exceeded 3 minute limit',
+        message: 'Sync timed out — exceeded 3 minute limit',
+      }).eq('id', row.id)
+
+      await db.from('notifications').insert({
+        type: 'sync_failed',
+        message: `Sync timed out at ${now} — exceeded 3 minute limit`,
+      })
+    }
+    console.log(`Marked ${stuck.length} stuck syncs as failed`)
+  }
+}
+
+async function createNotification(db: any, type: string, message: string) {
+  await db.from('notifications').insert({ type, message })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -78,6 +110,10 @@ Deno.serve(async (req) => {
   }
 
   const db = createClient(supabaseUrl, serviceKey)
+
+  // Auto-mark stuck syncs before starting
+  await markStuckSyncs(db)
+
   const startedAt = new Date().toISOString()
 
   const { data: syncLog } = await db.from('sync_logs').insert({
@@ -105,6 +141,7 @@ Deno.serve(async (req) => {
         message: 'No accounts returned from API',
         records_processed: 0,
       })
+      await createNotification(db, 'sync_success', 'Sync completed — no accounts found')
       return jsonResponse({ results: [], message: 'No accounts found' })
     }
 
@@ -175,7 +212,6 @@ Deno.serve(async (req) => {
               country: link.country ?? null,
             }
 
-            // Always include created_at from API so upsert updates it on existing rows
             if (link.createdAt) {
               upsertPayload.created_at = link.createdAt
             }
@@ -246,13 +282,11 @@ Deno.serve(async (req) => {
         .lt('created_at', threeDaysAgo)
 
       if (zeroClickLinks && zeroClickLinks.length > 0) {
-        // Resolve old zero_clicks alerts first
         await db.from('alerts')
           .update({ resolved: true, resolved_at: new Date().toISOString() })
           .eq('type', 'zero_clicks')
           .eq('resolved', false)
 
-        // Insert new alerts
         const alertInserts = zeroClickLinks.map((link: any) => ({
           campaign_name: link.campaign_name || 'Unknown',
           account_name: link.accounts?.display_name || 'Unknown',
@@ -265,17 +299,24 @@ Deno.serve(async (req) => {
 
         await db.from('alerts').insert(alertInserts)
         console.log(`Created ${alertInserts.length} zero-click alerts`)
+
+        // Create notification for dead campaigns
+        await createNotification(db, 'dead_campaign', `${zeroClickLinks.length} campaigns have 0 clicks for 3+ days`)
       }
     } catch (err: any) {
       console.error(`Alert check error: ${err.message}`)
     }
 
+    const allSuccess = results.every(r => r.status === 'success')
     await updateSyncLog(db, syncLogId, {
-      success: results.every(r => r.status === 'success'),
+      success: allSuccess,
       message: `Processed ${dbAccounts?.length ?? 0} accounts, ${totalRecords} records`,
       records_processed: totalRecords,
       details: { results },
+      error_message: allSuccess ? null : results.filter(r => r.status === 'error').map(r => r.error).join('; '),
     })
+
+    await createNotification(db, 'sync_success', `Sync completed — ${totalRecords} records processed`)
 
     return jsonResponse({ results, total_records: totalRecords })
   } catch (error: any) {
@@ -286,6 +327,8 @@ Deno.serve(async (req) => {
       details: { error: error.message, stack: error.stack },
     })
 
+    await createNotification(db, 'sync_failed', `Sync failed — ${error.message}`)
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -295,10 +338,11 @@ Deno.serve(async (req) => {
 
 async function updateSyncLog(db: any, id: string | undefined, updates: Record<string, any>) {
   if (!id) return
+  const now = new Date().toISOString()
   await db.from('sync_logs').update({
     ...updates,
-    finished_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
+    finished_at: now,
+    completed_at: now,
     status: updates.success ? 'success' : 'error',
   }).eq('id', id)
 }
