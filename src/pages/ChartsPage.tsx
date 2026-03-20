@@ -129,8 +129,8 @@ export default function ChartsPage() {
                 <Pie
                   data={revenueByType} cx="50%" cy="50%" innerRadius={70} outerRadius={110}
                   dataKey="value" nameKey="name"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={{ stroke: "#555" }}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={{ stroke: "hsl(var(--muted-foreground))" }}
                 >
                   {revenueByType.map((_, i) => (
                     <Cell key={i} fill={TYPE_COLORS[i % TYPE_COLORS.length]} />
