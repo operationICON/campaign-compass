@@ -5,6 +5,7 @@ import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchTrackingLinks, fetchAdSpend, addAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
+import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { toast } from "sonner";
 import { format, differenceInDays, differenceInHours, isToday } from "date-fns";
 import {
@@ -532,7 +533,14 @@ export default function TrackingLinksPage() {
                           </span>
                         </td>
                         {/* Created */}
-                        <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">{formatCreatedAt(link.created_at)}</td>
+                        <td className="px-2 py-2">
+                          <CampaignAgePill
+                            createdAt={link.created_at}
+                            lastActivityAt={link.calculated_at}
+                            clicks={link.clicks}
+                            revenue={Number(link.revenue || 0)}
+                          />
+                        </td>
                         {/* Active */}
                         <td className="px-2 py-2">
                           <Tooltip>

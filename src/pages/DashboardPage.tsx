@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
+import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
+import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
+import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, fetchDailyMetrics, fetchAlerts, fetchSyncSettings, triggerSync, addAdSpend } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
@@ -34,6 +37,8 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"compact" | "full">("compact");
   const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
+  const [selectedLink, setSelectedLink] = useState<any>(null);
+  const [costSlideIn, setCostSlideIn] = useState<any>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
@@ -625,7 +630,7 @@ export default function DashboardPage() {
                     const sparkTrending = spark.length >= 2 ? spark[spark.length - 1].revenue >= spark[spark.length - 2].revenue : true;
 
                     return (
-                      <tr key={link.id} className="border-b border-border hover-emerald-border hover:bg-secondary/30 transition-all duration-200">
+                      <tr key={link.id} className="border-b border-border hover-emerald-border hover:bg-secondary/30 transition-all duration-200 cursor-pointer" onClick={() => setSelectedLink(link)}>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
@@ -677,8 +682,13 @@ export default function DashboardPage() {
                             {status.icon} {status.label}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs font-mono">
-                          {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
+                        <td className="px-3 py-3">
+                          <CampaignAgePill
+                            createdAt={link.created_at}
+                            lastActivityAt={link.calculated_at}
+                            clicks={link.clicks}
+                            revenue={Number(link.revenue || 0)}
+                          />
                         </td>
                         {viewMode === "full" && (
                           <td className="px-3 py-3 text-muted-foreground text-xs font-mono">
@@ -701,6 +711,30 @@ export default function DashboardPage() {
           link={adSpendSlideIn}
           onClose={() => setAdSpendSlideIn(null)}
           onSubmit={handleAdSpendSubmit}
+        />
+      )}
+
+      {selectedLink && (
+        <CampaignDetailSlideIn
+          link={selectedLink}
+          cost={Number(selectedLink.cost_total || 0)}
+          onClose={() => setSelectedLink(null)}
+          onSetCost={() => {
+            setCostSlideIn(selectedLink);
+            setSelectedLink(null);
+          }}
+        />
+      )}
+
+      {costSlideIn && (
+        <CostSettingSlideIn
+          link={costSlideIn}
+          onClose={() => setCostSlideIn(null)}
+          onSaved={() => {
+            setCostSlideIn(null);
+            queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+            toast.success("Cost saved & metrics recalculated");
+          }}
         />
       )}
     </DashboardLayout>
