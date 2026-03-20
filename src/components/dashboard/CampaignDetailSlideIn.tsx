@@ -69,13 +69,15 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
 
   const activityLog = useMemo(() => {
     if (chartData.length === 0) return [];
-    return chartData.map((d: any, i: number) => ({
-      date: d.date,
-      label: i === 0 ? "First synced" : "Updated",
-      clicks: d.clicks,
-      subscribers: d.subscribers,
-      revenue: d.revenue,
-    }));
+    return chartData
+      .map((d: any, i: number) => ({
+        date: d.date,
+        label: i === 0 ? "First synced" : "Updated",
+        clicks: d.clicks,
+        subscribers: d.subscribers,
+        revenue: d.revenue,
+      }))
+      .slice(-10);
   }, [chartData]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

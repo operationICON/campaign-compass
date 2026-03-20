@@ -713,6 +713,30 @@ export default function DashboardPage() {
           onSubmit={handleAdSpendSubmit}
         />
       )}
+
+      {selectedLink && (
+        <CampaignDetailSlideIn
+          link={selectedLink}
+          cost={Number(selectedLink.cost_total || 0)}
+          onClose={() => setSelectedLink(null)}
+          onSetCost={() => {
+            setCostSlideIn(selectedLink);
+            setSelectedLink(null);
+          }}
+        />
+      )}
+
+      {costSlideIn && (
+        <CostSettingSlideIn
+          link={costSlideIn}
+          onClose={() => setCostSlideIn(null)}
+          onSaved={() => {
+            setCostSlideIn(null);
+            queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+            toast.success("Cost saved & metrics recalculated");
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
