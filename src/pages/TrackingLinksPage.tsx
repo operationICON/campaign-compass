@@ -111,11 +111,14 @@ export default function TrackingLinksPage() {
 
   const syncMutation = useMutation({
     mutationFn: () => triggerSync(undefined, true),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const count = data?.dispatched?.length ?? 0;
+      toast.success(`Sync dispatched for ${count} account(s) — check logs for progress`);
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
-      toast.success("Sync started");
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
     },
+    onError: (err: any) => toast.error(`Sync failed: ${err.message}`),
   });
 
   const adSpendMap = useMemo(() => {

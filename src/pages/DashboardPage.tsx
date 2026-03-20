@@ -57,10 +57,8 @@ export default function DashboardPage() {
   const syncMutation = useMutation({
     mutationFn: () => triggerSync(filters.account_id !== "all" ? filters.account_id : undefined, true),
     onSuccess: (data) => {
-      const results = data?.results ?? [];
-      const errors = results.filter((r: any) => r.status === "error");
-      if (errors.length > 0) toast.warning(`Sync completed with ${errors.length} error(s)`);
-      else toast.success(`Sync completed — ${results.length} account(s) processed`);
+      const count = data?.dispatched?.length ?? 0;
+      toast.success(`Sync dispatched for ${count} account(s) — check logs for progress`);
       ["tracking_links", "accounts", "campaigns", "ad_spend", "sync_logs", "alerts", "daily_metrics"].forEach(k =>
         queryClient.invalidateQueries({ queryKey: [k] })
       );
