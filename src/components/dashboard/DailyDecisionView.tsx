@@ -22,7 +22,14 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
     .slice(0, 5);
 
   const stopLinks = links
-    .filter(l => l.status === "KILL" || l.status === "DEAD");
+    .filter(l => {
+      if (l.status === "KILL") return true;
+      // Only show truly DEAD (had traffic then lost it), not INACTIVE
+      if (l.status === "DEAD") {
+        return (l.subscribers > 0 || l.spenders > 0 || Number(l.revenue || 0) > 0);
+      }
+      return false;
+    });
 
   if (scaleLinks.length === 0 && watchLinks.length === 0 && stopLinks.length === 0) return null;
 

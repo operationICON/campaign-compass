@@ -214,7 +214,13 @@ export default function DashboardPage() {
 
   const getStatus = (link: any) => {
     const daysSinceCreated = differenceInDays(new Date(), new Date(link.created_at));
-    if (link.clicks === 0 && daysSinceCreated >= 3) return { label: "DEAD", color: "bg-destructive/15 text-destructive", icon: "🔴" };
+    // DEAD = had clicks before but now 0 for 3+ days
+    if (link.clicks === 0 && daysSinceCreated >= 3) {
+      // Check if campaign ever had clicks (use daily_metrics or subscribers/spenders as proxy)
+      const everHadTraffic = (link.subscribers > 0 || link.spenders > 0 || Number(link.revenue) > 0);
+      if (everHadTraffic) return { label: "DEAD", color: "bg-destructive/15 text-destructive", icon: "🔴" };
+      return { label: "INACTIVE", color: "bg-muted text-muted-foreground", icon: "⚫" };
+    }
     if (link.ad_spend === 0) return { label: "NO DATA", color: "bg-muted text-muted-foreground", icon: "⚪" };
     if (link.roi === null || link.roi < 0) return { label: "KILL", color: "bg-destructive/15 text-destructive", icon: "🔴" };
     if (link.roi <= 50) return { label: "LOW", color: "bg-warning/15 text-warning", icon: "🟠" };
@@ -288,6 +294,13 @@ export default function DashboardPage() {
   };
 
   const zeroClickAlerts = alerts.filter((a: any) => a.type === "zero_clicks" && !a.resolved);
+  // Only count truly DEAD campaigns (had traffic then lost it) for the banner
+  const trulyDeadCount = useMemo(() => {
+    return filteredLinks.filter((l: any) => {
+      const days = differenceInDays(new Date(), new Date(l.created_at));
+      return l.clicks === 0 && days >= 3 && (l.subscribers > 0 || l.spenders > 0 || Number(l.revenue) > 0);
+    }).length;
+  }, [filteredLinks]);
 
   const selectedModelData = useMemo(() => {
     if (!selectedModel) return null;
@@ -353,16 +366,15 @@ export default function DashboardPage() {
         </div>
 
         {/* ALERT BANNER */}
-        {zeroClickAlerts.length > 0 && (
-          <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+        {trulyDeadCount > 0 && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-warning">
-                ⚠️ {zeroClickAlerts.length} campaign{zeroClickAlerts.length > 1 ? "s" : ""} had 0 clicks for 3+ days
+              <p className="text-sm font-semibold text-destructive">
+                🔴 {trulyDeadCount} campaign{trulyDeadCount > 1 ? "s" : ""} lost all traffic (had clicks before, now 0 for 3+ days)
               </p>
-              <p className="text-xs text-warning/80 mt-1">
-                {zeroClickAlerts.slice(0, 5).map((a: any) => `${a.campaign_name} (${a.account_name})`).join(" · ")}
-                {zeroClickAlerts.length > 5 && ` +${zeroClickAlerts.length - 5} more`}
+              <p className="text-xs text-destructive/80 mt-1">
+                These campaigns previously had subscribers or revenue but are now receiving zero clicks.
               </p>
             </div>
           </div>
@@ -373,12 +385,12 @@ export default function DashboardPage() {
 
         {/* KPI CARDS */}
         {linksLoading ? (
-          <div className="grid grid-cols-9 gap-3">
+          <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
             <SkeletonCard wide />
-            {[...Array(7)].map((_, i) => <SkeletonCard key={i} />)}
+            {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <div className="grid grid-cols-9 gap-3">
+          <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
             {/* Hero card - 2x wide */}
             <div className="col-span-2 bg-card border border-border rounded-lg p-5 card-hover emerald-glow">
               <div className="flex items-center gap-2 mb-2">
