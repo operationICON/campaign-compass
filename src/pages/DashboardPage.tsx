@@ -711,7 +711,7 @@ export default function DashboardPage() {
                             <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.clicks)}</td>
                             <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.subscribers)}</td>
                             {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.spenders)}</td>}
-                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${revenueColor(Number(link.revenue))}`}>{fmtCurrency(Number(link.revenue))}</td>
+                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${revenueColor(Number(link.revenue))}`}><span className="gradient-text">{fmtCurrency(Number(link.revenue))}</span></td>
                             {viewMode === "full" && (
                               <td className="px-3 py-3 text-right font-mono text-sm">
                                 <span
