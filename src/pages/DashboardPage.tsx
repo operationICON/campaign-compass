@@ -511,7 +511,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-muted-foreground">@{model.username || "—"}</p>
                   </div>
                 </div>
-                <p className="text-xl font-bold font-mono text-primary mb-2">{fmtCurrency(model.revenue)}</p>
+                <p className="text-xl font-bold font-mono gradient-text mb-2">{fmtCurrency(model.revenue)}</p>
                 <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
                   <div className="bg-primary h-1.5 rounded-full transition-all duration-500" style={{ width: `${barWidth}%` }} />
                 </div>
