@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
+import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, fetchDailyMetrics, fetchAlerts, fetchSyncSettings, triggerSync, addAdSpend } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
