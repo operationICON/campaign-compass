@@ -1,16 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
+import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { fetchTrackingLinks, fetchAdSpend, addAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { toast } from "sonner";
 import { format, differenceInDays, differenceInHours, isToday } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Users, RefreshCw, ExternalLink, DollarSign, TrendingUp, BarChart3, Trash2, Plus
+  Users, RefreshCw, ExternalLink, DollarSign, TrendingUp, BarChart3, Trash2, Plus, Upload, Download
 } from "lucide-react";
 import {
   Tooltip,
@@ -85,6 +86,7 @@ export default function TrackingLinksPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
@@ -94,6 +96,24 @@ export default function TrackingLinksPage() {
     queryKey: ["ad_spend"],
     queryFn: () => fetchAdSpend(),
   });
+
+  const exportCampaignsCsv = useCallback(() => {
+    const header = "campaign_name,account_username,clicks,subscribers,revenue,current_cost_type,current_cost_value";
+    const rows = links.map((l: any) => {
+      const cn = (l.campaign_name || "").replace(/,/g, " ");
+      const un = (l.accounts?.username || "").replace(/,/g, " ");
+      return `${cn},${un},${l.clicks || 0},${l.subscribers || 0},${Number(l.revenue || 0).toFixed(2)},${l.cost_type || ""},${l.cost_value ?? ""}`;
+    });
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `campaigns_export_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${links.length} campaigns`);
+  }, [links]);
 
   const addSpendMutation = useMutation({
     mutationFn: addAdSpend,
@@ -307,13 +327,29 @@ export default function TrackingLinksPage() {
             <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
             <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track your subscribers and revenue</p>
           </div>
-          <button
-            onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            Add Ad Spend
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportCampaignsCsv}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all"
+            >
+              <Upload className="h-4 w-4" />
+              Import Costs
+            </button>
+            <button
+              onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Add Ad Spend
+            </button>
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -805,6 +841,16 @@ export default function TrackingLinksPage() {
           }}
         />
       )}
+
+      <CsvCostImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+          setImportModalOpen(false);
+        }}
+        trackingLinks={links}
+      />
     </DashboardLayout>
   );
 }
