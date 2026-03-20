@@ -131,10 +131,12 @@ export async function updateSyncSetting(key: string, value: string) {
   return data;
 }
 
-export async function triggerSync(accountId?: string) {
-  const response = await supabase.functions.invoke("sync-onlyfans", {
-    body: accountId ? { account_id: accountId } : {},
-  });
+export async function triggerSync(accountId?: string, force = false) {
+  const body: Record<string, any> = {};
+  if (accountId) body.account_id = accountId;
+  if (force) body.force = true;
+
+  const response = await supabase.functions.invoke("sync-onlyfans", { body });
 
   if (response.error) throw response.error;
   return response.data;

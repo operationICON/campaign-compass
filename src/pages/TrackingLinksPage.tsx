@@ -90,7 +90,7 @@ export default function TrackingLinksPage() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: triggerSync,
+    mutationFn: () => triggerSync(undefined, true),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });

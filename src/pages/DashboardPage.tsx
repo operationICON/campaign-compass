@@ -54,7 +54,7 @@ export default function DashboardPage() {
   }, [syncSettings]);
 
   const syncMutation = useMutation({
-    mutationFn: () => triggerSync(filters.account_id !== "all" ? filters.account_id : undefined),
+    mutationFn: () => triggerSync(filters.account_id !== "all" ? filters.account_id : undefined, true),
     onSuccess: (data) => {
       const results = data?.results ?? [];
       const errors = results.filter((r: any) => r.status === "error");
