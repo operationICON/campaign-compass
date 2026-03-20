@@ -59,8 +59,7 @@ export default function TrackingLinksPage() {
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
+  const [selectedLink, setSelectedLink] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
   const perPage = 20;
 
