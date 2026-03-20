@@ -86,6 +86,7 @@ export default function TrackingLinksPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
