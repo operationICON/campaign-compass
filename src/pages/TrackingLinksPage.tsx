@@ -23,11 +23,11 @@ type SortKey = "campaign_name" | "clicks" | "subscribers" | "cvr" | "cost_total"
 type ClickFilter = "all" | "active" | "zero";
 
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
-  "jessie_ca_xo": { bg: "bg-primary/20", text: "text-primary" },
-  "miakitty.ts": { bg: "bg-info/20", text: "text-info" },
-  "zoey.skyy": { bg: "bg-[hsl(263_70%_50%/0.2)]", text: "text-[hsl(263_70%_50%)]" },
-  "ella_cherryy": { bg: "bg-warning/20", text: "text-warning" },
-  "aylin_bigts": { bg: "bg-[hsl(330_70%_55%/0.2)]", text: "text-[hsl(330_70%_55%)]" },
+  "jessie_ca_xo": { bg: "bg-[hsl(24_95%_53%/0.15)]", text: "text-[hsl(24_95%_53%)]" },
+  "miakitty.ts": { bg: "bg-[hsl(0_72%_51%/0.15)]", text: "text-[hsl(0_72%_51%)]" },
+  "zoey.skyy": { bg: "bg-[hsl(40_96%_53%/0.15)]", text: "text-[hsl(40_96%_53%)]" },
+  "ella_cherryy": { bg: "bg-[hsl(15_80%_45%/0.15)]", text: "text-[hsl(15_80%_45%)]" },
+  "aylin_bigts": { bg: "bg-[hsl(30_75%_40%/0.15)]", text: "text-[hsl(30_75%_40%)]" },
 };
 
 function getAccountColor(username: string | null) {
@@ -54,12 +54,12 @@ function formatUpdatedAgo(dateStr: string | null): string | null {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  SCALE: "bg-primary/15 text-primary",
-  WATCH: "bg-warning/15 text-warning",
-  LOW: "bg-warning/15 text-warning",
-  KILL: "bg-destructive/15 text-destructive",
-  DEAD: "bg-destructive/15 text-destructive",
-  NO_DATA: "bg-secondary text-muted-foreground",
+  SCALE: "bg-[hsl(142_71%_45%/0.1)] text-[hsl(142_71%_45%)]",
+  WATCH: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
+  LOW: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
+  KILL: "bg-[hsl(0_84%_60%/0.12)] text-[hsl(0_84%_60%)]",
+  DEAD: "bg-[hsl(0_72%_51%/0.1)] text-[hsl(0_72%_51%)]",
+  NO_DATA: "bg-muted text-muted-foreground",
 };
 
 const STATUS_EMOJI: Record<string, string> = {
@@ -344,7 +344,7 @@ export default function TrackingLinksPage() {
             </button>
             <button
               onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] gradient-bg text-white text-sm font-medium hover:opacity-90 transition-all duration-200 hero-glow"
             >
               <Plus className="h-4 w-4" />
               Add Ad Spend
@@ -460,7 +460,7 @@ export default function TrackingLinksPage() {
           <button
             onClick={() => syncMutation.mutate(undefined)}
             disabled={syncMutation.isPending}
-            className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50"
+            className={`ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow gradient-bg hover:opacity-90`}
           >
             <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
             {syncMutation.isPending ? "Syncing..." : "Sync Now"}
@@ -652,7 +652,7 @@ export default function TrackingLinksPage() {
                         </td>
                         {/* Revenue */}
                         <td className="px-2 py-2">
-                          <span className="font-mono text-[12px] text-primary font-semibold">{fmtC(Number(link.revenue))}</span>
+                          <span className="font-mono text-[12px] gradient-text font-semibold">{fmtC(Number(link.revenue))}</span>
                         </td>
                         {/* EPC */}
                         <td className="px-2 py-2 font-mono text-[12px] text-foreground">${epc.toFixed(2)}</td>

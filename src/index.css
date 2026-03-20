@@ -1,31 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 240 6% 4%;
-    --foreground: 0 0% 100%;
+    /* Light mode */
+    --background: 220 14% 96%;
+    --foreground: 220 13% 8%;
 
-    --card: 240 4% 7%;
-    --card-foreground: 0 0% 100%;
-    --card-elevated: 240 4% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 8%;
+    --card-elevated: 220 14% 96%;
 
-    --popover: 240 4% 9%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 8%;
 
-    --primary: 160 84% 39%;
+    --primary: 24 95% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 4% 10%;
-    --secondary-foreground: 0 0% 53%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 38%;
 
-    --muted: 240 4% 10%;
-    --muted-foreground: 0 0% 53%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 62%;
 
-    --accent: 160 64% 55%;
+    --accent: 40 96% 53%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -37,20 +36,74 @@
     --info: 217 91% 60%;
     --info-foreground: 0 0% 100%;
 
-    --border: 0 0% 100% / 0.06;
-    --input: 0 0% 100% / 0.06;
-    --ring: 160 84% 39%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 24 95% 53%;
 
-    --radius: 0.5rem;
+    --radius: 0.875rem;
 
-    --sidebar-background: 240 6% 3%;
-    --sidebar-foreground: 0 0% 53%;
-    --sidebar-primary: 160 84% 39%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 9% 62%;
+    --sidebar-primary: 24 95% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 84% 39%;
+    --sidebar-accent: 24 95% 53%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 100% / 0.06;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 24 95% 53%;
+
+    --chart-green: 160 84% 39%;
+    --chart-blue: 217 91% 60%;
+    --chart-amber: 38 92% 50%;
+    --chart-red: 0 84% 60%;
+    --chart-purple: 263 70% 50%;
+  }
+
+  .dark {
+    --background: 240 20% 10%;
+    --foreground: 213 31% 96%;
+
+    --card: 240 17% 12%;
+    --card-foreground: 213 31% 96%;
+    --card-elevated: 240 14% 16%;
+
+    --popover: 240 17% 14%;
+    --popover-foreground: 213 31% 96%;
+
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 14% 16%;
+    --secondary-foreground: 240 5% 54%;
+
+    --muted: 240 14% 16%;
+    --muted-foreground: 240 5% 42%;
+
+    --accent: 40 96% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 24 95% 53% / 0.1;
+    --input: 24 95% 53% / 0.1;
+    --ring: 24 95% 53%;
+
+    --radius: 0.875rem;
+
+    --sidebar-background: 240 22% 7%;
+    --sidebar-foreground: 240 5% 42%;
+    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 24 95% 53%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 24 95% 53% / 0.1;
+    --sidebar-ring: 24 95% 53%;
 
     --chart-green: 160 84% 39%;
     --chart-blue: 217 91% 60%;
@@ -67,7 +120,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   }
 
   code, .font-mono {
@@ -76,8 +129,23 @@
 }
 
 @layer utilities {
-  .emerald-value {
-    color: hsl(160, 64%, 55%);
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(24, 95%, 53%), hsl(40, 96%, 53%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-bg {
+    background: linear-gradient(135deg, hsl(24, 95%, 53%), hsl(40, 96%, 53%));
+  }
+
+  .hero-gradient {
+    background: linear-gradient(135deg, hsl(24, 95%, 53%), hsl(0, 72%, 51%), hsl(40, 96%, 53%));
+  }
+
+  .hero-glow {
+    box-shadow: 0 6px 24px rgba(249, 115, 22, 0.35);
   }
 
   .card-hover {
@@ -85,27 +153,27 @@
   }
   .card-hover:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 24px -8px rgba(249, 115, 22, 0.15);
   }
 
-  .emerald-glow {
-    box-shadow: 0 0 20px -4px hsl(160 84% 39% / 0.25), 0 0 40px -8px hsl(160 84% 39% / 0.1);
-  }
-
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+  .orange-glow {
+    box-shadow: 0 0 20px -4px hsl(24 95% 53% / 0.25), 0 0 40px -8px hsl(24 95% 53% / 0.1);
   }
 
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,
-      hsl(240 4% 10%) 25%,
-      hsl(240 4% 14%) 50%,
-      hsl(240 4% 10%) 75%
+      hsl(var(--muted)) 25%,
+      hsl(var(--card-elevated)) 50%,
+      hsl(var(--muted)) 75%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 
   @keyframes count-up {
@@ -127,11 +195,21 @@
     overflow: hidden;
   }
 
+  .hover-row-orange {
+    @apply transition-colors duration-200;
+  }
+  .hover-row-orange:hover {
+    background: hsl(24 95% 53% / 0.04);
+  }
+
+  /* Keeping backwards compat */
+  .emerald-glow { @apply orange-glow; }
+  .emerald-value { @apply gradient-text; }
   .hover-emerald-border {
     border-left: 2px solid transparent;
     transition: border-color 0.2s ease;
   }
   .hover-emerald-border:hover {
-    border-left-color: hsl(160 84% 39%);
+    border-left-color: hsl(24 95% 53%);
   }
 }

@@ -338,7 +338,8 @@ export default function DashboardPage() {
         {/* HEADER */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Campaign Dashboard</h1>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-medium mb-1">Campaign Overview</p>
+            <h1 className="text-[19px] font-bold text-foreground">Campaign <span className="gradient-text">Performance</span></h1>
             <div className="flex items-center gap-2 mt-1">
               {lastSynced && (
                 <span className="text-xs text-muted-foreground">
@@ -360,10 +361,10 @@ export default function DashboardPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search campaigns..."
-                className="bg-card border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-all w-64"
+                className="bg-card border border-border rounded-[10px] pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-all duration-200 w-64"
               />
             </div>
-            <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
+            <div className="flex items-center bg-card border border-border rounded-[10px] overflow-hidden">
               {(["all", "new", "active", "mature", "old"] as const).map((f) => {
                 const count = f === "all" ? links.length : links.filter((l: any) => {
                   if (!l.created_at) return false;
@@ -377,28 +378,30 @@ export default function DashboardPage() {
                   <button
                     key={f}
                     onClick={() => setAgeFilter(f)}
-                    className={`px-3 py-2 text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${
-                      ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    className={`px-3 py-2 text-xs font-medium transition-colors duration-200 inline-flex items-center gap-1.5 ${
+                      ageFilter === f ? "gradient-bg text-white" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
                     <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                      ageFilter === f ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                     }`}>{count}</span>
                   </button>
                 );
               })}
             </div>
-            <button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all">
+            <button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all duration-200">
               <Download className="h-3.5 w-3.5" /> CSV
             </button>
-            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all">
+            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all duration-200">
               <FileText className="h-3.5 w-3.5" /> PDF
             </button>
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow ${
+                syncMutation.isPending ? "gradient-bg" : "gradient-bg hover:opacity-90"
+              }`}
             >
               <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
               {syncMutation.isPending ? "Syncing..." : "Sync Now"}
@@ -412,7 +415,7 @@ export default function DashboardPage() {
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-destructive">
-                🔴 {trulyDeadCount} campaign{trulyDeadCount > 1 ? "s" : ""} lost all traffic (had clicks before, now 0 for 3+ days)
+                {trulyDeadCount} campaign{trulyDeadCount > 1 ? "s" : ""} lost all traffic
               </p>
               <p className="text-xs text-destructive/80 mt-1">
                 These campaigns previously had subscribers or revenue but are now receiving zero clicks.
@@ -433,15 +436,15 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
             {/* Hero card - 2x wide */}
-            <div className="col-span-2 bg-card border border-border rounded-lg p-5 card-hover emerald-glow">
+            <div className="col-span-2 hero-gradient rounded-lg p-5 card-hover hero-glow text-white">
               <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Revenue</span>
+                <DollarSign className="h-4 w-4 text-white/80" />
+                <span className="text-xs text-white/70 font-medium uppercase tracking-wider">Total Revenue</span>
               </div>
-              <p className="text-[36px] font-bold text-primary animate-count-up font-mono leading-tight">{fmtCurrency(totalRevenue)}</p>
+              <p className="text-[36px] font-bold animate-count-up font-mono leading-tight">{fmtCurrency(totalRevenue)}</p>
               <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="h-3 w-3 text-primary" />
-                <span className="text-xs text-muted-foreground">vs last sync</span>
+                <ArrowUpRight className="h-3 w-3 text-white/70" />
+                <span className="text-xs text-white/70">vs last sync</span>
               </div>
             </div>
             {[
@@ -460,7 +463,7 @@ export default function DashboardPage() {
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</span>
                 </div>
                 <p className={`text-lg font-bold font-mono animate-count-up ${
-                  kpi.colored ? ((kpi.val ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-foreground"
+                  kpi.colored ? ((kpi.val ?? 0) >= 0 ? "gradient-text" : "text-destructive") : "text-foreground"
                 }`}>{kpi.value}</p>
               </div>
             ))}
@@ -484,7 +487,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">{accounts.length} models</p>
               </div>
             </div>
-            <p className="text-xl font-bold font-mono text-primary mb-1">{fmtCurrency(totalRevenue)}</p>
+            <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(totalRevenue)}</p>
             <div className="text-xs text-muted-foreground">{fmtNum(totalSubscribers)} subs · {fmtNum(totalClicks)} clicks</div>
           </button>
 
@@ -508,7 +511,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-muted-foreground">@{model.username || "—"}</p>
                   </div>
                 </div>
-                <p className="text-xl font-bold font-mono text-primary mb-2">{fmtCurrency(model.revenue)}</p>
+                <p className="text-xl font-bold font-mono gradient-text mb-2">{fmtCurrency(model.revenue)}</p>
                 <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
                   <div className="bg-primary h-1.5 rounded-full transition-all duration-500" style={{ width: `${barWidth}%` }} />
                 </div>
@@ -571,7 +574,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
-                  <span className="font-mono text-sm font-semibold text-primary shrink-0">{fmtCurrency(Number(l.revenue))}</span>
+                  <span className="font-mono text-sm font-semibold gradient-text shrink-0">{fmtCurrency(Number(l.revenue))}</span>
                 </button>
               ))}
             </div>
@@ -607,17 +610,17 @@ export default function DashboardPage() {
               <option value="all">All Sources</option>
               {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            {selectedModel && (
-              <button onClick={() => setSelectedModel(null)} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/15 text-primary hover:bg-primary/25 transition-colors">
+             {selectedModel && (
+              <button onClick={() => setSelectedModel(null)} className="px-3 py-1.5 text-xs font-medium rounded-[10px] bg-primary/15 text-primary hover:bg-primary/25 transition-colors duration-200">
                 ✕ Clear model filter
               </button>
             )}
           </div>
-          <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
-            <button onClick={() => setViewMode("compact")} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${viewMode === "compact" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          <div className="flex items-center gap-1 bg-card border border-border rounded-[10px] p-0.5">
+            <button onClick={() => setViewMode("compact")} className={`px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors duration-200 flex items-center gap-1.5 ${viewMode === "compact" ? "gradient-bg text-white" : "text-muted-foreground hover:text-foreground"}`}>
               <List className="h-3.5 w-3.5" /> Compact
             </button>
-            <button onClick={() => setViewMode("full")} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${viewMode === "full" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            <button onClick={() => setViewMode("full")} className={`px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors duration-200 flex items-center gap-1.5 ${viewMode === "full" ? "gradient-bg text-white" : "text-muted-foreground hover:text-foreground"}`}>
               <Columns className="h-3.5 w-3.5" /> Full
             </button>
           </div>
@@ -708,7 +711,7 @@ export default function DashboardPage() {
                             <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.clicks)}</td>
                             <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.subscribers)}</td>
                             {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.spenders)}</td>}
-                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${revenueColor(Number(link.revenue))}`}>{fmtCurrency(Number(link.revenue))}</td>
+                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${revenueColor(Number(link.revenue))}`}><span className="gradient-text">{fmtCurrency(Number(link.revenue))}</span></td>
                             {viewMode === "full" && (
                               <td className="px-3 py-3 text-right font-mono text-sm">
                                 <span
