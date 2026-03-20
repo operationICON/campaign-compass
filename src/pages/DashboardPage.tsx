@@ -677,8 +677,13 @@ export default function DashboardPage() {
                             {status.icon} {status.label}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs font-mono">
-                          {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
+                        <td className="px-3 py-3">
+                          <CampaignAgePill
+                            createdAt={link.created_at}
+                            lastActivityAt={link.calculated_at}
+                            clicks={link.clicks}
+                            revenue={Number(link.revenue || 0)}
+                          />
                         </td>
                         {viewMode === "full" && (
                           <td className="px-3 py-3 text-muted-foreground text-xs font-mono">

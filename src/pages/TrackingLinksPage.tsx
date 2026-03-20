@@ -5,6 +5,7 @@ import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchTrackingLinks, fetchAdSpend, addAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
+import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { toast } from "sonner";
 import { format, differenceInDays, differenceInHours, isToday } from "date-fns";
 import {
