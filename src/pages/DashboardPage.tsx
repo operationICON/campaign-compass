@@ -31,6 +31,7 @@ function SkeletonCard({ wide = false }: { wide?: boolean }) {
 export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState({ account_id: "all", campaign_id: "all", traffic_source: "all", date_preset: "all" });
+  const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
@@ -93,9 +94,16 @@ export default function DashboardPage() {
         const matchAccount = (link.accounts?.username || "").toLowerCase().includes(q) || (link.accounts?.display_name || "").toLowerCase().includes(q);
         if (!matchName && !matchAccount) return false;
       }
+      if (ageFilter !== "all" && link.created_at) {
+        const days = differenceInDays(new Date(), new Date(link.created_at));
+        if (ageFilter === "new" && days > 30) return false;
+        if (ageFilter === "active" && (days <= 30 || days > 90)) return false;
+        if (ageFilter === "mature" && (days <= 90 || days > 180)) return false;
+        if (ageFilter === "old" && days <= 180) return false;
+      }
       return true;
     });
-  }, [links, filters.traffic_source, selectedModel, searchQuery]);
+  }, [links, filters.traffic_source, selectedModel, searchQuery, ageFilter]);
 
   const adSpendByCampaign = useMemo(() => {
     const map: Record<string, number> = {};
@@ -352,6 +360,19 @@ export default function DashboardPage() {
                 placeholder="Search campaigns..."
                 className="bg-card border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-all w-64"
               />
+            </div>
+            <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
+              {(["all", "new", "active", "mature", "old"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setAgeFilter(f)}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
+                </button>
+              ))}
             </div>
             <button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-all">
               <Download className="h-3.5 w-3.5" /> CSV
