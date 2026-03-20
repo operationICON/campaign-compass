@@ -366,16 +366,15 @@ export default function DashboardPage() {
         </div>
 
         {/* ALERT BANNER */}
-        {zeroClickAlerts.length > 0 && (
-          <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+        {trulyDeadCount > 0 && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-warning">
-                ⚠️ {zeroClickAlerts.length} campaign{zeroClickAlerts.length > 1 ? "s" : ""} had 0 clicks for 3+ days
+              <p className="text-sm font-semibold text-destructive">
+                🔴 {trulyDeadCount} campaign{trulyDeadCount > 1 ? "s" : ""} lost all traffic (had clicks before, now 0 for 3+ days)
               </p>
-              <p className="text-xs text-warning/80 mt-1">
-                {zeroClickAlerts.slice(0, 5).map((a: any) => `${a.campaign_name} (${a.account_name})`).join(" · ")}
-                {zeroClickAlerts.length > 5 && ` +${zeroClickAlerts.length - 5} more`}
+              <p className="text-xs text-destructive/80 mt-1">
+                These campaigns previously had subscribers or revenue but are now receiving zero clicks.
               </p>
             </div>
           </div>
