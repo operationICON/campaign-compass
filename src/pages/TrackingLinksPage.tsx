@@ -326,13 +326,29 @@ export default function TrackingLinksPage() {
             <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
             <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track your subscribers and revenue</p>
           </div>
-          <button
-            onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            Add Ad Spend
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportCampaignsCsv}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all"
+            >
+              <Upload className="h-4 w-4" />
+              Import Costs
+            </button>
+            <button
+              onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Add Ad Spend
+            </button>
+          </div>
         </div>
 
         {/* KPI Cards */}
