@@ -431,60 +431,90 @@ export type Database = {
       tracking_links: {
         Row: {
           account_id: string
+          arpu: number | null
           calculated_at: string | null
           campaign_id: string
           campaign_name: string | null
           clicks: number
           conversion_rate: number
+          cost_total: number | null
+          cost_type: string | null
+          cost_value: number | null
           country: string | null
+          cpc_real: number | null
+          cpl_real: number | null
           created_at: string
+          cvr: number | null
           external_tracking_link_id: string | null
           id: string
+          profit: number | null
           revenue: number
           revenue_per_click: number
           revenue_per_subscriber: number
+          roi: number | null
           source: string | null
           spenders: number
+          status: string | null
           subscribers: number
           updated_at: string
           url: string
         }
         Insert: {
           account_id: string
+          arpu?: number | null
           calculated_at?: string | null
           campaign_id: string
           campaign_name?: string | null
           clicks?: number
           conversion_rate?: number
+          cost_total?: number | null
+          cost_type?: string | null
+          cost_value?: number | null
           country?: string | null
+          cpc_real?: number | null
+          cpl_real?: number | null
           created_at?: string
+          cvr?: number | null
           external_tracking_link_id?: string | null
           id?: string
+          profit?: number | null
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
+          roi?: number | null
           source?: string | null
           spenders?: number
+          status?: string | null
           subscribers?: number
           updated_at?: string
           url: string
         }
         Update: {
           account_id?: string
+          arpu?: number | null
           calculated_at?: string | null
           campaign_id?: string
           campaign_name?: string | null
           clicks?: number
           conversion_rate?: number
+          cost_total?: number | null
+          cost_type?: string | null
+          cost_value?: number | null
           country?: string | null
+          cpc_real?: number | null
+          cpl_real?: number | null
           created_at?: string
+          cvr?: number | null
           external_tracking_link_id?: string | null
           id?: string
+          profit?: number | null
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
+          roi?: number | null
           source?: string | null
           spenders?: number
+          status?: string | null
           subscribers?: number
           updated_at?: string
           url?: string
