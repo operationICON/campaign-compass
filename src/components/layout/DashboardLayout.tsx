@@ -11,10 +11,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
       <div className="flex-1 flex flex-col overflow-auto">
-        <header className="flex items-center justify-end gap-2 px-6 py-3 border-b border-border">
+        <header className="flex items-center justify-end gap-2 px-6 py-3 bg-card border-b border-border">
           <button
             onClick={toggle}
-            className="p-2 rounded-[10px] hover:bg-secondary transition-colors duration-200"
+            className="p-2 rounded-xl hover:bg-secondary transition-colors duration-200"
             aria-label="Toggle theme"
           >
             {theme === "dark" ? (

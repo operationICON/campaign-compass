@@ -12,8 +12,8 @@ const MODEL_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "h
 const TYPE_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
 
 const tooltipStyle = {
-  contentStyle: { background: "hsl(240,17%,12%)", border: "1px solid rgba(249,115,22,0.1)", borderRadius: 14, color: "#fff", fontSize: 12 },
-  labelStyle: { color: "#888" },
+  contentStyle: { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 14, color: "hsl(var(--foreground))", fontSize: 12 },
+  labelStyle: { color: "hsl(var(--muted-foreground))" },
 };
 
 export default function ChartsPage() {
@@ -109,11 +109,11 @@ export default function ChartsPage() {
             <h2 className="text-sm font-bold text-foreground mb-4">Daily Revenue by Model (30 Days)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={dailyRevenueByModel}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="date" tick={{ fill: "#888", fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#888", fontSize: 10 }} tickFormatter={v => `$${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={v => `$${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, ""]} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 {modelNames.map((name, i) => (
                   <Line key={name} type="monotone" dataKey={name} stroke={MODEL_COLORS[i % MODEL_COLORS.length]} strokeWidth={2} dot={false} />
                 ))}
@@ -129,18 +129,18 @@ export default function ChartsPage() {
                 <Pie
                   data={revenueByType} cx="50%" cy="50%" innerRadius={70} outerRadius={110}
                   dataKey="value" nameKey="name"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={{ stroke: "#555" }}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={{ stroke: "hsl(var(--muted-foreground))" }}
                 >
                   {revenueByType.map((_, i) => (
                     <Cell key={i} fill={TYPE_COLORS[i % TYPE_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 {/* Center text */}
-                <text x="50%" y="47%" textAnchor="middle" fill="#888" fontSize={11}>Total</text>
-                <text x="50%" y="55%" textAnchor="middle" fill="#fff" fontSize={16} fontWeight="bold">
+                <text x="50%" y="47%" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={11}>Total</text>
+                <text x="50%" y="55%" textAnchor="middle" fill="hsl(var(--foreground))" fontSize={16} fontWeight="bold">
                   ${totalTxRevenue >= 1000 ? `${(totalTxRevenue/1000).toFixed(1)}k` : totalTxRevenue.toFixed(0)}
                 </text>
               </PieChart>
@@ -152,9 +152,9 @@ export default function ChartsPage() {
             <h2 className="text-sm font-bold text-foreground mb-4">Top 10 Campaigns by Revenue</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={topCampaigns} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis type="number" tick={{ fill: "#888", fontSize: 10 }} tickFormatter={v => `$${v}`} />
-                <YAxis type="category" dataKey="name" tick={{ fill: "#888", fontSize: 9 }} width={160} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={v => `$${v}`} />
+                <YAxis type="category" dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} width={160} />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} />
                 <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
                   {topCampaigns.map((entry, i) => (
@@ -170,11 +170,11 @@ export default function ChartsPage() {
             <h2 className="text-sm font-bold text-foreground mb-4">Daily Subscribers by Model (30 Days)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={dailySubsByModel}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="date" tick={{ fill: "#888", fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: "#888", fontSize: 10 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
                 <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 {modelNames.map((name, i) => (
                   <Area key={name} type="monotone" dataKey={name} stackId="1" stroke={MODEL_COLORS[i % MODEL_COLORS.length]} fill={MODEL_COLORS[i % MODEL_COLORS.length]} fillOpacity={0.3} />
                 ))}
