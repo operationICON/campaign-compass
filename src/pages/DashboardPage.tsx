@@ -415,7 +415,7 @@ export default function DashboardPage() {
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-destructive">
-                🔴 {trulyDeadCount} campaign{trulyDeadCount > 1 ? "s" : ""} lost all traffic (had clicks before, now 0 for 3+ days)
+                {trulyDeadCount} campaign{trulyDeadCount > 1 ? "s" : ""} lost all traffic
               </p>
               <p className="text-xs text-destructive/80 mt-1">
                 These campaigns previously had subscribers or revenue but are now receiving zero clicks.
