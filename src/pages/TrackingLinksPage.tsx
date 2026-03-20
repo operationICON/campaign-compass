@@ -1,16 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
+import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { fetchTrackingLinks, fetchAdSpend, addAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { toast } from "sonner";
 import { format, differenceInDays, differenceInHours, isToday } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Users, RefreshCw, ExternalLink, DollarSign, TrendingUp, BarChart3, Trash2, Plus
+  Users, RefreshCw, ExternalLink, DollarSign, TrendingUp, BarChart3, Trash2, Plus, Upload, Download
 } from "lucide-react";
 import {
   Tooltip,
