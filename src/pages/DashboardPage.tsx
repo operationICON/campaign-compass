@@ -379,12 +379,12 @@ export default function DashboardPage() {
 
         {/* KPI CARDS */}
         {linksLoading ? (
-          <div className="grid grid-cols-9 gap-3">
+          <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
             <SkeletonCard wide />
-            {[...Array(7)].map((_, i) => <SkeletonCard key={i} />)}
+            {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <div className="grid grid-cols-9 gap-3">
+          <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
             {/* Hero card - 2x wide */}
             <div className="col-span-2 bg-card border border-border rounded-lg p-5 card-hover emerald-glow">
               <div className="flex items-center gap-2 mb-2">
