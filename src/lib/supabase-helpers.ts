@@ -185,3 +185,21 @@ export async function deleteAdSpend(id: string) {
   const { error } = await supabase.from("ad_spend").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function fetchNotifications() {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error) throw error;
+  return data;
+}
+
+export async function markNotificationsRead() {
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("read", false);
+  if (error) throw error;
+}
