@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
 
     // ── Sync transactions (batched) ──
     try {
-      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey)
+      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey, 50)
       console.log(`Got ${txItems.length} transactions for ${displayName}`)
 
       const txPayloads: Record<string, any>[] = []
