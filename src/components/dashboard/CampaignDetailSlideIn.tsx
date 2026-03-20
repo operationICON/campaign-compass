@@ -287,7 +287,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-2">—</p>
+              <p className="text-xs text-muted-foreground text-center py-2">No activity recorded yet</p>
             )}
           </div>
 
