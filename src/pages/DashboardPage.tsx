@@ -422,7 +422,7 @@ export default function DashboardPage() {
         )}
 
         {/* DAILY DECISION VIEW */}
-        <DailyDecisionView links={filteredLinks} />
+        <DailyDecisionView links={enrichedLinks.map(l => ({ ...l, status: getStatus(l).label }))} />
 
         {/* KPI CARDS */}
         {linksLoading ? (
