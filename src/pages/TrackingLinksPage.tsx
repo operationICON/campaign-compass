@@ -54,12 +54,12 @@ function formatUpdatedAgo(dateStr: string | null): string | null {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  SCALE: "bg-primary/15 text-primary",
-  WATCH: "bg-warning/15 text-warning",
-  LOW: "bg-warning/15 text-warning",
-  KILL: "bg-destructive/15 text-destructive",
-  DEAD: "bg-destructive/15 text-destructive",
-  NO_DATA: "bg-secondary text-muted-foreground",
+  SCALE: "bg-[hsl(142_71%_45%/0.1)] text-[hsl(142_71%_45%)]",
+  WATCH: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
+  LOW: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
+  KILL: "bg-[hsl(0_84%_60%/0.12)] text-[hsl(0_84%_60%)]",
+  DEAD: "bg-[hsl(0_72%_51%/0.1)] text-[hsl(0_72%_51%)]",
+  NO_DATA: "bg-muted text-muted-foreground",
 };
 
 const STATUS_EMOJI: Record<string, string> = {
