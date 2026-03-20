@@ -37,6 +37,8 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"compact" | "full">("compact");
   const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
+  const [selectedLink, setSelectedLink] = useState<any>(null);
+  const [costSlideIn, setCostSlideIn] = useState<any>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
