@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
             const campaignName = link.campaignName ?? 'Unknown'
             const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
 
-            await db.from('tracking_links').upsert({
+            const upsertPayload: Record<string, any> = {
               external_tracking_link_id: String(link.id ?? ''),
               url: link.campaignUrl ?? `https://onlyfans.com/${acctId}`,
               campaign_id: campaignId,
@@ -171,10 +171,19 @@ Deno.serve(async (req) => {
               conversion_rate: Number(link.clicksCount ?? 0) > 0
                 ? (Number(link.subscribersCount ?? 0) / Number(link.clicksCount)) * 100 : 0,
               calculated_at: link.revenue?.calculatedAt ?? startedAt,
-              created_at: link.createdAt ?? undefined,
               source: link.type ?? null,
               country: link.country ?? null,
-            }, { onConflict: 'external_tracking_link_id' })
+            }
+
+            // Always include created_at from API so upsert updates it on existing rows
+            if (link.createdAt) {
+              upsertPayload.created_at = link.createdAt
+            }
+
+            await db.from('tracking_links').upsert(upsertPayload, {
+              onConflict: 'external_tracking_link_id',
+              ignoreDuplicates: false,
+            })
             linkCount++
           }
         } catch (err: any) {
