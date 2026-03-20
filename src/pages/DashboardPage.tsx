@@ -12,7 +12,7 @@ import { format, differenceInDays } from "date-fns";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import {
   RefreshCw, DollarSign, MousePointerClick, Users, TrendingUp,
-  Percent, PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown,
+  Percent, PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   AlertTriangle, Download, FileText, LayoutGrid, Search, X, Columns, List
 } from "lucide-react";
 
@@ -40,6 +40,8 @@ export default function DashboardPage() {
   const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
+  const [dashPerPage, setDashPerPage] = useState(10);
+  const [dashPage, setDashPage] = useState(1);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
@@ -636,106 +638,162 @@ export default function DashboardPage() {
                 Clear all filters
               </button>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-card">
-                    <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Account</th>
-                    <SortHeader label="Campaign" sortField="campaign_name" />
-                    {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Trend</th>}
-                    <SortHeader label="Clicks" sortField="clicks" align="right" />
-                    <SortHeader label="Subs" sortField="subscribers" align="right" />
-                    {viewMode === "full" && <SortHeader label="Spenders" sortField="spenders" align="right" />}
-                    <SortHeader label="Revenue" sortField="revenue" align="right" />
-                    {viewMode === "full" && <SortHeader label="Ad Spend" sortField="ad_spend" align="right" />}
-                    {viewMode === "full" && <SortHeader label="ROI" sortField="roi" align="right" />}
-                    {viewMode === "full" && <SortHeader label="EPC" sortField="epc" align="right" />}
-                    {viewMode === "full" && <SortHeader label="RPS" sortField="revenue_per_subscriber" align="right" />}
-                    <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
-                    <SortHeader label="Created" sortField="created_at" />
-                    {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Calculated</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedLinks.map((link: any) => {
-                    const status = getStatus(link);
-                    const spark = sparklineData[link.id] || [];
-                    const sparkTrending = spark.length >= 2 ? spark[spark.length - 1].revenue >= spark[spark.length - 2].revenue : true;
-
-                    return (
-                      <tr key={link.id} className="border-b border-border hover-emerald-border hover:bg-secondary/30 transition-all duration-200 cursor-pointer" onClick={() => setSelectedLink(link)}>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
-                              {(link.accounts?.display_name || "?").charAt(0)}
-                            </div>
-                            <span className="text-xs text-muted-foreground">@{link.accounts?.username || "—"}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <p className="text-sm font-medium text-foreground">{link.campaign_name || "—"}</p>
-                          <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{link.url || ""}</p>
-                        </td>
-                        {viewMode === "full" && (
-                          <td className="px-3 py-3 w-[80px]">
-                            {spark.length > 1 ? (
-                              <ResponsiveContainer width={60} height={24}>
-                                <LineChart data={spark}>
-                                  <Line type="monotone" dataKey="revenue" stroke={sparkTrending ? "hsl(160, 84%, 39%)" : "hsl(0, 84%, 60%)"} strokeWidth={1.5} dot={false} />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
-                          </td>
-                        )}
-                        <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.clicks)}</td>
-                        <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.subscribers)}</td>
-                        {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.spenders)}</td>}
-                        <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${revenueColor(Number(link.revenue))}`}>{fmtCurrency(Number(link.revenue))}</td>
-                        {viewMode === "full" && (
-                          <td className="px-3 py-3 text-right font-mono text-sm">
-                            <span
-                              onClick={() => setAdSpendSlideIn(link)}
-                              className={`cursor-pointer hover:underline transition-colors ${link.ad_spend > 0 ? "text-destructive" : "text-muted-foreground italic"}`}
-                            >
-                              {link.ad_spend > 0 ? fmtCurrency(link.ad_spend) : "click to add"}
-                            </span>
-                          </td>
-                        )}
-                        {viewMode === "full" && (
-                          <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${link.roi === null ? "text-muted-foreground" : link.roi >= 0 ? "text-primary" : "text-destructive"}`}>
-                            {link.roi !== null ? fmtPct(link.roi) : "—"}
-                          </td>
-                        )}
-                        {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">${Number(link.revenue_per_click || 0).toFixed(2)}</td>}
-                        {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">${Number(link.revenue_per_subscriber || 0).toFixed(2)}</td>}
-                        <td className="px-3 py-3 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${status.color}`}>
-                            {status.icon} {status.label}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3">
-                          <CampaignAgePill
-                            createdAt={link.created_at}
-                            lastActivityAt={link.calculated_at}
-                            clicks={link.clicks}
-                            revenue={Number(link.revenue || 0)}
-                          />
-                        </td>
-                        {viewMode === "full" && (
-                          <td className="px-3 py-3 text-muted-foreground text-xs font-mono">
-                            {link.calculated_at ? format(new Date(link.calculated_at), "MMM d, HH:mm") : "—"}
-                          </td>
-                        )}
+          ) : (() => {
+            const dashTotalPages = Math.max(1, Math.ceil(sortedLinks.length / dashPerPage));
+            const dashSafePage = Math.min(dashPage, dashTotalPages);
+            const dashStart = (dashSafePage - 1) * dashPerPage;
+            const dashEnd = Math.min(dashSafePage * dashPerPage, sortedLinks.length);
+            const paginatedLinks = sortedLinks.slice(dashStart, dashEnd);
+            return (
+              <>
+                {/* Showing count */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {dashStart + 1}–{dashEnd} of {sortedLinks.length} campaigns
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-card">
+                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Account</th>
+                        <SortHeader label="Campaign" sortField="campaign_name" />
+                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Trend</th>}
+                        <SortHeader label="Clicks" sortField="clicks" align="right" />
+                        <SortHeader label="Subs" sortField="subscribers" align="right" />
+                        {viewMode === "full" && <SortHeader label="Spenders" sortField="spenders" align="right" />}
+                        <SortHeader label="Revenue" sortField="revenue" align="right" />
+                        {viewMode === "full" && <SortHeader label="Ad Spend" sortField="ad_spend" align="right" />}
+                        {viewMode === "full" && <SortHeader label="ROI" sortField="roi" align="right" />}
+                        {viewMode === "full" && <SortHeader label="EPC" sortField="epc" align="right" />}
+                        {viewMode === "full" && <SortHeader label="RPS" sortField="revenue_per_subscriber" align="right" />}
+                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
+                        <SortHeader label="Created" sortField="created_at" />
+                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Calculated</th>}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    </thead>
+                    <tbody>
+                      {paginatedLinks.map((link: any) => {
+                        const status = getStatus(link);
+                        const spark = sparklineData[link.id] || [];
+                        const sparkTrending = spark.length >= 2 ? spark[spark.length - 1].revenue >= spark[spark.length - 2].revenue : true;
+
+                        return (
+                          <tr key={link.id} className="border-b border-border hover-emerald-border hover:bg-secondary/30 transition-all duration-200 cursor-pointer" onClick={() => setSelectedLink(link)}>
+                            <td className="px-3 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                                  {(link.accounts?.display_name || "?").charAt(0)}
+                                </div>
+                                <span className="text-xs text-muted-foreground">@{link.accounts?.username || "—"}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-3">
+                              <p className="text-sm font-medium text-foreground">{link.campaign_name || "—"}</p>
+                              <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{link.url || ""}</p>
+                            </td>
+                            {viewMode === "full" && (
+                              <td className="px-3 py-3 w-[80px]">
+                                {spark.length > 1 ? (
+                                  <ResponsiveContainer width={60} height={24}>
+                                    <LineChart data={spark}>
+                                      <Line type="monotone" dataKey="revenue" stroke={sparkTrending ? "hsl(160, 84%, 39%)" : "hsl(0, 84%, 60%)"} strokeWidth={1.5} dot={false} />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                )}
+                              </td>
+                            )}
+                            <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.clicks)}</td>
+                            <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.subscribers)}</td>
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.spenders)}</td>}
+                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${revenueColor(Number(link.revenue))}`}>{fmtCurrency(Number(link.revenue))}</td>
+                            {viewMode === "full" && (
+                              <td className="px-3 py-3 text-right font-mono text-sm">
+                                <span
+                                  onClick={() => setAdSpendSlideIn(link)}
+                                  className={`cursor-pointer hover:underline transition-colors ${link.ad_spend > 0 ? "text-destructive" : "text-muted-foreground italic"}`}
+                                >
+                                  {link.ad_spend > 0 ? fmtCurrency(link.ad_spend) : "click to add"}
+                                </span>
+                              </td>
+                            )}
+                            {viewMode === "full" && (
+                              <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${link.roi === null ? "text-muted-foreground" : link.roi >= 0 ? "text-primary" : "text-destructive"}`}>
+                                {link.roi !== null ? fmtPct(link.roi) : "—"}
+                              </td>
+                            )}
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">${Number(link.revenue_per_click || 0).toFixed(2)}</td>}
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">${Number(link.revenue_per_subscriber || 0).toFixed(2)}</td>}
+                            <td className="px-3 py-3 text-center">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${status.color}`}>
+                                {status.icon} {status.label}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <CampaignAgePill
+                                createdAt={link.created_at}
+                                lastActivityAt={link.calculated_at}
+                                clicks={link.clicks}
+                                revenue={Number(link.revenue || 0)}
+                              />
+                            </td>
+                            {viewMode === "full" && (
+                              <td className="px-3 py-3 text-muted-foreground text-xs font-mono">
+                                {link.calculated_at ? format(new Date(link.calculated_at), "MMM d, HH:mm") : "—"}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Show More + Pagination */}
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <div className="flex items-center gap-3">
+                    {dashPerPage === 10 && sortedLinks.length > 10 && (
+                      <button
+                        onClick={() => { setDashPerPage(25); setDashPage(1); }}
+                        className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                      >
+                        Show more (25 rows)
+                      </button>
+                    )}
+                  </div>
+                  {dashTotalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setDashPage(Math.max(1, dashSafePage - 1))} disabled={dashSafePage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
+                        <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      {Array.from({ length: Math.min(dashTotalPages, 7) }, (_, i) => {
+                        let pageNum: number;
+                        if (dashTotalPages <= 7) pageNum = i + 1;
+                        else if (dashSafePage <= 4) pageNum = i + 1;
+                        else if (dashSafePage >= dashTotalPages - 3) pageNum = dashTotalPages - 6 + i;
+                        else pageNum = dashSafePage - 3 + i;
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setDashPage(pageNum)}
+                            className={`w-8 h-8 rounded text-xs font-medium transition-colors ${
+                              pageNum === dashSafePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => setDashPage(Math.min(dashTotalPages, dashSafePage + 1))} disabled={dashSafePage >= dashTotalPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
 
