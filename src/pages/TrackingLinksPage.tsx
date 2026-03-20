@@ -460,7 +460,7 @@ export default function TrackingLinksPage() {
           <button
             onClick={() => syncMutation.mutate(undefined)}
             disabled={syncMutation.isPending}
-            className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50"
+            className={`ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow gradient-bg hover:opacity-90`}
           >
             <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
             {syncMutation.isPending ? "Syncing..." : "Sync Now"}

@@ -8,11 +8,11 @@ import {
 } from "recharts";
 import { format, subDays } from "date-fns";
 
-const MODEL_COLORS = ["hsl(160,84%,39%)", "hsl(217,91%,60%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)", "hsl(0,84%,60%)", "hsl(330,80%,60%)", "hsl(180,70%,45%)"];
-const TYPE_COLORS = ["hsl(160,84%,39%)", "hsl(217,91%,60%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)", "hsl(263,70%,50%)"];
+const MODEL_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(15,80%,45%)", "hsl(30,75%,40%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
+const TYPE_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
 
 const tooltipStyle = {
-  contentStyle: { background: "hsl(240,4%,7%)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, color: "#fff", fontSize: 12 },
+  contentStyle: { background: "hsl(240,17%,12%)", border: "1px solid rgba(249,115,22,0.1)", borderRadius: 14, color: "#fff", fontSize: 12 },
   labelStyle: { color: "#888" },
 };
 
