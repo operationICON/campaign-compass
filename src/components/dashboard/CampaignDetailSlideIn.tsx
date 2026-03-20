@@ -190,7 +190,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
             ) : (
               <div className="h-[120px] flex items-center justify-center">
                 <p className="text-xs text-muted-foreground text-center leading-relaxed">
-                  Timeline data will appear after multiple syncs<br />— check back tomorrow
+                  Timeline builds after multiple syncs<br />— check back tomorrow
                 </p>
               </div>
             )}
