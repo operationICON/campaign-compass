@@ -436,15 +436,15 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
             {/* Hero card - 2x wide */}
-            <div className="col-span-2 bg-card border border-border rounded-lg p-5 card-hover emerald-glow">
+            <div className="col-span-2 hero-gradient rounded-lg p-5 card-hover hero-glow text-white">
               <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Revenue</span>
+                <DollarSign className="h-4 w-4 text-white/80" />
+                <span className="text-xs text-white/70 font-medium uppercase tracking-wider">Total Revenue</span>
               </div>
-              <p className="text-[36px] font-bold text-primary animate-count-up font-mono leading-tight">{fmtCurrency(totalRevenue)}</p>
+              <p className="text-[36px] font-bold animate-count-up font-mono leading-tight">{fmtCurrency(totalRevenue)}</p>
               <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="h-3 w-3 text-primary" />
-                <span className="text-xs text-muted-foreground">vs last sync</span>
+                <ArrowUpRight className="h-3 w-3 text-white/70" />
+                <span className="text-xs text-white/70">vs last sync</span>
               </div>
             </div>
             {[
