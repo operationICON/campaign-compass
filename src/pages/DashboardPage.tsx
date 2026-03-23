@@ -189,9 +189,20 @@ export default function DashboardPage() {
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
-    campaigns.forEach((c: any) => { if (c.traffic_source) s.add(c.traffic_source); });
-    return Array.from(s);
-  }, [campaigns]);
+    links.forEach((l: any) => { s.add(l.source_tag || "Untagged"); });
+    return Array.from(s).sort();
+  }, [links]);
+
+  // Realtime subscription for source_tag updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-source-tags')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tracking_links' }, () => {
+        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const top5Ltv = useMemo(() => [...enrichedLinks].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 5), [enrichedLinks]);
   const top5Profit = useMemo(() => [...enrichedLinks].filter(l => l.ad_spend > 0).sort((a, b) => b.profit - a.profit).slice(0, 5), [enrichedLinks]);
