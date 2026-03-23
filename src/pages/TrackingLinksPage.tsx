@@ -560,13 +560,19 @@ export default function TrackingLinksPage() {
                     const cplReal = Number(link.cpl_real || 0);
                     const status = link.status || "NO_DATA";
                     const displayStatus = status === "NO_DATA" ? "No Spend" : status;
-                    const mediaBuyer = link.source || null;
+                    const sourceTag = link.source_tag || null;
+                    const sourceRule = tagRules.find((r: any) => r.tag_name === sourceTag);
                     const daysOld = link.daysSinceCreated ?? null;
                     const isExpanded = expandedRow === link.id;
 
                     return (
                       <React.Fragment key={link.id}>
                         <tr className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`} onClick={() => handleRowClick(link)}>
+                          {/* Checkbox */}
+                          <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+                            <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)}
+                              className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
+                          </td>
                           {/* Campaign */}
                           <td className="px-2 py-2" style={{ maxWidth: "200px" }}>
                             <div className="flex items-center gap-2 min-w-0">
@@ -578,15 +584,35 @@ export default function TrackingLinksPage() {
                           </td>
                           {/* Account */}
                           <td className="px-2 py-2"><span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span></td>
-                          {/* Source */}
-                          <td className="px-2 py-2">
-                            {mediaBuyer ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-medium">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                {mediaBuyer}
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground italic">Untagged</span>
+                          {/* Source Tag */}
+                          <td className="px-2 py-2 relative" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => setSourceDropdownId(sourceDropdownId === link.id ? null : link.id)}
+                              className="w-full text-left">
+                              {sourceTag && sourceRule ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-medium">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sourceRule.color }} />
+                                  {sourceTag}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground italic">Untagged</span>
+                              )}
+                            </button>
+                            {sourceDropdownId === link.id && (
+                              <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
+                                {tagRules.map((rule: any) => (
+                                  <button key={rule.id} onClick={() => handleSetSourceTag(link.id, rule.tag_name)}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
+                                    {rule.tag_name}
+                                  </button>
+                                ))}
+                                <div className="border-t border-border mt-1 pt-1">
+                                  <button onClick={() => { handleSetSourceTag(link.id, ""); setSourceDropdownId(null); }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary/50">
+                                    Clear tag
+                                  </button>
+                                </div>
+                              </div>
                             )}
                           </td>
                           {/* Subs/Day */}
