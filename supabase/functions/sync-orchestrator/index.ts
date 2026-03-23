@@ -29,10 +29,8 @@ Deno.serve(async (req) => {
       const now = new Date().toISOString()
       for (const row of stuck) {
         await db.from('sync_logs').update({
-          status: 'error',
-          success: false,
-          finished_at: now,
-          completed_at: now,
+          status: 'error', success: false,
+          finished_at: now, completed_at: now,
           error_message: 'Sync timed out — exceeded 3 minute limit',
           message: 'Sync timed out — exceeded 3 minute limit',
         }).eq('id', row.id)
@@ -40,43 +38,20 @@ Deno.serve(async (req) => {
       console.log(`Marked ${stuck.length} stuck syncs as failed`)
     }
 
-    // Fetch accounts from OnlyFans API and upsert avatar data
+    // Step 1: Sync accounts from OF API (fast — ~2s)
+    let accountsSynced = 0
     if (apiKey) {
       try {
         const res = await fetch(`${API_BASE}/accounts`, {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         })
         if (res.ok) {
-          const accountsRaw = await res.json()
-          const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
+          const raw = await res.json()
+          const apiAccounts: any[] = Array.isArray(raw) ? raw : (raw.data ?? [])
           const now = new Date().toISOString()
-
-          // Debug: log the first account's full raw object to sync_logs
-          if (apiAccounts.length > 0) {
-            const debugObj = JSON.stringify(apiAccounts[0]).slice(0, 4000)
-            console.log(`DEBUG first account raw: ${debugObj}`)
-            await db.from('sync_logs').insert({
-              status: 'info',
-              success: true,
-              started_at: now,
-              finished_at: now,
-              completed_at: now,
-              message: 'DEBUG: Raw API account object (first account)',
-              error_message: debugObj,
-              records_processed: 0,
-            })
-          }
 
           for (const acc of apiAccounts) {
             const ud = acc.onlyfans_user_data ?? {}
-            const avatarUrl = ud.avatar ?? acc.avatar ?? null
-            const avatarThumb = ud.avatarThumbs?.c144 ?? ud.avatarThumbs?.c50 ?? acc.avatarThumbs?.c144 ?? acc.avatar_thumb ?? null
-            const headerUrl = ud.header ?? acc.header ?? null
-
             await db.from('accounts').upsert({
               onlyfans_account_id: String(acc.id),
               username: acc.onlyfans_username ?? ud.username ?? null,
@@ -87,56 +62,36 @@ Deno.serve(async (req) => {
               performer_top: ud.performerTop ?? null,
               subscribe_price: ud.subscribePrice ?? 0,
               last_seen: ud.lastSeen ?? null,
-              avatar_url: avatarUrl,
-              avatar_thumb_url: avatarThumb,
-              header_url: headerUrl,
+              avatar_url: ud.avatar ?? acc.avatar ?? null,
+              avatar_thumb_url: ud.avatarThumbs?.c144 ?? ud.avatarThumbs?.c50 ?? null,
+              header_url: ud.header ?? acc.header ?? null,
             }, { onConflict: 'onlyfans_account_id' })
           }
-          console.log(`Upserted ${apiAccounts.length} accounts with avatar data from API`)
+          accountsSynced = apiAccounts.length
+          console.log(`Synced ${accountsSynced} accounts with avatars`)
         } else {
-          console.error(`Failed to fetch accounts from API: ${res.status}`)
+          console.error(`API accounts fetch failed: ${res.status}`)
         }
       } catch (err: any) {
         console.error(`API account fetch error: ${err.message}`)
       }
     }
 
-    // Get active accounts from DB
+    // Step 2: Get accounts from DB and return them for frontend to dispatch sync-tracking calls
     const { data: accounts, error: accErr } = await db.from('accounts')
       .select('id, display_name, onlyfans_account_id')
       .eq('is_active', true)
 
     if (accErr) throw accErr
-    if (!accounts || accounts.length === 0) {
-      return new Response(JSON.stringify({ message: 'No active accounts', dispatched: 0 }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Dispatch one sync-account call per account (fire-and-forget)
-    const dispatched: string[] = []
-    for (const account of accounts) {
-      fetch(`${supabaseUrl}/functions/v1/sync-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${serviceKey}`,
-        },
-        body: JSON.stringify({
-          account_id: account.id,
-          onlyfans_account_id: account.onlyfans_account_id,
-          display_name: account.display_name,
-        }),
-      }).catch(err => console.error(`Failed to dispatch sync for ${account.display_name}: ${err.message}`))
-
-      dispatched.push(account.display_name)
-      console.log(`Dispatched sync for ${account.display_name}`)
-    }
 
     return new Response(JSON.stringify({
-      message: `Dispatched sync for ${dispatched.length} accounts`,
-      dispatched,
-      accounts: accounts.map(a => ({ id: a.id, display_name: a.display_name })),
+      message: `Synced ${accountsSynced} accounts`,
+      accounts_synced: accountsSynced,
+      accounts: (accounts ?? []).map(a => ({
+        id: a.id,
+        display_name: a.display_name,
+        onlyfans_account_id: a.onlyfans_account_id,
+      })),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
