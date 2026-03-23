@@ -11,12 +11,12 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-  const noDataCount = useMemo(() => links.filter(l => l.status === "NO DATA" || (!l.ad_spend && !l.cost_total)).length, [links]);
+  const noSpendCount = useMemo(() => links.filter(l => l.status === "NO SPEND" || l.status === "NO_DATA" || (!l.ad_spend && !l.cost_total)).length, [links]);
 
   const scaleLinks = useMemo(() =>
     links
-      .filter(l => l.status === "SCALE")
-      .sort((a, b) => Number(b.roi || 0) - Number(a.roi || 0))
+      .filter(l => l.status === "SCALE" && Number(l.roi || 0) > 150 && Number(l.profit || 0) > 0)
+      .sort((a, b) => Number(b.profit || 0) - Number(a.profit || 0))
       .slice(0, 5),
     [links]
   );
@@ -24,7 +24,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
   const watchLinks = useMemo(() =>
     links
       .filter(l => l.status === "WATCH" || l.status === "LOW")
-      .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0))
+      .sort((a, b) => Number(b.profit || 0) - Number(a.profit || 0))
       .slice(0, 5),
     [links]
   );
@@ -35,7 +35,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
       if (l.status === "DEAD") {
         return l.clicks > 0 || l.subscribers > 0 || l.spenders > 0 || Number(l.revenue || 0) > 0;
       }
-      // Also check: had clicks before but 0 new clicks for 3+ days
+      if (l.roi !== null && l.roi !== undefined && l.roi < 0) return true;
       if (l.clicks > 0 && l.calculated_at) {
         const daysSince = differenceInDays(new Date(), new Date(l.calculated_at));
         if (daysSince >= 3) return true;
@@ -62,11 +62,10 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
       </button>
       {open && (
         <div className="border-t border-border">
-          {/* No-data hint */}
-          {noDataCount > 0 && (
+          {noSpendCount > 0 && (
             <div className="px-5 py-2.5 bg-muted/30 border-b border-border">
               <p className="text-xs text-muted-foreground">
-                💡 Enter costs on campaigns to unlock Scale/Kill signals — <span className="text-foreground font-semibold">{noDataCount} campaign{noDataCount !== 1 ? "s" : ""}</span> have no cost set yet
+                💡 Enter spend on campaigns to unlock Scale/Kill signals — <span className="text-foreground font-semibold">{noSpendCount} campaign{noSpendCount !== 1 ? "s" : ""}</span> have no spend set yet
               </p>
             </div>
           )}
@@ -77,7 +76,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                 <TrendingUp className="h-3.5 w-3.5" /> Scale Now
               </h4>
               {scaleLinks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No campaigns ready to scale yet — enter costs to see ROI</p>
+                <p className="text-xs text-muted-foreground">No campaigns ready to scale yet — enter spend to see ROI</p>
               ) : (
                 <div className="space-y-2">
                   {scaleLinks.map((l) => (
@@ -88,7 +87,13 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       </div>
                       <div className="flex items-center justify-between mt-1">
                         <p className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</p>
-                        <span className="text-[10px] text-muted-foreground font-mono">{fmtC(Number(l.revenue || 0))}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">Spend {fmtC(Number(l.ad_spend || l.cost_total || 0))}</span>
+                          <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                            P {fmtC(Number(l.profit || 0))}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -115,7 +120,13 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       </div>
                       <div className="flex items-center justify-between mt-1">
                         <p className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</p>
-                        <span className="text-[10px] text-muted-foreground font-mono">{fmtC(Number(l.revenue || 0))}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">Spend {fmtC(Number(l.ad_spend || l.cost_total || 0))}</span>
+                          <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                            P {fmtC(Number(l.profit || 0))}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -146,7 +157,13 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                           <p className="text-[10px] text-muted-foreground">
                             {daysSinceClick !== null ? `${daysSinceClick}d since last click` : l.accounts?.display_name}
                           </p>
-                          <span className="text-[10px] text-destructive font-mono">{fmtC(Number(l.revenue || 0))}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">Spend {fmtC(Number(l.ad_spend || l.cost_total || 0))}</span>
+                            <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                              P {fmtC(Number(l.profit || 0))}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );

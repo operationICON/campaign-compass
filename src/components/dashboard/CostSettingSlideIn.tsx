@@ -112,7 +112,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
       const cvr = clicks > 0 ? (subscribers / clicks) : 0;
       const cpl = cvr > 0 ? v / cvr : 0;
       return [
-        `Cost = ${clicks.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
+        `Spend = ${clicks.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
         `CVR = ${subscribers}/${clicks} = ${fmtP(cvr * 100)}`,
         `Real CPL = $${v.toFixed(2)} / ${fmtP(cvr * 100)} = ${fmtC(cpl)}`,
       ];
@@ -122,7 +122,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
       const cvr = clicks > 0 ? (subscribers / clicks) : 0;
       const cpc = cvr > 0 ? v * cvr : 0;
       return [
-        `Cost = ${subscribers.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
+        `Spend = ${subscribers.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
         `CVR = ${subscribers}/${clicks} = ${fmtP(cvr * 100)}`,
         `Real CPC = $${v.toFixed(2)} × ${fmtP(cvr * 100)} = ${fmtC(cpc)}`,
       ];
@@ -130,7 +130,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
     const cpc = clicks > 0 ? v / clicks : 0;
     const cpl = subscribers > 0 ? v / subscribers : 0;
     return [
-      `Cost = ${fmtC(v)}`,
+      `Spend = ${fmtC(v)}`,
       `Real CPC = ${fmtC(v)} / ${clicks} = ${fmtC(cpc)}`,
       `Real CPL = ${fmtC(v)} / ${subscribers} = ${fmtC(cpl)}`,
     ];
@@ -144,7 +144,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Set Cost</h2>
+              <h2 className="text-lg font-bold text-foreground">Set Spend</h2>
               <p className="text-xs text-muted-foreground mt-0.5">{link.campaign_name || "Unknown"}</p>
             </div>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -152,9 +152,9 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
             </button>
           </div>
 
-          {/* Step 1: Cost Type */}
+          {/* Step 1: Spend Type */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-2">Step 1 — Cost Type</label>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-2">Step 1 — Spend Type</label>
             <div className="grid grid-cols-3 gap-2">
               {COST_TYPES.map((ct) => (
                 <button
@@ -192,7 +192,6 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
                   autoFocus
                 />
               </div>
-              {/* Formula preview */}
               {costFormula && (
                 <div className="mt-2 bg-secondary/50 border border-border rounded-lg p-3 space-y-1">
                   {costFormula.map((line, i) => (
@@ -212,13 +211,13 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
                   <div><span className="text-muted-foreground block">Clicks</span><span className="font-mono font-semibold text-foreground">{clicks.toLocaleString()}</span></div>
                   <div><span className="text-muted-foreground block">Subs</span><span className="font-mono font-semibold text-foreground">{subscribers.toLocaleString()}</span></div>
                   <div><span className="text-muted-foreground block">CVR</span><span className="font-mono font-semibold text-foreground">{fmtP(preview.cvr * 100)}</span></div>
-                  <div><span className="text-muted-foreground block">Revenue</span><span className="font-mono font-semibold text-primary">{fmtC(revenue)}</span></div>
+                  <div><span className="text-muted-foreground block">LTV</span><span className="font-mono font-semibold text-primary">{fmtC(revenue)}</span></div>
                 </div>
                 <div className="border-t border-border pt-2 grid grid-cols-4 gap-2 text-xs">
-                  <div><span className="text-muted-foreground block">Cost Total</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cost_total)}</span></div>
+                  <div><span className="text-muted-foreground block">Total Spend</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cost_total)}</span></div>
                   <div><span className="text-muted-foreground block">CPC</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cpc_real)}</span></div>
                   <div><span className="text-muted-foreground block">CPL</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cpl_real)}</span></div>
-                  <div><span className="text-muted-foreground block">ARPU</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.arpu)}</span></div>
+                  <div><span className="text-muted-foreground block">LTV/Sub</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.arpu)}</span></div>
                 </div>
                 <div className="border-t border-border pt-2 flex items-center justify-between">
                   <div className="text-xs">
@@ -247,7 +246,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
             disabled={saving || !costType || !costValue || !preview}
             className="w-full px-4 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Cost"}
+            {saving ? "Saving..." : "Save Spend"}
           </button>
         </div>
       </div>

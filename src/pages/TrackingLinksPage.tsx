@@ -59,11 +59,12 @@ const STATUS_STYLES: Record<string, string> = {
   LOW: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
   KILL: "bg-[hsl(0_84%_60%/0.12)] text-[hsl(0_84%_60%)]",
   DEAD: "bg-[hsl(0_72%_51%/0.1)] text-[hsl(0_72%_51%)]",
+  "NO SPEND": "bg-muted text-muted-foreground",
   NO_DATA: "bg-muted text-muted-foreground",
 };
 
 const STATUS_EMOJI: Record<string, string> = {
-  SCALE: "🟢", WATCH: "🟡", LOW: "🟠", KILL: "🔴", DEAD: "💀", NO_DATA: "⚪",
+  SCALE: "🟢", WATCH: "🟡", LOW: "🟠", KILL: "🔴", DEAD: "💀", "NO SPEND": "⚪", NO_DATA: "⚪",
 };
 
 const COST_TYPE_STYLES: Record<string, string> = {
@@ -98,7 +99,7 @@ export default function TrackingLinksPage() {
   });
 
   const exportCampaignsCsv = useCallback(() => {
-    const header = "campaign_name,account_username,clicks,subscribers,revenue,current_cost_type,current_cost_value";
+    const header = "campaign_name,account_username,clicks,subscribers,ltv,current_spend_type,current_spend_value";
     const rows = links.map((l: any) => {
       const cn = (l.campaign_name || "").replace(/,/g, " ");
       const un = (l.accounts?.username || "").replace(/,/g, " ");
@@ -120,7 +121,7 @@ export default function TrackingLinksPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       setAdSpendSlideIn(null);
-      toast.success("Ad spend saved");
+      toast.success("Spend saved");
     },
   });
 
@@ -128,7 +129,7 @@ export default function TrackingLinksPage() {
     mutationFn: deleteAdSpend,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
-      toast.success("Ad spend deleted");
+      toast.success("Spend deleted");
     },
   });
 
@@ -144,46 +145,13 @@ export default function TrackingLinksPage() {
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`),
   });
 
-  const adSpendMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    adSpendData.forEach((s: any) => {
-      map[s.campaign_id] = (map[s.campaign_id] || 0) + Number(s.amount || 0);
-    });
-    return map;
-  }, [adSpendData]);
-
   const totalSpent = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.cost_total || 0), 0), [links]);
-  const totalRevenue = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0), [links]);
+  const totalLtv = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0), [links]);
+  const totalProfit = useMemo(() => totalLtv - totalSpent, [totalLtv, totalSpent]);
   const blendedRoi = useMemo(() => {
     if (totalSpent <= 0) return null;
-    return ((totalRevenue - totalSpent) / totalSpent) * 100;
-  }, [totalSpent, totalRevenue]);
-
-  const bestPlatform = useMemo(() => {
-    if (adSpendData.length === 0) return null;
-    const platformMap: Record<string, { spend: number; revenue: number }> = {};
-    adSpendData.forEach((s: any) => {
-      const p = s.traffic_source || "unknown";
-      if (!platformMap[p]) platformMap[p] = { spend: 0, revenue: 0 };
-      platformMap[p].spend += Number(s.amount || 0);
-    });
-    links.forEach((l: any) => {
-      const matchingSpends = adSpendData.filter((s: any) => s.campaign_id === l.campaign_id);
-      if (matchingSpends.length > 0) {
-        const platform = matchingSpends[0].traffic_source || "unknown";
-        if (platformMap[platform]) platformMap[platform].revenue += Number(l.revenue || 0);
-      }
-    });
-    let best: string | null = null;
-    let bestRoi = -Infinity;
-    Object.entries(platformMap).forEach(([p, data]) => {
-      if (data.spend > 0) {
-        const roi = ((data.revenue - data.spend) / data.spend) * 100;
-        if (roi > bestRoi) { bestRoi = roi; best = p; }
-      }
-    });
-    return best;
-  }, [adSpendData, links]);
+    return ((totalLtv - totalSpent) / totalSpent) * 100;
+  }, [totalSpent, totalLtv]);
 
   const revenueMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -207,18 +175,12 @@ export default function TrackingLinksPage() {
     });
   }, [links, manualOverrides]);
 
-  // Account summary for the summary bar
   const accountSummary = useMemo(() => {
     const map: Record<string, { id: string; username: string; display_name: string; count: number }> = {};
     enrichedLinks.forEach((l: any) => {
       const accId = l.account_id;
       if (!map[accId]) {
-        map[accId] = {
-          id: accId,
-          username: l.accounts?.username || "unknown",
-          display_name: l.accounts?.display_name || "Unknown",
-          count: 0,
-        };
+        map[accId] = { id: accId, username: l.accounts?.username || "unknown", display_name: l.accounts?.display_name || "Unknown", count: 0 };
       }
       map[accId].count++;
     });
@@ -227,16 +189,12 @@ export default function TrackingLinksPage() {
 
   const filtered = useMemo(() => {
     let result = enrichedLinks;
-    if (accountFilter) {
-      result = result.filter((l: any) => l.account_id === accountFilter);
-    }
+    if (accountFilter) result = result.filter((l: any) => l.account_id === accountFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
-        (l.campaign_name || "").toLowerCase().includes(q) ||
-        (l.url || "").toLowerCase().includes(q) ||
-        (l.accounts?.username || "").toLowerCase().includes(q) ||
-        (l.accounts?.display_name || "").toLowerCase().includes(q)
+        (l.campaign_name || "").toLowerCase().includes(q) || (l.url || "").toLowerCase().includes(q) ||
+        (l.accounts?.username || "").toLowerCase().includes(q) || (l.accounts?.display_name || "").toLowerCase().includes(q)
       );
     }
     if (clickFilter === "active") result = result.filter((l: any) => l.clicks > 0);
@@ -325,29 +283,17 @@ export default function TrackingLinksPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
-            <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track your subscribers and revenue</p>
+            <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track subscribers and LTV</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={exportCampaignsCsv}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all"
-            >
-              <Download className="h-4 w-4" />
-              Export
+            <button onClick={exportCampaignsCsv} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
+              <Download className="h-4 w-4" /> Export
             </button>
-            <button
-              onClick={() => setImportModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all"
-            >
-              <Upload className="h-4 w-4" />
-              Import Costs
+            <button onClick={() => setImportModalOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
+              <Upload className="h-4 w-4" /> Import Spend
             </button>
-            <button
-              onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] gradient-bg text-white text-sm font-medium hover:opacity-90 transition-all duration-200 hero-glow"
-            >
-              <Plus className="h-4 w-4" />
-              Add Ad Spend
+            <button onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })} className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] gradient-bg text-white text-sm font-medium hover:opacity-90 transition-all duration-200 hero-glow">
+              <Plus className="h-4 w-4" /> Add Spend
             </button>
           </div>
         </div>
@@ -356,52 +302,40 @@ export default function TrackingLinksPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
             <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total LTV</span>
+            </div>
+            <p className="text-[28px] font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-destructive" />
               </div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Cost</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Spend</span>
             </div>
-            <p className={`text-[28px] font-bold font-mono ${totalSpent > 0 ? "text-foreground" : "text-muted-foreground"}`}>
-              {fmtC(totalSpent)}
-            </p>
+            <p className={`text-[28px] font-bold font-mono ${totalSpent > 0 ? "text-foreground" : "text-muted-foreground"}`}>{fmtC(totalSpent)}</p>
           </div>
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-primary" />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${totalProfit >= 0 ? "bg-primary/10" : "bg-destructive/10"}`}>
+                <TrendingUp className={`h-4 w-4 ${totalProfit >= 0 ? "text-primary" : "text-destructive"}`} />
               </div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Profit</span>
             </div>
-            <p className="text-[28px] font-bold font-mono text-primary">
-              {fmtC(totalRevenue)}
-            </p>
+            <p className={`text-[28px] font-bold font-mono ${totalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(totalProfit)}</p>
           </div>
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
             <div className="flex items-center gap-2 mb-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                blendedRoi === null ? "bg-secondary" : blendedRoi >= 0 ? "bg-primary/10" : "bg-destructive/10"
-              }`}>
-                <BarChart3 className={`h-4 w-4 ${
-                  blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"
-                }`} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${blendedRoi === null ? "bg-secondary" : blendedRoi >= 0 ? "bg-primary/10" : "bg-destructive/10"}`}>
+                <BarChart3 className={`h-4 w-4 ${blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"}`} />
               </div>
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Blended ROI</span>
             </div>
-            <p className={`text-[28px] font-bold font-mono ${
-              blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"
-            }`}>
+            <p className={`text-[28px] font-bold font-mono ${blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"}`}>
               {blendedRoi !== null ? `${blendedRoi.toFixed(1)}%` : "—"}
-            </p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-5 card-hover">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-                <BarChart3 className="h-4 w-4 text-info" />
-              </div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Best Platform</span>
-            </div>
-            <p className="text-[28px] font-bold font-mono text-foreground capitalize">
-              {bestPlatform || "—"}
             </p>
           </div>
         </div>
@@ -410,23 +344,13 @@ export default function TrackingLinksPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search by campaign or account..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors"
-            />
+            <input type="text" placeholder="Search by campaign or account..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors" />
           </div>
           <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
             {(["all", "active", "zero"] as ClickFilter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => { setClickFilter(f); setPage(1); }}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${
-                  clickFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
+              <button key={f} onClick={() => { setClickFilter(f); setPage(1); }}
+                className={`px-3 py-2 text-xs font-medium transition-colors ${clickFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                 {f === "all" ? "Show All" : f === "active" ? "Active Only" : "Zero Clicks"}
               </button>
             ))}
@@ -442,26 +366,16 @@ export default function TrackingLinksPage() {
                 return days > 180;
               }).length;
               return (
-                <button
-                  key={f}
-                  onClick={() => { setAgeFilter(f); setPage(1); }}
-                  className={`px-3 py-2 text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${
-                    ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
+                <button key={f} onClick={() => { setAgeFilter(f); setPage(1); }}
+                  className={`px-3 py-2 text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                   {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
-                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}>{count}</span>
+                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{count}</span>
                 </button>
               );
             })}
           </div>
-          <button
-            onClick={() => syncMutation.mutate(undefined)}
-            disabled={syncMutation.isPending}
-            className={`ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow gradient-bg hover:opacity-90`}
-          >
+          <button onClick={() => syncMutation.mutate(undefined)} disabled={syncMutation.isPending}
+            className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow gradient-bg hover:opacity-90">
             <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
             {syncMutation.isPending ? "Syncing..." : "Sync Now"}
           </button>
@@ -475,18 +389,9 @@ export default function TrackingLinksPage() {
                 const isActive = accountFilter === acc.id;
                 const color = getAccountColor(acc.username);
                 return (
-                  <button
-                    key={acc.id}
-                    onClick={() => { setAccountFilter(isActive ? null : acc.id); setPage(1); }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all shrink-0 ${
-                      isActive
-                        ? "bg-primary/15 border border-primary/40 text-foreground"
-                        : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-                    }`}
-                  >
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${color.bg} ${color.text}`}>
-                      {acc.display_name.charAt(0)}
-                    </div>
+                  <button key={acc.id} onClick={() => { setAccountFilter(isActive ? null : acc.id); setPage(1); }}
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all shrink-0 ${isActive ? "bg-primary/15 border border-primary/40 text-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/30"}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${color.bg} ${color.text}`}>{acc.display_name.charAt(0)}</div>
                     <span className="text-xs">@{acc.username}</span>
                     <span className="text-xs text-muted-foreground">·</span>
                     <span className="text-xs font-bold text-primary">{acc.count}</span>
@@ -504,11 +409,7 @@ export default function TrackingLinksPage() {
         {/* Table */}
         {isLoading ? (
           <div className="bg-card border border-border rounded-lg p-8">
-            <div className="space-y-3">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="skeleton-shimmer h-10 rounded" />
-              ))}
-            </div>
+            <div className="space-y-3">{[...Array(8)].map((_, i) => (<div key={i} className="skeleton-shimmer h-10 rounded" />))}</div>
           </div>
         ) : sorted.length === 0 ? (
           <div className="bg-card border border-border rounded-lg p-16 text-center">
@@ -517,44 +418,16 @@ export default function TrackingLinksPage() {
             <p className="text-sm text-muted-foreground mb-4">
               {searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter ? "Try adjusting your filters." : "Run a sync to get started."}
             </p>
-            {!searchQuery && clickFilter === "all" && ageFilter === "all" && !accountFilter && (
-              <button
-                onClick={() => syncMutation.mutate(undefined)}
-                disabled={syncMutation.isPending}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-                Sync Now
-              </button>
-            )}
-            {(searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter) && (
-              <button
-                onClick={() => { setSearchQuery(""); setClickFilter("all"); setAgeFilter("all"); setAccountFilter(null); }}
-                className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors"
-              >
-                Clear Filters
-              </button>
-            )}
           </div>
         ) : (
           <div className="bg-card border border-border rounded-lg overflow-hidden">
-            {/* Showing count + rows per page */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-              <span className="text-xs text-muted-foreground">
-                Showing {showStart}–{showEnd} of {sorted.length} campaigns
-              </span>
+              <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} campaigns</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Rows per page:</span>
                 {[10, 25, 50, 100].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => { setPerPage(n); setPage(1); }}
-                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                      perPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    {n}
-                  </button>
+                  <button key={n} onClick={() => { setPerPage(n); setPage(1); }}
+                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${perPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>{n}</button>
                 ))}
               </div>
             </div>
@@ -564,17 +437,15 @@ export default function TrackingLinksPage() {
                   <tr className="border-b border-border bg-secondary/30">
                     <SortHeader label="Campaign" sortKeyName="campaign_name" width="180px" />
                     <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
+                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px" }}>Source</th>
                     <SortHeader label="Clicks" sortKeyName="clicks" width="60px" />
                     <SortHeader label="Subs" sortKeyName="subscribers" width="55px" />
-                    <SortHeader label="CVR" sortKeyName="cvr" width="55px" />
-                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "55px" }}>Type</th>
-                    <SortHeader label="Cost" sortKeyName="cost_total" width="80px" />
-                    <SortHeader label="Revenue" sortKeyName="revenue" width="90px" />
-                    <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>EPC</th>
-                    <SortHeader label="ARPU" sortKeyName="arpu" width="60px" />
-                    <SortHeader label="CPL" sortKeyName="cpl_real" width="60px" />
+                    <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
+                    <SortHeader label="Spend" sortKeyName="cost_total" width="80px" />
                     <SortHeader label="Profit" sortKeyName="profit" width="80px" />
                     <SortHeader label="ROI" sortKeyName="roi" width="60px" />
+                    <SortHeader label="CPL" sortKeyName="cpl_real" width="60px" />
+                    <SortHeader label="LTV/Sub" sortKeyName="arpu" width="60px" />
                     <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "70px" }}>Status</th>
                     <SortHeader label="Created" sortKeyName="created_at" width="85px" />
                     <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "65px" }}>Active</th>
@@ -585,128 +456,82 @@ export default function TrackingLinksPage() {
                     const acctColor = getAccountColor(link.accounts?.username);
                     const initials = getCampaignInitials(link.campaign_name);
                     const username = link.accounts?.username || link.accounts?.display_name || "—";
-                    const borderClass = link.isZeroClicksStale
-                      ? "border-l-2 border-l-destructive"
-                      : link.isHighRevenue ? "border-l-2 border-l-primary" : "border-l-2 border-l-transparent";
+                    const borderClass = link.isZeroClicksStale ? "border-l-2 border-l-destructive" : link.isHighRevenue ? "border-l-2 border-l-primary" : "border-l-2 border-l-transparent";
                     const rowOpacity = link.isActive ? "" : "opacity-50";
-                    const epc = link.clicks > 0 ? Number(link.revenue) / link.clicks : 0;
                     const costTotal = Number(link.cost_total || 0);
                     const profit = Number(link.profit || 0);
                     const roi = Number(link.roi || 0);
-                    const cvr = Number(link.cvr || 0);
                     const arpu = Number(link.arpu || 0);
                     const cplReal = Number(link.cpl_real || 0);
                     const status = link.status || "NO_DATA";
+                    const displayStatus = status === "NO_DATA" ? "NO SPEND" : status;
                     const hasCost = link.cost_type && costTotal > 0;
+                    const mediaBuyer = link.source || null;
 
                     return (
-                      <tr
-                        key={link.id}
-                        className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`}
-                        onClick={() => setSelectedLink(link)}
-                      >
-                        {/* Campaign */}
+                      <tr key={link.id} className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`} onClick={() => setSelectedLink(link)}>
                         <td className="px-2 py-2" style={{ maxWidth: "180px" }}>
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>
-                              {initials}
-                            </div>
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>{initials}</div>
                             <div className="min-w-0 overflow-hidden">
                               <p className="font-semibold text-foreground text-[13px] truncate leading-tight">{link.campaign_name || "Unnamed"}</p>
                               <a href={link.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[10px] text-muted-foreground hover:text-primary truncate block transition-colors leading-tight">{link.url}</a>
                             </div>
                           </div>
                         </td>
-                        {/* Account */}
                         <td className="px-2 py-2" style={{ maxWidth: "100px" }}>
                           <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
                         </td>
-                        {/* Clicks */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.clicks.toLocaleString()}</td>
-                        {/* Subs */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.subscribers.toLocaleString()}</td>
-                        {/* CVR */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{(cvr * 100).toFixed(1)}%</td>
-                        {/* Cost Type */}
                         <td className="px-2 py-2">
-                          {link.cost_type ? (
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${COST_TYPE_STYLES[link.cost_type] || "bg-secondary text-muted-foreground"}`}>
-                              {link.cost_type}
-                            </span>
+                          {mediaBuyer ? (
+                            <span className="text-[11px] text-foreground">{mediaBuyer}</span>
                           ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-secondary text-muted-foreground">—</span>
+                            <span className="text-[11px] text-muted-foreground italic">— Untagged</span>
                           )}
                         </td>
-                        {/* Cost */}
-                        <td className="px-2 py-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
-                            className="text-[12px] transition-colors whitespace-nowrap"
-                          >
-                            {hasCost ? (
-                              <span className="font-mono text-foreground">{fmtC(costTotal)}</span>
-                            ) : (
-                              <span className="text-muted-foreground hover:text-primary">Set cost</span>
-                            )}
-                          </button>
-                        </td>
-                        {/* Revenue */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.clicks.toLocaleString()}</td>
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.subscribers.toLocaleString()}</td>
                         <td className="px-2 py-2">
                           <span className="font-mono text-[12px] gradient-text font-semibold">{fmtC(Number(link.revenue))}</span>
                         </td>
-                        {/* EPC */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">${epc.toFixed(2)}</td>
-                        {/* ARPU */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">${arpu.toFixed(2)}</td>
-                        {/* CPL */}
-                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{cplReal > 0 ? `$${cplReal.toFixed(2)}` : "—"}</td>
-                        {/* Profit */}
-                        <td className="px-2 py-2 font-mono text-[12px]">
-                          {hasCost ? (
-                            <span className={profit >= 0 ? "text-primary" : "text-destructive"}>
-                              {profit >= 0 ? "+" : ""}{fmtC(profit)}
-                            </span>
-                          ) : <span className="text-muted-foreground">—</span>}
-                        </td>
-                        {/* ROI */}
-                        <td className="px-2 py-2 font-mono text-[12px]">
-                          {hasCost ? (
-                            <span className={roi >= 0 ? "text-primary" : "text-destructive"}>
-                              {roi.toFixed(1)}%
-                            </span>
-                          ) : <span className="text-muted-foreground">—</span>}
-                        </td>
-                        {/* Status */}
                         <td className="px-2 py-2">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_STYLES[status] || STATUS_STYLES.NO_DATA}`}>
-                            {STATUS_EMOJI[status]} {status.replace("_", " ")}
+                          <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }} className="text-[12px] transition-colors whitespace-nowrap">
+                            {hasCost ? (
+                              <span className="font-mono text-foreground">{fmtC(costTotal)}</span>
+                            ) : (
+                              <span className="text-muted-foreground hover:text-primary">Set Spend</span>
+                            )}
+                          </button>
+                        </td>
+                        <td className="px-2 py-2 font-mono text-[12px]">
+                          {hasCost ? (
+                            <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-2 py-2 font-mono text-[12px]">
+                          {hasCost ? (
+                            <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">{cplReal > 0 ? `$${cplReal.toFixed(2)}` : "—"}</td>
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">${arpu.toFixed(2)}</td>
+                        <td className="px-2 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_STYLES[displayStatus] || STATUS_STYLES.NO_DATA}`}>
+                            {STATUS_EMOJI[displayStatus] || "⚪"} {displayStatus.replace("_", " ")}
                           </span>
                         </td>
-                        {/* Created */}
                         <td className="px-2 py-2">
-                          <CampaignAgePill
-                            createdAt={link.created_at}
-                            lastActivityAt={link.calculated_at}
-                            clicks={link.clicks}
-                            revenue={Number(link.revenue || 0)}
-                          />
+                          <CampaignAgePill createdAt={link.created_at} lastActivityAt={link.calculated_at} clicks={link.clicks} revenue={Number(link.revenue || 0)} />
                         </td>
-                        {/* Active */}
                         <td className="px-2 py-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toggleActiveOverride(link.id, link.isActive); }}
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
-                                  link.isActive ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
-                                }`}
-                              >
+                              <button onClick={(e) => { e.stopPropagation(); toggleActiveOverride(link.id, link.isActive); }}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${link.isActive ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}>
                                 {link.isActive ? "Active" : "Inactive"}
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">Last activity: {link.daysSinceActivity < 999 ? `${link.daysSinceActivity} days ago` : "Unknown"}</p>
-                            </TooltipContent>
+                            <TooltipContent><p className="text-xs">Last activity: {link.daysSinceActivity < 999 ? `${link.daysSinceActivity} days ago` : "Unknown"}</p></TooltipContent>
                           </Tooltip>
                         </td>
                       </tr>
@@ -715,12 +540,8 @@ export default function TrackingLinksPage() {
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-              <span className="text-xs text-muted-foreground">
-                Showing {showStart}–{showEnd} of {sorted.length} tracking links
-              </span>
+              <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
                   <ChevronLeft className="h-4 w-4 text-muted-foreground" />
@@ -732,15 +553,8 @@ export default function TrackingLinksPage() {
                   else if (safePage >= totalPages - 3) pageNum = totalPages - 6 + i;
                   else pageNum = safePage - 3 + i;
                   return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setPage(pageNum)}
-                      className={`w-8 h-8 rounded text-xs font-medium transition-colors ${
-                        pageNum === safePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
+                    <button key={pageNum} onClick={() => setPage(pageNum)}
+                      className={`w-8 h-8 rounded text-xs font-medium transition-colors ${pageNum === safePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>{pageNum}</button>
                   );
                 })}
                 <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
@@ -755,12 +569,12 @@ export default function TrackingLinksPage() {
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="text-base font-semibold text-foreground">Spend History</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">All recorded ad spend entries</p>
+            <p className="text-xs text-muted-foreground mt-0.5">All recorded spend entries</p>
           </div>
           {adSpendData.length === 0 ? (
             <div className="p-10 text-center">
               <DollarSign className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No ad spend recorded</p>
+              <p className="text-sm text-muted-foreground">No spend recorded</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -772,7 +586,7 @@ export default function TrackingLinksPage() {
                     <th className="h-9 px-4 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Media Buyer</th>
                     <th className="h-9 px-4 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Platform</th>
                     <th className="h-9 px-4 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
-                    <th className="h-9 px-4 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Revenue</th>
+                    <th className="h-9 px-4 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">LTV</th>
                     <th className="h-9 px-4 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">ROI</th>
                     <th className="h-9 px-4 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider w-10"></th>
                   </tr>
@@ -791,9 +605,7 @@ export default function TrackingLinksPage() {
                         <td className="px-4 py-2.5 font-mono text-[13px] text-foreground">{fmtC(amt)}</td>
                         <td className="px-4 py-2.5 font-mono text-[13px] text-primary">{fmtC(rev)}</td>
                         <td className="px-4 py-2.5 font-mono text-[13px]">
-                          {entryRoi !== null ? (
-                            <span className={entryRoi >= 0 ? "text-primary" : "text-destructive"}>{entryRoi.toFixed(1)}%</span>
-                          ) : <span className="text-muted-foreground">—</span>}
+                          {entryRoi !== null ? (<span className={entryRoi >= 0 ? "text-primary" : "text-destructive"}>{entryRoi.toFixed(1)}%</span>) : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="px-4 py-2.5">
                           <button onClick={() => deleteSpendMutation.mutate(entry.id)} disabled={deleteSpendMutation.isPending} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
@@ -810,47 +622,10 @@ export default function TrackingLinksPage() {
         </div>
       </div>
 
-      {adSpendSlideIn && (
-        <AdSpendSlideIn
-          link={adSpendSlideIn}
-          onClose={() => setAdSpendSlideIn(null)}
-          onSubmit={(data) => addSpendMutation.mutateAsync(data)}
-        />
-      )}
-
-      {costSlideIn && (
-        <CostSettingSlideIn
-          link={costSlideIn}
-          onClose={() => setCostSlideIn(null)}
-          onSaved={() => {
-            setCostSlideIn(null);
-            queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-            toast.success("Cost saved & metrics recalculated");
-          }}
-        />
-      )}
-
-      {selectedLink && (
-        <CampaignDetailSlideIn
-          link={selectedLink}
-          cost={Number(selectedLink.cost_total || 0)}
-          onClose={() => setSelectedLink(null)}
-          onSetCost={() => {
-            setCostSlideIn(selectedLink);
-            setSelectedLink(null);
-          }}
-        />
-      )}
-
-      <CsvCostImportModal
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        onComplete={() => {
-          queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-          setImportModalOpen(false);
-        }}
-        trackingLinks={links}
-      />
+      {adSpendSlideIn && <AdSpendSlideIn link={adSpendSlideIn} onClose={() => setAdSpendSlideIn(null)} onSubmit={(data) => addSpendMutation.mutateAsync(data)} />}
+      {costSlideIn && <CostSettingSlideIn link={costSlideIn} onClose={() => setCostSlideIn(null)} onSaved={() => { setCostSlideIn(null); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); toast.success("Spend saved & metrics recalculated"); }} />}
+      {selectedLink && <CampaignDetailSlideIn link={selectedLink} cost={Number(selectedLink.cost_total || 0)} onClose={() => setSelectedLink(null)} onSetCost={() => { setCostSlideIn(selectedLink); setSelectedLink(null); }} />}
+      <CsvCostImportModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onComplete={() => { queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); setImportModalOpen(false); }} trackingLinks={links} />
     </DashboardLayout>
   );
 }

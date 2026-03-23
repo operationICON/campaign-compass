@@ -14,10 +14,11 @@ const STATUS_STYLES: Record<string, string> = {
   LOW: "bg-warning/15 text-warning",
   KILL: "bg-destructive/15 text-destructive",
   DEAD: "bg-destructive/15 text-destructive",
+  "NO SPEND": "bg-secondary text-muted-foreground",
   NO_DATA: "bg-secondary text-muted-foreground",
 };
 const STATUS_EMOJI: Record<string, string> = {
-  SCALE: "🟢", WATCH: "🟡", LOW: "🟠", KILL: "🔴", DEAD: "💀", NO_DATA: "⚪",
+  SCALE: "🟢", WATCH: "🟡", LOW: "🟠", KILL: "🔴", DEAD: "💀", "NO SPEND": "⚪", NO_DATA: "⚪",
 };
 const COST_TYPE_STYLES: Record<string, string> = {
   CPC: "bg-info/15 text-info",
@@ -33,11 +34,11 @@ interface CampaignDetailSlideInProps {
 }
 
 export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: CampaignDetailSlideInProps) {
-  const revenue = Number(link.revenue || 0);
+  const ltv = Number(link.revenue || 0);
   const profit = Number(link.profit || 0);
   const roi = Number(link.roi || 0);
-  const epc = link.clicks > 0 ? revenue / link.clicks : 0;
-  const arpu = link.subscribers > 0 ? revenue / link.subscribers : 0;
+  const epc = link.clicks > 0 ? ltv / link.clicks : 0;
+  const ltvPerSub = link.subscribers > 0 ? ltv / link.subscribers : 0;
   const cvr = Number(link.cvr || 0);
   const cplReal = Number(link.cpl_real || 0);
   const cpcReal = Number(link.cpc_real || 0);
@@ -135,7 +136,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
               ) : "Created date unknown"}
             </p>
             <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${STATUS_STYLES[status] || STATUS_STYLES.NO_DATA}`}>
-              {STATUS_EMOJI[status]} {status.replace("_", " ")}
+              {STATUS_EMOJI[status] || "⚪"} {status.replace("_", " ")}
             </span>
           </div>
 
@@ -152,38 +153,14 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                         <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                      tickFormatter={(v) => format(new Date(v), "MMM d")}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                      tickFormatter={(v) => `$${v}`}
-                      axisLine={false}
-                      tickLine={false}
-                      width={45}
-                    />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => format(new Date(v), "MMM d")} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `$${v}`} axisLine={false} tickLine={false} width={45} />
                     <RechartsTooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                        color: "hsl(var(--foreground))",
-                      }}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }}
                       labelFormatter={(v) => format(new Date(v), "MMM d, yyyy")}
-                      formatter={(value: number) => [`$${value.toFixed(2)}`, "Revenue"]}
+                      formatter={(value: number) => [`$${value.toFixed(2)}`, "LTV"]}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      fill="url(#revGradientDetail)"
-                    />
+                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#revGradientDetail)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -202,9 +179,9 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
               { icon: MousePointerClick, label: "Clicks", value: link.clicks.toLocaleString() },
               { icon: Users, label: "Subscribers", value: link.subscribers.toLocaleString() },
               { icon: TrendingUp, label: "CVR", value: `${(cvr * 100).toFixed(1)}%` },
-              { icon: DollarSign, label: "Revenue", value: fmtC(revenue), highlight: true },
+              { icon: DollarSign, label: "LTV", value: fmtC(ltv), highlight: true },
               { icon: BarChart3, label: "EPC", value: `$${epc.toFixed(2)}` },
-              { icon: UserCheck, label: "ARPU", value: `$${arpu.toFixed(2)}` },
+              { icon: UserCheck, label: "LTV/Sub", value: `$${ltvPerSub.toFixed(2)}` },
             ].map((stat) => (
               <div key={stat.label} className="bg-secondary/30 border border-border rounded-lg p-3">
                 <div className="flex items-center gap-1.5 mb-1">
@@ -220,7 +197,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
 
           {/* Cost Section */}
           <div className="bg-secondary/30 border border-border rounded-lg p-4">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Cost & Profitability</h3>
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Spend & Profitability</h3>
             {hasCost ? (
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 mb-3">
@@ -233,7 +210,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                   </span>
                 </div>
                 {[
-                  { label: "Total Cost", value: fmtC(costTotal), color: "text-foreground" },
+                  { label: "Total Spend", value: fmtC(costTotal), color: "text-foreground" },
                   { label: "CPC (Real)", value: `$${cpcReal.toFixed(4)}`, color: "text-foreground" },
                   { label: "CPL (Real)", value: `$${cplReal.toFixed(4)}`, color: "text-foreground" },
                   { label: "Profit", value: `${profit >= 0 ? "+" : ""}${fmtC(Math.abs(profit))}`, color: profit >= 0 ? "text-primary" : "text-destructive" },
@@ -248,17 +225,17 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                   onClick={onSetCost}
                   className="mt-2 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Edit Cost
+                  Edit Spend
                 </button>
               </div>
             ) : (
               <div className="text-center py-2">
-                <p className="text-xs text-muted-foreground mb-2">No cost data set</p>
+                <p className="text-xs text-muted-foreground mb-2">No spend data set</p>
                 <button
                   onClick={onSetCost}
                   className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
                 >
-                  Set Cost
+                  Set Spend
                 </button>
               </div>
             )}
@@ -280,7 +257,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                         {format(new Date(entry.date), "MMM d, yyyy")} — {entry.label}
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {entry.clicks.toLocaleString()} clicks, {entry.subscribers.toLocaleString()} subs, ${entry.revenue.toFixed(2)} revenue
+                        {entry.clicks.toLocaleString()} clicks · {entry.subscribers.toLocaleString()} subs · ${entry.revenue.toFixed(2)} LTV
                       </p>
                     </div>
                   </div>
