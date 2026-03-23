@@ -16,8 +16,11 @@ export type Database = {
     Tables: {
       accounts: {
         Row: {
+          avatar_thumb_url: string | null
+          avatar_url: string | null
           created_at: string
           display_name: string
+          header_url: string | null
           id: string
           is_active: boolean
           last_seen: string | null
@@ -30,8 +33,11 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          avatar_thumb_url?: string | null
+          avatar_url?: string | null
           created_at?: string
           display_name: string
+          header_url?: string | null
           id?: string
           is_active?: boolean
           last_seen?: string | null
@@ -44,8 +50,11 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          avatar_thumb_url?: string | null
+          avatar_url?: string | null
           created_at?: string
           display_name?: string
+          header_url?: string | null
           id?: string
           is_active?: boolean
           last_seen?: string | null
