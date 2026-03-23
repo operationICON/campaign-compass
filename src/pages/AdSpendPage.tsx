@@ -157,6 +157,19 @@ export default function AdSpendPage() {
                     <td className="px-4 py-3 text-muted-foreground">{entry.media_buyer || "—"}</td>
                     <td className="px-4 py-3 text-right font-mono text-destructive">${Number(entry.amount).toFixed(2)}</td>
                     <td className="px-4 py-3 text-muted-foreground text-sm max-w-[200px] truncate">{entry.notes || "—"}</td>
+                    <td className="px-4 py-3 text-center">
+                      {deleteConfirmId === entry.id ? (
+                        <span className="inline-flex items-center gap-1 text-[11px]">
+                          <span className="text-muted-foreground">Sure?</span>
+                          <button onClick={() => handleDeleteSpend(entry)} className="text-destructive font-semibold hover:underline">Yes</button>
+                          <button onClick={() => setDeleteConfirmId(null)} className="text-muted-foreground hover:text-foreground">Cancel</button>
+                        </span>
+                      ) : (
+                        <button onClick={() => setDeleteConfirmId(entry.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
