@@ -80,7 +80,7 @@ export default function DashboardPage() {
 
   const filteredLinks = useMemo(() => {
     return links.filter((link: any) => {
-      if (filters.traffic_source !== "all" && link.source !== filters.traffic_source) return false;
+      if (filters.traffic_source !== "all" && (link.source_tag || "Untagged") !== filters.traffic_source) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchName = (link.campaign_name || "").toLowerCase().includes(q);
