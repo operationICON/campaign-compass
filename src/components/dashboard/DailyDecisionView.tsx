@@ -46,29 +46,21 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
   );
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-5 py-3 hover:bg-secondary/30 transition-colors"
       >
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-bold text-foreground">📊 Daily Decision View</h3>
-          <span className="text-xs text-muted-foreground">Updated every sync</span>
-          <span className="text-[10px] text-muted-foreground/60">
-            {format(new Date(), "MMM d, HH:mm")}
+          <span className="text-xs text-muted-foreground">
+            {scaleLinks.length > 0 ? `${scaleLinks.length} campaigns ready to scale` : "No campaigns ready to scale yet"}
           </span>
         </div>
         {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
       </button>
       {open && (
         <div className="border-t border-border">
-          {noSpendCount > 0 && (
-            <div className="px-5 py-2.5 bg-muted/30 border-b border-border">
-              <p className="text-xs text-muted-foreground">
-                💡 Enter spend on campaigns to unlock Scale/Kill signals — <span className="text-foreground font-semibold">{noSpendCount} campaign{noSpendCount !== 1 ? "s" : ""}</span> have no spend set yet
-              </p>
-            </div>
-          )}
           <div className="grid grid-cols-3 gap-0">
             {/* Scale Now */}
             <div className="p-4 border-r border-border">
