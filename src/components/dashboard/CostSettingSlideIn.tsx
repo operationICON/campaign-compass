@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { X, MousePointerClick, Users, DollarSign } from "lucide-react";
+import { X, MousePointerClick, Users, DollarSign, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { clearTrackingLinkSpend } from "@/lib/supabase-helpers";
 
 interface CostSettingSlideInProps {
   link: any;
