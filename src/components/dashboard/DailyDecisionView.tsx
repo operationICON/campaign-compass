@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, TrendingUp, Eye, XCircle } from "lucide-react";
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays } from "date-fns";
 
 interface DailyDecisionViewProps {
   links: any[];
