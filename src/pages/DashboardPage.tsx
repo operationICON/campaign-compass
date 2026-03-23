@@ -459,9 +459,16 @@ export default function DashboardPage() {
                 <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
               </div>
-              <p className={`text-lg font-bold font-mono ${totalProfit >= 0 ? "gradient-text" : "text-destructive"}`}>
-                {fmtCurrency(totalProfit)}
-              </p>
+              {totalSpend > 0 ? (
+                <p className={`text-lg font-bold font-mono ${totalProfit >= 0 ? "gradient-text" : "text-destructive"}`}>
+                  {fmtCurrency(totalProfit)}
+                </p>
+              ) : (
+                <>
+                  <p className="text-lg font-bold font-mono text-muted-foreground">—</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Enter spend to see profit</p>
+                </>
+              )}
             </div>
             {/* Avg CPL */}
             <div className="bg-card border border-border rounded-lg p-3 card-hover">
@@ -536,7 +543,7 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(model.revenue)}</p>
                 <p className="text-[11px] text-muted-foreground mb-2">
-                  Last 30d: {ltv30d !== undefined ? <span className="text-primary font-semibold">{fmtCurrency(ltv30d)}</span> : "—"}
+                  Last 30d: {ltv30d !== undefined ? <span className="text-primary font-semibold">{fmtCurrency(ltv30d)}</span> : <span className="text-muted-foreground/60 italic">Syncing...</span>}
                 </p>
                 <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
                   <div className="bg-primary h-1.5 rounded-full transition-all duration-500" style={{ width: `${barWidth}%` }} />
