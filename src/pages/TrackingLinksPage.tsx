@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X, Target, Wand2
+  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X, Target, Wand2, Tag
 } from "lucide-react";
 import {
   Tooltip,
