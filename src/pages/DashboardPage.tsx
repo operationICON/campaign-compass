@@ -206,6 +206,18 @@ export default function DashboardPage() {
 
   const maxModelRevenue = useMemo(() => Math.max(...modelSummary.map(m => m.revenue), 1), [modelSummary]);
 
+  // CVR per model for insights
+  const modelCvrInsights = useMemo(() => {
+    return modelSummary.map(m => {
+      const accLinks = links.filter((l: any) => l.account_id === m.id && l.clicks > 100);
+      const totalS = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const totalC = accLinks.reduce((s: number, l: any) => s + l.clicks, 0);
+      const cvr = totalC > 0 ? (totalS / totalC) * 100 : null;
+      const diff = cvr !== null && agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
+      return { ...m, cvr, cvrDiff: diff };
+    });
+  }, [modelSummary, links, agencyAvgCvr]);
+
   // LTV last 30 days per model
   const modelLtv30d = useMemo(() => {
     const map: Record<string, number> = {};
