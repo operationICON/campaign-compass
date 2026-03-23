@@ -83,7 +83,8 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
     if (!costType || !costValue || !preview) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("tracking_links").update({
+      // Write 1: Update tracking_links with calculated metrics
+      const { error: linkError } = await supabase.from("tracking_links").update({
         cost_type: costType,
         cost_value: Number(costValue),
         cost_total: preview.cost_total,
@@ -94,11 +95,23 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
         profit: preview.profit,
         roi: preview.roi,
         status: preview.status,
-      } as any).eq("id", link.id);
-      if (error) throw error;
+      }).eq("id", link.id);
+      if (linkError) throw linkError;
+
+      // Write 2: Upsert to ad_spend table
+      await supabase.from("ad_spend").upsert({
+        campaign_id: link.campaign_id,
+        traffic_source: link.source || "direct",
+        amount: preview.cost_total,
+        date: new Date().toISOString().split("T")[0],
+        notes: `${costType} @ $${Number(costValue).toFixed(2)}`,
+        media_buyer: link.source || null,
+        account_id: link.account_id,
+      }, { onConflict: "campaign_id" });
+
       onSaved();
     } catch (err: any) {
-      console.error(err);
+      console.error("Save spend error:", err);
     } finally {
       setSaving(false);
     }
