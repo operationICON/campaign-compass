@@ -33,6 +33,15 @@ export default function MediaBuyersPage() {
     return map;
   }, [links]);
 
+  // Agency benchmark CVR
+  const agencyAvgCvr = useMemo(() => {
+    const qualified = links.filter((l: any) => l.clicks > 100);
+    if (qualified.length === 0) return null;
+    const totalS = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalC = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
+    return totalC > 0 ? (totalS / totalC) * 100 : null;
+  }, [links]);
+
   const costByCampaign = useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l: any) => { if (l.cost_total) map[l.campaign_id] = (map[l.campaign_id] || 0) + Number(l.cost_total); });
