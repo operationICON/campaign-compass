@@ -272,7 +272,6 @@ export default function AccountsPage() {
                     )}
                   </div>
                 )}
-                </div>
 
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
