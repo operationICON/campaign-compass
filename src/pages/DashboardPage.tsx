@@ -152,7 +152,7 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  // KPIs
+   // KPIs
   const totalLtv = filteredLinks.reduce((s: number, l: any) => s + Number(l.revenue), 0);
   const totalClicks = filteredLinks.reduce((s: number, l: any) => s + l.clicks, 0);
   const totalSubscribers = filteredLinks.reduce((s: number, l: any) => s + l.subscribers, 0);
@@ -160,6 +160,27 @@ export default function DashboardPage() {
   const totalProfit = totalLtv - totalSpend;
   const avgCpl = totalSubscribers > 0 && totalSpend > 0 ? totalSpend / totalSubscribers : 0;
   const blendedRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : 0;
+
+  // Agency benchmark CVR (links with clicks > 100)
+  const agencyAvgCvr = useMemo(() => {
+    const qualified = links.filter((l: any) => l.clicks > 100);
+    if (qualified.length === 0) return null;
+    const totalS = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalC = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
+    return totalC > 0 ? (totalS / totalC) * 100 : null;
+  }, [links]);
+
+  // CVR per model for insights
+  const modelCvrInsights = useMemo(() => {
+    return modelSummary.map(m => {
+      const accLinks = links.filter((l: any) => l.account_id === m.id && l.clicks > 100);
+      const totalS = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const totalC = accLinks.reduce((s: number, l: any) => s + l.clicks, 0);
+      const cvr = totalC > 0 ? (totalS / totalC) * 100 : null;
+      const diff = cvr !== null && agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
+      return { ...m, cvr, cvrDiff: diff };
+    });
+  }, [modelSummary, links, agencyAvgCvr]);
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();
