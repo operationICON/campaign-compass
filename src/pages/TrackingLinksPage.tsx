@@ -418,7 +418,8 @@ export default function TrackingLinksPage() {
                     <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
                     <SortHeader label="Profit" sortKeyName="profit" width="85px" />
                     <SortHeader label="ROI" sortKeyName="roi" width="65px" />
-                    <SortHeader label="CPL" sortKeyName="cpl_real" width="60px" />
+                    <SortHeader label="Cost/Sub" sortKeyName="cpl_real" width="70px" />
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "70px" }}>LTV Ratio</th>
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px", minWidth: "80px" }}>Status</th>
                     <SortHeader label="Created" sortKeyName="created_at" width="105px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "65px" }}>Active</th>
