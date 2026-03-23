@@ -137,10 +137,17 @@ export default function MediaBuyersPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+       <div className="space-y-5">
         <div>
           <h1 className="text-xl font-bold text-foreground">Media Buyers</h1>
-          <p className="text-sm text-muted-foreground">ROI comparison by media buyer</p>
+          <p className="text-sm text-muted-foreground">
+            ROI comparison by media buyer
+            {agencyAvgCvr !== null && (
+              <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                <Target className="h-3 w-3" /> Agency avg CVR: {agencyAvgCvr.toFixed(1)}%
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Hero Stats */}
