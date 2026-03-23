@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, TrendingUp, Eye, XCircle } from "lucide-react";
-import { differenceInDays } from "date-fns";
 
 interface DailyDecisionViewProps {
   links: any[];
@@ -11,37 +10,32 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-  
+  const linksWithSpend = useMemo(() => links.filter(l => l.cost_total > 0 || l.ad_spend > 0), [links]);
+  const noSpendCount = useMemo(() => links.filter(l => !l.cost_total && !l.ad_spend).length, [links]);
 
   const scaleLinks = useMemo(() =>
-    links
-      .filter(l => l.status === "SCALE" && Number(l.roi || 0) > 150 && Number(l.profit || 0) > 0)
+    linksWithSpend
+      .filter(l => l.roi !== null && l.roi > 150 && Number(l.profit || 0) > 0)
       .sort((a, b) => Number(b.profit || 0) - Number(a.profit || 0))
       .slice(0, 5),
-    [links]
+    [linksWithSpend]
   );
 
   const watchLinks = useMemo(() =>
-    links
-      .filter(l => l.status === "WATCH" || l.status === "LOW")
+    linksWithSpend
+      .filter(l => l.roi !== null && l.roi >= 50 && l.roi <= 150)
       .sort((a, b) => Number(b.profit || 0) - Number(a.profit || 0))
       .slice(0, 5),
-    [links]
+    [linksWithSpend]
   );
 
   const stopLinks = useMemo(() =>
     links.filter(l => {
-      if (l.status === "KILL") return true;
-      if (l.status === "DEAD") {
-        return l.clicks > 0 || l.subscribers > 0 || l.spenders > 0 || Number(l.revenue || 0) > 0;
-      }
-      if (l.roi !== null && l.roi !== undefined && l.roi < 0) return true;
-      if (l.clicks > 0 && l.calculated_at) {
-        const daysSince = differenceInDays(new Date(), new Date(l.calculated_at));
-        if (daysSince >= 3) return true;
-      }
+      if (l.status === "Kill" || l.status === "KILL") return true;
+      if (l.status === "Dead" || l.status === "DEAD") return true;
+      if (l.roi !== null && l.roi < 0) return true;
       return false;
-    }),
+    }).slice(0, 5),
     [links]
   );
 
@@ -65,25 +59,23 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
             {/* Scale Now */}
             <div className="p-4 border-r border-border">
               <h4 className="text-xs font-bold text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <TrendingUp className="h-3.5 w-3.5" /> Scale Now
+                <TrendingUp className="h-3.5 w-3.5" /> Scale Now ({scaleLinks.length})
               </h4>
               {scaleLinks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No campaigns ready to scale yet — enter spend to see ROI</p>
+                <p className="text-xs text-muted-foreground">None yet</p>
               ) : (
                 <div className="space-y-2">
                   {scaleLinks.map((l) => (
                     <div key={l.id} className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-foreground truncate flex-1 min-w-0">{l.campaign_name}</p>
-                        <span className="font-mono text-xs font-bold text-primary ml-2">{Number(l.roi || 0).toFixed(0)}%</span>
-                      </div>
+                      <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
                       <div className="flex items-center justify-between mt-1">
-                        <p className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</p>
+                        <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
                           </span>
+                          <span className="font-mono text-[10px] font-bold text-primary">{Number(l.roi || 0).toFixed(0)}%</span>
                         </div>
                       </div>
                     </div>
@@ -95,26 +87,24 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
             {/* Watch */}
             <div className="p-4 border-r border-border">
               <h4 className="text-xs font-bold text-warning uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Eye className="h-3.5 w-3.5" /> Watch
+                <Eye className="h-3.5 w-3.5" /> Watch ({watchLinks.length})
               </h4>
               {watchLinks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No campaigns in watch list yet</p>
+                <p className="text-xs text-muted-foreground">None yet</p>
               ) : (
                 <div className="space-y-2">
                   {watchLinks.map((l) => (
                     <div key={l.id} className="bg-warning/5 border border-warning/20 rounded-lg px-3 py-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-foreground truncate flex-1 min-w-0">{l.campaign_name}</p>
-                        <span className="font-mono text-xs font-bold text-warning ml-2">
-                          {l.roi !== null && l.roi !== undefined ? `${Number(l.roi).toFixed(0)}%` : "—"}
-                        </span>
-                      </div>
+                      <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
                       <div className="flex items-center justify-between mt-1">
-                        <p className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</p>
+                        <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
+                          </span>
+                          <span className="font-mono text-[10px] font-bold text-warning">
+                            {l.roi !== null ? `${Number(l.roi).toFixed(0)}%` : "—"}
                           </span>
                         </div>
                       </div>
@@ -127,38 +117,35 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
             {/* Stop / Fix */}
             <div className="p-4">
               <h4 className="text-xs font-bold text-destructive uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <XCircle className="h-3.5 w-3.5" /> Stop / Fix
+                <XCircle className="h-3.5 w-3.5" /> Stop / Fix ({stopLinks.length})
               </h4>
               {stopLinks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No campaigns flagged — looking good!</p>
+                <p className="text-xs text-muted-foreground">None yet</p>
               ) : (
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {stopLinks.map((l) => {
-                    const daysSinceClick = l.calculated_at ? differenceInDays(new Date(), new Date(l.calculated_at)) : null;
-                    return (
-                      <div key={l.id} className="bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium text-foreground truncate flex-1 min-w-0">{l.campaign_name}</p>
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-destructive/20 text-destructive">
-                            {l.status === "DEAD" ? "DEAD" : l.status === "KILL" ? "KILL" : "DEAD"}
+                <div className="space-y-2">
+                  {stopLinks.map((l) => (
+                    <div key={l.id} className="bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
+                      <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
+                          <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                            P {fmtC(Number(l.profit || 0))}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
-                            <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
-                              P {fmtC(Number(l.profit || 0))}
-                            </span>
-                          </div>
-                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
+          {noSpendCount > 0 && (
+            <div className="px-5 py-2 border-t border-border">
+              <p className="text-[11px] text-muted-foreground">{noSpendCount} campaigns have no spend set</p>
+            </div>
+          )}
         </div>
       )}
     </div>

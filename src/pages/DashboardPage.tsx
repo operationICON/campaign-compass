@@ -1,42 +1,42 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, fetchDailyMetrics, fetchAlerts, fetchSyncSettings, triggerSync, addAdSpend } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchAdSpend, fetchSyncSettings, triggerSync } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
 import {
   RefreshCw, DollarSign, TrendingUp,
-  PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  PiggyBank, BarChart3, ArrowUpRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   AlertTriangle, Download, FileText, Search, Users, Target
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend" | "created_at" | "profit";
+type SortKey = "campaign_name" | "revenue" | "ad_spend" | "created_at" | "profit" | "roi";
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState({ account_id: "all", traffic_source: "all" });
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [dashPerPage, setDashPerPage] = useState(25);
   const [dashPage, setDashPage] = useState(1);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
   const { data: links = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links", filters.account_id],
     queryFn: () => fetchTrackingLinks({
@@ -44,7 +44,6 @@ export default function DashboardPage() {
     }),
   });
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
-  const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
   const syncFrequency = useMemo(() => {
@@ -66,17 +65,16 @@ export default function DashboardPage() {
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
-  const sparklineData = useMemo(() => {
-    const map: Record<string, { date: string; revenue: number }[]> = {};
-    dailyMetrics.forEach((m: any) => {
-      if (!map[m.tracking_link_id]) map[m.tracking_link_id] = [];
-      map[m.tracking_link_id].push({ date: m.date, revenue: Number(m.revenue) });
-    });
-    Object.keys(map).forEach((k) => {
-      map[k] = map[k].sort((a, b) => a.date.localeCompare(b.date)).slice(-7);
-    });
-    return map;
-  }, [dailyMetrics]);
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-source-tags')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tracking_links' }, () => {
+        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const filteredLinks = useMemo(() => {
     return links.filter((link: any) => {
@@ -125,8 +123,8 @@ export default function DashboardPage() {
         const bv = new Date(b.created_at || 0).getTime();
         return sortAsc ? av - bv : bv - av;
       }
-      const av = a[sortKey] ?? 0;
-      const bv = b[sortKey] ?? 0;
+      const av = a[sortKey] ?? -Infinity;
+      const bv = b[sortKey] ?? -Infinity;
       return sortAsc ? av - bv : bv - av;
     });
   }, [enrichedLinks, sortKey, sortAsc]);
@@ -148,31 +146,29 @@ export default function DashboardPage() {
     return totalC > 0 ? (totalS / totalC) * 100 : null;
   }, [links]);
 
-  // Model summary for CVR insights
-  const modelSummary = useMemo(() => {
-    const map: Record<string, { id: string; display_name: string; username: string; avatar_thumb_url: string | null; revenue: number; subscribers: number; clicks: number }> = {};
+  // Model CVR insights
+  const modelCvrInsights = useMemo(() => {
+    const map: Record<string, { id: string; display_name: string; avatar_thumb_url: string | null; clicks: number; subscribers: number; campaignCount: number }> = {};
     links.forEach((link: any) => {
       const accId = link.account_id;
       if (!map[accId]) {
-        map[accId] = { id: accId, display_name: link.accounts?.display_name || "Unknown", username: link.accounts?.username || "", avatar_thumb_url: link.accounts?.avatar_thumb_url || null, revenue: 0, subscribers: 0, clicks: 0 };
+        map[accId] = { id: accId, display_name: link.accounts?.display_name || "Unknown", avatar_thumb_url: link.accounts?.avatar_thumb_url || null, clicks: 0, subscribers: 0, campaignCount: 0 };
       }
-      map[accId].revenue += Number(link.revenue);
-      map[accId].subscribers += link.subscribers;
-      map[accId].clicks += link.clicks;
+      if (link.clicks > 100) {
+        map[accId].clicks += link.clicks;
+        map[accId].subscribers += link.subscribers;
+        map[accId].campaignCount++;
+      }
     });
-    return Object.values(map).sort((a, b) => b.revenue - a.revenue);
-  }, [links]);
-
-  const modelCvrInsights = useMemo(() => {
-    return modelSummary.map(m => {
-      const accLinks = links.filter((l: any) => l.account_id === m.id && l.clicks > 100);
-      const totalS = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-      const totalC = accLinks.reduce((s: number, l: any) => s + l.clicks, 0);
-      const cvr = totalC > 0 ? (totalS / totalC) * 100 : null;
-      const diff = cvr !== null && agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
-      return { ...m, cvr, cvrDiff: diff };
-    });
-  }, [modelSummary, links, agencyAvgCvr]);
+    return Object.values(map)
+      .filter(m => m.campaignCount >= 5)
+      .map(m => {
+        const cvr = m.clicks > 0 ? (m.subscribers / m.clicks) * 100 : null;
+        const diff = cvr !== null && agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
+        return { ...m, cvr, cvrDiff: diff };
+      })
+      .sort((a, b) => (b.cvr || 0) - (a.cvr || 0));
+  }, [links, agencyAvgCvr]);
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();
@@ -193,20 +189,8 @@ export default function DashboardPage() {
     return Array.from(s).sort();
   }, [links]);
 
-  // Realtime subscription for source_tag updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('dashboard-source-tags')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tracking_links' }, () => {
-        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
-
   const top5Ltv = useMemo(() => [...enrichedLinks].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 5), [enrichedLinks]);
   const top5Profit = useMemo(() => [...enrichedLinks].filter(l => l.ad_spend > 0).sort((a, b) => b.profit - a.profit).slice(0, 5), [enrichedLinks]);
-  const maxTop5Rev = useMemo(() => Math.max(...top5Ltv.map(l => Number(l.revenue)), 1), [top5Ltv]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -229,39 +213,48 @@ export default function DashboardPage() {
     const daysSinceCreated = differenceInDays(new Date(), new Date(link.created_at));
     if (link.clicks === 0 && daysSinceCreated >= 3) {
       const everHadTraffic = (link.subscribers > 0 || link.spenders > 0 || Number(link.revenue) > 0);
-      if (everHadTraffic) return { label: "Dead", color: "bg-destructive/10 text-destructive", icon: "🔴" };
-      return { label: "Inactive", color: "bg-muted text-muted-foreground", icon: "⚫" };
+      if (everHadTraffic) return { label: "Dead", color: "bg-destructive/10 text-destructive" };
+      return { label: "Inactive", color: "bg-muted text-muted-foreground" };
     }
-    if (link.ad_spend === 0 && !link.cost_total) return { label: "No Spend", color: "bg-muted text-muted-foreground", icon: "⚪" };
-    if (link.roi === null || link.roi < 0) return { label: "Kill", color: "bg-destructive/10 text-destructive", icon: "🔴" };
-    if (link.roi <= 50) return { label: "Low", color: "bg-warning/10 text-warning", icon: "🟠" };
-    if (link.roi <= 150) return { label: "Watch", color: "bg-warning/10 text-warning", icon: "🟡" };
-    return { label: "Scale", color: "bg-primary/10 text-primary", icon: "🟢" };
+    if (link.ad_spend === 0 && !link.cost_total) return { label: "No Spend", color: "bg-muted text-muted-foreground" };
+    if (link.roi === null || link.roi < 0) return { label: "Kill", color: "bg-destructive/10 text-destructive" };
+    if (link.roi <= 50) return { label: "Low", color: "bg-warning/10 text-warning" };
+    if (link.roi <= 150) return { label: "Watch", color: "bg-warning/10 text-warning" };
+    return { label: "Scale", color: "bg-primary/10 text-primary" };
   };
 
   const fmtCurrency = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtNum = (v: number) => v.toLocaleString();
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
-  const handleAdSpendSubmit = async (data: any) => {
-    try {
-      await addAdSpend(data);
-      toast.success("Spend saved");
-      queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
-      setAdSpendSlideIn(null);
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+  const getSubsPerDay = (link: any) => {
+    if (!link.created_at) return null;
+    const days = differenceInDays(new Date(), new Date(link.created_at));
+    if (days < 1) return null;
+    return link.subscribers / days;
+  };
+
+  const getCvrColor = (cvr: number) => {
+    if (agencyAvgCvr === null) return "text-foreground";
+    const threshold = agencyAvgCvr * 0.2;
+    if (cvr > agencyAvgCvr + threshold) return "text-primary";
+    if (cvr < agencyAvgCvr - threshold) return "text-destructive";
+    return "text-muted-foreground";
   };
 
   const exportCSV = () => {
-    const headers = ["Account", "Campaign", "Clicks", "Subscribers", "LTV", "Spend", "Profit", "ROI", "Status", "Created"];
+    const headers = ["Account", "Campaign", "Source", "Subs/Day", "CVR", "LTV", "Spend", "Profit", "ROI", "Cost/Sub", "Status", "Created"];
     const rows = sortedLinks.map((l: any) => {
       const status = getStatus(l);
+      const subsPerDay = getSubsPerDay(l);
+      const cvr = l.clicks > 0 ? (l.subscribers / l.clicks) * 100 : null;
+      const cplReal = Number(l.cpl_real || 0);
       return [
-        l.accounts?.display_name || "", l.campaign_name || "", l.clicks, l.subscribers,
+        l.accounts?.display_name || "", l.campaign_name || "", l.source_tag || "Untagged",
+        subsPerDay !== null ? subsPerDay.toFixed(1) : "", cvr !== null ? cvr.toFixed(1) + "%" : "",
         Number(l.revenue).toFixed(2), l.ad_spend.toFixed(2), l.profit.toFixed(2),
-        l.roi !== null ? l.roi.toFixed(1) + "%" : "—",
+        l.roi !== null ? l.roi.toFixed(1) + "%" : "",
+        cplReal > 0 ? cplReal.toFixed(2) : "",
         status.label, l.created_at ? format(new Date(l.created_at), "yyyy-MM-dd") : "",
       ].join(",");
     });
@@ -276,7 +269,7 @@ export default function DashboardPage() {
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`<html><head><title>Campaign Report</title><style>
-      body{font-family:system-ui,sans-serif;padding:40px;color:#111}h1{font-size:24px}h2{font-size:16px;margin-top:24px}
+      body{font-family:system-ui,sans-serif;padding:40px;color:#111}h1{font-size:24px}
       table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}
       th{background:#f5f5f5;font-weight:600}.kpi{display:inline-block;margin-right:32px}.kpi-val{font-size:20px;font-weight:700}.kpi-label{font-size:11px;color:#888}
     </style></head><body>
@@ -284,14 +277,13 @@ export default function DashboardPage() {
       <div style="margin:20px 0">
         <span class="kpi"><span class="kpi-label">Total LTV</span><br><span class="kpi-val">${fmtCurrency(totalLtv)}</span></span>
         <span class="kpi"><span class="kpi-label">Total Spend</span><br><span class="kpi-val">${fmtCurrency(totalSpend)}</span></span>
-        <span class="kpi"><span class="kpi-label">Profit</span><br><span class="kpi-val">${fmtCurrency(totalProfit)}</span></span>
-        <span class="kpi"><span class="kpi-label">ROI</span><br><span class="kpi-val">${fmtPct(blendedRoi)}</span></span>
+        <span class="kpi"><span class="kpi-label">Profit</span><br><span class="kpi-val">${totalSpend > 0 ? fmtCurrency(totalProfit) : "—"}</span></span>
+        <span class="kpi"><span class="kpi-label">ROI</span><br><span class="kpi-val">${totalSpend > 0 ? fmtPct(blendedRoi) : "—"}</span></span>
       </div>
-      <h2>Campaign Performance</h2>
-      <table><tr><th>Account</th><th>Campaign</th><th>Clicks</th><th>Subs</th><th>LTV</th><th>Spend</th><th>Profit</th><th>ROI</th><th>Status</th></tr>
+      <table><tr><th>Account</th><th>Campaign</th><th>LTV</th><th>Spend</th><th>Profit</th><th>ROI</th><th>Status</th></tr>
         ${sortedLinks.map((l: any) => {
           const status = getStatus(l);
-          return `<tr><td>${l.accounts?.display_name||""}</td><td>${l.campaign_name||""}</td><td>${fmtNum(l.clicks)}</td><td>${fmtNum(l.subscribers)}</td><td>${fmtCurrency(Number(l.revenue))}</td><td>${l.ad_spend>0?fmtCurrency(l.ad_spend):"—"}</td><td>${fmtCurrency(l.profit)}</td><td>${l.roi!==null?fmtPct(l.roi):"—"}</td><td>${status.label}</td></tr>`;
+          return `<tr><td>${l.accounts?.display_name||""}</td><td>${l.campaign_name||""}</td><td>${fmtCurrency(Number(l.revenue))}</td><td>${l.ad_spend>0?fmtCurrency(l.ad_spend):"—"}</td><td>${l.ad_spend>0?fmtCurrency(l.profit):"—"}</td><td>${l.roi!==null?fmtPct(l.roi):"—"}</td><td>${status.label}</td></tr>`;
         }).join("")}
       </table></body></html>`);
     w.document.close(); w.print();
@@ -320,30 +312,27 @@ export default function DashboardPage() {
     setAgeFilter("all");
   }, []);
 
-  // Subs/Day calculation helper
-  const getSubsPerDay = (link: any) => {
-    if (!link.created_at) return null;
-    const days = differenceInDays(new Date(), new Date(link.created_at));
-    if (days < 1) return null;
-    return link.subscribers / days;
-  };
-
-  // CVR helpers
-  const getCvrColor = (cvr: number) => {
-    if (agencyAvgCvr === null) return "text-foreground";
-    const threshold = agencyAvgCvr * 0.2;
-    if (cvr > agencyAvgCvr + threshold) return "text-primary";
-    if (cvr < agencyAvgCvr - threshold) return "text-destructive";
-    return "text-muted-foreground";
-  };
+  // Age counts for filter pills
+  const ageCounts = useMemo(() => {
+    const counts = { all: filteredLinks.length, new: 0, active: 0, mature: 0, old: 0 };
+    links.forEach((l: any) => {
+      if (!l.created_at) return;
+      const days = differenceInDays(new Date(), new Date(l.created_at));
+      if (days <= 30) counts.new++;
+      else if (days <= 90) counts.active++;
+      else if (days <= 180) counts.mature++;
+      else counts.old++;
+    });
+    return counts;
+  }, [links, filteredLinks]);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* HEADER */}
+        {/* HEADER — single clean row */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[20px] font-bold text-foreground">Campaign Dashboard</h1>
+            <h1 className="text-[22px] font-bold text-foreground">Campaign Dashboard</h1>
             <div className="flex items-center gap-2 mt-1">
               {lastSynced && (
                 <span className="text-xs text-muted-foreground">
@@ -385,7 +374,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ALERT BANNER — amber, only when dead campaigns exist */}
+        {/* ALERT BANNER */}
         {trulyDeadCount > 0 && (
           <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4 flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
@@ -403,20 +392,19 @@ export default function DashboardPage() {
         {/* DAILY DECISION VIEW — collapsed by default */}
         <DailyDecisionView links={enrichedLinks.map(l => ({ ...l, status: getStatus(l).label }))} />
 
-        {/* KPI CARDS — 5 only */}
+        {/* KPI CARDS — exactly 5 */}
         {linksLoading ? (
-          <div className="grid grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-5 gap-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5">
                 <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
                 <div className="skeleton-shimmer h-8 w-28 rounded mb-2" />
-                <div className="skeleton-shimmer h-3 w-16 rounded" />
               </div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-5 gap-3.5">
-            {/* Hero — Total LTV */}
+          <div className="grid grid-cols-5 gap-4">
+            {/* Total LTV — hero gradient */}
             <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 opacity-80" />
@@ -447,19 +435,9 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <p className="text-xl font-bold font-mono text-muted-foreground">—</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Enter spend to see profit</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
                 </>
               )}
-            </div>
-            {/* Blended ROI */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Blended ROI</span>
-              </div>
-              <p className={`text-xl font-bold font-mono ${totalSpend > 0 ? (blendedRoi >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                {totalSpend > 0 ? fmtPct(blendedRoi) : "—"}
-              </p>
             </div>
             {/* Avg Cost/Sub */}
             <div className="bg-card border border-border rounded-2xl p-5">
@@ -471,45 +449,24 @@ export default function DashboardPage() {
                 {avgCostPerSub > 0 ? fmtCurrency(avgCostPerSub) : "—"}
               </p>
             </div>
-          </div>
-        )}
-
-        {/* CVR INSIGHTS */}
-        {agencyAvgCvr !== null && modelCvrInsights.length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Target className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-bold text-primary uppercase tracking-wider">CVR Performance vs Agency Average</h3>
-              <span className="text-[11px] text-muted-foreground ml-2">Agency avg: {agencyAvgCvr.toFixed(1)}%</span>
-            </div>
-            <div className="flex items-center gap-6 flex-wrap">
-              {modelCvrInsights.map((m) => (
-                <div key={m.id} className="flex items-center gap-2">
-                  {m.avatar_thumb_url ? (
-                    <img src={m.avatar_thumb_url} alt={m.display_name} className="w-6 h-6 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold">{m.display_name.charAt(0)}</div>
-                  )}
-                  <span className="text-sm font-medium text-foreground">{m.display_name}</span>
-                  <span className="font-mono text-sm font-semibold">
-                    {m.cvr !== null ? `${m.cvr.toFixed(1)}%` : "—"}
-                  </span>
-                  {m.cvrDiff !== null && (
-                    <span className={`text-[11px] font-semibold ${m.cvrDiff >= 0 ? "text-primary" : "text-destructive"}`}>
-                      {m.cvrDiff >= 0 ? "+" : ""}{m.cvrDiff.toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-              ))}
+            {/* Blended ROI */}
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Blended ROI</span>
+              </div>
+              <p className={`text-xl font-bold font-mono ${totalSpend > 0 ? (blendedRoi >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
+                {totalSpend > 0 ? fmtPct(blendedRoi) : "—"}
+              </p>
             </div>
           </div>
         )}
 
         {/* TOP 5 PANELS — side by side */}
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-2 gap-4">
           <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
-              <ArrowUpRight className="h-3.5 w-3.5" /> Top 5 by LTV
+            <h3 className="text-[14px] font-bold text-foreground mb-4 flex items-center gap-2">
+              <ArrowUpRight className="h-4 w-4 text-primary" /> Top 5 by LTV
             </h3>
             <div className="space-y-3">
               {top5Ltv.map((l: any, i) => (
@@ -529,8 +486,8 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
-              <ArrowUpRight className="h-3.5 w-3.5" /> Top 5 by Profit
+            <h3 className="text-[14px] font-bold text-foreground mb-4 flex items-center gap-2">
+              <ArrowUpRight className="h-4 w-4 text-primary" /> Top 5 by Profit
             </h3>
             <div className="space-y-3">
               {top5Profit.length === 0 ? (
@@ -555,25 +512,58 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* TABLE FILTERS */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <select
-            value={filters.account_id}
-            onChange={(e) => { setFilters(f => ({ ...f, account_id: e.target.value })); setDashPage(1); }}
-            className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="all">All Accounts</option>
-            {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
-          </select>
-          <select
-            value={filters.traffic_source}
-            onChange={(e) => { setFilters(f => ({ ...f, traffic_source: e.target.value })); setDashPage(1); }}
-            className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="all">All Sources</option>
-            {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
+        {/* CVR INSIGHTS */}
+        {agencyAvgCvr !== null && modelCvrInsights.length > 0 && (
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="h-4 w-4 text-primary" />
+              <h3 className="text-[14px] font-bold text-foreground">CVR Performance</h3>
+              <span className="text-[11px] text-muted-foreground ml-2 bg-muted px-2 py-0.5 rounded-full">Agency avg: {agencyAvgCvr.toFixed(1)}%</span>
+            </div>
+            <div className="flex items-center gap-6 flex-wrap">
+              {modelCvrInsights.map((m) => (
+                <div key={m.id} className="flex items-center gap-2">
+                  {m.avatar_thumb_url ? (
+                    <img src={m.avatar_thumb_url} alt={m.display_name} className="w-6 h-6 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold">{m.display_name.charAt(0)}</div>
+                  )}
+                  <span className="text-sm font-medium text-foreground">{m.display_name}</span>
+                  <span className="font-mono text-sm font-semibold">
+                    {m.cvr !== null ? `${m.cvr.toFixed(1)}%` : "—"}
+                  </span>
+                  {m.cvrDiff !== null && (
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${m.cvrDiff >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                      {m.cvrDiff >= 0 ? "+" : ""}{m.cvrDiff.toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* FILTER BAR — two clean rows */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={filters.account_id}
+              onChange={(e) => { setFilters(f => ({ ...f, account_id: e.target.value })); setDashPage(1); }}
+              className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="all">All Accounts</option>
+              {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
+            </select>
+            <select
+              value={filters.traffic_source}
+              onChange={(e) => { setFilters(f => ({ ...f, traffic_source: e.target.value })); setDashPage(1); }}
+              className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="all">All Sources</option>
+              {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden w-fit">
             {(["all", "new", "active", "mature", "old"] as const).map((f) => (
               <button
                 key={f}
@@ -582,13 +572,13 @@ export default function DashboardPage() {
                   ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
+                {f === "all" ? `All Ages (${ageCounts.all})` : f === "new" ? `🟢 New (${ageCounts.new})` : f === "active" ? `🔵 Active (${ageCounts.active})` : f === "mature" ? `🟡 Mature (${ageCounts.mature})` : `⚪ Old (${ageCounts.old})`}
               </button>
             ))}
           </div>
         </div>
 
-        {/* CAMPAIGN TABLE — full view always */}
+        {/* CAMPAIGN TABLE */}
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           {linksLoading ? (
             <div className="p-12 text-center">
@@ -611,19 +601,6 @@ export default function DashboardPage() {
             const paginatedLinks = sortedLinks.slice(dashStart, dashEnd);
             return (
               <>
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-                  <span className="text-xs text-muted-foreground">
-                    Showing {dashStart + 1}–{dashEnd} of {sortedLinks.length} campaigns
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Rows:</span>
-                    {[10, 25, 50, 100].map(n => (
-                      <button key={n} onClick={() => { setDashPerPage(n); setDashPage(1); }}
-                        className={`px-2 py-0.5 text-xs rounded ${dashPerPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                      >{n}</button>
-                    ))}
-                  </div>
-                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10">
@@ -638,6 +615,7 @@ export default function DashboardPage() {
                         <SortHeader label="Profit" sortField="profit" align="right" />
                         <SortHeader label="ROI" sortField="roi" align="right" />
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Cost/Sub</th>
+                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">LTV Ratio</th>
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
                         <SortHeader label="Created" sortField="created_at" />
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Active</th>
@@ -650,6 +628,7 @@ export default function DashboardPage() {
                         const cplReal = Number(link.cpl_real || 0);
                         const subsPerDay = getSubsPerDay(link);
                         const cvr = link.clicks > 0 ? (link.subscribers / link.clicks) * 100 : null;
+                        const ltvRatio = ltvPerSub > 0 && cplReal > 0 ? ltvPerSub / cplReal : null;
 
                         return (
                           <tr key={link.id} className="border-b border-border hover:bg-muted/20 transition-all duration-200 cursor-pointer group" onClick={() => setSelectedLink(link)}>
@@ -671,10 +650,27 @@ export default function DashboardPage() {
                               <TagBadge tagName={link.source_tag} />
                             </td>
                             <td className="px-3 py-3 text-right font-mono text-xs">
-                              {subsPerDay !== null ? `${subsPerDay.toFixed(1)}/day` : "—"}
+                              {subsPerDay !== null ? (
+                                <span className="text-primary font-medium">{subsPerDay.toFixed(1)}/day</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
                             </td>
-                            <td className={`px-3 py-3 text-right font-mono text-xs ${cvr !== null ? getCvrColor(cvr) : "text-muted-foreground"}`}>
-                              {cvr !== null ? `${cvr.toFixed(1)}%` : "—"}
+                            <td className="px-3 py-3 text-right font-mono text-xs">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={cvr !== null ? getCvrColor(cvr) : "text-muted-foreground"}>
+                                      {cvr !== null ? `${cvr.toFixed(1)}%` : "—"}
+                                    </span>
+                                  </TooltipTrigger>
+                                  {cvr !== null && agencyAvgCvr !== null && (
+                                    <TooltipContent>
+                                      <p className="text-xs">Agency avg: {agencyAvgCvr.toFixed(1)}% — this campaign is {cvr >= agencyAvgCvr ? "+" : ""}{(cvr - agencyAvgCvr).toFixed(1)}%</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
                             </td>
                             <td className="px-3 py-3 text-right font-mono text-[13px] font-semibold text-primary">{fmtCurrency(Number(link.revenue))}</td>
                             <td className="px-3 py-3 text-right font-mono text-xs">
@@ -684,7 +680,7 @@ export default function DashboardPage() {
                                 <span
                                   onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
                                   className="text-muted-foreground italic cursor-pointer hover:text-primary transition-colors"
-                                >Set Spend</span>
+                                >Set</span>
                               )}
                             </td>
                             <td className={`px-3 py-3 text-right font-mono text-xs font-semibold ${link.ad_spend > 0 ? (link.profit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
@@ -694,10 +690,19 @@ export default function DashboardPage() {
                               {link.roi !== null ? fmtPct(link.roi) : "—"}
                             </td>
                             <td className="px-3 py-3 text-right font-mono text-xs">
-                              {cplReal > 0 ? <span className="font-semibold text-primary">{fmtCurrency(cplReal)}</span> : "—"}
+                              {cplReal > 0 ? <span className="font-semibold text-primary">{fmtCurrency(cplReal)}</span> : <span className="text-muted-foreground">—</span>}
+                            </td>
+                            <td className="px-3 py-3 text-right font-mono text-xs font-semibold">
+                              {ltvRatio !== null ? (
+                                <span className={ltvRatio >= 2 ? "text-primary" : ltvRatio >= 1 ? "text-warning" : "text-destructive"}>
+                                  {ltvRatio.toFixed(1)}x
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
                             </td>
                             <td className="px-3 py-3 text-center">
-                              <span className={`inline-block min-w-[70px] px-2 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap ${status.color}`}>
+                              <span className={`inline-block min-w-[80px] px-2 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap ${status.color}`}>
                                 {status.label}
                               </span>
                             </td>
@@ -719,35 +724,48 @@ export default function DashboardPage() {
                   </table>
                 </div>
                 {/* Pagination */}
-                <div className="flex items-center justify-end px-4 py-3 border-t border-border">
-                  {dashTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {dashStart + 1}–{dashEnd} of {sortedLinks.length} campaigns
+                  </span>
+                  <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setDashPage(Math.max(1, dashSafePage - 1))} disabled={dashSafePage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
-                        <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                      {Array.from({ length: Math.min(dashTotalPages, 7) }, (_, i) => {
-                        let pageNum: number;
-                        if (dashTotalPages <= 7) pageNum = i + 1;
-                        else if (dashSafePage <= 4) pageNum = i + 1;
-                        else if (dashSafePage >= dashTotalPages - 3) pageNum = dashTotalPages - 6 + i;
-                        else pageNum = dashSafePage - 3 + i;
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setDashPage(pageNum)}
-                            className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
-                              pageNum === dashSafePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                      <button onClick={() => setDashPage(Math.min(dashTotalPages, dashSafePage + 1))} disabled={dashSafePage >= dashTotalPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </button>
+                      <span className="text-xs text-muted-foreground">Rows:</span>
+                      {[10, 25, 50, 100].map(n => (
+                        <button key={n} onClick={() => { setDashPerPage(n); setDashPage(1); }}
+                          className={`px-2 py-0.5 text-xs rounded ${dashPerPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >{n}</button>
+                      ))}
                     </div>
-                  )}
+                    {dashTotalPages > 1 && (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setDashPage(Math.max(1, dashSafePage - 1))} disabled={dashSafePage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
+                          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                        {Array.from({ length: Math.min(dashTotalPages, 7) }, (_, i) => {
+                          let pageNum: number;
+                          if (dashTotalPages <= 7) pageNum = i + 1;
+                          else if (dashSafePage <= 4) pageNum = i + 1;
+                          else if (dashSafePage >= dashTotalPages - 3) pageNum = dashTotalPages - 6 + i;
+                          else pageNum = dashSafePage - 3 + i;
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setDashPage(pageNum)}
+                              className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
+                                pageNum === dashSafePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                        <button onClick={() => setDashPage(Math.min(dashTotalPages, dashSafePage + 1))} disabled={dashSafePage >= dashTotalPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             );
@@ -756,14 +774,6 @@ export default function DashboardPage() {
       </div>
 
       {/* SLIDE-INS */}
-      {adSpendSlideIn && (
-        <AdSpendSlideIn
-          link={adSpendSlideIn}
-          onClose={() => setAdSpendSlideIn(null)}
-          onSubmit={handleAdSpendSubmit}
-        />
-      )}
-
       {selectedLink && (
         <CampaignDetailSlideIn
           link={selectedLink}
