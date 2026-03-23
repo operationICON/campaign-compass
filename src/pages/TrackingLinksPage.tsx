@@ -495,6 +495,30 @@ export default function TrackingLinksPage() {
           </div>
         ) : (
           <div className="bg-card border border-border rounded-lg overflow-hidden">
+            {/* Bulk tag bar */}
+            {selectedRows.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-border">
+                <span className="text-xs font-medium text-foreground">{selectedRows.size} selected</span>
+                <div className="relative">
+                  <button onClick={() => setShowBulkTagDropdown(!showBulkTagDropdown)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-medium hover:bg-primary/10">
+                    <Tag className="h-3 w-3" /> Assign tag
+                  </button>
+                  {showBulkTagDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
+                      {tagRules.map((rule: any) => (
+                        <button key={rule.id} onClick={() => handleBulkTag(rule.tag_name)}
+                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
+                          {rule.tag_name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setSelectedRows(new Set())} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+              </div>
+            )}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
               <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} campaigns</span>
             </div>
@@ -502,9 +526,13 @@ export default function TrackingLinksPage() {
               <table className="w-full text-[13px]">
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border bg-secondary/30">
+                    <th className="h-9 px-2 w-8">
+                      <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll}
+                        className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
+                    </th>
                     <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
-                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Source</th>
                      <SortHeader label="Subs/Day" sortKeyName="subs_day" width="70px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
                     <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
