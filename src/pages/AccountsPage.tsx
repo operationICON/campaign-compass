@@ -198,8 +198,22 @@ export default function AccountsPage() {
       byDate[m.date].ltv += Number(m.revenue || 0);
       byDate[m.date].subs += (m.subscribers || 0);
     }
-      return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
-    }, [accLinks, dailyMetrics]);
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  }, [selectedAccLinks, dailyMetrics]);
+
+  // ============ VIEW 2 — Individual Model Profile ============
+  if (selectedAccount) {
+    const acc = selectedAccount;
+    const stats = accountStats[acc.id] || {};
+    const accLinks = selectedAccLinks;
+    const category = getCategory(acc);
+
+    const sortedLinks = [...accLinks].sort((a: any, b: any) => {
+      const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
+      const bv = sortKey === "campaign_name" ? (b.campaign_name || "") : Number(b[sortKey] || 0);
+      if (typeof av === "string") return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
+      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
 
     return (
       <DashboardLayout>
