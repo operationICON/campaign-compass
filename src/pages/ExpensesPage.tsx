@@ -300,9 +300,7 @@ export default function ExpensesPage() {
                       </td>
                       {/* Source */}
                       <td className="px-3 py-2">
-                        <span className={`text-[11px] ${link.source ? "text-foreground" : "text-muted-foreground italic"}`}>
-                          {link.source || "Untagged"}
-                        </span>
+                        <TagBadge tagName={link.source_tag} />
                       </td>
                       {/* Type badge */}
                       <td className="px-3 py-2">
