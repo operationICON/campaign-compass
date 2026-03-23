@@ -437,7 +437,11 @@ export default function AccountsPage() {
             const stats = accountStats[acc.id] || {};
             const category = getCategory(acc);
             return (
-              <div key={acc.id} className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40">
+              <div
+                key={acc.id}
+                onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}
+                className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40 cursor-pointer"
+              >
                 <div className="flex items-start gap-4 mb-4">
                   <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
@@ -463,20 +467,13 @@ export default function AccountsPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4 text-[12px] text-muted-foreground mb-4">
+                <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
                   <span>{stats.totalCampaigns || 0} campaigns</span>
                   <span className="text-border">·</span>
                   <span>{stats.activeCampaigns || 0} active</span>
                   <span className="text-border">·</span>
                   <span>{stats.avgSubsDay} subs/day</span>
                 </div>
-
-                <button
-                  onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}
-                  className="w-full py-2.5 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
-                >
-                  View Profile
-                </button>
               </div>
             );
           })}
