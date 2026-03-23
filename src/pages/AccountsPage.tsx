@@ -6,7 +6,7 @@ import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics } from "@/lib/supa
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays, subDays } from "date-fns";
-import { ArrowLeft, Camera, ExternalLink, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Camera, ChevronUp, ChevronDown } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const MODEL_CATEGORIES: Record<string, string> = {
