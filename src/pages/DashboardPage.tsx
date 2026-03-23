@@ -543,7 +543,7 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(model.revenue)}</p>
                 <p className="text-[11px] text-muted-foreground mb-2">
-                  Last 30d: {ltv30d !== undefined ? <span className="text-primary font-semibold">{fmtCurrency(ltv30d)}</span> : "—"}
+                  Last 30d: {ltv30d !== undefined ? <span className="text-primary font-semibold">{fmtCurrency(ltv30d)}</span> : <span className="text-muted-foreground/60 italic">Syncing...</span>}
                 </p>
                 <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
                   <div className="bg-primary h-1.5 rounded-full transition-all duration-500" style={{ width: `${barWidth}%` }} />

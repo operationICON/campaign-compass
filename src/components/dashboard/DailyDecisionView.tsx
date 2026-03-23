@@ -150,7 +150,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-medium text-foreground truncate flex-1 min-w-0">{l.campaign_name}</p>
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-destructive/20 text-destructive">
-                            {l.status === "DEAD" ? "DEAD" : l.status === "KILL" ? "KILL" : "STALE"}
+                            {l.status === "DEAD" ? "DEAD" : l.status === "KILL" ? "KILL" : "DEAD"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between mt-1">
