@@ -38,6 +38,7 @@ function SkeletonCard({ wide = false }: { wide?: boolean }) {
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState({ account_id: "all", campaign_id: "all", traffic_source: "all", date_preset: "all" });
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
