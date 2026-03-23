@@ -133,6 +133,22 @@ export default function TrackingLinksPage() {
     return ((totalLtv - totalSpent) / totalSpent) * 100;
   }, [totalSpent, totalLtv]);
 
+  // Agency benchmark CVR: avg CVR across links with clicks > 100
+  const agencyAvgCvr = useMemo(() => {
+    const qualified = links.filter((l: any) => l.clicks > 100);
+    if (qualified.length === 0) return null;
+    const totalSubs = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalClicks = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
+    return totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
+  }, [links]);
+
+  const getCvrColor = (cvr: number) => {
+    if (agencyAvgCvr === null) return "text-foreground";
+    if (cvr > agencyAvgCvr * 1.2) return "text-primary";
+    if (cvr < agencyAvgCvr * 0.8) return "text-destructive";
+    return "text-muted-foreground";
+  };
+
   const revenueMap = useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l: any) => {
