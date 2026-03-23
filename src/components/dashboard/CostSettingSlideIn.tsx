@@ -135,34 +135,33 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
   const costFormula = useMemo(() => {
     if (!costType || !costValue || isNaN(Number(costValue))) return null;
     const v = Number(costValue);
-    if (costType === "CPC") {
-      const total = clicks * v;
-      const cvr = clicks > 0 ? (subscribers / clicks) : 0;
-      const cpl = cvr > 0 ? v / cvr : 0;
-      return [
-        `Spend = ${clicks.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
-        `CVR = ${subscribers}/${clicks} = ${fmtP(cvr * 100)}`,
-        `Real CPL = $${v.toFixed(2)} / ${fmtP(cvr * 100)} = ${fmtC(cpl)}`,
-      ];
-    }
     if (costType === "CPL") {
       const total = subscribers * v;
-      const cvr = clicks > 0 ? (subscribers / clicks) : 0;
-      const cpc = cvr > 0 ? v * cvr : 0;
+      const profit = revenue - total;
       return [
-        `Spend = ${subscribers.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
-        `CVR = ${subscribers}/${clicks} = ${fmtP(cvr * 100)}`,
-        `Real CPC = $${v.toFixed(2)} × ${fmtP(cvr * 100)} = ${fmtC(cpc)}`,
+        `Cost = ${subscribers.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
+        `Cost/Sub = $${v.toFixed(2)}`,
+        `Profit = ${fmtC(revenue)} - ${fmtC(total)} = ${fmtC(profit)}`,
       ];
     }
-    const cpc = clicks > 0 ? v / clicks : 0;
-    const cpl = subscribers > 0 ? v / subscribers : 0;
+    if (costType === "FIXED") {
+      const cpl = subscribers > 0 ? v / subscribers : 0;
+      const profit = revenue - v;
+      return [
+        `Cost = ${fmtC(v)} (fixed)`,
+        `Cost/Sub = ${fmtC(v)} / ${subscribers} = ${fmtC(cpl)}`,
+        `Profit = ${fmtC(revenue)} - ${fmtC(v)} = ${fmtC(profit)}`,
+      ];
+    }
+    // CPC
+    const total = clicks * v;
+    const cpl = subscribers > 0 ? total / subscribers : 0;
     return [
-      `Spend = ${fmtC(v)}`,
-      `Real CPC = ${fmtC(v)} / ${clicks} = ${fmtC(cpc)}`,
-      `Real CPL = ${fmtC(v)} / ${subscribers} = ${fmtC(cpl)}`,
+      `Cost = ${clicks.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
+      `⚠ Note: click count may include bot traffic`,
+      `Cost/Sub = ${fmtC(total)} / ${subscribers} = ${fmtC(cpl)}`,
     ];
-  }, [costType, costValue, clicks, subscribers]);
+  }, [costType, costValue, clicks, subscribers, revenue]);
 
   return (
     <>
