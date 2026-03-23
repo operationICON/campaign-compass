@@ -3,12 +3,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync, clearTrackingLinkSpend } from "@/lib/supabase-helpers";
+import {
+  fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync, clearTrackingLinkSpend,
+  fetchSourceTagRules, setTrackingLinkSourceTag, bulkSetSourceTag, runAutoTag
+} from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X, Target
+  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X, Target, Wand2, Tag
 } from "lucide-react";
 import {
   Tooltip,
@@ -76,6 +79,9 @@ export default function TrackingLinksPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
   const [clearConfirmId, setClearConfirmId] = useState<string | null>(null);
+  const [sourceDropdownId, setSourceDropdownId] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [showBulkTagDropdown, setShowBulkTagDropdown] = useState(false);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
@@ -85,6 +91,60 @@ export default function TrackingLinksPage() {
     queryKey: ["ad_spend"],
     queryFn: () => fetchAdSpend(),
   });
+  const { data: tagRules = [] } = useQuery({
+    queryKey: ["source_tag_rules"],
+    queryFn: fetchSourceTagRules,
+  });
+
+  const autoTagMutation = useMutation({
+    mutationFn: runAutoTag,
+    onSuccess: (data: any) => {
+      toast.success(`Auto-tagged ${data.tagged} campaigns. ${data.untagged} remain untagged.`);
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+    },
+    onError: (err: any) => toast.error(`Auto-tag failed: ${err.message}`),
+  });
+
+  const handleSetSourceTag = async (linkId: string, tag: string) => {
+    try {
+      await setTrackingLinkSourceTag(linkId, tag);
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      toast.success(`Tagged as "${tag}"`);
+      setSourceDropdownId(null);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleBulkTag = async (tag: string) => {
+    try {
+      await bulkSetSourceTag(Array.from(selectedRows), tag);
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      toast.success(`Tagged ${selectedRows.size} campaigns as "${tag}"`);
+      setSelectedRows(new Set());
+      setShowBulkTagDropdown(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const toggleSelectRow = (id: string) => {
+    setSelectedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedRows.size === paginated.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(paginated.map((l: any) => l.id)));
+    }
+  };
+
 
   const exportCampaignsCsv = useCallback(() => {
     const header = "campaign_name,account_username,clicks,subscribers,ltv,current_spend_type,current_spend_value";
@@ -182,15 +242,15 @@ export default function TrackingLinksPage() {
 
   const sourceOptions = useMemo(() => {
     const set = new Set<string>();
-    enrichedLinks.forEach((l: any) => { if (l.source) set.add(l.source); });
+    enrichedLinks.forEach((l: any) => { if (l.source_tag) set.add(l.source_tag); });
     return Array.from(set).sort();
   }, [enrichedLinks]);
 
   const filtered = useMemo(() => {
     let result = enrichedLinks;
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
-    if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source);
-    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source === sourceFilter);
+    if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
+    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
@@ -291,6 +351,15 @@ export default function TrackingLinksPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => {
+              const untaggedCount = links.filter((l: any) => !l.source_tag || l.source_tag === "Untagged").length;
+              if (untaggedCount === 0) { toast.info("All campaigns are already tagged"); return; }
+              autoTagMutation.mutate(undefined);
+            }} disabled={autoTagMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/10 transition-colors disabled:opacity-50">
+              <Wand2 className={`h-3.5 w-3.5 ${autoTagMutation.isPending ? "animate-spin" : ""}`} />
+              {autoTagMutation.isPending ? "Scanning..." : "Auto-Tag"}
+            </button>
             <button onClick={exportCampaignsCsv} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
               <Download className="h-4 w-4" /> Export
             </button>
@@ -426,6 +495,30 @@ export default function TrackingLinksPage() {
           </div>
         ) : (
           <div className="bg-card border border-border rounded-lg overflow-hidden">
+            {/* Bulk tag bar */}
+            {selectedRows.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-border">
+                <span className="text-xs font-medium text-foreground">{selectedRows.size} selected</span>
+                <div className="relative">
+                  <button onClick={() => setShowBulkTagDropdown(!showBulkTagDropdown)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-medium hover:bg-primary/10">
+                    <Tag className="h-3 w-3" /> Assign tag
+                  </button>
+                  {showBulkTagDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
+                      {tagRules.map((rule: any) => (
+                        <button key={rule.id} onClick={() => handleBulkTag(rule.tag_name)}
+                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
+                          {rule.tag_name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setSelectedRows(new Set())} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+              </div>
+            )}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
               <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} campaigns</span>
             </div>
@@ -433,9 +526,13 @@ export default function TrackingLinksPage() {
               <table className="w-full text-[13px]">
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border bg-secondary/30">
+                    <th className="h-9 px-2 w-8">
+                      <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll}
+                        className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
+                    </th>
                     <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
-                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Source</th>
                      <SortHeader label="Subs/Day" sortKeyName="subs_day" width="70px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
                     <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
@@ -463,13 +560,19 @@ export default function TrackingLinksPage() {
                     const cplReal = Number(link.cpl_real || 0);
                     const status = link.status || "NO_DATA";
                     const displayStatus = status === "NO_DATA" ? "No Spend" : status;
-                    const mediaBuyer = link.source || null;
+                    const sourceTag = link.source_tag || null;
+                    const sourceRule = tagRules.find((r: any) => r.tag_name === sourceTag);
                     const daysOld = link.daysSinceCreated ?? null;
                     const isExpanded = expandedRow === link.id;
 
                     return (
                       <React.Fragment key={link.id}>
                         <tr className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`} onClick={() => handleRowClick(link)}>
+                          {/* Checkbox */}
+                          <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+                            <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)}
+                              className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
+                          </td>
                           {/* Campaign */}
                           <td className="px-2 py-2" style={{ maxWidth: "200px" }}>
                             <div className="flex items-center gap-2 min-w-0">
@@ -481,15 +584,35 @@ export default function TrackingLinksPage() {
                           </td>
                           {/* Account */}
                           <td className="px-2 py-2"><span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span></td>
-                          {/* Source */}
-                          <td className="px-2 py-2">
-                            {mediaBuyer ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-medium">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                {mediaBuyer}
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground italic">Untagged</span>
+                          {/* Source Tag */}
+                          <td className="px-2 py-2 relative" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => setSourceDropdownId(sourceDropdownId === link.id ? null : link.id)}
+                              className="w-full text-left">
+                              {sourceTag && sourceRule ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-medium">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sourceRule.color }} />
+                                  {sourceTag}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground italic">Untagged</span>
+                              )}
+                            </button>
+                            {sourceDropdownId === link.id && (
+                              <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
+                                {tagRules.map((rule: any) => (
+                                  <button key={rule.id} onClick={() => handleSetSourceTag(link.id, rule.tag_name)}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
+                                    {rule.tag_name}
+                                  </button>
+                                ))}
+                                <div className="border-t border-border mt-1 pt-1">
+                                  <button onClick={() => { handleSetSourceTag(link.id, ""); setSourceDropdownId(null); }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary/50">
+                                    Clear tag
+                                  </button>
+                                </div>
+                              </div>
                             )}
                           </td>
                           {/* Subs/Day */}
@@ -605,7 +728,7 @@ export default function TrackingLinksPage() {
                         {/* Expanded row */}
                         {isExpanded && (
                           <tr className="bg-secondary/30 border-b border-border">
-                            <td colSpan={14} className="px-4 py-3">
+                            <td colSpan={15} className="px-4 py-3">
                               <div className="flex flex-wrap items-center gap-6 text-[12px]">
                                 <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[300px]">{link.url}</a>
                                 <span className="text-muted-foreground">Clicks: <span className="text-foreground font-medium">{link.clicks?.toLocaleString()}</span></span>

@@ -169,6 +169,14 @@ export async function triggerSync(
     }
   }
 
+  // Step 3: Auto-tag new campaigns
+  onProgress?.('Auto-tagging campaigns...');
+  try {
+    await supabase.functions.invoke("auto-tag-campaigns");
+  } catch (err: any) {
+    console.error('Auto-tag failed:', err.message);
+  }
+
   onProgress?.('Sync complete!');
   return { results, accounts_synced: accounts.length };
 }
@@ -228,7 +236,6 @@ export async function fetchNotifications() {
 }
 
 export async function clearTrackingLinkSpend(trackingLinkId: string, campaignId: string) {
-  // Clear metrics on tracking_links
   const { error: linkError } = await supabase.from("tracking_links").update({
     cost_type: null,
     cost_value: 0,
@@ -240,10 +247,9 @@ export async function clearTrackingLinkSpend(trackingLinkId: string, campaignId:
     cvr: 0,
     arpu: 0,
     status: "NO_DATA",
-  }).eq("id", trackingLinkId);
+  } as any).eq("id", trackingLinkId);
   if (linkError) throw linkError;
 
-  // Delete matching ad_spend rows
   await supabase.from("ad_spend").delete().eq("campaign_id", campaignId);
 }
 
@@ -253,4 +259,63 @@ export async function markNotificationsRead() {
     .update({ read: true })
     .eq("read", false);
   if (error) throw error;
+}
+
+// Source tag rules helpers
+export async function fetchSourceTagRules() {
+  const { data, error } = await supabase
+    .from("source_tag_rules")
+    .select("*")
+    .order("priority", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function createSourceTagRule(rule: {
+  tag_name: string;
+  keywords: string[];
+  color: string;
+  priority: number;
+}) {
+  const { data, error } = await supabase.from("source_tag_rules").insert(rule).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSourceTagRule(id: string, updates: {
+  tag_name?: string;
+  keywords?: string[];
+  color?: string;
+  priority?: number;
+}) {
+  const { data, error } = await supabase.from("source_tag_rules").update(updates).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteSourceTagRule(id: string) {
+  const { error } = await supabase.from("source_tag_rules").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setTrackingLinkSourceTag(linkId: string, sourceTag: string, manuallyTagged = true) {
+  const { error } = await supabase.from("tracking_links").update({
+    source_tag: sourceTag,
+    manually_tagged: manuallyTagged,
+  } as any).eq("id", linkId);
+  if (error) throw error;
+}
+
+export async function bulkSetSourceTag(linkIds: string[], sourceTag: string) {
+  const { error } = await supabase.from("tracking_links").update({
+    source_tag: sourceTag,
+    manually_tagged: true,
+  } as any).in("id", linkIds);
+  if (error) throw error;
+}
+
+export async function runAutoTag() {
+  const res = await supabase.functions.invoke("auto-tag-campaigns");
+  if (res.error) throw res.error;
+  return res.data;
 }
