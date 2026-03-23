@@ -11,7 +11,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-  const noSpendCount = useMemo(() => links.filter(l => l.status === "NO SPEND" || l.status === "NO_DATA" || (!l.ad_spend && !l.cost_total)).length, [links]);
+  
 
   const scaleLinks = useMemo(() =>
     links
