@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics } from "@/lib/supabase-helpers";
+import { TagBadge } from "@/components/TagBadge";
+import { supabase } from "@/integrations/supabase/client";
 
 import { format, differenceInDays, subDays } from "date-fns";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
@@ -155,7 +157,7 @@ export default function AccountsPage() {
   const sourceGroups = useMemo(() => {
     const groups: Record<string, { source: string; links: number; spend: number; ltv: number; profit: number; roi: number | null }> = {};
     for (const l of selectedAccLinks) {
-      const src = l.source || "Untagged";
+      const src = l.source_tag || "Untagged";
       if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
       groups[src].links++;
       groups[src].spend += Number(l.cost_total || 0);
@@ -325,7 +327,7 @@ export default function AccountsPage() {
                                   <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{l.url}</p>
                                 </td>
                                 <td className="py-3 px-3 text-[12px]">
-                                  {l.source ? <span className="text-foreground">{l.source}</span> : <span className="text-muted-foreground">—</span>}
+                                  <TagBadge tagName={l.source_tag} />
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.clicks)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.subscribers)}</td>
@@ -371,7 +373,7 @@ export default function AccountsPage() {
                         <tbody>
                           {sourceGroups.map((g) => (
                             <tr key={g.source} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                              <td className="py-3 px-3 font-medium text-foreground text-[12px]">{g.source}</td>
+                              <td className="py-3 px-3 font-medium text-[12px]"><TagBadge tagName={g.source} /></td>
                               <td className="text-right py-3 px-3 font-mono text-[12px]">{g.links}</td>
                               <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtCurrency(g.spend)}</td>
                               <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.ltv)}</td>

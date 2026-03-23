@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -8,6 +8,8 @@ import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchCampaigns, fetchTrackingLinks, fetchAdSpend, fetchDailyMetrics, fetchAlerts, fetchSyncSettings, triggerSync, addAdSpend } from "@/lib/supabase-helpers";
+import { TagBadge } from "@/components/TagBadge";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
@@ -78,7 +80,7 @@ export default function DashboardPage() {
 
   const filteredLinks = useMemo(() => {
     return links.filter((link: any) => {
-      if (filters.traffic_source !== "all" && link.source !== filters.traffic_source) return false;
+      if (filters.traffic_source !== "all" && (link.source_tag || "Untagged") !== filters.traffic_source) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchName = (link.campaign_name || "").toLowerCase().includes(q);
@@ -187,9 +189,20 @@ export default function DashboardPage() {
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
-    campaigns.forEach((c: any) => { if (c.traffic_source) s.add(c.traffic_source); });
-    return Array.from(s);
-  }, [campaigns]);
+    links.forEach((l: any) => { s.add(l.source_tag || "Untagged"); });
+    return Array.from(s).sort();
+  }, [links]);
+
+  // Realtime subscription for source_tag updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-source-tags')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tracking_links' }, () => {
+        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const top5Ltv = useMemo(() => [...enrichedLinks].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 5), [enrichedLinks]);
   const top5Profit = useMemo(() => [...enrichedLinks].filter(l => l.ad_spend > 0).sort((a, b) => b.profit - a.profit).slice(0, 5), [enrichedLinks]);
@@ -635,7 +648,6 @@ export default function DashboardPage() {
                         const status = getStatus(link);
                         const ltvPerSub = link.subscribers > 0 ? Number(link.revenue) / link.subscribers : 0;
                         const cplReal = Number(link.cpl_real || 0);
-                        const mediaBuyer = link.source || null;
                         const subsPerDay = getSubsPerDay(link);
                         const cvr = link.clicks > 0 ? (link.subscribers / link.clicks) * 100 : null;
 
@@ -656,11 +668,7 @@ export default function DashboardPage() {
                               </div>
                             </td>
                             <td className="px-3 py-3">
-                              {mediaBuyer ? (
-                                <span className="text-xs text-foreground">{mediaBuyer}</span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground italic">Untagged</span>
-                              )}
+                              <TagBadge tagName={link.source_tag} />
                             </td>
                             <td className="px-3 py-3 text-right font-mono text-xs">
                               {subsPerDay !== null ? `${subsPerDay.toFixed(1)}/day` : "—"}

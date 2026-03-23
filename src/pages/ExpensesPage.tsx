@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { fetchTrackingLinks, fetchAccounts, clearTrackingLinkSpend } from "@/lib/supabase-helpers";
+import { TagBadge } from "@/components/TagBadge";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   DollarSign, TrendingUp, BarChart3, Receipt, Pencil, X, Plus, Upload,
@@ -114,7 +116,7 @@ export default function ExpensesPage() {
   const bySource = useMemo(() => {
     const map: Record<string, { source: string; campaigns: number; spend: number; ltv: number; profit: number }> = {};
     linksWithSpend.forEach((l: any) => {
-      const src = l.source || "Untagged";
+      const src = l.source_tag || "Untagged";
       if (!map[src]) map[src] = { source: src, campaigns: 0, spend: 0, ltv: 0, profit: 0 };
       map[src].campaigns++;
       map[src].spend += Number(l.cost_total || 0);
@@ -298,9 +300,7 @@ export default function ExpensesPage() {
                       </td>
                       {/* Source */}
                       <td className="px-3 py-2">
-                        <span className={`text-[11px] ${link.source ? "text-foreground" : "text-muted-foreground italic"}`}>
-                          {link.source || "Untagged"}
-                        </span>
+                        <TagBadge tagName={link.source_tag} />
                       </td>
                       {/* Type badge */}
                       <td className="px-3 py-2">
@@ -399,7 +399,7 @@ export default function ExpensesPage() {
                     const roi = row.spend > 0 ? (row.profit / row.spend) * 100 : 0;
                     return (
                       <tr key={i} className="border-b border-border/30">
-                        <td className={`py-2 text-[12px] ${row.source === "Untagged" ? "text-muted-foreground italic" : "font-medium text-foreground"}`}>{row.source}</td>
+                        <td className="py-2 text-[12px]"><TagBadge tagName={row.source} /></td>
                         <td className="py-2 text-right text-muted-foreground">{row.campaigns}</td>
                         <td className="py-2 text-right font-mono">{fmtC(row.spend)}</td>
                         <td className="py-2 text-right font-mono text-primary">{fmtC(row.ltv)}</td>
