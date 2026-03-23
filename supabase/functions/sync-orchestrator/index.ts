@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+const API_BASE = 'https://app.onlyfansapi.com/api'
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -12,6 +14,7 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const apiKey = Deno.env.get('ONLYFANS_API_KEY')
   const db = createClient(supabaseUrl, serviceKey)
 
   try {
@@ -37,7 +40,48 @@ Deno.serve(async (req) => {
       console.log(`Marked ${stuck.length} stuck syncs as failed`)
     }
 
-    // Get active accounts
+    // Fetch accounts from OnlyFans API and upsert avatar data
+    if (apiKey) {
+      try {
+        const res = await fetch(`${API_BASE}/accounts`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        })
+        if (res.ok) {
+          const accountsRaw = await res.json()
+          const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
+          const now = new Date().toISOString()
+
+          for (const acc of apiAccounts) {
+            const ud = acc.onlyfans_user_data ?? {}
+            await db.from('accounts').upsert({
+              onlyfans_account_id: String(acc.id),
+              username: acc.onlyfans_username ?? ud.username ?? null,
+              display_name: acc.display_name ?? ud.name ?? acc.onlyfans_username ?? String(acc.id),
+              is_active: true,
+              last_synced_at: now,
+              subscribers_count: ud.subscribersCount ?? 0,
+              performer_top: ud.performerTop ?? null,
+              subscribe_price: ud.subscribePrice ?? 0,
+              last_seen: ud.lastSeen ?? null,
+              avatar_url: ud.avatar ?? null,
+              avatar_thumb_url: ud.avatarThumbs?.c144 ?? ud.avatarThumbs?.c50 ?? null,
+              header_url: ud.header ?? null,
+            }, { onConflict: 'onlyfans_account_id' })
+          }
+          console.log(`Upserted ${apiAccounts.length} accounts with avatar data from API`)
+        } else {
+          console.error(`Failed to fetch accounts from API: ${res.status}`)
+        }
+      } catch (err: any) {
+        console.error(`API account fetch error: ${err.message}`)
+      }
+    }
+
+    // Get active accounts from DB
     const { data: accounts, error: accErr } = await db.from('accounts')
       .select('id, display_name, onlyfans_account_id')
       .eq('is_active', true)
@@ -52,7 +96,6 @@ Deno.serve(async (req) => {
     // Dispatch one sync-account call per account (fire-and-forget)
     const dispatched: string[] = []
     for (const account of accounts) {
-      // Fire and forget — don't await
       fetch(`${supabaseUrl}/functions/v1/sync-account`, {
         method: 'POST',
         headers: {
