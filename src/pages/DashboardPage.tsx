@@ -516,17 +516,13 @@ export default function DashboardPage() {
           </button>
 
           {modelSummary.map((model) => {
-            const isSelected = selectedModel === model.id;
             const barWidth = (model.revenue / maxModelRevenue) * 100;
             const category = MODEL_CATEGORIES[model.display_name] || "—";
-            const ltv30d = modelLtv30d[model.id];
             return (
               <button
                 key={model.id}
-                onClick={() => setSelectedModel(isSelected ? null : model.id)}
-                className={`min-w-[220px] bg-card border rounded-lg p-4 text-left transition-all duration-200 card-hover ${
-                  isSelected ? "border-primary ring-2 ring-primary/30 emerald-glow" : "border-border hover:border-primary/40"
-                }`}
+                onClick={() => navigate(`/accounts?model=${model.id}`)}
+                className="min-w-[200px] bg-card border border-border rounded-lg p-4 text-left transition-all duration-200 card-hover hover:border-primary/40"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold shrink-0">
@@ -535,7 +531,7 @@ export default function DashboardPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground truncate">{model.display_name}</p>
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${category === "Trans" ? "bg-purple-500/15 text-purple-400" : "bg-pink-500/15 text-pink-400"}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
                         {category}
                       </span>
                     </div>
@@ -543,15 +539,10 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(model.revenue)}</p>
-                <p className="text-[11px] text-muted-foreground mb-2">
-                  Last 30d: {ltv30d !== undefined ? <span className="text-primary font-semibold">{fmtCurrency(ltv30d)}</span> : <span className="text-muted-foreground/60 italic">Syncing...</span>}
-                </p>
-                <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
+                <div className="w-full bg-secondary rounded-full h-1.5 mb-1">
                   <div className="bg-primary h-1.5 rounded-full transition-all duration-500" style={{ width: `${barWidth}%` }} />
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {fmtNum(model.subscribers)} subs
-                </div>
+                <div className="text-xs text-muted-foreground">{fmtNum(model.subscribers)} subs</div>
               </button>
             );
           })}
