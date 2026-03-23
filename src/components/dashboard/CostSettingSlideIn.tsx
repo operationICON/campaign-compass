@@ -98,8 +98,8 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
       }).eq("id", link.id);
       if (linkError) throw linkError;
 
-      // Write 2: Upsert to ad_spend table
-      await supabase.from("ad_spend").upsert({
+      // Write 2: Insert to ad_spend table
+      await supabase.from("ad_spend").insert({
         campaign_id: link.campaign_id,
         traffic_source: link.source || "direct",
         amount: preview.cost_total,
@@ -107,7 +107,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
         notes: `${costType} @ $${Number(costValue).toFixed(2)}`,
         media_buyer: link.source || null,
         account_id: link.account_id,
-      }, { onConflict: "campaign_id" });
+      });
 
       onSaved();
     } catch (err: any) {
