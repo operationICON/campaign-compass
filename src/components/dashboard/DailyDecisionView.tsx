@@ -144,12 +144,9 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                           </span>
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-[10px] text-muted-foreground">
-                            {daysSinceClick !== null ? `${daysSinceClick}d since last click` : l.accounts?.display_name}
-                          </p>
+                          <p className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</p>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono">Spend {fmtC(Number(l.ad_spend || l.cost_total || 0))}</span>
                             <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                               P {fmtC(Number(l.profit || 0))}
                             </span>
