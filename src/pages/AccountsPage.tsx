@@ -29,7 +29,7 @@ const AVATAR_COLORS = [
 type SortKey = "campaign_name" | "revenue" | "clicks" | "subscribers" | "profit" | "roi" | "created_at";
 
 export default function AccountsPage() {
-  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "Female" | "Trans">("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
