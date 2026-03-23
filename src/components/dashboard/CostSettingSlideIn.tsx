@@ -187,15 +187,21 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
                 <button
                   key={ct.type}
                   onClick={() => setCostType(ct.type)}
-                  className={`p-3 rounded-lg border text-left transition-all ${
+                  className={`p-3 rounded-lg border text-left transition-all relative ${
                     costType === ct.type
                       ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                      : "border-border bg-secondary hover:border-primary/40"
+                      : ct.warning ? "border-border bg-secondary/60 hover:border-primary/40 opacity-80" : "border-border bg-secondary hover:border-primary/40"
                   }`}
                 >
+                  {ct.recommended && (
+                    <span className="absolute -top-2 right-2 px-1.5 py-0.5 rounded text-[8px] font-bold bg-primary text-primary-foreground">Recommended</span>
+                  )}
                   <ct.icon className={`h-5 w-5 mb-2 ${costType === ct.type ? "text-primary" : "text-muted-foreground"}`} />
                   <p className={`text-xs font-bold ${costType === ct.type ? "text-primary" : "text-foreground"}`}>{ct.type}</p>
                   <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{ct.desc}</p>
+                  {ct.warning && (
+                    <p className="text-[9px] text-[hsl(38_92%_50%)] leading-tight mt-1">⚠ {ct.warning}</p>
+                  )}
                 </button>
               ))}
             </div>
