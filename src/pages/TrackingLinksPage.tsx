@@ -1,25 +1,29 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { AdSpendSlideIn } from "@/components/dashboard/AdSpendSlideIn";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
-import { fetchTrackingLinks, fetchAdSpend, addAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
-import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
+import { fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays, differenceInHours, isToday } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Users, RefreshCw, ExternalLink, DollarSign, TrendingUp, BarChart3, Trash2, Plus, Upload, Download
+  RefreshCw, ExternalLink, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil
 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-type SortKey = "campaign_name" | "clicks" | "subscribers" | "cvr" | "cost_total" | "revenue" | "spenders" | "profit" | "roi" | "arpu" | "cpl_real" | "created_at";
+type SortKey = "campaign_name" | "clicks" | "subscribers" | "cvr" | "cost_total" | "revenue" | "spenders" | "profit" | "roi" | "arpu" | "cpl_real" | "created_at" | "subs_day";
 type ClickFilter = "all" | "active" | "zero";
 
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
@@ -42,17 +46,6 @@ function getCampaignInitials(name: string | null) {
   return cleaned.slice(0, 2).toUpperCase();
 }
 
-function formatUpdatedAgo(dateStr: string | null): string | null {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  const hours = differenceInHours(new Date(), d);
-  if (hours < 1) return "Updated <1h ago";
-  if (hours < 24) return `Updated ${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `Updated ${days}d ago`;
-}
-
 const STATUS_STYLES: Record<string, string> = {
   SCALE: "bg-[hsl(142_71%_45%/0.1)] text-[hsl(142_71%_45%)]",
   WATCH: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
@@ -67,27 +60,20 @@ const STATUS_EMOJI: Record<string, string> = {
   SCALE: "🟢", WATCH: "🟡", LOW: "🟠", KILL: "🔴", DEAD: "💀", "NO SPEND": "⚪", NO_DATA: "⚪",
 };
 
-const COST_TYPE_STYLES: Record<string, string> = {
-  CPC: "bg-info/15 text-info",
-  CPL: "bg-primary/15 text-primary",
-  FIXED: "bg-warning/15 text-warning",
-};
-
 export default function TrackingLinksPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [clickFilter, setClickFilter] = useState<ClickFilter>("all");
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
-  const [accountFilter, setAccountFilter] = useState<string | null>(null);
+  const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
-  const [adSpendSlideIn, setAdSpendSlideIn] = useState<any>(null);
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
-  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
@@ -116,15 +102,6 @@ export default function TrackingLinksPage() {
     toast.success(`Exported ${links.length} campaigns`);
   }, [links]);
 
-  const addSpendMutation = useMutation({
-    mutationFn: addAdSpend,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
-      setAdSpendSlideIn(null);
-      toast.success("Spend saved");
-    },
-  });
-
   const deleteSpendMutation = useMutation({
     mutationFn: deleteAdSpend,
     onSuccess: () => {
@@ -149,7 +126,6 @@ export default function TrackingLinksPage() {
 
   const totalSpent = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.cost_total || 0), 0), [links]);
   const totalLtv = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0), [links]);
-  const totalProfit = useMemo(() => totalLtv - totalSpent, [totalLtv, totalSpent]);
   const blendedRoi = useMemo(() => {
     if (totalSpent <= 0) return null;
     return ((totalLtv - totalSpent) / totalSpent) * 100;
@@ -173,25 +149,38 @@ export default function TrackingLinksPage() {
       const isNaturallyActive = (l.clicks > 0 || Number(l.revenue) > 0) && daysSinceActivity <= 30;
       const hasOverride = manualOverrides[l.id] !== undefined;
       const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
-      return { ...l, isZeroClicksStale, isHighRevenue, isActive, daysSinceActivity };
+      // Subs/Day: subscribers / days since created (min 1 day)
+      const subsDay = daysSinceCreated >= 1 && l.subscribers > 0 ? l.subscribers / daysSinceCreated : null;
+      return { ...l, isZeroClicksStale, isHighRevenue, isActive, daysSinceActivity, subsDay };
     });
   }, [links, manualOverrides]);
 
-  const accountSummary = useMemo(() => {
-    const map: Record<string, { id: string; username: string; display_name: string; count: number }> = {};
+  // Unique accounts for dropdown
+  const accountOptions = useMemo(() => {
+    const map: Record<string, { id: string; username: string }> = {};
     enrichedLinks.forEach((l: any) => {
       const accId = l.account_id;
       if (!map[accId]) {
-        map[accId] = { id: accId, username: l.accounts?.username || "unknown", display_name: l.accounts?.display_name || "Unknown", count: 0 };
+        map[accId] = { id: accId, username: l.accounts?.username || "unknown" };
       }
-      map[accId].count++;
     });
-    return Object.values(map).sort((a, b) => b.count - a.count);
+    return Object.values(map).sort((a, b) => a.username.localeCompare(b.username));
+  }, [enrichedLinks]);
+
+  // Unique sources for dropdown
+  const sourceOptions = useMemo(() => {
+    const set = new Set<string>();
+    enrichedLinks.forEach((l: any) => {
+      if (l.source) set.add(l.source);
+    });
+    return Array.from(set).sort();
   }, [enrichedLinks]);
 
   const filtered = useMemo(() => {
     let result = enrichedLinks;
-    if (accountFilter) result = result.filter((l: any) => l.account_id === accountFilter);
+    if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
+    if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source);
+    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
@@ -213,7 +202,7 @@ export default function TrackingLinksPage() {
       });
     }
     return result;
-  }, [enrichedLinks, searchQuery, clickFilter, ageFilter, accountFilter]);
+  }, [enrichedLinks, searchQuery, clickFilter, ageFilter, accountFilter, sourceFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a: any, b: any) => {
@@ -231,6 +220,7 @@ export default function TrackingLinksPage() {
         case "arpu": aVal = Number(a.arpu || 0); bVal = Number(b.arpu || 0); break;
         case "cpl_real": aVal = Number(a.cpl_real || 0); bVal = Number(b.cpl_real || 0); break;
         case "created_at": aVal = new Date(a.created_at).getTime(); bVal = new Date(b.created_at).getTime(); break;
+        case "subs_day": aVal = a.subsDay ?? -Infinity; bVal = b.subsDay ?? -Infinity; break;
         default: aVal = 0; bVal = 0;
       }
       return sortAsc ? aVal - bVal : bVal - aVal;
@@ -246,13 +236,6 @@ export default function TrackingLinksPage() {
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
-  };
-
-  const formatCreatedAt = (dateStr: string | null) => {
-    if (!dateStr) return "—";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "—";
-    return format(d, "MMM d, yyyy");
   };
 
   const toggleActiveOverride = (id: string, currentActive: boolean) => {
@@ -291,11 +274,10 @@ export default function TrackingLinksPage() {
             <button onClick={exportCampaignsCsv} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
               <Download className="h-4 w-4" /> Export
             </button>
-            <button onClick={() => setImportModalOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
-              <Upload className="h-4 w-4" /> Import Spend
-            </button>
-            <button onClick={() => setAdSpendSlideIn({ campaign_id: "", campaign_name: "New Entry" })} className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] gradient-bg text-white text-sm font-medium hover:opacity-90 transition-all duration-200 hero-glow">
-              <Plus className="h-4 w-4" /> Add Spend
+            <button onClick={() => syncMutation.mutate(undefined)} disabled={syncMutation.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow gradient-bg hover:opacity-90">
+              <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+              {syncMutation.isPending ? "Syncing..." : "Sync Now"}
             </button>
           </div>
         </div>
@@ -322,12 +304,19 @@ export default function TrackingLinksPage() {
           </div>
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
             <div className="flex items-center gap-2 mb-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${totalProfit >= 0 ? "bg-primary/10" : "bg-destructive/10"}`}>
-                <TrendingUp className={`h-4 w-4 ${totalProfit >= 0 ? "text-primary" : "text-destructive"}`} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${totalSpent > 0 ? (totalLtv - totalSpent >= 0 ? "bg-primary/10" : "bg-destructive/10") : "bg-secondary"}`}>
+                <TrendingUp className={`h-4 w-4 ${totalSpent > 0 ? (totalLtv - totalSpent >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`} />
               </div>
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Profit</span>
             </div>
-            <p className={`text-[28px] font-bold font-mono ${totalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(totalProfit)}</p>
+            {totalSpent > 0 ? (
+              <p className={`text-[28px] font-bold font-mono ${totalLtv - totalSpent >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(totalLtv - totalSpent)}</p>
+            ) : (
+              <div>
+                <p className="text-[28px] font-bold font-mono text-muted-foreground">—</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Enter spend to calculate</p>
+              </div>
+            )}
           </div>
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
             <div className="flex items-center gap-2 mb-2">
@@ -342,13 +331,41 @@ export default function TrackingLinksPage() {
           </div>
         </div>
 
-        {/* Toolbar */}
+        {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input type="text" placeholder="Search by campaign or account..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors" />
           </div>
+
+          {/* Account dropdown */}
+          <Select value={accountFilter} onValueChange={(v) => { setAccountFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[180px] h-9 text-xs bg-card border-border">
+              <SelectValue placeholder="All Accounts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Accounts</SelectItem>
+              {accountOptions.map((acc) => (
+                <SelectItem key={acc.id} value={acc.id}>@{acc.username}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Source dropdown */}
+          <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[160px] h-9 text-xs bg-card border-border">
+              <SelectValue placeholder="All Sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              <SelectItem value="untagged">Untagged</SelectItem>
+              {sourceOptions.map((src) => (
+                <SelectItem key={src} value={src}>{src}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
             {(["all", "active", "zero"] as ClickFilter[]).map((f) => (
               <button key={f} onClick={() => { setClickFilter(f); setPage(1); }}
@@ -376,37 +393,7 @@ export default function TrackingLinksPage() {
               );
             })}
           </div>
-          <button onClick={() => syncMutation.mutate(undefined)} disabled={syncMutation.isPending}
-            className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 hero-glow gradient-bg hover:opacity-90">
-            <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-            {syncMutation.isPending ? "Syncing..." : "Sync Now"}
-          </button>
         </div>
-
-        {/* Account Summary Bar */}
-        {accountSummary.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              {accountSummary.map((acc) => {
-                const isActive = accountFilter === acc.id;
-                const color = getAccountColor(acc.username);
-                return (
-                  <button key={acc.id} onClick={() => { setAccountFilter(isActive ? null : acc.id); setPage(1); }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all shrink-0 ${isActive ? "bg-primary/15 border border-primary/40 text-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/30"}`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${color.bg} ${color.text}`}>{acc.display_name.charAt(0)}</div>
-                    <span className="text-xs">@{acc.username}</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs font-bold text-primary">{acc.count}</span>
-                    <span className="text-[10px] text-muted-foreground">campaigns</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
-              Total: <span className="font-bold text-primary">{enrichedLinks.length}</span> campaigns across <span className="font-bold text-foreground">{accountSummary.length}</span> accounts
-            </div>
-          </div>
-        )}
 
         {/* Table */}
         {isLoading ? (
@@ -418,7 +405,7 @@ export default function TrackingLinksPage() {
             <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-foreground font-medium mb-1">No tracking links found</p>
             <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter ? "Try adjusting your filters." : "Run a sync to get started."}
+              {searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}
             </p>
           </div>
         ) : (
@@ -440,6 +427,7 @@ export default function TrackingLinksPage() {
                     <SortHeader label="Campaign" sortKeyName="campaign_name" width="180px" />
                     <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
                     <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px" }}>Source</th>
+                    <SortHeader label="Subs/Day" sortKeyName="subs_day" width="65px" />
                     <SortHeader label="Clicks" sortKeyName="clicks" width="60px" />
                     <SortHeader label="Subs" sortKeyName="subscribers" width="55px" />
                     <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
@@ -449,7 +437,7 @@ export default function TrackingLinksPage() {
                     <SortHeader label="CPL" sortKeyName="cpl_real" width="60px" />
                     <SortHeader label="LTV/Sub" sortKeyName="arpu" width="60px" />
                     <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "70px" }}>Status</th>
-                    <SortHeader label="Created" sortKeyName="created_at" width="85px" />
+                    <SortHeader label="Created" sortKeyName="created_at" width="105px" />
                     <th className="h-9 px-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "65px" }}>Active</th>
                   </tr>
                 </thead>
@@ -461,17 +449,19 @@ export default function TrackingLinksPage() {
                     const borderClass = link.isZeroClicksStale ? "border-l-2 border-l-destructive" : link.isHighRevenue ? "border-l-2 border-l-primary" : "border-l-2 border-l-transparent";
                     const rowOpacity = link.isActive ? "" : "opacity-50";
                     const costTotal = Number(link.cost_total || 0);
+                    const hasCost = link.cost_type && costTotal > 0;
                     const profit = Number(link.profit || 0);
                     const roi = Number(link.roi || 0);
                     const arpu = Number(link.arpu || 0);
                     const cplReal = Number(link.cpl_real || 0);
                     const status = link.status || "NO_DATA";
                     const displayStatus = status === "NO_DATA" ? "NO SPEND" : status;
-                    const hasCost = link.cost_type && costTotal > 0;
                     const mediaBuyer = link.source || null;
+                    const daysOld = link.created_at ? differenceInDays(new Date(), new Date(link.created_at)) : null;
 
                     return (
                       <tr key={link.id} className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`} onClick={() => setSelectedLink(link)}>
+                        {/* Campaign */}
                         <td className="px-2 py-2" style={{ maxWidth: "180px" }}>
                           <div className="flex items-center gap-2 min-w-0">
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>{initials}</div>
@@ -481,50 +471,78 @@ export default function TrackingLinksPage() {
                             </div>
                           </div>
                         </td>
+                        {/* Account */}
                         <td className="px-2 py-2" style={{ maxWidth: "100px" }}>
                           <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
                         </td>
+                        {/* Source */}
                         <td className="px-2 py-2">
                           {mediaBuyer ? (
-                            <span className="text-[11px] text-foreground">{mediaBuyer}</span>
+                            <span className="text-[11px] text-primary font-medium">{mediaBuyer}</span>
                           ) : (
-                            <span className="text-[11px] text-muted-foreground italic">— Untagged</span>
+                            <span className="text-[11px] text-muted-foreground">Untagged</span>
                           )}
                         </td>
+                        {/* Subs/Day */}
+                        <td className="px-2 py-2 font-mono text-[12px] text-foreground">
+                          {link.subsDay !== null ? `${Math.round(link.subsDay)}/day` : "—"}
+                        </td>
+                        {/* Clicks */}
                         <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.clicks.toLocaleString()}</td>
+                        {/* Subs */}
                         <td className="px-2 py-2 font-mono text-[12px] text-foreground">{link.subscribers.toLocaleString()}</td>
+                        {/* LTV */}
                         <td className="px-2 py-2">
                           <span className="font-mono text-[12px] gradient-text font-semibold">{fmtC(Number(link.revenue))}</span>
                         </td>
+                        {/* Spend */}
                         <td className="px-2 py-2">
-                          <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }} className="text-[12px] transition-colors whitespace-nowrap">
-                            {hasCost ? (
-                              <span className="font-mono text-foreground">{fmtC(costTotal)}</span>
-                            ) : (
-                              <span className="text-muted-foreground hover:text-primary">Set Spend</span>
-                            )}
-                          </button>
+                          {hasCost ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                              <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }} className="font-mono text-[12px] text-foreground hover:text-primary transition-colors">{fmtC(costTotal)}</button>
+                            </div>
+                          ) : (
+                            <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors">
+                              <Pencil className="h-3 w-3" /> Set
+                            </button>
+                          )}
                         </td>
+                        {/* Profit */}
                         <td className="px-2 py-2 font-mono text-[12px]">
                           {hasCost ? (
                             <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
                           ) : <span className="text-muted-foreground">—</span>}
                         </td>
+                        {/* ROI */}
                         <td className="px-2 py-2 font-mono text-[12px]">
                           {hasCost ? (
                             <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span>
                           ) : <span className="text-muted-foreground">—</span>}
                         </td>
+                        {/* CPL */}
                         <td className="px-2 py-2 font-mono text-[12px] text-foreground">{cplReal > 0 ? `$${cplReal.toFixed(2)}` : "—"}</td>
+                        {/* LTV/Sub */}
                         <td className="px-2 py-2 font-mono text-[12px] text-foreground">${arpu.toFixed(2)}</td>
+                        {/* Status */}
                         <td className="px-2 py-2">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_STYLES[displayStatus] || STATUS_STYLES.NO_DATA}`}>
                             {STATUS_EMOJI[displayStatus] || "⚪"} {displayStatus.replace("_", " ")}
                           </span>
                         </td>
+                        {/* Created — date + days only, no age label */}
                         <td className="px-2 py-2">
-                          <CampaignAgePill createdAt={link.created_at} lastActivityAt={link.calculated_at} clicks={link.clicks} revenue={Number(link.revenue || 0)} />
+                          <div className="flex flex-col">
+                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                              {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
+                            </span>
+                            {daysOld !== null && (
+                              <span className="text-[10px] text-muted-foreground">{daysOld}d</span>
+                            )}
+                          </div>
                         </td>
+                        {/* Active */}
                         <td className="px-2 py-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -624,10 +642,8 @@ export default function TrackingLinksPage() {
         </div>
       </div>
 
-      {adSpendSlideIn && <AdSpendSlideIn link={adSpendSlideIn} onClose={() => setAdSpendSlideIn(null)} onSubmit={(data) => addSpendMutation.mutateAsync(data)} />}
       {costSlideIn && <CostSettingSlideIn link={costSlideIn} onClose={() => setCostSlideIn(null)} onSaved={() => { setCostSlideIn(null); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); toast.success("Spend saved & metrics recalculated"); }} />}
       {selectedLink && <CampaignDetailSlideIn link={selectedLink} cost={Number(selectedLink.cost_total || 0)} onClose={() => setSelectedLink(null)} onSetCost={() => { setCostSlideIn(selectedLink); setSelectedLink(null); }} />}
-      <CsvCostImportModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onComplete={() => { queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); setImportModalOpen(false); }} trackingLinks={links} />
     </DashboardLayout>
   );
 }
