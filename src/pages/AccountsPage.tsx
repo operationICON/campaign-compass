@@ -167,47 +167,37 @@ export default function AccountsPage() {
     return { label: "No Spend", cls: "bg-muted text-muted-foreground" };
   };
 
-  // ============ VIEW 2 — Individual Model Profile ============
-  if (selectedAccount) {
-    const acc = selectedAccount;
-    const stats = accountStats[acc.id] || {};
-    const accLinks = links.filter((l: any) => l.account_id === acc.id);
-    const category = getCategory(acc);
+  // Derived data for selected account (must be above conditional return)
+  const selectedAccLinks = useMemo(() => {
+    if (!selectedAccount) return [];
+    return links.filter((l: any) => l.account_id === selectedAccount.id);
+  }, [selectedAccount, links]);
 
-    const sortedLinks = [...accLinks].sort((a: any, b: any) => {
-      const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
-      const bv = sortKey === "campaign_name" ? (b.campaign_name || "") : Number(b[sortKey] || 0);
-      if (typeof av === "string") return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
-      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
-    });
+  const sourceGroups = useMemo(() => {
+    const groups: Record<string, { source: string; links: number; spend: number; ltv: number; profit: number; roi: number | null }> = {};
+    for (const l of selectedAccLinks) {
+      const src = l.source || "Untagged";
+      if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
+      groups[src].links++;
+      groups[src].spend += Number(l.cost_total || 0);
+      groups[src].ltv += Number(l.revenue || 0);
+    }
+    for (const g of Object.values(groups)) {
+      g.profit = g.ltv - g.spend;
+      g.roi = g.spend > 0 ? (g.profit / g.spend) * 100 : null;
+    }
+    return Object.values(groups).sort((a, b) => b.profit - a.profit);
+  }, [selectedAccLinks]);
 
-    // Traffic sources
-    const sourceGroups = useMemo(() => {
-      const groups: Record<string, { source: string; links: number; spend: number; ltv: number; profit: number; roi: number | null }> = {};
-      for (const l of accLinks) {
-        const src = l.source || "Untagged";
-        if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
-        groups[src].links++;
-        groups[src].spend += Number(l.cost_total || 0);
-        groups[src].ltv += Number(l.revenue || 0);
-      }
-      for (const g of Object.values(groups)) {
-        g.profit = g.ltv - g.spend;
-        g.roi = g.spend > 0 ? (g.profit / g.spend) * 100 : null;
-      }
-      return Object.values(groups).sort((a, b) => b.profit - a.profit);
-    }, [accLinks]);
-
-    // Performance chart data
-    const perfData = useMemo(() => {
-      const linkIds = new Set(accLinks.map((l: any) => l.id));
-      const byDate: Record<string, { date: string; ltv: number; subs: number }> = {};
-      for (const m of dailyMetrics) {
-        if (!linkIds.has(m.tracking_link_id)) continue;
-        if (!byDate[m.date]) byDate[m.date] = { date: m.date, ltv: 0, subs: 0 };
-        byDate[m.date].ltv += Number(m.revenue || 0);
-        byDate[m.date].subs += (m.subscribers || 0);
-      }
+  const perfData = useMemo(() => {
+    const linkIds = new Set(selectedAccLinks.map((l: any) => l.id));
+    const byDate: Record<string, { date: string; ltv: number; subs: number }> = {};
+    for (const m of dailyMetrics) {
+      if (!linkIds.has(m.tracking_link_id)) continue;
+      if (!byDate[m.date]) byDate[m.date] = { date: m.date, ltv: 0, subs: 0 };
+      byDate[m.date].ltv += Number(m.revenue || 0);
+      byDate[m.date].subs += (m.subscribers || 0);
+    }
       return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
     }, [accLinks, dailyMetrics]);
 
