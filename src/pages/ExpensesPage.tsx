@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   DollarSign, TrendingUp, BarChart3, Receipt, Pencil, X, Plus, Upload,
-  ChevronUp, ChevronDown, Search
+  ChevronUp, ChevronDown, Search, Lock
 } from "lucide-react";
 
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
@@ -69,13 +69,22 @@ export default function ExpensesPage() {
     queryFn: () => fetchTrackingLinks(),
   });
 
+  // Debug log to help diagnose data issues
+  useEffect(() => {
+    if (allLinks.length > 0) {
+      const withSpend = allLinks.filter((l: any) => Number(l.cost_total) > 0);
+      console.log('Expenses page — tracking_links with spend:', withSpend.length, withSpend[0]);
+      console.log('Expenses page — first 3 links cost_total:', allLinks.slice(0, 3).map((l: any) => ({ name: l.campaign_name, cost_total: l.cost_total, profit: l.profit, roi: l.roi, status: l.status })));
+    }
+  }, [allLinks]);
+
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
   });
 
   const linksWithSpend = useMemo(() =>
-    allLinks.filter((l: any) => Number(l.cost_total || 0) > 0),
+    allLinks.filter((l: any) => l.cost_total !== null && l.cost_total !== undefined && Number(l.cost_total) > 0),
     [allLinks]
   );
 
@@ -177,11 +186,13 @@ export default function ExpensesPage() {
     toast.success("Spend saved — ROI and Profit updated");
   };
 
+  const hasAnySpend = totalSpend > 0;
+
   const kpis = [
-    { label: "Total Spend", value: fmtC(totalSpend), icon: DollarSign, color: "text-foreground" },
-    { label: "Spend This Month", value: fmtC(spendThisMonth), icon: Receipt, color: "text-foreground" },
-    { label: "Total Profit", value: totalSpend > 0 ? (totalProfit >= 0 ? `+${fmtC(totalProfit)}` : fmtC(totalProfit)) : "—", icon: TrendingUp, color: totalProfit >= 0 ? "text-primary" : "text-destructive", sub: totalSpend === 0 ? "Enter spend to calculate" : undefined },
-    { label: "Blended ROI", value: blendedROI != null ? fmtP(blendedROI) : "—", icon: BarChart3, color: blendedROI != null && blendedROI >= 0 ? "text-primary" : "text-destructive" },
+    { label: "Total Spend", value: hasAnySpend ? fmtC(totalSpend) : "$0.00", icon: DollarSign, color: "text-foreground" },
+    { label: "Spend This Month", value: hasAnySpend ? fmtC(spendThisMonth) : "$0.00", icon: Receipt, color: "text-foreground" },
+    { label: "Total Profit", value: hasAnySpend ? (totalProfit >= 0 ? `+${fmtC(totalProfit)}` : fmtC(totalProfit)) : "—", icon: TrendingUp, color: hasAnySpend ? (totalProfit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
+    { label: "Blended ROI", value: hasAnySpend && blendedROI != null ? fmtP(blendedROI) : "—", icon: BarChart3, color: hasAnySpend && blendedROI != null ? (blendedROI >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
     { label: "Campaigns with Spend", value: String(campaignsWithSpend), icon: Receipt, color: "text-foreground" },
   ];
 
@@ -206,6 +217,13 @@ export default function ExpensesPage() {
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border text-muted-foreground rounded-[10px] hover:bg-secondary transition-colors"
             >
               <Upload className="h-3.5 w-3.5" /> Bulk CSV Upload
+            </button>
+            <button
+              disabled
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border text-muted-foreground/50 rounded-[10px] cursor-not-allowed opacity-60"
+              title="Coming soon — configure in Settings"
+            >
+              <Lock className="h-3.5 w-3.5" /> Sync AirTable
             </button>
           </div>
         </div>
