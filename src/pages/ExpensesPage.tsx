@@ -116,7 +116,7 @@ export default function ExpensesPage() {
   const bySource = useMemo(() => {
     const map: Record<string, { source: string; campaigns: number; spend: number; ltv: number; profit: number }> = {};
     linksWithSpend.forEach((l: any) => {
-      const src = l.source || "Untagged";
+      const src = l.source_tag || "Untagged";
       if (!map[src]) map[src] = { source: src, campaigns: 0, spend: 0, ltv: 0, profit: 0 };
       map[src].campaigns++;
       map[src].spend += Number(l.cost_total || 0);
