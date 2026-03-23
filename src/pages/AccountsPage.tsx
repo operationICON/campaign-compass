@@ -56,6 +56,15 @@ export default function AccountsPage() {
     },
   });
 
+  // Auto-select model from URL param
+  useEffect(() => {
+    const modelId = searchParams.get("model");
+    if (modelId && accounts.length > 0 && !selectedAccount) {
+      const acc = accounts.find((a: any) => a.id === modelId);
+      if (acc) setSelectedAccount(acc);
+    }
+  }, [searchParams, accounts, selectedAccount]);
+
   const fmtCurrency = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtNum = (v: number) => v.toLocaleString();
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
