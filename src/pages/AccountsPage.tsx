@@ -93,49 +93,17 @@ export default function AccountsPage() {
     return accounts.filter((a: any) => getCategory(a) === categoryFilter);
   }, [accounts, categoryFilter]);
 
-  const handleUpload = async (accountId: string, file: File) => {
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error("Only JPG, PNG, and WebP are allowed");
-      return;
-    }
-    setUploadingFor(accountId);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `${accountId}.${ext}`;
-      // Delete existing
-      await supabase.storage.from("model-avatars").remove([path]);
-      // Also try other extensions
-      await supabase.storage.from("model-avatars").remove([`${accountId}.jpg`, `${accountId}.png`, `${accountId}.webp`]);
-      const { error } = await supabase.storage.from("model-avatars").upload(path, file, { upsert: true });
-      if (error) throw error;
-      toast.success("Photo uploaded");
-      refetchAvatars();
-    } catch (err: any) {
-      toast.error(err.message || "Upload failed");
-    } finally {
-      setUploadingFor(null);
-    }
-  };
-
-  const AvatarCircle = ({ account, size = 80, showCamera = false }: { account: any; size?: number; showCamera?: boolean }) => {
+  const AvatarCircle = ({ account, size = 80 }: { account: any; size?: number }) => {
     const colorIdx = accounts.indexOf(account) % AVATAR_COLORS.length;
-    const avatarUrl = avatarUrls[account.id];
+    const thumbUrl = account.avatar_thumb_url;
     return (
-      <div className="relative group" style={{ width: size, height: size }}>
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={account.display_name} className="rounded-full object-cover border-[3px] border-white shadow-md" style={{ width: size, height: size }} />
+      <div style={{ width: size, height: size }}>
+        {thumbUrl ? (
+          <img src={thumbUrl} alt={account.display_name} className="rounded-full object-cover border-[3px] border-white shadow-md" style={{ width: size, height: size }} />
         ) : (
           <div className={`rounded-full bg-gradient-to-br ${AVATAR_COLORS[colorIdx]} flex items-center justify-center text-white font-bold border-[3px] border-white shadow-md`} style={{ width: size, height: size, fontSize: size * 0.35 }}>
             {account.display_name.charAt(0)}
           </div>
-        )}
-        {showCamera && (
-          <button
-            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); setUploadingFor(account.id); }}
-            className="absolute bottom-0 right-0 w-7 h-7 bg-primary rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Camera className="h-3.5 w-3.5" />
-          </button>
         )}
       </div>
     );
