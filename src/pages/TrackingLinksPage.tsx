@@ -510,8 +510,20 @@ export default function TrackingLinksPage() {
                               <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </td>
-                          {/* CPL */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground">{cplReal > 0 ? `$${cplReal.toFixed(2)}` : "—"}</td>
+                          {/* Cost/Sub */}
+                          <td className="px-2 py-2 font-mono text-[12px]">
+                            {cplReal > 0 ? <span className="font-semibold text-primary">${cplReal.toFixed(2)}</span> : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          {/* LTV Ratio */}
+                          <td className="px-2 py-2 font-mono text-[12px]">
+                            {(() => {
+                              if (!hasCost || cplReal <= 0) return <span className="text-muted-foreground">—</span>;
+                              const ltvPerSub = (link.subscribers || 0) > 0 ? Number(link.revenue || 0) / link.subscribers : 0;
+                              const ratio = ltvPerSub / cplReal;
+                              const color = ratio >= 2 ? "text-primary" : ratio >= 1 ? "text-[hsl(38_92%_50%)]" : "text-destructive";
+                              return <span className={`font-semibold ${color}`}>{ratio.toFixed(1)}x</span>;
+                            })()}
+                          </td>
                           {/* Status */}
                           <td className="px-2 py-2">
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[80px] text-center ${STATUS_STYLES[displayStatus] || STATUS_STYLES.NO_DATA}`}>
