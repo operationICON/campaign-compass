@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendDialog } from "@/components/dashboard/AdSpendDialog";
-import { fetchAdSpend, fetchCampaigns, fetchTrackingLinks } from "@/lib/supabase-helpers";
+import { fetchAdSpend, fetchCampaigns, fetchTrackingLinks, clearTrackingLinkSpend } from "@/lib/supabase-helpers";
 import { format } from "date-fns";
-import { DollarSign, TrendingUp, BarChart3, Target } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart3, Target, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdSpendPage() {
   const queryClient = useQueryClient();
