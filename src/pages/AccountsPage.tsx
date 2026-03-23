@@ -260,6 +260,19 @@ export default function AccountsPage() {
                     </div>
                   ))}
                 </div>
+                {/* CVR comparison */}
+                {stats.avgCvr !== null && (
+                  <div className="flex items-center gap-3 mb-6 px-1">
+                    <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Avg CVR:</span>
+                    <span className="font-mono text-sm font-bold text-foreground">{stats.avgCvr.toFixed(1)}%</span>
+                    {stats.cvrDiff !== null && (
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${stats.cvrDiff >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                        {stats.cvrDiff >= 0 ? "+" : ""}{stats.cvrDiff.toFixed(1)}% vs agency avg
+                      </span>
+                    )}
+                  </div>
+                )}
+                </div>
 
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">

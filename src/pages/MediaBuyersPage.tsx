@@ -225,7 +225,17 @@ export default function MediaBuyersPage() {
                 <div><span className="text-muted-foreground block">Spend</span><span className="font-mono text-foreground font-semibold">{fmtCurrency(b.totalSpend)}</span></div>
                 <div><span className="text-muted-foreground block">LTV</span><span className="font-mono text-primary font-semibold">{fmtCurrency(b.totalRevenue)}</span></div>
                 <div><span className="text-muted-foreground block">Blended ROI</span><span className={`font-mono font-semibold ${b.roi >= 0 ? "text-primary" : "text-destructive"}`}>{b.roi.toFixed(1)}%</span></div>
-                <div><span className="text-muted-foreground block">Avg CVR</span><span className="font-mono text-foreground font-semibold">{b.avgCvr.toFixed(1)}%</span></div>
+                <div>
+                  <span className="text-muted-foreground block">Avg CVR</span>
+                  <span className={`font-mono font-semibold ${agencyAvgCvr !== null ? (b.avgCvr > agencyAvgCvr * 1.2 ? "text-primary" : b.avgCvr < agencyAvgCvr * 0.8 ? "text-destructive" : "text-foreground") : "text-foreground"}`}>
+                    {b.avgCvr.toFixed(1)}%
+                  </span>
+                  {agencyAvgCvr !== null && (
+                    <span className={`block text-[9px] font-semibold ${b.avgCvr - agencyAvgCvr >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {b.avgCvr - agencyAvgCvr >= 0 ? "+" : ""}{(b.avgCvr - agencyAvgCvr).toFixed(1)}% vs avg
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 gap-3 text-xs">
                 <div><span className="text-muted-foreground block">Avg CPL</span><span className="font-mono text-foreground font-semibold">{b.avgCpl > 0 ? fmtCurrency(b.avgCpl) : "—"}</span></div>

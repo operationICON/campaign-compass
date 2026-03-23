@@ -496,6 +496,28 @@ export default function TrackingLinksPage() {
                           <td className="px-2 py-2 font-mono text-[12px] text-foreground">
                             {link.subsDay !== null ? `${Math.round(link.subsDay)}/day` : "—"}
                           </td>
+                          {/* CVR */}
+                          <td className="px-2 py-2 font-mono text-[12px]">
+                            {link.clicks > 0 ? (() => {
+                              const cvr = (link.subscribers / link.clicks) * 100;
+                              const color = getCvrColor(cvr);
+                              const diff = agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={`font-semibold cursor-default ${color}`}>{cvr.toFixed(1)}%</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">
+                                      {agencyAvgCvr !== null
+                                        ? `Agency avg: ${agencyAvgCvr.toFixed(1)}% — this campaign is ${diff !== null && diff >= 0 ? "+" : ""}${diff?.toFixed(1)}% ${diff !== null && diff >= 0 ? "above" : "below"} average`
+                                        : "Not enough data for agency benchmark"}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })() : <span className="text-muted-foreground">—</span>}
+                          </td>
                           {/* LTV */}
                           <td className="px-2 py-2"><span className="font-mono text-[12px] gradient-text font-semibold">{fmtC(Number(link.revenue))}</span></td>
                           {/* Spend */}

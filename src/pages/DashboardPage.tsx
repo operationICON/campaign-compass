@@ -14,7 +14,7 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 import {
   RefreshCw, DollarSign, MousePointerClick, Users, TrendingUp,
   Percent, PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  AlertTriangle, Download, FileText, LayoutGrid, Search, X, Columns, List
+  AlertTriangle, Download, FileText, LayoutGrid, Search, X, Columns, List, Target
 } from "lucide-react";
 
 type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend" | "created_at" | "profit";
