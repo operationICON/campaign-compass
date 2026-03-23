@@ -144,8 +144,9 @@ export default function AdSpendPage() {
                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Source</th>
                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Media Buyer</th>
                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Amount</th>
-                  <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Notes</th>
-                </tr>
+                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Notes</th>
+                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center w-20">Actions</th>
+                 </tr>
               </thead>
               <tbody>
                 {adSpend.map((entry: any) => (
