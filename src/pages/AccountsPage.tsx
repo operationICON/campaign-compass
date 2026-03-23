@@ -178,17 +178,6 @@ export default function AccountsPage() {
 
     return (
       <DashboardLayout>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file && uploadingFor) handleUpload(uploadingFor, file);
-            e.target.value = "";
-          }}
-        />
         <div className="space-y-5">
           {/* Back button */}
           <button onClick={() => { setSelectedAccount(null); setActiveTab("campaigns"); }} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -200,7 +189,8 @@ export default function AccountsPage() {
             <div className="flex flex-col md:flex-row">
               {/* Left column */}
               <div className="md:w-[30%] p-6 border-b md:border-b-0 md:border-r border-border flex flex-col items-center text-center">
-                <AvatarCircle account={acc} size={120} showCamera />
+                <AvatarCircle account={acc} size={120} />
+                <p className="text-[10px] text-muted-foreground mt-1.5">Synced from OnlyFans</p>
                 <h2 className="text-xl font-bold text-foreground mt-4">{acc.display_name}</h2>
                 <p className="text-sm text-primary font-medium">@{acc.username || "—"}</p>
                 <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
