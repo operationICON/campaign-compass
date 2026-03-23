@@ -395,17 +395,6 @@ export default function AccountsPage() {
   // ============ VIEW 1 — All Models Overview ============
   return (
     <DashboardLayout>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && uploadingFor) handleUpload(uploadingFor, file);
-          e.target.value = "";
-        }}
-      />
       <div className="space-y-5">
         <div>
           <h1 className="text-[22px] font-bold text-foreground">Models</h1>
