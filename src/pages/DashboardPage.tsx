@@ -173,11 +173,11 @@ export default function DashboardPage() {
   }, [lastSynced, syncFrequency]);
 
   const modelSummary = useMemo(() => {
-    const map: Record<string, { id: string; display_name: string; username: string; revenue: number; subscribers: number; clicks: number; topCampaign: string; convRate: number; epc: number }> = {};
+    const map: Record<string, { id: string; display_name: string; username: string; avatar_thumb_url: string | null; revenue: number; subscribers: number; clicks: number; topCampaign: string; convRate: number; epc: number }> = {};
     links.forEach((link: any) => {
       const accId = link.account_id;
       if (!map[accId]) {
-        map[accId] = { id: accId, display_name: link.accounts?.display_name || "Unknown", username: link.accounts?.username || "", revenue: 0, subscribers: 0, clicks: 0, topCampaign: "", convRate: 0, epc: 0 };
+        map[accId] = { id: accId, display_name: link.accounts?.display_name || "Unknown", username: link.accounts?.username || "", avatar_thumb_url: link.accounts?.avatar_thumb_url || null, revenue: 0, subscribers: 0, clicks: 0, topCampaign: "", convRate: 0, epc: 0 };
       }
       map[accId].revenue += Number(link.revenue);
       map[accId].subscribers += link.subscribers;
@@ -519,9 +519,13 @@ export default function DashboardPage() {
                 className="min-w-[200px] bg-card border border-border rounded-lg p-4 text-left transition-all duration-200 card-hover hover:border-primary/40"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold shrink-0">
-                    {model.display_name.charAt(0)}
-                  </div>
+                  {model.avatar_thumb_url ? (
+                    <img src={model.avatar_thumb_url} alt={model.display_name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold shrink-0">
+                      {model.display_name.charAt(0)}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground truncate">{model.display_name}</p>

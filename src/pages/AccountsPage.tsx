@@ -1,12 +1,11 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics } from "@/lib/supabase-helpers";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+
 import { format, differenceInDays, subDays } from "date-fns";
-import { ArrowLeft, Camera, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const MODEL_CATEGORIES: Record<string, string> = {
@@ -35,26 +34,10 @@ export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
-  const { data: avatarUrls = {}, refetch: refetchAvatars } = useQuery({
-    queryKey: ["model-avatars"],
-    queryFn: async () => {
-      const { data } = await supabase.storage.from("model-avatars").list();
-      if (!data) return {};
-      const urls: Record<string, string> = {};
-      for (const file of data) {
-        const accountId = file.name.split(".")[0];
-        const { data: urlData } = supabase.storage.from("model-avatars").getPublicUrl(file.name);
-        urls[accountId] = urlData.publicUrl + "?t=" + Date.now();
-      }
-      return urls;
-    },
-  });
 
   // Auto-select model from URL param
   useEffect(() => {
@@ -110,49 +93,17 @@ export default function AccountsPage() {
     return accounts.filter((a: any) => getCategory(a) === categoryFilter);
   }, [accounts, categoryFilter]);
 
-  const handleUpload = async (accountId: string, file: File) => {
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error("Only JPG, PNG, and WebP are allowed");
-      return;
-    }
-    setUploadingFor(accountId);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `${accountId}.${ext}`;
-      // Delete existing
-      await supabase.storage.from("model-avatars").remove([path]);
-      // Also try other extensions
-      await supabase.storage.from("model-avatars").remove([`${accountId}.jpg`, `${accountId}.png`, `${accountId}.webp`]);
-      const { error } = await supabase.storage.from("model-avatars").upload(path, file, { upsert: true });
-      if (error) throw error;
-      toast.success("Photo uploaded");
-      refetchAvatars();
-    } catch (err: any) {
-      toast.error(err.message || "Upload failed");
-    } finally {
-      setUploadingFor(null);
-    }
-  };
-
-  const AvatarCircle = ({ account, size = 80, showCamera = false }: { account: any; size?: number; showCamera?: boolean }) => {
+  const AvatarCircle = ({ account, size = 80 }: { account: any; size?: number }) => {
     const colorIdx = accounts.indexOf(account) % AVATAR_COLORS.length;
-    const avatarUrl = avatarUrls[account.id];
+    const thumbUrl = account.avatar_thumb_url;
     return (
-      <div className="relative group" style={{ width: size, height: size }}>
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={account.display_name} className="rounded-full object-cover border-[3px] border-white shadow-md" style={{ width: size, height: size }} />
+      <div style={{ width: size, height: size }}>
+        {thumbUrl ? (
+          <img src={thumbUrl} alt={account.display_name} className="rounded-full object-cover border-[3px] border-white shadow-md" style={{ width: size, height: size }} />
         ) : (
           <div className={`rounded-full bg-gradient-to-br ${AVATAR_COLORS[colorIdx]} flex items-center justify-center text-white font-bold border-[3px] border-white shadow-md`} style={{ width: size, height: size, fontSize: size * 0.35 }}>
             {account.display_name.charAt(0)}
           </div>
-        )}
-        {showCamera && (
-          <button
-            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); setUploadingFor(account.id); }}
-            className="absolute bottom-0 right-0 w-7 h-7 bg-primary rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Camera className="h-3.5 w-3.5" />
-          </button>
         )}
       </div>
     );
@@ -227,17 +178,6 @@ export default function AccountsPage() {
 
     return (
       <DashboardLayout>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file && uploadingFor) handleUpload(uploadingFor, file);
-            e.target.value = "";
-          }}
-        />
         <div className="space-y-5">
           {/* Back button */}
           <button onClick={() => { setSelectedAccount(null); setActiveTab("campaigns"); }} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -249,7 +189,8 @@ export default function AccountsPage() {
             <div className="flex flex-col md:flex-row">
               {/* Left column */}
               <div className="md:w-[30%] p-6 border-b md:border-b-0 md:border-r border-border flex flex-col items-center text-center">
-                <AvatarCircle account={acc} size={120} showCamera />
+                <AvatarCircle account={acc} size={120} />
+                <p className="text-[10px] text-muted-foreground mt-1.5">Synced from OnlyFans</p>
                 <h2 className="text-xl font-bold text-foreground mt-4">{acc.display_name}</h2>
                 <p className="text-sm text-primary font-medium">@{acc.username || "—"}</p>
                 <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
@@ -454,17 +395,6 @@ export default function AccountsPage() {
   // ============ VIEW 1 — All Models Overview ============
   return (
     <DashboardLayout>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && uploadingFor) handleUpload(uploadingFor, file);
-          e.target.value = "";
-        }}
-      />
       <div className="space-y-5">
         <div>
           <h1 className="text-[22px] font-bold text-foreground">Models</h1>
@@ -500,7 +430,7 @@ export default function AccountsPage() {
             return (
               <div key={acc.id} className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40">
                 <div className="flex items-start gap-4 mb-4">
-                  <AvatarCircle account={acc} size={72} showCamera />
+                  <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
                     <p className="text-[13px] text-muted-foreground">@{acc.username || "—"}</p>

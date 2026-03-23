@@ -23,7 +23,7 @@ export async function fetchTrackingLinks(filters?: {
 }) {
   let query = supabase
     .from("tracking_links")
-    .select("*, accounts(display_name, username)")
+    .select("*, accounts(display_name, username, avatar_thumb_url)")
     .order("revenue", { ascending: false });
 
   if (filters?.account_id) query = query.eq("account_id", filters.account_id);
