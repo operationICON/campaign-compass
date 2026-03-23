@@ -186,11 +186,13 @@ export default function ExpensesPage() {
     toast.success("Spend saved — ROI and Profit updated");
   };
 
+  const hasAnySpend = totalSpend > 0;
+
   const kpis = [
-    { label: "Total Spend", value: fmtC(totalSpend), icon: DollarSign, color: "text-foreground" },
-    { label: "Spend This Month", value: fmtC(spendThisMonth), icon: Receipt, color: "text-foreground" },
-    { label: "Total Profit", value: totalSpend > 0 ? (totalProfit >= 0 ? `+${fmtC(totalProfit)}` : fmtC(totalProfit)) : "—", icon: TrendingUp, color: totalProfit >= 0 ? "text-primary" : "text-destructive", sub: totalSpend === 0 ? "Enter spend to calculate" : undefined },
-    { label: "Blended ROI", value: blendedROI != null ? fmtP(blendedROI) : "—", icon: BarChart3, color: blendedROI != null && blendedROI >= 0 ? "text-primary" : "text-destructive" },
+    { label: "Total Spend", value: hasAnySpend ? fmtC(totalSpend) : "$0.00", icon: DollarSign, color: "text-foreground" },
+    { label: "Spend This Month", value: hasAnySpend ? fmtC(spendThisMonth) : "$0.00", icon: Receipt, color: "text-foreground" },
+    { label: "Total Profit", value: hasAnySpend ? (totalProfit >= 0 ? `+${fmtC(totalProfit)}` : fmtC(totalProfit)) : "—", icon: TrendingUp, color: hasAnySpend ? (totalProfit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
+    { label: "Blended ROI", value: hasAnySpend && blendedROI != null ? fmtP(blendedROI) : "—", icon: BarChart3, color: hasAnySpend && blendedROI != null ? (blendedROI >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
     { label: "Campaigns with Spend", value: String(campaignsWithSpend), icon: Receipt, color: "text-foreground" },
   ];
 
