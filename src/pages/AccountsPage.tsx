@@ -270,8 +270,10 @@ export default function AccountsPage() {
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Campaign <SortIcon col="campaign_name" /></th>
+                            <th className="text-left py-2 px-3">Source</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
+                            <th className="text-right py-2 px-3">Subs/Day</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>LTV <SortIcon col="revenue" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
@@ -282,21 +284,28 @@ export default function AccountsPage() {
                         <tbody>
                           {sortedLinks.map((l: any) => {
                             const status = getStatus(l);
+                            const hasSpend = Number(l.cost_total || 0) > 0;
                             const profit = Number(l.revenue || 0) - Number(l.cost_total || 0);
+                            const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
+                            const subsPerDay = daysActive && daysActive > 0 && l.subscribers > 0 ? (l.subscribers / daysActive).toFixed(0) : null;
                             return (
                               <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                                 <td className="py-3 px-3">
                                   <p className="font-medium text-foreground text-[12px] truncate max-w-[200px]">{l.campaign_name || "—"}</p>
                                   <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{l.url}</p>
                                 </td>
+                                <td className="py-3 px-3 text-[12px]">
+                                  {l.source ? <span className="text-foreground">{l.source}</span> : <span className="text-muted-foreground">—</span>}
+                                </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.clicks)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.subscribers)}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{subsPerDay ? `${subsPerDay}/day` : "—"}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(Number(l.revenue))}</td>
-                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${l.cost_total > 0 ? (profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                                  {l.cost_total > 0 ? fmtCurrency(profit) : "—"}
+                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend ? (profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
+                                  {hasSpend ? fmtCurrency(profit) : "—"}
                                 </td>
-                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${l.roi != null ? (l.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                                  {l.roi != null ? fmtPct(l.roi) : "—"}
+                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend && l.roi != null ? (l.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
+                                  {hasSpend && l.roi != null ? fmtPct(l.roi) : "—"}
                                 </td>
                                 <td className="text-center py-3 px-3">
                                   <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${status.cls}`}>{status.label}</span>
@@ -428,7 +437,11 @@ export default function AccountsPage() {
             const stats = accountStats[acc.id] || {};
             const category = getCategory(acc);
             return (
-              <div key={acc.id} className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40">
+              <div
+                key={acc.id}
+                onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}
+                className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40 cursor-pointer"
+              >
                 <div className="flex items-start gap-4 mb-4">
                   <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
@@ -454,20 +467,13 @@ export default function AccountsPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4 text-[12px] text-muted-foreground mb-4">
+                <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
                   <span>{stats.totalCampaigns || 0} campaigns</span>
                   <span className="text-border">·</span>
                   <span>{stats.activeCampaigns || 0} active</span>
                   <span className="text-border">·</span>
                   <span>{stats.avgSubsDay} subs/day</span>
                 </div>
-
-                <button
-                  onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}
-                  className="w-full py-2.5 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
-                >
-                  View Profile
-                </button>
               </div>
             );
           })}
