@@ -157,7 +157,7 @@ export default function AccountsPage() {
   const sourceGroups = useMemo(() => {
     const groups: Record<string, { source: string; links: number; spend: number; ltv: number; profit: number; roi: number | null }> = {};
     for (const l of selectedAccLinks) {
-      const src = l.source || "Untagged";
+      const src = l.source_tag || "Untagged";
       if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
       groups[src].links++;
       groups[src].spend += Number(l.cost_total || 0);
