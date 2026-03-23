@@ -459,9 +459,16 @@ export default function DashboardPage() {
                 <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
               </div>
-              <p className={`text-lg font-bold font-mono ${totalProfit >= 0 ? "gradient-text" : "text-destructive"}`}>
-                {fmtCurrency(totalProfit)}
-              </p>
+              {totalSpend > 0 ? (
+                <p className={`text-lg font-bold font-mono ${totalProfit >= 0 ? "gradient-text" : "text-destructive"}`}>
+                  {fmtCurrency(totalProfit)}
+                </p>
+              ) : (
+                <>
+                  <p className="text-lg font-bold font-mono text-muted-foreground">—</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Enter spend to see profit</p>
+                </>
+              )}
             </div>
             {/* Avg CPL */}
             <div className="bg-card border border-border rounded-lg p-3 card-hover">
