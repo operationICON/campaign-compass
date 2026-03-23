@@ -728,7 +728,7 @@ export default function TrackingLinksPage() {
                         {/* Expanded row */}
                         {isExpanded && (
                           <tr className="bg-secondary/30 border-b border-border">
-                            <td colSpan={14} className="px-4 py-3">
+                            <td colSpan={15} className="px-4 py-3">
                               <div className="flex flex-wrap items-center gap-6 text-[12px]">
                                 <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[300px]">{link.url}</a>
                                 <span className="text-muted-foreground">Clicks: <span className="text-foreground font-medium">{link.clicks?.toLocaleString()}</span></span>
