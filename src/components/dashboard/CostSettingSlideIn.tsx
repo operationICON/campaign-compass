@@ -171,7 +171,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Set Spend</h2>
+              <h2 className="text-lg font-bold text-foreground">Set Cost Per Sub</h2>
               <p className="text-xs text-muted-foreground mt-0.5">{link.campaign_name || "Unknown"}</p>
             </div>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
