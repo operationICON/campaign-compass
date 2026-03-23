@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics } from "@/lib/supabase-helpers";
-import { toast } from "sonner";
+
 import { format, differenceInDays, subDays } from "date-fns";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
