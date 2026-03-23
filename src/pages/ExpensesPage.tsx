@@ -105,6 +105,27 @@ export default function ExpensesPage() {
   const blendedROI = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
   const campaignsWithSpend = linksWithSpend.length;
 
+  // Distinct values for filters
+  const distinctAccounts = useMemo(() => {
+    const map = new Map<string, string>();
+    linksWithSpend.forEach((l: any) => {
+      const u = l.accounts?.username;
+      if (u) map.set(l.account_id, u);
+    });
+    return Array.from(map.entries()).map(([id, username]) => ({ id, username }));
+  }, [linksWithSpend]);
+
+  const distinctSources = useMemo(() => {
+    const set = new Set<string>();
+    linksWithSpend.forEach((l: any) => set.add(l.source_tag || "Untagged"));
+    return Array.from(set).sort();
+  }, [linksWithSpend]);
+
+  // Date filter helpers
+  const now2 = new Date();
+  const thisMonthStart = new Date(now2.getFullYear(), now2.getMonth(), 1).toISOString();
+  const lastMonthStart = new Date(now2.getFullYear(), now2.getMonth() - 1, 1).toISOString();
+
   // Filtered + sorted
   const filtered = useMemo(() => {
     let result = linksWithSpend;
@@ -115,6 +136,10 @@ export default function ExpensesPage() {
         (l.accounts?.username || "").toLowerCase().includes(q)
       );
     }
+    if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
+    if (sourceFilter !== "all") result = result.filter((l: any) => (l.source_tag || "Untagged") === sourceFilter);
+    if (dateFilter === "this_month") result = result.filter((l: any) => l.updated_at >= thisMonthStart);
+    if (dateFilter === "last_month") result = result.filter((l: any) => l.updated_at >= lastMonthStart && l.updated_at < thisMonthStart);
     result.sort((a: any, b: any) => {
       const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
       const bv = sortKey === "campaign_name" ? (b.campaign_name || "") : Number(b[sortKey] || 0);
@@ -122,7 +147,7 @@ export default function ExpensesPage() {
       return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
     return result;
-  }, [linksWithSpend, searchQuery, sortKey, sortAsc]);
+  }, [linksWithSpend, searchQuery, sortKey, sortAsc, accountFilter, sourceFilter, dateFilter, thisMonthStart, lastMonthStart]);
 
   // Breakdown by source
   const bySource = useMemo(() => {
