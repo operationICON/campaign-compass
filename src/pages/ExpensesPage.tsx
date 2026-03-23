@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   DollarSign, TrendingUp, BarChart3, Receipt, Pencil, X, Plus, Upload,
-  ChevronUp, ChevronDown, Search
+  ChevronUp, ChevronDown, Search, Lock
 } from "lucide-react";
 
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
