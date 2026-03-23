@@ -12,6 +12,7 @@ const ALERT_ICONS: Record<string, any> = {
   negative_roi: TrendingDown,
   high_performer: TrendingUp,
   budget_exceeded: DollarSign,
+  low_cvr: AlertTriangle,
 };
 
 const ALERT_COLORS: Record<string, string> = {
