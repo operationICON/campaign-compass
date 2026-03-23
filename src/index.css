@@ -4,60 +4,60 @@
 
 @layer base {
   :root {
-    /* Light mode — primary design */
-    --background: 228 33% 97%;
-    --foreground: 226 47% 16%;
+    /* Light mode — teal SaaS design */
+    --background: 210 25% 96%;
+    --foreground: 216 33% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 226 47% 16%;
-    --card-elevated: 228 33% 97%;
+    --card-foreground: 216 33% 15%;
+    --card-elevated: 210 20% 98%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 226 47% 16%;
+    --popover-foreground: 216 33% 15%;
 
-    --primary: 24 95% 53%;
+    --primary: 189 94% 37%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 228 33% 97%;
+    --secondary: 210 20% 97%;
     --secondary-foreground: 215 16% 47%;
 
-    --muted: 228 33% 97%;
+    --muted: 210 20% 97%;
     --muted-foreground: 215 16% 62%;
 
-    --accent: 45 93% 47%;
+    --accent: 189 94% 37%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 28 80% 52%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --info: 217 91% 60%;
+    --info: 189 94% 37%;
     --info-foreground: 0 0% 100%;
 
-    --success: 142 71% 45%;
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
 
-    --border: 228 33% 96%;
-    --input: 228 33% 96%;
-    --ring: 24 95% 53%;
+    --border: 214 20% 92%;
+    --input: 214 20% 92%;
+    --ring: 189 94% 37%;
 
     --radius: 1rem;
 
-    --sidebar-background: 226 47% 16%;
-    --sidebar-foreground: 228 15% 55%;
-    --sidebar-primary: 24 95% 53%;
+    --sidebar-background: 195 47% 20%;
+    --sidebar-foreground: 0 0% 100% / 0.5;
+    --sidebar-primary: 187 100% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 24 95% 53%;
+    --sidebar-accent: 0 0% 100% / 0.15;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 226 30% 22%;
-    --sidebar-ring: 24 95% 53%;
+    --sidebar-border: 0 0% 100% / 0.1;
+    --sidebar-ring: 187 100% 42%;
 
-    --chart-green: 142 71% 45%;
-    --chart-blue: 217 91% 60%;
-    --chart-amber: 45 93% 47%;
-    --chart-red: 0 72% 51%;
+    --chart-green: 160 84% 39%;
+    --chart-blue: 189 94% 37%;
+    --chart-amber: 38 92% 50%;
+    --chart-red: 0 84% 60%;
     --chart-purple: 263 70% 50%;
   }
 
@@ -81,7 +81,7 @@
     --muted: 228 18% 16%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 263 70% 50%;
+    --accent: 199 89% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -137,35 +137,35 @@
 
 @layer utilities {
   .gradient-text {
-    background: linear-gradient(135deg, #f97316, #eab308);
+    background: linear-gradient(135deg, hsl(189 94% 37%), hsl(195 47% 30%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .gradient-bg {
-    background: linear-gradient(135deg, #f97316, #eab308);
+    background: linear-gradient(135deg, hsl(189 94% 37%), hsl(192 91% 29%));
   }
 
   .hero-gradient {
-    background: linear-gradient(135deg, #f97316, #dc2626, #eab308);
+    background: linear-gradient(135deg, hsl(189 94% 37%), hsl(192 91% 29%), hsl(187 100% 42%));
   }
 
   .hero-glow {
-    box-shadow: 0 8px 24px rgba(249, 115, 22, 0.3);
+    box-shadow: 0 8px 24px hsla(189, 94%, 37%, 0.3);
   }
 
   .card-hover {
     @apply transition-all duration-200 ease-out;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
   .card-hover:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px -8px rgba(249, 115, 22, 0.15);
+    box-shadow: 0 8px 24px -8px hsla(189, 94%, 37%, 0.15);
   }
 
   .orange-glow {
-    box-shadow: 0 0 20px -4px hsl(24 95% 53% / 0.25), 0 0 40px -8px hsl(24 95% 53% / 0.1);
+    box-shadow: 0 0 20px -4px hsl(189 94% 37% / 0.25), 0 0 40px -8px hsl(189 94% 37% / 0.1);
   }
 
   .skeleton-shimmer {
@@ -216,7 +216,7 @@
     @apply transition-colors duration-200;
   }
   .hover-row-orange:hover {
-    background: hsl(24 95% 53% / 0.04);
+    background: hsl(189 94% 37% / 0.04);
   }
 
   /* Backwards compat */
@@ -227,6 +227,6 @@
     transition: border-color 0.2s ease;
   }
   .hover-emerald-border:hover {
-    border-left-color: hsl(24 95% 53%);
+    border-left-color: hsl(189 94% 37%);
   }
 }

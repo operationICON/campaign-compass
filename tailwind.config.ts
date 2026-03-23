@@ -63,6 +63,10 @@ export default {
           red: "hsl(var(--chart-red))",
           purple: "hsl(var(--chart-purple))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
