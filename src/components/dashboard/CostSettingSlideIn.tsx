@@ -276,6 +276,18 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
           >
             {saving ? "Saving..." : "Save Spend"}
           </button>
+
+          {/* Clear Spend — only if spend already set */}
+          {hasExistingSpend && (
+            <button
+              onClick={handleClear}
+              disabled={clearing}
+              className="w-full px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {clearing ? "Clearing..." : "Clear Spend"}
+            </button>
+          )}
         </div>
       </div>
     </>
