@@ -40,35 +40,50 @@ Deno.serve(async (req) => {
     }
 
     // Fetch all rules ordered by priority
-    const { data: rules, error: rulesErr } = await db
+    const { data: rules } = await db
       .from('source_tag_rules')
       .select('*')
       .order('priority', { ascending: true })
-    if (rulesErr) throw rulesErr
 
-    // Fetch untagged tracking links (not manually tagged)
-    const { data: untaggedLinks, error: linksErr } = await db
-      .from('tracking_links')
-      .select('id, campaign_name, source_tag, manually_tagged')
-      .eq('manually_tagged', false)
-      .or('source_tag.is.null,source_tag.eq.Untagged,source_tag.eq.')
+    if (!rules || rules.length === 0) {
+      return new Response(JSON.stringify({ tagged: 0, skipped: 0, untagged: 0, message: 'No rules configured' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    if (linksErr) throw linksErr
+    // Fetch untagged tracking links (not manually tagged) — paginate through all
+    let allLinks: any[] = []
+    let from = 0
+    const batchSize = 1000
+    while (true) {
+      const { data: batch } = await db
+        .from('tracking_links')
+        .select('id, campaign_name, source_tag, manually_tagged')
+        .eq('manually_tagged', false)
+        .or('source_tag.is.null,source_tag.eq.Untagged,source_tag.eq.')
+        .range(from, from + batchSize - 1)
+      if (!batch || batch.length === 0) break
+      allLinks = allLinks.concat(batch)
+      if (batch.length < batchSize) break
+      from += batchSize
+    }
 
-    let tagged = 0
-    let skipped = 0
+    console.log(`Processing ${allLinks.length} untagged links against ${rules.length} rules`)
+
+    // Match in memory, then batch update per tag
+    const tagMap: Record<string, string[]> = {} // tag_name -> [link_ids]
     let untagged = 0
 
-    for (const link of untaggedLinks || []) {
+    for (const link of allLinks) {
       const name = (link.campaign_name || '').toLowerCase()
       let matched = false
 
-      for (const rule of rules || []) {
+      for (const rule of rules) {
         const keywords: string[] = rule.keywords || []
         for (const kw of keywords) {
           if (name.includes(kw.toLowerCase())) {
-            await db.from('tracking_links').update({ source_tag: rule.tag_name }).eq('id', link.id)
-            tagged++
+            if (!tagMap[rule.tag_name]) tagMap[rule.tag_name] = []
+            tagMap[rule.tag_name].push(link.id)
             matched = true
             break
           }
@@ -76,16 +91,29 @@ Deno.serve(async (req) => {
         if (matched) break
       }
 
-      if (!matched) {
-        untagged++
-      }
+      if (!matched) untagged++
     }
 
-    skipped = (await db.from('tracking_links').select('id', { count: 'exact', head: true }).eq('manually_tagged', true)).count || 0
+    // Batch update per tag name
+    let tagged = 0
+    for (const [tagName, ids] of Object.entries(tagMap)) {
+      // Update in chunks of 200 to avoid query size limits
+      for (let i = 0; i < ids.length; i += 200) {
+        const chunk = ids.slice(i, i + 200)
+        await db.from('tracking_links')
+          .update({ source_tag: tagName })
+          .in('id', chunk)
+      }
+      tagged += ids.length
+    }
 
-    console.log(`Auto-tag complete: tagged=${tagged}, skipped=${skipped}, untagged=${untagged}`)
+    const { count: skipped } = await db.from('tracking_links')
+      .select('id', { count: 'exact', head: true })
+      .eq('manually_tagged', true)
 
-    return new Response(JSON.stringify({ tagged, skipped, untagged }), {
+    console.log(`Auto-tag complete: tagged=${tagged}, skipped=${skipped || 0}, untagged=${untagged}`)
+
+    return new Response(JSON.stringify({ tagged, skipped: skipped || 0, untagged }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error: any) {
