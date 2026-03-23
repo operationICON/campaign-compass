@@ -569,7 +569,38 @@ export default function DashboardPage() {
           })}
         </div>
 
-
+        {/* CVR INSIGHTS */}
+        {agencyAvgCvr !== null && modelCvrInsights.length > 0 && (
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-bold text-primary uppercase tracking-wider">CVR Insights</h3>
+              <span className="text-[11px] text-muted-foreground ml-2">Agency avg: {agencyAvgCvr.toFixed(1)}%</span>
+            </div>
+            <div className="space-y-2">
+              {modelCvrInsights.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 py-1.5">
+                  <div className="flex items-center gap-2 w-40">
+                    {m.avatar_thumb_url ? (
+                      <img src={m.avatar_thumb_url} alt={m.display_name} className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold">{m.display_name.charAt(0)}</div>
+                    )}
+                    <span className="text-sm font-medium text-foreground">{m.display_name}</span>
+                  </div>
+                  <span className="font-mono text-sm font-semibold w-16 text-right">
+                    {m.cvr !== null ? `${m.cvr.toFixed(1)}%` : "—"}
+                  </span>
+                  {m.cvrDiff !== null && (
+                    <span className={`text-[11px] font-semibold ${m.cvrDiff >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {m.cvrDiff >= 0 ? "+" : ""}{m.cvrDiff.toFixed(1)}% {m.cvrDiff >= 0 ? "above" : "below"} avg
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* TOP 5 by LTV / TOP 5 by Profit / BOTTOM 5 by Profit */}
         <div className="grid grid-cols-3 gap-4">
