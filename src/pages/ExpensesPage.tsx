@@ -399,7 +399,7 @@ export default function ExpensesPage() {
                     const roi = row.spend > 0 ? (row.profit / row.spend) * 100 : 0;
                     return (
                       <tr key={i} className="border-b border-border/30">
-                        <td className={`py-2 text-[12px] ${row.source === "Untagged" ? "text-muted-foreground italic" : "font-medium text-foreground"}`}>{row.source}</td>
+                        <td className="py-2 text-[12px]"><TagBadge tagName={row.source} /></td>
                         <td className="py-2 text-right text-muted-foreground">{row.campaigns}</td>
                         <td className="py-2 text-right font-mono">{fmtC(row.spend)}</td>
                         <td className="py-2 text-right font-mono text-primary">{fmtC(row.ltv)}</td>

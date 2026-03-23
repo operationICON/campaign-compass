@@ -373,7 +373,7 @@ export default function AccountsPage() {
                         <tbody>
                           {sourceGroups.map((g) => (
                             <tr key={g.source} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                              <td className="py-3 px-3 font-medium text-foreground text-[12px]">{g.source}</td>
+                              <td className="py-3 px-3 font-medium text-[12px]"><TagBadge tagName={g.source} /></td>
                               <td className="text-right py-3 px-3 font-mono text-[12px]">{g.links}</td>
                               <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtCurrency(g.spend)}</td>
                               <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.ltv)}</td>
