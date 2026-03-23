@@ -436,7 +436,8 @@ export default function TrackingLinksPage() {
                     <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
-                    <SortHeader label="Subs/Day" sortKeyName="subs_day" width="70px" />
+                     <SortHeader label="Subs/Day" sortKeyName="subs_day" width="70px" />
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
                     <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
                     <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
                     <SortHeader label="Profit" sortKeyName="profit" width="85px" />
