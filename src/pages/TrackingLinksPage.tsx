@@ -79,6 +79,9 @@ export default function TrackingLinksPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
   const [clearConfirmId, setClearConfirmId] = useState<string | null>(null);
+  const [sourceDropdownId, setSourceDropdownId] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [showBulkTagDropdown, setShowBulkTagDropdown] = useState(false);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
