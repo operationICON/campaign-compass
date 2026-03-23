@@ -63,6 +63,9 @@ export default function ExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("profit");
   const [sortAsc, setSortAsc] = useState(false);
+  const [accountFilter, setAccountFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "this_month" | "last_month">("all");
 
   const { data: allLinks = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
