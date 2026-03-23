@@ -189,6 +189,43 @@ Deno.serve(async (req) => {
           p.cost_type = 'FIXED'; p.cost_value = Number(fixedCost)
         }
 
+        // Calculate cost metrics inline — no separate recalc pass needed
+        const createdAt = link.createdAt ? new Date(link.createdAt) : new Date()
+        const daysSinceCreated = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+        const cvr = clicks > 0 ? subs / clicks : 0
+        const arpu = subs > 0 ? rev / subs : 0
+        let cost_total = 0, cpc_real = 0, cpl_real = 0
+
+        if (p.cost_type === 'CPC') {
+          cost_total = clicks * (p.cost_value || 0)
+          cpc_real = p.cost_value || 0
+          cpl_real = cvr > 0 ? (p.cost_value || 0) / cvr : 0
+        } else if (p.cost_type === 'CPL') {
+          cost_total = subs * (p.cost_value || 0)
+          cpc_real = cvr > 0 ? (p.cost_value || 0) * cvr : 0
+          cpl_real = p.cost_value || 0
+        } else if (p.cost_type === 'FIXED') {
+          cost_total = p.cost_value || 0
+          cpc_real = clicks > 0 ? cost_total / clicks : 0
+          cpl_real = subs > 0 ? cost_total / subs : 0
+        }
+
+        const profit = rev - cost_total
+        const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
+
+        let status = 'NO_DATA'
+        if (!p.cost_type) {
+          if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+        } else {
+          if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+          else if (roi > 150) status = 'SCALE'
+          else if (roi >= 50) status = 'WATCH'
+          else if (roi >= 0) status = 'LOW'
+          else status = 'KILL'
+        }
+
+        Object.assign(p, { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
+
         payloads.push(p)
       }
 
@@ -200,22 +237,7 @@ Deno.serve(async (req) => {
         })
       }
       linkCount = payloads.length
-    }
-
-    // Recalculate cost metrics for this account
-    const { data: allDbLinks } = await db.from('tracking_links')
-      .select('id, clicks, subscribers, revenue, cost_type, cost_value, created_at')
-      .eq('account_id', accountId)
-
-    if (allDbLinks && allDbLinks.length > 0) {
-      for (let i = 0; i < allDbLinks.length; i += 50) {
-        const batch = allDbLinks.slice(i, i + 50)
-        await Promise.all(batch.map((link: any) => {
-          const metrics = calculateCostMetrics(link)
-          return db.from('tracking_links').update(metrics).eq('id', link.id)
-        }))
-      }
-      console.log(`[${displayName}] Recalculated metrics for ${allDbLinks.length} links`)
+      console.log(`[${displayName}] Upserted ${linkCount} links with inline metrics`)
     }
 
     // Update account
