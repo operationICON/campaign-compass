@@ -327,7 +327,7 @@ export default function AccountsPage() {
                                   <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{l.url}</p>
                                 </td>
                                 <td className="py-3 px-3 text-[12px]">
-                                  {l.source ? <span className="text-foreground">{l.source}</span> : <span className="text-muted-foreground">—</span>}
+                                  <TagBadge tagName={l.source_tag} />
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.clicks)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.subscribers)}</td>
