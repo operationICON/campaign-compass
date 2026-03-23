@@ -170,17 +170,7 @@ export default function DashboardPage() {
     return totalC > 0 ? (totalS / totalC) * 100 : null;
   }, [links]);
 
-  // CVR per model for insights
-  const modelCvrInsights = useMemo(() => {
-    return modelSummary.map(m => {
-      const accLinks = links.filter((l: any) => l.account_id === m.id && l.clicks > 100);
-      const totalS = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-      const totalC = accLinks.reduce((s: number, l: any) => s + l.clicks, 0);
-      const cvr = totalC > 0 ? (totalS / totalC) * 100 : null;
-      const diff = cvr !== null && agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
-      return { ...m, cvr, cvrDiff: diff };
-    });
-  }, [modelSummary, links, agencyAvgCvr]);
+  // modelCvrInsights computed after modelSummary (see below)
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();

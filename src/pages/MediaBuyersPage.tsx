@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAdSpend, fetchTrackingLinks, fetchAccounts } from "@/lib/supabase-helpers";
-import { ChevronUp, ChevronDown, Users, DollarSign, TrendingUp, BarChart3 } from "lucide-react";
+import { ChevronUp, ChevronDown, Users, DollarSign, TrendingUp, BarChart3, Target } from "lucide-react";
 
 type SortKey = "name" | "totalSpend" | "totalRevenue" | "roi" | "campaignCount" | "subsPerDay";
 type ViewMode = "roi" | "revenue" | "subs";
