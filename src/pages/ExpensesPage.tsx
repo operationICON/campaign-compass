@@ -63,6 +63,9 @@ export default function ExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("profit");
   const [sortAsc, setSortAsc] = useState(false);
+  const [accountFilter, setAccountFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "this_month" | "last_month">("all");
 
   const { data: allLinks = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
@@ -102,6 +105,27 @@ export default function ExpensesPage() {
   const blendedROI = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
   const campaignsWithSpend = linksWithSpend.length;
 
+  // Distinct values for filters
+  const distinctAccounts = useMemo(() => {
+    const map = new Map<string, string>();
+    linksWithSpend.forEach((l: any) => {
+      const u = l.accounts?.username;
+      if (u) map.set(l.account_id, u);
+    });
+    return Array.from(map.entries()).map(([id, username]) => ({ id, username }));
+  }, [linksWithSpend]);
+
+  const distinctSources = useMemo(() => {
+    const set = new Set<string>();
+    linksWithSpend.forEach((l: any) => set.add(l.source_tag || "Untagged"));
+    return Array.from(set).sort();
+  }, [linksWithSpend]);
+
+  // Date filter helpers
+  const now2 = new Date();
+  const thisMonthStart = new Date(now2.getFullYear(), now2.getMonth(), 1).toISOString();
+  const lastMonthStart = new Date(now2.getFullYear(), now2.getMonth() - 1, 1).toISOString();
+
   // Filtered + sorted
   const filtered = useMemo(() => {
     let result = linksWithSpend;
@@ -112,6 +136,10 @@ export default function ExpensesPage() {
         (l.accounts?.username || "").toLowerCase().includes(q)
       );
     }
+    if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
+    if (sourceFilter !== "all") result = result.filter((l: any) => (l.source_tag || "Untagged") === sourceFilter);
+    if (dateFilter === "this_month") result = result.filter((l: any) => l.updated_at >= thisMonthStart);
+    if (dateFilter === "last_month") result = result.filter((l: any) => l.updated_at >= lastMonthStart && l.updated_at < thisMonthStart);
     result.sort((a: any, b: any) => {
       const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
       const bv = sortKey === "campaign_name" ? (b.campaign_name || "") : Number(b[sortKey] || 0);
@@ -119,7 +147,7 @@ export default function ExpensesPage() {
       return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
     return result;
-  }, [linksWithSpend, searchQuery, sortKey, sortAsc]);
+  }, [linksWithSpend, searchQuery, sortKey, sortAsc, accountFilter, sourceFilter, dateFilter, thisMonthStart, lastMonthStart]);
 
   // Breakdown by source
   const bySource = useMemo(() => {
@@ -221,7 +249,7 @@ export default function ExpensesPage() {
             <button
               disabled
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border text-muted-foreground/50 rounded-[10px] cursor-not-allowed opacity-60"
-              title="Coming soon — configure in Settings"
+              title="Connect AirTable in Settings to sync VA expense entries automatically"
             >
               <Lock className="h-3.5 w-3.5" /> Sync AirTable
             </button>
@@ -242,21 +270,29 @@ export default function ExpensesPage() {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
+        {/* Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={accountFilter} onChange={e => setAccountFilter(e.target.value)} className="px-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground outline-none focus:ring-1 focus:ring-primary">
+            <option value="all">All Accounts</option>
+            {distinctAccounts.map(a => <option key={a.id} value={a.id}>@{a.username}</option>)}
+          </select>
+          <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="px-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground outline-none focus:ring-1 focus:ring-primary">
+            <option value="all">All Sources</option>
+            {distinctSources.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="flex items-center gap-0.5 bg-secondary border border-border rounded-[10px] p-0.5">
+            {([["all", "All Time"], ["this_month", "This Month"], ["last_month", "Last Month"]] as const).map(([val, label]) => (
+              <button key={val} onClick={() => setDateFilter(val)} className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${dateFilter === val ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+            ))}
+          </div>
+          <div className="relative flex-1 max-w-xs ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search campaigns..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
-            />
+            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search campaigns..." className="w-full pl-9 pr-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
           </div>
         </div>
 
         {/* Main Table */}
-        <div className="bg-card border border-border rounded-[16px] shadow-sm overflow-hidden">
+        <div className="bg-card border border-border rounded-[16px] shadow-sm overflow-x-auto">
           {filtered.length === 0 && !isLoading ? (
             <div className="p-12 text-center">
               <Receipt className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
@@ -264,7 +300,20 @@ export default function ExpensesPage() {
               <p className="text-xs text-muted-foreground mt-1">Go to Tracking Links to set spend on campaigns.</p>
             </div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="w-full text-xs" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: 200 }} />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 60 }} />
+              </colgroup>
               <thead>
                 <tr className="bg-secondary/50 border-b border-border">
                   {[
@@ -302,68 +351,43 @@ export default function ExpensesPage() {
                   const status = link.status || "NO_DATA";
                   return (
                     <tr key={link.id} className="border-b border-border/50 hover:bg-[hsl(var(--primary)/0.03)] transition-colors" style={{ height: 52 }}>
-                      {/* Campaign */}
                       <td className="px-3 py-2">
-                        <p className="text-[13px] font-semibold text-foreground truncate max-w-[200px]">{link.campaign_name || "—"}</p>
-                        <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{link.url}</p>
+                        <p className="text-[13px] font-semibold text-foreground truncate">{link.campaign_name || "—"}</p>
+                        <p className="text-[10px] text-muted-foreground break-all">{link.url}</p>
                       </td>
-                      {/* Account */}
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1.5">
-                          <div className={`w-5 h-5 rounded-full ${acColor.bg} flex items-center justify-center`}>
+                          <div className={`w-5 h-5 rounded-full shrink-0 ${acColor.bg} flex items-center justify-center`}>
                             <span className={`text-[8px] font-bold ${acColor.text}`}>{(username || "?")[0]?.toUpperCase()}</span>
                           </div>
-                          <span className="text-[11px] text-muted-foreground">@{username || "?"}</span>
+                          <span className="text-[11px] text-muted-foreground truncate">@{username || "?"}</span>
                         </div>
                       </td>
-                      {/* Source */}
-                      <td className="px-3 py-2">
-                        <TagBadge tagName={link.source_tag} />
-                      </td>
-                      {/* Type badge */}
+                      <td className="px-3 py-2"><TagBadge tagName={link.source_tag} /></td>
                       <td className="px-3 py-2">
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${SPEND_TYPE_STYLES[link.cost_type] || "bg-secondary text-muted-foreground"}`}>
                           {link.cost_type || "—"}
                         </span>
                       </td>
-                      {/* Cost Value */}
-                      <td className="px-3 py-2 text-[12px] text-muted-foreground font-mono">
-                        {formatCostValue(link.cost_type, link.cost_value)}
-                      </td>
-                      {/* Total Spend */}
-                      <td className="px-3 py-2 text-[12px] font-mono font-semibold text-foreground">
-                        {fmtC(Number(link.cost_total || 0))}
-                      </td>
-                      {/* LTV */}
-                      <td className="px-3 py-2 text-[13px] font-mono font-bold text-primary">
-                        {fmtC(Number(link.revenue || 0))}
-                      </td>
-                      {/* Profit */}
+                      <td className="px-3 py-2 text-[12px] text-muted-foreground font-mono">{formatCostValue(link.cost_type, link.cost_value)}</td>
+                      <td className="px-3 py-2 text-[12px] font-mono font-semibold text-foreground">{fmtC(Number(link.cost_total || 0))}</td>
+                      <td className="px-3 py-2 text-[13px] font-mono font-bold text-primary">{fmtC(Number(link.revenue || 0))}</td>
                       <td className="px-3 py-2">
                         <span className={`text-[12px] font-mono font-semibold ${profit >= 0 ? "text-primary" : "text-destructive"}`}>
                           {profit >= 0 ? "+" : ""}{fmtC(profit)}
                         </span>
                       </td>
-                      {/* ROI */}
                       <td className="px-3 py-2">
-                        <span className={`text-[12px] font-mono font-semibold ${roi >= 0 ? "text-primary" : "text-destructive"}`}>
-                          {fmtP(roi)}
-                        </span>
+                        <span className={`text-[12px] font-mono font-semibold ${roi >= 0 ? "text-primary" : "text-destructive"}`}>{fmtP(roi)}</span>
                       </td>
-                      {/* Status */}
                       <td className="px-3 py-2">
-                        <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap min-w-[60px] text-center ${STATUS_STYLES[status]}`}>
+                        <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap min-w-[80px] text-center ${STATUS_STYLES[status]}`}>
                           {status === "NO_DATA" ? "No Spend" : status}
                         </span>
                       </td>
-                      {/* Actions */}
                       <td className="px-3 py-2">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setCostSlideIn(link)}
-                            className="p-1 rounded hover:bg-primary/10 text-primary transition-colors"
-                            title="Edit spend"
-                          >
+                        <div className="flex items-center gap-1 justify-end">
+                          <button onClick={() => setCostSlideIn(link)} className="p-1 rounded hover:bg-primary/10 text-primary transition-colors" title="Edit spend">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           {clearConfirmId === link.id ? (
@@ -373,11 +397,7 @@ export default function ExpensesPage() {
                               <button onClick={() => setClearConfirmId(null)} className="text-muted-foreground hover:underline">Cancel</button>
                             </span>
                           ) : (
-                            <button
-                              onClick={() => setClearConfirmId(link.id)}
-                              className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                              title="Clear spend"
-                            >
+                            <button onClick={() => setClearConfirmId(link.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Clear spend">
                               <X className="h-3.5 w-3.5" />
                             </button>
                           )}
@@ -390,6 +410,9 @@ export default function ExpensesPage() {
             </table>
           )}
         </div>
+        {filtered.length > 0 && (
+          <p className="text-[12px] text-muted-foreground">Showing {filtered.length} campaign{filtered.length !== 1 ? "s" : ""} with spend set</p>
+        )}
 
         {/* Breakdown Panels */}
         <div className="grid grid-cols-2 gap-4">
