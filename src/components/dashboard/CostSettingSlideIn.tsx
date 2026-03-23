@@ -64,7 +64,7 @@ const STATUS_EMOJI: Record<string, string> = {
 };
 
 export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideInProps) {
-  const [costType, setCostType] = useState<CostType | null>(link.cost_type || null);
+  const [costType, setCostType] = useState<CostType | null>(link.cost_type || "CPL");
   const [costValue, setCostValue] = useState(link.cost_value ? String(link.cost_value) : "");
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
