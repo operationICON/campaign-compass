@@ -55,8 +55,28 @@ Deno.serve(async (req) => {
           const apiAccounts: any[] = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw.data ?? [])
           const now = new Date().toISOString()
 
+          // Debug: log the first account's full raw object to sync_logs
+          if (apiAccounts.length > 0) {
+            const debugObj = JSON.stringify(apiAccounts[0]).slice(0, 4000)
+            console.log(`DEBUG first account raw: ${debugObj}`)
+            await db.from('sync_logs').insert({
+              status: 'info',
+              success: true,
+              started_at: now,
+              finished_at: now,
+              completed_at: now,
+              message: 'DEBUG: Raw API account object (first account)',
+              error_message: debugObj,
+              records_processed: 0,
+            })
+          }
+
           for (const acc of apiAccounts) {
             const ud = acc.onlyfans_user_data ?? {}
+            const avatarUrl = ud.avatar ?? acc.avatar ?? null
+            const avatarThumb = ud.avatarThumbs?.c144 ?? ud.avatarThumbs?.c50 ?? acc.avatarThumbs?.c144 ?? acc.avatar_thumb ?? null
+            const headerUrl = ud.header ?? acc.header ?? null
+
             await db.from('accounts').upsert({
               onlyfans_account_id: String(acc.id),
               username: acc.onlyfans_username ?? ud.username ?? null,
@@ -67,9 +87,9 @@ Deno.serve(async (req) => {
               performer_top: ud.performerTop ?? null,
               subscribe_price: ud.subscribePrice ?? 0,
               last_seen: ud.lastSeen ?? null,
-              avatar_url: ud.avatar ?? null,
-              avatar_thumb_url: ud.avatarThumbs?.c144 ?? ud.avatarThumbs?.c50 ?? null,
-              header_url: ud.header ?? null,
+              avatar_url: avatarUrl,
+              avatar_thumb_url: avatarThumb,
+              header_url: headerUrl,
             }, { onConflict: 'onlyfans_account_id' })
           }
           console.log(`Upserted ${apiAccounts.length} accounts with avatar data from API`)
