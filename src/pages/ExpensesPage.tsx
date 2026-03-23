@@ -69,13 +69,22 @@ export default function ExpensesPage() {
     queryFn: () => fetchTrackingLinks(),
   });
 
+  // Debug log to help diagnose data issues
+  useEffect(() => {
+    if (allLinks.length > 0) {
+      const withSpend = allLinks.filter((l: any) => Number(l.cost_total) > 0);
+      console.log('Expenses page — tracking_links with spend:', withSpend.length, withSpend[0]);
+      console.log('Expenses page — first 3 links cost_total:', allLinks.slice(0, 3).map((l: any) => ({ name: l.campaign_name, cost_total: l.cost_total, profit: l.profit, roi: l.roi, status: l.status })));
+    }
+  }, [allLinks]);
+
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
   });
 
   const linksWithSpend = useMemo(() =>
-    allLinks.filter((l: any) => Number(l.cost_total || 0) > 0),
+    allLinks.filter((l: any) => l.cost_total !== null && l.cost_total !== undefined && Number(l.cost_total) > 0),
     [allLinks]
   );
 
