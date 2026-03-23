@@ -75,6 +75,7 @@ export default function TrackingLinksPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
+  const [clearConfirmId, setClearConfirmId] = useState<string | null>(null);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
