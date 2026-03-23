@@ -11,10 +11,10 @@ interface CostSettingSlideInProps {
 
 type CostType = "CPC" | "CPL" | "FIXED";
 
-const COST_TYPES: { type: CostType; title: string; desc: string; inputLabel: string; icon: any }[] = [
-  { type: "CPC", title: "Cost Per Click", desc: "I pay per click on my ad", inputLabel: "CPC value ($)", icon: MousePointerClick },
-  { type: "CPL", title: "Cost Per Subscriber", desc: "I pay per subscriber gained", inputLabel: "CPL value ($)", icon: Users },
-  { type: "FIXED", title: "Fixed Amount", desc: "Flat fee (pin, promo, deal)", inputLabel: "Fixed cost ($)", icon: DollarSign },
+const COST_TYPES: { type: CostType; title: string; desc: string; inputLabel: string; icon: any; recommended?: boolean; warning?: string }[] = [
+  { type: "CPL", title: "Cost Per Sub", desc: "I pay per subscriber gained", inputLabel: "Cost per subscriber ($)", icon: Users, recommended: true },
+  { type: "FIXED", title: "Fixed Amount", desc: "Flat fee (pin, promo, deal)", inputLabel: "Total amount paid ($)", icon: DollarSign },
+  { type: "CPC", title: "Cost Per Click", desc: "I pay per click on my ad", inputLabel: "Cost per click ($)", icon: MousePointerClick, warning: "Clicks may include bot traffic. Use CPL when possible." },
 ];
 
 function calcMetrics(costType: CostType, costValue: number, clicks: number, subscribers: number, revenue: number, createdAt: string) {
@@ -135,34 +135,33 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
   const costFormula = useMemo(() => {
     if (!costType || !costValue || isNaN(Number(costValue))) return null;
     const v = Number(costValue);
-    if (costType === "CPC") {
-      const total = clicks * v;
-      const cvr = clicks > 0 ? (subscribers / clicks) : 0;
-      const cpl = cvr > 0 ? v / cvr : 0;
-      return [
-        `Spend = ${clicks.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
-        `CVR = ${subscribers}/${clicks} = ${fmtP(cvr * 100)}`,
-        `Real CPL = $${v.toFixed(2)} / ${fmtP(cvr * 100)} = ${fmtC(cpl)}`,
-      ];
-    }
     if (costType === "CPL") {
       const total = subscribers * v;
-      const cvr = clicks > 0 ? (subscribers / clicks) : 0;
-      const cpc = cvr > 0 ? v * cvr : 0;
+      const profit = revenue - total;
       return [
-        `Spend = ${subscribers.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
-        `CVR = ${subscribers}/${clicks} = ${fmtP(cvr * 100)}`,
-        `Real CPC = $${v.toFixed(2)} × ${fmtP(cvr * 100)} = ${fmtC(cpc)}`,
+        `Cost = ${subscribers.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
+        `Cost/Sub = $${v.toFixed(2)}`,
+        `Profit = ${fmtC(revenue)} - ${fmtC(total)} = ${fmtC(profit)}`,
       ];
     }
-    const cpc = clicks > 0 ? v / clicks : 0;
-    const cpl = subscribers > 0 ? v / subscribers : 0;
+    if (costType === "FIXED") {
+      const cpl = subscribers > 0 ? v / subscribers : 0;
+      const profit = revenue - v;
+      return [
+        `Cost = ${fmtC(v)} (fixed)`,
+        `Cost/Sub = ${fmtC(v)} / ${subscribers} = ${fmtC(cpl)}`,
+        `Profit = ${fmtC(revenue)} - ${fmtC(v)} = ${fmtC(profit)}`,
+      ];
+    }
+    // CPC
+    const total = clicks * v;
+    const cpl = subscribers > 0 ? total / subscribers : 0;
     return [
-      `Spend = ${fmtC(v)}`,
-      `Real CPC = ${fmtC(v)} / ${clicks} = ${fmtC(cpc)}`,
-      `Real CPL = ${fmtC(v)} / ${subscribers} = ${fmtC(cpl)}`,
+      `Cost = ${clicks.toLocaleString()} × $${v.toFixed(2)} = ${fmtC(total)}`,
+      `⚠ Note: click count may include bot traffic`,
+      `Cost/Sub = ${fmtC(total)} / ${subscribers} = ${fmtC(cpl)}`,
     ];
-  }, [costType, costValue, clicks, subscribers]);
+  }, [costType, costValue, clicks, subscribers, revenue]);
 
   return (
     <>
@@ -172,7 +171,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Set Spend</h2>
+              <h2 className="text-lg font-bold text-foreground">Set Cost Per Sub</h2>
               <p className="text-xs text-muted-foreground mt-0.5">{link.campaign_name || "Unknown"}</p>
             </div>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -188,15 +187,21 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
                 <button
                   key={ct.type}
                   onClick={() => setCostType(ct.type)}
-                  className={`p-3 rounded-lg border text-left transition-all ${
+                  className={`p-3 rounded-lg border text-left transition-all relative ${
                     costType === ct.type
                       ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                      : "border-border bg-secondary hover:border-primary/40"
+                      : ct.warning ? "border-border bg-secondary/60 hover:border-primary/40 opacity-80" : "border-border bg-secondary hover:border-primary/40"
                   }`}
                 >
+                  {ct.recommended && (
+                    <span className="absolute -top-2 right-2 px-1.5 py-0.5 rounded text-[8px] font-bold bg-primary text-primary-foreground">Recommended</span>
+                  )}
                   <ct.icon className={`h-5 w-5 mb-2 ${costType === ct.type ? "text-primary" : "text-muted-foreground"}`} />
                   <p className={`text-xs font-bold ${costType === ct.type ? "text-primary" : "text-foreground"}`}>{ct.type}</p>
                   <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{ct.desc}</p>
+                  {ct.warning && (
+                    <p className="text-[9px] text-[hsl(38_92%_50%)] leading-tight mt-1">⚠ {ct.warning}</p>
+                  )}
                 </button>
               ))}
             </div>
@@ -244,7 +249,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
                 <div className="border-t border-border pt-2 grid grid-cols-4 gap-2 text-xs">
                   <div><span className="text-muted-foreground block">Total Spend</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cost_total)}</span></div>
                   <div><span className="text-muted-foreground block">CPC</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cpc_real)}</span></div>
-                  <div><span className="text-muted-foreground block">CPL</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cpl_real)}</span></div>
+                  <div><span className="text-muted-foreground block">Cost/Sub</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cpl_real)}</span></div>
                   <div><span className="text-muted-foreground block">LTV/Sub</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.arpu)}</span></div>
                 </div>
                 <div className="border-t border-border pt-2 flex items-center justify-between">

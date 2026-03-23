@@ -696,7 +696,7 @@ export default function DashboardPage() {
                         <SortHeader label="Spend" sortField="ad_spend" align="right" />
                         <SortHeader label="Profit" sortField="profit" align="right" />
                         <SortHeader label="ROI" sortField="roi" align="right" />
-                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">CPL</th>}
+                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Cost/Sub</th>}
                         {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">LTV/Sub</th>}
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
                         {viewMode === "full" && <SortHeader label="Created" sortField="created_at" />}
@@ -765,7 +765,7 @@ export default function DashboardPage() {
                             <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${link.roi === null ? "text-muted-foreground" : link.roi >= 0 ? "text-primary" : "text-destructive"}`}>
                               {link.roi !== null ? fmtPct(link.roi) : "—"}
                             </td>
-                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{cplReal > 0 ? fmtCurrency(cplReal) : "—"}</td>}
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{cplReal > 0 ? <span className="font-semibold text-primary">{fmtCurrency(cplReal)}</span> : "—"}</td>}
                             {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{ltvPerSub > 0 ? fmtCurrency(ltvPerSub) : "—"}</td>}
                             <td className="px-3 py-3 text-center">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${status.color}`}>

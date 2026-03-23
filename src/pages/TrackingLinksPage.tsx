@@ -418,7 +418,8 @@ export default function TrackingLinksPage() {
                     <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
                     <SortHeader label="Profit" sortKeyName="profit" width="85px" />
                     <SortHeader label="ROI" sortKeyName="roi" width="65px" />
-                    <SortHeader label="CPL" sortKeyName="cpl_real" width="60px" />
+                    <SortHeader label="Cost/Sub" sortKeyName="cpl_real" width="70px" />
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "70px" }}>LTV Ratio</th>
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px", minWidth: "80px" }}>Status</th>
                     <SortHeader label="Created" sortKeyName="created_at" width="105px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "65px" }}>Active</th>
@@ -509,8 +510,20 @@ export default function TrackingLinksPage() {
                               <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </td>
-                          {/* CPL */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground">{cplReal > 0 ? `$${cplReal.toFixed(2)}` : "—"}</td>
+                          {/* Cost/Sub */}
+                          <td className="px-2 py-2 font-mono text-[12px]">
+                            {cplReal > 0 ? <span className="font-semibold text-primary">${cplReal.toFixed(2)}</span> : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          {/* LTV Ratio */}
+                          <td className="px-2 py-2 font-mono text-[12px]">
+                            {(() => {
+                              if (!hasCost || cplReal <= 0) return <span className="text-muted-foreground">—</span>;
+                              const ltvPerSub = (link.subscribers || 0) > 0 ? Number(link.revenue || 0) / link.subscribers : 0;
+                              const ratio = ltvPerSub / cplReal;
+                              const color = ratio >= 2 ? "text-primary" : ratio >= 1 ? "text-[hsl(38_92%_50%)]" : "text-destructive";
+                              return <span className={`font-semibold ${color}`}>{ratio.toFixed(1)}x</span>;
+                            })()}
+                          </td>
                           {/* Status */}
                           <td className="px-2 py-2">
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[80px] text-center ${STATUS_STYLES[displayStatus] || STATUS_STYLES.NO_DATA}`}>
@@ -546,7 +559,7 @@ export default function TrackingLinksPage() {
                         {/* Expanded row */}
                         {isExpanded && (
                           <tr className="bg-secondary/30 border-b border-border">
-                            <td colSpan={12} className="px-4 py-3">
+                            <td colSpan={14} className="px-4 py-3">
                               <div className="flex flex-wrap items-center gap-6 text-[12px]">
                                 <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[300px]">{link.url}</a>
                                 <span className="text-muted-foreground">Clicks: <span className="text-foreground font-medium">{link.clicks?.toLocaleString()}</span></span>
