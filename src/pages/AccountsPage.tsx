@@ -34,26 +34,10 @@ export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
-  const { data: avatarUrls = {}, refetch: refetchAvatars } = useQuery({
-    queryKey: ["model-avatars"],
-    queryFn: async () => {
-      const { data } = await supabase.storage.from("model-avatars").list();
-      if (!data) return {};
-      const urls: Record<string, string> = {};
-      for (const file of data) {
-        const accountId = file.name.split(".")[0];
-        const { data: urlData } = supabase.storage.from("model-avatars").getPublicUrl(file.name);
-        urls[accountId] = urlData.publicUrl + "?t=" + Date.now();
-      }
-      return urls;
-    },
-  });
 
   // Auto-select model from URL param
   useEffect(() => {
