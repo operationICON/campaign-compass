@@ -648,7 +648,6 @@ export default function DashboardPage() {
                         const status = getStatus(link);
                         const ltvPerSub = link.subscribers > 0 ? Number(link.revenue) / link.subscribers : 0;
                         const cplReal = Number(link.cpl_real || 0);
-                        const mediaBuyer = link.source || null;
                         const subsPerDay = getSubsPerDay(link);
                         const cvr = link.clicks > 0 ? (link.subscribers / link.clicks) * 100 : null;
 
