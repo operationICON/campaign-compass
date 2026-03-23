@@ -366,6 +366,33 @@ export type Database = {
         }
         Relationships: []
       }
+      source_tag_rules: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          keywords: string[]
+          priority: number
+          tag_name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          priority?: number
+          tag_name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          priority?: number
+          tag_name?: string
+        }
+        Relationships: []
+      }
       sync_logs: {
         Row: {
           account_id: string | null
@@ -456,12 +483,14 @@ export type Database = {
           cvr: number | null
           external_tracking_link_id: string | null
           id: string
+          manually_tagged: boolean
           profit: number | null
           revenue: number
           revenue_per_click: number
           revenue_per_subscriber: number
           roi: number | null
           source: string | null
+          source_tag: string | null
           spenders: number
           status: string | null
           subscribers: number
@@ -486,12 +515,14 @@ export type Database = {
           cvr?: number | null
           external_tracking_link_id?: string | null
           id?: string
+          manually_tagged?: boolean
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
           roi?: number | null
           source?: string | null
+          source_tag?: string | null
           spenders?: number
           status?: string | null
           subscribers?: number
@@ -516,12 +547,14 @@ export type Database = {
           cvr?: number | null
           external_tracking_link_id?: string | null
           id?: string
+          manually_tagged?: boolean
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
           roi?: number | null
           source?: string | null
+          source_tag?: string | null
           spenders?: number
           status?: string | null
           subscribers?: number
