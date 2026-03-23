@@ -668,11 +668,7 @@ export default function DashboardPage() {
                               </div>
                             </td>
                             <td className="px-3 py-3">
-                              {mediaBuyer ? (
-                                <span className="text-xs text-foreground">{mediaBuyer}</span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground italic">Untagged</span>
-                              )}
+                              <TagBadge tagName={link.source_tag} />
                             </td>
                             <td className="px-3 py-3 text-right font-mono text-xs">
                               {subsPerDay !== null ? `${subsPerDay.toFixed(1)}/day` : "—"}
