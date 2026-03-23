@@ -315,14 +315,7 @@ export default function DashboardPage() {
     }).length;
   }, [filteredLinks]);
 
-  const selectedModelData = useMemo(() => {
-    if (!selectedModel) return null;
-    const m = modelSummary.find((m) => m.id === selectedModel);
-    if (!m) return null;
-    const modelLinks = enrichedLinks.filter((l) => l.account_id === selectedModel);
-    const topCampaign = [...modelLinks].sort((a, b) => Number(b.revenue) - Number(a.revenue))[0];
-    return { ...m, topCampaign: topCampaign?.campaign_name || "—" };
-  }, [selectedModel, modelSummary, enrichedLinks]);
+
 
   const clearAllFilters = useCallback(() => {
     setSelectedModel(null);
