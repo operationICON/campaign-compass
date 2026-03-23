@@ -173,11 +173,11 @@ export default function DashboardPage() {
   }, [lastSynced, syncFrequency]);
 
   const modelSummary = useMemo(() => {
-    const map: Record<string, { id: string; display_name: string; username: string; revenue: number; subscribers: number; clicks: number; topCampaign: string; convRate: number; epc: number }> = {};
+    const map: Record<string, { id: string; display_name: string; username: string; avatar_thumb_url: string | null; revenue: number; subscribers: number; clicks: number; topCampaign: string; convRate: number; epc: number }> = {};
     links.forEach((link: any) => {
       const accId = link.account_id;
       if (!map[accId]) {
-        map[accId] = { id: accId, display_name: link.accounts?.display_name || "Unknown", username: link.accounts?.username || "", revenue: 0, subscribers: 0, clicks: 0, topCampaign: "", convRate: 0, epc: 0 };
+        map[accId] = { id: accId, display_name: link.accounts?.display_name || "Unknown", username: link.accounts?.username || "", avatar_thumb_url: link.accounts?.avatar_thumb_url || null, revenue: 0, subscribers: 0, clicks: 0, topCampaign: "", convRate: 0, epc: 0 };
       }
       map[accId].revenue += Number(link.revenue);
       map[accId].subscribers += link.subscribers;
