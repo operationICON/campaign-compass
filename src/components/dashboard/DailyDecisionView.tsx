@@ -7,7 +7,7 @@ interface DailyDecisionViewProps {
 }
 
 export function DailyDecisionView({ links }: DailyDecisionViewProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
