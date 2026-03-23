@@ -213,6 +213,9 @@ Deno.serve(async (req) => {
         performer_top: ud.performerTop ?? null,
         subscribe_price: ud.subscribePrice ?? 0,
         last_seen: ud.lastSeen ?? null,
+        avatar_url: ud.avatar ?? null,
+        avatar_thumb_url: ud.avatarThumbs?.c144 ?? ud.avatarThumbs?.c50 ?? null,
+        header_url: ud.header ?? null,
       }, { onConflict: 'onlyfans_account_id' })
     }
 
