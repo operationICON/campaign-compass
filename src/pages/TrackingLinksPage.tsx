@@ -242,15 +242,15 @@ export default function TrackingLinksPage() {
 
   const sourceOptions = useMemo(() => {
     const set = new Set<string>();
-    enrichedLinks.forEach((l: any) => { if (l.source) set.add(l.source); });
+    enrichedLinks.forEach((l: any) => { if (l.source_tag) set.add(l.source_tag); });
     return Array.from(set).sort();
   }, [enrichedLinks]);
 
   const filtered = useMemo(() => {
     let result = enrichedLinks;
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
-    if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source);
-    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source === sourceFilter);
+    if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
+    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
