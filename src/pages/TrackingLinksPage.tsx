@@ -351,6 +351,15 @@ export default function TrackingLinksPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => {
+              const untaggedCount = links.filter((l: any) => !l.source_tag || l.source_tag === "Untagged").length;
+              if (untaggedCount === 0) { toast.info("All campaigns are already tagged"); return; }
+              autoTagMutation.mutate(undefined);
+            }} disabled={autoTagMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/10 transition-colors disabled:opacity-50">
+              <Wand2 className={`h-3.5 w-3.5 ${autoTagMutation.isPending ? "animate-spin" : ""}`} />
+              {autoTagMutation.isPending ? "Scanning..." : "Auto-Tag"}
+            </button>
             <button onClick={exportCampaignsCsv} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
               <Download className="h-4 w-4" /> Export
             </button>
