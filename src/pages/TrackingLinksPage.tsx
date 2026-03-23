@@ -91,6 +91,60 @@ export default function TrackingLinksPage() {
     queryKey: ["ad_spend"],
     queryFn: () => fetchAdSpend(),
   });
+  const { data: tagRules = [] } = useQuery({
+    queryKey: ["source_tag_rules"],
+    queryFn: fetchSourceTagRules,
+  });
+
+  const autoTagMutation = useMutation({
+    mutationFn: runAutoTag,
+    onSuccess: (data: any) => {
+      toast.success(`Auto-tagged ${data.tagged} campaigns. ${data.untagged} remain untagged.`);
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+    },
+    onError: (err: any) => toast.error(`Auto-tag failed: ${err.message}`),
+  });
+
+  const handleSetSourceTag = async (linkId: string, tag: string) => {
+    try {
+      await setTrackingLinkSourceTag(linkId, tag);
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      toast.success(`Tagged as "${tag}"`);
+      setSourceDropdownId(null);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleBulkTag = async (tag: string) => {
+    try {
+      await bulkSetSourceTag(Array.from(selectedRows), tag);
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      toast.success(`Tagged ${selectedRows.size} campaigns as "${tag}"`);
+      setSelectedRows(new Set());
+      setShowBulkTagDropdown(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const toggleSelectRow = (id: string) => {
+    setSelectedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedRows.size === paginated.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(paginated.map((l: any) => l.id)));
+    }
+  };
+
 
   const exportCampaignsCsv = useCallback(() => {
     const header = "campaign_name,account_username,clicks,subscribers,ltv,current_spend_type,current_spend_value";
