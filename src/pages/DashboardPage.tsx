@@ -696,7 +696,7 @@ export default function DashboardPage() {
                         <SortHeader label="Spend" sortField="ad_spend" align="right" />
                         <SortHeader label="Profit" sortField="profit" align="right" />
                         <SortHeader label="ROI" sortField="roi" align="right" />
-                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">CPL</th>}
+                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Cost/Sub</th>}
                         {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">LTV/Sub</th>}
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
                         {viewMode === "full" && <SortHeader label="Created" sortField="created_at" />}
