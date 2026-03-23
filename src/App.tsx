@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
-// Ad Spend page removed — cost is set via Tracking Links table
+import ExpensesPage from "./pages/ExpensesPage";
 import MediaBuyersPage from "./pages/MediaBuyersPage";
 import ChartsPage from "./pages/ChartsPage";
 import AlertsPage from "./pages/AlertsPage";
@@ -26,8 +26,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/tracking-links" element={<TrackingLinksPage />} />
+          <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
-          {/* Ad Spend route removed */}
           <Route path="/media-buyers" element={<MediaBuyersPage />} />
           <Route path="/charts" element={<ChartsPage />} />
           <Route path="/alerts" element={<AlertsPage />} />

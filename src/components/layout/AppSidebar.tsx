@@ -2,13 +2,14 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Link2, Users, UserMinus, BarChart3,
-  Bell, Activity, Settings, Code2, LogOut
+  Bell, Activity, Settings, Code2, LogOut, Receipt
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 
 const mainNav = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/tracking-links", icon: Link2, label: "Tracking Links" },
+  { to: "/expenses", icon: Receipt, label: "Expenses" },
   { to: "/accounts", icon: Users, label: "Models" },
   { to: "/media-buyers", icon: UserMinus, label: "Media Buyers" },
   { to: "/charts", icon: BarChart3, label: "Charts" },
