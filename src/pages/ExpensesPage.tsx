@@ -270,16 +270,24 @@ export default function ExpensesPage() {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
+        {/* Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={accountFilter} onChange={e => setAccountFilter(e.target.value)} className="px-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground outline-none focus:ring-1 focus:ring-primary">
+            <option value="all">All Accounts</option>
+            {distinctAccounts.map(a => <option key={a.id} value={a.id}>@{a.username}</option>)}
+          </select>
+          <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="px-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground outline-none focus:ring-1 focus:ring-primary">
+            <option value="all">All Sources</option>
+            {distinctSources.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="flex items-center gap-0.5 bg-secondary border border-border rounded-[10px] p-0.5">
+            {([["all", "All Time"], ["this_month", "This Month"], ["last_month", "Last Month"]] as const).map(([val, label]) => (
+              <button key={val} onClick={() => setDateFilter(val)} className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${dateFilter === val ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+            ))}
+          </div>
+          <div className="relative flex-1 max-w-xs ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search campaigns..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
-            />
+            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search campaigns..." className="w-full pl-9 pr-3 py-2 text-xs bg-secondary border border-border rounded-[10px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
           </div>
         </div>
 
