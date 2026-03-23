@@ -278,10 +278,17 @@ export default function TrackingLinksPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
-            <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track subscribers and LTV</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Monitor your tracking links to track subscribers and LTV
+              {agencyAvgCvr !== null && (
+                <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                  <Target className="h-3 w-3" /> Agency avg CVR: {agencyAvgCvr.toFixed(1)}%
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={exportCampaignsCsv} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
