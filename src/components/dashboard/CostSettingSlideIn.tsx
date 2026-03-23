@@ -67,6 +67,20 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
   const [costType, setCostType] = useState<CostType | null>(link.cost_type || null);
   const [costValue, setCostValue] = useState(link.cost_value ? String(link.cost_value) : "");
   const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const hasExistingSpend = !!(link.cost_type && Number(link.cost_total || 0) > 0);
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      await clearTrackingLinkSpend(link.id, link.campaign_id);
+      onSaved();
+    } catch (err: any) {
+      console.error("Clear spend error:", err);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const clicks = link.clicks || 0;
   const subscribers = link.subscribers || 0;
