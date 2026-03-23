@@ -227,6 +227,26 @@ export async function fetchNotifications() {
   return data;
 }
 
+export async function clearTrackingLinkSpend(trackingLinkId: string, campaignId: string) {
+  // Clear metrics on tracking_links
+  const { error: linkError } = await supabase.from("tracking_links").update({
+    cost_type: null,
+    cost_value: 0,
+    cost_total: 0,
+    profit: 0,
+    roi: 0,
+    cpl_real: 0,
+    cpc_real: 0,
+    cvr: 0,
+    arpu: 0,
+    status: "NO_DATA",
+  }).eq("id", trackingLinkId);
+  if (linkError) throw linkError;
+
+  // Delete matching ad_spend rows
+  await supabase.from("ad_spend").delete().eq("campaign_id", campaignId);
+}
+
 export async function markNotificationsRead() {
   const { error } = await supabase
     .from("notifications")

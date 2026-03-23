@@ -3,12 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync } from "@/lib/supabase-helpers";
+import { fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync, clearTrackingLinkSpend } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil
+  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X
 } from "lucide-react";
 import {
   Tooltip,
@@ -75,6 +75,7 @@ export default function TrackingLinksPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
+  const [clearConfirmId, setClearConfirmId] = useState<string | null>(null);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links"],
@@ -475,11 +476,20 @@ export default function TrackingLinksPage() {
                           {/* Spend */}
                           <td className="px-2 py-2">
                             {hasCost ? (
-                              <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }} className="inline-flex items-center gap-1 font-mono text-[12px] text-foreground hover:text-primary transition-colors">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                {fmtC(costTotal)}
-                                <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
-                              </button>
+                              clearConfirmId === link.id ? (
+                                <span className="inline-flex items-center gap-1 text-[11px]">
+                                  <span className="text-muted-foreground">Clear?</span>
+                                  <button onClick={async (e) => { e.stopPropagation(); try { await clearTrackingLinkSpend(link.id, link.campaign_id); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); queryClient.invalidateQueries({ queryKey: ["ad_spend"] }); toast.success("Spend cleared"); } catch {} setClearConfirmId(null); }} className="text-destructive font-semibold hover:underline">Yes</button>
+                                  <button onClick={(e) => { e.stopPropagation(); setClearConfirmId(null); }} className="text-muted-foreground hover:text-foreground">Cancel</button>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 font-mono text-[12px] text-foreground">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                  {fmtC(costTotal)}
+                                  <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }} className="hover:text-primary transition-colors"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); setClearConfirmId(link.id); }} className="hover:text-destructive transition-colors"><X className="h-3 w-3 text-muted-foreground" /></button>
+                                </span>
+                              )
                             ) : (
                               <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-primary/30 text-primary text-[11px] font-medium hover:bg-primary/10 transition-colors h-7">

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { X, MousePointerClick, Users, DollarSign } from "lucide-react";
+import { X, MousePointerClick, Users, DollarSign, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { clearTrackingLinkSpend } from "@/lib/supabase-helpers";
 
 interface CostSettingSlideInProps {
   link: any;
@@ -66,6 +67,20 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
   const [costType, setCostType] = useState<CostType | null>(link.cost_type || null);
   const [costValue, setCostValue] = useState(link.cost_value ? String(link.cost_value) : "");
   const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const hasExistingSpend = !!(link.cost_type && Number(link.cost_total || 0) > 0);
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      await clearTrackingLinkSpend(link.id, link.campaign_id);
+      onSaved();
+    } catch (err: any) {
+      console.error("Clear spend error:", err);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const clicks = link.clicks || 0;
   const subscribers = link.subscribers || 0;
@@ -261,6 +276,18 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
           >
             {saving ? "Saving..." : "Save Spend"}
           </button>
+
+          {/* Clear Spend — only if spend already set */}
+          {hasExistingSpend && (
+            <button
+              onClick={handleClear}
+              disabled={clearing}
+              className="w-full px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {clearing ? "Clearing..." : "Clear Spend"}
+            </button>
+          )}
         </div>
       </div>
     </>

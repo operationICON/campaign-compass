@@ -1,16 +1,40 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdSpendDialog } from "@/components/dashboard/AdSpendDialog";
-import { fetchAdSpend, fetchCampaigns, fetchTrackingLinks } from "@/lib/supabase-helpers";
+import { fetchAdSpend, fetchCampaigns, fetchTrackingLinks, clearTrackingLinkSpend } from "@/lib/supabase-helpers";
 import { format } from "date-fns";
-import { DollarSign, TrendingUp, BarChart3, Target } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart3, Target, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdSpendPage() {
   const queryClient = useQueryClient();
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const { data: adSpend = [], isLoading } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
   const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+
+  // Map campaign_id to tracking_link for clearing spend
+  const linkByCampaign = useMemo(() => {
+    const map: Record<string, any> = {};
+    links.forEach((l: any) => { if (!map[l.campaign_id]) map[l.campaign_id] = l; });
+    return map;
+  }, [links]);
+
+  const handleDeleteSpend = async (entry: any) => {
+    const tl = linkByCampaign[entry.campaign_id];
+    if (tl) {
+      try {
+        await clearTrackingLinkSpend(tl.id, entry.campaign_id);
+        queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
+        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+        toast.success("Spend cleared");
+      } catch (err: any) {
+        toast.error("Failed to clear spend");
+      }
+    }
+    setDeleteConfirmId(null);
+  };
 
   const revByCampaign = useMemo(() => {
     const map: Record<string, number> = {};
@@ -120,8 +144,9 @@ export default function AdSpendPage() {
                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Source</th>
                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Media Buyer</th>
                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Amount</th>
-                  <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Notes</th>
-                </tr>
+                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Notes</th>
+                   <th className="px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center w-20">Actions</th>
+                 </tr>
               </thead>
               <tbody>
                 {adSpend.map((entry: any) => (
@@ -132,6 +157,19 @@ export default function AdSpendPage() {
                     <td className="px-4 py-3 text-muted-foreground">{entry.media_buyer || "—"}</td>
                     <td className="px-4 py-3 text-right font-mono text-destructive">${Number(entry.amount).toFixed(2)}</td>
                     <td className="px-4 py-3 text-muted-foreground text-sm max-w-[200px] truncate">{entry.notes || "—"}</td>
+                    <td className="px-4 py-3 text-center">
+                      {deleteConfirmId === entry.id ? (
+                        <span className="inline-flex items-center gap-1 text-[11px]">
+                          <span className="text-muted-foreground">Sure?</span>
+                          <button onClick={() => handleDeleteSpend(entry)} className="text-destructive font-semibold hover:underline">Yes</button>
+                          <button onClick={() => setDeleteConfirmId(null)} className="text-muted-foreground hover:text-foreground">Cancel</button>
+                        </span>
+                      ) : (
+                        <button onClick={() => setDeleteConfirmId(entry.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
