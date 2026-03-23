@@ -645,7 +645,7 @@ export default function TrackingLinksPage() {
         </div>
       </div>
 
-      {costSlideIn && <CostSettingSlideIn link={costSlideIn} onClose={() => setCostSlideIn(null)} onSaved={() => { setCostSlideIn(null); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); toast.success("Spend saved & metrics recalculated"); }} />}
+      {costSlideIn && <CostSettingSlideIn link={costSlideIn} onClose={() => setCostSlideIn(null)} onSaved={() => { setCostSlideIn(null); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); queryClient.invalidateQueries({ queryKey: ["ad_spend"] }); toast.success("Spend saved — ROI and Profit updated"); }} />}
       {selectedLink && <CampaignDetailSlideIn link={selectedLink} cost={Number(selectedLink.cost_total || 0)} onClose={() => setSelectedLink(null)} onSetCost={() => { setCostSlideIn(selectedLink); setSelectedLink(null); }} />}
     </DashboardLayout>
   );
