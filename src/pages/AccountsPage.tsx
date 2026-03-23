@@ -54,6 +54,15 @@ export default function AccountsPage() {
 
   const getCategory = (account: any) => MODEL_CATEGORIES[account.username] || "Female";
 
+  // Agency benchmark CVR
+  const agencyAvgCvr = useMemo(() => {
+    const qualified = links.filter((l: any) => l.clicks > 100);
+    if (qualified.length === 0) return null;
+    const totalS = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalC = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
+    return totalC > 0 ? (totalS / totalC) * 100 : null;
+  }, [links]);
+
   const accountStats = useMemo(() => {
     const stats: Record<string, any> = {};
     for (const acc of accounts) {
@@ -72,6 +81,13 @@ export default function AccountsPage() {
       const accMetrics = dailyMetrics.filter((m: any) => m.account_id === acc.id && m.date >= thirtyDaysAgo);
       const ltv30d = accMetrics.reduce((s: number, m: any) => s + Number(m.revenue || 0), 0);
 
+      // Model CVR (qualified links only)
+      const qualifiedLinks = accLinks.filter((l: any) => l.clicks > 100);
+      const qSubs = qualifiedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const qClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
+      const avgCvr = qClicks > 0 ? (qSubs / qClicks) * 100 : null;
+      const cvrDiff = avgCvr !== null && agencyAvgCvr !== null ? avgCvr - agencyAvgCvr : null;
+
       stats[acc.id] = {
         totalLtv,
         totalSpend,
@@ -83,10 +99,12 @@ export default function AccountsPage() {
         totalClicks,
         totalSubs,
         blendedRoi: totalSpend > 0 ? ((totalLtv - totalSpend) / totalSpend) * 100 : null,
+        avgCvr,
+        cvrDiff,
       };
     }
     return stats;
-  }, [accounts, links, dailyMetrics]);
+  }, [accounts, links, dailyMetrics, agencyAvgCvr]);
 
   const filteredAccounts = useMemo(() => {
     if (categoryFilter === "all") return accounts;
@@ -242,6 +260,18 @@ export default function AccountsPage() {
                     </div>
                   ))}
                 </div>
+                {/* CVR comparison */}
+                {stats.avgCvr !== null && (
+                  <div className="flex items-center gap-3 mb-6 px-1">
+                    <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Avg CVR:</span>
+                    <span className="font-mono text-sm font-bold text-foreground">{stats.avgCvr.toFixed(1)}%</span>
+                    {stats.cvrDiff !== null && (
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${stats.cvrDiff >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                        {stats.cvrDiff >= 0 ? "+" : ""}{stats.cvrDiff.toFixed(1)}% vs agency avg
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">

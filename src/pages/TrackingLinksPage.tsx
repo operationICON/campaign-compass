@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X
+  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X, Target
 } from "lucide-react";
 import {
   Tooltip,
@@ -132,6 +132,22 @@ export default function TrackingLinksPage() {
     if (totalSpent <= 0) return null;
     return ((totalLtv - totalSpent) / totalSpent) * 100;
   }, [totalSpent, totalLtv]);
+
+  // Agency benchmark CVR: avg CVR across links with clicks > 100
+  const agencyAvgCvr = useMemo(() => {
+    const qualified = links.filter((l: any) => l.clicks > 100);
+    if (qualified.length === 0) return null;
+    const totalSubs = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalClicks = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
+    return totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
+  }, [links]);
+
+  const getCvrColor = (cvr: number) => {
+    if (agencyAvgCvr === null) return "text-foreground";
+    if (cvr > agencyAvgCvr * 1.2) return "text-primary";
+    if (cvr < agencyAvgCvr * 0.8) return "text-destructive";
+    return "text-muted-foreground";
+  };
 
   const revenueMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -262,10 +278,17 @@ export default function TrackingLinksPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
-            <p className="text-sm text-muted-foreground mt-1">Monitor your tracking links to track subscribers and LTV</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Monitor your tracking links to track subscribers and LTV
+              {agencyAvgCvr !== null && (
+                <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                  <Target className="h-3 w-3" /> Agency avg CVR: {agencyAvgCvr.toFixed(1)}%
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={exportCampaignsCsv} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
@@ -413,7 +436,8 @@ export default function TrackingLinksPage() {
                     <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
-                    <SortHeader label="Subs/Day" sortKeyName="subs_day" width="70px" />
+                     <SortHeader label="Subs/Day" sortKeyName="subs_day" width="70px" />
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
                     <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
                     <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
                     <SortHeader label="Profit" sortKeyName="profit" width="85px" />
@@ -471,6 +495,28 @@ export default function TrackingLinksPage() {
                           {/* Subs/Day */}
                           <td className="px-2 py-2 font-mono text-[12px] text-foreground">
                             {link.subsDay !== null ? `${Math.round(link.subsDay)}/day` : "—"}
+                          </td>
+                          {/* CVR */}
+                          <td className="px-2 py-2 font-mono text-[12px]">
+                            {link.clicks > 0 ? (() => {
+                              const cvr = (link.subscribers / link.clicks) * 100;
+                              const color = getCvrColor(cvr);
+                              const diff = agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={`font-semibold cursor-default ${color}`}>{cvr.toFixed(1)}%</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">
+                                      {agencyAvgCvr !== null
+                                        ? `Agency avg: ${agencyAvgCvr.toFixed(1)}% — this campaign is ${diff !== null && diff >= 0 ? "+" : ""}${diff?.toFixed(1)}% ${diff !== null && diff >= 0 ? "above" : "below"} average`
+                                        : "Not enough data for agency benchmark"}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })() : <span className="text-muted-foreground">—</span>}
                           </td>
                           {/* LTV */}
                           <td className="px-2 py-2"><span className="font-mono text-[12px] gradient-text font-semibold">{fmtC(Number(link.revenue))}</span></td>

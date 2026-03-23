@@ -12,6 +12,7 @@ const ALERT_ICONS: Record<string, any> = {
   negative_roi: TrendingDown,
   high_performer: TrendingUp,
   budget_exceeded: DollarSign,
+  low_cvr: AlertTriangle,
 };
 
 const ALERT_COLORS: Record<string, string> = {
@@ -19,6 +20,7 @@ const ALERT_COLORS: Record<string, string> = {
   negative_roi: "text-destructive",
   high_performer: "text-primary",
   budget_exceeded: "text-warning",
+  low_cvr: "text-destructive",
 };
 
 export default function AlertsPage() {

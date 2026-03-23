@@ -14,7 +14,7 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 import {
   RefreshCw, DollarSign, MousePointerClick, Users, TrendingUp,
   Percent, PiggyBank, BarChart3, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  AlertTriangle, Download, FileText, LayoutGrid, Search, X, Columns, List
+  AlertTriangle, Download, FileText, LayoutGrid, Search, X, Columns, List, Target
 } from "lucide-react";
 
 type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend" | "created_at" | "profit";
@@ -152,7 +152,7 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  // KPIs
+   // KPIs
   const totalLtv = filteredLinks.reduce((s: number, l: any) => s + Number(l.revenue), 0);
   const totalClicks = filteredLinks.reduce((s: number, l: any) => s + l.clicks, 0);
   const totalSubscribers = filteredLinks.reduce((s: number, l: any) => s + l.subscribers, 0);
@@ -160,6 +160,17 @@ export default function DashboardPage() {
   const totalProfit = totalLtv - totalSpend;
   const avgCpl = totalSubscribers > 0 && totalSpend > 0 ? totalSpend / totalSubscribers : 0;
   const blendedRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : 0;
+
+  // Agency benchmark CVR (links with clicks > 100)
+  const agencyAvgCvr = useMemo(() => {
+    const qualified = links.filter((l: any) => l.clicks > 100);
+    if (qualified.length === 0) return null;
+    const totalS = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalC = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
+    return totalC > 0 ? (totalS / totalC) * 100 : null;
+  }, [links]);
+
+  // modelCvrInsights computed after modelSummary (see below)
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();
@@ -194,6 +205,18 @@ export default function DashboardPage() {
   }, [links]);
 
   const maxModelRevenue = useMemo(() => Math.max(...modelSummary.map(m => m.revenue), 1), [modelSummary]);
+
+  // CVR per model for insights
+  const modelCvrInsights = useMemo(() => {
+    return modelSummary.map(m => {
+      const accLinks = links.filter((l: any) => l.account_id === m.id && l.clicks > 100);
+      const totalS = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const totalC = accLinks.reduce((s: number, l: any) => s + l.clicks, 0);
+      const cvr = totalC > 0 ? (totalS / totalC) * 100 : null;
+      const diff = cvr !== null && agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
+      return { ...m, cvr, cvrDiff: diff };
+    });
+  }, [modelSummary, links, agencyAvgCvr]);
 
   // LTV last 30 days per model
   const modelLtv30d = useMemo(() => {
@@ -548,7 +571,38 @@ export default function DashboardPage() {
           })}
         </div>
 
-
+        {/* CVR INSIGHTS */}
+        {agencyAvgCvr !== null && modelCvrInsights.length > 0 && (
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-bold text-primary uppercase tracking-wider">CVR Insights</h3>
+              <span className="text-[11px] text-muted-foreground ml-2">Agency avg: {agencyAvgCvr.toFixed(1)}%</span>
+            </div>
+            <div className="space-y-2">
+              {modelCvrInsights.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 py-1.5">
+                  <div className="flex items-center gap-2 w-40">
+                    {m.avatar_thumb_url ? (
+                      <img src={m.avatar_thumb_url} alt={m.display_name} className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold">{m.display_name.charAt(0)}</div>
+                    )}
+                    <span className="text-sm font-medium text-foreground">{m.display_name}</span>
+                  </div>
+                  <span className="font-mono text-sm font-semibold w-16 text-right">
+                    {m.cvr !== null ? `${m.cvr.toFixed(1)}%` : "—"}
+                  </span>
+                  {m.cvrDiff !== null && (
+                    <span className={`text-[11px] font-semibold ${m.cvrDiff >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {m.cvrDiff >= 0 ? "+" : ""}{m.cvrDiff.toFixed(1)}% {m.cvrDiff >= 0 ? "above" : "below"} avg
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* TOP 5 by LTV / TOP 5 by Profit / BOTTOM 5 by Profit */}
         <div className="grid grid-cols-3 gap-4">

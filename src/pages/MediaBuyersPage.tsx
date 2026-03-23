@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAdSpend, fetchTrackingLinks, fetchAccounts } from "@/lib/supabase-helpers";
-import { ChevronUp, ChevronDown, Users, DollarSign, TrendingUp, BarChart3 } from "lucide-react";
+import { ChevronUp, ChevronDown, Users, DollarSign, TrendingUp, BarChart3, Target } from "lucide-react";
 
 type SortKey = "name" | "totalSpend" | "totalRevenue" | "roi" | "campaignCount" | "subsPerDay";
 type ViewMode = "roi" | "revenue" | "subs";
@@ -31,6 +31,15 @@ export default function MediaBuyersPage() {
     const map: Record<string, number> = {};
     links.forEach((l: any) => { map[l.campaign_id] = (map[l.campaign_id] || 0) + (l.clicks || 0); });
     return map;
+  }, [links]);
+
+  // Agency benchmark CVR
+  const agencyAvgCvr = useMemo(() => {
+    const qualified = links.filter((l: any) => l.clicks > 100);
+    if (qualified.length === 0) return null;
+    const totalS = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalC = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
+    return totalC > 0 ? (totalS / totalC) * 100 : null;
   }, [links]);
 
   const costByCampaign = useMemo(() => {
@@ -128,10 +137,17 @@ export default function MediaBuyersPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+       <div className="space-y-5">
         <div>
           <h1 className="text-xl font-bold text-foreground">Media Buyers</h1>
-          <p className="text-sm text-muted-foreground">ROI comparison by media buyer</p>
+          <p className="text-sm text-muted-foreground">
+            ROI comparison by media buyer
+            {agencyAvgCvr !== null && (
+              <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                <Target className="h-3 w-3" /> Agency avg CVR: {agencyAvgCvr.toFixed(1)}%
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Hero Stats */}
@@ -209,7 +225,17 @@ export default function MediaBuyersPage() {
                 <div><span className="text-muted-foreground block">Spend</span><span className="font-mono text-foreground font-semibold">{fmtCurrency(b.totalSpend)}</span></div>
                 <div><span className="text-muted-foreground block">LTV</span><span className="font-mono text-primary font-semibold">{fmtCurrency(b.totalRevenue)}</span></div>
                 <div><span className="text-muted-foreground block">Blended ROI</span><span className={`font-mono font-semibold ${b.roi >= 0 ? "text-primary" : "text-destructive"}`}>{b.roi.toFixed(1)}%</span></div>
-                <div><span className="text-muted-foreground block">Avg CVR</span><span className="font-mono text-foreground font-semibold">{b.avgCvr.toFixed(1)}%</span></div>
+                <div>
+                  <span className="text-muted-foreground block">Avg CVR</span>
+                  <span className={`font-mono font-semibold ${agencyAvgCvr !== null ? (b.avgCvr > agencyAvgCvr * 1.2 ? "text-primary" : b.avgCvr < agencyAvgCvr * 0.8 ? "text-destructive" : "text-foreground") : "text-foreground"}`}>
+                    {b.avgCvr.toFixed(1)}%
+                  </span>
+                  {agencyAvgCvr !== null && (
+                    <span className={`block text-[9px] font-semibold ${b.avgCvr - agencyAvgCvr >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {b.avgCvr - agencyAvgCvr >= 0 ? "+" : ""}{(b.avgCvr - agencyAvgCvr).toFixed(1)}% vs avg
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 gap-3 text-xs">
                 <div><span className="text-muted-foreground block">Avg CPL</span><span className="font-mono text-foreground font-semibold">{b.avgCpl > 0 ? fmtCurrency(b.avgCpl) : "—"}</span></div>
