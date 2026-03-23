@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAdSpend, fetchTrackingLinks, fetchAccounts } from "@/lib/supabase-helpers";
-import { ChevronUp, ChevronDown, Users, DollarSign, TrendingUp, BarChart3, Percent } from "lucide-react";
+import { ChevronUp, ChevronDown, Users, DollarSign, TrendingUp, BarChart3 } from "lucide-react";
 
 type SortKey = "name" | "totalSpend" | "totalRevenue" | "roi" | "campaignCount" | "subsPerDay";
 type ViewMode = "roi" | "revenue" | "subs";
@@ -96,8 +96,8 @@ export default function MediaBuyersPage() {
   const toggleSort = (key: SortKey) => { if (sortKey === key) setSortAsc(!sortAsc); else { setSortKey(key); setSortAsc(false); } };
 
   const totalBuyerSpend = buyers.reduce((s, b) => s + b.totalSpend, 0);
-  const totalBuyerRevenue = buyers.reduce((s, b) => s + b.totalRevenue, 0);
-  const blendedROI = totalBuyerSpend > 0 ? ((totalBuyerRevenue - totalBuyerSpend) / totalBuyerSpend) * 100 : 0;
+  const totalBuyerLtv = buyers.reduce((s, b) => s + b.totalRevenue, 0);
+  const blendedROI = totalBuyerSpend > 0 ? ((totalBuyerLtv - totalBuyerSpend) / totalBuyerSpend) * 100 : 0;
   const fmtCurrency = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const SortHeader = ({ label, field, align = "left" }: { label: string; field: SortKey; align?: string }) => (
@@ -123,7 +123,6 @@ export default function MediaBuyersPage() {
         <span className="font-mono text-xs text-primary font-semibold">{fmtCurrency(rev)}</span>
       ) : <span className="text-muted-foreground text-xs">—</span>;
     }
-    // subs per day — approximate
     return <span className="font-mono text-xs text-foreground">—</span>;
   };
 
@@ -140,7 +139,7 @@ export default function MediaBuyersPage() {
           {[
             { label: "Total Buyers", value: String(buyers.length), icon: Users },
             { label: "Total Spend", value: fmtCurrency(totalBuyerSpend), icon: DollarSign },
-            { label: "Total Revenue", value: fmtCurrency(totalBuyerRevenue), icon: TrendingUp },
+            { label: "Total LTV", value: fmtCurrency(totalBuyerLtv), icon: TrendingUp },
             { label: "Blended ROI", value: `${blendedROI.toFixed(1)}%`, icon: BarChart3, colored: true, val: blendedROI },
           ].map(stat => (
             <div key={stat.label} className="bg-card border border-border rounded-lg p-4 card-hover">
@@ -160,12 +159,9 @@ export default function MediaBuyersPage() {
               <h3 className="text-sm font-bold text-foreground">Performance Matrix — Buyer × Model</h3>
               <div className="flex items-center bg-secondary border border-border rounded-lg overflow-hidden">
                 {(["roi", "revenue", "subs"] as ViewMode[]).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setViewMode(m)}
-                    className={`px-3 py-1.5 text-[10px] font-medium uppercase transition-colors ${viewMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    {m === "roi" ? "By ROI" : m === "revenue" ? "By Revenue" : "By Subs/day"}
+                  <button key={m} onClick={() => setViewMode(m)}
+                    className={`px-3 py-1.5 text-[10px] font-medium uppercase transition-colors ${viewMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                    {m === "roi" ? "By ROI" : m === "revenue" ? "By LTV" : "By Subs/day"}
                   </button>
                 ))}
               </div>
@@ -211,7 +207,7 @@ export default function MediaBuyersPage() {
               </div>
               <div className="grid grid-cols-4 gap-3 text-xs mb-3">
                 <div><span className="text-muted-foreground block">Spend</span><span className="font-mono text-foreground font-semibold">{fmtCurrency(b.totalSpend)}</span></div>
-                <div><span className="text-muted-foreground block">Revenue</span><span className="font-mono text-primary font-semibold">{fmtCurrency(b.totalRevenue)}</span></div>
+                <div><span className="text-muted-foreground block">LTV</span><span className="font-mono text-primary font-semibold">{fmtCurrency(b.totalRevenue)}</span></div>
                 <div><span className="text-muted-foreground block">Blended ROI</span><span className={`font-mono font-semibold ${b.roi >= 0 ? "text-primary" : "text-destructive"}`}>{b.roi.toFixed(1)}%</span></div>
                 <div><span className="text-muted-foreground block">Avg CVR</span><span className="font-mono text-foreground font-semibold">{b.avgCvr.toFixed(1)}%</span></div>
               </div>
@@ -227,7 +223,7 @@ export default function MediaBuyersPage() {
 
         {!isLoading && !sortedBuyers.length && (
           <div className="bg-card border border-border rounded-lg p-16 text-center text-muted-foreground">
-            No media buyer data found. Add ad spend with buyer names to see analytics.
+            No media buyer data found. Add spend with buyer names to see analytics.
           </div>
         )}
       </div>

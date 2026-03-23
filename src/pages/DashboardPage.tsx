@@ -16,7 +16,15 @@ import {
   AlertTriangle, Download, FileText, LayoutGrid, Search, X, Columns, List
 } from "lucide-react";
 
-type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend" | "created_at";
+type SortKey = "campaign_name" | "clicks" | "subscribers" | "spenders" | "revenue" | "epc" | "revenue_per_subscriber" | "roi" | "ad_spend" | "created_at" | "profit";
+
+const MODEL_CATEGORIES: Record<string, string> = {
+  "Jess": "Female",
+  "Zoey": "Female",
+  "Mia": "Trans",
+  "Flor": "Female",
+  "Aylin": "Trans",
+};
 
 function SkeletonCard({ wide = false }: { wide?: boolean }) {
   return (
@@ -115,7 +123,7 @@ export default function DashboardPage() {
 
   const enrichedLinks = useMemo(() => {
     return filteredLinks.map((link: any) => {
-      const spend = adSpendByCampaign[link.campaign_id] || 0;
+      const spend = adSpendByCampaign[link.campaign_id] || Number(link.cost_total || 0);
       const profit = Number(link.revenue) - spend;
       const roi = spend > 0 ? (profit / spend) * 100 : null;
       return { ...link, ad_spend: spend, profit, roi };
@@ -140,29 +148,14 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  // Revenue percentiles for color coding
-  const revenuePercentiles = useMemo(() => {
-    const revenues = enrichedLinks.map((l: any) => Number(l.revenue)).sort((a, b) => a - b);
-    const p20 = revenues[Math.floor(revenues.length * 0.2)] ?? 0;
-    const p80 = revenues[Math.floor(revenues.length * 0.8)] ?? 0;
-    return { p20, p80 };
-  }, [enrichedLinks]);
-
   // KPIs
-  const totalRevenue = filteredLinks.reduce((s: number, l: any) => s + Number(l.revenue), 0);
+  const totalLtv = filteredLinks.reduce((s: number, l: any) => s + Number(l.revenue), 0);
   const totalClicks = filteredLinks.reduce((s: number, l: any) => s + l.clicks, 0);
   const totalSubscribers = filteredLinks.reduce((s: number, l: any) => s + l.subscribers, 0);
-  const totalAdSpend = adSpendData.reduce((s: number, a: any) => s + Number(a.amount), 0);
-  const totalCostFromLinks = filteredLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-  const epc = totalClicks > 0 ? totalRevenue / totalClicks : 0;
-  const conversionRate = totalClicks > 0 ? (totalSubscribers / totalClicks) * 100 : 0;
-  const profit = totalRevenue - totalAdSpend;
-  const roi = totalAdSpend > 0 ? (profit / totalAdSpend) * 100 : 0;
-  const blendedCvr = totalClicks > 0 ? (totalSubscribers / totalClicks) * 100 : 0;
-  const linksWithCost = filteredLinks.filter((l: any) => l.cost_type && Number(l.cost_total) > 0);
-  const totalCostForCpl = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total), 0);
-  const totalSubsForCpl = linksWithCost.reduce((s: number, l: any) => s + l.subscribers, 0);
-  const blendedCpl = totalSubsForCpl > 0 ? totalCostForCpl / totalSubsForCpl : 0;
+  const totalSpend = filteredLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+  const totalProfit = totalLtv - totalSpend;
+  const avgCpl = totalSubscribers > 0 && totalSpend > 0 ? totalSpend / totalSubscribers : 0;
+  const blendedRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : 0;
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();
@@ -198,17 +191,31 @@ export default function DashboardPage() {
 
   const maxModelRevenue = useMemo(() => Math.max(...modelSummary.map(m => m.revenue), 1), [modelSummary]);
 
+  // LTV last 30 days per model
+  const modelLtv30d = useMemo(() => {
+    const map: Record<string, number> = {};
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffStr = format(cutoff, "yyyy-MM-dd");
+    dailyMetrics.forEach((m: any) => {
+      if (m.date >= cutoffStr) {
+        const accId = m.account_id;
+        if (accId) map[accId] = (map[accId] || 0) + Number(m.revenue || 0);
+      }
+    });
+    return map;
+  }, [dailyMetrics]);
+
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
     campaigns.forEach((c: any) => { if (c.traffic_source) s.add(c.traffic_source); });
     return Array.from(s);
   }, [campaigns]);
 
-  const top5 = useMemo(() => [...enrichedLinks].sort((a, b) => b.revenue - a.revenue).slice(0, 5), [enrichedLinks]);
-  const bottom5 = useMemo(() => {
-    return enrichedLinks.filter((l) => l.clicks > 0).sort((a, b) => Number(a.conversion_rate) - Number(b.conversion_rate)).slice(0, 5);
-  }, [enrichedLinks]);
-  const maxTop5Rev = useMemo(() => Math.max(...top5.map(l => Number(l.revenue)), 1), [top5]);
+  const top5Ltv = useMemo(() => [...enrichedLinks].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 5), [enrichedLinks]);
+  const top5Profit = useMemo(() => [...enrichedLinks].filter(l => l.ad_spend > 0).sort((a, b) => b.profit - a.profit).slice(0, 5), [enrichedLinks]);
+  const bottom5Profit = useMemo(() => [...enrichedLinks].filter(l => l.ad_spend > 0).sort((a, b) => a.profit - b.profit).slice(0, 5), [enrichedLinks]);
+  const maxTop5Rev = useMemo(() => Math.max(...top5Ltv.map(l => Number(l.revenue)), 1), [top5Ltv]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -229,14 +236,12 @@ export default function DashboardPage() {
 
   const getStatus = (link: any) => {
     const daysSinceCreated = differenceInDays(new Date(), new Date(link.created_at));
-    // DEAD = had clicks before but now 0 for 3+ days
     if (link.clicks === 0 && daysSinceCreated >= 3) {
-      // Check if campaign ever had clicks (use daily_metrics or subscribers/spenders as proxy)
       const everHadTraffic = (link.subscribers > 0 || link.spenders > 0 || Number(link.revenue) > 0);
       if (everHadTraffic) return { label: "DEAD", color: "bg-destructive/15 text-destructive", icon: "🔴" };
       return { label: "INACTIVE", color: "bg-muted text-muted-foreground", icon: "⚫" };
     }
-    if (link.ad_spend === 0) return { label: "NO DATA", color: "bg-muted text-muted-foreground", icon: "⚪" };
+    if (link.ad_spend === 0 && !link.cost_total) return { label: "NO SPEND", color: "bg-muted text-muted-foreground", icon: "⚪" };
     if (link.roi === null || link.roi < 0) return { label: "KILL", color: "bg-destructive/15 text-destructive", icon: "🔴" };
     if (link.roi <= 50) return { label: "LOW", color: "bg-warning/15 text-warning", icon: "🟠" };
     if (link.roi <= 150) return { label: "WATCH", color: "bg-warning/15 text-warning", icon: "🟡" };
@@ -247,16 +252,10 @@ export default function DashboardPage() {
   const fmtNum = (v: number) => v.toLocaleString();
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
-  const revenueColor = (rev: number) => {
-    if (rev >= revenuePercentiles.p80) return "text-primary";
-    if (rev <= revenuePercentiles.p20) return "text-destructive";
-    return "text-foreground";
-  };
-
   const handleAdSpendSubmit = async (data: any) => {
     try {
       await addAdSpend(data);
-      toast.success("Ad spend saved");
+      toast.success("Spend saved");
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       setAdSpendSlideIn(null);
     } catch (err: any) {
@@ -265,13 +264,13 @@ export default function DashboardPage() {
   };
 
   const exportCSV = () => {
-    const headers = ["Account", "Campaign", "Clicks", "Subscribers", "Spenders", "Revenue", "Ad Spend", "ROI", "EPC", "RPS", "Status", "Created"];
+    const headers = ["Account", "Campaign", "Clicks", "Subscribers", "LTV", "Spend", "Profit", "ROI", "Status", "Created"];
     const rows = sortedLinks.map((l: any) => {
       const status = getStatus(l);
       return [
-        l.accounts?.display_name || "", l.campaign_name || "", l.clicks, l.subscribers, l.spenders,
-        Number(l.revenue).toFixed(2), l.ad_spend.toFixed(2), l.roi !== null ? l.roi.toFixed(1) + "%" : "—",
-        Number(l.revenue_per_click || 0).toFixed(2), Number(l.revenue_per_subscriber || 0).toFixed(2),
+        l.accounts?.display_name || "", l.campaign_name || "", l.clicks, l.subscribers,
+        Number(l.revenue).toFixed(2), l.ad_spend.toFixed(2), l.profit.toFixed(2),
+        l.roi !== null ? l.roi.toFixed(1) + "%" : "—",
         status.label, l.created_at ? format(new Date(l.created_at), "yyyy-MM-dd") : "",
       ].join(",");
     });
@@ -292,24 +291,21 @@ export default function DashboardPage() {
     </style></head><body>
       <h1>Campaign Tracker Report</h1><p>Generated: ${format(new Date(), "MMMM d, yyyy HH:mm")}</p>
       <div style="margin:20px 0">
-        <span class="kpi"><span class="kpi-label">Revenue</span><br><span class="kpi-val">${fmtCurrency(totalRevenue)}</span></span>
-        <span class="kpi"><span class="kpi-label">Clicks</span><br><span class="kpi-val">${fmtNum(totalClicks)}</span></span>
-        <span class="kpi"><span class="kpi-label">Subscribers</span><br><span class="kpi-val">${fmtNum(totalSubscribers)}</span></span>
-        <span class="kpi"><span class="kpi-label">EPC</span><br><span class="kpi-val">${fmtCurrency(epc)}</span></span>
-        <span class="kpi"><span class="kpi-label">ROI</span><br><span class="kpi-val">${fmtPct(roi)}</span></span>
+        <span class="kpi"><span class="kpi-label">Total LTV</span><br><span class="kpi-val">${fmtCurrency(totalLtv)}</span></span>
+        <span class="kpi"><span class="kpi-label">Total Spend</span><br><span class="kpi-val">${fmtCurrency(totalSpend)}</span></span>
+        <span class="kpi"><span class="kpi-label">Profit</span><br><span class="kpi-val">${fmtCurrency(totalProfit)}</span></span>
+        <span class="kpi"><span class="kpi-label">ROI</span><br><span class="kpi-val">${fmtPct(blendedRoi)}</span></span>
       </div>
       <h2>Campaign Performance</h2>
-      <table><tr><th>Account</th><th>Campaign</th><th>Clicks</th><th>Subs</th><th>Revenue</th><th>Ad Spend</th><th>ROI</th><th>Status</th></tr>
+      <table><tr><th>Account</th><th>Campaign</th><th>Clicks</th><th>Subs</th><th>LTV</th><th>Spend</th><th>Profit</th><th>ROI</th><th>Status</th></tr>
         ${sortedLinks.map((l: any) => {
           const status = getStatus(l);
-          return `<tr><td>${l.accounts?.display_name||""}</td><td>${l.campaign_name||""}</td><td>${fmtNum(l.clicks)}</td><td>${fmtNum(l.subscribers)}</td><td>${fmtCurrency(Number(l.revenue))}</td><td>${l.ad_spend>0?fmtCurrency(l.ad_spend):"—"}</td><td>${l.roi!==null?fmtPct(l.roi):"—"}</td><td>${status.label}</td></tr>`;
+          return `<tr><td>${l.accounts?.display_name||""}</td><td>${l.campaign_name||""}</td><td>${fmtNum(l.clicks)}</td><td>${fmtNum(l.subscribers)}</td><td>${fmtCurrency(Number(l.revenue))}</td><td>${l.ad_spend>0?fmtCurrency(l.ad_spend):"—"}</td><td>${fmtCurrency(l.profit)}</td><td>${l.roi!==null?fmtPct(l.roi):"—"}</td><td>${status.label}</td></tr>`;
         }).join("")}
       </table></body></html>`);
     w.document.close(); w.print();
   };
 
-  const zeroClickAlerts = alerts.filter((a: any) => a.type === "zero_clicks" && !a.resolved);
-  // Only count truly DEAD campaigns (had traffic then lost it) for the banner
   const trulyDeadCount = useMemo(() => {
     return filteredLinks.filter((l: any) => {
       const days = differenceInDays(new Date(), new Date(l.created_at));
@@ -322,8 +318,8 @@ export default function DashboardPage() {
     const m = modelSummary.find((m) => m.id === selectedModel);
     if (!m) return null;
     const modelLinks = enrichedLinks.filter((l) => l.account_id === selectedModel);
-    const topCampaign = [...modelLinks].sort((a, b) => b.revenue - a.revenue)[0];
-    return { ...m, topCampaign: topCampaign?.campaign_name || "—", avgEpc: m.epc, avgConvRate: m.convRate };
+    const topCampaign = [...modelLinks].sort((a, b) => Number(b.revenue) - Number(a.revenue))[0];
+    return { ...m, topCampaign: topCampaign?.campaign_name || "—" };
   }, [selectedModel, modelSummary, enrichedLinks]);
 
   const clearAllFilters = useCallback(() => {
@@ -427,46 +423,66 @@ export default function DashboardPage() {
         {/* DAILY DECISION VIEW */}
         <DailyDecisionView links={enrichedLinks.map(l => ({ ...l, status: getStatus(l).label }))} />
 
-        {/* KPI CARDS */}
+        {/* KPI CARDS — 5 cards only */}
         {linksLoading ? (
-          <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
+          <div className="grid grid-cols-5 gap-3">
             <SkeletonCard wide />
-            {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
+            {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <div className="grid grid-cols-5 lg:grid-cols-10 gap-3">
-            {/* Hero card - 2x wide */}
-            <div className="col-span-2 hero-gradient rounded-lg p-5 card-hover hero-glow text-white">
+          <div className="grid grid-cols-5 gap-3">
+            {/* Hero card - Total LTV */}
+            <div className="hero-gradient rounded-lg p-5 card-hover hero-glow text-white">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-white/80" />
-                <span className="text-xs text-white/70 font-medium uppercase tracking-wider">Total Revenue</span>
+                <span className="text-xs text-white/70 font-medium uppercase tracking-wider">Total LTV</span>
               </div>
-              <p className="text-[36px] font-bold animate-count-up font-mono leading-tight">{fmtCurrency(totalRevenue)}</p>
+              <p className="text-[36px] font-bold animate-count-up font-mono leading-tight">{fmtCurrency(totalLtv)}</p>
               <div className="flex items-center gap-1 mt-2">
                 <ArrowUpRight className="h-3 w-3 text-white/70" />
                 <span className="text-xs text-white/70">vs last sync</span>
               </div>
             </div>
-            {[
-              { label: "Total Clicks", value: fmtNum(totalClicks), icon: MousePointerClick },
-              { label: "Subscribers", value: fmtNum(totalSubscribers), icon: Users },
-              { label: "EPC", value: fmtCurrency(epc), icon: TrendingUp },
-              { label: "Conv Rate", value: fmtPct(conversionRate), icon: Percent },
-              { label: "Blended CVR", value: fmtPct(blendedCvr), icon: Percent },
-              { label: "Blended CPL", value: blendedCpl > 0 ? fmtCurrency(blendedCpl) : "—", icon: DollarSign },
-              { label: "Profit", value: fmtCurrency(profit), icon: PiggyBank, colored: true, val: profit },
-              { label: "ROI", value: fmtPct(roi), icon: BarChart3, colored: true, val: roi },
-            ].map((kpi) => (
-              <div key={kpi.label} className="bg-card border border-border rounded-lg p-3 card-hover">
-                <div className="flex items-center gap-2 mb-2">
-                  <kpi.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</span>
-                </div>
-                <p className={`text-lg font-bold font-mono animate-count-up ${
-                  kpi.colored ? ((kpi.val ?? 0) >= 0 ? "gradient-text" : "text-destructive") : "text-foreground"
-                }`}>{kpi.value}</p>
+            {/* Total Spend */}
+            <div className="bg-card border border-border rounded-lg p-3 card-hover">
+              <div className="flex items-center gap-2 mb-2">
+                <PiggyBank className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Total Spend</span>
               </div>
-            ))}
+              <p className={`text-lg font-bold font-mono ${totalSpend > 0 ? "text-foreground" : "text-destructive"}`}>
+                {fmtCurrency(totalSpend)}
+              </p>
+            </div>
+            {/* Total Profit */}
+            <div className="bg-card border border-border rounded-lg p-3 card-hover">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
+              </div>
+              <p className={`text-lg font-bold font-mono ${totalProfit >= 0 ? "gradient-text" : "text-destructive"}`}>
+                {fmtCurrency(totalProfit)}
+              </p>
+            </div>
+            {/* Avg CPL */}
+            <div className="bg-card border border-border rounded-lg p-3 card-hover">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Avg CPL</span>
+              </div>
+              <p className="text-lg font-bold font-mono text-foreground">
+                {avgCpl > 0 ? fmtCurrency(avgCpl) : "—"}
+              </p>
+            </div>
+            {/* Blended ROI */}
+            <div className="bg-card border border-border rounded-lg p-3 card-hover">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Blended ROI</span>
+              </div>
+              <p className={`text-lg font-bold font-mono ${totalSpend > 0 ? (blendedRoi >= 0 ? "gradient-text" : "text-destructive") : "text-muted-foreground"}`}>
+                {totalSpend > 0 ? fmtPct(blendedRoi) : "—"}
+              </p>
+            </div>
           </div>
         )}
 
@@ -487,13 +503,15 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">{accounts.length} models</p>
               </div>
             </div>
-            <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(totalRevenue)}</p>
-            <div className="text-xs text-muted-foreground">{fmtNum(totalSubscribers)} subs · {fmtNum(totalClicks)} clicks</div>
+            <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(totalLtv)}</p>
+            <div className="text-xs text-muted-foreground">{fmtNum(totalSubscribers)} subs</div>
           </button>
 
           {modelSummary.map((model) => {
             const isSelected = selectedModel === model.id;
             const barWidth = (model.revenue / maxModelRevenue) * 100;
+            const category = MODEL_CATEGORIES[model.display_name] || "—";
+            const ltv30d = modelLtv30d[model.id];
             return (
               <button
                 key={model.id}
@@ -506,18 +524,25 @@ export default function DashboardPage() {
                   <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold shrink-0">
                     {model.display_name.charAt(0)}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{model.display_name}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">{model.display_name}</p>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${category === "Trans" ? "bg-purple-500/15 text-purple-400" : "bg-pink-500/15 text-pink-400"}`}>
+                        {category}
+                      </span>
+                    </div>
                     <p className="text-xs text-muted-foreground">@{model.username || "—"}</p>
                   </div>
                 </div>
-                <p className="text-xl font-bold font-mono gradient-text mb-2">{fmtCurrency(model.revenue)}</p>
+                <p className="text-xl font-bold font-mono gradient-text mb-1">{fmtCurrency(model.revenue)}</p>
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  Last 30d: {ltv30d !== undefined ? <span className="text-primary font-semibold">{fmtCurrency(ltv30d)}</span> : "—"}
+                </p>
                 <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
                   <div className="bg-primary h-1.5 rounded-full transition-all duration-500" style={{ width: `${barWidth}%` }} />
                 </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{fmtNum(model.subscribers)} subs</span>
-                  <span>EPC {fmtCurrency(model.epc)}</span>
+                <div className="text-xs text-muted-foreground">
+                  {fmtNum(model.subscribers)} subs
                 </div>
               </button>
             );
@@ -533,14 +558,13 @@ export default function DashboardPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="grid grid-cols-6 gap-4">
+            <div className="grid grid-cols-5 gap-4">
               {[
-                { label: "Revenue", value: fmtCurrency(selectedModelData.revenue), color: "text-primary" },
+                { label: "Total LTV", value: fmtCurrency(selectedModelData.revenue), color: "text-primary" },
                 { label: "Clicks", value: fmtNum(selectedModelData.clicks), color: "text-foreground" },
                 { label: "Subscribers", value: fmtNum(selectedModelData.subscribers), color: "text-foreground" },
                 { label: "Top Campaign", value: selectedModelData.topCampaign, color: "text-foreground", noMono: true },
-                { label: "Avg EPC", value: fmtCurrency(selectedModelData.avgEpc), color: "text-foreground" },
-                { label: "Avg Conv Rate", value: fmtPct(selectedModelData.avgConvRate), color: "text-foreground" },
+                { label: "Category", value: MODEL_CATEGORIES[selectedModelData.display_name] || "—", color: "text-foreground", noMono: true },
               ].map((stat) => (
                 <div key={stat.label}>
                   <span className="text-xs text-muted-foreground uppercase block mb-1">{stat.label}</span>
@@ -551,14 +575,14 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* TOP 5 / BOTTOM 5 */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* TOP 5 by LTV / TOP 5 by Profit / BOTTOM 5 by Profit */}
+        <div className="grid grid-cols-3 gap-4">
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
             <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
-              <ArrowUpRight className="h-3.5 w-3.5" /> Top 5 by Revenue
+              <ArrowUpRight className="h-3.5 w-3.5" /> Top 5 by LTV
             </h3>
             <div className="space-y-3">
-              {top5.map((l: any, i) => (
+              {top5Ltv.map((l: any, i) => (
                 <button
                   key={l.id}
                   onClick={() => { setSearchQuery(l.campaign_name || ""); }}
@@ -580,11 +604,38 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
-            <h3 className="text-xs font-bold text-destructive uppercase tracking-wider mb-4 flex items-center gap-2">
-              <ArrowDownRight className="h-3.5 w-3.5" /> Bottom 5 by Conversion
+            <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
+              <ArrowUpRight className="h-3.5 w-3.5" /> Top 5 by Profit
             </h3>
             <div className="space-y-3">
-              {bottom5.map((l: any, i) => (
+              {top5Profit.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Set spend on campaigns to see profit rankings</p>
+              ) : top5Profit.map((l: any, i) => (
+                <button
+                  key={l.id}
+                  onClick={() => { setSearchQuery(l.campaign_name || ""); }}
+                  className="flex items-center gap-3 w-full text-left hover:bg-secondary/50 rounded-lg p-2 -m-2 transition-colors"
+                >
+                  <span className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{l.campaign_name || "—"}</p>
+                    <span className="text-xs text-muted-foreground">{l.accounts?.display_name || ""}</span>
+                  </div>
+                  <span className={`font-mono text-sm font-semibold shrink-0 ${l.profit >= 0 ? "gradient-text" : "text-destructive"}`}>
+                    {l.profit >= 0 ? "+" : ""}{fmtCurrency(l.profit)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+            <h3 className="text-xs font-bold text-destructive uppercase tracking-wider mb-4 flex items-center gap-2">
+              <ArrowDownRight className="h-3.5 w-3.5" /> Bottom 5 by Profit
+            </h3>
+            <div className="space-y-3">
+              {bottom5Profit.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Set spend on campaigns to see profit rankings</p>
+              ) : bottom5Profit.map((l: any, i) => (
                 <button
                   key={l.id}
                   onClick={() => { setSearchQuery(l.campaign_name || ""); }}
@@ -595,7 +646,9 @@ export default function DashboardPage() {
                     <p className="text-sm text-foreground truncate">{l.campaign_name || "—"}</p>
                     <span className="text-xs text-muted-foreground">{l.accounts?.display_name || ""}</span>
                   </div>
-                  <span className="font-mono text-sm font-semibold text-destructive shrink-0">{fmtPct(Number(l.conversion_rate))}</span>
+                  <span className="font-mono text-sm font-semibold text-destructive shrink-0">
+                    {fmtCurrency(l.profit)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -649,7 +702,6 @@ export default function DashboardPage() {
             const paginatedLinks = sortedLinks.slice(dashStart, dashEnd);
             return (
               <>
-                {/* Showing count */}
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                   <span className="text-xs text-muted-foreground">
                     Showing {dashStart + 1}–{dashEnd} of {sortedLinks.length} campaigns
@@ -659,20 +711,21 @@ export default function DashboardPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-card">
-                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Account</th>
                         <SortHeader label="Campaign" sortField="campaign_name" />
+                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Account</th>
+                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Source</th>
                         {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Trend</th>}
-                        <SortHeader label="Clicks" sortField="clicks" align="right" />
-                        <SortHeader label="Subs" sortField="subscribers" align="right" />
-                        {viewMode === "full" && <SortHeader label="Spenders" sortField="spenders" align="right" />}
-                        <SortHeader label="Revenue" sortField="revenue" align="right" />
-                        {viewMode === "full" && <SortHeader label="Ad Spend" sortField="ad_spend" align="right" />}
-                        {viewMode === "full" && <SortHeader label="ROI" sortField="roi" align="right" />}
-                        {viewMode === "full" && <SortHeader label="EPC" sortField="epc" align="right" />}
-                        {viewMode === "full" && <SortHeader label="RPS" sortField="revenue_per_subscriber" align="right" />}
+                        {viewMode === "full" && <SortHeader label="Clicks" sortField="clicks" align="right" />}
+                        {viewMode === "full" && <SortHeader label="Subs" sortField="subscribers" align="right" />}
+                        <SortHeader label="LTV" sortField="revenue" align="right" />
+                        <SortHeader label="Spend" sortField="ad_spend" align="right" />
+                        <SortHeader label="Profit" sortField="profit" align="right" />
+                        <SortHeader label="ROI" sortField="roi" align="right" />
+                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">CPL</th>}
+                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">LTV/Sub</th>}
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
-                        <SortHeader label="Created" sortField="created_at" />
-                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Calculated</th>}
+                        {viewMode === "full" && <SortHeader label="Created" sortField="created_at" />}
+                        {viewMode === "full" && <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Active</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -680,9 +733,16 @@ export default function DashboardPage() {
                         const status = getStatus(link);
                         const spark = sparklineData[link.id] || [];
                         const sparkTrending = spark.length >= 2 ? spark[spark.length - 1].revenue >= spark[spark.length - 2].revenue : true;
+                        const ltvPerSub = link.subscribers > 0 ? Number(link.revenue) / link.subscribers : 0;
+                        const cplReal = Number(link.cpl_real || 0);
+                        const mediaBuyer = link.source || null;
 
                         return (
                           <tr key={link.id} className="border-b border-border hover-emerald-border hover:bg-secondary/30 transition-all duration-200 cursor-pointer" onClick={() => setSelectedLink(link)}>
+                            <td className="px-3 py-3">
+                              <p className="text-sm font-medium text-foreground">{link.campaign_name || "—"}</p>
+                              <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{link.url || ""}</p>
+                            </td>
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-2">
                                 <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
@@ -692,8 +752,11 @@ export default function DashboardPage() {
                               </div>
                             </td>
                             <td className="px-3 py-3">
-                              <p className="text-sm font-medium text-foreground">{link.campaign_name || "—"}</p>
-                              <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{link.url || ""}</p>
+                              {mediaBuyer ? (
+                                <span className="text-xs text-foreground">{mediaBuyer}</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">— Untagged</span>
+                              )}
                             </td>
                             {viewMode === "full" && (
                               <td className="px-3 py-3 w-[80px]">
@@ -708,42 +771,44 @@ export default function DashboardPage() {
                                 )}
                               </td>
                             )}
-                            <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.clicks)}</td>
-                            <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.subscribers)}</td>
-                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.spenders)}</td>}
-                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${revenueColor(Number(link.revenue))}`}><span className="gradient-text">{fmtCurrency(Number(link.revenue))}</span></td>
-                            {viewMode === "full" && (
-                              <td className="px-3 py-3 text-right font-mono text-sm">
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.clicks)}</td>}
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{fmtNum(link.subscribers)}</td>}
+                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold`}><span className="gradient-text">{fmtCurrency(Number(link.revenue))}</span></td>
+                            <td className="px-3 py-3 text-right font-mono text-sm">
+                              {link.ad_spend > 0 ? (
+                                <span className="text-foreground">{fmtCurrency(link.ad_spend)}</span>
+                              ) : (
                                 <span
-                                  onClick={() => setAdSpendSlideIn(link)}
-                                  className={`cursor-pointer hover:underline transition-colors ${link.ad_spend > 0 ? "text-destructive" : "text-muted-foreground italic"}`}
-                                >
-                                  {link.ad_spend > 0 ? fmtCurrency(link.ad_spend) : "click to add"}
-                                </span>
-                              </td>
-                            )}
-                            {viewMode === "full" && (
-                              <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${link.roi === null ? "text-muted-foreground" : link.roi >= 0 ? "text-primary" : "text-destructive"}`}>
-                                {link.roi !== null ? fmtPct(link.roi) : "—"}
-                              </td>
-                            )}
-                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">${Number(link.revenue_per_click || 0).toFixed(2)}</td>}
-                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">${Number(link.revenue_per_subscriber || 0).toFixed(2)}</td>}
+                                  onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
+                                  className="text-muted-foreground italic cursor-pointer hover:text-primary transition-colors"
+                                >Set Spend</span>
+                              )}
+                            </td>
+                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${link.ad_spend > 0 ? (link.profit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
+                              {link.ad_spend > 0 ? fmtCurrency(link.profit) : "—"}
+                            </td>
+                            <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${link.roi === null ? "text-muted-foreground" : link.roi >= 0 ? "text-primary" : "text-destructive"}`}>
+                              {link.roi !== null ? fmtPct(link.roi) : "—"}
+                            </td>
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{cplReal > 0 ? fmtCurrency(cplReal) : "—"}</td>}
+                            {viewMode === "full" && <td className="px-3 py-3 text-right font-mono text-sm">{ltvPerSub > 0 ? fmtCurrency(ltvPerSub) : "—"}</td>}
                             <td className="px-3 py-3 text-center">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${status.color}`}>
                                 {status.icon} {status.label}
                               </span>
                             </td>
-                            <td className="px-3 py-3">
-                              <CampaignAgePill
-                                createdAt={link.created_at}
-                                lastActivityAt={link.calculated_at}
-                                clicks={link.clicks}
-                                revenue={Number(link.revenue || 0)}
-                              />
-                            </td>
                             {viewMode === "full" && (
-                              <td className="px-3 py-3 text-muted-foreground text-xs font-mono">
+                              <td className="px-3 py-3">
+                                <CampaignAgePill
+                                  createdAt={link.created_at}
+                                  lastActivityAt={link.calculated_at}
+                                  clicks={link.clicks}
+                                  revenue={Number(link.revenue || 0)}
+                                />
+                              </td>
+                            )}
+                            {viewMode === "full" && (
+                              <td className="px-3 py-3 text-muted-foreground text-xs">
                                 {link.calculated_at ? format(new Date(link.calculated_at), "MMM d, HH:mm") : "—"}
                               </td>
                             )}
@@ -753,7 +818,7 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
-                {/* Show More + Pagination */}
+                {/* Pagination */}
                 <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                   <div className="flex items-center gap-3">
                     {dashPerPage === 10 && sortedLinks.length > 10 && (
@@ -828,7 +893,7 @@ export default function DashboardPage() {
           onSaved={() => {
             setCostSlideIn(null);
             queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-            toast.success("Cost saved & metrics recalculated");
+            toast.success("Spend saved & metrics recalculated");
           }}
         />
       )}
