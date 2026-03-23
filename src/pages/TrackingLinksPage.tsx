@@ -134,15 +134,17 @@ export default function TrackingLinksPage() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => triggerSync(undefined, true),
+    mutationFn: () => triggerSync(undefined, true, (msg) => {
+      toast.info(msg, { id: 'sync-progress' });
+    }),
     onSuccess: (data) => {
-      const count = data?.dispatched?.length ?? 0;
-      toast.success(`Sync dispatched for ${count} account(s) — check logs for progress`);
+      const count = data?.accounts_synced ?? 0;
+      toast.success(`Sync complete — ${count} accounts synced`, { id: 'sync-progress' });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
     },
-    onError: (err: any) => toast.error(`Sync failed: ${err.message}`),
+    onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
   const totalSpent = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.cost_total || 0), 0), [links]);
