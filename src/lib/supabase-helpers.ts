@@ -131,15 +131,46 @@ export async function updateSyncSetting(key: string, value: string) {
   return data;
 }
 
-export async function triggerSync(accountId?: string, force = false) {
-  const body: Record<string, any> = {};
-  if (accountId) body.account_id = accountId;
-  if (force) body.force = true;
+export async function triggerSync(
+  accountId?: string,
+  force = false,
+  onProgress?: (msg: string) => void
+) {
+  // Step 1: Sync accounts (fast — avatars, metadata)
+  onProgress?.('Syncing accounts...');
+  const orchestratorRes = await supabase.functions.invoke("sync-orchestrator", {
+    body: { force },
+  });
+  if (orchestratorRes.error) throw orchestratorRes.error;
 
-  const response = await supabase.functions.invoke("sync-orchestrator", { body });
+  const accounts = orchestratorRes.data?.accounts ?? [];
+  onProgress?.(`Accounts synced (${accounts.length}). Starting link sync...`);
 
-  if (response.error) throw response.error;
-  return response.data;
+  // Step 2: Sync tracking links per account sequentially
+  const results: any[] = [];
+  const accountsToSync = accountId
+    ? accounts.filter((a: any) => a.id === accountId)
+    : accounts;
+
+  for (let i = 0; i < accountsToSync.length; i++) {
+    const acc = accountsToSync[i];
+    onProgress?.(`Syncing ${acc.display_name} (${i + 1}/${accountsToSync.length})...`);
+    try {
+      const res = await supabase.functions.invoke("sync-tracking", {
+        body: {
+          account_id: acc.id,
+          onlyfans_account_id: acc.onlyfans_account_id,
+          display_name: acc.display_name,
+        },
+      });
+      results.push({ account: acc.display_name, status: 'success', data: res.data });
+    } catch (err: any) {
+      results.push({ account: acc.display_name, status: 'error', error: err.message });
+    }
+  }
+
+  onProgress?.('Sync complete!');
+  return { results, accounts_synced: accounts.length };
 }
 
 export async function addAdSpend(entry: {

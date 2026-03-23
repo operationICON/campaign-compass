@@ -5,73 +5,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const API_BASE = 'https://api.onlyfans.com'
+const API_BASE = 'https://app.onlyfansapi.com/api'
 
-// Generic paginated fetch — handles cursor-based and offset-based pagination
-async function apiFetch<T>(
-  path: string,
-  apiKey: string,
-  params: Record<string, string> = {}
-): Promise<T[]> {
-  const allItems: T[] = []
-  let cursor: string | undefined
-  let offset = 0
-  const limit = 100
+const apiHeaders = (apiKey: string) => ({
+  'Authorization': `Bearer ${apiKey}`,
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+})
 
-  while (true) {
-    const url = new URL(`${API_BASE}${path}`)
-    for (const [k, v] of Object.entries(params)) {
-      url.searchParams.set(k, v)
-    }
-    url.searchParams.set('limit', String(limit))
-    if (cursor) {
-      url.searchParams.set('cursor', cursor)
-    } else if (offset > 0) {
-      url.searchParams.set('offset', String(offset))
-    }
+function calculateCostMetrics(link: any) {
+  const clicks = Number(link.clicks ?? 0)
+  const subscribers = Number(link.subscribers ?? 0)
+  const revenue = Number(link.revenue ?? 0)
+  const costType = link.cost_type
+  const costValue = Number(link.cost_value ?? 0)
+  const daysSinceCreated = (Date.now() - new Date(link.created_at).getTime()) / (1000 * 60 * 60 * 24)
 
-    const res = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    })
+  let cost_total = 0
+  let cvr = clicks > 0 ? subscribers / clicks : 0
+  let cpc_real = 0
+  let cpl_real = 0
+  let arpu = subscribers > 0 ? revenue / subscribers : 0
 
-    if (!res.ok) {
-      const errorBody = await res.text()
-      throw new Error(
-        `OnlyFans API ${path} returned HTTP ${res.status}: ${errorBody}`
-      )
-    }
-
-    const json = await res.json()
-
-    // Handle multiple response shapes
-    const items: T[] = Array.isArray(json)
-      ? json
-      : Array.isArray(json.data)
-        ? json.data
-        : Array.isArray(json.list)
-          ? json.list
-          : Array.isArray(json.results)
-            ? json.results
-            : []
-
-    allItems.push(...items)
-
-    // Check pagination signals
-    if (json.has_more === true && json.next_cursor) {
-      cursor = json.next_cursor
-    } else if (items.length === limit) {
-      // Offset-based fallback
-      offset += limit
-    } else {
-      break
-    }
+  if (costType === 'CPC') {
+    cost_total = clicks * costValue
+    cpc_real = costValue
+    cpl_real = cvr > 0 ? costValue / cvr : 0
+  } else if (costType === 'CPL') {
+    cost_total = subscribers * costValue
+    cpc_real = cvr > 0 ? costValue * cvr : 0
+    cpl_real = costValue
+  } else if (costType === 'FIXED') {
+    cost_total = costValue
+    cpc_real = clicks > 0 ? cost_total / clicks : 0
+    cpl_real = subscribers > 0 ? cost_total / subscribers : 0
   }
 
-  return allItems
+  const profit = revenue - cost_total
+  const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
+
+  let status = 'NO_DATA'
+  if (!costType) {
+    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+    else status = 'NO_DATA'
+  } else {
+    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+    else if (roi > 150) status = 'SCALE'
+    else if (roi >= 50) status = 'WATCH'
+    else if (roi >= 0) status = 'LOW'
+    else status = 'KILL'
+  }
+
+  return { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status }
 }
 
 Deno.serve(async (req) => {
@@ -81,302 +66,217 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
   const apiKey = Deno.env.get('ONLYFANS_API_KEY')
 
   if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: 'ONLYFANS_API_KEY is not configured. Add it in backend secrets.' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ error: 'ONLYFANS_API_KEY not configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // ── Auth: verify the calling user ──
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized — missing Bearer token' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-
-  const supabaseAuth = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(
-    authHeader.replace('Bearer ', '')
-  )
-  if (claimsError || !claimsData?.claims) {
-    return new Response(JSON.stringify({ error: 'Unauthorized — invalid token' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-
-  // ── Service-role client for DB writes ──
   const db = createClient(supabaseUrl, serviceKey)
-  const now = new Date().toISOString()
+  let body: any = {}
+  try { body = await req.json() } catch {}
 
-  // Create a top-level sync log
-  const { data: masterLog } = await db.from('sync_logs').insert({
-    status: 'running',
-    message: 'Starting full sync…',
-    records_processed: 0,
+  const accountId = body.account_id as string
+  const acctId = body.onlyfans_account_id as string
+  const displayName = body.display_name as string || 'Unknown'
+
+  if (!accountId || !acctId) {
+    return new Response(JSON.stringify({ error: 'account_id and onlyfans_account_id required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  const startedAt = new Date().toISOString()
+  const { data: syncLog } = await db.from('sync_logs').insert({
+    account_id: accountId, started_at: startedAt,
+    status: 'running', success: false,
+    message: `Syncing ${displayName}…`, records_processed: 0,
   }).select().single()
+  const syncLogId = syncLog?.id
 
   try {
-    const body = await req.json().catch(() => ({}))
-    const filterAccountId = body.account_id as string | undefined
+    let linkCount = 0
 
-    // ═══════════════════════════════════════════
-    // STEP 1 — Fetch all accounts from OnlyFans API
-    // ═══════════════════════════════════════════
-    let apiAccounts: any[]
-    try {
-      apiAccounts = await apiFetch<any>('/accounts', apiKey)
-    } catch (err: any) {
-      // Log the exact error and abort
-      await db.from('sync_logs').update({
-        status: 'error',
-        message: `Failed to fetch /accounts: ${err.message}`,
-        details: { endpoint: '/accounts', error: err.message, stack: err.stack },
-        completed_at: new Date().toISOString(),
-      }).eq('id', masterLog?.id)
+    // Fetch ALL tracking link pages — paginate within this call
+    const allLinks: any[] = []
+    let currentUrl: string | null = `${API_BASE}/${acctId}/tracking-links?limit=50`
+    let pageNum = 0
+    const maxPages = 100 // safety limit
 
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    while (currentUrl && pageNum < maxPages) {
+      pageNum++
+      console.log(`[${displayName}] Fetching links page ${pageNum}: ${currentUrl}`)
+      const res = await fetch(currentUrl, { headers: apiHeaders(apiKey) })
+      if (!res.ok) {
+        const errBody = await res.text()
+        throw new Error(`API returned ${res.status}: ${errBody}`)
+      }
+      const json = await res.json()
 
-    if (!apiAccounts.length) {
-      await db.from('sync_logs').update({
-        status: 'success',
-        message: 'No accounts returned from API',
-        completed_at: new Date().toISOString(),
-      }).eq('id', masterLog?.id)
+      if (Array.isArray(json)) {
+        allLinks.push(...json)
+        break
+      }
 
-      return new Response(JSON.stringify({ results: [], message: 'No accounts found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Upsert each account into DB
-    for (const acc of apiAccounts) {
-      const externalId = String(acc.id ?? acc.account_id ?? acc.userId)
-      await db.from('accounts').upsert({
-        onlyfans_account_id: externalId,
-        username: acc.username ?? acc.name ?? null,
-        display_name: acc.name ?? acc.username ?? externalId,
-        is_active: true,
-        last_synced_at: now,
-      }, { onConflict: 'onlyfans_account_id' })
-    }
-
-    // Retrieve DB accounts to process
-    let accountsQuery = db.from('accounts').select('*').eq('is_active', true)
-    if (filterAccountId) {
-      accountsQuery = accountsQuery.eq('id', filterAccountId)
-    }
-    const { data: dbAccounts, error: accErr } = await accountsQuery
-    if (accErr) throw accErr
-
-    const results: any[] = []
-    let totalRecords = 0
-
-    // ═══════════════════════════════════════════
-    // STEP 2 — For each account, fetch tracking links
-    // ═══════════════════════════════════════════
-    for (const account of dbAccounts ?? []) {
-      const { data: accountLog } = await db.from('sync_logs').insert({
-        account_id: account.id,
-        status: 'running',
-        message: `Syncing: ${account.display_name}`,
-        records_processed: 0,
-      }).select().single()
-
-      try {
-        const trackingLinks = await apiFetch<any>(
-          '/tracking-links',
-          apiKey,
-          { account_id: account.onlyfans_account_id }
-        )
-
-        // Ensure campaigns exist
-        const { data: existingCampaigns } = await db
-          .from('campaigns').select('*').eq('account_id', account.id)
-        const campaignMap = new Map(
-          (existingCampaigns ?? []).map((c: any) => [c.name, c.id])
-        )
-
-        let linkCount = 0
-
-        for (const link of trackingLinks) {
-          const campaignName = link.campaign_name ?? link.campaign ?? link.name ?? 'Unknown Campaign'
-          const trafficSource = link.traffic_source ?? link.source ?? null
-          const country = link.country ?? link.geo ?? null
-          let campaignId = campaignMap.get(campaignName)
-
-          // Auto-create campaign if new
-          if (!campaignId) {
-            const { data: newCampaign } = await db.from('campaigns').insert({
-              account_id: account.id,
-              name: campaignName,
-              traffic_source: trafficSource,
-              country: country,
-            }).select().single()
-            campaignId = newCampaign?.id
-            if (campaignId) campaignMap.set(campaignName, campaignId)
-          }
-          if (!campaignId) continue
-
-          const clicks = Number(link.clicks ?? 0)
-          const subscribers = Number(link.subscribers ?? 0)
-          const spenders = Number(link.spenders ?? 0)
-          const revenue = Number(link.revenue ?? 0)
-          const epc = clicks > 0 ? revenue / clicks : 0
-          const rps = subscribers > 0 ? revenue / subscribers : 0
-          const convRate = clicks > 0 ? (subscribers / clicks) * 100 : 0
-          const externalLinkId = String(link.id ?? link.link_id ?? link.trackingId ?? '')
-
-          await db.from('tracking_links').upsert({
-            external_tracking_link_id: externalLinkId || null,
-            url: link.url ?? link.link ?? `https://onlyfans.com/${account.onlyfans_account_id}`,
-            campaign_id: campaignId,
-            account_id: account.id,
-            clicks,
-            subscribers,
-            spenders,
-            revenue,
-            revenue_per_click: epc,
-            revenue_per_subscriber: rps,
-            conversion_rate: convRate,
-            calculated_at: now,
-          }, {
-            onConflict: externalLinkId ? 'external_tracking_link_id' : 'url,campaign_id',
-          })
-
-          // Also write a daily_metrics row for today
-          const today = now.split('T')[0]
-
-          // Find the DB tracking link id
-          const { data: dbLink } = await db.from('tracking_links')
-            .select('id')
-            .eq(externalLinkId ? 'external_tracking_link_id' : 'url',
-                externalLinkId || (link.url ?? link.link))
-            .maybeSingle()
-
-          if (dbLink) {
-            await db.from('daily_metrics').upsert({
-              tracking_link_id: dbLink.id,
-              date: today,
-              clicks,
-              subscribers,
-              spenders,
-              revenue,
-            }, { onConflict: 'tracking_link_id,date' })
-          }
-
-          linkCount++
-        }
-
-        // ═══════════════════════════════════════════
-        // STEP 3 — Fetch transactions for revenue data
-        // ═══════════════════════════════════════════
-        let txCount = 0
-        try {
-          const transactions = await apiFetch<any>(
-            '/transactions',
-            apiKey,
-            { account_id: account.onlyfans_account_id }
-          )
-          txCount = transactions.length
-
-          // Group revenue by date and update daily_metrics
-          const dailyRevenue = new Map<string, number>()
-          for (const tx of transactions) {
-            const txDate = (tx.date ?? tx.created_at ?? now).split('T')[0]
-            const amount = Number(tx.amount ?? tx.revenue ?? 0)
-            dailyRevenue.set(txDate, (dailyRevenue.get(txDate) ?? 0) + amount)
-          }
-          // Revenue from transactions is additive context — tracked in sync log details
-        } catch (txErr: any) {
-          // Log transaction fetch failure but don't fail the whole account sync
-          await db.from('sync_logs').insert({
-            account_id: account.id,
-            status: 'error',
-            message: `Failed /transactions for ${account.display_name}: ${txErr.message}`,
-            details: { endpoint: '/transactions', error: txErr.message },
-            completed_at: new Date().toISOString(),
-            records_processed: 0,
-          })
-        }
-
-        // Update account's last_synced_at
-        await db.from('accounts').update({ last_synced_at: now }).eq('id', account.id)
-
-        totalRecords += linkCount + txCount
-
-        // ── Mark account sync as success ──
-        await db.from('sync_logs').update({
-          status: 'success',
-          message: `Synced ${linkCount} tracking links, ${txCount} transactions`,
-          completed_at: new Date().toISOString(),
-          records_processed: linkCount + txCount,
-          details: {
-            links_fetched: trackingLinks.length,
-            links_upserted: linkCount,
-            transactions_fetched: txCount,
-          },
-        }).eq('id', accountLog?.id)
-
-        results.push({
-          account: account.display_name,
-          account_id: account.id,
-          status: 'success',
-          links: linkCount,
-          transactions: txCount,
-        })
-      } catch (err: any) {
-        // ── Mark account sync as error with full details ──
-        await db.from('sync_logs').update({
-          status: 'error',
-          message: `Sync failed for ${account.display_name}: ${err.message}`,
-          details: {
-            endpoint: 'tracking-links',
-            error: err.message,
-            stack: err.stack,
-            response_status: err.status ?? null,
-          },
-          completed_at: new Date().toISOString(),
-          records_processed: 0,
-        }).eq('id', accountLog?.id)
-
-        results.push({
-          account: account.display_name,
-          account_id: account.id,
-          status: 'error',
-          error: err.message,
-        })
+      const data = json.data
+      if (data && Array.isArray(data.list)) {
+        allLinks.push(...data.list)
+        const nextPage = json._pagination?.next_page ?? null
+        const hasMore = data.hasMore === true
+        currentUrl = (hasMore && nextPage) ? nextPage : null
+      } else if (data && Array.isArray(data)) {
+        allLinks.push(...data)
+        currentUrl = json._pagination?.next_page ?? null
+      } else {
+        break
       }
     }
 
-    // ── Update master sync log ──
-    await db.from('sync_logs').update({
-      status: results.every(r => r.status === 'success') ? 'success' : 'partial',
-      message: `Processed ${dbAccounts?.length ?? 0} accounts, ${totalRecords} total records`,
-      completed_at: new Date().toISOString(),
-      records_processed: totalRecords,
-      details: { accounts_processed: dbAccounts?.length, results },
-    }).eq('id', masterLog?.id)
+    console.log(`[${displayName}] Fetched ${allLinks.length} links in ${pageNum} pages`)
 
-    return new Response(JSON.stringify({ results, total_records: totalRecords }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Ensure campaigns exist
+    if (allLinks.length > 0) {
+      const campaignNames = [...new Set(allLinks.map((l: any) => l.campaignName ?? 'Unknown'))]
+      const { data: existingCampaigns } = await db.from('campaigns')
+        .select('id, name').eq('account_id', accountId).in('name', campaignNames)
+      const campaignMap: Record<string, string> = {}
+      for (const c of existingCampaigns ?? []) campaignMap[c.name] = c.id
+      const missingNames = campaignNames.filter(n => !campaignMap[n])
+      if (missingNames.length > 0) {
+        const { data: newC } = await db.from('campaigns')
+          .insert(missingNames.map(name => ({ account_id: accountId, name, status: 'active' })))
+          .select('id, name')
+        for (const c of newC ?? []) campaignMap[c.name] = c.id
+      }
+
+      // Build upsert payloads
+      const payloads: Record<string, any>[] = []
+      for (const link of allLinks) {
+        const campaignName = link.campaignName ?? 'Unknown'
+        const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
+        const clicks = Number(link.clicksCount ?? 0)
+        const subs = Number(link.subscribersCount ?? 0)
+        const rev = Number(link.revenue?.total ?? 0)
+
+        const p: Record<string, any> = {
+          external_tracking_link_id: String(link.id ?? ''),
+          url: link.campaignUrl ?? `https://onlyfans.com/${acctId}`,
+          campaign_id: campaignId,
+          campaign_name: campaignName,
+          account_id: accountId,
+          clicks, subscribers: subs,
+          spenders: Number(link.revenue?.spendersCount ?? 0),
+          revenue: rev,
+          revenue_per_click: Number(link.revenue?.revenuePerClick ?? 0),
+          revenue_per_subscriber: Number(link.revenue?.revenuePerSubscriber ?? 0),
+          conversion_rate: clicks > 0 ? (subs / clicks) * 100 : 0,
+          calculated_at: link.revenue?.calculatedAt ?? startedAt,
+          source: link.type ?? null,
+          country: link.country ?? null,
+        }
+        if (link.createdAt) p.created_at = link.createdAt
+
+        // Extract cost from API if available
+        const costPerSub = link.revenue?.costPerSubscriber || link.costPerSubscriber || null
+        const costPerClick = link.revenue?.costPerClick || link.costPerClick || null
+        const fixedCost = link.revenue?.cost || link.fixedCost || null
+
+        if (costPerSub && Number(costPerSub) > 0) {
+          p.cost_type = 'CPL'; p.cost_value = Number(costPerSub)
+        } else if (costPerClick && Number(costPerClick) > 0) {
+          p.cost_type = 'CPC'; p.cost_value = Number(costPerClick)
+        } else if (fixedCost && Number(fixedCost) > 0) {
+          p.cost_type = 'FIXED'; p.cost_value = Number(fixedCost)
+        }
+
+        // Calculate cost metrics inline — no separate recalc pass needed
+        const createdAt = link.createdAt ? new Date(link.createdAt) : new Date()
+        const daysSinceCreated = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+        const cvr = clicks > 0 ? subs / clicks : 0
+        const arpu = subs > 0 ? rev / subs : 0
+        let cost_total = 0, cpc_real = 0, cpl_real = 0
+
+        if (p.cost_type === 'CPC') {
+          cost_total = clicks * (p.cost_value || 0)
+          cpc_real = p.cost_value || 0
+          cpl_real = cvr > 0 ? (p.cost_value || 0) / cvr : 0
+        } else if (p.cost_type === 'CPL') {
+          cost_total = subs * (p.cost_value || 0)
+          cpc_real = cvr > 0 ? (p.cost_value || 0) * cvr : 0
+          cpl_real = p.cost_value || 0
+        } else if (p.cost_type === 'FIXED') {
+          cost_total = p.cost_value || 0
+          cpc_real = clicks > 0 ? cost_total / clicks : 0
+          cpl_real = subs > 0 ? cost_total / subs : 0
+        }
+
+        const profit = rev - cost_total
+        const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
+
+        let status = 'NO_DATA'
+        if (!p.cost_type) {
+          if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+        } else {
+          if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+          else if (roi > 150) status = 'SCALE'
+          else if (roi >= 50) status = 'WATCH'
+          else if (roi >= 0) status = 'LOW'
+          else status = 'KILL'
+        }
+
+        Object.assign(p, { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
+
+        payloads.push(p)
+      }
+
+      // Batch upsert in chunks of 25
+      for (let i = 0; i < payloads.length; i += 25) {
+        const batch = payloads.slice(i, i + 25)
+        await db.from('tracking_links').upsert(batch, {
+          onConflict: 'external_tracking_link_id', ignoreDuplicates: false,
+        })
+      }
+      linkCount = payloads.length
+      console.log(`[${displayName}] Upserted ${linkCount} links with inline metrics`)
+    }
+
+    // Update account
+    await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
+
+    const now = new Date().toISOString()
+    if (syncLogId) {
+      await db.from('sync_logs').update({
+        status: 'success', success: true,
+        finished_at: now, completed_at: now,
+        message: `${displayName}: ${linkCount} links synced`,
+        records_processed: linkCount,
+      }).eq('id', syncLogId)
+    }
+
+    await db.from('notifications').insert({
+      type: 'sync_success',
+      message: `${displayName} synced — ${linkCount} links`,
     })
+
+    return new Response(JSON.stringify({
+      account: displayName, status: 'success', links: linkCount,
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
   } catch (error: any) {
-    await db.from('sync_logs').update({
-      status: 'error',
-      message: `Fatal sync error: ${error.message}`,
-      details: { error: error.message, stack: error.stack },
-      completed_at: new Date().toISOString(),
-    }).eq('id', masterLog?.id)
+    console.error(`[${displayName}] Error: ${error.message}`)
+    const now = new Date().toISOString()
+    if (syncLogId) {
+      await db.from('sync_logs').update({
+        status: 'error', success: false,
+        finished_at: now, completed_at: now,
+        error_message: error.message,
+        message: `${displayName}: ${error.message}`,
+      }).eq('id', syncLogId)
+    }
+    await db.from('notifications').insert({
+      type: 'sync_failed',
+      message: `${displayName} sync failed — ${error.message}`,
+    })
 
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

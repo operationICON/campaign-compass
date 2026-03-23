@@ -73,15 +73,17 @@ export default function DashboardPage() {
   }, [syncSettings]);
 
   const syncMutation = useMutation({
-    mutationFn: () => triggerSync(filters.account_id !== "all" ? filters.account_id : undefined, true),
+    mutationFn: () => triggerSync(filters.account_id !== "all" ? filters.account_id : undefined, true, (msg) => {
+      toast.info(msg, { id: 'sync-progress' });
+    }),
     onSuccess: (data) => {
-      const count = data?.dispatched?.length ?? 0;
-      toast.success(`Sync dispatched for ${count} account(s) — check logs for progress`);
+      const count = data?.accounts_synced ?? 0;
+      toast.success(`Sync complete — ${count} accounts synced`, { id: 'sync-progress' });
       ["tracking_links", "accounts", "campaigns", "ad_spend", "sync_logs", "alerts", "daily_metrics"].forEach(k =>
         queryClient.invalidateQueries({ queryKey: [k] })
       );
     },
-    onError: (err: any) => toast.error(`Sync failed: ${err.message}`),
+    onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
   const sparklineData = useMemo(() => {
