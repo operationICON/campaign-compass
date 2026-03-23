@@ -549,31 +549,7 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* MODEL DETAIL PANEL */}
-        {selectedModelData && (
-          <div className="animate-slide-down bg-card border border-primary/20 rounded-lg p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-foreground">{selectedModelData.display_name} — Detail View</h3>
-              <button onClick={() => setSelectedModel(null)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-5 gap-4">
-              {[
-                { label: "Total LTV", value: fmtCurrency(selectedModelData.revenue), color: "text-primary" },
-                { label: "Clicks", value: fmtNum(selectedModelData.clicks), color: "text-foreground" },
-                { label: "Subscribers", value: fmtNum(selectedModelData.subscribers), color: "text-foreground" },
-                { label: "Top Campaign", value: selectedModelData.topCampaign, color: "text-foreground", noMono: true },
-                { label: "Category", value: MODEL_CATEGORIES[selectedModelData.display_name] || "—", color: "text-foreground", noMono: true },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <span className="text-xs text-muted-foreground uppercase block mb-1">{stat.label}</span>
-                  <span className={`${stat.noMono ? "" : "font-mono"} font-semibold ${stat.color}`}>{stat.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {/* TOP 5 by LTV / TOP 5 by Profit / BOTTOM 5 by Profit */}
         <div className="grid grid-cols-3 gap-4">
