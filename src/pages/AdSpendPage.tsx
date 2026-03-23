@@ -9,9 +9,32 @@ import { toast } from "sonner";
 
 export default function AdSpendPage() {
   const queryClient = useQueryClient();
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const { data: adSpend = [], isLoading } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: fetchCampaigns });
   const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+
+  // Map campaign_id to tracking_link for clearing spend
+  const linkByCampaign = useMemo(() => {
+    const map: Record<string, any> = {};
+    links.forEach((l: any) => { if (!map[l.campaign_id]) map[l.campaign_id] = l; });
+    return map;
+  }, [links]);
+
+  const handleDeleteSpend = async (entry: any) => {
+    const tl = linkByCampaign[entry.campaign_id];
+    if (tl) {
+      try {
+        await clearTrackingLinkSpend(tl.id, entry.campaign_id);
+        queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
+        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+        toast.success("Spend cleared");
+      } catch (err: any) {
+        toast.error("Failed to clear spend");
+      }
+    }
+    setDeleteConfirmId(null);
+  };
 
   const revByCampaign = useMemo(() => {
     const map: Record<string, number> = {};
