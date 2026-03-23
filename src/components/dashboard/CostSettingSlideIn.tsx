@@ -11,10 +11,10 @@ interface CostSettingSlideInProps {
 
 type CostType = "CPC" | "CPL" | "FIXED";
 
-const COST_TYPES: { type: CostType; title: string; desc: string; inputLabel: string; icon: any }[] = [
-  { type: "CPC", title: "Cost Per Click", desc: "I pay per click on my ad", inputLabel: "CPC value ($)", icon: MousePointerClick },
-  { type: "CPL", title: "Cost Per Subscriber", desc: "I pay per subscriber gained", inputLabel: "CPL value ($)", icon: Users },
-  { type: "FIXED", title: "Fixed Amount", desc: "Flat fee (pin, promo, deal)", inputLabel: "Fixed cost ($)", icon: DollarSign },
+const COST_TYPES: { type: CostType; title: string; desc: string; inputLabel: string; icon: any; recommended?: boolean; warning?: string }[] = [
+  { type: "CPL", title: "Cost Per Sub", desc: "I pay per subscriber gained", inputLabel: "Cost per subscriber ($)", icon: Users, recommended: true },
+  { type: "FIXED", title: "Fixed Amount", desc: "Flat fee (pin, promo, deal)", inputLabel: "Total amount paid ($)", icon: DollarSign },
+  { type: "CPC", title: "Cost Per Click", desc: "I pay per click on my ad", inputLabel: "Cost per click ($)", icon: MousePointerClick, warning: "Clicks may include bot traffic. Use CPL when possible." },
 ];
 
 function calcMetrics(costType: CostType, costValue: number, clicks: number, subscribers: number, revenue: number, createdAt: string) {
