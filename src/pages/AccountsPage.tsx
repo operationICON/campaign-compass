@@ -430,7 +430,7 @@ export default function AccountsPage() {
             return (
               <div key={acc.id} className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40">
                 <div className="flex items-start gap-4 mb-4">
-                  <AvatarCircle account={acc} size={72} showCamera />
+                  <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
                     <p className="text-[13px] text-muted-foreground">@{acc.username || "—"}</p>
