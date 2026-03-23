@@ -218,6 +218,13 @@ export default function ExpensesPage() {
             >
               <Upload className="h-3.5 w-3.5" /> Bulk CSV Upload
             </button>
+            <button
+              disabled
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border text-muted-foreground/50 rounded-[10px] cursor-not-allowed opacity-60"
+              title="Coming soon — configure in Settings"
+            >
+              <Lock className="h-3.5 w-3.5" /> Sync AirTable
+            </button>
           </div>
         </div>
 
