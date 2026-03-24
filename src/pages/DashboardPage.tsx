@@ -48,9 +48,34 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
-  // RPC: get_ltv_by_period
+  // Transaction-based Total LTV (true LTV from all revenue sources)
+  const txDateFrom = useMemo(() => {
+    if (timePeriod === "all") return undefined;
+    const now = new Date();
+    if (timePeriod === "day") return new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+    if (timePeriod === "week") return new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
+    if (timePeriod === "month") return new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0];
+    if (timePeriod === "prev_month") return new Date(now.getTime() - 60 * 86400000).toISOString().split("T")[0];
+    return undefined;
+  }, [timePeriod]);
+
+  const txDateTo = useMemo(() => {
+    if (timePeriod === "prev_month") {
+      return new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+    }
+    return undefined;
+  }, [timePeriod]);
+
+  const { data: txTotals, isLoading: isTxLoading } = useQuery({
+    queryKey: ["transaction_totals", modelParam, txDateFrom],
+    queryFn: () => fetchTransactionTotals({
+      account_id: modelParam || undefined,
+      date_from: txDateFrom,
+    }),
+  });
+
+  // RPC: get_ltv_by_period (still used for period subs data)
   const periodParam = PERIOD_MAP[timePeriod];
-  const modelParam = selectedModel !== "all" ? selectedModel : null;
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
     queryKey: ["ltv_by_period", periodParam, modelParam],
     queryFn: async () => {
