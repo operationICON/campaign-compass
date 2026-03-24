@@ -13,6 +13,7 @@ import {
   RefreshCw, DollarSign, TrendingUp, PiggyBank, Users, UserMinus,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, X
 } from "lucide-react";
+import { InsightsSection } from "@/components/dashboard/InsightsSection";
 
 
 type SortKey = "campaign_name" | "revenue" | "profit" | "roi" | "profit_per_sub" | "subscribers";
@@ -492,6 +493,16 @@ export default function DashboardPage() {
           </div>
         )}
 
+
+        {/* ═══ INSIGHTS SECTION ═══ */}
+        <InsightsSection
+          links={links}
+          accounts={accounts}
+          dailyMetrics={dailyMetrics}
+          groupFilter={groupFilter}
+          selectedModel={selectedModel}
+          getAccountCategory={getAccountCategory}
+        />
 
         {/* ═══ SECTION 2 — CAMPAIGN PROFITABILITY ═══ */}
         <div>
