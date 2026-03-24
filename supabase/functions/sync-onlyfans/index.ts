@@ -408,8 +408,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── STEP 3: Recalculate cost metrics for all tracking links ──
-    await recalcAllCostMetrics(db)
+    // ── STEP 3: Cost metrics now calculated inline with preservation ──
 
     // ── STEP 4: Zero-click alert check ──
     try {
