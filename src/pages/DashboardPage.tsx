@@ -180,51 +180,6 @@ export default function DashboardPage() {
     return Array.from(s).sort();
   }, [links]);
 
-  const sourcePerformance = useMemo(() => {
-    const map: Record<string, { source: string; campaigns: number; subs: number; ltv: number; spend: number; profit: number; profitPerSub: number | null }> = {};
-    enrichedLinks.forEach((l: any) => {
-      const src = l.source_tag || "Untagged";
-      if (!map[src]) map[src] = { source: src, campaigns: 0, subs: 0, ltv: 0, spend: 0, profit: 0, profitPerSub: null };
-      map[src].campaigns++;
-      map[src].subs += l.subscribers || 0;
-      map[src].ltv += Number(l.revenue || 0);
-      map[src].spend += l.spend;
-      if (l.profit !== null) map[src].profit += l.profit;
-    });
-    return Object.values(map).map(s => ({
-      ...s,
-      profitPerSub: s.subs > 0 && s.spend > 0 ? s.profit / s.subs : null,
-      roi: s.spend > 0 ? (s.profit / s.spend) * 100 : null,
-    })).sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-  }, [enrichedLinks]);
-
-  const modelPerformance = useMemo(() => {
-    const map: Record<string, { id: string; display_name: string; username: string | null; avatar: string | null; performer_top: number | null; ltv: number; spend: number; profit: number | null; subs: number; campaigns: number }> = {};
-    timeFilteredLinks.forEach((l: any) => {
-      const accId = l.account_id;
-      if (!map[accId]) {
-        const acc = accounts.find((a: any) => a.id === accId);
-        map[accId] = {
-          id: accId,
-          display_name: acc?.display_name || l.accounts?.display_name || "Unknown",
-          username: acc?.username || l.accounts?.username || null,
-          avatar: acc?.avatar_thumb_url || l.accounts?.avatar_thumb_url || null,
-          performer_top: acc?.performer_top ?? null,
-          ltv: 0, spend: 0, profit: null, subs: 0, campaigns: 0,
-        };
-      }
-      map[accId].ltv += Number(l.revenue || 0);
-      map[accId].spend += Number(l.cost_total || 0);
-      map[accId].subs += l.subscribers || 0;
-      map[accId].campaigns++;
-    });
-    return Object.values(map).map(m => ({
-      ...m,
-      profit: m.spend > 0 ? m.ltv - m.spend : null,
-      roi: m.spend > 0 ? ((m.ltv - m.spend) / m.spend) * 100 : null,
-      profitPerSub: m.spend > 0 && m.subs > 0 ? (m.ltv - m.spend) / m.subs : null,
-    })).sort((a, b) => b.ltv - a.ltv);
-  }, [timeFilteredLinks, accounts]);
 
   const getSubsPerDay = (link: any) => {
     if (!link.created_at) return null;
