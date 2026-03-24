@@ -319,3 +319,21 @@ export async function runAutoTag() {
   if (res.error) throw res.error;
   return res.data;
 }
+
+export async function fetchTransactionTotals(filters?: {
+  account_id?: string;
+  date_from?: string;
+}) {
+  let query = supabase
+    .from("transactions")
+    .select("revenue, account_id, date");
+
+  if (filters?.account_id) query = query.eq("account_id", filters.account_id);
+  if (filters?.date_from) query = query.gte("date", filters.date_from);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const totalRevenue = (data || []).reduce((sum, tx) => sum + Number(tx.revenue || 0), 0);
+  return { totalRevenue, count: (data || []).length };
+}
