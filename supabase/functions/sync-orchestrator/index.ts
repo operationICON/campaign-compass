@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     // Get all active accounts
     const { data: accounts, error: accErr } = await db.from('accounts')
-      .select('id, display_name, onlyfans_account_id')
+      .select('id, display_name, onlyfans_account_id, sync_enabled, username')
       .eq('is_active', true)
 
     if (accErr) throw accErr
