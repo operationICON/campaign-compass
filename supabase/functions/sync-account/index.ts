@@ -267,12 +267,42 @@ Deno.serve(async (req) => {
         if (l.external_tracking_link_id) idMap[l.external_tracking_link_id] = l.id
       }
 
-      // Insert daily_metrics with proper tracking_link_id
+      // Build daily_metrics with delta calculations
+      const linkIds = Object.values(idMap)
+      
+      // Fetch previous snapshots for delta calculation
+      const { data: prevSnapshots } = await db.from('daily_metrics')
+        .select('tracking_link_id, subscribers, revenue, clicks')
+        .in('tracking_link_id', linkIds)
+        .order('date', { ascending: false })
+
+      // Build map of latest snapshot per tracking_link_id
+      const prevMap: Record<string, { subscribers: number; revenue: number; clicks: number }> = {}
+      for (const snap of prevSnapshots ?? []) {
+        if (!prevMap[snap.tracking_link_id]) {
+          prevMap[snap.tracking_link_id] = {
+            subscribers: Number(snap.subscribers ?? 0),
+            revenue: Number(snap.revenue ?? 0),
+            clicks: Number(snap.clicks ?? 0),
+          }
+        }
+      }
+
+      // Insert daily_metrics with deltas
       const metricsToInsert = dailyMetricsPayloads
         .filter(m => idMap[m._ext_id])
         .map(m => {
           const { _ext_id, ...rest } = m
-          return { ...rest, tracking_link_id: idMap[_ext_id] }
+          const tlId = idMap[_ext_id]
+          const prev = prevMap[tlId]
+          const newSubs = prev ? Math.max(0, rest.subscribers - prev.subscribers) : rest.subscribers
+          const newRev = prev ? Math.max(0, rest.revenue - prev.revenue) : rest.revenue
+          return {
+            ...rest,
+            tracking_link_id: tlId,
+            new_subscribers: newSubs,
+            new_revenue: newRev,
+          }
         })
 
       if (metricsToInsert.length > 0) {
@@ -283,7 +313,7 @@ Deno.serve(async (req) => {
             ignoreDuplicates: false,
           })
         }
-        console.log(`Upserted ${metricsToInsert.length} daily_metrics rows`)
+        console.log(`Upserted ${metricsToInsert.length} daily_metrics with deltas`)
       }
 
     } catch (err: any) {
