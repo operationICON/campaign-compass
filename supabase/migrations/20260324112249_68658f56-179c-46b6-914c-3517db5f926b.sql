@@ -1,0 +1,1 @@
+ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS sync_enabled BOOLEAN DEFAULT true;

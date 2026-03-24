@@ -38,6 +38,7 @@ export type Database = {
           performer_top: number | null
           subscribe_price: number | null
           subscribers_count: number | null
+          sync_enabled: boolean | null
           updated_at: string
           username: string | null
         }
@@ -64,6 +65,7 @@ export type Database = {
           performer_top?: number | null
           subscribe_price?: number | null
           subscribers_count?: number | null
+          sync_enabled?: boolean | null
           updated_at?: string
           username?: string | null
         }
@@ -90,6 +92,7 @@ export type Database = {
           performer_top?: number | null
           subscribe_price?: number | null
           subscribers_count?: number | null
+          sync_enabled?: boolean | null
           updated_at?: string
           username?: string | null
         }
