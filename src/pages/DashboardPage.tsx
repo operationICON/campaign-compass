@@ -424,7 +424,7 @@ export default function DashboardPage() {
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
         {(isLoading || isPeriodLoading) ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-6 gap-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5">
                 <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
@@ -433,7 +433,29 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-6 gap-4">
+            {/* Profit/Sub — HERO CARD */}
+            <div className="rounded-2xl p-5 text-primary-foreground shadow-lg hero-glow gradient-bg relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 opacity-80" />
+                  <span className="text-xs opacity-80 font-medium uppercase tracking-wider">Profit/Sub</span>
+                </div>
+                {avgProfitPerSub !== null ? (
+                  <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgProfitPerSub)}</p>
+                ) : (
+                  <>
+                    <p className="text-[28px] font-bold font-mono leading-tight opacity-60">—</p>
+                    <p className="text-[10px] opacity-60 mt-1">Enter spend to calculate</p>
+                  </>
+                )}
+                <p className="text-[10px] opacity-60 mt-1">Campaigns with spend set</p>
+                {showFallback && avgProfitPerSub !== null && (
+                  <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
+                )}
+              </div>
+            </div>
             {/* Total LTV */}
             <div className="bg-card border border-border rounded-2xl p-5 group relative">
               <div className="flex items-center gap-2 mb-2">
@@ -499,40 +521,16 @@ export default function DashboardPage() {
               )}
               <p className="text-[10px] text-muted-foreground mt-1">All account subscribers</p>
             </div>
-            {/* Profit/Sub — spend campaigns only */}
-            <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 opacity-80" />
-                <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Profit/Sub</span>
-              </div>
-              {avgProfitPerSub !== null ? (
-                <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgProfitPerSub)}</p>
-              ) : (
-                <>
-                  <p className="text-[28px] font-bold font-mono leading-tight opacity-60">—</p>
-                  <p className="text-[10px] opacity-60 mt-1">Enter spend to calculate</p>
-                </>
-              )}
-              <p className="text-[10px] opacity-60 mt-1">Campaigns with spend set</p>
-              {showFallback && avgProfitPerSub !== null && (
-                <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Unattributed Subs — separate row */}
-        {!isLoading && !isPeriodLoading && (
-          <div className="grid grid-cols-5 gap-4">
-            <div className="col-span-1 col-start-5 bg-card border border-border rounded-2xl p-5 group relative">
+            {/* Unattributed Subs */}
+            <div className="bg-card border border-border rounded-2xl p-5 group relative">
               <div className="flex items-center gap-2 mb-2">
                 <UserMinus className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed Subs</span>
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed</span>
               </div>
               {unattributedStats.isOverflow ? (
                 <>
-                  <p className="text-xl font-bold font-mono text-[hsl(var(--warning,38_92%_50%))]">⚠</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Sync all accounts to calculate accurately</p>
+                  <p className="text-xl font-bold font-mono text-[hsl(38_92%_50%)]">⚠</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Sync all accounts</p>
                 </>
               ) : (
                 <p className={`text-xl font-bold font-mono ${
@@ -542,13 +540,12 @@ export default function DashboardPage() {
                   {unattributedStats.accountTotalSubs > 0 ? `${unattributedStats.pct.toFixed(1)}%` : "—"}
                 </p>
               )}
-              <p className="text-[10px] text-muted-foreground mt-1">Organic + untracked traffic</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Organic + untracked</p>
               {!unattributedStats.allSyncing && (
                 <p className="text-[10px] text-[hsl(38_92%_50%)] mt-1">
-                  Showing {unattributedStats.syncEnabledCount} of {unattributedStats.totalAccountCount} accounts — enable all in Settings
+                  {unattributedStats.syncEnabledCount}/{unattributedStats.totalAccountCount} accounts
                 </p>
               )}
-              {/* Tooltip */}
               <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
                 <div className="space-y-1 text-[11px]">
                   <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
