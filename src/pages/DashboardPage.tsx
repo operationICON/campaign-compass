@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   RefreshCw, DollarSign, TrendingUp, PiggyBank, Users, UserMinus,
-  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, X
 } from "lucide-react";
 
 
