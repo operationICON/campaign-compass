@@ -330,7 +330,7 @@ export default function DashboardPage() {
                 <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
               </div>
               <p className="text-xl font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">All earnings · all models</p>
+              <p className="text-[10px] text-muted-foreground mt-1">All account subscribers</p>
               {showFallback && (
                 <p className="text-[10px] text-muted-foreground">Showing all time — builds with each sync</p>
               )}
