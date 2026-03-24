@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchTrackingLinks, fetchAccounts } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronUp, ChevronDown, DollarSign, TrendingUp, BarChart3, Target, Tag } from "lucide-react";
+import { ChevronUp, ChevronDown, DollarSign, TrendingUp, BarChart3, Target, Tag, Info } from "lucide-react";
 
 type SortKey = "source" | "campaigns" | "totalSpend" | "totalLtv" | "totalProfit" | "roi" | "avgCvr";
 
