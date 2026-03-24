@@ -133,6 +133,7 @@ export default function DashboardPage() {
   const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
   const avgProfitPerSub = (totalProfit !== null && totalSubs > 0) ? totalProfit / totalSubs : null;
+  const avgLtvPerSub = totalSubs > 0 ? totalLtv / totalSubs : 0;
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
