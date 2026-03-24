@@ -108,6 +108,15 @@ export default function MediaBuyersPage() {
           </p>
         </div>
 
+        {/* Unattributed traffic note */}
+        <div className="flex items-start gap-2.5 bg-muted/50 border border-border rounded-xl px-4 py-3">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Approximately <span className="font-semibold text-foreground">{unattributedPct.toFixed(0)}%</span> of total subscribers arrive without tracking link attribution. Source performance below reflects attributed traffic only.
+          </p>
+        </div>
+        </div>
+
         {/* Hero Stats */}
         <div className="grid grid-cols-4 gap-3">
           {[
