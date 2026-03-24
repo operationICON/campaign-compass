@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
-  RefreshCw, DollarSign, TrendingUp, PiggyBank, Users,
+  RefreshCw, DollarSign, TrendingUp, PiggyBank, Users, UserMinus,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil
 } from "lucide-react";
 
