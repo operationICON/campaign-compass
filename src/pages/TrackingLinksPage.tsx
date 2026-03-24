@@ -5,13 +5,13 @@ import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlid
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import {
   fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync, clearTrackingLinkSpend,
-  fetchSourceTagRules, setTrackingLinkSourceTag, bulkSetSourceTag, runAutoTag
+  fetchSourceTagRules, setTrackingLinkSourceTag, bulkSetSourceTag, fetchAccounts
 } from "@/lib/supabase-helpers";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  RefreshCw, DollarSign, TrendingUp, BarChart3, Trash2, Download, Pencil, X, Target, Wand2, Tag
+  RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, Pencil, X, Tag
 } from "lucide-react";
 import {
   Tooltip,
@@ -19,21 +19,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "cpl_real" | "created_at" | "subs_day";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day";
 type ClickFilter = "all" | "active" | "zero";
 
-const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
-  "jessie_ca_xo": { bg: "bg-[hsl(24_95%_53%/0.15)]", text: "text-[hsl(24_95%_53%)]" },
-  "miakitty.ts": { bg: "bg-[hsl(0_72%_51%/0.15)]", text: "text-[hsl(0_72%_51%)]" },
-  "zoey.skyy": { bg: "bg-[hsl(40_96%_53%/0.15)]", text: "text-[hsl(40_96%_53%)]" },
-  "ella_cherryy": { bg: "bg-[hsl(15_80%_45%/0.15)]", text: "text-[hsl(15_80%_45%)]" },
-  "aylin_bigts": { bg: "bg-[hsl(30_75%_40%/0.15)]", text: "text-[hsl(30_75%_40%)]" },
+const MODEL_COLORS: Record<string, string> = {
+  "jessie_ca_xo": "#0891b2",
+  "zoey.skyy": "#7c3aed",
+  "miakitty.ts": "#ec4899",
+  "ella_cherryy": "#f59e0b",
+  "aylin_bigts": "#ef4444",
 };
 
-function getAccountColor(username: string | null) {
-  if (!username) return { bg: "bg-secondary", text: "text-muted-foreground" };
+function getModelColor(username: string | null): string {
+  if (!username) return "#94a3b8";
   const key = username.replace("@", "").toLowerCase();
-  return ACCOUNT_COLORS[key] || { bg: "bg-secondary", text: "text-muted-foreground" };
+  return MODEL_COLORS[key] || "#94a3b8";
 }
 
 function getCampaignInitials(name: string | null) {
@@ -42,32 +42,40 @@ function getCampaignInitials(name: string | null) {
   return cleaned.slice(0, 2).toUpperCase();
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  SCALE: "bg-[hsl(142_71%_45%/0.1)] text-[hsl(142_71%_45%)]",
-  WATCH: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
-  LOW: "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]",
-  KILL: "bg-[hsl(0_84%_60%/0.12)] text-[hsl(0_84%_60%)]",
-  DEAD: "bg-[hsl(0_72%_51%/0.1)] text-[hsl(0_72%_51%)]",
-  "No Spend": "bg-secondary text-muted-foreground",
-  NO_DATA: "bg-secondary text-muted-foreground",
+const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
+  SCALE: { bg: "#dcfce7", text: "#16a34a" },
+  WATCH: { bg: "#dbeafe", text: "#0891b2" },
+  LOW: { bg: "#fef9c3", text: "#854d0e" },
+  KILL: { bg: "#fee2e2", text: "#dc2626" },
+  DEAD: { bg: "#f3f4f6", text: "#6b7280" },
+  "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
+  NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
 };
 
-const STATUS_EMOJI: Record<string, string> = {
-  SCALE: "🟢", WATCH: "🟡", LOW: "🟠", KILL: "🔴", DEAD: "💀", "No Spend": "⚪", NO_DATA: "⚪",
+const STATUS_LABELS: Record<string, string> = {
+  SCALE: "SCALE", WATCH: "WATCH", LOW: "LOW", KILL: "KILL", DEAD: "DEAD",
+  "NO SPEND": "NO SPEND", NO_DATA: "NO SPEND",
 };
 
-function getAgePillStyle(days: number) {
-  if (days <= 30) return "bg-[hsl(142_71%_45%/0.15)] text-[hsl(142_71%_45%)]";
-  if (days <= 90) return "bg-[hsl(217_91%_60%/0.15)] text-[hsl(217_91%_60%)]";
-  if (days <= 180) return "bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)]";
-  return "bg-secondary text-muted-foreground";
+function getAgePill(days: number): { label: string; bg: string; text: string } {
+  if (days <= 30) return { label: "New", bg: "#dcfce7", text: "#16a34a" };
+  if (days <= 90) return { label: "Active", bg: "#dbeafe", text: "#2563eb" };
+  if (days <= 180) return { label: "Mature", bg: "#fef9c3", text: "#854d0e" };
+  return { label: "Old", bg: "#f3f4f6", text: "#6b7280" };
 }
+
+// Group definitions
+const GROUP_MAP: Record<string, string[]> = {
+  Female: ["jessie_ca_xo", "zoey.skyy", "ella_cherryy"],
+  Trans: ["miakitty.ts", "aylin_bigts"],
+};
 
 export default function TrackingLinksPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [clickFilter, setClickFilter] = useState<ClickFilter>("all");
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
@@ -95,21 +103,16 @@ export default function TrackingLinksPage() {
     queryKey: ["source_tag_rules"],
     queryFn: fetchSourceTagRules,
   });
-
-  const autoTagMutation = useMutation({
-    mutationFn: runAutoTag,
-    onSuccess: (data: any) => {
-      toast.success(`Auto-tagged ${data.tagged} campaigns. ${data.untagged} remain untagged.`);
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-    },
-    onError: (err: any) => toast.error(`Auto-tag failed: ${err.message}`),
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: fetchAccounts,
   });
 
   const handleSetSourceTag = async (linkId: string, tag: string) => {
     try {
       await setTrackingLinkSourceTag(linkId, tag);
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success(`Tagged as "${tag}"`);
+      toast.success(tag ? `Tagged as "${tag}"` : "Tag cleared");
       setSourceDropdownId(null);
     } catch (err: any) {
       toast.error(err.message);
@@ -137,21 +140,15 @@ export default function TrackingLinksPage() {
     });
   };
 
-  const toggleSelectAll = () => {
-    if (selectedRows.size === paginated.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(paginated.map((l: any) => l.id)));
-    }
-  };
-
-
   const exportCampaignsCsv = useCallback(() => {
-    const header = "campaign_name,account_username,clicks,subscribers,ltv,current_spend_type,current_spend_value";
+    const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status";
     const rows = links.map((l: any) => {
       const cn = (l.campaign_name || "").replace(/,/g, " ");
       const un = (l.accounts?.username || "").replace(/,/g, " ");
-      return `${cn},${un},${l.clicks || 0},${l.subscribers || 0},${Number(l.revenue || 0).toFixed(2)},${l.cost_type || ""},${l.cost_value ?? ""}`;
+      const subs = l.subscribers || 0;
+      const profit = Number(l.profit || 0);
+      const profitPerSub = subs > 0 && Number(l.cost_total || 0) > 0 ? (profit / subs).toFixed(2) : "";
+      return `${cn},${un},${l.clicks || 0},${subs},${Number(l.revenue || 0).toFixed(2)},${Number(l.cost_total || 0).toFixed(2)},${profit.toFixed(2)},${profitPerSub},${Number(l.roi || 0).toFixed(1)},${l.status || "NO_DATA"}`;
     });
     const csv = [header, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -186,28 +183,16 @@ export default function TrackingLinksPage() {
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
-  const totalSpent = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.cost_total || 0), 0), [links]);
-  const totalLtv = useMemo(() => links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0), [links]);
-  const blendedRoi = useMemo(() => {
-    if (totalSpent <= 0) return null;
-    return ((totalLtv - totalSpent) / totalSpent) * 100;
-  }, [totalSpent, totalLtv]);
-
-  // Agency benchmark CVR: avg CVR across links with clicks > 100
-  const agencyAvgCvr = useMemo(() => {
-    const qualified = links.filter((l: any) => l.clicks > 100);
-    if (qualified.length === 0) return null;
-    const totalSubs = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const totalClicks = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
-    return totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
+  // KPI calculations
+  const kpis = useMemo(() => {
+    const totalLtv = links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0);
+    const withSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const totalSpend = withSpend.reduce((sum: number, l: any) => sum + Number(l.cost_total || 0), 0);
+    const totalProfit = withSpend.reduce((sum: number, l: any) => sum + Number(l.profit || 0), 0);
+    const totalSubsWithSpend = withSpend.reduce((sum: number, l: any) => sum + (l.subscribers || 0), 0);
+    const avgProfitPerSub = totalSubsWithSpend > 0 ? totalProfit / totalSubsWithSpend : null;
+    return { totalLtv, totalSpend, totalProfit, avgProfitPerSub, hasSpend: totalSpend > 0 };
   }, [links]);
-
-  const getCvrColor = (cvr: number) => {
-    if (agencyAvgCvr === null) return "text-foreground";
-    if (cvr > agencyAvgCvr * 1.2) return "text-primary";
-    if (cvr < agencyAvgCvr * 0.8) return "text-destructive";
-    return "text-muted-foreground";
-  };
 
   const revenueMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -221,24 +206,34 @@ export default function TrackingLinksPage() {
     return links.map((l: any) => {
       const daysSinceCreated = differenceInDays(new Date(), new Date(l.created_at));
       const isZeroClicksStale = l.clicks === 0 && daysSinceCreated >= 3;
-      const isHighRevenue = Number(l.revenue) > 10000;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
       const daysSinceActivity = calcDate ? differenceInDays(new Date(), calcDate) : 999;
       const isNaturallyActive = (l.clicks > 0 || Number(l.revenue) > 0) && daysSinceActivity <= 30;
       const hasOverride = manualOverrides[l.id] !== undefined;
       const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
       const subsDay = daysSinceCreated >= 1 && l.subscribers > 0 ? l.subscribers / daysSinceCreated : null;
-      return { ...l, isZeroClicksStale, isHighRevenue, isActive, daysSinceActivity, subsDay, daysSinceCreated };
+      const subs = l.subscribers || 0;
+      const hasCost = Number(l.cost_total || 0) > 0;
+      const profitPerSub = subs > 0 && hasCost ? Number(l.profit || 0) / subs : null;
+      return { ...l, isZeroClicksStale, isActive, daysSinceActivity, subsDay, daysSinceCreated, profitPerSub };
     });
   }, [links, manualOverrides]);
 
+  // Account options from accounts table
   const accountOptions = useMemo(() => {
-    const map: Record<string, { id: string; username: string }> = {};
-    enrichedLinks.forEach((l: any) => {
-      if (!map[l.account_id]) map[l.account_id] = { id: l.account_id, username: l.accounts?.username || "unknown" };
-    });
-    return Object.values(map).sort((a, b) => a.username.localeCompare(b.username));
-  }, [enrichedLinks]);
+    return accounts.map((a: any) => ({
+      id: a.id,
+      username: a.username || "unknown",
+      display_name: a.display_name,
+    })).sort((a: any, b: any) => a.display_name.localeCompare(b.display_name));
+  }, [accounts]);
+
+  // Filter account options by group
+  const filteredAccountOptions = useMemo(() => {
+    if (groupFilter === "all") return accountOptions;
+    const groupUsernames = GROUP_MAP[groupFilter] || [];
+    return accountOptions.filter((a: any) => groupUsernames.includes(a.username));
+  }, [accountOptions, groupFilter]);
 
   const sourceOptions = useMemo(() => {
     const set = new Set<string>();
@@ -248,6 +243,16 @@ export default function TrackingLinksPage() {
 
   const filtered = useMemo(() => {
     let result = enrichedLinks;
+
+    // Group filter
+    if (groupFilter !== "all") {
+      const groupUsernames = GROUP_MAP[groupFilter] || [];
+      const groupAccountIds = accounts
+        .filter((a: any) => groupUsernames.includes(a.username))
+        .map((a: any) => a.id);
+      result = result.filter((l: any) => groupAccountIds.includes(l.account_id));
+    }
+
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
     if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
     else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
@@ -272,7 +277,7 @@ export default function TrackingLinksPage() {
       });
     }
     return result;
-  }, [enrichedLinks, searchQuery, clickFilter, ageFilter, accountFilter, sourceFilter]);
+  }, [enrichedLinks, searchQuery, clickFilter, ageFilter, groupFilter, accountFilter, sourceFilter, accounts]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a: any, b: any) => {
@@ -283,7 +288,7 @@ export default function TrackingLinksPage() {
         case "revenue": aVal = Number(a.revenue); bVal = Number(b.revenue); break;
         case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
         case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
-        case "cpl_real": aVal = Number(a.cpl_real || 0); bVal = Number(b.cpl_real || 0); break;
+        case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
         case "created_at": aVal = new Date(a.created_at).getTime(); bVal = new Date(b.created_at).getTime(); break;
         case "subs_day": aVal = a.subsDay ?? -Infinity; bVal = b.subsDay ?? -Infinity; break;
         default: aVal = 0; bVal = 0;
@@ -298,6 +303,14 @@ export default function TrackingLinksPage() {
   const showStart = sorted.length > 0 ? (safePage - 1) * perPage + 1 : 0;
   const showEnd = Math.min(safePage * perPage, sorted.length);
 
+  const toggleSelectAll = () => {
+    if (selectedRows.size === paginated.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(paginated.map((l: any) => l.id)));
+    }
+  };
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
@@ -309,57 +322,60 @@ export default function TrackingLinksPage() {
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const SortHeader = ({ label, sortKeyName, width }: { label: string; sortKeyName: SortKey; width?: string }) => (
+  const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
     <th
-      className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
+      className={`h-9 px-2 text-left text-[11px] font-medium uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap ${primary ? "text-foreground font-bold" : "text-muted-foreground"}`}
       style={width ? { width, minWidth: width, maxWidth: width } : undefined}
       onClick={() => handleSort(sortKeyName)}
     >
-      <span className="flex items-center gap-0.5">
-        {label}
-        {sortKey === sortKeyName ? (
-          sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
-        ) : (
-          <ChevronDown className="h-3 w-3 opacity-30" />
-        )}
+      <span className="flex flex-col">
+        <span className="flex items-center gap-0.5">
+          {primary && <Star className="h-2.5 w-2.5 text-primary mr-0.5" />}
+          {label}
+          {sortKey === sortKeyName ? (
+            sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
+          ) : (
+            <ChevronDown className="h-3 w-3 opacity-30" />
+          )}
+        </span>
+        {sub && <span className="text-[9px] font-normal text-muted-foreground normal-case tracking-normal">{sub}</span>}
       </span>
     </th>
   );
 
   const handleRowClick = (link: any) => {
-    if (expandedRow === link.id) {
-      setExpandedRow(null);
-    } else {
-      setExpandedRow(link.id);
-    }
+    setExpandedRow(expandedRow === link.id ? null : link.id);
+  };
+
+  // Active filter count
+  const activeFilterCount = [
+    groupFilter !== "all" ? 1 : 0,
+    accountFilter !== "all" ? 1 : 0,
+    sourceFilter !== "all" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const clearAllFilters = () => {
+    setGroupFilter("all");
+    setAccountFilter("all");
+    setSourceFilter("all");
+    setSearchQuery("");
+    setClickFilter("all");
+    setAgeFilter("all");
+    setPage(1);
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Header */}
-         <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Tracking Links</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Monitor your tracking links to track subscribers and LTV
-              {agencyAvgCvr !== null && (
-                <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
-                  <Target className="h-3 w-3" /> Agency avg CVR: {agencyAvgCvr.toFixed(1)}%
-                </span>
-              )}
+              Monitor tracking links · attributed subscribers and LTV
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => {
-              const untaggedCount = links.filter((l: any) => !l.source_tag || l.source_tag === "Untagged").length;
-              if (untaggedCount === 0) { toast.info("All campaigns are already tagged"); return; }
-              autoTagMutation.mutate(undefined);
-            }} disabled={autoTagMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/10 transition-colors disabled:opacity-50">
-              <Wand2 className={`h-3.5 w-3.5 ${autoTagMutation.isPending ? "animate-spin" : ""}`} />
-              {autoTagMutation.isPending ? "Scanning..." : "Auto-Tag"}
-            </button>
             <button onClick={exportCampaignsCsv} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-all">
               <Download className="h-4 w-4" /> Export
             </button>
@@ -373,29 +389,40 @@ export default function TrackingLinksPage() {
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+          {/* Total LTV — hero */}
+          <div className="bg-card border border-border rounded-2xl p-5 card-hover hero-glow" style={{ background: "linear-gradient(135deg, hsl(var(--card)), hsl(var(--primary) / 0.06))" }}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><DollarSign className="h-4 w-4 text-primary" /></div>
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total LTV</span>
             </div>
-            <p className="text-[28px] font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
+            <p className="text-[28px] font-bold font-mono text-primary">{fmtC(kpis.totalLtv)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">All attributed revenue</p>
           </div>
-          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+          {/* Total Spend */}
+          <div className="bg-card border border-border rounded-2xl p-5 card-hover">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center"><DollarSign className="h-4 w-4 text-destructive" /></div>
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Spend</span>
             </div>
-            <p className={`text-[28px] font-bold font-mono ${totalSpent > 0 ? "text-foreground" : "text-muted-foreground"}`}>{fmtC(totalSpent)}</p>
+            {kpis.hasSpend ? (
+              <p className="text-[28px] font-bold font-mono text-foreground">{fmtC(kpis.totalSpend)}</p>
+            ) : (
+              <div>
+                <p className="text-[28px] font-bold font-mono text-muted-foreground">$0.00</p>
+                <p className="text-[11px] text-muted-foreground mt-1">No spend entered</p>
+              </div>
+            )}
           </div>
-          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+          {/* Total Profit */}
+          <div className="bg-card border border-border rounded-2xl p-5 card-hover">
             <div className="flex items-center gap-2 mb-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${totalSpent > 0 ? (totalLtv - totalSpent >= 0 ? "bg-primary/10" : "bg-destructive/10") : "bg-secondary"}`}>
-                <TrendingUp className={`h-4 w-4 ${totalSpent > 0 ? (totalLtv - totalSpent >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${kpis.hasSpend ? (kpis.totalProfit >= 0 ? "bg-primary/10" : "bg-destructive/10") : "bg-secondary"}`}>
+                <TrendingUp className={`h-4 w-4 ${kpis.hasSpend ? (kpis.totalProfit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`} />
               </div>
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Profit</span>
             </div>
-            {totalSpent > 0 ? (
-              <p className={`text-[28px] font-bold font-mono ${totalLtv - totalSpent >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(totalLtv - totalSpent)}</p>
+            {kpis.hasSpend ? (
+              <p className={`text-[28px] font-bold font-mono ${kpis.totalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(kpis.totalProfit)}</p>
             ) : (
               <div>
                 <p className="text-[28px] font-bold font-mono text-muted-foreground">—</p>
@@ -403,40 +430,55 @@ export default function TrackingLinksPage() {
               </div>
             )}
           </div>
-          <div className="bg-card border border-border rounded-lg p-5 card-hover">
+          {/* Avg Profit/Sub — PRIMARY */}
+          <div className="bg-card border border-border rounded-2xl p-5 card-hover border-primary/20">
             <div className="flex items-center gap-2 mb-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${blendedRoi === null ? "bg-secondary" : blendedRoi >= 0 ? "bg-primary/10" : "bg-destructive/10"}`}>
-                <BarChart3 className={`h-4 w-4 ${blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"}`} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${kpis.avgProfitPerSub !== null ? (kpis.avgProfitPerSub >= 0 ? "bg-primary/10" : "bg-destructive/10") : "bg-secondary"}`}>
+                <Star className={`h-4 w-4 ${kpis.avgProfitPerSub !== null ? (kpis.avgProfitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`} />
               </div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Blended ROI</span>
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">Avg Profit/Sub</span>
             </div>
-            <p className={`text-[28px] font-bold font-mono ${blendedRoi === null ? "text-muted-foreground" : blendedRoi >= 0 ? "text-primary" : "text-destructive"}`}>
-              {blendedRoi !== null ? `${blendedRoi.toFixed(1)}%` : "—"}
-            </p>
+            {kpis.avgProfitPerSub !== null ? (
+              <p className={`text-[28px] font-bold font-mono ${kpis.avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(kpis.avgProfitPerSub)}</p>
+            ) : (
+              <div>
+                <p className="text-[28px] font-bold font-mono text-muted-foreground">—</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Enter spend to calculate</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Filter bar — Row 1 */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors" />
-          </div>
+          {/* Group dropdown */}
+          <select
+            value={groupFilter}
+            onChange={(e) => {
+              setGroupFilter(e.target.value);
+              setAccountFilter("all");
+              setPage(1);
+            }}
+            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            <option value="all">All Groups</option>
+            <option value="Female">Female</option>
+            <option value="Trans">Trans</option>
+          </select>
 
-          {/* Account dropdown — native select */}
+          {/* Account dropdown */}
           <select
             value={accountFilter}
             onChange={(e) => { setAccountFilter(e.target.value); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
           >
             <option value="all">All Accounts</option>
-            {accountOptions.map((acc) => (
-              <option key={acc.id} value={acc.id}>@{acc.username}</option>
+            {filteredAccountOptions.map((acc: any) => (
+              <option key={acc.id} value={acc.id}>{acc.display_name} (@{acc.username})</option>
             ))}
           </select>
 
-          {/* Source dropdown — native select */}
+          {/* Source dropdown */}
           <select
             value={sourceFilter}
             onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
@@ -449,6 +491,14 @@ export default function TrackingLinksPage() {
             ))}
           </select>
 
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors" />
+          </div>
+
+          {/* Click filter */}
           <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
             {(["all", "active", "zero"] as ClickFilter[]).map((f) => (
               <button key={f} onClick={() => { setClickFilter(f); setPage(1); }}
@@ -457,6 +507,13 @@ export default function TrackingLinksPage() {
               </button>
             ))}
           </div>
+
+          {activeFilterCount > 0 && (
+            <button onClick={clearAllFilters} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
+              <span className="px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-bold">{activeFilterCount}</span>
+              filters · <X className="h-3 w-3" /> clear
+            </button>
+          )}
         </div>
 
         {/* Filter bar — Row 2: Age pills */}
@@ -482,19 +539,19 @@ export default function TrackingLinksPage() {
 
         {/* Table */}
         {isLoading ? (
-          <div className="bg-card border border-border rounded-lg p-8">
+          <div className="bg-card border border-border rounded-2xl p-8">
             <div className="space-y-3">{[...Array(8)].map((_, i) => (<div key={i} className="skeleton-shimmer h-10 rounded" />))}</div>
           </div>
         ) : sorted.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-16 text-center">
+          <div className="bg-card border border-border rounded-2xl p-16 text-center">
             <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-foreground font-medium mb-1">No tracking links found</p>
-            <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}
+            <p className="text-sm text-muted-foreground">
+              {searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter !== "all" || groupFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}
             </p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             {/* Bulk tag bar */}
             {selectedRows.size > 0 && (
               <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-border">
@@ -520,70 +577,88 @@ export default function TrackingLinksPage() {
               </div>
             )}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-              <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} campaigns</span>
+              <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
-                <thead className="sticky top-0 z-10 bg-card">
-                  <tr className="border-b border-border bg-secondary/30">
+                <thead className="sticky top-0 z-10" style={{ background: "#f8fafc" }}>
+                  <tr className="border-b border-border">
                     <th className="h-9 px-2 w-8">
                       <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll}
                         className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                     </th>
-                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
-                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Account</th>
+                    <SortHeader label="Campaign" sortKeyName="campaign_name" width="220px" />
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "110px" }}>Model</th>
                     <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Source</th>
-                     <SortHeader label="Subs/Day" sortKeyName="subs_day" width="70px" />
-                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
-                    <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
-                    <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
+                    <th className="h-9 px-2 text-right text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "70px" }}>Subs</th>
+                    <SortHeader label="Subs/Day" sortKeyName="subs_day" width="85px" />
+                    <SortHeader label="LTV" sortKeyName="revenue" width="90px" sub="Attributed" />
+                    <SortHeader label="Spend" sortKeyName="cost_total" width="90px" />
                     <SortHeader label="Profit" sortKeyName="profit" width="85px" />
-                    <SortHeader label="ROI" sortKeyName="roi" width="65px" />
-                    <SortHeader label="Cost/Sub" sortKeyName="cpl_real" width="70px" />
-                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "70px" }}>LTV Ratio</th>
-                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px", minWidth: "80px" }}>Status</th>
-                    <SortHeader label="Created" sortKeyName="created_at" width="105px" />
-                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "65px" }}>Active</th>
+                    <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="90px" sub="LTV - CPL" primary />
+                    <SortHeader label="ROI" sortKeyName="roi" width="75px" />
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "75px" }}>LTV Ratio</th>
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px", minWidth: "90px" }}>Status</th>
+                    <SortHeader label="Created" sortKeyName="created_at" width="95px" />
+                    <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px" }}>Active</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginated.map((link: any) => {
-                    const acctColor = getAccountColor(link.accounts?.username);
-                    const initials = getCampaignInitials(link.campaign_name);
                     const username = link.accounts?.username || link.accounts?.display_name || "—";
-                    const borderClass = link.isZeroClicksStale ? "border-l-2 border-l-destructive" : link.isHighRevenue ? "border-l-2 border-l-primary" : "border-l-2 border-l-transparent";
-                    const rowOpacity = link.isActive ? "" : "opacity-50";
+                    const modelColor = getModelColor(link.accounts?.username);
+                    const initials = (username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?");
                     const costTotal = Number(link.cost_total || 0);
                     const hasCost = link.cost_type && costTotal > 0;
                     const profit = Number(link.profit || 0);
                     const roi = Number(link.roi || 0);
                     const cplReal = Number(link.cpl_real || 0);
                     const status = link.status || "NO_DATA";
-                    const displayStatus = status === "NO_DATA" ? "No Spend" : status;
+                    const displayStatus = STATUS_LABELS[status] || "NO SPEND";
+                    const statusStyle = STATUS_STYLES[displayStatus] || STATUS_STYLES["NO SPEND"];
                     const sourceTag = link.source_tag || null;
                     const sourceRule = tagRules.find((r: any) => r.tag_name === sourceTag);
                     const daysOld = link.daysSinceCreated ?? null;
+                    const agePill = daysOld !== null ? getAgePill(daysOld) : null;
                     const isExpanded = expandedRow === link.id;
+                    const noSpendOpacity = !hasCost ? "opacity-[0.85]" : "";
+
+                    // Border highlight
+                    let borderStyle = "border-l-2 border-l-transparent";
+                    if (status === "SCALE") borderStyle = "border-l-2" ;
+                    else if (status === "KILL" || status === "DEAD") borderStyle = "border-l-2";
+
+                    const borderColor = status === "SCALE" ? "#16a34a" : (status === "KILL" || status === "DEAD") ? "#dc2626" : "transparent";
 
                     return (
                       <React.Fragment key={link.id}>
-                        <tr className={`border-b border-border hover:bg-secondary/20 transition-colors cursor-pointer ${borderClass} ${rowOpacity}`} onClick={() => handleRowClick(link)}>
+                        <tr
+                          className={`border-b transition-colors cursor-pointer hover:border-l-primary ${noSpendOpacity}`}
+                          style={{ borderBottomColor: "#f1f5f9", borderLeftWidth: "3px", borderLeftColor: borderColor }}
+                          onClick={() => handleRowClick(link)}
+                        >
                           {/* Checkbox */}
                           <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
                             <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)}
                               className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                           </td>
                           {/* Campaign */}
-                          <td className="px-2 py-2" style={{ maxWidth: "200px" }}>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${acctColor.bg} ${acctColor.text}`}>{initials}</div>
-                              <div className="min-w-0 overflow-hidden">
-                                <p className="font-semibold text-foreground text-[13px] truncate leading-tight">{link.campaign_name || "Unnamed"}</p>
-                              </div>
+                          <td className="px-2 py-2" style={{ maxWidth: "220px", minWidth: "220px" }}>
+                            <div className="min-w-0 overflow-hidden">
+                              <p className="font-semibold text-foreground text-[13px] truncate leading-tight">{link.campaign_name || "Unnamed"}</p>
+                              <a href={link.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                                className="text-[10px] text-muted-foreground hover:text-primary truncate block">{link.url}</a>
                             </div>
                           </td>
-                          {/* Account */}
-                          <td className="px-2 py-2"><span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span></td>
+                          {/* Model */}
+                          <td className="px-2 py-2">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white" style={{ backgroundColor: modelColor }}>
+                                {initials}
+                              </div>
+                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
+                            </div>
+                          </td>
                           {/* Source Tag */}
                           <td className="px-2 py-2 relative" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => setSourceDropdownId(sourceDropdownId === link.id ? null : link.id)}
@@ -607,81 +682,79 @@ export default function TrackingLinksPage() {
                                   </button>
                                 ))}
                                 <div className="border-t border-border mt-1 pt-1">
-                                  <button onClick={() => { handleSetSourceTag(link.id, ""); setSourceDropdownId(null); }}
+                                  <button onClick={() => handleSetSourceTag(link.id, "")}
                                     className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary/50">
-                                    Clear tag
+                                    Untagged
                                   </button>
                                 </div>
                               </div>
                             )}
                           </td>
+                          {/* Subs */}
+                          <td className="px-2 py-2 text-right font-mono text-[12px] text-foreground">{(link.subscribers || 0).toLocaleString()}</td>
                           {/* Subs/Day */}
-                          <td className="px-2 py-2 font-mono text-[12px] text-foreground">
-                            {link.subsDay !== null ? `${Math.round(link.subsDay)}/day` : "—"}
-                          </td>
-                          {/* CVR */}
                           <td className="px-2 py-2 font-mono text-[12px]">
-                            {link.clicks > 0 ? (() => {
-                              const cvr = (link.subscribers / link.clicks) * 100;
-                              const color = getCvrColor(cvr);
-                              const diff = agencyAvgCvr !== null ? cvr - agencyAvgCvr : null;
-                              return (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className={`font-semibold cursor-default ${color}`}>{cvr.toFixed(1)}%</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs">
-                                      {agencyAvgCvr !== null
-                                        ? `Agency avg: ${agencyAvgCvr.toFixed(1)}% — this campaign is ${diff !== null && diff >= 0 ? "+" : ""}${diff?.toFixed(1)}% ${diff !== null && diff >= 0 ? "above" : "below"} average`
-                                        : "Not enough data for agency benchmark"}
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            })() : <span className="text-muted-foreground">—</span>}
+                            {link.subsDay !== null && link.subsDay > 0 ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-primary font-bold cursor-default">{Math.round(link.subsDay)}/day</span>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="text-xs">{link.subscribers} subs over {link.daysSinceCreated}d = {link.subsDay?.toFixed(1)}/day</p></TooltipContent>
+                              </Tooltip>
+                            ) : link.subsDay === 0 || (link.subsDay !== null && link.subsDay === 0) ? (
+                              <span className="text-muted-foreground">0/day</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </td>
                           {/* LTV */}
-                          <td className="px-2 py-2"><span className="font-mono text-[12px] gradient-text font-semibold">{fmtC(Number(link.revenue))}</span></td>
+                          <td className="px-2 py-2 text-right">
+                            <span className="font-mono text-[12px] text-primary font-semibold">{fmtC(Number(link.revenue))}</span>
+                            <span className="block text-[10px] text-muted-foreground">Attributed</span>
+                          </td>
                           {/* Spend */}
-                          <td className="px-2 py-2">
+                          <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                             {hasCost ? (
                               clearConfirmId === link.id ? (
                                 <span className="inline-flex items-center gap-1 text-[11px]">
                                   <span className="text-muted-foreground">Clear?</span>
-                                  <button onClick={async (e) => { e.stopPropagation(); try { await clearTrackingLinkSpend(link.id, link.campaign_id); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); queryClient.invalidateQueries({ queryKey: ["ad_spend"] }); toast.success("Spend cleared"); } catch {} setClearConfirmId(null); }} className="text-destructive font-semibold hover:underline">Yes</button>
-                                  <button onClick={(e) => { e.stopPropagation(); setClearConfirmId(null); }} className="text-muted-foreground hover:text-foreground">Cancel</button>
+                                  <button onClick={async () => { try { await clearTrackingLinkSpend(link.id, link.campaign_id); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); queryClient.invalidateQueries({ queryKey: ["ad_spend"] }); toast.success("Spend cleared"); } catch {} setClearConfirmId(null); }} className="text-destructive font-semibold hover:underline">Yes</button>
+                                  <button onClick={() => setClearConfirmId(null)} className="text-muted-foreground hover:text-foreground">Cancel</button>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 font-mono text-[12px] text-foreground">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                                   {fmtC(costTotal)}
-                                  <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }} className="hover:text-primary transition-colors"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
-                                  <button onClick={(e) => { e.stopPropagation(); setClearConfirmId(link.id); }} className="hover:text-destructive transition-colors"><X className="h-3 w-3 text-muted-foreground" /></button>
+                                  <span className="px-1 py-0 rounded text-[9px] font-semibold bg-muted text-muted-foreground">{link.cost_type}</span>
+                                  <button onClick={() => setCostSlideIn(link)} className="hover:text-primary transition-colors"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                  <button onClick={() => setClearConfirmId(link.id)} className="hover:text-destructive transition-colors"><X className="h-3 w-3 text-muted-foreground" /></button>
                                 </span>
                               )
                             ) : (
-                              <button onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
+                              <button onClick={() => setCostSlideIn(link)}
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-primary/30 text-primary text-[11px] font-medium hover:bg-primary/10 transition-colors h-7">
                                 <Pencil className="h-3 w-3" /> Set
                               </button>
                             )}
                           </td>
                           {/* Profit */}
-                          <td className="px-2 py-2 font-mono text-[12px]">
+                          <td className="px-2 py-2 text-right font-mono text-[12px]">
                             {hasCost ? (
                               <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </td>
+                          {/* Profit/Sub — PRIMARY */}
+                          <td className="px-2 py-2 text-right">
+                            {link.profitPerSub !== null ? (
+                              <span className={`font-mono text-[14px] font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
+                                {link.profitPerSub >= 0 ? "" : "-"}${Math.abs(link.profitPerSub).toFixed(2)}
+                              </span>
+                            ) : <span className="text-muted-foreground text-[14px] font-bold">—</span>}
+                          </td>
                           {/* ROI */}
-                          <td className="px-2 py-2 font-mono text-[12px]">
+                          <td className="px-2 py-2 text-right font-mono text-[12px]">
                             {hasCost ? (
                               <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span>
                             ) : <span className="text-muted-foreground">—</span>}
-                          </td>
-                          {/* Cost/Sub */}
-                          <td className="px-2 py-2 font-mono text-[12px]">
-                            {cplReal > 0 ? <span className="font-semibold text-primary">${cplReal.toFixed(2)}</span> : <span className="text-muted-foreground">—</span>}
                           </td>
                           {/* LTV Ratio */}
                           <td className="px-2 py-2 font-mono text-[12px]">
@@ -695,8 +768,11 @@ export default function TrackingLinksPage() {
                           </td>
                           {/* Status */}
                           <td className="px-2 py-2">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[80px] text-center ${STATUS_STYLES[displayStatus] || STATUS_STYLES.NO_DATA}`}>
-                              {STATUS_EMOJI[displayStatus] || "⚪"} {displayStatus}
+                            <span
+                              className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[80px] text-center"
+                              style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}
+                            >
+                              {displayStatus}
                             </span>
                           </td>
                           {/* Created */}
@@ -705,18 +781,21 @@ export default function TrackingLinksPage() {
                               <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                                 {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
                               </span>
-                              {daysOld !== null && (
-                                <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold w-fit ${getAgePillStyle(daysOld)}`}>
-                                  {daysOld}d
+                              {agePill && (
+                                <span
+                                  className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold w-fit"
+                                  style={{ backgroundColor: agePill.bg, color: agePill.text }}
+                                >
+                                  {agePill.label}
                                 </span>
                               )}
                             </div>
                           </td>
                           {/* Active */}
-                          <td className="px-2 py-2">
+                          <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <button onClick={(e) => { e.stopPropagation(); toggleActiveOverride(link.id, link.isActive); }}
+                                <button onClick={() => toggleActiveOverride(link.id, link.isActive)}
                                   className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${link.isActive ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}>
                                   {link.isActive ? "Active" : "Inactive"}
                                 </button>
@@ -727,8 +806,8 @@ export default function TrackingLinksPage() {
                         </tr>
                         {/* Expanded row */}
                         {isExpanded && (
-                          <tr className="bg-secondary/30 border-b border-border">
-                            <td colSpan={15} className="px-4 py-3">
+                          <tr style={{ borderBottomColor: "#f1f5f9" }}>
+                            <td colSpan={16} className="px-4 py-3 bg-secondary/30">
                               <div className="flex flex-wrap items-center gap-6 text-[12px]">
                                 <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[300px]">{link.url}</a>
                                 <span className="text-muted-foreground">Clicks: <span className="text-foreground font-medium">{link.clicks?.toLocaleString()}</span></span>
@@ -781,7 +860,7 @@ export default function TrackingLinksPage() {
         )}
 
         {/* Spend History */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="text-base font-semibold text-foreground">Spend History</h2>
             <p className="text-xs text-muted-foreground mt-0.5">All recorded spend entries</p>
@@ -795,30 +874,41 @@ export default function TrackingLinksPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-secondary/30">
+                  <tr className="border-b border-border" style={{ background: "#f8fafc" }}>
                     <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Date</th>
                     <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Campaign</th>
-                    <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Media Buyer</th>
-                    <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Platform</th>
+                    <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Spend Type</th>
                     <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
                     <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">LTV</th>
+                    <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Profit</th>
                     <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">ROI</th>
-                    <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider w-10"></th>
+                    <th className="h-9 px-4 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider w-10">Clear</th>
                   </tr>
                 </thead>
                 <tbody>
                   {adSpendData.map((entry: any) => {
                     const rev = revenueMap[entry.campaign_id] || 0;
                     const amt = Number(entry.amount || 0);
+                    const entryProfit = rev - amt;
                     const entryRoi = amt > 0 ? ((rev - amt) / amt) * 100 : null;
+                    // Extract spend type from notes field e.g. "CPL @ $3.50"
+                    const spendType = entry.notes?.match(/^(CPL|CPC|FIXED)/)?.[1] || entry.spend_type || "—";
+                    const spendTypeBg = spendType === "CPL" ? "#dbeafe" : spendType === "CPC" ? "#fef9c3" : spendType === "FIXED" ? "#f3e8ff" : "#f3f4f6";
+                    const spendTypeColor = spendType === "CPL" ? "#2563eb" : spendType === "CPC" ? "#854d0e" : spendType === "FIXED" ? "#7c3aed" : "#6b7280";
                     return (
-                      <tr key={entry.id} className="border-b border-border hover:bg-secondary/20 transition-colors">
+                      <tr key={entry.id} className="border-b hover:bg-secondary/20 transition-colors" style={{ borderBottomColor: "#f1f5f9" }}>
                         <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{entry.date ? format(new Date(entry.date), "MMM d, yyyy") : "—"}</td>
                         <td className="px-4 py-2.5 text-[13px] text-foreground font-medium">{entry.campaigns?.name || "—"}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{entry.media_buyer || "—"}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground capitalize">{entry.traffic_source || "—"}</td>
+                        <td className="px-4 py-2.5">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: spendTypeBg, color: spendTypeColor }}>
+                            {spendType}
+                          </span>
+                        </td>
                         <td className="px-4 py-2.5 font-mono text-[13px] text-foreground">{fmtC(amt)}</td>
                         <td className="px-4 py-2.5 font-mono text-[13px] text-primary">{fmtC(rev)}</td>
+                        <td className="px-4 py-2.5 font-mono text-[13px]">
+                          {amt > 0 ? (<span className={entryProfit >= 0 ? "text-primary" : "text-destructive"}>{entryProfit >= 0 ? "+" : ""}{fmtC(entryProfit)}</span>) : <span className="text-muted-foreground">—</span>}
+                        </td>
                         <td className="px-4 py-2.5 font-mono text-[13px]">
                           {entryRoi !== null ? (<span className={entryRoi >= 0 ? "text-primary" : "text-destructive"}>{entryRoi.toFixed(1)}%</span>) : <span className="text-muted-foreground">—</span>}
                         </td>
