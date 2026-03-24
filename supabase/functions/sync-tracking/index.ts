@@ -149,7 +149,21 @@ Deno.serve(async (req) => {
         for (const c of newC ?? []) campaignMap[c.name] = c.id
       }
 
-      // Build upsert payloads
+      // Fetch existing tracking links to preserve manually-set fields
+      const extIds = allLinks.map((l: any) => String(l.id ?? ''))
+      const existingMap: Record<string, any> = {}
+      for (let i = 0; i < extIds.length; i += 200) {
+        const batch = extIds.slice(i, i + 200)
+        const { data: existing } = await db.from('tracking_links')
+          .select('external_tracking_link_id, cost_type, cost_value, cost_total, profit, roi, cpl_real, cpc_real, cvr, arpu, source_tag, manually_tagged, status')
+          .in('external_tracking_link_id', batch)
+        for (const row of existing ?? []) {
+          existingMap[row.external_tracking_link_id] = row
+        }
+      }
+      console.log(`[${displayName}] Found ${Object.keys(existingMap).length} existing links to preserve`)
+
+      // Build upsert payloads — preserve manually-set fields
       const payloads: Record<string, any>[] = []
       for (const link of allLinks) {
         const campaignName = link.campaignName ?? 'Unknown'
@@ -157,9 +171,12 @@ Deno.serve(async (req) => {
         const clicks = Number(link.clicksCount ?? 0)
         const subs = Number(link.subscribersCount ?? 0)
         const rev = Number(link.revenue?.total ?? 0)
+        const extId = String(link.id ?? '')
+        const existing = existingMap[extId]
 
+        // These fields ALWAYS update from API
         const p: Record<string, any> = {
-          external_tracking_link_id: String(link.id ?? ''),
+          external_tracking_link_id: extId,
           url: link.campaignUrl ?? `https://onlyfans.com/${acctId}`,
           campaign_id: campaignId,
           campaign_name: campaignName,
@@ -176,55 +193,97 @@ Deno.serve(async (req) => {
         }
         if (link.createdAt) p.created_at = link.createdAt
 
-        // Extract cost from API if available
-        const costPerSub = link.revenue?.costPerSubscriber || link.costPerSubscriber || null
-        const costPerClick = link.revenue?.costPerClick || link.costPerClick || null
-        const fixedCost = link.revenue?.cost || link.fixedCost || null
+        // Check if this link has manually-set cost data we must preserve
+        const hasManualCost = existing && existing.cost_type && Number(existing.cost_value || 0) > 0
+        const hasManualTag = existing && existing.source_tag && existing.source_tag !== 'Untagged'
 
-        if (costPerSub && Number(costPerSub) > 0) {
-          p.cost_type = 'CPL'; p.cost_value = Number(costPerSub)
-        } else if (costPerClick && Number(costPerClick) > 0) {
-          p.cost_type = 'CPC'; p.cost_value = Number(costPerClick)
-        } else if (fixedCost && Number(fixedCost) > 0) {
-          p.cost_type = 'FIXED'; p.cost_value = Number(fixedCost)
-        }
+        if (hasManualCost) {
+          // PRESERVE existing cost data — recalculate metrics with updated clicks/subs/revenue
+          const costType = existing.cost_type
+          const costValue = Number(existing.cost_value)
+          let cost_total = 0, cpc_real = 0, cpl_real = 0
+          const cvr = clicks > 0 ? subs / clicks : 0
+          const arpu = subs > 0 ? rev / subs : 0
 
-        // Calculate cost metrics inline — no separate recalc pass needed
-        const createdAt = link.createdAt ? new Date(link.createdAt) : new Date()
-        const daysSinceCreated = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
-        const cvr = clicks > 0 ? subs / clicks : 0
-        const arpu = subs > 0 ? rev / subs : 0
-        let cost_total = 0, cpc_real = 0, cpl_real = 0
+          if (costType === 'CPC') {
+            cost_total = clicks * costValue; cpc_real = costValue
+            cpl_real = cvr > 0 ? costValue / cvr : 0
+          } else if (costType === 'CPL') {
+            cost_total = subs * costValue; cpl_real = costValue
+            cpc_real = cvr > 0 ? costValue * cvr : 0
+          } else if (costType === 'FIXED') {
+            cost_total = costValue
+            cpc_real = clicks > 0 ? cost_total / clicks : 0
+            cpl_real = subs > 0 ? cost_total / subs : 0
+          }
 
-        if (p.cost_type === 'CPC') {
-          cost_total = clicks * (p.cost_value || 0)
-          cpc_real = p.cost_value || 0
-          cpl_real = cvr > 0 ? (p.cost_value || 0) / cvr : 0
-        } else if (p.cost_type === 'CPL') {
-          cost_total = subs * (p.cost_value || 0)
-          cpc_real = cvr > 0 ? (p.cost_value || 0) * cvr : 0
-          cpl_real = p.cost_value || 0
-        } else if (p.cost_type === 'FIXED') {
-          cost_total = p.cost_value || 0
-          cpc_real = clicks > 0 ? cost_total / clicks : 0
-          cpl_real = subs > 0 ? cost_total / subs : 0
-        }
+          const profit = rev - cost_total
+          const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
+          const createdAt = link.createdAt ? new Date(link.createdAt) : new Date()
+          const daysSinceCreated = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
 
-        const profit = rev - cost_total
-        const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
-
-        let status = 'NO_DATA'
-        if (!p.cost_type) {
-          if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
-        } else {
+          let status = 'NO_DATA'
           if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
           else if (roi > 150) status = 'SCALE'
           else if (roi >= 50) status = 'WATCH'
           else if (roi >= 0) status = 'LOW'
           else status = 'KILL'
+
+          Object.assign(p, { cost_type: costType, cost_value: costValue, cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
+        } else {
+          // No manual cost — use API cost if available, otherwise leave defaults
+          const costPerSub = link.revenue?.costPerSubscriber || link.costPerSubscriber || null
+          const costPerClick = link.revenue?.costPerClick || link.costPerClick || null
+          const fixedCost = link.revenue?.cost || link.fixedCost || null
+
+          if (costPerSub && Number(costPerSub) > 0) {
+            p.cost_type = 'CPL'; p.cost_value = Number(costPerSub)
+          } else if (costPerClick && Number(costPerClick) > 0) {
+            p.cost_type = 'CPC'; p.cost_value = Number(costPerClick)
+          } else if (fixedCost && Number(fixedCost) > 0) {
+            p.cost_type = 'FIXED'; p.cost_value = Number(fixedCost)
+          }
+
+          const createdAt = link.createdAt ? new Date(link.createdAt) : new Date()
+          const daysSinceCreated = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+          const cvr = clicks > 0 ? subs / clicks : 0
+          const arpu = subs > 0 ? rev / subs : 0
+          let cost_total = 0, cpc_real = 0, cpl_real = 0
+
+          if (p.cost_type === 'CPC') {
+            cost_total = clicks * (p.cost_value || 0); cpc_real = p.cost_value || 0
+            cpl_real = cvr > 0 ? (p.cost_value || 0) / cvr : 0
+          } else if (p.cost_type === 'CPL') {
+            cost_total = subs * (p.cost_value || 0); cpl_real = p.cost_value || 0
+            cpc_real = cvr > 0 ? (p.cost_value || 0) * cvr : 0
+          } else if (p.cost_type === 'FIXED') {
+            cost_total = p.cost_value || 0
+            cpc_real = clicks > 0 ? cost_total / clicks : 0
+            cpl_real = subs > 0 ? cost_total / subs : 0
+          }
+
+          const profit = rev - cost_total
+          const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
+
+          let status = 'NO_DATA'
+          if (!p.cost_type) {
+            if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+          } else {
+            if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
+            else if (roi > 150) status = 'SCALE'
+            else if (roi >= 50) status = 'WATCH'
+            else if (roi >= 0) status = 'LOW'
+            else status = 'KILL'
+          }
+
+          Object.assign(p, { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
         }
 
-        Object.assign(p, { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
+        // Preserve manually-set source_tag
+        if (hasManualTag) {
+          p.source_tag = existing.source_tag
+          p.manually_tagged = existing.manually_tagged ?? false
+        }
 
         payloads.push(p)
       }
@@ -237,7 +296,7 @@ Deno.serve(async (req) => {
         })
       }
       linkCount = payloads.length
-      console.log(`[${displayName}] Upserted ${linkCount} links with inline metrics`)
+      console.log(`[${displayName}] Upserted ${linkCount} links — preserved ${Object.keys(existingMap).length} existing manual entries`)
     }
 
     // Update account
