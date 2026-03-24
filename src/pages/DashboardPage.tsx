@@ -211,14 +211,18 @@ export default function DashboardPage() {
 
   // Unattributed subs calculation
   const unattributedStats = useMemo(() => {
-    const filteredAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
-    const accountTotalSubs = filteredAccounts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    const filteredLinks = modelParam ? links.filter((l: any) => l.account_id === modelParam) : links;
-    const attributedSubs = filteredLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    let accts = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    if (!modelParam && groupFilter !== "all") {
+      accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
+    }
+    const acctIds = new Set(accts.map((a: any) => a.id));
+    const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+    const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
+    const attributedSubs = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
     const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
     return { accountTotalSubs, attributedSubs, unattributed, pct };
-  }, [accounts, links, modelParam]);
+  }, [accounts, links, modelParam, groupFilter]);
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
