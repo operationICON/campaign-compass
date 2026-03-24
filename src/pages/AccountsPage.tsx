@@ -261,10 +261,14 @@ export default function AccountsPage() {
                     { label: "Blended ROI", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
                     { label: "Unattributed", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
                       colored: true, pctVal: stats.unattributedPct },
-                  ].map((s) => (
+                  ].map((s: any) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
-                      <p className="text-lg font-bold font-mono text-foreground">{s.value}</p>
+                      <p className={`text-lg font-bold font-mono ${
+                        s.colored
+                          ? ((s.pctVal ?? 0) <= 30 ? "text-primary" : (s.pctVal ?? 0) <= 40 ? "text-[hsl(38_92%_50%)]" : "text-destructive")
+                          : "text-foreground"
+                      }`}>{s.value}</p>
                     </div>
                   ))}
                 </div>
