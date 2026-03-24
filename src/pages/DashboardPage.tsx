@@ -373,45 +373,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ═══ MODEL SELECTOR ROW — text only, no avatars ═══ */}
-        <div className="flex gap-3 overflow-x-auto pb-1">
-          <button
-            onClick={() => { setSelectedModel("all"); setPage(1); }}
-            className={`flex-shrink-0 rounded-2xl border p-4 min-w-[150px] transition-all text-left ${
-              selectedModel === "all" ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-card hover:border-primary/40"
-            }`}
-          >
-            <p className="text-sm font-bold text-foreground">All Models</p>
-            <p className="text-[11px] text-muted-foreground">{links.length} campaigns</p>
-            <p className="text-lg font-bold font-mono text-primary mt-2">{fmtC(totalLtv)}</p>
-            <p className="text-[10px] text-muted-foreground">{totalSubs.toLocaleString()} subs</p>
-          </button>
-          {modelPerformance.map((m) => {
-            const cat = getCategory(m.display_name);
-            return (
-              <button
-                key={m.id}
-                onClick={() => { setSelectedModel(selectedModel === m.id ? "all" : m.id); setPage(1); }}
-                className={`flex-shrink-0 rounded-2xl border p-4 min-w-[160px] transition-all text-left ${
-                  selectedModel === m.id ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-card hover:border-primary/40"
-                }`}
-              >
-                <p className="text-sm font-bold text-foreground">{m.display_name}</p>
-                {m.username && <p className="text-[10px] text-muted-foreground">@{m.username}</p>}
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${cat.color}`}>{cat.label}</span>
-                  {m.performer_top !== null && m.performer_top > 0 && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-                      Top {m.performer_top}%
-                    </span>
-                  )}
-                </div>
-                <p className="text-lg font-bold font-mono text-primary mt-2">{fmtC(m.ltv)}</p>
-                <p className="text-[10px] text-muted-foreground">{m.subs.toLocaleString()} subs</p>
-              </button>
-            );
-          })}
-        </div>
 
         {/* ═══ SECTION 2 — CAMPAIGN PROFITABILITY ═══ */}
         <div>
