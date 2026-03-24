@@ -233,6 +233,7 @@ export default function DashboardPage() {
   }, 0), [filteredLinksForKpi]);
   const totalSubs = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + (l.subscribers || 0), 0), [filteredLinksForKpi]);
   const avgProfitPerSub = (totalProfit !== null && paidSubscribers > 0) ? totalProfit / paidSubscribers : null;
+  const ltvPerSub = totalSubs > 0 ? totalLtv / totalSubs : null;
 
   // Period data for fallback display
   const periodSubs = periodData?.total_new_subs ?? 0;
@@ -241,17 +242,23 @@ export default function DashboardPage() {
 
   // Unattributed subs calculation
   const unattributedStats = useMemo(() => {
-    let accts = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
-    if (!modelParam && groupFilter !== "all") {
-      accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
-    }
+    // Filter to sync_enabled accounts only for accurate calculation
+    let accts = accounts.filter((a: any) => a.sync_enabled !== false);
+    if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
+    else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
     const acctIds = new Set(accts.map((a: any) => a.id));
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+    // Only count attributed subs from the same sync_enabled accounts
     const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
     const attributedSubs = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const syncEnabledCount = accounts.filter((a: any) => a.sync_enabled !== false).length;
+    const totalAccountCount = accounts.length;
+    const allSyncing = syncEnabledCount >= totalAccountCount;
+    // If attributed > total, show warning
+    const isOverflow = attributedSubs > accountTotalSubs;
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
     const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
-    return { accountTotalSubs, attributedSubs, unattributed, pct };
+    return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow, allSyncing, syncEnabledCount, totalAccountCount };
   }, [accounts, links, modelParam, groupFilter]);
 
   const trafficSources = useMemo(() => {
