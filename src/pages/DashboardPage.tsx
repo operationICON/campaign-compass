@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   RefreshCw, DollarSign, TrendingUp, PiggyBank, Users, UserMinus,
-  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, X
 } from "lucide-react";
 
 
@@ -31,7 +31,7 @@ const PERIOD_MAP: Record<TimePeriod, string> = {
 export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
-  
+  const [groupFilter, setGroupFilter] = useState<string>("all");
   const [selectedModel, setSelectedModel] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,12 +48,35 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
+  // Category mapping for group filter
+  const CATEGORY_MAP: Record<string, string> = {
+    "jessie_ca_xo": "Female", "zoey.skyy": "Female", "ella_cherryy": "Female",
+    "miakitty.ts": "Trans", "aylin_bigts": "Trans",
+  };
+
+  const getAccountCategory = (account: any) => {
+    const username = (account.username || "").replace("@", "");
+    return CATEGORY_MAP[username] || "Female";
+  };
+
+  // Accounts filtered by group
+  const groupFilteredAccounts = useMemo(() => {
+    if (groupFilter === "all") return accounts;
+    return accounts.filter((a: any) => getAccountCategory(a) === groupFilter);
+  }, [accounts, groupFilter]);
+
+  // Active filter count (excluding time period)
+  const activeFilterCount = (groupFilter !== "all" ? 1 : 0) + (selectedModel !== "all" ? 1 : 0);
+
   const periodParam = PERIOD_MAP[timePeriod];
   const modelParam = selectedModel !== "all" ? selectedModel : null;
 
   // True LTV from accounts table (earnings stats from OF API)
   const accountLtv = useMemo(() => {
-    const filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    let filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    if (!modelParam && groupFilter !== "all") {
+      filtered = filtered.filter((a: any) => getAccountCategory(a) === groupFilter);
+    }
     const getLtvField = () => {
       if (timePeriod === "day") return "ltv_last_day";
       if (timePeriod === "week") return "ltv_last_7d";
@@ -69,7 +92,7 @@ export default function DashboardPage() {
       posts: filtered.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0),
     };
     return { total, breakdown };
-  }, [accounts, modelParam, timePeriod]);
+  }, [accounts, modelParam, groupFilter, timePeriod]);
 
   // RPC: get_ltv_by_period (still used for period subs data)
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
@@ -124,7 +147,11 @@ export default function DashboardPage() {
   const timeFilteredLinks = useMemo(() => links, [links, timePeriod]);
 
   const filteredLinks = useMemo(() => {
+    const groupAccountIds = groupFilter !== "all"
+      ? new Set(groupFilteredAccounts.map((a: any) => a.id))
+      : null;
     return timeFilteredLinks.filter((link: any) => {
+      if (groupAccountIds && !groupAccountIds.has(link.account_id)) return false;
       if (selectedModel !== "all" && link.account_id !== selectedModel) return false;
       if (sourceFilter !== "all" && (link.source_tag || "Untagged") !== sourceFilter) return false;
       if (searchQuery) {
@@ -135,7 +162,7 @@ export default function DashboardPage() {
       }
       return true;
     });
-  }, [timeFilteredLinks, selectedModel, sourceFilter, searchQuery]);
+  }, [timeFilteredLinks, selectedModel, groupFilter, groupFilteredAccounts, sourceFilter, searchQuery]);
 
   const enrichedLinks = useMemo(() => {
     return filteredLinks.map((link: any) => {
@@ -184,14 +211,18 @@ export default function DashboardPage() {
 
   // Unattributed subs calculation
   const unattributedStats = useMemo(() => {
-    const filteredAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
-    const accountTotalSubs = filteredAccounts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    const filteredLinks = modelParam ? links.filter((l: any) => l.account_id === modelParam) : links;
-    const attributedSubs = filteredLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    let accts = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    if (!modelParam && groupFilter !== "all") {
+      accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
+    }
+    const acctIds = new Set(accts.map((a: any) => a.id));
+    const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+    const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
+    const attributedSubs = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
     const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
     return { accountTotalSubs, attributedSubs, unattributed, pct };
-  }, [accounts, links, modelParam]);
+  }, [accounts, links, modelParam, groupFilter]);
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
@@ -296,19 +327,62 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ═══ TIME PERIOD SELECTOR ═══ */}
-        <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden w-fit">
-          {TIME_PERIODS.map((tp) => (
+        {/* ═══ FILTER BAR: Group + Account + Time Period ═══ */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Group dropdown */}
+          <select
+            value={groupFilter}
+            onChange={(e) => {
+              setGroupFilter(e.target.value);
+              setSelectedModel("all");
+              setPage(1);
+            }}
+            className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All Groups</option>
+            <option value="Female">Female</option>
+            <option value="Trans">Trans</option>
+          </select>
+
+          {/* Account dropdown */}
+          <select
+            value={selectedModel}
+            onChange={(e) => { setSelectedModel(e.target.value); setPage(1); }}
+            className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All Accounts</option>
+            {groupFilteredAccounts.map((a: any) => (
+              <option key={a.id} value={a.id}>
+                {a.display_name} {a.username ? `(@${a.username.replace("@","")})` : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Time period pills */}
+          <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+            {TIME_PERIODS.map((tp) => (
+              <button
+                key={tp.key}
+                onClick={() => setTimePeriod(tp.key)}
+                className={`px-4 py-2 text-xs font-medium transition-colors ${
+                  timePeriod === tp.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tp.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Active filter count */}
+          {activeFilterCount > 0 && (
             <button
-              key={tp.key}
-              onClick={() => setTimePeriod(tp.key)}
-              className={`px-4 py-2 text-xs font-medium transition-colors ${
-                timePeriod === tp.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
+              onClick={() => { setGroupFilter("all"); setSelectedModel("all"); }}
+              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-secondary border border-border px-2.5 py-1 rounded-full hover:text-foreground transition-colors"
             >
-              {tp.label}
+              {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} active
+              <X className="h-3 w-3" />
             </button>
-          ))}
+          )}
         </div>
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
@@ -424,16 +498,8 @@ export default function DashboardPage() {
           <h2 className="text-[16px] font-bold text-foreground mb-1">Campaign Profitability</h2>
           <p className="text-xs text-muted-foreground mb-4">Profit per subscriber per campaign and source</p>
 
-          {/* Filter bar */}
+          {/* Filter bar — model dropdown moved to top bar */}
           <div className="flex items-center gap-3 flex-wrap mb-4">
-            <select
-              value={selectedModel}
-              onChange={(e) => { setSelectedModel(e.target.value); setPage(1); }}
-              className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="all">All Models</option>
-              {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
-            </select>
             <select
               value={sourceFilter}
               onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
