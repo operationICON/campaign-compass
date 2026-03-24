@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
+import { useNavigate } from "react-router-dom";
+import { X } from "lucide-react";
 
 interface InsightsSectionProps {
   links: any[];
@@ -11,17 +13,25 @@ interface InsightsSectionProps {
   getAccountCategory: (account: any) => string;
 }
 
+type DecisionStatus = "scale" | "watch" | "kill" | "dead";
+
+const STATUS_CONFIG: Record<DecisionStatus, {
+  title: string; rule: string; description: string;
+  bg: string; border: string; color: string;
+}> = {
+  scale: { title: "Scale Now", rule: "ROI > 150%", description: "ROI above 150% — increase budget", bg: "#f0fdf4", border: "#bbf7d0", color: "#16a34a" },
+  watch: { title: "Watch", rule: "ROI 50–150%", description: "ROI 50–150% — monitor closely", bg: "#eff6ff", border: "#bfdbfe", color: "#0891b2" },
+  kill: { title: "Kill", rule: "Negative ROI", description: "Negative ROI — stop spending", bg: "#fef2f2", border: "#fecaca", color: "#dc2626" },
+  dead: { title: "Dead", rule: "0 clicks 3d+", description: "No clicks for 3+ days — review or remove", bg: "#f9fafb", border: "#e5e7eb", color: "#6b7280" },
+};
+
 export function InsightsSection({
-  links,
-  accounts,
-  dailyMetrics,
-  groupFilter,
-  selectedModel,
-  getAccountCategory,
+  links, accounts, dailyMetrics, groupFilter, selectedModel, getAccountCategory,
 }: InsightsSectionProps) {
   const colorMap = useTagColors();
+  const navigate = useNavigate();
+  const [activePanel, setActivePanel] = useState<DecisionStatus | null>(null);
 
-  // Filter accounts by group/model
   const filteredAccountIds = useMemo(() => {
     let accts = accounts;
     if (selectedModel !== "all") accts = accts.filter((a: any) => a.id === selectedModel);
@@ -42,12 +52,9 @@ export function InsightsSection({
 
   // ── CARD 1: Top 5 by Profit/Sub ──
   const top5ProfitSub = useMemo(() =>
-    enriched
-      .filter((l) => l.profitPerSub !== null && l.spend > 0)
-      .sort((a, b) => (b.profitPerSub ?? 0) - (a.profitPerSub ?? 0))
-      .slice(0, 5),
-    [enriched]
-  );
+    enriched.filter((l) => l.profitPerSub !== null && l.spend > 0)
+      .sort((a, b) => (b.profitPerSub ?? 0) - (a.profitPerSub ?? 0)).slice(0, 5),
+    [enriched]);
 
   // ── CARD 2: By Source · Profit/Sub ──
   const sourcePerf = useMemo(() => {
@@ -61,8 +68,7 @@ export function InsightsSection({
     });
     return Object.values(map)
       .map((s) => ({ ...s, profitPerSub: s.totalSubs > 0 ? s.totalProfit / s.totalSubs : null }))
-      .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity))
-      .slice(0, 5);
+      .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity)).slice(0, 5);
   }, [enriched]);
 
   // ── CARD 3: Unattributed Subs ──
@@ -92,9 +98,7 @@ export function InsightsSection({
       const accMetrics = dailyMetrics
         .filter((m: any) => m.account_id === acc.id)
         .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
       if (accMetrics.length < 2) return { name: acc.display_name, username: acc.username, value: null };
-
       const latest = accMetrics[0];
       const prev = accMetrics[1];
       const days = Math.max(1, differenceInDays(new Date(latest.date), new Date(prev.date)));
@@ -105,41 +109,29 @@ export function InsightsSection({
 
   const maxSubsDay = Math.max(1, ...subsPerDay.map((s) => Math.abs(s.value ?? 0)));
 
-  // ── CARD 5: Campaign Decisions ──
-  const scaleNow = useMemo(() => enriched.filter((l) => l.roi !== null && l.roi > 150 && (l.profit ?? 0) > 0 && l.spend > 0).sort((a, b) => (b.roi ?? 0) - (a.roi ?? 0)).slice(0, 4), [enriched]);
-  const watch = useMemo(() => enriched.filter((l) => l.roi !== null && l.roi >= 50 && l.roi <= 150 && (l.profit ?? 0) > 0 && l.spend > 0).sort((a, b) => (b.profit ?? 0) - (a.profit ?? 0)).slice(0, 4), [enriched]);
-  const kill = useMemo(() => enriched.filter((l) => l.roi !== null && l.roi < 0 && l.spend > 0).sort((a, b) => (a.roi ?? 0) - (b.roi ?? 0)).slice(0, 4), [enriched]);
-  const dead = useMemo(() => enriched.filter((l) => l.status === "DEAD" || l.status === "Dead").sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 4), [enriched]);
+  // ── Campaign Decision counts ──
+  const decisionCounts = useMemo(() => ({
+    scale: enriched.filter((l) => l.roi !== null && l.roi > 150 && (l.profit ?? 0) > 0 && l.spend > 0),
+    watch: enriched.filter((l) => l.roi !== null && l.roi >= 50 && l.roi <= 150 && (l.profit ?? 0) > 0 && l.spend > 0),
+    kill: enriched.filter((l) => l.roi !== null && l.roi < 0 && l.spend > 0),
+    dead: enriched.filter((l) => l.status === "DEAD" || l.status === "Dead"),
+  }), [enriched]);
+
+  // Full sorted lists for panel (no limit)
+  const panelData = useMemo(() => {
+    if (!activePanel) return [];
+    const lists: Record<DecisionStatus, any[]> = {
+      scale: enriched.filter((l) => l.roi !== null && l.roi > 150 && (l.profit ?? 0) > 0 && l.spend > 0).sort((a, b) => (b.roi ?? 0) - (a.roi ?? 0)),
+      watch: enriched.filter((l) => l.roi !== null && l.roi >= 50 && l.roi <= 150 && (l.profit ?? 0) > 0 && l.spend > 0).sort((a, b) => (b.profit ?? 0) - (a.profit ?? 0)),
+      kill: enriched.filter((l) => l.roi !== null && l.roi < 0 && l.spend > 0).sort((a, b) => (a.roi ?? 0) - (b.roi ?? 0)),
+      dead: enriched.filter((l) => l.status === "DEAD" || l.status === "Dead").sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+    };
+    return lists[activePanel];
+  }, [activePanel, enriched]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const DecisionItem = ({ link, borderColor, bgColor }: { link: any; borderColor: string; bgColor: string }) => (
-    <div className="rounded-lg px-2 py-1.5 mb-1.5" style={{ borderLeft: `3px solid ${borderColor}`, backgroundColor: bgColor }}>
-      <p className="text-[11px] font-bold text-foreground truncate">{link.campaign_name || "—"}</p>
-      <div className="flex items-center gap-2 mt-0.5">
-        {link.profitPerSub !== null && (
-          <span className={`text-[10px] font-mono font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
-            P/S {fmtC(link.profitPerSub)}
-          </span>
-        )}
-        {link.profit !== null && (
-          <span className={`text-[10px] font-mono ${link.profit >= 0 ? "text-[hsl(160_84%_39%)]" : "text-destructive"}`}>
-            P {fmtC(link.profit)}
-          </span>
-        )}
-        {link.roi !== null && (
-          <span className={`text-[10px] font-mono ${link.roi >= 0 ? "text-primary" : "text-destructive"}`}>
-            {link.roi.toFixed(0)}%
-          </span>
-        )}
-      </div>
-      <p className="text-[10px] text-muted-foreground mt-0.5">@{link.accounts?.username || "—"}</p>
-    </div>
-  );
-
-  const CountPill = ({ count, color }: { count: number; color: string }) => (
-    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${color}20`, color }}>{count}</span>
-  );
+  const activeCfg = activePanel ? STATUS_CONFIG[activePanel] : null;
 
   return (
     <div>
@@ -147,7 +139,6 @@ export function InsightsSection({
 
       {/* ── ROW 1: 4 equal cards ── */}
       <div className="grid grid-cols-4 gap-2.5">
-
         {/* CARD 1 — Top 5 by Profit/Sub */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
@@ -262,64 +253,138 @@ export function InsightsSection({
         </div>
       </div>
 
-      {/* ── ROW 2: Campaign Decisions ── */}
+      {/* ── ROW 2: Campaign Decisions — Count Pills ── */}
       <div className="bg-card border border-border rounded-2xl p-4 mt-2.5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium">Campaign Decisions</p>
-          <p className="text-[10px] text-muted-foreground">Based on ROI and Profit/Sub</p>
         </div>
-        <div className="grid grid-cols-4 gap-3 divide-x divide-border">
-          {/* Scale Now */}
-          <div className="pr-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-[10px] font-bold uppercase text-[hsl(160_84%_39%)]">Scale Now</span>
-              <CountPill count={scaleNow.length} color="#16a34a" />
-            </div>
-            {scaleNow.length === 0 ? (
-              <p className="text-[10px] text-muted-foreground">No campaigns at scale yet. Enter spend to unlock.</p>
-            ) : scaleNow.map((l) => <DecisionItem key={l.id} link={l} borderColor="#16a34a" bgColor="#f0fdf4" />)}
-          </div>
-          {/* Watch */}
-          <div className="pl-3 pr-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-[10px] font-bold uppercase text-primary">Watch</span>
-              <CountPill count={watch.length} color="#0891b2" />
-            </div>
-            {watch.length === 0 ? (
-              <p className="text-[10px] text-muted-foreground">No campaigns in watch range</p>
-            ) : watch.map((l) => <DecisionItem key={l.id} link={l} borderColor="#0891b2" bgColor="#f0f9ff" />)}
-          </div>
-          {/* Kill */}
-          <div className="pl-3 pr-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-[10px] font-bold uppercase text-destructive">Kill</span>
-              <CountPill count={kill.length} color="#dc2626" />
-            </div>
-            {kill.length === 0 ? (
-              <p className="text-[10px] text-muted-foreground">No negative ROI campaigns</p>
-            ) : kill.map((l) => <DecisionItem key={l.id} link={l} borderColor="#dc2626" bgColor="#fef2f2" />)}
-          </div>
-          {/* Dead */}
-          <div className="pl-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-[10px] font-bold uppercase text-muted-foreground">Dead</span>
-              <CountPill count={dead.length} color="#6b7280" />
-            </div>
-            {dead.length === 0 ? (
-              <p className="text-[10px] text-muted-foreground">No dead campaigns</p>
-            ) : dead.map((l) => {
-              const daysAgo = l.updated_at ? differenceInDays(new Date(), new Date(l.updated_at)) : null;
-              return (
-                <div key={l.id} className="rounded-lg px-2 py-1.5 mb-1.5" style={{ borderLeft: "3px solid #6b7280", backgroundColor: "#f9fafb" }}>
-                  <p className="text-[11px] font-bold text-foreground truncate">{l.campaign_name || "—"}</p>
-                  <p className="text-[10px] text-muted-foreground">0 clicks · {daysAgo !== null ? `${daysAgo}d ago` : "—"}</p>
-                  <p className="text-[10px] text-muted-foreground">@{l.accounts?.username || "—"}</p>
-                </div>
-              );
-            })}
-          </div>
+        <div className="grid grid-cols-4 gap-2">
+          {(["scale", "watch", "kill", "dead"] as DecisionStatus[]).map((status) => {
+            const cfg = STATUS_CONFIG[status];
+            const count = decisionCounts[status].length;
+            return (
+              <button
+                key={status}
+                onClick={() => setActivePanel(status)}
+                className="rounded-2xl p-3.5 text-left cursor-pointer transition-transform duration-150 ease-out hover:scale-[1.02]"
+                style={{ backgroundColor: cfg.bg, border: `0.5px solid ${cfg.border}` }}
+              >
+                <p className="text-[24px] font-bold font-mono" style={{ color: cfg.color }}>{count}</p>
+                <p className="text-[11px] font-bold mt-0.5" style={{ color: cfg.color }}>{cfg.title}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{cfg.rule}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {/* ── Slide-in Panel ── */}
+      {activePanel && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setActivePanel(null)} />
+
+          {/* Panel */}
+          <div
+            className="fixed top-0 right-0 h-full z-50 bg-card flex flex-col animate-slide-in-right"
+            style={{
+              width: 480,
+              borderLeft: "0.5px solid hsl(var(--border))",
+              boxShadow: "-4px 0 12px rgba(0,0,0,0.06)",
+            }}
+          >
+            {/* Panel header */}
+            <div className="p-5 pb-3 border-b border-border shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[16px] font-bold" style={{ color: activeCfg!.color }}>{activeCfg!.title}</span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${activeCfg!.color}15`, color: activeCfg!.color }}>
+                    {panelData.length} campaign{panelData.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <button onClick={() => setActivePanel(null)} className="p-1 rounded-lg hover:bg-secondary transition-colors">
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">{activeCfg!.description}</p>
+            </div>
+
+            {/* Panel table */}
+            <div className="flex-1 overflow-y-auto p-5">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pb-2">Campaign</th>
+                    <th className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pb-2">Model</th>
+                    <th className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pb-2 text-right">Profit/Sub</th>
+                    <th className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pb-2 text-right">ROI</th>
+                    <th className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pb-2 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {panelData.map((l) => {
+                    const statusBadge = activePanel === "dead"
+                      ? { label: "Dead", color: "#6b7280", bg: "#f9fafb" }
+                      : activePanel === "scale"
+                      ? { label: "Scale", color: "#16a34a", bg: "#f0fdf4" }
+                      : activePanel === "watch"
+                      ? { label: "Watch", color: "#0891b2", bg: "#eff6ff" }
+                      : { label: "Kill", color: "#dc2626", bg: "#fef2f2" };
+                    return (
+                      <tr key={l.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
+                        <td className="py-2.5 pr-3">
+                          <p className="text-[12px] font-bold text-foreground truncate max-w-[160px]">{l.campaign_name || "—"}</p>
+                          <p className="text-[10px] text-muted-foreground truncate max-w-[160px]">{l.url}</p>
+                        </td>
+                        <td className="py-2.5 pr-3">
+                          <div className="flex items-center gap-1.5">
+                            {l.accounts?.avatar_thumb_url && (
+                              <img src={l.accounts.avatar_thumb_url} className="w-5 h-5 rounded-full object-cover" alt="" />
+                            )}
+                            <span className="text-[11px] text-muted-foreground">@{l.accounts?.username || "—"}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <span className={`text-[12px] font-bold font-mono ${
+                            l.profitPerSub === null ? "text-muted-foreground" : l.profitPerSub >= 0 ? "text-[hsl(160_84%_39%)]" : "text-destructive"
+                          }`}>
+                            {l.profitPerSub !== null ? fmtC(l.profitPerSub) : "—"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <span className={`text-[12px] font-mono ${
+                            l.roi === null ? "text-muted-foreground" : l.roi >= 0 ? "text-[hsl(160_84%_39%)]" : "text-destructive"
+                          }`}>
+                            {l.roi !== null ? `${l.roi.toFixed(1)}%` : "—"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: statusBadge.bg, color: statusBadge.color }}>
+                            {statusBadge.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {panelData.length === 0 && (
+                <p className="text-[12px] text-muted-foreground text-center py-8">No campaigns in this category</p>
+              )}
+            </div>
+
+            {/* Panel footer */}
+            <div className="p-5 pt-3 border-t border-border shrink-0">
+              <button
+                onClick={() => { setActivePanel(null); navigate("/tracking-links"); }}
+                className="text-[12px] font-medium text-primary hover:underline transition-colors"
+              >
+                View all in Tracking Links →
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
