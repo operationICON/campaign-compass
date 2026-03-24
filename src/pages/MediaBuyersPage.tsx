@@ -115,7 +115,6 @@ export default function MediaBuyersPage() {
             Approximately <span className="font-semibold text-foreground">{unattributedPct.toFixed(0)}%</span> of total subscribers arrive without tracking link attribution. Source performance below reflects attributed traffic only.
           </p>
         </div>
-        </div>
 
         {/* Hero Stats */}
         <div className="grid grid-cols-4 gap-3">
