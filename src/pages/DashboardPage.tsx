@@ -14,13 +14,6 @@ import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil
 } from "lucide-react";
 
-const MODEL_CATEGORIES: Record<string, { label: string; color: string }> = {
-  Jess: { label: "Female", color: "bg-blue-100 text-blue-700" },
-  Zoey: { label: "Female", color: "bg-blue-100 text-blue-700" },
-  Mia: { label: "Trans", color: "bg-purple-100 text-purple-700" },
-  Flor: { label: "Female", color: "bg-blue-100 text-blue-700" },
-  Aylin: { label: "Trans", color: "bg-purple-100 text-purple-700" },
-};
 
 type SortKey = "campaign_name" | "revenue" | "profit" | "roi" | "profit_per_sub" | "subscribers";
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
