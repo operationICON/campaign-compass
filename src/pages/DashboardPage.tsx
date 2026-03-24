@@ -345,7 +345,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
-        {isLoading ? (
+        {(isLoading || isPeriodLoading) ? (
           <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5">
