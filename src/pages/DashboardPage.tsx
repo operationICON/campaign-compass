@@ -290,15 +290,33 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-4">
-            {/* Avg LTV/Sub — hero */}
+            {/* Avg Profit/Sub — HERO PRIMARY */}
             <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
               <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 opacity-80" />
-                <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Avg LTV/Sub</span>
+                <Users className="h-4 w-4 opacity-80" />
+                <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Avg Profit/Sub</span>
               </div>
-              <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgLtvPerSub)}</p>
-              {showFallback && (
+              {avgProfitPerSub !== null ? (
+                <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgProfitPerSub)}</p>
+              ) : (
+                <>
+                  <p className="text-[28px] font-bold font-mono leading-tight opacity-60">—</p>
+                  <p className="text-[10px] opacity-60 mt-1">Enter spend to calculate</p>
+                </>
+              )}
+              {showFallback && avgProfitPerSub !== null && (
                 <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
+              )}
+            </div>
+            {/* Total LTV */}
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
+              </div>
+              <p className="text-xl font-bold font-mono text-primary">{fmtC(effectiveLtv)}</p>
+              {showFallback && (
+                <p className="text-[10px] text-muted-foreground mt-1">Showing all time — builds with each sync</p>
               )}
             </div>
             {/* Total Spend */}
@@ -324,21 +342,6 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <p className="text-xl font-bold font-mono text-muted-foreground">—</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
-                </>
-              )}
-            </div>
-            {/* Avg Profit/Sub — PRIMARY */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg Profit/Sub</span>
-              </div>
-              {avgProfitPerSub !== null ? (
-                <p className={`text-[22px] font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
-              ) : (
-                <>
-                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
                   <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
                 </>
               )}
@@ -421,7 +424,16 @@ export default function DashboardPage() {
                         <SortHeader label="LTV" sortField="revenue" align="right" />
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Spend</th>
                         <SortHeader label="Profit" sortField="profit" align="right" />
-                        <SortHeader label="Profit/Sub" sortField="profit_per_sub" align="right" />
+                        <th
+                          onClick={() => toggleSort("profit_per_sub")}
+                          className="px-3 py-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                        >
+                          <span className="inline-flex items-center gap-1 justify-end">
+                            <span className="text-[11px] uppercase tracking-wider font-bold text-foreground">Profit/Sub</span>
+                            {sortKey === "profit_per_sub" && (sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />)}
+                          </span>
+                          <span className="block text-[9px] text-muted-foreground font-normal normal-case tracking-normal">LTV - CPL</span>
+                        </th>
                         <SortHeader label="ROI" sortField="roi" align="right" />
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
                       </tr>
@@ -477,7 +489,7 @@ export default function DashboardPage() {
                                 >Set</button>
                               )}
                             </td>
-                            <td className={`px-3 py-3 text-right font-mono text-xs font-semibold ${link.profit !== null ? (link.profit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
+                            <td className={`px-3 py-3 text-right font-mono text-xs ${link.profit !== null ? (link.profit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
                               {link.profit !== null ? fmtC(link.profit) : "—"}
                             </td>
                             <td className={`px-3 py-3 text-right font-mono text-[14px] font-bold ${link.profitPerSub !== null ? (link.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
