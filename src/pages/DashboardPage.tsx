@@ -494,6 +494,16 @@ export default function DashboardPage() {
         )}
 
 
+        {/* ═══ INSIGHTS SECTION ═══ */}
+        <InsightsSection
+          links={links}
+          accounts={accounts}
+          dailyMetrics={dailyMetrics}
+          groupFilter={groupFilter}
+          selectedModel={selectedModel}
+          getAccountCategory={getAccountCategory}
+        />
+
         {/* ═══ SECTION 2 — CAMPAIGN PROFITABILITY ═══ */}
         <div>
           <h2 className="text-[16px] font-bold text-foreground mb-1">Campaign Profitability</h2>
