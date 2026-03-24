@@ -159,7 +159,7 @@ export default function DashboardPage() {
       }
       return true;
     });
-  }, [timeFilteredLinks, selectedModel, sourceFilter, searchQuery]);
+  }, [timeFilteredLinks, selectedModel, groupFilter, groupFilteredAccounts, sourceFilter, searchQuery]);
 
   const enrichedLinks = useMemo(() => {
     return filteredLinks.map((link: any) => {
