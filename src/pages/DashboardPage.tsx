@@ -320,19 +320,62 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ═══ TIME PERIOD SELECTOR ═══ */}
-        <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden w-fit">
-          {TIME_PERIODS.map((tp) => (
+        {/* ═══ FILTER BAR: Group + Account + Time Period ═══ */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Group dropdown */}
+          <select
+            value={groupFilter}
+            onChange={(e) => {
+              setGroupFilter(e.target.value);
+              setSelectedModel("all");
+              setPage(1);
+            }}
+            className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All Groups</option>
+            <option value="Female">Female</option>
+            <option value="Trans">Trans</option>
+          </select>
+
+          {/* Account dropdown */}
+          <select
+            value={selectedModel}
+            onChange={(e) => { setSelectedModel(e.target.value); setPage(1); }}
+            className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All Accounts</option>
+            {groupFilteredAccounts.map((a: any) => (
+              <option key={a.id} value={a.id}>
+                {a.display_name} {a.username ? `(@${a.username.replace("@","")})` : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Time period pills */}
+          <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+            {TIME_PERIODS.map((tp) => (
+              <button
+                key={tp.key}
+                onClick={() => setTimePeriod(tp.key)}
+                className={`px-4 py-2 text-xs font-medium transition-colors ${
+                  timePeriod === tp.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tp.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Active filter count */}
+          {activeFilterCount > 0 && (
             <button
-              key={tp.key}
-              onClick={() => setTimePeriod(tp.key)}
-              className={`px-4 py-2 text-xs font-medium transition-colors ${
-                timePeriod === tp.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
+              onClick={() => { setGroupFilter("all"); setSelectedModel("all"); }}
+              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-secondary border border-border px-2.5 py-1 rounded-full hover:text-foreground transition-colors"
             >
-              {tp.label}
+              {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} active
+              <X className="h-3 w-3" />
             </button>
-          ))}
+          )}
         </div>
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
