@@ -200,13 +200,24 @@ export function InsightsSection({
           )}
         </div>
 
-        {/* CARD 3 — Unattributed Subs */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium mb-3">Unattributed Subs</p>
-          <p className={`text-[26px] font-bold font-mono ${unaPctColor}`}>
-            {unattr.totalSubs > 0 ? `${unattr.pct.toFixed(1)}%` : "—"}
-          </p>
-          <p className="text-[11px] text-muted-foreground mb-3">Organic + untracked traffic</p>
+          {unattr.overflow ? (
+            <>
+              <p className="text-[26px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[11px] text-[hsl(38_92%_50%)] mb-3">Sync all accounts to calculate accurately</p>
+            </>
+          ) : unattr.totalSubs === 0 ? (
+            <>
+              <p className="text-[26px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[11px] text-muted-foreground mb-3">No subscriber data</p>
+            </>
+          ) : (
+            <>
+              <p className={`text-[26px] font-bold font-mono ${unaPctColor}`}>{unattr.pct.toFixed(1)}%</p>
+              <p className="text-[11px] text-muted-foreground mb-3">Organic + untracked traffic</p>
+            </>
+          )}
           <div className="divide-y divide-border text-[11px]">
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Total account subs</span>
@@ -218,13 +229,22 @@ export function InsightsSection({
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Unattributed</span>
-              <span className="font-bold font-mono text-[hsl(38_92%_50%)]">{unattr.unattributed.toLocaleString()}</span>
+              <span className={`font-bold font-mono ${unattr.overflow ? "text-muted-foreground" : "text-[hsl(38_92%_50%)]"}`}>
+                {unattr.overflow ? "—" : unattr.unattributed.toLocaleString()}
+              </span>
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${unattr.pct <= 30 ? "bg-[hsl(160_84%_39%)]" : unattr.pct <= 40 ? "bg-[hsl(38_92%_50%)]" : "bg-destructive"}`} />
-            <span className={`text-[11px] font-medium ${unaHealth.color}`}>{unaHealth.label}</span>
-          </div>
+          {!unattr.overflow && unattr.totalSubs > 0 && (
+            <div className="mt-3 flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${unattr.pct <= 30 ? "bg-[hsl(160_84%_39%)]" : unattr.pct <= 40 ? "bg-[hsl(38_92%_50%)]" : "bg-destructive"}`} />
+              <span className={`text-[11px] font-medium ${unaHealth.color}`}>{unaHealth.label}</span>
+            </div>
+          )}
+          {enabledCount < totalAccountCount && (
+            <p className="text-[10px] text-[hsl(38_92%_50%)] mt-2">
+              Showing {enabledCount} of {totalAccountCount} accounts — enable all in Settings for accurate calculation
+            </p>
+          )}
           <p className="text-[10px] text-muted-foreground mt-1">~20% is normal due to OF tracking limits</p>
         </div>
 
