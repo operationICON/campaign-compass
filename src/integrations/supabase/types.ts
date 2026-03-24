@@ -25,6 +25,14 @@ export type Database = {
           is_active: boolean
           last_seen: string | null
           last_synced_at: string | null
+          ltv_last_30d: number | null
+          ltv_last_7d: number | null
+          ltv_messages: number | null
+          ltv_posts: number | null
+          ltv_subscriptions: number | null
+          ltv_tips: number | null
+          ltv_total: number | null
+          ltv_updated_at: string | null
           onlyfans_account_id: string
           performer_top: number | null
           subscribe_price: number | null
@@ -42,6 +50,14 @@ export type Database = {
           is_active?: boolean
           last_seen?: string | null
           last_synced_at?: string | null
+          ltv_last_30d?: number | null
+          ltv_last_7d?: number | null
+          ltv_messages?: number | null
+          ltv_posts?: number | null
+          ltv_subscriptions?: number | null
+          ltv_tips?: number | null
+          ltv_total?: number | null
+          ltv_updated_at?: string | null
           onlyfans_account_id: string
           performer_top?: number | null
           subscribe_price?: number | null
@@ -59,6 +75,14 @@ export type Database = {
           is_active?: boolean
           last_seen?: string | null
           last_synced_at?: string | null
+          ltv_last_30d?: number | null
+          ltv_last_7d?: number | null
+          ltv_messages?: number | null
+          ltv_posts?: number | null
+          ltv_subscriptions?: number | null
+          ltv_tips?: number | null
+          ltv_total?: number | null
+          ltv_updated_at?: string | null
           onlyfans_account_id?: string
           performer_top?: number | null
           subscribe_price?: number | null
