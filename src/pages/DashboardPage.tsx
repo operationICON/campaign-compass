@@ -55,6 +55,21 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
+  // RPC: get_ltv_by_period
+  const periodParam = PERIOD_MAP[timePeriod];
+  const modelParam = selectedModel !== "all" ? selectedModel : null;
+  const { data: periodData, isLoading: isPeriodLoading } = useQuery({
+    queryKey: ["ltv_by_period", periodParam, modelParam],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_ltv_by_period", {
+        p_period: periodParam,
+        p_account_id: modelParam,
+      });
+      if (error) throw error;
+      return data as { period: string; total_ltv: number; total_new_subs: number; ltv_per_sub: number; data_available: boolean };
+    },
+  });
+
   const syncFrequency = useMemo(() => {
     const s = syncSettings.find((s: any) => s.key === "sync_frequency_days");
     return s ? parseInt(s.value) : 3;
