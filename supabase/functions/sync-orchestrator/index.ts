@@ -5,8 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const API_BASE = 'https://app.onlyfansapi.com/api'
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -14,8 +12,12 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const apiKey = Deno.env.get('ONLYFANS_API_KEY')
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
   const db = createClient(supabaseUrl, serviceKey)
+
+  let body: any = {}
+  try { body = await req.json() } catch {}
+  const triggeredBy = body.triggered_by ?? 'manual'
 
   try {
     // Mark stuck syncs (running > 3 min) as failed
@@ -38,56 +40,105 @@ Deno.serve(async (req) => {
       console.log(`Marked ${stuck.length} stuck syncs as failed`)
     }
 
-    // Step 1: Sync accounts from OF API (fast — ~2s)
-    let accountsSynced = 0
-    if (apiKey) {
-      try {
-        const res = await fetch(`${API_BASE}/accounts`, {
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        })
-        if (res.ok) {
-          const raw = await res.json()
-          const apiAccounts: any[] = Array.isArray(raw) ? raw : (raw.data ?? [])
-          const now = new Date().toISOString()
+    // Create orchestrator sync log
+    const startedAt = new Date().toISOString()
+    const { data: orchLog } = await db.from('sync_logs').insert({
+      started_at: startedAt,
+      status: 'running',
+      success: false,
+      message: 'Orchestrator started — syncing accounts sequentially',
+      records_processed: 0,
+      triggered_by: triggeredBy,
+      accounts_synced: 0,
+      tracking_links_synced: 0,
+    }).select().single()
 
-          for (const acc of apiAccounts) {
-            const ud = acc.onlyfans_user_data ?? {}
-            await db.from('accounts').upsert({
-              onlyfans_account_id: String(acc.id),
-              username: acc.onlyfans_username ?? ud.username ?? null,
-              display_name: acc.display_name ?? ud.name ?? acc.onlyfans_username ?? String(acc.id),
-              is_active: true,
-              last_synced_at: now,
-              subscribers_count: ud.subscribersCount ?? 0,
-              performer_top: ud.performerTop ?? null,
-              subscribe_price: ud.subscribePrice ?? 0,
-              last_seen: ud.lastSeen ?? null,
-              avatar_url: ud.avatar ?? acc.avatar ?? null,
-              avatar_thumb_url: ud.avatarThumbs?.c144 ?? ud.avatarThumbs?.c50 ?? null,
-              header_url: ud.header ?? acc.header ?? null,
-            }, { onConflict: 'onlyfans_account_id' })
-          }
-          accountsSynced = apiAccounts.length
-          console.log(`Synced ${accountsSynced} accounts with avatars`)
-        } else {
-          console.error(`API accounts fetch failed: ${res.status}`)
-        }
-      } catch (err: any) {
-        console.error(`API account fetch error: ${err.message}`)
-      }
-    }
+    const orchLogId = orchLog?.id
 
-    // Step 2: Get accounts from DB and return them for frontend to dispatch sync-tracking calls
+    // Get all active accounts
     const { data: accounts, error: accErr } = await db.from('accounts')
       .select('id, display_name, onlyfans_account_id')
       .eq('is_active', true)
 
     if (accErr) throw accErr
 
+    const accountList = accounts ?? []
+    let accountsSynced = 0
+    let totalLinksSynced = 0
+    const errors: string[] = []
+
+    // Call sync-account sequentially for each account
+    for (const account of accountList) {
+      try {
+        console.log(`Syncing account: ${account.display_name}`)
+        const res = await fetch(`${supabaseUrl}/functions/v1/sync-account`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({
+            account_id: account.id,
+            onlyfans_account_id: account.onlyfans_account_id,
+            display_name: account.display_name,
+          }),
+        })
+
+        if (res.ok) {
+          const result = await res.json()
+          accountsSynced++
+          totalLinksSynced += (result.links ?? 0)
+          console.log(`✓ ${account.display_name}: ${result.links} links, ${result.transactions} tx`)
+        } else {
+          const errText = await res.text()
+          console.error(`✗ ${account.display_name}: ${res.status} ${errText}`)
+          errors.push(`${account.display_name}: ${errText}`)
+        }
+      } catch (err: any) {
+        console.error(`✗ ${account.display_name} call failed: ${err.message}`)
+        errors.push(`${account.display_name}: ${err.message}`)
+        // Continue to next account
+      }
+    }
+
+    // Auto-tag after all accounts synced
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/auto-tag-campaigns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({}),
+      })
+      console.log('Auto-tag completed')
+    } catch (err: any) {
+      console.error(`Auto-tag failed: ${err.message}`)
+    }
+
+    // Update orchestrator log
+    const now = new Date().toISOString()
+    const hasErrors = errors.length > 0
+    if (orchLogId) {
+      await db.from('sync_logs').update({
+        status: hasErrors ? 'partial' : 'success',
+        success: !hasErrors,
+        finished_at: now,
+        completed_at: now,
+        accounts_synced: accountsSynced,
+        tracking_links_synced: totalLinksSynced,
+        records_processed: totalLinksSynced,
+        message: `Synced ${accountsSynced}/${accountList.length} accounts, ${totalLinksSynced} links${hasErrors ? ` (${errors.length} errors)` : ''}`,
+        error_message: hasErrors ? errors.join('; ') : null,
+      }).eq('id', orchLogId)
+    }
+
     return new Response(JSON.stringify({
-      message: `Synced ${accountsSynced} accounts`,
+      message: `Synced ${accountsSynced}/${accountList.length} accounts`,
       accounts_synced: accountsSynced,
-      accounts: (accounts ?? []).map(a => ({
+      tracking_links_synced: totalLinksSynced,
+      errors: errors.length > 0 ? errors : undefined,
+      accounts: accountList.map(a => ({
         id: a.id,
         display_name: a.display_name,
         onlyfans_account_id: a.onlyfans_account_id,

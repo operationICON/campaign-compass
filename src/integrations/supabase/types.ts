@@ -418,6 +418,7 @@ export type Database = {
       sync_logs: {
         Row: {
           account_id: string | null
+          accounts_synced: number | null
           completed_at: string | null
           details: Json | null
           error_message: string | null
@@ -428,9 +429,12 @@ export type Database = {
           started_at: string
           status: string
           success: boolean | null
+          tracking_links_synced: number | null
+          triggered_by: string | null
         }
         Insert: {
           account_id?: string | null
+          accounts_synced?: number | null
           completed_at?: string | null
           details?: Json | null
           error_message?: string | null
@@ -441,9 +445,12 @@ export type Database = {
           started_at?: string
           status?: string
           success?: boolean | null
+          tracking_links_synced?: number | null
+          triggered_by?: string | null
         }
         Update: {
           account_id?: string | null
+          accounts_synced?: number | null
           completed_at?: string | null
           details?: Json | null
           error_message?: string | null
@@ -454,6 +461,8 @@ export type Database = {
           started_at?: string
           status?: string
           success?: boolean | null
+          tracking_links_synced?: number | null
+          triggered_by?: string | null
         }
         Relationships: [
           {

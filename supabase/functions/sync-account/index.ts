@@ -51,14 +51,7 @@ async function apiFetchAllPages(path: string, apiKey: string, maxPages = 100): P
   return allItems
 }
 
-function calculateCostMetrics(link: any) {
-  const clicks = Number(link.clicks ?? 0)
-  const subscribers = Number(link.subscribers ?? 0)
-  const revenue = Number(link.revenue ?? 0)
-  const costType = link.cost_type
-  const costValue = Number(link.cost_value ?? 0)
-  const daysSinceCreated = (Date.now() - new Date(link.created_at).getTime()) / (1000 * 60 * 60 * 24)
-
+function calculateCostMetrics(clicks: number, subscribers: number, revenue: number, costType: string | null, costValue: number) {
   let cost_total = 0
   let cvr = clicks > 0 ? subscribers / clicks : 0
   let cpc_real = 0
@@ -82,42 +75,18 @@ function calculateCostMetrics(link: any) {
   const profit = revenue - cost_total
   const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
 
+  const daysSinceCreated = 0 // not available here, status set separately
   let status = 'NO_DATA'
   if (!costType) {
-    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
-    else status = 'NO_DATA'
+    status = 'NO_DATA'
   } else {
-    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
-    else if (roi > 150) status = 'SCALE'
+    if (roi > 150) status = 'SCALE'
     else if (roi >= 50) status = 'WATCH'
     else if (roi >= 0) status = 'LOW'
     else status = 'KILL'
   }
 
   return { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status }
-}
-
-async function recalcCostMetrics(db: any, accountId: string) {
-  const { data: allLinks } = await db.from('tracking_links')
-    .select('id, clicks, subscribers, revenue, cost_type, cost_value, created_at')
-    .eq('account_id', accountId)
-  if (!allLinks || allLinks.length === 0) return
-
-  // Batch update: calculate all, then update in parallel batches
-  const updates = allLinks.map((link: any) => ({
-    id: link.id,
-    ...calculateCostMetrics(link),
-  }))
-
-  // Update in batches of 50
-  for (let i = 0; i < updates.length; i += 50) {
-    const batch = updates.slice(i, i + 50)
-    await Promise.all(batch.map((u: any) => {
-      const { id, ...metrics } = u
-      return db.from('tracking_links').update(metrics).eq('id', id)
-    }))
-  }
-  console.log(`Recalculated cost metrics for ${allLinks.length} links`)
 }
 
 async function createNotification(db: any, type: string, message: string) {
@@ -173,6 +142,18 @@ Deno.serve(async (req) => {
     let linkCount = 0
     let txCount = 0
 
+    // ── Fetch existing tracking links to preserve manual data ──
+    const { data: existingLinks } = await db.from('tracking_links')
+      .select('id, external_tracking_link_id, cost_type, cost_value, cost_total, profit, roi, source_tag, manually_tagged, status, cpl_real, cpc_real, cvr, arpu')
+      .eq('account_id', accountId)
+
+    const existingMap: Record<string, any> = {}
+    for (const link of existingLinks ?? []) {
+      if (link.external_tracking_link_id) {
+        existingMap[link.external_tracking_link_id] = link
+      }
+    }
+
     // ── Sync tracking links ──
     try {
       const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
@@ -192,35 +173,81 @@ Deno.serve(async (req) => {
         for (const c of newC ?? []) campaignMap[c.name] = c.id
       }
 
-      // Upsert tracking links in batches of 50
+      // Upsert tracking links with COALESCE protection
       const linkPayloads: Record<string, any>[] = []
+      const dailyMetricsPayloads: Record<string, any>[] = []
+      const today = new Date().toISOString().split('T')[0]
+
       for (const link of items) {
         const campaignName = link.campaignName ?? 'Unknown'
         const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0]
+        const extId = String(link.id ?? '')
+        const existing = existingMap[extId]
+
+        const clicks = Number(link.clicksCount ?? 0)
+        const subscribers = Number(link.subscribersCount ?? 0)
+        const revenue = Number(link.revenue?.total ?? 0)
 
         const payload: Record<string, any> = {
-          external_tracking_link_id: String(link.id ?? ''),
+          external_tracking_link_id: extId,
           url: link.campaignUrl ?? `https://onlyfans.com/${acctId}`,
           campaign_id: campaignId,
           campaign_name: campaignName,
           account_id: accountId,
-          clicks: Number(link.clicksCount ?? 0),
-          subscribers: Number(link.subscribersCount ?? 0),
+          clicks,
+          subscribers,
           spenders: Number(link.revenue?.spendersCount ?? 0),
-          revenue: Number(link.revenue?.total ?? 0),
+          revenue,
           revenue_per_click: Number(link.revenue?.revenuePerClick ?? 0),
           revenue_per_subscriber: Number(link.revenue?.revenuePerSubscriber ?? 0),
-          conversion_rate: Number(link.clicksCount ?? 0) > 0
-            ? (Number(link.subscribersCount ?? 0) / Number(link.clicksCount)) * 100 : 0,
+          conversion_rate: clicks > 0 ? (subscribers / clicks) * 100 : 0,
           calculated_at: link.revenue?.calculatedAt ?? startedAt,
           source: link.type ?? null,
           country: link.country ?? null,
         }
         if (link.createdAt) payload.created_at = link.createdAt
+
+        // COALESCE: preserve manually set fields
+        if (existing) {
+          const hasManualCost = existing.cost_type && existing.cost_value > 0
+          if (hasManualCost) {
+            // Recalculate metrics with preserved cost but new API data
+            const metrics = calculateCostMetrics(clicks, subscribers, revenue, existing.cost_type, Number(existing.cost_value))
+            payload.cost_type = existing.cost_type
+            payload.cost_value = existing.cost_value
+            payload.cost_total = metrics.cost_total
+            payload.profit = metrics.profit
+            payload.roi = metrics.roi
+            payload.cpl_real = metrics.cpl_real
+            payload.cpc_real = metrics.cpc_real
+            payload.cvr = metrics.cvr
+            payload.arpu = metrics.arpu
+            payload.status = metrics.status
+          }
+          if (existing.source_tag) {
+            payload.source_tag = existing.source_tag
+            payload.manually_tagged = existing.manually_tagged
+          }
+        }
+
         linkPayloads.push(payload)
+
+        // Daily metrics snapshot
+        dailyMetricsPayloads.push({
+          tracking_link_id: existing?.id, // will be null for new links, handled below
+          account_id: accountId,
+          date: today,
+          clicks,
+          subscribers,
+          revenue,
+          spenders: Number(link.revenue?.spendersCount ?? 0),
+          epc: clicks > 0 ? revenue / clicks : 0,
+          conversion_rate: clicks > 0 ? (subscribers / clicks) * 100 : 0,
+          _ext_id: extId, // temp field for matching
+        })
       }
 
-      // Batch upsert in chunks of 50
+      // Batch upsert tracking links in chunks of 50
       for (let i = 0; i < linkPayloads.length; i += 50) {
         const batch = linkPayloads.slice(i, i + 50)
         await db.from('tracking_links').upsert(batch, {
@@ -229,6 +256,36 @@ Deno.serve(async (req) => {
         })
       }
       linkCount = linkPayloads.length
+
+      // Now fetch all tracking_link IDs for daily_metrics insertion
+      const { data: allLinks } = await db.from('tracking_links')
+        .select('id, external_tracking_link_id')
+        .eq('account_id', accountId)
+
+      const idMap: Record<string, string> = {}
+      for (const l of allLinks ?? []) {
+        if (l.external_tracking_link_id) idMap[l.external_tracking_link_id] = l.id
+      }
+
+      // Insert daily_metrics with proper tracking_link_id
+      const metricsToInsert = dailyMetricsPayloads
+        .filter(m => idMap[m._ext_id])
+        .map(m => {
+          const { _ext_id, ...rest } = m
+          return { ...rest, tracking_link_id: idMap[_ext_id] }
+        })
+
+      if (metricsToInsert.length > 0) {
+        for (let i = 0; i < metricsToInsert.length; i += 100) {
+          const batch = metricsToInsert.slice(i, i + 100)
+          await db.from('daily_metrics').upsert(batch, {
+            onConflict: 'tracking_link_id,date',
+            ignoreDuplicates: false,
+          })
+        }
+        console.log(`Upserted ${metricsToInsert.length} daily_metrics rows`)
+      }
+
     } catch (err: any) {
       console.error(`Tracking links error for ${displayName}: ${err.message}`)
     }
@@ -258,7 +315,6 @@ Deno.serve(async (req) => {
         })
       }
 
-      // Batch upsert in chunks of 100
       for (let i = 0; i < txPayloads.length; i += 100) {
         const batch = txPayloads.slice(i, i + 100)
         await db.from('transactions').upsert(batch, { onConflict: 'external_transaction_id' })
@@ -268,13 +324,10 @@ Deno.serve(async (req) => {
       console.error(`Transactions error for ${displayName}: ${err.message}`)
     }
 
-    // ── Recalculate cost metrics ──
-    await recalcCostMetrics(db, accountId)
-
     // ── Update account last_synced_at ──
     await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
 
-    // ── Zero-click alert check for this account ──
+    // ── Zero-click alert check ──
     try {
       const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
       const { data: zeroClickLinks } = await db.from('tracking_links')
@@ -309,7 +362,6 @@ Deno.serve(async (req) => {
     const totalRecords = linkCount + txCount
     const now = new Date().toISOString()
 
-    // Update sync log
     if (syncLogId) {
       await db.from('sync_logs').update({
         status: 'success',
@@ -318,6 +370,7 @@ Deno.serve(async (req) => {
         completed_at: now,
         message: `${displayName}: ${linkCount} links, ${txCount} transactions`,
         records_processed: totalRecords,
+        tracking_links_synced: linkCount,
       }).eq('id', syncLogId)
     }
 

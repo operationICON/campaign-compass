@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.sync-account]
 verify_jwt = false
+
+[functions.sync-scheduler]
+verify_jwt = false
