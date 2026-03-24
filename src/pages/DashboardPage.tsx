@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
-import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTransactionTotals } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -51,24 +51,24 @@ export default function DashboardPage() {
   const periodParam = PERIOD_MAP[timePeriod];
   const modelParam = selectedModel !== "all" ? selectedModel : null;
 
-  // Transaction-based Total LTV (true LTV from all revenue sources)
-  const txDateFrom = useMemo(() => {
-    if (timePeriod === "all") return undefined;
-    const now = new Date();
-    if (timePeriod === "day") return new Date(now.getTime() - 86400000).toISOString().split("T")[0];
-    if (timePeriod === "week") return new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
-    if (timePeriod === "month") return new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0];
-    if (timePeriod === "prev_month") return new Date(now.getTime() - 60 * 86400000).toISOString().split("T")[0];
-    return undefined;
-  }, [timePeriod]);
-
-  const { data: txTotals, isLoading: isTxLoading } = useQuery({
-    queryKey: ["transaction_totals", modelParam, txDateFrom],
-    queryFn: () => fetchTransactionTotals({
-      account_id: modelParam || undefined,
-      date_from: txDateFrom,
-    }),
-  });
+  // True LTV from accounts table (earnings stats from OF API)
+  const accountLtv = useMemo(() => {
+    const filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    const getLtvField = () => {
+      if (timePeriod === "week" || timePeriod === "day") return "ltv_last_7d";
+      if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
+      return "ltv_total";
+    };
+    const field = getLtvField();
+    const total = filtered.reduce((sum: number, a: any) => sum + Number(a[field] || 0), 0);
+    const breakdown = {
+      subscriptions: filtered.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0),
+      tips: filtered.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0),
+      messages: filtered.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0),
+      posts: filtered.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0),
+    };
+    return { total, breakdown };
+  }, [accounts, modelParam, timePeriod]);
 
   // RPC: get_ltv_by_period (still used for period subs data)
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
@@ -169,8 +169,8 @@ export default function DashboardPage() {
   const totalSpend = enrichedLinks.reduce((s: number, l: any) => s + l.spend, 0);
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
 
-  // True Total LTV from transactions table (all revenue sources)
-  const totalLtv = txTotals?.totalRevenue ?? 0;
+  // True Total LTV from accounts table (earnings stats)
+  const totalLtv = accountLtv.total;
   
   // Subs from RPC for period calculations
   const periodSubs = periodData?.total_new_subs ?? 0;
@@ -293,7 +293,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
-        {(isLoading || isPeriodLoading || isTxLoading) ? (
+        {(isLoading || isPeriodLoading) ? (
           <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5">
@@ -323,15 +323,28 @@ export default function DashboardPage() {
               )}
             </div>
             {/* Total LTV */}
-            <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5 group relative">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
               </div>
               <p className="text-xl font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">All transactions · all models</p>
+              <p className="text-[10px] text-muted-foreground mt-1">All earnings · all models</p>
               {showFallback && (
                 <p className="text-[10px] text-muted-foreground">Showing all time — builds with each sync</p>
+              )}
+              {/* LTV Breakdown Tooltip */}
+              {totalLtv > 0 && (
+                <div className="absolute left-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[200px]">
+                  <p className="text-[11px] font-bold text-foreground mb-2">LTV Breakdown</p>
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Subscriptions</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.subscriptions)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Tips</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.tips)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Messages</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.messages)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Posts</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.posts)}</span></div>
+                    <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Total</span><span className="font-mono font-bold text-primary">{fmtC(totalLtv)}</span></div>
+                  </div>
+                </div>
               )}
             </div>
             {/* Total Spend */}

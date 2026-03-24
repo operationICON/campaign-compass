@@ -354,8 +354,63 @@ Deno.serve(async (req) => {
       console.error(`Transactions error for ${displayName}: ${err.message}`)
     }
 
-    // ── Update account last_synced_at ──
-    await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
+    // ── Fetch earnings statistics for true LTV ──
+    try {
+      console.log(`Fetching earnings stats for ${displayName}...`)
+      
+      // All time earnings
+      const allTimeRes = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings`, {
+        headers: apiHeaders(apiKey),
+      })
+      
+      const ltvUpdate: Record<string, any> = {
+        last_synced_at: new Date().toISOString(),
+        ltv_updated_at: new Date().toISOString(),
+      }
+
+      if (allTimeRes.ok) {
+        const allTimeJson = await allTimeRes.json()
+        const totals = allTimeJson?.data?.list?.total ?? allTimeJson?.data?.total ?? {}
+        
+        ltvUpdate.ltv_total = Number(totals?.all?.total_gross ?? totals?.total_gross ?? 0)
+        ltvUpdate.ltv_tips = Number(totals?.tips?.total_gross ?? 0)
+        ltvUpdate.ltv_subscriptions = Number(totals?.subscribes?.total_gross ?? 0)
+        ltvUpdate.ltv_messages = Number(totals?.chat_messages?.total_gross ?? 0)
+        ltvUpdate.ltv_posts = Number(totals?.post?.total_gross ?? 0)
+        
+        console.log(`${displayName} all-time LTV: $${ltvUpdate.ltv_total}`)
+      } else {
+        console.error(`Earnings stats returned ${allTimeRes.status} for ${displayName}`)
+      }
+
+      // Last 30 days
+      const d30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+      const res30 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d30}`, {
+        headers: apiHeaders(apiKey),
+      })
+      if (res30.ok) {
+        const json30 = await res30.json()
+        const totals30 = json30?.data?.list?.total ?? json30?.data?.total ?? {}
+        ltvUpdate.ltv_last_30d = Number(totals30?.all?.total_gross ?? totals30?.total_gross ?? 0)
+      }
+
+      // Last 7 days
+      const d7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+      const res7 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d7}`, {
+        headers: apiHeaders(apiKey),
+      })
+      if (res7.ok) {
+        const json7 = await res7.json()
+        const totals7 = json7?.data?.list?.total ?? json7?.data?.total ?? {}
+        ltvUpdate.ltv_last_7d = Number(totals7?.all?.total_gross ?? totals7?.total_gross ?? 0)
+      }
+
+      await db.from('accounts').update(ltvUpdate).eq('id', accountId)
+    } catch (err: any) {
+      console.error(`Earnings stats error for ${displayName}: ${err.message}`)
+      // Still update last_synced_at even if earnings fail
+      await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
+    }
 
     // ── Zero-click alert check ──
     try {
