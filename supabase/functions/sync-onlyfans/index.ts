@@ -248,8 +248,6 @@ Deno.serve(async (req) => {
             for (const c of newC ?? []) campaignMap[c.name] = c.id
           }
 
-          let debugLogged = false
-
           // Fetch existing links to preserve manually-set fields
           const extIds = items.map((l: any) => String(l.id ?? ''))
           const existingMap: Record<string, any> = {}
