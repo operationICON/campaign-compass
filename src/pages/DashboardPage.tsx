@@ -38,7 +38,7 @@ const PERIOD_MAP: Record<TimePeriod, string> = {
 export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
-  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("all");
+  
   const [selectedModel, setSelectedModel] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
