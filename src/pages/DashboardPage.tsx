@@ -133,6 +133,7 @@ export default function DashboardPage() {
   const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
   const avgProfitPerSub = (totalProfit !== null && totalSubs > 0) ? totalProfit / totalSubs : null;
+  const avgLtvPerSub = totalSubs > 0 ? totalLtv / totalSubs : 0;
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
@@ -316,13 +317,13 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-4">
-            {/* Total LTV — hero */}
+            {/* Avg LTV/Sub — hero */}
             <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 opacity-80" />
-                <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Total LTV</span>
+                <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Avg LTV/Sub</span>
               </div>
-              <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(totalLtv)}</p>
+              <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgLtvPerSub)}</p>
               {timePeriod !== "all" && (
                 <p className="text-[10px] opacity-60 mt-1">Showing all time — more data builds with each sync</p>
               )}
