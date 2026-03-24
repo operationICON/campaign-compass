@@ -51,24 +51,24 @@ export default function DashboardPage() {
   const periodParam = PERIOD_MAP[timePeriod];
   const modelParam = selectedModel !== "all" ? selectedModel : null;
 
-  // Transaction-based Total LTV (true LTV from all revenue sources)
-  const txDateFrom = useMemo(() => {
-    if (timePeriod === "all") return undefined;
-    const now = new Date();
-    if (timePeriod === "day") return new Date(now.getTime() - 86400000).toISOString().split("T")[0];
-    if (timePeriod === "week") return new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
-    if (timePeriod === "month") return new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0];
-    if (timePeriod === "prev_month") return new Date(now.getTime() - 60 * 86400000).toISOString().split("T")[0];
-    return undefined;
-  }, [timePeriod]);
-
-  const { data: txTotals, isLoading: isTxLoading } = useQuery({
-    queryKey: ["transaction_totals", modelParam, txDateFrom],
-    queryFn: () => fetchTransactionTotals({
-      account_id: modelParam || undefined,
-      date_from: txDateFrom,
-    }),
-  });
+  // True LTV from accounts table (earnings stats from OF API)
+  const accountLtv = useMemo(() => {
+    const filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    const getLtvField = () => {
+      if (timePeriod === "week" || timePeriod === "day") return "ltv_last_7d";
+      if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
+      return "ltv_total";
+    };
+    const field = getLtvField();
+    const total = filtered.reduce((sum: number, a: any) => sum + Number(a[field] || 0), 0);
+    const breakdown = {
+      subscriptions: filtered.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0),
+      tips: filtered.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0),
+      messages: filtered.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0),
+      posts: filtered.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0),
+    };
+    return { total, breakdown };
+  }, [accounts, modelParam, timePeriod]);
 
   // RPC: get_ltv_by_period (still used for period subs data)
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
