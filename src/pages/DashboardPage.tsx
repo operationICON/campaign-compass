@@ -43,6 +43,17 @@ export default function DashboardPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [perPage, setPerPage] = useState(25);
   const [page, setPage] = useState(1);
+  const [tableExpanded, setTableExpanded] = useState(() => {
+    const saved = localStorage.getItem("dashboard-table-expanded");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  const toggleTableExpanded = () => {
+    setTableExpanded(prev => {
+      localStorage.setItem("dashboard-table-expanded", String(!prev));
+      return !prev;
+    });
+  };
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
