@@ -259,6 +259,8 @@ export default function AccountsPage() {
                     { label: "Active Campaigns", value: String(stats.activeCampaigns || 0) },
                     { label: "Avg Subs/Day", value: stats.avgSubsDay },
                     { label: "Blended ROI", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
+                    { label: "Unattributed", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
+                      colored: true, pctVal: stats.unattributedPct },
                   ].map((s) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
