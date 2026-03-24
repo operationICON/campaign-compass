@@ -424,7 +424,16 @@ export default function DashboardPage() {
                         <SortHeader label="LTV" sortField="revenue" align="right" />
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Spend</th>
                         <SortHeader label="Profit" sortField="profit" align="right" />
-                        <SortHeader label="Profit/Sub" sortField="profit_per_sub" align="right" />
+                        <th
+                          onClick={() => toggleSort("profit_per_sub")}
+                          className="px-3 py-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                        >
+                          <span className="inline-flex items-center gap-1 justify-end">
+                            <span className="text-[11px] uppercase tracking-wider font-bold text-foreground">Profit/Sub</span>
+                            {sortKey === "profit_per_sub" && (sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />)}
+                          </span>
+                          <span className="block text-[9px] text-muted-foreground font-normal normal-case tracking-normal">LTV - CPL</span>
+                        </th>
                         <SortHeader label="ROI" sortField="roi" align="right" />
                         <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
                       </tr>
