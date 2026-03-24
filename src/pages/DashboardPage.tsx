@@ -73,7 +73,10 @@ export default function DashboardPage() {
 
   // True LTV from accounts table (earnings stats from OF API)
   const accountLtv = useMemo(() => {
-    const filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    let filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    if (!modelParam && groupFilter !== "all") {
+      filtered = filtered.filter((a: any) => getAccountCategory(a) === groupFilter);
+    }
     const getLtvField = () => {
       if (timePeriod === "day") return "ltv_last_day";
       if (timePeriod === "week") return "ltv_last_7d";
@@ -89,7 +92,7 @@ export default function DashboardPage() {
       posts: filtered.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0),
     };
     return { total, breakdown };
-  }, [accounts, modelParam, timePeriod]);
+  }, [accounts, modelParam, groupFilter, timePeriod]);
 
   // RPC: get_ltv_by_period (still used for period subs data)
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
