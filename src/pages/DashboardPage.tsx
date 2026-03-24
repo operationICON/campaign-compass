@@ -363,8 +363,8 @@ export default function DashboardPage() {
                 <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Avg LTV/Sub</span>
               </div>
               <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgLtvPerSub)}</p>
-              {timePeriod !== "all" && (
-                <p className="text-[10px] opacity-60 mt-1">Showing all time — more data builds with each sync</p>
+              {showFallback && (
+                <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
               )}
             </div>
             {/* Total Spend */}
