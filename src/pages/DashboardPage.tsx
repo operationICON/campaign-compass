@@ -24,6 +24,15 @@ const MODEL_CATEGORIES: Record<string, { label: string; color: string }> = {
 
 type SortKey = "campaign_name" | "revenue" | "profit" | "roi" | "profit_per_sub" | "subscribers";
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
+
+const PERIOD_MAP: Record<TimePeriod, string> = {
+  all: "all_time",
+  day: "last_day",
+  week: "last_week",
+  since_sync: "since_last_sync",
+  month: "last_month",
+  prev_month: "prev_month",
+};
 type TrendPeriod = "week" | "month" | "3months" | "6months" | "all";
 
 export default function DashboardPage() {
@@ -45,6 +54,21 @@ export default function DashboardPage() {
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
+
+  // RPC: get_ltv_by_period
+  const periodParam = PERIOD_MAP[timePeriod];
+  const modelParam = selectedModel !== "all" ? selectedModel : null;
+  const { data: periodData, isLoading: isPeriodLoading } = useQuery({
+    queryKey: ["ltv_by_period", periodParam, modelParam],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_ltv_by_period", {
+        p_period: periodParam,
+        p_account_id: modelParam,
+      });
+      if (error) throw error;
+      return data as { period: string; total_ltv: number; total_new_subs: number; ltv_per_sub: number; data_available: boolean };
+    },
+  });
 
   const syncFrequency = useMemo(() => {
     const s = syncSettings.find((s: any) => s.key === "sync_frequency_days");
@@ -128,12 +152,27 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  const totalLtv = enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+  // KPI calculations — use RPC for LTV when period is not all_time
   const totalSpend = enrichedLinks.reduce((s: number, l: any) => s + l.spend, 0);
-  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-  const avgProfitPerSub = (totalProfit !== null && totalSubs > 0) ? totalProfit / totalSubs : null;
-  const avgLtvPerSub = totalSubs > 0 ? totalLtv / totalSubs : 0;
+
+  // Use RPC data for LTV/subs when available, fallback to client-side
+  const periodLtv = periodData?.total_ltv ?? 0;
+  const periodSubs = periodData?.total_new_subs ?? 0;
+  const periodDataAvailable = periodData?.data_available ?? false;
+  const showFallback = timePeriod !== "all" && !periodDataAvailable;
+
+  const avgLtvPerSub = showFallback
+    ? (totalSubs > 0 ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) / totalSubs : 0)
+    : (periodData?.ltv_per_sub ?? (totalSubs > 0 ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) / totalSubs : 0));
+
+  const effectiveLtv = showFallback
+    ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0)
+    : periodLtv;
+  const effectiveSubs = showFallback ? totalSubs : (periodSubs || totalSubs);
+
+  const totalProfit = totalSpend > 0 ? effectiveLtv - totalSpend : null;
+  const avgProfitPerSub = (totalProfit !== null && effectiveSubs > 0) ? totalProfit / effectiveSubs : null;
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
@@ -306,7 +345,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
-        {isLoading ? (
+        {(isLoading || isPeriodLoading) ? (
           <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5">
@@ -324,8 +363,8 @@ export default function DashboardPage() {
                 <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Avg LTV/Sub</span>
               </div>
               <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgLtvPerSub)}</p>
-              {timePeriod !== "all" && (
-                <p className="text-[10px] opacity-60 mt-1">Showing all time — more data builds with each sync</p>
+              {showFallback && (
+                <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
               )}
             </div>
             {/* Total Spend */}
