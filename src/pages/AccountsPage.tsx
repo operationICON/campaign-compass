@@ -93,6 +93,7 @@ export default function AccountsPage() {
       const unattributedSubs = Math.max(0, (acc.subscribers_count || 0) - totalSubs);
       const unattributedPct = (acc.subscribers_count || 0) > 0 ? (unattributedSubs / acc.subscribers_count) * 100 : 0;
 
+      // Consistent formula: Total Profit = Total LTV - Total Spend
       stats[acc.id] = {
         totalLtv,
         totalSpend,

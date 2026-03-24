@@ -69,8 +69,12 @@ export default function MediaBuyersPage() {
     else { setSortKey(key); setSortAsc(false); }
   };
 
-  const totalSpend = sourceRows.reduce((s, r) => s + r.totalSpend, 0);
-  const totalLtv = sourceRows.reduce((s, r) => s + r.totalLtv, 0);
+  // Consistent KPI formula: Total Profit = Total LTV - Total Spend
+  const totalLtv = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+  const totalSpend = links.reduce((s: number, l: any) => {
+    const cost = Number(l.cost_total || 0);
+    return s + (cost > 0 ? cost : 0);
+  }, 0);
   const totalProfit = totalLtv - totalSpend;
   const blendedROI = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : 0;
   const fmtCurrency = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

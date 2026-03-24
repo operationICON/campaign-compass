@@ -183,16 +183,33 @@ export default function TrackingLinksPage() {
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
-  // KPI calculations
+  // KPI calculations — consistent formula: Total Profit = Total LTV - Total Spend
   const kpis = useMemo(() => {
-    const totalLtv = links.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0);
-    const withSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const totalSpend = withSpend.reduce((sum: number, l: any) => sum + Number(l.cost_total || 0), 0);
-    const totalProfit = withSpend.reduce((sum: number, l: any) => sum + Number(l.profit || 0), 0);
-    const totalSubsWithSpend = withSpend.reduce((sum: number, l: any) => sum + (l.subscribers || 0), 0);
-    const avgProfitPerSub = totalSubsWithSpend > 0 ? totalProfit / totalSubsWithSpend : null;
+    // Apply group + account filters to get same scope
+    let scopedLinks = links;
+    if (groupFilter !== "all") {
+      const groupUsernames = GROUP_MAP[groupFilter] || [];
+      const groupAccountIds = accounts
+        .filter((a: any) => groupUsernames.includes(a.username))
+        .map((a: any) => a.id);
+      scopedLinks = scopedLinks.filter((l: any) => groupAccountIds.includes(l.account_id));
+    }
+    if (accountFilter !== "all") {
+      scopedLinks = scopedLinks.filter((l: any) => l.account_id === accountFilter);
+    }
+
+    const totalLtv = scopedLinks.reduce((sum: number, l: any) => sum + Number(l.revenue || 0), 0);
+    const totalSpend = scopedLinks.reduce((sum: number, l: any) => {
+      const cost = Number(l.cost_total || 0);
+      return sum + (cost > 0 ? cost : 0);
+    }, 0);
+    const totalProfit = totalLtv - totalSpend;
+    const paidSubs = scopedLinks.reduce((sum: number, l: any) => {
+      return Number(l.cost_total || 0) > 0 ? sum + (l.subscribers || 0) : sum;
+    }, 0);
+    const avgProfitPerSub = totalSpend > 0 && paidSubs > 0 ? totalProfit / paidSubs : null;
     return { totalLtv, totalSpend, totalProfit, avgProfitPerSub, hasSpend: totalSpend > 0 };
-  }, [links]);
+  }, [links, groupFilter, accountFilter, accounts]);
 
   const revenueMap = useMemo(() => {
     const map: Record<string, number> = {};
