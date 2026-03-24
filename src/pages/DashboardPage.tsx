@@ -534,16 +534,62 @@ export default function DashboardPage() {
         />
 
         {/* ═══ SECTION 2 — CAMPAIGN PROFITABILITY ═══ */}
+        {(() => {
+          const withSpend = enrichedLinks.filter((l: any) => l.spend > 0).length;
+          const scaleCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Scale").length;
+          const watchCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Watch" || getStatus(l).label === "Low").length;
+          const killCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Kill").length;
+          const noSpendCount = enrichedLinks.filter((l: any) => getStatus(l).label === "No Spend").length;
+          const deadCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Dead").length;
+          return (
         <div>
-          <h2 className="text-[16px] font-bold text-foreground mb-1">Campaign Profitability</h2>
-          <p className="text-xs text-muted-foreground mb-4">Profit per subscriber per campaign and source</p>
+          {/* Collapsible header */}
+          <div
+            className={`bg-card border border-border ${tableExpanded ? "rounded-t-2xl border-b-0" : "rounded-2xl"} px-5 py-4 flex items-center justify-between cursor-pointer select-none`}
+            onClick={toggleTableExpanded}
+          >
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-[14px] font-bold text-foreground">Campaign Profitability</h2>
+                <span className="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                  {sortedLinks.length.toLocaleString()} campaigns
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">Profit per subscriber per campaign</p>
+              {/* Collapsed summary */}
+              {!tableExpanded && (
+                <div className="flex items-center gap-1.5 mt-2 text-xs flex-wrap">
+                  <span className="text-muted-foreground">{withSpend} with spend</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-primary font-medium">{scaleCount} SCALE</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-[hsl(var(--info))] font-medium">{watchCount} WATCH</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-destructive font-medium">{killCount} KILL</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground font-medium">{noSpendCount} NO SPEND</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground font-medium">{deadCount} DEAD</span>
+                </div>
+              )}
+            </div>
+            <button className={`inline-flex items-center gap-1 text-xs font-medium transition-colors ${tableExpanded ? "text-muted-foreground hover:text-foreground" : "text-primary hover:text-primary/80"}`}>
+              {tableExpanded ? "Minimize" : "Expand"}
+              <ChevronUp className={`h-3.5 w-3.5 transition-transform duration-250 ${tableExpanded ? "" : "rotate-180"}`} />
+            </button>
+          </div>
 
-          {/* Filter bar — model dropdown moved to top bar */}
-          <div className="flex items-center gap-3 flex-wrap mb-4">
+          {/* Collapsible content */}
+          <div
+            className="overflow-hidden transition-all duration-250 ease-in-out"
+            style={{ maxHeight: tableExpanded ? "9999px" : "0px", opacity: tableExpanded ? 1 : 0 }}
+          >
+          {/* Filter bar */}
+          <div className="flex items-center gap-3 flex-wrap px-5 py-3 bg-card border-x border-border">
             <select
               value={sourceFilter}
               onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-              className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="all">All Sources</option>
               {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
@@ -555,7 +601,7 @@ export default function DashboardPage() {
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                 placeholder="Search campaigns..."
-                className="w-full bg-card border border-border rounded-lg pl-9 pr-4 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-background border border-border rounded-lg pl-9 pr-4 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <select
@@ -567,14 +613,14 @@ export default function DashboardPage() {
                 setSortAsc(false);
                 setPage(1);
               }}
-              className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
             >
               {["Profit/Sub", "LTV", "Profit", "ROI", "Subs"].map(s => <option key={s} value={s}>Sort: {s}</option>)}
             </select>
           </div>
 
           {/* Campaign table */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border border-t-0 rounded-b-2xl overflow-hidden">
             {isLoading ? (
               <div className="p-12 text-center">
                 <div className="space-y-3 max-w-lg mx-auto">
@@ -721,6 +767,16 @@ export default function DashboardPage() {
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </button>
                       </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          </div>
+        </div>
+          );
+        })()}
                     )}
                   </div>
                 </div>
