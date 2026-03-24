@@ -152,12 +152,27 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  const totalLtv = enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+  // KPI calculations — use RPC for LTV when period is not all_time
   const totalSpend = enrichedLinks.reduce((s: number, l: any) => s + l.spend, 0);
-  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-  const avgProfitPerSub = (totalProfit !== null && totalSubs > 0) ? totalProfit / totalSubs : null;
-  const avgLtvPerSub = totalSubs > 0 ? totalLtv / totalSubs : 0;
+
+  // Use RPC data for LTV/subs when available, fallback to client-side
+  const periodLtv = periodData?.total_ltv ?? 0;
+  const periodSubs = periodData?.total_new_subs ?? 0;
+  const periodDataAvailable = periodData?.data_available ?? false;
+  const showFallback = timePeriod !== "all" && !periodDataAvailable;
+
+  const avgLtvPerSub = showFallback
+    ? (totalSubs > 0 ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) / totalSubs : 0)
+    : (periodData?.ltv_per_sub ?? (totalSubs > 0 ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) / totalSubs : 0));
+
+  const effectiveLtv = showFallback
+    ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0)
+    : periodLtv;
+  const effectiveSubs = showFallback ? totalSubs : (periodSubs || totalSubs);
+
+  const totalProfit = totalSpend > 0 ? effectiveLtv - totalSpend : null;
+  const avgProfitPerSub = (totalProfit !== null && effectiveSubs > 0) ? totalProfit / effectiveSubs : null;
 
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
