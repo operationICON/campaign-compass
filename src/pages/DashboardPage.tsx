@@ -194,21 +194,39 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  // KPI calculations
-  const totalSpend = enrichedLinks.reduce((s: number, l: any) => s + l.spend, 0);
-  const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+  // KPI calculations — consistent formula across all pages
+  // Total LTV = SUM(tracking_links.revenue)
+  // Total Spend = SUM(tracking_links.cost_total) WHERE cost_total > 0
+  // Total Profit = Total LTV - Total Spend (NOT sum of individual profits)
+  // Avg Profit/Sub = Total Profit / paid subscribers
+  const agencyAccountIds = useMemo(() => {
+    if (modelParam) return [modelParam];
+    if (groupFilter !== "all") return groupFilteredAccounts.map((a: any) => a.id);
+    return null;
+  }, [modelParam, groupFilter, groupFilteredAccounts]);
 
-  // True Total LTV from accounts table (earnings stats)
-  const totalLtv = accountLtv.total;
-  
-  // Subs from RPC for period calculations
+  const filteredLinksForKpi = useMemo(() => {
+    if (!agencyAccountIds) return links;
+    const idSet = new Set(agencyAccountIds);
+    return links.filter((l: any) => idSet.has(l.account_id));
+  }, [links, agencyAccountIds]);
+
+  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
+  const totalSpend = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
+    const cost = Number(l.cost_total || 0);
+    return s + (cost > 0 ? cost : 0);
+  }, 0), [filteredLinksForKpi]);
+  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
+  const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
+    return Number(l.cost_total || 0) > 0 ? s + (l.subscribers || 0) : s;
+  }, 0), [filteredLinksForKpi]);
+  const totalSubs = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + (l.subscribers || 0), 0), [filteredLinksForKpi]);
+  const avgProfitPerSub = (totalProfit !== null && paidSubscribers > 0) ? totalProfit / paidSubscribers : null;
+
+  // Period data for fallback display
   const periodSubs = periodData?.total_new_subs ?? 0;
   const periodDataAvailable = periodData?.data_available ?? false;
   const showFallback = timePeriod !== "all" && !periodDataAvailable;
-  const effectiveSubs = showFallback ? totalSubs : (periodSubs || totalSubs);
-
-  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
-  const avgProfitPerSub = (totalProfit !== null && effectiveSubs > 0) ? totalProfit / effectiveSubs : null;
 
   // Unattributed subs calculation
   const unattributedStats = useMemo(() => {
