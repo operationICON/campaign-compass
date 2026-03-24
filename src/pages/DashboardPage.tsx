@@ -290,15 +290,33 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-4">
-            {/* Avg LTV/Sub — hero */}
+            {/* Avg Profit/Sub — HERO PRIMARY */}
             <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
               <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 opacity-80" />
-                <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Avg LTV/Sub</span>
+                <Users className="h-4 w-4 opacity-80" />
+                <span className="text-xs opacity-70 font-medium uppercase tracking-wider">Avg Profit/Sub</span>
               </div>
-              <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgLtvPerSub)}</p>
-              {showFallback && (
+              {avgProfitPerSub !== null ? (
+                <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgProfitPerSub)}</p>
+              ) : (
+                <>
+                  <p className="text-[28px] font-bold font-mono leading-tight opacity-60">—</p>
+                  <p className="text-[10px] opacity-60 mt-1">Enter spend to calculate</p>
+                </>
+              )}
+              {showFallback && avgProfitPerSub !== null && (
                 <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
+              )}
+            </div>
+            {/* Total LTV */}
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
+              </div>
+              <p className="text-xl font-bold font-mono text-primary">{fmtC(effectiveLtv)}</p>
+              {showFallback && (
+                <p className="text-[10px] text-muted-foreground mt-1">Showing all time — builds with each sync</p>
               )}
             </div>
             {/* Total Spend */}
@@ -324,21 +342,6 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <p className="text-xl font-bold font-mono text-muted-foreground">—</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
-                </>
-              )}
-            </div>
-            {/* Avg Profit/Sub — PRIMARY */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg Profit/Sub</span>
-              </div>
-              {avgProfitPerSub !== null ? (
-                <p className={`text-[22px] font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
-              ) : (
-                <>
-                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
                   <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
                 </>
               )}
