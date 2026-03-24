@@ -8,14 +8,19 @@ import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, differenceInDays, subDays, startOfMonth, subMonths, endOfMonth } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import {
-  RefreshCw, DollarSign, TrendingUp, PiggyBank, BarChart3,
-  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, Users
+  RefreshCw, DollarSign, TrendingUp, PiggyBank, Users,
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil
 } from "lucide-react";
-import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
+
+const MODEL_CATEGORIES: Record<string, { label: string; color: string }> = {
+  Jess: { label: "Female", color: "bg-blue-100 text-blue-700" },
+  Zoey: { label: "Female", color: "bg-blue-100 text-blue-700" },
+  Mia: { label: "Trans", color: "bg-purple-100 text-purple-700" },
+  Flor: { label: "Female", color: "bg-blue-100 text-blue-700" },
+  Aylin: { label: "Trans", color: "bg-purple-100 text-purple-700" },
+};
 
 type SortKey = "campaign_name" | "revenue" | "profit" | "roi" | "profit_per_sub" | "subscribers";
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
@@ -37,14 +42,8 @@ export default function DashboardPage() {
   const [page, setPage] = useState(1);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["tracking_links"],
-    queryFn: () => fetchTrackingLinks(),
-  });
-  const { data: dailyMetrics = [] } = useQuery({
-    queryKey: ["daily_metrics"],
-    queryFn: () => fetchDailyMetrics(),
-  });
+  const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+  const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
   const syncFrequency = useMemo(() => {
@@ -84,13 +83,8 @@ export default function DashboardPage() {
     return Math.max(0, differenceInDays(nextDate, new Date()));
   }, [lastSynced, syncFrequency]);
 
-  // Time period filtering — for now all time since daily_metrics may be sparse
-  const timeFilteredLinks = useMemo(() => {
-    // All time - just use tracking_links directly
-    return links;
-  }, [links, timePeriod]);
+  const timeFilteredLinks = useMemo(() => links, [links, timePeriod]);
 
-  // Model + source + search filtering
   const filteredLinks = useMemo(() => {
     return timeFilteredLinks.filter((link: any) => {
       if (selectedModel !== "all" && link.account_id !== selectedModel) return false;
@@ -105,7 +99,6 @@ export default function DashboardPage() {
     });
   }, [timeFilteredLinks, selectedModel, sourceFilter, searchQuery]);
 
-  // Enriched with profit calculations
   const enrichedLinks = useMemo(() => {
     return filteredLinks.map((link: any) => {
       const spend = Number(link.cost_total || 0);
@@ -117,7 +110,6 @@ export default function DashboardPage() {
     });
   }, [filteredLinks]);
 
-  // Sorting
   const sortedLinks = useMemo(() => {
     return [...enrichedLinks].sort((a, b) => {
       if (sortKey === "campaign_name") {
@@ -136,21 +128,18 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  // KPIs
   const totalLtv = enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
   const totalSpend = enrichedLinks.reduce((s: number, l: any) => s + l.spend, 0);
   const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
   const avgProfitPerSub = (totalProfit !== null && totalSubs > 0) ? totalProfit / totalSubs : null;
 
-  // Traffic sources
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
     links.forEach((l: any) => s.add(l.source_tag || "Untagged"));
     return Array.from(s).sort();
   }, [links]);
 
-  // Source performance
   const sourcePerformance = useMemo(() => {
     const map: Record<string, { source: string; campaigns: number; subs: number; ltv: number; spend: number; profit: number; profitPerSub: number | null }> = {};
     enrichedLinks.forEach((l: any) => {
@@ -169,9 +158,8 @@ export default function DashboardPage() {
     })).sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
   }, [enrichedLinks]);
 
-  // Model performance for Section 3
   const modelPerformance = useMemo(() => {
-    const map: Record<string, { id: string; display_name: string; username: string | null; avatar: string | null; ltv: number; spend: number; profit: number | null; subs: number; campaigns: number }> = {};
+    const map: Record<string, { id: string; display_name: string; username: string | null; avatar: string | null; performer_top: number | null; ltv: number; spend: number; profit: number | null; subs: number; campaigns: number }> = {};
     timeFilteredLinks.forEach((l: any) => {
       const accId = l.account_id;
       if (!map[accId]) {
@@ -181,6 +169,7 @@ export default function DashboardPage() {
           display_name: acc?.display_name || l.accounts?.display_name || "Unknown",
           username: acc?.username || l.accounts?.username || null,
           avatar: acc?.avatar_thumb_url || l.accounts?.avatar_thumb_url || null,
+          performer_top: acc?.performer_top ?? null,
           ltv: 0, spend: 0, profit: null, subs: 0, campaigns: 0,
         };
       }
@@ -197,7 +186,6 @@ export default function DashboardPage() {
     })).sort((a, b) => b.ltv - a.ltv);
   }, [timeFilteredLinks, accounts]);
 
-  // Subs per day
   const getSubsPerDay = (link: any) => {
     if (!link.created_at) return null;
     const days = differenceInDays(new Date(), new Date(link.created_at));
@@ -240,7 +228,6 @@ export default function DashboardPage() {
     </th>
   );
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(sortedLinks.length / perPage));
   const safePage = Math.min(page, totalPages);
   const startIdx = (safePage - 1) * perPage;
@@ -264,13 +251,18 @@ export default function DashboardPage() {
     { key: "all", label: "All Time" },
   ];
 
+  const getCategory = (name: string) => {
+    for (const [key, val] of Object.entries(MODEL_CATEGORIES)) {
+      if (name.toLowerCase().includes(key.toLowerCase())) return val;
+    }
+    return { label: "Female", color: "bg-blue-100 text-blue-700" };
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
 
-        {/* ═══ SECTION 1 — AGENCY LTV OVERVIEW ═══ */}
-
-        {/* Header */}
+        {/* ═══ HEADER ═══ */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold text-foreground">Campaign Tracker</h1>
@@ -297,7 +289,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Time period pills */}
+        {/* ═══ TIME PERIOD SELECTOR ═══ */}
         <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden w-fit">
           {TIME_PERIODS.map((tp) => (
             <button
@@ -312,7 +304,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* KPI Cards — 4 cards */}
+        {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
         {isLoading ? (
           <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
@@ -362,17 +354,17 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
-            {/* Avg Profit/Sub */}
+            {/* Avg Profit/Sub — PRIMARY */}
             <div className="bg-card border border-border rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg Profit/Sub</span>
               </div>
               {avgProfitPerSub !== null ? (
-                <p className={`text-xl font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
+                <p className={`text-[22px] font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
               ) : (
                 <>
-                  <p className="text-xl font-bold font-mono text-muted-foreground">—</p>
+                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
                   <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
                 </>
               )}
@@ -380,45 +372,47 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Model Cards */}
+        {/* ═══ MODEL SELECTOR ROW — text only, no avatars ═══ */}
         <div className="flex gap-3 overflow-x-auto pb-1">
-          {/* All Models card */}
           <button
             onClick={() => { setSelectedModel("all"); setPage(1); }}
-            className={`flex-shrink-0 rounded-2xl border p-4 min-w-[140px] transition-all ${
+            className={`flex-shrink-0 rounded-2xl border p-4 min-w-[150px] transition-all text-left ${
               selectedModel === "all" ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-card hover:border-primary/40"
             }`}
           >
-            <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold mb-2">All</div>
-            <p className="text-sm font-semibold text-foreground">All Models</p>
-            <p className="text-xs text-muted-foreground">{links.length} campaigns</p>
-            <p className="text-lg font-bold font-mono text-primary mt-1">{fmtC(totalLtv)}</p>
+            <p className="text-sm font-bold text-foreground">All Models</p>
+            <p className="text-[11px] text-muted-foreground">{links.length} campaigns</p>
+            <p className="text-lg font-bold font-mono text-primary mt-2">{fmtC(totalLtv)}</p>
+            <p className="text-[10px] text-muted-foreground">{totalSubs.toLocaleString()} subs</p>
           </button>
-          {modelPerformance.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => { setSelectedModel(selectedModel === m.id ? "all" : m.id); setPage(1); }}
-              className={`flex-shrink-0 rounded-2xl border p-4 min-w-[160px] transition-all ${
-                selectedModel === m.id ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-card hover:border-primary/40"
-              }`}
-            >
-              {m.avatar ? (
-                <img src={m.avatar} alt={m.display_name} className="w-10 h-10 rounded-full object-cover mb-2" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold mb-2">
-                  {m.display_name.charAt(0)}
+          {modelPerformance.map((m) => {
+            const cat = getCategory(m.display_name);
+            return (
+              <button
+                key={m.id}
+                onClick={() => { setSelectedModel(selectedModel === m.id ? "all" : m.id); setPage(1); }}
+                className={`flex-shrink-0 rounded-2xl border p-4 min-w-[160px] transition-all text-left ${
+                  selectedModel === m.id ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-card hover:border-primary/40"
+                }`}
+              >
+                <p className="text-sm font-bold text-foreground">{m.display_name}</p>
+                {m.username && <p className="text-[10px] text-muted-foreground">@{m.username}</p>}
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${cat.color}`}>{cat.label}</span>
+                  {m.performer_top !== null && m.performer_top > 0 && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                      Top {m.performer_top}%
+                    </span>
+                  )}
                 </div>
-              )}
-              <p className="text-sm font-semibold text-foreground">{m.display_name}</p>
-              {m.username && <p className="text-[10px] text-muted-foreground">@{m.username}</p>}
-              <p className="text-lg font-bold font-mono text-primary mt-1">{fmtC(m.ltv)}</p>
-              <p className="text-[10px] text-muted-foreground">{m.subs.toLocaleString()} subs</p>
-            </button>
-          ))}
+                <p className="text-lg font-bold font-mono text-primary mt-2">{fmtC(m.ltv)}</p>
+                <p className="text-[10px] text-muted-foreground">{m.subs.toLocaleString()} subs</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* ═══ SECTION 2 — CAMPAIGN PROFITABILITY ═══ */}
-
         <div>
           <h2 className="text-[16px] font-bold text-foreground mb-1">Campaign Profitability</h2>
           <p className="text-xs text-muted-foreground mb-4">Profit per subscriber per campaign and source</p>
@@ -515,19 +509,10 @@ export default function DashboardPage() {
                           >
                             <td className="px-3 py-3">
                               <p className="text-[13px] font-medium text-foreground">{link.campaign_name || "—"}</p>
-                              <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{link.url || ""}</p>
+                              <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{link.url || ""}</p>
                             </td>
                             <td className="px-3 py-3">
-                              <div className="flex items-center gap-2">
-                                {link.accounts?.avatar_thumb_url ? (
-                                  <img src={link.accounts.avatar_thumb_url} alt="" className="w-5 h-5 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[9px] font-bold">
-                                    {(link.accounts?.display_name || "?").charAt(0)}
-                                  </div>
-                                )}
-                                <span className="text-xs text-muted-foreground">@{link.accounts?.username || "—"}</span>
-                              </div>
+                              <span className="text-xs text-muted-foreground">@{link.accounts?.username || "—"}</span>
                             </td>
                             <td className="px-3 py-3"><TagBadge tagName={link.source_tag} /></td>
                             <td className="px-3 py-3 text-right font-mono text-xs text-foreground">{(link.subscribers || 0).toLocaleString()}</td>
@@ -667,8 +652,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ═══ SECTION 3 — MODEL PERFORMANCE ═══ */}
-
+        {/* ═══ SECTION 3 — MODEL PERFORMANCE (with photos) ═══ */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[16px] font-bold text-foreground">Model Performance</h2>
@@ -688,49 +672,53 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {modelPerformance.map((m) => (
-              <div key={m.id} className="bg-card border border-border rounded-2xl p-5 hover:border-primary/40 transition-all">
-                <div className="flex items-center gap-3 mb-3">
-                  {m.avatar ? (
-                    <img src={m.avatar} alt={m.display_name} className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold">
-                      {m.display_name.charAt(0)}
+            {modelPerformance.map((m) => {
+              const cat = getCategory(m.display_name);
+              return (
+                <div key={m.id} className="bg-card border border-border rounded-2xl p-5 hover:border-primary/40 transition-all">
+                  <div className="flex items-center gap-3 mb-3">
+                    {m.avatar ? (
+                      <img src={m.avatar} alt={m.display_name} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold">
+                        {m.display_name.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{m.display_name}</p>
+                      {m.username && <p className="text-[10px] text-muted-foreground">@{m.username}</p>}
                     </div>
-                  )}
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{m.display_name}</p>
-                    {m.username && <p className="text-[10px] text-muted-foreground">@{m.username}</p>}
+                  </div>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${cat.color}`}>{cat.label}</span>
+                  <div className="space-y-2 mt-2">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">LTV</span>
+                      <p className="text-lg font-bold font-mono text-primary">{fmtC(m.ltv)}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">ROI</span>
+                        <p className={`text-sm font-bold font-mono ${m.roi !== null ? ((m.roi ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
+                          {m.roi !== null ? fmtP(m.roi) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Profit/Sub</span>
+                        <p className={`text-sm font-bold font-mono ${m.profitPerSub !== null ? ((m.profitPerSub ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
+                          {m.profitPerSub !== null ? fmtC(m.profitPerSub) : "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {m.campaigns} campaigns · {m.subs.toLocaleString()} subs
+                    </p>
+                    {trendPeriod !== "all" && (
+                      <p className="text-[9px] text-muted-foreground italic">Building data... more syncs needed</p>
+                    )}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">LTV</span>
-                    <p className="text-lg font-bold font-mono text-primary">{fmtC(m.ltv)}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">ROI</span>
-                      <p className={`text-sm font-bold font-mono ${m.roi !== null ? ((m.roi ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                        {m.roi !== null ? fmtP(m.roi) : "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Profit/Sub</span>
-                      <p className={`text-sm font-bold font-mono ${m.profitPerSub !== null ? ((m.profitPerSub ?? 0) >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                        {m.profitPerSub !== null ? fmtC(m.profitPerSub) : "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {m.campaigns} campaigns · {m.subs.toLocaleString()} subs
-                  </p>
-                  {trendPeriod !== "all" && (
-                    <p className="text-[9px] text-muted-foreground italic">Building data... more syncs needed</p>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
