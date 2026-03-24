@@ -328,9 +328,10 @@ export default function DashboardPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
               </div>
-              <p className="text-xl font-bold font-mono text-primary">{fmtC(effectiveLtv)}</p>
+              <p className="text-xl font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">All transactions · all models</p>
               {showFallback && (
-                <p className="text-[10px] text-muted-foreground mt-1">Showing all time — builds with each sync</p>
+                <p className="text-[10px] text-muted-foreground">Showing all time — builds with each sync</p>
               )}
             </div>
             {/* Total Spend */}
