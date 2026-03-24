@@ -48,6 +48,26 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
+  // Category mapping for group filter
+  const CATEGORY_MAP: Record<string, string> = {
+    "jessie_ca_xo": "Female", "zoey.skyy": "Female", "ella_cherryy": "Female",
+    "miakitty.ts": "Trans", "aylin_bigts": "Trans",
+  };
+
+  const getAccountCategory = (account: any) => {
+    const username = (account.username || "").replace("@", "");
+    return CATEGORY_MAP[username] || "Female";
+  };
+
+  // Accounts filtered by group
+  const groupFilteredAccounts = useMemo(() => {
+    if (groupFilter === "all") return accounts;
+    return accounts.filter((a: any) => getAccountCategory(a) === groupFilter);
+  }, [accounts, groupFilter]);
+
+  // Active filter count (excluding time period)
+  const activeFilterCount = (groupFilter !== "all" ? 1 : 0) + (selectedModel !== "all" ? 1 : 0);
+
   const periodParam = PERIOD_MAP[timePeriod];
   const modelParam = selectedModel !== "all" ? selectedModel : null;
 
