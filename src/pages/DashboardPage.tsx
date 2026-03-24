@@ -393,6 +393,28 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
+            {/* Unattributed Subs */}
+            <div className="bg-card border border-border rounded-2xl p-5 group relative">
+              <div className="flex items-center gap-2 mb-2">
+                <UserMinus className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed Subs</span>
+              </div>
+              <p className={`text-xl font-bold font-mono ${
+                unattributedStats.pct <= 30 ? "text-primary" : unattributedStats.pct <= 40 ? "text-[hsl(38_92%_50%)]" : "text-destructive"
+              }`}>
+                {unattributedStats.accountTotalSubs > 0 ? `${unattributedStats.pct.toFixed(1)}%` : "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">Organic + untracked traffic</p>
+              {/* Tooltip */}
+              <div className="absolute left-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
+                <div className="space-y-1 text-[11px]">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Attributed to links</span><span className="font-mono text-foreground">{unattributedStats.attributedSubs.toLocaleString()}</span></div>
+                  <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Unattributed</span><span className="font-mono font-bold">{unattributedStats.unattributed.toLocaleString()} ({unattributedStats.pct.toFixed(1)}%)</span></div>
+                  <p className="text-muted-foreground mt-2 leading-relaxed">~20% is normal due to OnlyFans tracking limitations</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
