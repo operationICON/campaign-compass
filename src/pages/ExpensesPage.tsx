@@ -94,6 +94,8 @@ export default function ExpensesPage() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
+  // Consistent KPI formula: Total Profit = Total LTV - Total Spend (not sum of individual profits)
+  const totalLtv = useMemo(() => allLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [allLinks]);
   const totalSpend = useMemo(() => linksWithSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0), [linksWithSpend]);
   const spendThisMonth = useMemo(() =>
     linksWithSpend
@@ -101,7 +103,9 @@ export default function ExpensesPage() {
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0),
     [linksWithSpend, monthStart]
   );
-  const totalProfit = useMemo(() => linksWithSpend.reduce((s: number, l: any) => s + Number(l.profit || 0), 0), [linksWithSpend]);
+  const totalProfit = totalLtv - totalSpend;
+  const paidSubs = useMemo(() => linksWithSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0), [linksWithSpend]);
+  const avgProfitPerSub = totalSpend > 0 && paidSubs > 0 ? totalProfit / paidSubs : null;
   const blendedROI = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
   const campaignsWithSpend = linksWithSpend.length;
 
