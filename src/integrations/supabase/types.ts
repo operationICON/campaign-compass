@@ -71,6 +71,7 @@ export type Database = {
       ad_spend: {
         Row: {
           account_id: string | null
+          airtable_record_id: string | null
           amount: number
           campaign_id: string
           created_at: string
@@ -78,11 +79,16 @@ export type Database = {
           id: string
           media_buyer: string | null
           notes: string | null
+          source_tag: string | null
+          spend_type: string | null
+          sync_source: string
+          tracking_link_id: string | null
           traffic_source: string
           updated_at: string
         }
         Insert: {
           account_id?: string | null
+          airtable_record_id?: string | null
           amount?: number
           campaign_id: string
           created_at?: string
@@ -90,11 +96,16 @@ export type Database = {
           id?: string
           media_buyer?: string | null
           notes?: string | null
+          source_tag?: string | null
+          spend_type?: string | null
+          sync_source?: string
+          tracking_link_id?: string | null
           traffic_source: string
           updated_at?: string
         }
         Update: {
           account_id?: string | null
+          airtable_record_id?: string | null
           amount?: number
           campaign_id?: string
           created_at?: string
@@ -102,6 +113,10 @@ export type Database = {
           id?: string
           media_buyer?: string | null
           notes?: string | null
+          source_tag?: string | null
+          spend_type?: string | null
+          sync_source?: string
+          tracking_link_id?: string | null
           traffic_source?: string
           updated_at?: string
         }
@@ -125,6 +140,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_spend_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
             referencedColumns: ["id"]
           },
         ]
