@@ -76,6 +76,14 @@ export default function MediaBuyersPage() {
   const fmtCurrency = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
+  // Unattributed subs calculation
+  const unattributedPct = useMemo(() => {
+    const accountTotalSubs = accounts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+    const attributedSubs = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    if (accountTotalSubs === 0) return 0;
+    return Math.max(0, ((accountTotalSubs - attributedSubs) / accountTotalSubs) * 100);
+  }, [accounts, links]);
+
   const SortHeader = ({ label, field, align = "left" }: { label: string; field: SortKey; align?: string }) => (
     <th onClick={() => toggleSort(field)}
       className={`px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors select-none ${align === "right" ? "text-right" : "text-left"}`}>
