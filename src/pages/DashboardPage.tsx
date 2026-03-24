@@ -13,6 +13,7 @@ import {
   RefreshCw, DollarSign, TrendingUp, PiggyBank, Users, UserMinus,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, X
 } from "lucide-react";
+import { InsightsSection } from "@/components/dashboard/InsightsSection";
 
 
 type SortKey = "campaign_name" | "revenue" | "profit" | "roi" | "profit_per_sub" | "subscribers";
