@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
-import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTransactionTotals } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -48,9 +48,29 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
-  // RPC: get_ltv_by_period
   const periodParam = PERIOD_MAP[timePeriod];
   const modelParam = selectedModel !== "all" ? selectedModel : null;
+
+  // Transaction-based Total LTV (true LTV from all revenue sources)
+  const txDateFrom = useMemo(() => {
+    if (timePeriod === "all") return undefined;
+    const now = new Date();
+    if (timePeriod === "day") return new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+    if (timePeriod === "week") return new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
+    if (timePeriod === "month") return new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0];
+    if (timePeriod === "prev_month") return new Date(now.getTime() - 60 * 86400000).toISOString().split("T")[0];
+    return undefined;
+  }, [timePeriod]);
+
+  const { data: txTotals, isLoading: isTxLoading } = useQuery({
+    queryKey: ["transaction_totals", modelParam, txDateFrom],
+    queryFn: () => fetchTransactionTotals({
+      account_id: modelParam || undefined,
+      date_from: txDateFrom,
+    }),
+  });
+
+  // RPC: get_ltv_by_period (still used for period subs data)
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
     queryKey: ["ltv_by_period", periodParam, modelParam],
     queryFn: async () => {
@@ -72,7 +92,7 @@ export default function DashboardPage() {
     mutationFn: () => triggerSync(undefined, true, (msg) => toast.info(msg, { id: 'sync-progress' })),
     onSuccess: (data) => {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
-      ["tracking_links", "accounts", "daily_metrics", "sync_logs"].forEach(k =>
+      ["tracking_links", "accounts", "daily_metrics", "sync_logs", "transaction_totals"].forEach(k =>
         queryClient.invalidateQueries({ queryKey: [k] })
       );
     },
@@ -145,26 +165,20 @@ export default function DashboardPage() {
     });
   }, [enrichedLinks, sortKey, sortAsc]);
 
-  // KPI calculations — use RPC for LTV when period is not all_time
+  // KPI calculations
   const totalSpend = enrichedLinks.reduce((s: number, l: any) => s + l.spend, 0);
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
 
-  // Use RPC data for LTV/subs when available, fallback to client-side
-  const periodLtv = periodData?.total_ltv ?? 0;
+  // True Total LTV from transactions table (all revenue sources)
+  const totalLtv = txTotals?.totalRevenue ?? 0;
+  
+  // Subs from RPC for period calculations
   const periodSubs = periodData?.total_new_subs ?? 0;
   const periodDataAvailable = periodData?.data_available ?? false;
   const showFallback = timePeriod !== "all" && !periodDataAvailable;
-
-  const avgLtvPerSub = showFallback
-    ? (totalSubs > 0 ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) / totalSubs : 0)
-    : (periodData?.ltv_per_sub ?? (totalSubs > 0 ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) / totalSubs : 0));
-
-  const effectiveLtv = showFallback
-    ? enrichedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0)
-    : periodLtv;
   const effectiveSubs = showFallback ? totalSubs : (periodSubs || totalSubs);
 
-  const totalProfit = totalSpend > 0 ? effectiveLtv - totalSpend : null;
+  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const avgProfitPerSub = (totalProfit !== null && effectiveSubs > 0) ? totalProfit / effectiveSubs : null;
 
   const trafficSources = useMemo(() => {
@@ -279,7 +293,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
-        {(isLoading || isPeriodLoading) ? (
+        {(isLoading || isPeriodLoading || isTxLoading) ? (
           <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5">
@@ -314,9 +328,10 @@ export default function DashboardPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
               </div>
-              <p className="text-xl font-bold font-mono text-primary">{fmtC(effectiveLtv)}</p>
+              <p className="text-xl font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">All transactions · all models</p>
               {showFallback && (
-                <p className="text-[10px] text-muted-foreground mt-1">Showing all time — builds with each sync</p>
+                <p className="text-[10px] text-muted-foreground">Showing all time — builds with each sync</p>
               )}
             </div>
             {/* Total Spend */}
