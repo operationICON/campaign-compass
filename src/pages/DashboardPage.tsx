@@ -24,6 +24,15 @@ const MODEL_CATEGORIES: Record<string, { label: string; color: string }> = {
 
 type SortKey = "campaign_name" | "revenue" | "profit" | "roi" | "profit_per_sub" | "subscribers";
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
+
+const PERIOD_MAP: Record<TimePeriod, string> = {
+  all: "all_time",
+  day: "last_day",
+  week: "last_week",
+  since_sync: "since_last_sync",
+  month: "last_month",
+  prev_month: "prev_month",
+};
 type TrendPeriod = "week" | "month" | "3months" | "6months" | "all";
 
 export default function DashboardPage() {
