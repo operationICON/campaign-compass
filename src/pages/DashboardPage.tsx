@@ -323,15 +323,28 @@ export default function DashboardPage() {
               )}
             </div>
             {/* Total LTV */}
-            <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5 group relative">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
               </div>
               <p className="text-xl font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">All transactions · all models</p>
+              <p className="text-[10px] text-muted-foreground mt-1">All earnings · all models</p>
               {showFallback && (
                 <p className="text-[10px] text-muted-foreground">Showing all time — builds with each sync</p>
+              )}
+              {/* LTV Breakdown Tooltip */}
+              {totalLtv > 0 && (
+                <div className="absolute left-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[200px]">
+                  <p className="text-[11px] font-bold text-foreground mb-2">LTV Breakdown</p>
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Subscriptions</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.subscriptions)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Tips</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.tips)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Messages</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.messages)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Posts</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.posts)}</span></div>
+                    <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Total</span><span className="font-mono font-bold text-primary">{fmtC(totalLtv)}</span></div>
+                  </div>
+                </div>
               )}
             </div>
             {/* Total Spend */}
