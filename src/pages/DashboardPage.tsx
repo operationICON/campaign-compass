@@ -322,7 +322,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             {/* Avg Profit/Sub — HERO PRIMARY */}
             <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
               <div className="flex items-center gap-2 mb-2">
