@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
-  RefreshCw, DollarSign, TrendingUp, PiggyBank, Users,
+  RefreshCw, DollarSign, TrendingUp, PiggyBank, Users, UserMinus,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil
 } from "lucide-react";
 
@@ -182,6 +182,17 @@ export default function DashboardPage() {
   const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const avgProfitPerSub = (totalProfit !== null && effectiveSubs > 0) ? totalProfit / effectiveSubs : null;
 
+  // Unattributed subs calculation
+  const unattributedStats = useMemo(() => {
+    const filteredAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    const accountTotalSubs = filteredAccounts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+    const filteredLinks = modelParam ? links.filter((l: any) => l.account_id === modelParam) : links;
+    const attributedSubs = filteredLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
+    const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
+    return { accountTotalSubs, attributedSubs, unattributed, pct };
+  }, [accounts, links, modelParam]);
+
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
     links.forEach((l: any) => s.add(l.source_tag || "Untagged"));
@@ -302,8 +313,8 @@ export default function DashboardPage() {
 
         {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
         {(isLoading || isPeriodLoading) ? (
-          <div className="grid grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5">
                 <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
                 <div className="skeleton-shimmer h-8 w-28 rounded" />
@@ -311,7 +322,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             {/* Avg Profit/Sub — HERO PRIMARY */}
             <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
               <div className="flex items-center gap-2 mb-2">
@@ -381,6 +392,28 @@ export default function DashboardPage() {
                   <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
                 </>
               )}
+            </div>
+            {/* Unattributed Subs */}
+            <div className="bg-card border border-border rounded-2xl p-5 group relative">
+              <div className="flex items-center gap-2 mb-2">
+                <UserMinus className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed Subs</span>
+              </div>
+              <p className={`text-xl font-bold font-mono ${
+                unattributedStats.pct <= 30 ? "text-primary" : unattributedStats.pct <= 40 ? "text-[hsl(38_92%_50%)]" : "text-destructive"
+              }`}>
+                {unattributedStats.accountTotalSubs > 0 ? `${unattributedStats.pct.toFixed(1)}%` : "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">Organic + untracked traffic</p>
+              {/* Tooltip */}
+              <div className="absolute left-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
+                <div className="space-y-1 text-[11px]">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Attributed to links</span><span className="font-mono text-foreground">{unattributedStats.attributedSubs.toLocaleString()}</span></div>
+                  <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Unattributed</span><span className="font-mono font-bold">{unattributedStats.unattributed.toLocaleString()} ({unattributedStats.pct.toFixed(1)}%)</span></div>
+                  <p className="text-muted-foreground mt-2 leading-relaxed">~20% is normal due to OnlyFans tracking limitations</p>
+                </div>
+              </div>
             </div>
           </div>
         )}

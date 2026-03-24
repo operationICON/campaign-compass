@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchTrackingLinks, fetchAccounts } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronUp, ChevronDown, DollarSign, TrendingUp, BarChart3, Target, Tag } from "lucide-react";
+import { ChevronUp, ChevronDown, DollarSign, TrendingUp, BarChart3, Target, Tag, Info } from "lucide-react";
 
 type SortKey = "source" | "campaigns" | "totalSpend" | "totalLtv" | "totalProfit" | "roi" | "avgCvr";
 
@@ -76,6 +76,14 @@ export default function MediaBuyersPage() {
   const fmtCurrency = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
+  // Unattributed subs calculation
+  const unattributedPct = useMemo(() => {
+    const accountTotalSubs = accounts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+    const attributedSubs = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    if (accountTotalSubs === 0) return 0;
+    return Math.max(0, ((accountTotalSubs - attributedSubs) / accountTotalSubs) * 100);
+  }, [accounts, links]);
+
   const SortHeader = ({ label, field, align = "left" }: { label: string; field: SortKey; align?: string }) => (
     <th onClick={() => toggleSort(field)}
       className={`px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors select-none ${align === "right" ? "text-right" : "text-left"}`}>
@@ -97,6 +105,14 @@ export default function MediaBuyersPage() {
                 <Target className="h-3 w-3" /> Agency avg CVR: {agencyAvgCvr.toFixed(1)}%
               </span>
             )}
+          </p>
+        </div>
+
+        {/* Unattributed traffic note */}
+        <div className="flex items-start gap-2.5 bg-muted/50 border border-border rounded-xl px-4 py-3">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Approximately <span className="font-semibold text-foreground">{unattributedPct.toFixed(0)}%</span> of total subscribers arrive without tracking link attribution. Source performance below reflects attributed traffic only.
           </p>
         </div>
 

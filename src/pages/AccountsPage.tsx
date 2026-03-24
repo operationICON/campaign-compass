@@ -90,6 +90,9 @@ export default function AccountsPage() {
       const avgCvr = qClicks > 0 ? (qSubs / qClicks) * 100 : null;
       const cvrDiff = avgCvr !== null && agencyAvgCvr !== null ? avgCvr - agencyAvgCvr : null;
 
+      const unattributedSubs = Math.max(0, (acc.subscribers_count || 0) - totalSubs);
+      const unattributedPct = (acc.subscribers_count || 0) > 0 ? (unattributedSubs / acc.subscribers_count) * 100 : 0;
+
       stats[acc.id] = {
         totalLtv,
         totalSpend,
@@ -103,6 +106,7 @@ export default function AccountsPage() {
         blendedRoi: totalSpend > 0 ? ((totalLtv - totalSpend) / totalSpend) * 100 : null,
         avgCvr,
         cvrDiff,
+        unattributedPct,
       };
     }
     return stats;
@@ -255,10 +259,16 @@ export default function AccountsPage() {
                     { label: "Active Campaigns", value: String(stats.activeCampaigns || 0) },
                     { label: "Avg Subs/Day", value: stats.avgSubsDay },
                     { label: "Blended ROI", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
-                  ].map((s) => (
+                    { label: "Unattributed", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
+                      colored: true, pctVal: stats.unattributedPct },
+                  ].map((s: any) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
-                      <p className="text-lg font-bold font-mono text-foreground">{s.value}</p>
+                      <p className={`text-lg font-bold font-mono ${
+                        s.colored
+                          ? ((s.pctVal ?? 0) <= 30 ? "text-primary" : (s.pctVal ?? 0) <= 40 ? "text-[hsl(38_92%_50%)]" : "text-destructive")
+                          : "text-foreground"
+                      }`}>{s.value}</p>
                     </div>
                   ))}
                 </div>
