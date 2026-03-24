@@ -258,6 +258,8 @@ export type Database = {
           date: string
           epc: number | null
           id: string
+          new_revenue: number
+          new_subscribers: number
           revenue: number
           spenders: number
           subscribers: number
@@ -271,6 +273,8 @@ export type Database = {
           date: string
           epc?: number | null
           id?: string
+          new_revenue?: number
+          new_subscribers?: number
           revenue?: number
           spenders?: number
           subscribers?: number
@@ -284,6 +288,8 @@ export type Database = {
           date?: string
           epc?: number | null
           id?: string
+          new_revenue?: number
+          new_subscribers?: number
           revenue?: number
           spenders?: number
           subscribers?: number
@@ -708,7 +714,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_ltv_by_period: {
+        Args: { p_account_id?: string; p_period: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
