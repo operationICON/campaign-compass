@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { data: settings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const { data: rules = [] } = useQuery({ queryKey: ["source_tag_rules"], queryFn: fetchSourceTagRules });
+  const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const [frequency, setFrequency] = useState("3");
   const [saving, setSaving] = useState(false);
 
