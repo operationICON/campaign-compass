@@ -3,11 +3,14 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   fetchSyncSettings, updateSyncSetting, fetchSourceTagRules,
-  createSourceTagRule, updateSourceTagRule, deleteSourceTagRule, runAutoTag
+  createSourceTagRule, updateSourceTagRule, deleteSourceTagRule, runAutoTag,
+  fetchAccounts
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Settings, Clock, CreditCard, Tag, Plus, Pencil, X, Wand2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Settings, Clock, CreditCard, Tag, Plus, Pencil, X, Wand2, GripVertical, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { format } from "date-fns";
 
 const FREQUENCY_OPTIONS = [
   { label: "Every 3 days", value: "3", desc: "~10 syncs/month", credits: "~50 credits" },
