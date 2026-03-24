@@ -90,6 +90,9 @@ export default function AccountsPage() {
       const avgCvr = qClicks > 0 ? (qSubs / qClicks) * 100 : null;
       const cvrDiff = avgCvr !== null && agencyAvgCvr !== null ? avgCvr - agencyAvgCvr : null;
 
+      const unattributedSubs = Math.max(0, (acc.subscribers_count || 0) - totalSubs);
+      const unattributedPct = (acc.subscribers_count || 0) > 0 ? (unattributedSubs / acc.subscribers_count) * 100 : 0;
+
       stats[acc.id] = {
         totalLtv,
         totalSpend,
@@ -103,6 +106,7 @@ export default function AccountsPage() {
         blendedRoi: totalSpend > 0 ? ((totalLtv - totalSpend) / totalSpend) * 100 : null,
         avgCvr,
         cvrDiff,
+        unattributedPct,
       };
     }
     return stats;
