@@ -1,0 +1,1 @@
+ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS ltv_last_day DECIMAL(12,2) DEFAULT 0;

@@ -27,6 +27,7 @@ export type Database = {
           last_synced_at: string | null
           ltv_last_30d: number | null
           ltv_last_7d: number | null
+          ltv_last_day: number | null
           ltv_messages: number | null
           ltv_posts: number | null
           ltv_subscriptions: number | null
@@ -52,6 +53,7 @@ export type Database = {
           last_synced_at?: string | null
           ltv_last_30d?: number | null
           ltv_last_7d?: number | null
+          ltv_last_day?: number | null
           ltv_messages?: number | null
           ltv_posts?: number | null
           ltv_subscriptions?: number | null
@@ -77,6 +79,7 @@ export type Database = {
           last_synced_at?: string | null
           ltv_last_30d?: number | null
           ltv_last_7d?: number | null
+          ltv_last_day?: number | null
           ltv_messages?: number | null
           ltv_posts?: number | null
           ltv_subscriptions?: number | null

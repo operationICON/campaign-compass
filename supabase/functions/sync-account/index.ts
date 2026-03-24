@@ -405,6 +405,17 @@ Deno.serve(async (req) => {
         ltvUpdate.ltv_last_7d = Number(totals7?.all?.total_gross ?? totals7?.total_gross ?? 0)
       }
 
+      // Last 1 day
+      const d1 = new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0]
+      const res1 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d1}`, {
+        headers: apiHeaders(apiKey),
+      })
+      if (res1.ok) {
+        const json1 = await res1.json()
+        const totals1 = json1?.data?.list?.total ?? json1?.data?.total ?? {}
+        ltvUpdate.ltv_last_day = Number(totals1?.all?.total_gross ?? totals1?.total_gross ?? 0)
+      }
+
       await db.from('accounts').update(ltvUpdate).eq('id', accountId)
     } catch (err: any) {
       console.error(`Earnings stats error for ${displayName}: ${err.message}`)

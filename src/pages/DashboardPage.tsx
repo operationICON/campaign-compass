@@ -55,7 +55,8 @@ export default function DashboardPage() {
   const accountLtv = useMemo(() => {
     const filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
     const getLtvField = () => {
-      if (timePeriod === "week" || timePeriod === "day") return "ltv_last_7d";
+      if (timePeriod === "day") return "ltv_last_day";
+      if (timePeriod === "week") return "ltv_last_7d";
       if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
       return "ltv_total";
     };
@@ -329,7 +330,7 @@ export default function DashboardPage() {
                 <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
               </div>
               <p className="text-xl font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">All earnings · all models</p>
+              <p className="text-[10px] text-muted-foreground mt-1">All account subscribers</p>
               {showFallback && (
                 <p className="text-[10px] text-muted-foreground">Showing all time — builds with each sync</p>
               )}
