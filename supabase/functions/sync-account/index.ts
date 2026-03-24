@@ -358,8 +358,10 @@ Deno.serve(async (req) => {
     try {
       console.log(`Fetching earnings stats for ${displayName}...`)
       
-      // All time earnings
-      const allTimeRes = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings`, {
+      const today = new Date().toISOString().split('T')[0]
+      
+      // All time earnings (API requires start_date, use earliest possible date)
+      const allTimeRes = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=2015-01-01&end_date=${today}`, {
         headers: apiHeaders(apiKey),
       })
       
@@ -370,50 +372,53 @@ Deno.serve(async (req) => {
 
       if (allTimeRes.ok) {
         const allTimeJson = await allTimeRes.json()
-        const totals = allTimeJson?.data?.list?.total ?? allTimeJson?.data?.total ?? {}
+        const totals = allTimeJson?.data?.total ?? allTimeJson?.data?.list?.total ?? {}
         
-        ltvUpdate.ltv_total = Number(totals?.all?.total_gross ?? totals?.total_gross ?? 0)
-        ltvUpdate.ltv_tips = Number(totals?.tips?.total_gross ?? 0)
-        ltvUpdate.ltv_subscriptions = Number(totals?.subscribes?.total_gross ?? 0)
-        ltvUpdate.ltv_messages = Number(totals?.chat_messages?.total_gross ?? 0)
-        ltvUpdate.ltv_posts = Number(totals?.post?.total_gross ?? 0)
+        // Use .gross field (GROSS revenue), NOT .total (which is NET after OF platform fee)
+        ltvUpdate.ltv_total = Number(totals?.gross ?? totals?.all?.total_gross ?? 0)
+        // Individual breakdowns not available in this API format, set to 0
+        ltvUpdate.ltv_tips = 0
+        ltvUpdate.ltv_subscriptions = 0
+        ltvUpdate.ltv_messages = 0
+        ltvUpdate.ltv_posts = 0
         
-        console.log(`${displayName} all-time LTV: $${ltvUpdate.ltv_total}`)
+        console.log(`${displayName} all-time LTV (gross): $${ltvUpdate.ltv_total}`)
       } else {
-        console.error(`Earnings stats returned ${allTimeRes.status} for ${displayName}`)
+        const errBody = await allTimeRes.text()
+        console.error(`Earnings stats returned ${allTimeRes.status} for ${displayName}: ${errBody}`)
       }
 
       // Last 30 days
       const d30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-      const res30 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d30}`, {
+      const res30 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d30}&end_date=${today}`, {
         headers: apiHeaders(apiKey),
       })
       if (res30.ok) {
         const json30 = await res30.json()
-        const totals30 = json30?.data?.list?.total ?? json30?.data?.total ?? {}
-        ltvUpdate.ltv_last_30d = Number(totals30?.all?.total_gross ?? totals30?.total_gross ?? 0)
+        const totals30 = json30?.data?.total ?? json30?.data?.list?.total ?? {}
+        ltvUpdate.ltv_last_30d = Number(totals30?.gross ?? totals30?.all?.total_gross ?? 0)
       }
 
       // Last 7 days
       const d7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
-      const res7 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d7}`, {
+      const res7 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d7}&end_date=${today}`, {
         headers: apiHeaders(apiKey),
       })
       if (res7.ok) {
         const json7 = await res7.json()
-        const totals7 = json7?.data?.list?.total ?? json7?.data?.total ?? {}
-        ltvUpdate.ltv_last_7d = Number(totals7?.all?.total_gross ?? totals7?.total_gross ?? 0)
+        const totals7 = json7?.data?.total ?? json7?.data?.list?.total ?? {}
+        ltvUpdate.ltv_last_7d = Number(totals7?.gross ?? totals7?.all?.total_gross ?? 0)
       }
 
       // Last 1 day
       const d1 = new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0]
-      const res1 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d1}`, {
+      const res1 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d1}&end_date=${today}`, {
         headers: apiHeaders(apiKey),
       })
       if (res1.ok) {
         const json1 = await res1.json()
-        const totals1 = json1?.data?.list?.total ?? json1?.data?.total ?? {}
-        ltvUpdate.ltv_last_day = Number(totals1?.all?.total_gross ?? totals1?.total_gross ?? 0)
+        const totals1 = json1?.data?.total ?? json1?.data?.list?.total ?? {}
+        ltvUpdate.ltv_last_day = Number(totals1?.gross ?? totals1?.all?.total_gross ?? 0)
       }
 
       await db.from('accounts').update(ltvUpdate).eq('id', accountId)
