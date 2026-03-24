@@ -489,7 +489,7 @@ export default function DashboardPage() {
                                 >Set</button>
                               )}
                             </td>
-                            <td className={`px-3 py-3 text-right font-mono text-xs font-semibold ${link.profit !== null ? (link.profit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
+                            <td className={`px-3 py-3 text-right font-mono text-xs ${link.profit !== null ? (link.profit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
                               {link.profit !== null ? fmtC(link.profit) : "—"}
                             </td>
                             <td className={`px-3 py-3 text-right font-mono text-[14px] font-bold ${link.profitPerSub !== null ? (link.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
