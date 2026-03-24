@@ -55,7 +55,8 @@ export default function DashboardPage() {
   const accountLtv = useMemo(() => {
     const filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
     const getLtvField = () => {
-      if (timePeriod === "week" || timePeriod === "day") return "ltv_last_7d";
+      if (timePeriod === "day") return "ltv_last_day";
+      if (timePeriod === "week") return "ltv_last_7d";
       if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
       return "ltv_total";
     };
