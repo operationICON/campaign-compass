@@ -221,10 +221,10 @@ export default function ExpensesPage() {
   const hasAnySpend = totalSpend > 0;
 
   const kpis = [
-    { label: "Total Spend", value: hasAnySpend ? fmtC(totalSpend) : "$0.00", icon: DollarSign, color: "text-foreground" },
-    { label: "Spend This Month", value: hasAnySpend ? fmtC(spendThisMonth) : "$0.00", icon: Receipt, color: "text-foreground" },
+    { label: "Total LTV", value: fmtC(totalLtv), icon: DollarSign, color: "text-primary" },
+    { label: "Total Spend", value: hasAnySpend ? fmtC(totalSpend) : "$0.00", icon: Receipt, color: "text-foreground" },
     { label: "Total Profit", value: hasAnySpend ? (totalProfit >= 0 ? `+${fmtC(totalProfit)}` : fmtC(totalProfit)) : "—", icon: TrendingUp, color: hasAnySpend ? (totalProfit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
-    { label: "Blended ROI", value: hasAnySpend && blendedROI != null ? fmtP(blendedROI) : "—", icon: BarChart3, color: hasAnySpend && blendedROI != null ? (blendedROI >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
+    { label: "Avg Profit/Sub", value: avgProfitPerSub !== null ? fmtC(avgProfitPerSub) : "—", icon: BarChart3, color: avgProfitPerSub !== null ? (avgProfitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
     { label: "Campaigns with Spend", value: String(campaignsWithSpend), icon: Receipt, color: "text-foreground" },
   ];
 
