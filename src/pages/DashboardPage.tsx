@@ -238,20 +238,6 @@ export default function DashboardPage() {
     { key: "all", label: "All Time" },
   ];
 
-  const TREND_PERIODS: { key: TrendPeriod; label: string }[] = [
-    { key: "week", label: "Last Week" },
-    { key: "month", label: "Last Month" },
-    { key: "3months", label: "3 Months" },
-    { key: "6months", label: "6 Months" },
-    { key: "all", label: "All Time" },
-  ];
-
-  const getCategory = (name: string) => {
-    for (const [key, val] of Object.entries(MODEL_CATEGORIES)) {
-      if (name.toLowerCase().includes(key.toLowerCase())) return val;
-    }
-    return { label: "Female", color: "bg-blue-100 text-blue-700" };
-  };
 
   return (
     <DashboardLayout>
