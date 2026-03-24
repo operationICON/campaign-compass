@@ -144,7 +144,11 @@ export default function DashboardPage() {
   const timeFilteredLinks = useMemo(() => links, [links, timePeriod]);
 
   const filteredLinks = useMemo(() => {
+    const groupAccountIds = groupFilter !== "all"
+      ? new Set(groupFilteredAccounts.map((a: any) => a.id))
+      : null;
     return timeFilteredLinks.filter((link: any) => {
+      if (groupAccountIds && !groupAccountIds.has(link.account_id)) return false;
       if (selectedModel !== "all" && link.account_id !== selectedModel) return false;
       if (sourceFilter !== "all" && (link.source_tag || "Untagged") !== sourceFilter) return false;
       if (searchQuery) {
