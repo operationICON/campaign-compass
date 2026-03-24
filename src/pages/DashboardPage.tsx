@@ -491,16 +491,8 @@ export default function DashboardPage() {
           <h2 className="text-[16px] font-bold text-foreground mb-1">Campaign Profitability</h2>
           <p className="text-xs text-muted-foreground mb-4">Profit per subscriber per campaign and source</p>
 
-          {/* Filter bar */}
+          {/* Filter bar — model dropdown moved to top bar */}
           <div className="flex items-center gap-3 flex-wrap mb-4">
-            <select
-              value={selectedModel}
-              onChange={(e) => { setSelectedModel(e.target.value); setPage(1); }}
-              className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="all">All Models</option>
-              {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
-            </select>
             <select
               value={sourceFilter}
               onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
