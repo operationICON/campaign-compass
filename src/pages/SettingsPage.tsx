@@ -3,11 +3,14 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   fetchSyncSettings, updateSyncSetting, fetchSourceTagRules,
-  createSourceTagRule, updateSourceTagRule, deleteSourceTagRule, runAutoTag
+  createSourceTagRule, updateSourceTagRule, deleteSourceTagRule, runAutoTag,
+  fetchAccounts
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Settings, Clock, CreditCard, Tag, Plus, Pencil, X, Wand2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Settings, Clock, CreditCard, Tag, Plus, Pencil, X, Wand2, GripVertical, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { format } from "date-fns";
 
 const FREQUENCY_OPTIONS = [
   { label: "Every 3 days", value: "3", desc: "~10 syncs/month", credits: "~50 credits" },
@@ -31,6 +34,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { data: settings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const { data: rules = [] } = useQuery({ queryKey: ["source_tag_rules"], queryFn: fetchSourceTagRules });
+  const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const [frequency, setFrequency] = useState("3");
   const [saving, setSaving] = useState(false);
 
@@ -161,6 +165,102 @@ export default function SettingsPage() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Settings</h1>
             <p className="text-sm text-muted-foreground">Configure sync schedule and auto-tagging rules</p>
+          </div>
+        </div>
+
+        {/* ═══ Account Sync Control ═══ */}
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Settings className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground">Account Sync Control</h2>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enable or disable sync per model account. Disabled accounts will be skipped entirely during sync — no API credits used.
+            </p>
+          </div>
+
+          {accounts.every((a: any) => !a.sync_enabled) && accounts.length > 0 && (
+            <div className="flex items-center gap-2 bg-[hsl(38_92%_50%)]/10 border border-[hsl(38_92%_50%)]/30 rounded-xl px-4 py-3">
+              <AlertTriangle className="h-4 w-4 text-[hsl(38_92%_50%)]" />
+              <p className="text-xs text-[hsl(38_92%_50%)] font-medium">
+                All accounts are paused. No data will sync until at least one account is enabled.
+              </p>
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-xl border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-secondary/30 border-b border-border">
+                  <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Model</th>
+                  <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Username</th>
+                  <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Ranking</th>
+                  <th className="h-9 px-3 text-center text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Sync</th>
+                  <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((account: any) => (
+                  <tr key={account.id} className="border-b border-border hover:bg-secondary/20 transition-colors">
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        {account.avatar_thumb_url ? (
+                          <img src={account.avatar_thumb_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                            {(account.display_name || "?")[0]}
+                          </div>
+                        )}
+                        <span className="font-semibold text-foreground text-[13px]">{account.display_name}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-muted-foreground text-xs">@{account.username}</td>
+                    <td className="px-3 py-3">
+                      {account.performer_top ? (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                          Top {account.performer_top}%
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <Switch
+                        checked={account.sync_enabled !== false}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await supabase.from("accounts").update({ sync_enabled: checked } as any).eq("id", account.id);
+                            queryClient.invalidateQueries({ queryKey: ["accounts"] });
+                            toast.success(checked
+                              ? `Sync enabled for ${account.display_name}`
+                              : `Sync disabled for ${account.display_name} — no API credits will be used`
+                            );
+                          } catch (err: any) {
+                            toast.error(err.message);
+                          }
+                        }}
+                      />
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-2 h-2 rounded-full ${account.sync_enabled !== false ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                          <span className={`text-xs font-medium ${account.sync_enabled !== false ? "text-primary" : "text-muted-foreground"}`}>
+                            {account.sync_enabled !== false ? "Active" : "Paused"}
+                          </span>
+                        </div>
+                        {account.last_synced_at && (
+                          <span className="text-[10px] text-muted-foreground ml-3.5">
+                            Last synced: {format(new Date(account.last_synced_at), "MMM d, HH:mm")}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 

@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     // Get all active accounts
     const { data: accounts, error: accErr } = await db.from('accounts')
-      .select('id, display_name, onlyfans_account_id')
+      .select('id, display_name, onlyfans_account_id, sync_enabled, username')
       .eq('is_active', true)
 
     if (accErr) throw accErr
@@ -69,6 +69,24 @@ Deno.serve(async (req) => {
 
     // Call sync-account sequentially for each account
     for (const account of accountList) {
+      // Check sync_enabled flag
+      if (account.sync_enabled === false) {
+        console.log(`Skipped ${account.display_name} (@${account.username}) — sync disabled in settings`)
+        // Log skipped account
+        await db.from('sync_logs').insert({
+          account_id: account.id,
+          started_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          status: 'skipped',
+          success: true,
+          message: `Skipped ${account.display_name} — sync disabled in settings`,
+          records_processed: 0,
+          triggered_by: triggeredBy,
+        })
+        continue
+      }
+
       try {
         console.log(`Syncing account: ${account.display_name}`)
         const res = await fetch(`${supabaseUrl}/functions/v1/sync-account`, {
