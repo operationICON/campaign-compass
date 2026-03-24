@@ -433,7 +433,29 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-6 gap-4">
+            {/* Profit/Sub — HERO CARD */}
+            <div className="rounded-2xl p-5 text-primary-foreground shadow-lg hero-glow gradient-bg relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 opacity-80" />
+                  <span className="text-xs opacity-80 font-medium uppercase tracking-wider">Profit/Sub</span>
+                </div>
+                {avgProfitPerSub !== null ? (
+                  <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgProfitPerSub)}</p>
+                ) : (
+                  <>
+                    <p className="text-[28px] font-bold font-mono leading-tight opacity-60">—</p>
+                    <p className="text-[10px] opacity-60 mt-1">Enter spend to calculate</p>
+                  </>
+                )}
+                <p className="text-[10px] opacity-60 mt-1">Campaigns with spend set</p>
+                {showFallback && avgProfitPerSub !== null && (
+                  <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
+                )}
+              </div>
+            </div>
             {/* Total LTV */}
             <div className="bg-card border border-border rounded-2xl p-5 group relative">
               <div className="flex items-center gap-2 mb-2">
