@@ -92,7 +92,7 @@ export default function DashboardPage() {
     mutationFn: () => triggerSync(undefined, true, (msg) => toast.info(msg, { id: 'sync-progress' })),
     onSuccess: (data) => {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
-      ["tracking_links", "accounts", "daily_metrics", "sync_logs"].forEach(k =>
+      ["tracking_links", "accounts", "daily_metrics", "sync_logs", "transaction_totals"].forEach(k =>
         queryClient.invalidateQueries({ queryKey: [k] })
       );
     },
