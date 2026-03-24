@@ -48,6 +48,9 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
 
+  const periodParam = PERIOD_MAP[timePeriod];
+  const modelParam = selectedModel !== "all" ? selectedModel : null;
+
   // Transaction-based Total LTV (true LTV from all revenue sources)
   const txDateFrom = useMemo(() => {
     if (timePeriod === "all") return undefined;
@@ -56,13 +59,6 @@ export default function DashboardPage() {
     if (timePeriod === "week") return new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
     if (timePeriod === "month") return new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0];
     if (timePeriod === "prev_month") return new Date(now.getTime() - 60 * 86400000).toISOString().split("T")[0];
-    return undefined;
-  }, [timePeriod]);
-
-  const txDateTo = useMemo(() => {
-    if (timePeriod === "prev_month") {
-      return new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
-    }
     return undefined;
   }, [timePeriod]);
 
@@ -75,7 +71,6 @@ export default function DashboardPage() {
   });
 
   // RPC: get_ltv_by_period (still used for period subs data)
-  const periodParam = PERIOD_MAP[timePeriod];
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
     queryKey: ["ltv_by_period", periodParam, modelParam],
     queryFn: async () => {
