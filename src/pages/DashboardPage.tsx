@@ -182,6 +182,17 @@ export default function DashboardPage() {
   const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const avgProfitPerSub = (totalProfit !== null && effectiveSubs > 0) ? totalProfit / effectiveSubs : null;
 
+  // Unattributed subs calculation
+  const unattributedStats = useMemo(() => {
+    const filteredAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
+    const accountTotalSubs = filteredAccounts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+    const filteredLinks = modelParam ? links.filter((l: any) => l.account_id === modelParam) : links;
+    const attributedSubs = filteredLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
+    const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
+    return { accountTotalSubs, attributedSubs, unattributed, pct };
+  }, [accounts, links, modelParam]);
+
   const trafficSources = useMemo(() => {
     const s = new Set<string>();
     links.forEach((l: any) => s.add(l.source_tag || "Untagged"));
