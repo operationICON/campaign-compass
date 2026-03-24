@@ -33,7 +33,7 @@ const PERIOD_MAP: Record<TimePeriod, string> = {
   month: "last_month",
   prev_month: "prev_month",
 };
-type TrendPeriod = "week" | "month" | "3months" | "6months" | "all";
+
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
