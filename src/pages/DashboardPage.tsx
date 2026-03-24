@@ -169,8 +169,8 @@ export default function DashboardPage() {
   const totalSpend = enrichedLinks.reduce((s: number, l: any) => s + l.spend, 0);
   const totalSubs = enrichedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
 
-  // True Total LTV from transactions table (all revenue sources)
-  const totalLtv = txTotals?.totalRevenue ?? 0;
+  // True Total LTV from accounts table (earnings stats)
+  const totalLtv = accountLtv.total;
   
   // Subs from RPC for period calculations
   const periodSubs = periodData?.total_new_subs ?? 0;
