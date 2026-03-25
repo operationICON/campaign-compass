@@ -689,6 +689,7 @@ export default function CampaignsPage() {
                         {col("subs_day") && <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />}
                         {col("created") && <SortHeader label="Created" sortKeyName="created_at" width="100px" />}
                         {col("media_buyer") && <SortHeader label="Buyer" sortKeyName="media_buyer" width="90px" />}
+                        {col("avg_expenses") && <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "90px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Avg Expenses</th>}
                         <th className="text-center text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "28px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
                       </tr>
                     </thead>
