@@ -3,15 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync } from "@/lib/supabase-helpers";
-import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
-  RefreshCw, TrendingUp, Users, UserMinus, Tag, BarChart3, PieChart,
-  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, X
+  RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X
 } from "lucide-react";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 
