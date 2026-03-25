@@ -119,20 +119,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Auto-tag after all accounts synced
-    try {
-      await fetch(`${supabaseUrl}/functions/v1/auto-tag-campaigns`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({}),
-      })
-      console.log('Auto-tag completed')
-    } catch (err: any) {
-      console.error(`Auto-tag failed: ${err.message}`)
-    }
+    // Auto-tag removed — source tags are manual only
 
     // Update orchestrator log
     const now = new Date().toISOString()

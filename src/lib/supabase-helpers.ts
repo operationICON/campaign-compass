@@ -169,14 +169,6 @@ export async function triggerSync(
     }
   }
 
-  // Step 3: Auto-tag new campaigns
-  onProgress?.('Auto-tagging campaigns...');
-  try {
-    await supabase.functions.invoke("auto-tag-campaigns");
-  } catch (err: any) {
-    console.error('Auto-tag failed:', err.message);
-  }
-
   onProgress?.('Sync complete!');
   return { results, accounts_synced: accounts.length };
 }
@@ -314,11 +306,6 @@ export async function bulkSetSourceTag(linkIds: string[], sourceTag: string) {
   if (error) throw error;
 }
 
-export async function runAutoTag() {
-  const res = await supabase.functions.invoke("auto-tag-campaigns");
-  if (res.error) throw res.error;
-  return res.data;
-}
 
 export async function fetchTransactionTotals(filters?: {
   account_id?: string;

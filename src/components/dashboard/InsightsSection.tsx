@@ -72,8 +72,8 @@ export function InsightsSection({
   }, [enriched]);
 
   // ── CARD 3: Unattributed Subs ──
-  const enabledAccounts = useMemo(() => accounts.filter((a: any) => a.sync_enabled !== false), [accounts]);
-  const enabledCount = enabledAccounts.length;
+  const enabledAccounts = accounts;
+  const enabledCount = accounts.length;
   const totalAccountCount = accounts.length;
 
   const unattr = useMemo(() => {
@@ -100,7 +100,7 @@ export function InsightsSection({
   };
 
   const subsPerDay = useMemo(() => {
-    const enabledAccounts = accounts.filter((a: any) => a.sync_enabled !== false && filteredAccountIds.has(a.id));
+    const enabledAccounts = accounts.filter((a: any) => filteredAccountIds.has(a.id));
     return enabledAccounts.map((acc: any) => {
       const accMetrics = dailyMetrics
         .filter((m: any) => m.account_id === acc.id)
@@ -205,7 +205,7 @@ export function InsightsSection({
           {unattr.overflow ? (
             <>
               <p className="text-[26px] font-bold font-mono text-muted-foreground">—</p>
-              <p className="text-[11px] text-[hsl(38_92%_50%)] mb-3">Sync all accounts to calculate accurately</p>
+              <p className="text-[11px] text-muted-foreground mb-3">Insufficient data</p>
             </>
           ) : unattr.totalSubs === 0 ? (
             <>
@@ -239,11 +239,6 @@ export function InsightsSection({
               <span className={`w-2 h-2 rounded-full ${unattr.pct <= 30 ? "bg-[hsl(160_84%_39%)]" : unattr.pct <= 40 ? "bg-[hsl(38_92%_50%)]" : "bg-destructive"}`} />
               <span className={`text-[11px] font-medium ${unaHealth.color}`}>{unaHealth.label}</span>
             </div>
-          )}
-          {enabledCount < totalAccountCount && (
-            <p className="text-[10px] text-[hsl(38_92%_50%)] mt-2">
-              Showing {enabledCount} of {totalAccountCount} accounts — enable all in Settings for accurate calculation
-            </p>
           )}
           <p className="text-[10px] text-muted-foreground mt-1">~20% is normal due to OF tracking limits</p>
         </div>
