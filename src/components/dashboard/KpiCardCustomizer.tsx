@@ -74,7 +74,7 @@ const CAMPAIGN_CARDS: CardDef<CampaignKpiCardId>[] = [
   { id: "best_source_roi", label: "Best Source by ROI", defaultOn: false },
   { id: "best_source_profit_sub", label: "Best Source by Profit/Sub", defaultOn: false },
   { id: "most_profitable_source", label: "Most Profitable Source", defaultOn: false },
-  { id: "worst_source", label: "Worst Source", defaultOn: false },
+  { id: "worst_source", label: "Lowest Profitable Source", defaultOn: false },
   { id: "avg_expenses_per_campaign", label: "Avg Expenses per Campaign", defaultOn: false },
   { id: "blended_roi", label: "Blended ROI", defaultOn: false },
   { id: "ltv_30d_per_model", label: "30d LTV per model", defaultOn: false },
