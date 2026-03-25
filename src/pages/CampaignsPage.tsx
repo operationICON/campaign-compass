@@ -904,7 +904,7 @@ export default function CampaignsPage() {
                                             e.stopPropagation();
                                             if (!buyerName.trim()) return;
                                             try {
-                                              const { error } = await supabase.from("tracking_links").update({ source_tag: el.source_tag, manually_tagged: true } as any).eq("id", el.id);
+                                              const { error } = await supabase.from("tracking_links").update({ media_buyer: buyerName.trim() } as any).eq("id", el.id);
                                               if (error) throw error;
                                               queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                               toast.success("Buyer saved"); setBuyerName("");
