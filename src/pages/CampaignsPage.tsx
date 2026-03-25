@@ -170,14 +170,7 @@ export default function CampaignsPage() {
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
-  const autoTagMutation = useMutation({
-    mutationFn: runAutoTag,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success("Auto-tagging complete");
-    },
-    onError: (err: any) => toast.error(`Auto-tag failed: ${err.message}`),
-  });
+  // (Auto-tag removed)
 
   const exportCampaignsCsv = useCallback(() => {
     const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status,source_tag";
