@@ -434,7 +434,19 @@ export default function CampaignsPage() {
   };
 
   // KPI summary text for collapsed state
-  const kpiSummary = `${fmtK(kpis.totalLtv)} LTV · ${kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} Profit/Sub · ${kpis.trackedCount} with spend · ${kpis.untagged} untagged`;
+  const totalExpenses = filtered.reduce((s: number, l: any) => s + (Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0), 0);
+  const totalProfitAll = filtered.reduce((s: number, l: any) => {
+    const ct = Number(l.cost_total || 0);
+    return ct > 0 ? s + (Number(l.revenue || 0) - ct) : s;
+  }, 0);
+  const hasAnyExpenses = totalExpenses > 0;
+  const kpiSummary = (
+    <>
+      {fmtK(totalExpenses)} Expenses · {hasAnyExpenses ? (
+        <span className={totalProfitAll >= 0 ? "text-primary" : "text-destructive"}>{fmtK(totalProfitAll)} Profit</span>
+      ) : "—"} · {kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} Profit/Sub · {kpis.untagged} untagged · {kpis.trackedCount} with spend
+    </>
+  );
 
   const modelCount = new Set(accounts.map((a: any) => a.id)).size;
 
