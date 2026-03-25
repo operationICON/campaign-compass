@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, differenceInDays, subDays } from "date-fns";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { RefreshButton } from "@/components/RefreshButton";
 
 const MODEL_CATEGORIES: Record<string, string> = {
   "jessie_ca_xo": "Female",
@@ -448,9 +449,12 @@ export default function AccountsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-5">
-        <div>
-          <h1 className="text-[22px] font-bold text-foreground">Models</h1>
-          <p className="text-sm text-muted-foreground">All accounts connected to Campaign Tracker</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[22px] font-bold text-foreground">Models</h1>
+            <p className="text-sm text-muted-foreground">All accounts connected to Campaign Tracker</p>
+          </div>
+          <RefreshButton queryKeys={["accounts", "tracking_links", "daily_metrics"]} />
         </div>
 
         {/* Filter pills */}

@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   fetchSyncSettings, updateSyncSetting, fetchSourceTagRules,
-  createSourceTagRule, updateSourceTagRule, deleteSourceTagRule, runAutoTag,
+  createSourceTagRule, updateSourceTagRule, deleteSourceTagRule,
   fetchAccounts
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Settings, Clock, CreditCard, Tag, Plus, Pencil, X, Wand2, GripVertical, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Settings, Clock, CreditCard, Tag, Plus, Pencil, X, AlertTriangle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
+import { RefreshButton } from "@/components/RefreshButton";
 
 const FREQUENCY_OPTIONS = [
   { label: "Every 3 days", value: "3", desc: "~10 syncs/month", credits: "~50 credits" },
@@ -21,15 +22,6 @@ const FREQUENCY_OPTIONS = [
 
 const PRESET_COLORS = ["#0891b2", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
-const NAMING_EXAMPLES = [
-  { name: "reddit 12.02.26", tag: "Reddit" },
-  { name: "OnlyFinder 5.0", tag: "OnlyFinder" },
-  { name: "instagram 13.12.25", tag: "Instagram" },
-  { name: "SEO 01.10.25", tag: "SEO" },
-  { name: "Juicy - New", tag: "Juicy" },
-  { name: 'Creator traffic (1.ads)', tag: "Creator Traffic" },
-];
-
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { data: settings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
@@ -38,16 +30,14 @@ export default function SettingsPage() {
   const [frequency, setFrequency] = useState("3");
   const [saving, setSaving] = useState(false);
 
-  // Tag rule form state
+  // Tag form state
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [editingRule, setEditingRule] = useState<any>(null);
   const [ruleTagName, setRuleTagName] = useState("");
-  const [ruleKeywords, setRuleKeywords] = useState("");
   const [ruleColor, setRuleColor] = useState("#0891b2");
-  const [tipsOpen, setTipsOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // Tag counts from tracking_links
+  // Tag counts
   const { data: tagCounts = {} } = useQuery({
     queryKey: ["tag_counts"],
     queryFn: async () => {
@@ -79,20 +69,9 @@ export default function SettingsPage() {
     }
   };
 
-  const autoTagMutation = useMutation({
-    mutationFn: runAutoTag,
-    onSuccess: (data: any) => {
-      toast.success(`Auto-tagged ${data.tagged} campaigns. ${data.untagged} remain untagged.`);
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      queryClient.invalidateQueries({ queryKey: ["tag_counts"] });
-    },
-    onError: (err: any) => toast.error(`Auto-tag failed: ${err.message}`),
-  });
-
   const openAddRule = () => {
     setEditingRule(null);
     setRuleTagName("");
-    setRuleKeywords("");
     setRuleColor("#0891b2");
     setShowRuleForm(true);
   };
@@ -100,24 +79,20 @@ export default function SettingsPage() {
   const openEditRule = (rule: any) => {
     setEditingRule(rule);
     setRuleTagName(rule.tag_name);
-    setRuleKeywords((rule.keywords || []).join(", "));
     setRuleColor(rule.color || "#0891b2");
     setShowRuleForm(true);
   };
 
   const handleSaveRule = async () => {
     if (!ruleTagName.trim()) { toast.error("Tag name is required"); return; }
-    const keywords = ruleKeywords.split(",").map((k: string) => k.trim()).filter(Boolean);
-    if (keywords.length === 0) { toast.error("At least one keyword is required"); return; }
-
     try {
       if (editingRule) {
-        await updateSourceTagRule(editingRule.id, { tag_name: ruleTagName, keywords, color: ruleColor });
-        toast.success("Rule updated");
+        await updateSourceTagRule(editingRule.id, { tag_name: ruleTagName, color: ruleColor });
+        toast.success("Tag updated");
       } else {
         const maxPriority = rules.length > 0 ? Math.max(...rules.map((r: any) => r.priority || 0)) : 0;
-        await createSourceTagRule({ tag_name: ruleTagName, keywords, color: ruleColor, priority: maxPriority + 1 });
-        toast.success("Rule added");
+        await createSourceTagRule({ tag_name: ruleTagName, keywords: [], color: ruleColor, priority: maxPriority + 1 });
+        toast.success("Tag added");
       }
       queryClient.invalidateQueries({ queryKey: ["source_tag_rules"] });
       setShowRuleForm(false);
@@ -128,28 +103,13 @@ export default function SettingsPage() {
 
   const handleDeleteRule = async (rule: any) => {
     try {
-      // Reset tracking links using this tag
       await supabase.from("tracking_links").update({ source_tag: null, manually_tagged: false } as any).eq("source_tag", rule.tag_name);
       await deleteSourceTagRule(rule.id);
-      toast.success(`Deleted "${rule.tag_name}" rule`);
+      toast.success(`Deleted "${rule.tag_name}" tag`);
       queryClient.invalidateQueries({ queryKey: ["source_tag_rules"] });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["tag_counts"] });
       setDeleteConfirmId(null);
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleMovePriority = async (rule: any, direction: "up" | "down") => {
-    const idx = rules.findIndex((r: any) => r.id === rule.id);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= rules.length) return;
-    const other = rules[swapIdx];
-    try {
-      await updateSourceTagRule(rule.id, { priority: other.priority });
-      await updateSourceTagRule(other.id, { priority: rule.priority });
-      queryClient.invalidateQueries({ queryKey: ["source_tag_rules"] });
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -160,12 +120,15 @@ export default function SettingsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-4xl">
-        <div className="flex items-center gap-3">
-          <Settings className="h-5 w-5 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Settings</h1>
-            <p className="text-sm text-muted-foreground">Configure sync schedule and auto-tagging rules</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Settings className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Settings</h1>
+              <p className="text-sm text-muted-foreground">Configure sync schedule and source tags</p>
+            </div>
           </div>
+          <RefreshButton queryKeys={["sync_settings", "source_tag_rules", "accounts", "tag_counts"]} />
         </div>
 
         {/* ═══ Account Sync Control ═══ */}
@@ -306,46 +269,32 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        {/* Campaign Auto-Tagging Rules */}
+        {/* ═══ Source Tags ═══ */}
         <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Tag className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-bold text-foreground">Campaign Auto-Tagging Rules</h2>
+                <h2 className="text-sm font-bold text-foreground">Source Tags</h2>
               </div>
               <p className="text-xs text-muted-foreground max-w-lg">
-                These rules automatically tag your tracking links based on campaign name keywords. Rules are checked in priority order — first match wins. Manually tagged campaigns are never overwritten.
+                Manage source tags for your campaigns. Tags are assigned manually from the campaign detail row.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => autoTagMutation.mutate(undefined)} disabled={autoTagMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/10 transition-colors disabled:opacity-50">
-                <Wand2 className={`h-3.5 w-3.5 ${autoTagMutation.isPending ? "animate-spin" : ""}`} />
-                {autoTagMutation.isPending ? "Scanning..." : "Run Auto-Tag"}
-              </button>
-              <button onClick={openAddRule}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg gradient-bg text-white text-sm font-medium hover:opacity-90 transition-colors">
-                <Plus className="h-3.5 w-3.5" /> Add Rule
-              </button>
-            </div>
+            <button onClick={openAddRule}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg gradient-bg text-white text-sm font-medium hover:opacity-90 transition-colors">
+              <Plus className="h-3.5 w-3.5" /> Add Tag
+            </button>
           </div>
 
-          {/* Add/Edit Rule Form */}
+          {/* Add/Edit Tag Form */}
           {showRuleForm && (
             <div className="bg-secondary/50 border border-border rounded-xl p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">{editingRule ? "Edit Rule" : "Add New Rule"}</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground font-medium mb-1 block">Tag Name</label>
-                  <input type="text" value={ruleTagName} onChange={(e) => setRuleTagName(e.target.value)} placeholder="e.g. OnlyFinder"
-                    className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground font-medium mb-1 block">Keywords (comma separated)</label>
-                  <input type="text" value={ruleKeywords} onChange={(e) => setRuleKeywords(e.target.value)} placeholder="e.g. reddit, redd, r/"
-                    className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
-                </div>
+              <h3 className="text-sm font-semibold text-foreground">{editingRule ? "Edit Tag" : "Add New Tag"}</h3>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1 block">Tag Name</label>
+                <input type="text" value={ruleTagName} onChange={(e) => setRuleTagName(e.target.value)} placeholder="e.g. OnlyFinder"
+                  className="w-full max-w-xs px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground font-medium mb-1 block">Color</label>
@@ -366,40 +315,25 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Rules Table */}
+          {/* Tags Table */}
           <div className="overflow-hidden rounded-xl border border-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-secondary/30 border-b border-border">
-                  <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider w-16">Priority</th>
                   <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Tag Name</th>
                   <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider w-12">Color</th>
-                  <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Keywords</th>
                   <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider w-24">Tagged</th>
                   <th className="h-9 px-3 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider w-24">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rules.length === 0 ? (
-                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground text-sm">No rules yet. Click "Run Auto-Tag" to seed defaults, or add a rule.</td></tr>
-                ) : rules.map((rule: any, idx: number) => (
+                  <tr><td colSpan={4} className="px-3 py-8 text-center text-muted-foreground text-sm">No tags yet. Click "Add Tag" to create one.</td></tr>
+                ) : rules.map((rule: any) => (
                   <tr key={rule.id} className="border-b border-border hover:bg-secondary/20 transition-colors">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
-                        <div className="flex flex-col">
-                          <button onClick={() => handleMovePriority(rule, "up")} disabled={idx === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"><ChevronUp className="h-3 w-3" /></button>
-                          <button onClick={() => handleMovePriority(rule, "down")} disabled={idx === rules.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"><ChevronDown className="h-3 w-3" /></button>
-                        </div>
-                        <span className="text-xs text-muted-foreground font-mono">{rule.priority}</span>
-                      </div>
-                    </td>
                     <td className="px-3 py-2 font-semibold text-foreground text-[13px]">{rule.tag_name}</td>
                     <td className="px-3 py-2">
                       <div className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: rule.color }} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className="text-xs text-muted-foreground">{(rule.keywords || []).join(", ")}</span>
                     </td>
                     <td className="px-3 py-2">
                       <span className="text-xs font-medium text-foreground">{tagCounts[rule.tag_name] || 0}</span>
@@ -422,39 +356,6 @@ export default function SettingsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-
-          {/* Naming Convention Tips */}
-          <div className="border border-border rounded-xl overflow-hidden">
-            <button onClick={() => setTipsOpen(!tipsOpen)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/30 transition-colors">
-              <span className="text-sm font-semibold text-foreground">Naming Convention Tips</span>
-              {tipsOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-            </button>
-            {tipsOpen && (
-              <div className="px-4 pb-4 space-y-3">
-                <p className="text-xs text-muted-foreground">For best results, include the traffic source name at the start of your campaign name. Examples:</p>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="py-1.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Campaign Name</th>
-                      <th className="py-1.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Auto-tagged as</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {NAMING_EXAMPLES.map((ex, i) => (
-                      <tr key={i} className="border-b border-border/50">
-                        <td className="py-1.5 text-foreground font-mono text-[12px]">"{ex.name}"</td>
-                        <td className="py-1.5">
-                          <span className="text-primary font-semibold text-[12px]">{ex.tag}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p className="text-xs text-muted-foreground italic">New campaigns are auto-tagged on the next sync if they match a rule.</p>
-              </div>
-            )}
           </div>
         </div>
       </div>

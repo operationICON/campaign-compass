@@ -12,6 +12,7 @@ import {
   RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X
 } from "lucide-react";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
+import { RefreshButton } from "@/components/RefreshButton";
 
 
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
@@ -195,6 +196,7 @@ export default function DashboardPage() {
                 {accounts.filter((a: any) => a.sync_enabled !== false).length} of {accounts.length} accounts active
               </span>
             )}
+            <RefreshButton queryKeys={["tracking_links", "accounts", "daily_metrics", "sync_settings"]} />
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}

@@ -4,6 +4,7 @@ import { fetchAlerts } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Eye, X, Bell } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -88,12 +89,15 @@ export default function AlertsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <Bell className="h-5 w-5 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Alerts</h1>
-            <p className="text-sm text-muted-foreground">{unresolvedAlerts.length} unresolved alert{unresolvedAlerts.length !== 1 ? "s" : ""}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Bell className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Alerts</h1>
+              <p className="text-sm text-muted-foreground">{unresolvedAlerts.length} unresolved alert{unresolvedAlerts.length !== 1 ? "s" : ""}</p>
+            </div>
           </div>
+          <RefreshButton queryKeys={["all_alerts", "alerts", "alerts_unresolved"]} />
         </div>
 
         {isLoading ? (
