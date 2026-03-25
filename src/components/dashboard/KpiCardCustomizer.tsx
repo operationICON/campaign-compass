@@ -83,45 +83,49 @@ function getCardConfig(variant: CardVariant) {
   return { cards: DASHBOARD_CARDS, alwaysOn: DASHBOARD_ALWAYS_ON as string[] };
 }
 
-function getDefaults(): DashboardKpiCardId[] {
-  return ALL_CARDS.filter(c => c.alwaysOn || c.defaultOn).map(c => c.id);
+function getDefaults(variant: CardVariant): string[] {
+  const { cards } = getCardConfig(variant);
+  return cards.filter(c => c.alwaysOn || c.defaultOn).map(c => c.id);
 }
 
-function loadEnabledCards(storageKey: string): DashboardKpiCardId[] {
+function getVariantFromKey(storageKey: string): CardVariant {
+  return storageKey === "campaigns_kpi_cards" ? "campaigns" : "dashboard";
+}
+
+function loadEnabledCards(storageKey: string): string[] {
+  const variant = getVariantFromKey(storageKey);
+  const { alwaysOn } = getCardConfig(variant);
   try {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
-      const parsed = JSON.parse(saved) as DashboardKpiCardId[];
+      const parsed = JSON.parse(saved) as string[];
       const set = new Set(parsed);
-      ALWAYS_ON.forEach(id => set.add(id));
+      alwaysOn.forEach(id => set.add(id));
       return [...set];
     }
   } catch {}
-  return getDefaults();
+  return getDefaults(variant);
 }
 
-function saveEnabledCards(storageKey: string, cards: DashboardKpiCardId[]) {
+function saveEnabledCards(storageKey: string, cards: string[]) {
   try { localStorage.setItem(storageKey, JSON.stringify(cards)); } catch {}
 }
 
 export function useKpiCardVisibility(storageKey: string = DEFAULT_STORAGE_KEY) {
-  const [enabledCards, setEnabledCards] = useState<DashboardKpiCardId[]>(() => loadEnabledCards(storageKey));
+  const variant = getVariantFromKey(storageKey);
+  const { alwaysOn } = getCardConfig(variant);
+  const [enabledCards, setEnabledCards] = useState<string[]>(() => loadEnabledCards(storageKey));
 
-  const toggleCard = (id: DashboardKpiCardId) => {
-    if (ALWAYS_ON.includes(id)) return;
+  const toggleCard = (id: string) => {
+    if (alwaysOn.includes(id)) return;
     setEnabledCards(prev => {
-      let next: DashboardKpiCardId[];
-      if (prev.includes(id)) {
-        next = prev.filter(c => c !== id);
-      } else {
-        next = [...prev, id];
-      }
+      const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
       saveEnabledCards(storageKey, next);
       return next;
     });
   };
 
-  const isVisible = (id: DashboardKpiCardId) => enabledCards.includes(id);
+  const isVisible = (id: string) => enabledCards.includes(id);
 
   return { enabledCards, toggleCard, isVisible };
 }
@@ -129,12 +133,15 @@ export function useKpiCardVisibility(storageKey: string = DEFAULT_STORAGE_KEY) {
 export function KpiCardCustomizer({
   enabledCards,
   toggleCard,
+  variant = "dashboard",
 }: {
-  enabledCards: DashboardKpiCardId[];
-  toggleCard: (id: DashboardKpiCardId) => void;
+  enabledCards: string[];
+  toggleCard: (id: string) => void;
+  variant?: CardVariant;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const { cards } = getCardConfig(variant);
 
   useEffect(() => {
     if (!open) return;
@@ -157,7 +164,7 @@ export function KpiCardCustomizer({
       {open && (
         <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-card border border-border rounded-lg shadow-lg py-1.5 max-h-80 overflow-y-auto">
           <p className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">KPI Cards</p>
-          {ALL_CARDS.map(c => (
+          {cards.map(c => (
             <label
               key={c.id}
               className={`flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors ${
