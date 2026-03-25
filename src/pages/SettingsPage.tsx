@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   fetchSyncSettings, updateSyncSetting, fetchSourceTagRules,
@@ -21,14 +21,6 @@ const FREQUENCY_OPTIONS = [
 
 const PRESET_COLORS = ["#0891b2", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
-const NAMING_EXAMPLES = [
-  { name: "reddit 12.02.26", tag: "Reddit" },
-  { name: "OnlyFinder 5.0", tag: "OnlyFinder" },
-  { name: "instagram 13.12.25", tag: "Instagram" },
-  { name: "SEO 01.10.25", tag: "SEO" },
-  { name: "Juicy - New", tag: "Juicy" },
-  { name: 'Creator traffic (1.ads)', tag: "Creator Traffic" },
-];
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -42,9 +34,7 @@ export default function SettingsPage() {
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [editingRule, setEditingRule] = useState<any>(null);
   const [ruleTagName, setRuleTagName] = useState("");
-  const [ruleKeywords, setRuleKeywords] = useState("");
   const [ruleColor, setRuleColor] = useState("#0891b2");
-  const [tipsOpen, setTipsOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Tag counts from tracking_links
