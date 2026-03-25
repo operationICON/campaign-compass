@@ -689,7 +689,7 @@ export default function CampaignsPage() {
 
         {/* ═══ CAMPAIGN TABLE ═══ */}
         <div className="flex gap-0">
-          <div className={`flex-1 min-w-0 ${detailPanelLink ? "mr-[340px]" : ""}`}>
+          <div className="flex-1 min-w-0">
             {isLoading ? (
               <div className="bg-card border border-border rounded-2xl p-8"><div className="space-y-3">{[...Array(8)].map((_, i) => (<div key={i} className="skeleton-shimmer h-10 rounded" />))}</div></div>
             ) : sorted.length === 0 ? (
@@ -755,7 +755,7 @@ export default function CampaignsPage() {
                         {activeView === "media" && (
                           <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
                         )}
-                        <th className="h-9 px-2 text-center text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Actions</th>
+                        <th className="h-9 px-2 text-center text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "28px" }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -773,11 +773,12 @@ export default function CampaignsPage() {
                         const sourceTag = link.source_tag || null;
                         const sourceRule = tagRules.find((r: any) => r.tag_name === sourceTag);
                         const borderColor = status === "SCALE" ? "#16a34a" : (status === "KILL" || status === "DEAD") ? "#dc2626" : "transparent";
-                        const isSelected = detailPanelLink?.id === link.id;
+                        const isExpanded = expandedRow === link.id;
 
                         return (
-                          <tr key={link.id}
-                            className={`group border-b transition-colors cursor-pointer ${isSelected ? "bg-[hsl(var(--primary)/0.06)]" : "hover:bg-[hsl(var(--primary)/0.03)]"} ${!hasCost ? "opacity-[0.85]" : ""}`}
+                          <React.Fragment key={link.id}>
+                          <tr
+                            className={`group border-b transition-colors cursor-pointer ${isExpanded ? "bg-[hsl(var(--primary)/0.06)]" : "hover:bg-[hsl(var(--primary)/0.03)]"} ${!hasCost ? "opacity-[0.85]" : ""}`}
                             style={{ borderBottomColor: "#f1f5f9", borderLeftWidth: "3px", borderLeftColor: borderColor }}
                             onClick={() => handleRowClick(link)}>
                             <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
@@ -861,43 +862,174 @@ export default function CampaignsPage() {
                                 {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
-                            {/* Actions column */}
-                            <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  title="Set Spend"
-                                  onClick={() => {
-                                    if (actionPanel?.link?.id === link.id && actionPanel.action === "spend") setActionPanel(null);
-                                    else { setActionPanel({ link, action: "spend" }); setSpendType(link.cost_type || "CPL"); setSpendValue(link.cost_value ? String(link.cost_value) : ""); }
-                                  }}
-                                  className={`p-1.5 rounded-md transition-colors ${hasCost ? "text-[hsl(142_71%_45%)] hover:bg-[hsl(142_71%_45%/0.1)]" : "text-[hsl(38_92%_50%)] hover:bg-[hsl(38_92%_50%/0.1)]"}`}
-                                >
-                                  <DollarSign className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  title="Set Source"
-                                  onClick={() => {
-                                    if (actionPanel?.link?.id === link.id && actionPanel.action === "source") setActionPanel(null);
-                                    else setActionPanel({ link, action: "source" });
-                                  }}
-                                  className={`p-1.5 rounded-md transition-colors ${sourceTag ? "hover:bg-secondary" : "text-[hsl(38_92%_50%)] hover:bg-[hsl(38_92%_50%/0.1)]"}`}
-                                  style={sourceTag && sourceRule ? { color: sourceRule.color } : undefined}
-                                >
-                                  <Tag className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  title="Set Buyer"
-                                  onClick={() => {
-                                    if (actionPanel?.link?.id === link.id && actionPanel.action === "buyer") setActionPanel(null);
-                                    else { setActionPanel({ link, action: "buyer" }); setBuyerName(""); }
-                                  }}
-                                  className="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-secondary"
-                                >
-                                  <User className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
+                            {/* Chevron */}
+                            <td className="px-2 py-2 w-7 text-center">
+                              <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             </td>
                           </tr>
+                          {/* Inline detail row */}
+                          {isExpanded && (() => {
+                            const el = link;
+                            const subsEl = el.subscribers || 0;
+                            const clicksEl = el.clicks || 0;
+                            const revEl = Number(el.revenue || 0);
+                            const hasCostEl = Number(el.cost_total || 0) > 0;
+                            const numVal = parseFloat(spendValue);
+                            const validVal = !isNaN(numVal) && numVal > 0;
+                            let previewCost = 0, previewProfit = 0, previewProfitSub = 0, previewRoi = 0;
+                            if (validVal) {
+                              if (spendType === "CPL") previewCost = subsEl * numVal;
+                              else if (spendType === "CPC") previewCost = clicksEl * numVal;
+                              else previewCost = numVal;
+                              previewProfit = revEl - previewCost;
+                              previewProfitSub = subsEl > 0 ? previewProfit / subsEl : 0;
+                              previewRoi = previewCost > 0 ? (previewProfit / previewCost) * 100 : 0;
+                            }
+                            const saveSpendInline = async () => {
+                              if (!validVal) return;
+                              try {
+                                const cvr = clicksEl > 0 ? subsEl / clicksEl : 0;
+                                const cpcReal = spendType === "CPC" ? numVal : (cvr > 0 ? (spendType === "CPL" ? numVal * cvr : (clicksEl > 0 ? previewCost / clicksEl : 0)) : 0);
+                                const cplReal = spendType === "CPL" ? numVal : (subsEl > 0 ? previewCost / subsEl : 0);
+                                const arpu = subsEl > 0 ? revEl / subsEl : 0;
+                                const newStatus = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
+                                await supabase.from("tracking_links").update({
+                                  cost_type: spendType, cost_value: numVal, cost_total: previewCost,
+                                  cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,
+                                  profit: previewProfit, roi: previewRoi, status: newStatus,
+                                }).eq("id", el.id);
+                                await supabase.from("ad_spend").insert({
+                                  campaign_id: el.campaign_id, traffic_source: el.source || "direct",
+                                  amount: previewCost, date: new Date().toISOString().split("T")[0],
+                                  notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
+                                });
+                                queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                                queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
+                                toast.success("Spend saved");
+                              } catch (err: any) { toast.error(err.message); }
+                            };
+                            const clearSpendInline = async () => {
+                              try {
+                                await clearTrackingLinkSpend(el.id, el.campaign_id);
+                                queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                                toast.success("Spend cleared");
+                              } catch (err: any) { toast.error(err.message); }
+                            };
+                            const saveNoteInline = async () => {
+                              if (!noteText.trim()) return;
+                              try {
+                                await supabase.from("manual_notes").insert({
+                                  campaign_id: el.campaign_id, campaign_name: el.campaign_name,
+                                  account_id: el.account_id, content: noteText.trim(),
+                                });
+                                toast.success("Note saved");
+                                setNoteText("");
+                              } catch (err: any) { toast.error(err.message); }
+                            };
+                            const elSourceRule = tagRules.find((r: any) => r.tag_name === el.source_tag);
+                            return (
+                              <tr>
+                                <td colSpan={99} className="p-0">
+                                  <div className="bg-[#f8fbff] border-l-[3px] border-l-primary px-4 py-3.5">
+                                    <div className="grid grid-cols-4 gap-4">
+                                      {/* Col 1: Performance */}
+                                      <div>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Performance</p>
+                                        <div className="space-y-1.5 text-[12px]">
+                                          {[
+                                            { l: "Clicks", v: clicksEl.toLocaleString() },
+                                            { l: "Subscribers", v: subsEl.toLocaleString() },
+                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "" },
+                                            { l: "Subs/Day", v: el.subsDay ? `${Math.round(el.subsDay)}/day` : "—", c: el.subsDay ? "text-primary" : "" },
+                                            { l: "LTV", v: fmtC(revEl), c: "text-primary font-bold" },
+                                          ].map(r => (
+                                            <div key={r.l} className="flex justify-between">
+                                              <span className="text-muted-foreground">{r.l}</span>
+                                              <span className={r.c || "text-foreground"}>{r.v}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      {/* Col 2: Spend */}
+                                      <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Spend</p>
+                                          <span className={`w-1.5 h-1.5 rounded-full ${hasCostEl ? "bg-primary" : "bg-[hsl(38_92%_50%)]"}`} />
+                                          <span className="text-[10px] text-muted-foreground">{hasCostEl ? "Set" : "Not set"}</span>
+                                        </div>
+                                        <div className="flex gap-1 mb-2">
+                                          {(["CPL", "CPC", "FIXED"] as const).map(t => (
+                                            <button key={t} onClick={(e) => { e.stopPropagation(); setSpendType(t); }}
+                                              className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${spendType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>{t}</button>
+                                          ))}
+                                        </div>
+                                        <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
+                                          placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
+                                          className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-sm font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2" />
+                                        {validVal && (
+                                          <div className="space-y-1 text-[11px] font-mono mb-2">
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Spend</span><span>{fmtC(previewCost)}</span></div>
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Profit</span><span className={previewProfit >= 0 ? "text-primary" : "text-destructive"}>{fmtC(previewProfit)}</span></div>
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Profit/Sub</span><span className={`font-bold text-[13px] ${previewProfitSub >= 0 ? "text-primary" : "text-destructive"}`}>${Math.abs(previewProfitSub).toFixed(2)}</span></div>
+                                            <div className="flex justify-between"><span className="text-muted-foreground">ROI</span><span className={previewRoi >= 0 ? "text-primary" : "text-destructive"}>{previewRoi.toFixed(1)}%</span></div>
+                                          </div>
+                                        )}
+                                        <div className="flex gap-1.5">
+                                          <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
+                                            className="flex-1 py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">Save</button>
+                                          {hasCostEl && (
+                                            <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
+                                              className="px-2.5 py-1.5 rounded-md text-[11px] font-medium text-destructive hover:bg-destructive/10 border border-destructive/30">Clear</button>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {/* Col 3: Source + Buyer */}
+                                      <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
+                                          <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-primary" : "bg-[hsl(38_92%_50%)]"}`} />
+                                          <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1 mb-3">
+                                          {tagRules.map((rule: any) => (
+                                            <button key={rule.id} onClick={(e) => { e.stopPropagation(); handleSetSourceTag(el.id, rule.tag_name); }}
+                                              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${el.source_tag === rule.tag_name ? "text-white" : "hover:opacity-80"}`}
+                                              style={{ borderColor: rule.color, backgroundColor: el.source_tag === rule.tag_name ? rule.color : "transparent", color: el.source_tag === rule.tag_name ? "white" : rule.color }}>
+                                              {rule.tag_name}
+                                            </button>
+                                          ))}
+                                        </div>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Media buyer</p>
+                                        <div className="flex gap-1.5">
+                                          <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)}
+                                            placeholder="e.g. James, Saba..." onClick={(e) => e.stopPropagation()}
+                                            className="flex-1 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
+                                          <button onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (!buyerName.trim()) return;
+                                            try {
+                                              await supabase.from("manual_notes").insert({ campaign_id: el.campaign_id, campaign_name: el.campaign_name, account_id: el.account_id, content: `Media buyer: ${buyerName}` });
+                                              toast.success("Buyer saved"); setBuyerName("");
+                                            } catch (err: any) { toast.error(err.message); }
+                                          }} className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold hover:bg-primary/90">Save</button>
+                                        </div>
+                                      </div>
+                                      {/* Col 4: Notes */}
+                                      <div>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>
+                                        <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                                          placeholder="Add a note about this campaign..." onClick={(e) => e.stopPropagation()}
+                                          className="w-full h-20 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary resize-none mb-2" />
+                                        <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
+                                          className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save note</button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })()}
+                          </React.Fragment>
                         );
                       })}
                     </tbody>
@@ -934,541 +1066,8 @@ export default function CampaignsPage() {
               </div>
             )}
           </div>
-
-          {/* ═══ DETAIL PANEL ═══ */}
-          {detailPanelLink && (
-            <div className="fixed top-0 right-0 w-[340px] h-full bg-card border-l border-border shadow-[-4px_0_12px_rgba(0,0,0,0.06)] z-40 overflow-y-auto animate-slide-in-right">
-              <div className="p-5 border-b border-border flex items-start justify-between">
-                <div>
-                  <p className="text-[13px] font-bold text-foreground truncate max-w-[260px]">{detailPanelLink.campaign_name || "Unnamed"}</p>
-                  <p className="text-[11px] text-muted-foreground">@{detailPanelLink.accounts?.username || "?"}</p>
-                </div>
-                <button onClick={() => setDetailPanelLink(null)} className="p-1 rounded hover:bg-secondary"><X className="h-4 w-4 text-muted-foreground" /></button>
-              </div>
-
-              {activeView === "tracking" && (
-                <div className="p-5 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: "LTV", value: fmtC(Number(detailPanelLink.revenue || 0)), color: "text-primary" },
-                      { label: "Subscribers", value: (detailPanelLink.subscribers || 0).toLocaleString(), color: "text-foreground" },
-                      { label: "CVR", value: detailPanelLink.clicks > 100 ? `${((detailPanelLink.subscribers / detailPanelLink.clicks) * 100).toFixed(1)}%` : "—", color: "text-foreground" },
-                      { label: "Subs/Day", value: detailPanelLink.subsDay ? `${Math.round(detailPanelLink.subsDay)}/day` : "—", color: "text-primary" },
-                    ].map(s => (
-                      <div key={s.label} className="bg-secondary/50 rounded-lg p-3">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
-                        <p className={`text-[14px] font-bold font-mono ${s.color}`}>{s.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    <p>Clicks: {detailPanelLink.clicks?.toLocaleString()}</p>
-                    <p>Created: {detailPanelLink.created_at ? format(new Date(detailPanelLink.created_at), "MMM d, yyyy") : "—"}</p>
-                    <p>Spenders: {detailPanelLink.spenders?.toLocaleString()}</p>
-                  </div>
-                </div>
-              )}
-
-              {activeView === "expenses" && (
-                <div className="p-5 space-y-4">
-                  <div className="space-y-3">
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Set Spend</p>
-                    <button onClick={() => { setCostSlideIn(detailPanelLink); }} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                      {Number(detailPanelLink.cost_total || 0) > 0 ? "Edit Spend" : "Set Spend"}
-                    </button>
-                  </div>
-                  {Number(detailPanelLink.cost_total || 0) > 0 && (
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { label: "Total Spend", value: fmtC(Number(detailPanelLink.cost_total)), color: "text-foreground" },
-                        { label: "LTV", value: fmtC(Number(detailPanelLink.revenue || 0)), color: "text-primary" },
-                        { label: "Profit", value: fmtC(Number(detailPanelLink.profit || 0)), color: Number(detailPanelLink.profit || 0) >= 0 ? "text-primary" : "text-destructive" },
-                        { label: "ROI", value: `${Number(detailPanelLink.roi || 0).toFixed(1)}%`, color: Number(detailPanelLink.roi || 0) >= 0 ? "text-primary" : "text-destructive" },
-                      ].map(s => (
-                        <div key={s.label} className="bg-secondary/50 rounded-lg p-3">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
-                          <p className={`text-[14px] font-bold font-mono ${s.color}`}>{s.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeView === "media" && (
-                <div className="p-5 space-y-4">
-                  <div>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Source Tag</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {tagRules.map((rule: any) => (
-                        <button key={rule.id} onClick={() => handleSetSourceTag(detailPanelLink.id, rule.tag_name)}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${detailPanelLink.source_tag === rule.tag_name ? "text-white" : "hover:opacity-80"}`}
-                          style={{
-                            borderColor: rule.color,
-                            backgroundColor: detailPanelLink.source_tag === rule.tag_name ? rule.color : "transparent",
-                            color: detailPanelLink.source_tag === rule.tag_name ? "white" : rule.color,
-                          }}>
-                          {rule.tag_name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {detailPanelLink.source_tag && (
-                    <div>
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Other campaigns under {detailPanelLink.source_tag}</p>
-                      <div className="space-y-1">
-                        {filtered.filter((l: any) => l.source_tag === detailPanelLink.source_tag && l.id !== detailPanelLink.id).slice(0, 5).map((l: any) => (
-                          <button key={l.id} onClick={() => setDetailPanelLink(l)} className="w-full text-left px-2 py-1.5 rounded hover:bg-secondary/50 transition-colors">
-                            <p className="text-[11px] font-medium text-foreground truncate">{l.campaign_name}</p>
-                            <p className="text-[10px] text-muted-foreground">@{l.accounts?.username} · {fmtC(Number(l.revenue || 0))}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* ═══ VIEW-SPECIFIC PANELS BELOW TABLE ═══ */}
-        {activeView === "expenses" && linksWithSpend.length > 0 && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-card border border-border rounded-2xl p-4">
-              <h3 className="text-[13px] font-bold text-foreground flex items-center gap-2 mb-3"><span className="w-2 h-2 rounded-full bg-[hsl(142_71%_45%)]" /> Spend by Source</h3>
-              <table className="w-full text-xs">
-                <thead><tr className="border-b border-border">
-                  <th className="text-left py-2 text-[10px] font-medium text-muted-foreground uppercase">Source</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">Spend</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">LTV</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">Profit</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">ROI</th>
-                </tr></thead>
-                <tbody>
-                  {bySource.map((row, i) => {
-                    const roi = row.spend > 0 ? (row.profit / row.spend) * 100 : 0;
-                    return (
-                      <tr key={i} className="border-b border-border/30 cursor-pointer hover:bg-secondary/30" onClick={() => setSourceFilter(row.source)}>
-                        <td className="py-2"><TagBadge tagName={row.source} /></td>
-                        <td className="py-2 text-right font-mono">{fmtC(row.spend)}</td>
-                        <td className="py-2 text-right font-mono text-primary">{fmtC(row.ltv)}</td>
-                        <td className={`py-2 text-right font-mono font-semibold ${row.profit >= 0 ? "text-primary" : "text-destructive"}`}>{row.profit >= 0 ? "+" : ""}{fmtC(row.profit)}</td>
-                        <td className={`py-2 text-right font-mono font-semibold ${roi >= 0 ? "text-primary" : "text-destructive"}`}>{fmtP(roi)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="bg-card border border-border rounded-2xl p-4">
-              <h3 className="text-[13px] font-bold text-foreground flex items-center gap-2 mb-3"><span className="w-2 h-2 rounded-full bg-[hsl(142_71%_45%)]" /> Spend by Model</h3>
-              <table className="w-full text-xs">
-                <thead><tr className="border-b border-border">
-                  <th className="text-left py-2 text-[10px] font-medium text-muted-foreground uppercase">Model</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">Spend</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">LTV</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">Profit</th>
-                  <th className="text-right py-2 text-[10px] font-medium text-muted-foreground uppercase">ROI</th>
-                </tr></thead>
-                <tbody>
-                  {byModel.map((row, i) => {
-                    const roi = row.spend > 0 ? (row.profit / row.spend) * 100 : 0;
-                    return (
-                      <tr key={i} className="border-b border-border/30 cursor-pointer hover:bg-secondary/30" onClick={() => { const acc = accounts.find((a: any) => (a.username || "") === row.username); if (acc) setAccountFilter(acc.id); }}>
-                        <td className="py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0" style={{ backgroundColor: getModelColor(row.username) }}>{row.name[0]}</div>
-                            <div><p className="text-[12px] font-medium text-foreground">{row.name}</p><p className="text-[10px] text-muted-foreground">@{row.username}</p></div>
-                          </div>
-                        </td>
-                        <td className="py-2 text-right font-mono">{fmtC(row.spend)}</td>
-                        <td className="py-2 text-right font-mono text-primary">{fmtC(row.ltv)}</td>
-                        <td className={`py-2 text-right font-mono font-semibold ${row.profit >= 0 ? "text-primary" : "text-destructive"}`}>{row.profit >= 0 ? "+" : ""}{fmtC(row.profit)}</td>
-                        <td className={`py-2 text-right font-mono font-semibold ${roi >= 0 ? "text-primary" : "text-destructive"}`}>{fmtP(roi)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeView === "media" && (
-          <div className="space-y-4">
-            {/* Unattributed note */}
-            <div className="flex items-start gap-2.5 bg-muted/50 border border-border rounded-xl px-4 py-3">
-              <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Approximately <span className="font-semibold text-foreground">{unattributedPct.toFixed(0)}%</span> of total subscribers arrive without tracking link attribution. Source performance below reflects attributed traffic only.
-              </p>
-            </div>
-
-            {/* Source aggregation table */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-border">
-                <h3 className="text-sm font-bold text-foreground">Source Performance</h3>
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    {([
-                      { label: "Source", field: "source" as const },
-                      { label: "Campaigns", field: "campaigns" as const },
-                      { label: "Spend", field: "totalSpend" as const },
-                      { label: "Attributed LTV", field: "totalLtv" as const },
-                      { label: "Profit", field: "totalProfit" as const },
-                      { label: "ROI", field: "roi" as const },
-                      { label: "Avg CVR", field: "avgCvr" as const },
-                    ]).map(col => (
-                      <th key={col.field} onClick={() => { if (mediaSortKey === col.field) setMediaSortAsc(!mediaSortAsc); else { setMediaSortKey(col.field); setMediaSortAsc(false); } }}
-                        className={`px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors select-none ${col.field !== "source" ? "text-right" : "text-left"}`}>
-                        <span className="inline-flex items-center gap-1">{col.label}
-                          {mediaSortKey === col.field && (mediaSortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />)}
-                        </span>
-                      </th>
-                    ))}
-                    <th className="px-4 py-3 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedSourceRows.map((row) => {
-                    const isExpanded = expandedSource === row.source;
-                    return (
-                      <React.Fragment key={row.source}>
-                        <tr className={`border-b border-border hover:bg-muted/20 transition-colors cursor-pointer ${row.source === "Untagged" ? "opacity-60 italic" : ""}`}
-                          onClick={() => setExpandedSource(isExpanded ? null : row.source)}>
-                          <td className="px-4 py-3"><TagBadge tagName={row.source} size="md" /></td>
-                          <td className="px-4 py-3 text-right font-mono">{row.campaigns}</td>
-                          <td className="px-4 py-3 text-right font-mono">{row.totalSpend > 0 ? fmtC(row.totalSpend) : "—"}</td>
-                          <td className="px-4 py-3 text-right font-mono text-primary font-semibold">{fmtC(row.totalLtv)}</td>
-                          <td className={`px-4 py-3 text-right font-mono font-semibold ${row.totalSpend > 0 ? (row.totalProfit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                            {row.totalSpend > 0 ? (row.totalProfit >= 0 ? "+" : "") + fmtC(row.totalProfit) : "—"}
-                          </td>
-                          <td className={`px-4 py-3 text-right font-mono font-semibold ${row.roi !== null ? (row.roi >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                            {row.roi !== null ? fmtP(row.roi) : "—"}
-                          </td>
-                          <td className={`px-4 py-3 text-right font-mono font-semibold ${
-                            row.avgCvr !== null && agencyAvgCvr !== null
-                              ? (row.avgCvr > agencyAvgCvr * 1.2 ? "text-primary" : row.avgCvr < agencyAvgCvr * 0.8 ? "text-destructive" : "text-foreground")
-                              : "text-muted-foreground"
-                          }`}>
-                            {row.avgCvr !== null ? fmtP(row.avgCvr) : "—"}
-                          </td>
-                          <td className="px-4 py-3"><ChevronR className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} /></td>
-                        </tr>
-                        {isExpanded && expandedCampaigns.length > 0 && (
-                          <tr>
-                            <td colSpan={8} className="px-0 py-0">
-                              <div className="bg-secondary/30 border-t border-border">
-                                <table className="w-full text-xs">
-                                  <thead><tr className="border-b border-border/50">
-                                    <th className="px-6 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Campaign</th>
-                                    <th className="px-4 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Model</th>
-                                    <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">LTV</th>
-                                    <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Spend</th>
-                                    <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Profit</th>
-                                    <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">ROI</th>
-                                    <th className="px-4 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Status</th>
-                                  </tr></thead>
-                                  <tbody>
-                                    {expandedCampaigns.slice(0, 20).map((l: any) => {
-                                      const cost = Number(l.cost_total || 0);
-                                      const lProfit = Number(l.profit || 0);
-                                      const lRoi = Number(l.roi || 0);
-                                      const hasCost = cost > 0;
-                                      return (
-                                        <tr key={l.id} className="border-b border-border/30">
-                                          <td className="px-6 py-2 text-[12px] font-medium text-foreground truncate max-w-[200px]">{l.campaign_name || "—"}</td>
-                                          <td className="px-4 py-2 text-[11px] text-muted-foreground">@{l.accounts?.username || "?"}</td>
-                                          <td className="px-4 py-2 text-right font-mono text-primary">{fmtC(Number(l.revenue || 0))}</td>
-                                          <td className="px-4 py-2 text-right font-mono">{hasCost ? fmtC(cost) : "—"}</td>
-                                          <td className={`px-4 py-2 text-right font-mono font-semibold ${hasCost ? (lProfit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                                            {hasCost ? (lProfit >= 0 ? "+" : "") + fmtC(lProfit) : "—"}
-                                          </td>
-                                          <td className={`px-4 py-2 text-right font-mono font-semibold ${hasCost ? (lRoi >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                                            {hasCost ? fmtP(lRoi) : "—"}
-                                          </td>
-                                          <td className="px-4 py-2">
-                                            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                              l.status === "SCALE" ? "bg-[hsl(142_71%_45%/0.1)] text-[hsl(142_71%_45%)]" :
-                                              l.status === "WATCH" ? "bg-[hsl(38_92%_50%/0.12)] text-[hsl(38_92%_50%)]" :
-                                              l.status === "KILL" ? "bg-[hsl(0_84%_60%/0.12)] text-[hsl(0_84%_60%)]" :
-                                              "bg-secondary text-muted-foreground"
-                                            }`}>{l.status || "NO SPEND"}</span>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                                {/* Best model for this source */}
-                                {bestModelPerSource[expandedSource!] && (
-                                  <div className="px-6 py-2 border-t border-border/50 flex items-center gap-6 text-[11px]">
-                                    <span className="text-muted-foreground">Best Profit/Sub: <span className="text-foreground font-medium">{bestModelPerSource[expandedSource!].bestProfit.name}</span> · <span className="text-primary font-mono">{fmtC(bestModelPerSource[expandedSource!].bestProfit.value)}</span></span>
-                                    <span className="text-muted-foreground">Best CVR: <span className="text-foreground font-medium">{bestModelPerSource[expandedSource!].bestCvr.name}</span> · <span className="text-primary font-mono">{fmtP(bestModelPerSource[expandedSource!].bestCvr.value)}</span></span>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {sortedSourceRows.length === 0 && (
-                <div className="p-12 text-center">
-                  <p className="text-sm text-muted-foreground">No source tags assigned yet.</p>
-                  <button onClick={() => setActiveView("tracking")} className="text-sm text-primary hover:underline mt-1">Go to Tracking Links view and tag campaigns</button>
-                </div>
-              )}
-            </div>
-
-            {/* Best Model per Source */}
-            {Object.keys(bestModelPerSource).length > 0 && (
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-border">
-                  <h3 className="text-sm font-bold text-foreground">Best Model per Source</h3>
-                </div>
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Source</th>
-                    <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Highest Profit</th>
-                    <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Highest CVR</th>
-                  </tr></thead>
-                  <tbody>
-                    {Object.entries(bestModelPerSource).map(([src, data]) => (
-                      <tr key={src} className="border-b border-border/50">
-                        <td className="px-4 py-3"><TagBadge tagName={src} size="md" /></td>
-                        <td className="px-4 py-3"><span className="text-foreground font-medium text-[13px]">{data.bestProfit.name}</span><span className="ml-2 text-primary text-xs font-mono">{fmtC(data.bestProfit.value)}</span></td>
-                        <td className="px-4 py-3"><span className="text-foreground font-medium text-[13px]">{data.bestCvr.name}</span><span className="ml-2 text-primary text-xs font-mono">{fmtP(data.bestCvr.value)}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Slide-ins */}
-        {costSlideIn && <CostSettingSlideIn link={costSlideIn} onClose={() => setCostSlideIn(null)} onSaved={onSpendSaved} />}
-        {selectedLink && <CampaignDetailSlideIn link={selectedLink} cost={Number(selectedLink.cost_total || 0)} onClose={() => setSelectedLink(null)} onSetCost={() => { setCostSlideIn(selectedLink); setSelectedLink(null); }} />}
-
-        {/* Action Panel */}
-        {actionPanel && (() => {
-          const al = actionPanel.link;
-          const hasCostAl = Number(al.cost_total || 0) > 0;
-          const subsAl = al.subscribers || 0;
-          const clicksAl = al.clicks || 0;
-          const revAl = Number(al.revenue || 0);
-
-          // Live spend preview
-          const numVal = parseFloat(spendValue);
-          const validVal = !isNaN(numVal) && numVal > 0;
-          let previewCost = 0, previewProfit = 0, previewProfitSub = 0, previewRoi = 0;
-          if (validVal) {
-            if (spendType === "CPL") previewCost = subsAl * numVal;
-            else if (spendType === "CPC") previewCost = clicksAl * numVal;
-            else previewCost = numVal;
-            previewProfit = revAl - previewCost;
-            previewProfitSub = subsAl > 0 ? previewProfit / subsAl : 0;
-            previewRoi = previewCost > 0 ? (previewProfit / previewCost) * 100 : 0;
-          }
-
-          const saveSpend = async () => {
-            if (!validVal) return;
-            try {
-              const cvr = clicksAl > 0 ? subsAl / clicksAl : 0;
-              const cpcReal = spendType === "CPC" ? numVal : (cvr > 0 ? (spendType === "CPL" ? numVal * cvr : (clicksAl > 0 ? previewCost / clicksAl : 0)) : 0);
-              const cplReal = spendType === "CPL" ? numVal : (subsAl > 0 ? previewCost / subsAl : 0);
-              const arpu = subsAl > 0 ? revAl / subsAl : 0;
-              const status = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
-              await supabase.from("tracking_links").update({
-                cost_type: spendType, cost_value: numVal, cost_total: previewCost,
-                cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,
-                profit: previewProfit, roi: previewRoi, status,
-              }).eq("id", al.id);
-              await supabase.from("ad_spend").insert({
-                campaign_id: al.campaign_id, traffic_source: al.source || "direct",
-                amount: previewCost, date: new Date().toISOString().split("T")[0],
-                notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: al.account_id,
-              });
-              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-              queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
-              toast.success("Spend saved");
-              setActionPanel(null);
-            } catch (err: any) { toast.error(err.message); }
-          };
-
-          const clearSpend = async () => {
-            try {
-              await clearTrackingLinkSpend(al.id, al.campaign_id);
-              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-              toast.success("Spend cleared");
-              setActionPanel(null);
-            } catch (err: any) { toast.error(err.message); }
-          };
-
-          const saveBuyer = async () => {
-            try {
-              await supabase.from("manual_notes").insert({
-                campaign_id: al.campaign_id,
-                campaign_name: al.campaign_name,
-                account_id: al.account_id,
-                content: `Media buyer: ${buyerName}`,
-              });
-              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-              toast.success("Buyer note saved");
-              setActionPanel(null);
-            } catch (err: any) { toast.error(err.message); }
-          };
-
-          return (
-            <div className="fixed top-0 right-0 w-[340px] h-full bg-card border-l border-border shadow-[-4px_0_12px_rgba(0,0,0,0.06)] z-50 overflow-y-auto animate-slide-in-right" style={{ transition: "transform 300ms ease" }}>
-              <div className="p-5 border-b border-border flex items-start justify-between">
-                <div>
-                  <p className="text-[13px] font-bold text-foreground truncate max-w-[260px]">{al.campaign_name || "Unnamed"}</p>
-                  <p className="text-[11px] text-muted-foreground">@{al.accounts?.username || "?"}</p>
-                </div>
-                <button onClick={() => setActionPanel(null)} className="p-1 rounded hover:bg-secondary"><X className="h-4 w-4 text-muted-foreground" /></button>
-              </div>
-
-              {/* SPEND panel */}
-              {actionPanel.action === "spend" && (
-                <div className="p-5 space-y-4">
-                  <div>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Spend Type</p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(["CPL", "CPC", "FIXED"] as const).map(t => (
-                        <button key={t} onClick={() => setSpendType(t)}
-                          className={`relative p-2.5 rounded-lg border text-center text-[11px] font-bold transition-all ${spendType === t ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"}`}>
-                          {t === "CPL" && <span className="absolute -top-1.5 right-1.5 px-1 py-0.5 rounded text-[7px] font-bold bg-primary text-primary-foreground">Rec</span>}
-                          {t}
-                          <span className="block text-[9px] font-normal text-muted-foreground mt-0.5">
-                            {t === "CPL" ? "Per sub" : t === "CPC" ? "Per click" : "Flat fee"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    {spendType === "CPC" && <p className="text-[10px] text-[hsl(38_92%_50%)] mt-1.5">⚠ Clicks may include bot traffic</p>}
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">
-                      {spendType === "CPL" ? "Cost per subscriber ($)" : spendType === "CPC" ? "Cost per click ($)" : "Total amount ($)"}
-                    </p>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-lg">$</span>
-                      <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
-                        placeholder="0.00" autoFocus
-                        className="w-full pl-8 pr-3 py-2.5 bg-secondary border border-border rounded-lg text-lg font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all" />
-                    </div>
-                    {validVal && (
-                      <div className="mt-2 bg-secondary/50 border border-border rounded-lg p-3 space-y-1 text-[11px] font-mono text-muted-foreground">
-                        <p>Cost = {spendType === "CPL" ? `${subsAl} × $${numVal.toFixed(2)}` : spendType === "CPC" ? `${clicksAl} × $${numVal.toFixed(2)}` : `$${numVal.toFixed(2)} (flat)`} = {fmtC(previewCost)}</p>
-                      </div>
-                    )}
-                  </div>
-                  {validVal && (
-                    <div className="bg-secondary/30 border border-border rounded-lg p-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div><span className="text-muted-foreground block">Total Spend</span><span className="font-mono font-semibold text-foreground">{fmtC(previewCost)}</span></div>
-                        <div><span className="text-muted-foreground block">LTV</span><span className="font-mono font-semibold text-primary">{fmtC(revAl)}</span></div>
-                        <div><span className="text-muted-foreground block">Profit</span><span className={`font-mono font-semibold ${previewProfit >= 0 ? "text-primary" : "text-destructive"}`}>{previewProfit >= 0 ? "+" : ""}{fmtC(previewProfit)}</span></div>
-                        <div><span className="text-muted-foreground block">ROI</span><span className={`font-mono font-semibold ${previewRoi >= 0 ? "text-primary" : "text-destructive"}`}>{fmtP(previewRoi)}</span></div>
-                      </div>
-                      <div className="border-t border-border pt-2">
-                        <span className="text-muted-foreground text-[10px] block">Profit/Sub</span>
-                        <span className={`font-mono text-[14px] font-bold ${previewProfitSub >= 0 ? "text-primary" : "text-destructive"}`}>
-                          {previewProfitSub >= 0 ? "" : "-"}${Math.abs(previewProfitSub).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  <button onClick={saveSpend} disabled={!validVal}
-                    className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
-                    Save Spend
-                  </button>
-                  {hasCostAl && (
-                    <button onClick={clearSpend}
-                      className="w-full py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                      <Trash2 className="h-3.5 w-3.5" /> Clear Spend
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* SOURCE panel */}
-              {actionPanel.action === "source" && (
-                <div className="p-5 space-y-4">
-                  <div>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Source Tag</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {tagRules.map((rule: any) => (
-                        <button key={rule.id} onClick={async () => {
-                          await handleSetSourceTag(al.id, rule.tag_name);
-                          setActionPanel(prev => prev ? { ...prev, link: { ...prev.link, source_tag: rule.tag_name } } : null);
-                        }}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${al.source_tag === rule.tag_name ? "text-white" : "hover:opacity-80"}`}
-                          style={{
-                            borderColor: rule.color,
-                            backgroundColor: al.source_tag === rule.tag_name ? rule.color : "transparent",
-                            color: al.source_tag === rule.tag_name ? "white" : rule.color,
-                          }}>
-                          {rule.tag_name}
-                        </button>
-                      ))}
-                      <button onClick={async () => {
-                        await handleSetSourceTag(al.id, "");
-                        setActionPanel(prev => prev ? { ...prev, link: { ...prev.link, source_tag: null } } : null);
-                      }} className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors">
-                        Untagged
-                      </button>
-                    </div>
-                  </div>
-                  {al.source_tag && (
-                    <div>
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Other campaigns under "{al.source_tag}"</p>
-                      <div className="space-y-1">
-                        {filtered.filter((l: any) => l.source_tag === al.source_tag && l.id !== al.id).slice(0, 5).map((l: any) => (
-                          <div key={l.id} className="px-2 py-1.5 rounded hover:bg-secondary/50 transition-colors">
-                            <p className="text-[11px] font-medium text-foreground truncate">{l.campaign_name}</p>
-                            <p className="text-[10px] text-muted-foreground">@{l.accounts?.username} · {fmtC(Number(l.revenue || 0))}</p>
-                          </div>
-                        ))}
-                        {filtered.filter((l: any) => l.source_tag === al.source_tag && l.id !== al.id).length === 0 && (
-                          <p className="text-[11px] text-muted-foreground">No other campaigns with this tag</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* BUYER panel */}
-              {actionPanel.action === "buyer" && (
-                <div className="p-5 space-y-4">
-                  <div>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Media Buyer Name</p>
-                    <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)}
-                      placeholder="e.g. James, Saba..."
-                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" autoFocus />
-                  </div>
-                  <button onClick={saveBuyer}
-                    className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-                    Save Buyer
-                  </button>
-                  {buyerName && (
-                    <p className="text-[11px] text-muted-foreground mt-2">Buyer name will be saved as a note on this campaign.</p>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })()}
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
       </div>
     </DashboardLayout>
