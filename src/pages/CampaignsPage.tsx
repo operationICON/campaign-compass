@@ -30,7 +30,7 @@ type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH"
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 const COLUMNS_KEY = "campaigns_columns";
 
-type ColumnId = "model" | "source" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer";
+type ColumnId = "model" | "source" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
 
 const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "model", label: "Model", defaultOn: true },
@@ -45,6 +45,7 @@ const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean 
   { id: "cvr", label: "CVR", defaultOn: false },
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
+  { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
 
 function getDefaultColumns(): Record<ColumnId, boolean> {
