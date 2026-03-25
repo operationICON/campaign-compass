@@ -343,8 +343,8 @@ function KpiCards({
   modelParam, groupFilter, getAccountCategory, fmtC,
 }: {
   isLoading: boolean;
-  isVisible: (id: DashboardKpiCardId) => boolean;
-  enabledCards: DashboardKpiCardId[];
+  isVisible: (id: string) => boolean;
+  enabledCards: string[];
   accounts: any[];
   links: any[];
   dailyMetrics: any[];
