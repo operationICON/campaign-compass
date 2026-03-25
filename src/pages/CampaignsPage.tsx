@@ -820,6 +820,11 @@ export default function CampaignsPage() {
                                 {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
                               </td>
                             )}
+                            {col("avg_expenses") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            )}
                             <td className="w-7 text-center" style={{ padding: "6px 12px" }}>
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             </td>
