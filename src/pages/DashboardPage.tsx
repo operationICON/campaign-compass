@@ -13,7 +13,6 @@ import {
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 
 
-type SortKey = "campaign_name" | "revenue" | "profit" | "roi" | "profit_per_sub" | "subscribers";
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
 
 const PERIOD_MAP: Record<TimePeriod, string> = {
@@ -31,26 +30,8 @@ export default function DashboardPage() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [selectedModel, setSelectedModel] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("revenue");
-  const [sortAsc, setSortAsc] = useState(false);
-  const [sortBy, setSortBy] = useState("LTV");
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
-  const [perPage, setPerPage] = useState(25);
-  const [page, setPage] = useState(1);
-  const [tableExpanded, setTableExpanded] = useState(() => {
-    const saved = localStorage.getItem("dashboard-table-expanded");
-    return saved !== null ? saved === "true" : true;
-  });
-
-  const toggleTableExpanded = () => {
-    setTableExpanded(prev => {
-      localStorage.setItem("dashboard-table-expanded", String(!prev));
-      return !prev;
-    });
-  };
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
@@ -153,165 +134,25 @@ export default function DashboardPage() {
     return Math.max(0, differenceInDays(nextDate, new Date()));
   }, [lastSynced, syncFrequency]);
 
-  const timeFilteredLinks = useMemo(() => links, [links, timePeriod]);
-
-  const filteredLinks = useMemo(() => {
-    const groupAccountIds = groupFilter !== "all"
-      ? new Set(groupFilteredAccounts.map((a: any) => a.id))
-      : null;
-    return timeFilteredLinks.filter((link: any) => {
-      if (groupAccountIds && !groupAccountIds.has(link.account_id)) return false;
-      if (selectedModel !== "all" && link.account_id !== selectedModel) return false;
-      if (sourceFilter !== "all" && (link.source_tag || "Untagged") !== sourceFilter) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        if (!(link.campaign_name || "").toLowerCase().includes(q) &&
-            !(link.accounts?.username || "").toLowerCase().includes(q) &&
-            !(link.accounts?.display_name || "").toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
-  }, [timeFilteredLinks, selectedModel, groupFilter, groupFilteredAccounts, sourceFilter, searchQuery]);
-
-  const enrichedLinks = useMemo(() => {
-    return filteredLinks.map((link: any) => {
-      const spend = Number(link.cost_total || 0);
-      const revenue = Number(link.revenue || 0);
-      const profit = spend > 0 ? revenue - spend : null;
-      const roi = spend > 0 ? ((revenue - spend) / spend) * 100 : null;
-      const profitPerSub = (profit !== null && link.subscribers > 0) ? profit / link.subscribers : null;
-      return { ...link, spend, profit, roi, profitPerSub };
-    });
-  }, [filteredLinks]);
-
-  const sortedLinks = useMemo(() => {
-    return [...enrichedLinks].sort((a, b) => {
-      if (sortKey === "campaign_name") {
-        const av = (a.campaign_name || "").toLowerCase();
-        const bv = (b.campaign_name || "").toLowerCase();
-        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
-      }
-      if (sortKey === "profit_per_sub") {
-        const av = a.profitPerSub ?? -Infinity;
-        const bv = b.profitPerSub ?? -Infinity;
-        return sortAsc ? av - bv : bv - av;
-      }
-      const av = a[sortKey] ?? -Infinity;
-      const bv = b[sortKey] ?? -Infinity;
-      return sortAsc ? av - bv : bv - av;
-    });
-  }, [enrichedLinks, sortKey, sortAsc]);
-
-  // KPI calculations — consistent formula across all pages
-  // Total LTV = SUM(tracking_links.revenue)
-  // Total Spend = SUM(tracking_links.cost_total) WHERE cost_total > 0
-  // Total Profit = Total LTV - Total Spend (NOT sum of individual profits)
-  // Avg Profit/Sub = Total Profit / paid subscribers
-  const agencyAccountIds = useMemo(() => {
-    if (modelParam) return [modelParam];
-    if (groupFilter !== "all") return groupFilteredAccounts.map((a: any) => a.id);
-    return null;
-  }, [modelParam, groupFilter, groupFilteredAccounts]);
-
-  const filteredLinksForKpi = useMemo(() => {
-    if (!agencyAccountIds) return links;
-    const idSet = new Set(agencyAccountIds);
-    return links.filter((l: any) => idSet.has(l.account_id));
-  }, [links, agencyAccountIds]);
-
-  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
-  const totalSpend = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
-    const cost = Number(l.cost_total || 0);
-    return s + (cost > 0 ? cost : 0);
-  }, 0), [filteredLinksForKpi]);
-  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
-  const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
-    return Number(l.cost_total || 0) > 0 ? s + (l.subscribers || 0) : s;
-  }, 0), [filteredLinksForKpi]);
-  const totalSubs = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + (l.subscribers || 0), 0), [filteredLinksForKpi]);
-  const avgProfitPerSub = (totalProfit !== null && paidSubscribers > 0) ? totalProfit / paidSubscribers : null;
-  const ltvPerSub = totalSubs > 0 ? totalLtv / totalSubs : null;
-
-  // Period data for fallback display
-  const periodSubs = periodData?.total_new_subs ?? 0;
-  const periodDataAvailable = periodData?.data_available ?? false;
-  const showFallback = timePeriod !== "all" && !periodDataAvailable;
-
   // Unattributed subs calculation
   const unattributedStats = useMemo(() => {
-    // Filter to sync_enabled accounts only for accurate calculation
     let accts = accounts.filter((a: any) => a.sync_enabled !== false);
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
     const acctIds = new Set(accts.map((a: any) => a.id));
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    // Only count attributed subs from the same sync_enabled accounts
     const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
     const attributedSubs = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const syncEnabledCount = accounts.filter((a: any) => a.sync_enabled !== false).length;
     const totalAccountCount = accounts.length;
     const allSyncing = syncEnabledCount >= totalAccountCount;
-    // If attributed > total, show warning
     const isOverflow = attributedSubs > accountTotalSubs;
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
     const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
     return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow, allSyncing, syncEnabledCount, totalAccountCount };
   }, [accounts, links, modelParam, groupFilter]);
 
-  const trafficSources = useMemo(() => {
-    const s = new Set<string>();
-    links.forEach((l: any) => s.add(l.source_tag || "Untagged"));
-    return Array.from(s).sort();
-  }, [links]);
-
-
-  const getSubsPerDay = (link: any) => {
-    if (!link.created_at) return null;
-    const days = differenceInDays(new Date(), new Date(link.created_at));
-    return days >= 1 ? link.subscribers / days : null;
-  };
-
-  const getStatus = (link: any) => {
-    const status = link.status;
-    if (status === "SCALE") return { label: "Scale", color: "bg-primary/10 text-primary" };
-    if (status === "WATCH") return { label: "Watch", color: "bg-[hsl(38_92%_50%)]/10 text-[hsl(38_92%_50%)]" };
-    if (status === "LOW") return { label: "Low", color: "bg-[hsl(38_92%_50%)]/10 text-[hsl(38_92%_50%)]" };
-    if (status === "KILL") return { label: "Kill", color: "bg-destructive/10 text-destructive" };
-    if (status === "DEAD") return { label: "Dead", color: "bg-muted text-muted-foreground" };
-    if (link.spend > 0 && link.roi !== null) {
-      if (link.roi > 150) return { label: "Scale", color: "bg-primary/10 text-primary" };
-      if (link.roi >= 50) return { label: "Watch", color: "bg-[hsl(38_92%_50%)]/10 text-[hsl(38_92%_50%)]" };
-      if (link.roi >= 0) return { label: "Low", color: "bg-[hsl(38_92%_50%)]/10 text-[hsl(38_92%_50%)]" };
-      return { label: "Kill", color: "bg-destructive/10 text-destructive" };
-    }
-    return { label: "No Spend", color: "bg-muted text-muted-foreground" };
-  };
-
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const fmtP = (v: number) => `${v.toFixed(1)}%`;
-
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc(!sortAsc);
-    else { setSortKey(key); setSortAsc(false); }
-  };
-
-  const SortHeader = ({ label, sortField, align = "left" }: { label: string; sortField: SortKey; align?: string }) => (
-    <th
-      onClick={() => toggleSort(sortField)}
-      className={`px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors select-none ${align === "right" ? "text-right" : "text-left"}`}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {sortKey === sortField && (sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />)}
-      </span>
-    </th>
-  );
-
-  const totalPages = Math.max(1, Math.ceil(sortedLinks.length / perPage));
-  const safePage = Math.min(page, totalPages);
-  const startIdx = (safePage - 1) * perPage;
-  const endIdx = Math.min(safePage * perPage, sortedLinks.length);
-  const paginatedLinks = sortedLinks.slice(startIdx, endIdx);
 
   const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
     { key: "day", label: "Last Day" },
