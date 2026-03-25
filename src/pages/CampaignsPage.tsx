@@ -600,23 +600,6 @@ export default function CampaignsPage() {
                 {selectedRows.size > 0 && (
                   <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-border">
                     <span className="text-xs font-medium text-foreground">{selectedRows.size} selected</span>
-                    <div className="relative">
-                      <button onClick={() => setShowBulkTagDropdown(!showBulkTagDropdown)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-medium hover:bg-primary/10">
-                        <Tag className="h-3 w-3" /> Assign tag
-                      </button>
-                      {showBulkTagDropdown && (
-                        <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
-                          {tagRules.map((rule: any) => (
-                            <button key={rule.id} onClick={() => handleBulkTag(rule.tag_name)}
-                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
-                              {rule.tag_name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                     <button onClick={() => setSelectedRows(new Set())} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
                   </div>
                 )}
