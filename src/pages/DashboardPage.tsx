@@ -7,6 +7,7 @@ import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
+import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
   RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X
 } from "lucide-react";
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [selectedModel, setSelectedModel] = useState<string>("all");
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
@@ -204,7 +206,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ═══ FILTER BAR: Group + Account + Time Period ═══ */}
+        {/* ═══ FILTER BAR: Group + Account + Time Period + Custom Range ═══ */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Group dropdown */}
           <select
@@ -239,15 +241,23 @@ export default function DashboardPage() {
             {TIME_PERIODS.map((tp) => (
               <button
                 key={tp.key}
-                onClick={() => setTimePeriod(tp.key)}
+                onClick={() => { setTimePeriod(tp.key); setCustomRange(null); }}
                 className={`px-4 py-2 text-xs font-medium transition-colors ${
-                  timePeriod === tp.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  timePeriod === tp.key && !customRange ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {tp.label}
               </button>
             ))}
           </div>
+
+          {/* Custom date range picker */}
+          <DateRangePicker
+            value={customRange}
+            onChange={(range) => {
+              setCustomRange(range);
+            }}
+          />
 
           {/* Active filter count */}
           {activeFilterCount > 0 && (
@@ -280,7 +290,9 @@ export default function DashboardPage() {
           // Avg CPL
           const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
 
-          const periodLabel = TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
+          const periodLabel = customRange
+            ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
+            : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
 
           return (isLoading || isPeriodLoading) ? (
             <div className="grid grid-cols-5 gap-4">
