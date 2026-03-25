@@ -45,12 +45,11 @@ function getDefaults(): DashboardKpiCardId[] {
   return ALL_CARDS.filter(c => c.alwaysOn || c.defaultOn).map(c => c.id);
 }
 
-function loadEnabledCards(): DashboardKpiCardId[] {
+function loadEnabledCards(storageKey: string): DashboardKpiCardId[] {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved) as DashboardKpiCardId[];
-      // Ensure always-on cards are included
       const set = new Set(parsed);
       ALWAYS_ON.forEach(id => set.add(id));
       return [...set];
@@ -59,12 +58,12 @@ function loadEnabledCards(): DashboardKpiCardId[] {
   return getDefaults();
 }
 
-function saveEnabledCards(cards: DashboardKpiCardId[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cards)); } catch {}
+function saveEnabledCards(storageKey: string, cards: DashboardKpiCardId[]) {
+  try { localStorage.setItem(storageKey, JSON.stringify(cards)); } catch {}
 }
 
-export function useKpiCardVisibility() {
-  const [enabledCards, setEnabledCards] = useState<DashboardKpiCardId[]>(loadEnabledCards);
+export function useKpiCardVisibility(storageKey: string = DEFAULT_STORAGE_KEY) {
+  const [enabledCards, setEnabledCards] = useState<DashboardKpiCardId[]>(() => loadEnabledCards(storageKey));
 
   const toggleCard = (id: DashboardKpiCardId) => {
     if (ALWAYS_ON.includes(id)) return;
@@ -75,7 +74,7 @@ export function useKpiCardVisibility() {
       } else {
         next = [...prev, id];
       }
-      saveEnabledCards(next);
+      saveEnabledCards(storageKey, next);
       return next;
     });
   };
