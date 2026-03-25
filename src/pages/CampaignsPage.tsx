@@ -307,8 +307,8 @@ export default function CampaignsPage() {
   // ─── Sort Header Component ───
   const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
     <th
-      className={`h-9 px-2 text-left text-[11px] font-medium uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap ${primary ? "text-foreground font-bold" : "text-muted-foreground"}`}
-      style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+      className={`h-[44px] text-left text-[10px] font-medium uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap ${primary ? "text-foreground font-bold" : "text-muted-foreground"}`}
+      style={{ letterSpacing: "0.05em", padding: "6px 12px", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
       onClick={() => handleSort(sortKeyName)}
     >
       <span className="flex flex-col">
@@ -347,7 +347,7 @@ export default function CampaignsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+      <div className="space-y-3">
         {/* ═══ HEADER ═══ */}
         <div className="flex items-center justify-between">
           <div>
@@ -380,7 +380,7 @@ export default function CampaignsPage() {
           onClick={() => setKpiCollapsed(!kpiCollapsed)}
         >
           {/* Summary bar — always visible */}
-          <div className="flex items-center justify-between px-4 py-2.5">
+          <div className="flex items-center justify-between" style={{ padding: "8px 14px" }}>
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-[12px] font-bold text-foreground shrink-0">Overview</span>
               {kpiCollapsed && (
@@ -398,7 +398,7 @@ export default function CampaignsPage() {
 
           {/* Expanded KPI cards */}
           {!kpiCollapsed && (
-            <div className="px-4 pb-4 space-y-[10px]" onClick={(e) => e.stopPropagation()}>
+            <div className="px-3.5 pb-3 space-y-[8px]" onClick={(e) => e.stopPropagation()}>
               {/* Group 1 — Overview (teal border) */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", alignItems: "stretch" }}>
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
@@ -438,7 +438,7 @@ export default function CampaignsPage() {
         </div>
 
         {/* ═══ FILTER BAR ═══ */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2" style={{ gap: "8px" }}>
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
@@ -480,7 +480,8 @@ export default function CampaignsPage() {
             }).length;
             return (
               <button key={f} onClick={() => { setAgeFilter(f); setPage(1); }}
-                className={`px-3 py-2 text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                style={{ padding: "4px 10px" }}>
                 {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
                 <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{count}</span>
               </button>
@@ -511,22 +512,22 @@ export default function CampaignsPage() {
                   <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[13px]">
+                  <table className="w-full text-[12px]">
                     <thead className="sticky top-0 z-10" style={{ background: "#f8fafc" }}>
                       <tr className="border-b border-border">
-                        <th className="h-9 px-2 w-8"><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
+                        <th className="w-8" style={{ height: "44px", padding: "6px 12px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
-                        <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Model</th>
+                        <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "100px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Model</th>
                         
                         
                         <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />
                         <SortHeader label="Profit" sortKeyName="profit" width="80px" />
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
                         <SortHeader label="ROI" sortKeyName="roi" width="70px" />
-                        <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px" }}>Status</th>
+                        <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "80px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</th>
                         <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
                         
-                        <th className="h-9 px-2 text-center text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "28px" }}></th>
+                        <th className="text-center text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "28px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -550,25 +551,25 @@ export default function CampaignsPage() {
                             onClick={() => handleRowClick(link)}
                             className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "bg-[hsl(var(--primary)/0.04)]" : "hover:bg-secondary/30"}`}
                           >
-                            <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+                            <td style={{ padding: "6px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                             </td>
-                            <td className="px-2 py-2" style={{ maxWidth: "200px" }}>
+                            <td style={{ padding: "6px 12px", maxWidth: "200px" }}>
                               <p className="text-[12px] font-semibold text-foreground truncate" title={link.campaign_name}>{link.campaign_name || "—"}</p>
                               <p className="text-[10px] text-muted-foreground truncate" title={link.url}>{link.url}</p>
                             </td>
-                            <td className="px-2 py-2">
+                            <td style={{ padding: "6px 12px" }}>
                               <div className="flex items-center gap-1.5">
                                 <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
                                 <span className="text-[11px] text-muted-foreground truncate">@{username}</span>
                               </div>
                             </td>
                             
-                            <td className="px-2 py-2 text-right">
+                            <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
                               {hasCost ? (
-                                <span className="font-mono text-[12px] text-muted-foreground">{fmtC(costTotal)}</span>
+                                <span className="text-muted-foreground">{fmtC(costTotal)}</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-muted-foreground text-[12px]">
+                                <span className="inline-flex items-center gap-1 text-muted-foreground">
                                   <Tooltip>
                                     <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
                                     <TooltipContent>No expenses set</TooltipContent>
@@ -577,20 +578,20 @@ export default function CampaignsPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-2 py-2 text-right font-mono text-[12px]">
+                            <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
                               {hasCost ? <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span> : <span className="text-muted-foreground">—</span>}
                             </td>
-                            <td className="px-2 py-2 text-right">
+                            <td className="text-right" style={{ padding: "6px 12px" }}>
                               {link.profitPerSub !== null ? (
-                                <span className={`font-mono text-[13px] font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
+                                <span className={`font-mono text-[12px] font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
                                   {link.profitPerSub >= 0 ? "" : "-"}${Math.abs(link.profitPerSub).toFixed(2)}
                                 </span>
-                              ) : <span className="text-muted-foreground text-[13px] font-bold">—</span>}
+                              ) : <span className="text-muted-foreground text-[12px] font-bold">—</span>}
                             </td>
-                            <td className="px-2 py-2 text-right font-mono text-[12px]">
+                            <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
                               {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                             </td>
-                            <td className="px-2 py-2">
+                            <td style={{ padding: "6px 12px" }}>
                               <div className="flex items-center gap-1.5">
                                 {!hasCost && (
                                   <Tooltip>
@@ -604,10 +605,10 @@ export default function CampaignsPage() {
                                   style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
                               </div>
                             </td>
-                            <td className="px-2 py-2 font-mono text-[12px]">
+                            <td className="font-mono text-[12px]" style={{ padding: "6px 12px" }}>
                               {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
                             </td>
-                            <td className="px-2 py-2 w-7 text-center">
+                            <td className="w-7 text-center" style={{ padding: "6px 12px" }}>
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             </td>
                           </tr>
@@ -813,7 +814,7 @@ function KPICard({ borderColor, icon, label, value, sub, tooltip, progressBar, p
   tooltip: { title: string; desc: string }; progressBar?: number; progressColor?: string;
 }) {
   return (
-    <div className="bg-card border border-border shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor, padding: "14px 16px", borderRadius: "0 12px 12px 0" }}>
+    <div className="bg-card border border-border shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor, padding: "12px 14px", borderRadius: "0 12px 12px 0" }}>
       <div className="flex items-center gap-2 mb-2">
         <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">{icon}</div>
         <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider leading-tight">{label}</span>
