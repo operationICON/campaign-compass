@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTagColors } from "@/components/TagBadge";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
+import { X, ChevronUp, ChevronDown } from "lucide-react";
 
 interface InsightsSectionProps {
   links: any[];
