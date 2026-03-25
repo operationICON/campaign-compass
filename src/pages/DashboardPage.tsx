@@ -233,7 +233,6 @@ export default function DashboardPage() {
             onChange={(e) => {
               setGroupFilter(e.target.value);
               setSelectedModel("all");
-              setPage(1);
             }}
             className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
           >
