@@ -15,7 +15,7 @@ export type DashboardKpiCardId =
   | "best_source"
   | "total_ltv";
 
-const STORAGE_KEY = "dashboard_kpi_cards";
+const DEFAULT_STORAGE_KEY = "dashboard_kpi_cards";
 
 const ALWAYS_ON: DashboardKpiCardId[] = ["profit_sub", "ltv_sub"];
 
