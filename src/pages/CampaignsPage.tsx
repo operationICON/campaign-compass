@@ -111,6 +111,7 @@ export default function CampaignsPage() {
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
   const [buyerName, setBuyerName] = useState("");
+  const [sourceInputValue, setSourceInputValue] = useState("");
   
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
