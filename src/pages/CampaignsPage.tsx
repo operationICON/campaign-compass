@@ -374,6 +374,7 @@ export default function CampaignsPage() {
       setSpendType(link.cost_type || "CPL");
       setSpendValue(link.cost_value ? String(link.cost_value) : "");
       setBuyerName(link.media_buyer || "");
+      setSourceInputValue(link.source_tag || "");
       setNoteText("");
     }
   };
