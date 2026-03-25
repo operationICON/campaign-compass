@@ -79,15 +79,6 @@ export default function SettingsPage() {
     }
   };
 
-  const autoTagMutation = useMutation({
-    mutationFn: runAutoTag,
-    onSuccess: (data: any) => {
-      toast.success(`Auto-tagged ${data.tagged} campaigns. ${data.untagged} remain untagged.`);
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      queryClient.invalidateQueries({ queryKey: ["tag_counts"] });
-    },
-    onError: (err: any) => toast.error(`Auto-tag failed: ${err.message}`),
-  });
 
   const openAddRule = () => {
     setEditingRule(null);
@@ -107,8 +98,6 @@ export default function SettingsPage() {
 
   const handleSaveRule = async () => {
     if (!ruleTagName.trim()) { toast.error("Tag name is required"); return; }
-    const keywords = ruleKeywords.split(",").map((k: string) => k.trim()).filter(Boolean);
-    if (keywords.length === 0) { toast.error("At least one keyword is required"); return; }
 
     try {
       if (editingRule) {
