@@ -9,8 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync,
-  clearTrackingLinkSpend, fetchSourceTagRules, setTrackingLinkSourceTag,
-  bulkSetSourceTag, fetchAccounts, fetchDailyMetrics,
+  clearTrackingLinkSpend, fetchAccounts, fetchDailyMetrics,
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -25,7 +24,7 @@ import { RefreshButton } from "@/components/RefreshButton";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day";
-type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "untagged" | "SCALE" | "WATCH" | "KILL" | "DEAD";
+type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
@@ -96,7 +95,7 @@ export default function CampaignsPage() {
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
   const [groupFilter, setGroupFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
+  
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
@@ -106,19 +105,17 @@ export default function CampaignsPage() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
-  const [sourceDropdownId, setSourceDropdownId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [showBulkTagDropdown, setShowBulkTagDropdown] = useState(false);
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
-  const [buyerName, setBuyerName] = useState("");
+  
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
 
   // ─── Data fetching ───
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
-  const { data: tagRules = [] } = useQuery({ queryKey: ["source_tag_rules"], queryFn: fetchSourceTagRules });
+  
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   // ─── Realtime ───
@@ -132,25 +129,6 @@ export default function CampaignsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  // ─── Mutations ───
-  const handleSetSourceTag = async (linkId: string, tag: string) => {
-    try {
-      await setTrackingLinkSourceTag(linkId, tag);
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success(tag ? "Source saved" : "Tag cleared", { duration: 1000 });
-      setSourceDropdownId(null);
-    } catch (err: any) { toast.error("Save failed — please try again"); }
-  };
-
-  const handleBulkTag = async (tag: string) => {
-    try {
-      await bulkSetSourceTag(Array.from(selectedRows), tag);
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success(`Tagged ${selectedRows.size} campaigns as "${tag}"`);
-      setSelectedRows(new Set());
-      setShowBulkTagDropdown(false);
-    } catch (err: any) { toast.error(err.message); }
-  };
 
   const deleteSpendMutation = useMutation({
     mutationFn: deleteAdSpend,
@@ -171,14 +149,14 @@ export default function CampaignsPage() {
   });
 
   const exportCampaignsCsv = useCallback(() => {
-    const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status,source_tag";
+    const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status";
     const rows = links.map((l: any) => {
       const cn = (l.campaign_name || "").replace(/,/g, " ");
       const un = (l.accounts?.username || "").replace(/,/g, " ");
       const subs = l.subscribers || 0;
       const profit = Number(l.profit || 0);
       const profitPerSub = subs > 0 && Number(l.cost_total || 0) > 0 ? (profit / subs).toFixed(2) : "";
-      return `${cn},${un},${l.clicks || 0},${subs},${Number(l.revenue || 0).toFixed(2)},${Number(l.cost_total || 0).toFixed(2)},${profit.toFixed(2)},${profitPerSub},${Number(l.roi || 0).toFixed(1)},${l.status || "NO_DATA"},${l.source_tag || ""}`;
+      return `${cn},${un},${l.clicks || 0},${subs},${Number(l.revenue || 0).toFixed(2)},${Number(l.cost_total || 0).toFixed(2)},${profit.toFixed(2)},${profitPerSub},${Number(l.roi || 0).toFixed(1)},${l.status || "NO_DATA"}`;
     });
     const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -216,12 +194,6 @@ export default function CampaignsPage() {
     return accountOptions.filter((a: any) => groupUsernames.includes(a.username));
   }, [accountOptions, groupFilter]);
 
-  const sourceOptions = useMemo(() => {
-    const set = new Set<string>();
-    enrichedLinks.forEach((l: any) => { if (l.source_tag) set.add(l.source_tag); });
-    return Array.from(set).sort();
-  }, [enrichedLinks]);
-
   // ─── Filtering ───
   const filtered = useMemo(() => {
     let result = enrichedLinks;
@@ -231,8 +203,6 @@ export default function CampaignsPage() {
       result = result.filter((l: any) => groupAccountIds.includes(l.account_id));
     }
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
-    if (sourceFilter === "__untagged__") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
-    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
@@ -244,7 +214,6 @@ export default function CampaignsPage() {
     if (campaignFilter === "active") result = result.filter((l: any) => l.isActive);
     else if (campaignFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
     else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
-    else if (campaignFilter === "untagged") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
     else if (["SCALE", "WATCH", "KILL", "DEAD"].includes(campaignFilter)) result = result.filter((l: any) => (l.status || "NO_DATA") === campaignFilter);
 
     if (ageFilter !== "all") {
@@ -257,7 +226,7 @@ export default function CampaignsPage() {
       });
     }
     return result;
-  }, [enrichedLinks, searchQuery, campaignFilter, ageFilter, groupFilter, accountFilter, sourceFilter, accounts]);
+  }, [enrichedLinks, searchQuery, campaignFilter, ageFilter, groupFilter, accountFilter, accounts]);
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
@@ -294,8 +263,8 @@ export default function CampaignsPage() {
     if (selectedRows.size === paginated.length) setSelectedRows(new Set());
     else setSelectedRows(new Set(paginated.map((l: any) => l.id)));
   };
-  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSourceFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setAgeFilter("all"); setPage(1); };
-  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, sourceFilter !== "all" ? 1 : 0, campaignFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
+  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setAgeFilter("all"); setPage(1); };
+  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, campaignFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
 
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
@@ -310,7 +279,6 @@ export default function CampaignsPage() {
     const totalSubs = qualifiedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const totalClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
     const avgCvr = totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
-    const untagged = scopedLinks.filter((l: any) => !l.source_tag || l.source_tag === "Untagged").length;
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
     const totalCount = scopedLinks.length;
 
@@ -323,40 +291,9 @@ export default function CampaignsPage() {
     const trackedCount = withSpend.length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
-    const sourceMap: Record<string, { rev: number; spend: number }> = {};
-    withSpend.forEach((l: any) => {
-      const src = l.source_tag || "Untagged";
-      if (!sourceMap[src]) sourceMap[src] = { rev: 0, spend: 0 };
-      sourceMap[src].rev += Number(l.revenue || 0);
-      sourceMap[src].spend += Number(l.cost_total || 0);
-    });
-    let bestSource: { name: string; roi: number } | null = null;
-    Object.entries(sourceMap).forEach(([name, { rev, spend }]) => {
-      if (spend > 0) { const roi = ((rev - spend) / spend) * 100; if (!bestSource || roi > bestSource.roi) bestSource = { name, roi }; }
-    });
-
-    const sourceProfit: Record<string, { profit: number; subs: number; spend: number; rev: number }> = {};
-    withSpend.forEach((l: any) => {
-      const src = l.source_tag || "Untagged";
-      if (!sourceProfit[src]) sourceProfit[src] = { profit: 0, subs: 0, spend: 0, rev: 0 };
-      sourceProfit[src].profit += Number(l.revenue || 0) - Number(l.cost_total || 0);
-      sourceProfit[src].subs += l.subscribers || 0;
-      sourceProfit[src].spend += Number(l.cost_total || 0);
-      sourceProfit[src].rev += Number(l.revenue || 0);
-    });
-    let bestProfitPerSub: { name: string; value: number } | null = null;
-    let mostProfitable: { name: string; value: number } | null = null;
-    let worstSource: { name: string; roi: number } | null = null;
-    Object.entries(sourceProfit).forEach(([name, d]) => {
-      if (d.subs > 0) { const pps = d.profit / d.subs; if (!bestProfitPerSub || pps > bestProfitPerSub.value) bestProfitPerSub = { name, value: pps }; }
-      if (!mostProfitable || d.profit > mostProfitable.value) mostProfitable = { name, value: d.profit };
-      if (d.spend > 0) { const roi = ((d.rev - d.spend) / d.spend) * 100; if (!worstSource || roi < worstSource.roi) worstSource = { name, roi }; }
-    });
-
     return {
-      totalLtv, activeCampaigns, avgCvr, untagged, noSpend, totalCount,
-      profitPerSub, avgCpl, bestSource, trackedCount, trackedPct,
-      bestProfitPerSub, mostProfitable, worstSource,
+      totalLtv, activeCampaigns, avgCvr, noSpend, totalCount,
+      profitPerSub, avgCpl, trackedCount, trackedPct,
     };
   }, [filtered]);
 
@@ -392,7 +329,7 @@ export default function CampaignsPage() {
       setExpandedRow(link.id);
       setSpendType(link.cost_type || "CPL");
       setSpendValue(link.cost_value ? String(link.cost_value) : "");
-      setBuyerName("");
+      
       setNoteText("");
     }
   };
@@ -404,7 +341,7 @@ export default function CampaignsPage() {
   };
 
   // KPI summary text for collapsed state
-  const kpiSummary = `${fmtK(kpis.totalLtv)} LTV · ${kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} Profit/Sub · ${kpis.untagged} untagged · ${kpis.trackedCount} with spend`;
+  const kpiSummary = `${fmtK(kpis.totalLtv)} LTV · ${kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} Profit/Sub · ${kpis.trackedCount} with spend`;
 
   const modelCount = new Set(accounts.map((a: any) => a.id)).size;
 
@@ -425,7 +362,7 @@ export default function CampaignsPage() {
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
             </button>
-            <RefreshButton queryKeys={["tracking_links", "ad_spend", "source_tag_rules", "accounts"]} />
+            <RefreshButton queryKeys={["tracking_links", "ad_spend", "accounts"]} />
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
@@ -462,8 +399,8 @@ export default function CampaignsPage() {
           {/* Expanded KPI cards */}
           {!kpiCollapsed && (
             <div className="px-4 pb-4 space-y-[10px]" onClick={(e) => e.stopPropagation()}>
-              {/* Group 1 — Tracking Links (teal border) */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px", alignItems: "stretch" }}>
+              {/* Group 1 — Overview (teal border) */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", alignItems: "stretch" }}>
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
                   label="Attributed LTV" value={<span className="text-primary">{fmtC(kpis.totalLtv)}</span>} sub="All tracking links"
                   tooltip={{ title: "Attributed LTV", desc: "Revenue from tracking links only. Excludes organic and untracked traffic." }} />
@@ -473,10 +410,6 @@ export default function CampaignsPage() {
                 <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
                   label="Avg CVR" value={kpis.avgCvr !== null ? `${kpis.avgCvr.toFixed(1)}%` : "—"} sub={<span className="text-primary">Agency benchmark</span>}
                   tooltip={{ title: "Avg CVR", desc: "Conversion rate across links with 100+ clicks." }} />
-                <KPICard borderColor="hsl(var(--primary))" icon={<Tag className="h-4 w-4 text-[hsl(var(--warning))]" />}
-                  label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.untagged}</span>} sub="Need source tag"
-                  tooltip={{ title: "Untagged", desc: "Campaigns with no source tag." }}
-                  progressBar={kpis.totalCount > 0 ? ((kpis.totalCount - kpis.untagged) / kpis.totalCount) * 100 : 0} progressColor="primary" />
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-[hsl(var(--warning))]" />}
                   label="No Spend Set" value={<span className={kpis.noSpend > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.noSpend}</span>} sub="ROI unknown"
                   tooltip={{ title: "No Spend Set", desc: "Campaigns where ROI and Profit are unknown." }}
@@ -486,7 +419,7 @@ export default function CampaignsPage() {
               <div className="h-px bg-border mx-0" style={{ margin: "10px 0" }} />
 
               {/* Group 2 — Expenses (green border) */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", alignItems: "stretch" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>
                 <KPICard borderColor="hsl(142 71% 45%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
                   label="Profit/Sub" value={kpis.profitPerSub !== null
                     ? <span className={`text-[16px] ${kpis.profitPerSub >= 0 ? "text-[hsl(142_71%_45%)]" : "text-destructive"}`}>{fmtC(kpis.profitPerSub)}</span>
@@ -495,39 +428,10 @@ export default function CampaignsPage() {
                 <KPICard borderColor="hsl(142 71% 45%)" icon={<Tag className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
                   label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} sub="Cost per subscriber"
                   tooltip={{ title: "Avg CPL", desc: "Average cost to acquire one subscriber." }} />
-                <KPICard borderColor="hsl(142 71% 45%)" icon={<Star className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-                  label="Best Source" value={kpis.bestSource ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.bestSource.name}</span> : "—"}
-                  sub={kpis.bestSource ? `${kpis.bestSource.roi.toLocaleString("en-US", { maximumFractionDigits: 0 })}% ROI` : "No spend data"}
-                  tooltip={{ title: "Best Source", desc: "Traffic source with the highest return on spend." }} />
                 <KPICard borderColor="hsl(142 71% 45%)" icon={<BarChart3 className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
                   label="Campaigns Tracked" value={<>{kpis.trackedCount} <span className="text-[14px] font-normal text-muted-foreground">of {kpis.totalCount.toLocaleString()}</span></>}
                   sub="Have spend set" progressBar={kpis.trackedPct} progressColor="success"
                   tooltip={{ title: "Campaigns Tracked", desc: "How many campaigns have spend entered." }} />
-              </div>
-
-              <div className="h-px bg-border mx-0" style={{ margin: "10px 0" }} />
-
-              {/* Group 3 — Media Buyers (purple border) */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>
-                <KPICard borderColor="hsl(263 70% 50%)" icon={<Star className="h-4 w-4 text-[hsl(263_70%_50%)]" />}
-                  label="Best Source by Profit/Sub"
-                  value={kpis.bestProfitPerSub ? <span className="text-[hsl(263_70%_50%)] text-[15px]">{kpis.bestProfitPerSub.name}</span> : "—"}
-                  sub={kpis.bestProfitPerSub ? `${fmtC(kpis.bestProfitPerSub.value)} profit per sub` : "No spend data"}
-                  tooltip={{ title: "Best Source by Profit/Sub", desc: "Traffic source delivering the highest profit per subscriber acquired." }} />
-                <KPICard borderColor="hsl(263 70% 50%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-                  label="Most Profitable Source"
-                  value={kpis.mostProfitable ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.mostProfitable.name}</span> : "—"}
-                  sub={kpis.mostProfitable ? `${fmtC(kpis.mostProfitable.value)} total profit` : "No spend data"}
-                  tooltip={{ title: "Most Profitable Source", desc: "Source generating the highest absolute profit." }} />
-                <KPICard borderColor="hsl(263 70% 50%)" icon={<Target className="h-4 w-4 text-[hsl(var(--warning))]" />}
-                  label="Worst Source"
-                  value={kpis.worstSource
-                    ? <span className={kpis.worstSource.roi < 0 ? "text-destructive text-[15px]" : "text-[hsl(var(--warning))] text-[15px]"}>{kpis.worstSource.name}</span>
-                    : "—"}
-                  sub={kpis.worstSource
-                    ? (kpis.worstSource.roi < 0 ? `Negative ROI — stop spend` : `${fmtP(kpis.worstSource.roi)} ROI — monitor closely`)
-                    : "No spend data"}
-                  tooltip={{ title: "Worst Source", desc: "Source with the lowest or negative ROI." }} />
               </div>
             </div>
           )}
@@ -545,19 +449,13 @@ export default function CampaignsPage() {
             <option value="all">All Accounts</option>
             {filteredAccountOptions.map((acc: any) => (<option key={acc.id} value={acc.id}>{acc.display_name} (@{acc.username})</option>))}
           </select>
-          <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-            <option value="all">All Sources</option>
-            {sourceOptions.map((src) => (<option key={src} value={src}>{src}</option>))}
-            <option value="__untagged__">Untagged</option>
-          </select>
           <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Campaigns</option>
             <option value="active">Active Only</option>
             <option value="zero">Zero Clicks</option>
             <option value="no_spend">No Spend Set</option>
-            <option value="untagged">Untagged</option>
+            
             <option value="SCALE">SCALE</option>
             <option value="WATCH">WATCH</option>
             <option value="KILL">KILL</option>
@@ -606,23 +504,6 @@ export default function CampaignsPage() {
                 {selectedRows.size > 0 && (
                   <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-border">
                     <span className="text-xs font-medium text-foreground">{selectedRows.size} selected</span>
-                    <div className="relative">
-                      <button onClick={() => setShowBulkTagDropdown(!showBulkTagDropdown)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-medium hover:bg-primary/10">
-                        <Tag className="h-3 w-3" /> Assign tag
-                      </button>
-                      {showBulkTagDropdown && (
-                        <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
-                          {tagRules.map((rule: any) => (
-                            <button key={rule.id} onClick={() => handleBulkTag(rule.tag_name)}
-                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
-                              {rule.tag_name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                     <button onClick={() => setSelectedRows(new Set())} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
                   </div>
                 )}
@@ -636,7 +517,7 @@ export default function CampaignsPage() {
                         <th className="h-9 px-2 w-8"><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Model</th>
-                        <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
+                        
                         
                         <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />
                         <SortHeader label="Profit" sortKeyName="profit" width="80px" />
@@ -660,8 +541,6 @@ export default function CampaignsPage() {
                         const status = link.status || "NO_DATA";
                         const displayStatus = STATUS_LABELS[status] || "NO SPEND";
                         const statusStyle = STATUS_STYLES[displayStatus] || STATUS_STYLES["NO SPEND"];
-                        const sourceTag = link.source_tag || null;
-                        const sourceRule = tagRules.find((r: any) => r.tag_name === sourceTag);
                         const isExpanded = expandedRow === link.id;
                         const agePill = getAgePill(link.daysSinceCreated);
 
@@ -683,30 +562,6 @@ export default function CampaignsPage() {
                                 <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
                                 <span className="text-[11px] text-muted-foreground truncate">@{username}</span>
                               </div>
-                            </td>
-                            <td className="px-2 py-2 relative" onClick={(e) => { e.stopPropagation(); setSourceDropdownId(sourceDropdownId === link.id ? null : link.id); }}>
-                              <button className="text-left">
-                                {sourceTag && sourceRule ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-medium">
-                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sourceRule.color }} />
-                                    {sourceTag}
-                                  </span>
-                                ) : (<span className="text-[11px] text-muted-foreground italic">Untagged</span>)}
-                              </button>
-                              {sourceDropdownId === link.id && (
-                                <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
-                                  {tagRules.map((rule: any) => (
-                                    <button key={rule.id} onClick={() => handleSetSourceTag(link.id, rule.tag_name)}
-                                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
-                                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
-                                      {rule.tag_name}
-                                    </button>
-                                  ))}
-                                  <div className="border-t border-border mt-1 pt-1">
-                                    <button onClick={() => handleSetSourceTag(link.id, "")} className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary/50">Untagged</button>
-                                  </div>
-                                </div>
-                              )}
                             </td>
                             
                             <td className="px-2 py-2 text-right">
@@ -793,7 +648,7 @@ export default function CampaignsPage() {
                                 if (existing) {
                                   await supabase.from("ad_spend").update({
                                     spend_type: spendType, amount: previewCost,
-                                    source_tag: el.source_tag, date: new Date().toISOString().split("T")[0],
+                                    date: new Date().toISOString().split("T")[0],
                                   } as any).eq("id", existing.id);
                                 } else {
                                   await supabase.from("ad_spend").insert({
@@ -801,7 +656,6 @@ export default function CampaignsPage() {
                                     traffic_source: el.source || "direct", spend_type: spendType,
                                     amount: previewCost, date: new Date().toISOString().split("T")[0],
                                     notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
-                                    source_tag: el.source_tag,
                                   });
                                 }
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
@@ -841,7 +695,7 @@ export default function CampaignsPage() {
                               <tr>
                                 <td colSpan={99} className="p-0">
                                   <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-3.5">
-                                    <div className="grid grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-3 gap-4">
                                       {/* Col 1: Performance */}
                                       <div>
                                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Performance</p>
@@ -893,40 +747,7 @@ export default function CampaignsPage() {
                                           )}
                                         </div>
                                       </div>
-                                      {/* Col 3: Source + Buyer */}
-                                      <div>
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-primary" : "bg-[hsl(38_92%_50%)]"}`} />
-                                          <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 mb-3">
-                                          {tagRules.map((rule: any) => (
-                                            <button key={rule.id} onClick={(e) => { e.stopPropagation(); handleSetSourceTag(el.id, rule.tag_name); }}
-                                              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${el.source_tag === rule.tag_name ? "text-white" : "hover:opacity-80"}`}
-                                              style={{ borderColor: rule.color, backgroundColor: el.source_tag === rule.tag_name ? rule.color : "transparent", color: el.source_tag === rule.tag_name ? "white" : rule.color }}>
-                                              {rule.tag_name}
-                                            </button>
-                                          ))}
-                                        </div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Media buyer</p>
-                                        <div className="flex gap-1.5">
-                                          <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)}
-                                            placeholder="e.g. James, Saba..." onClick={(e) => e.stopPropagation()}
-                                            className="flex-1 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
-                                          <button onClick={async (e) => {
-                                            e.stopPropagation();
-                                            if (!buyerName.trim()) return;
-                                            try {
-                                              const { error } = await supabase.from("tracking_links").update({ media_buyer: buyerName.trim() } as any).eq("id", el.id);
-                                              if (error) throw error;
-                                              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                                              toast.success("Buyer saved"); setBuyerName("");
-                                            } catch (err: any) { toast.error("Save failed — please try again"); }
-                                          }} className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold hover:bg-primary/90">Save</button>
-                                        </div>
-                                      </div>
-                                      {/* Col 4: Notes */}
+                                      {/* Col 3: Notes */}
                                       <div>
                                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>
                                         <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
