@@ -329,7 +329,7 @@ export default function CampaignsPage() {
       setExpandedRow(link.id);
       setSpendType(link.cost_type || "CPL");
       setSpendValue(link.cost_value ? String(link.cost_value) : "");
-      setBuyerName("");
+      
       setNoteText("");
     }
   };
