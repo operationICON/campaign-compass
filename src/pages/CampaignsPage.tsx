@@ -102,20 +102,16 @@ export default function CampaignsPage() {
   const [perPage, setPerPage] = useState(25);
 
   // ─── Selection/interaction state ───
-  const [selectedLink, setSelectedLink] = useState<any>(null);
-  const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [csvOpen, setCsvOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
-  const [clearConfirmId, setClearConfirmId] = useState<string | null>(null);
   const [sourceDropdownId, setSourceDropdownId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [showBulkTagDropdown, setShowBulkTagDropdown] = useState(false);
-  const [detailPanelLink, setDetailPanelLink] = useState<any>(null);
-  const [actionPanel, setActionPanel] = useState<{ link: any; action: "spend" | "source" | "buyer" } | null>(null);
-  const [buyerName, setBuyerName] = useState("");
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
+  const [buyerName, setBuyerName] = useState("");
+  const [noteText, setNoteText] = useState("");
 
   // Media buyers
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
