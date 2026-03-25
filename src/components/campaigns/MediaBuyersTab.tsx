@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTrackingLinks, fetchAccounts, fetchSourceTagRules } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
