@@ -637,7 +637,7 @@ export default function CampaignsPage() {
                         <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Model</th>
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
-                        <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
+                        
                         <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
                         <SortHeader label="Profit" sortKeyName="profit" width="80px" />
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
@@ -708,7 +708,7 @@ export default function CampaignsPage() {
                                 </div>
                               )}
                             </td>
-                            <td className="px-2 py-2 text-right"><span className="font-mono text-[12px] text-primary font-semibold">{fmtC(Number(link.revenue))}</span></td>
+                            
                             <td className="px-2 py-2 text-right">
                               {hasCost ? (
                                 <span className="font-mono text-[12px] text-muted-foreground">{fmtC(costTotal)}</span>
