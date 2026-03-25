@@ -538,12 +538,7 @@ export default function CampaignsPage() {
             <p className="text-sm text-muted-foreground mt-0.5">{sorted.length.toLocaleString()} tracking links across all models</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => autoTagMutation.mutate()} disabled={autoTagMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50">
-              <Wand2 className={`h-4 w-4 ${autoTagMutation.isPending ? "animate-spin" : ""}`} />
-              Auto-Tag
-            </button>
-            <button onClick={exportCampaignsCsv}
+           <button onClick={exportCampaignsCsv}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
             </button>
