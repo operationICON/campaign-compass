@@ -766,6 +766,7 @@ export default function CampaignsPage() {
                         {activeView === "media" && (
                           <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
                         )}
+                        <th className="h-9 px-2 text-center text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
