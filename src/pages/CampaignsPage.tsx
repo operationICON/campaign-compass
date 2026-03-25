@@ -10,7 +10,7 @@ import {
 import {
   fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync,
   clearTrackingLinkSpend, fetchAccounts, fetchDailyMetrics,
-  fetchSourceTagRules, setTrackingLinkSourceTag,
+  setTrackingLinkSourceTag,
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
