@@ -24,10 +24,42 @@ import {
 import { RefreshButton } from "@/components/RefreshButton";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
+const COLUMNS_KEY = "campaigns_columns";
+
+type ColumnId = "model" | "source" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer";
+
+const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
+  { id: "model", label: "Model", defaultOn: true },
+  { id: "source", label: "Source", defaultOn: true },
+  { id: "expenses", label: "Expenses", defaultOn: true },
+  { id: "profit", label: "Profit", defaultOn: true },
+  { id: "roi", label: "ROI", defaultOn: true },
+  { id: "status", label: "Status", defaultOn: true },
+  { id: "subs_day", label: "Subs/Day", defaultOn: true },
+  { id: "clicks", label: "Clicks", defaultOn: false },
+  { id: "subscribers", label: "Subscribers", defaultOn: false },
+  { id: "cvr", label: "CVR", defaultOn: false },
+  { id: "created", label: "Created", defaultOn: false },
+  { id: "media_buyer", label: "Media Buyer", defaultOn: false },
+];
+
+function getDefaultColumns(): Record<ColumnId, boolean> {
+  const defaults: Record<string, boolean> = {};
+  ALL_TOGGLEABLE_COLUMNS.forEach(c => { defaults[c.id] = c.defaultOn; });
+  return defaults as Record<ColumnId, boolean>;
+}
+
+function loadColumns(): Record<ColumnId, boolean> {
+  try {
+    const saved = localStorage.getItem(COLUMNS_KEY);
+    if (saved) return { ...getDefaultColumns(), ...JSON.parse(saved) };
+  } catch {}
+  return getDefaultColumns();
+}
 
 // ─── Constants ───
 const MODEL_COLORS: Record<string, string> = {
