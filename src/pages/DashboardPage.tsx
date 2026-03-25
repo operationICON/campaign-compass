@@ -61,28 +61,7 @@ export default function DashboardPage() {
   const periodParam = PERIOD_MAP[timePeriod];
   const modelParam = selectedModel !== "all" ? selectedModel : null;
 
-  // True LTV from accounts table (earnings stats from OF API)
-  const accountLtv = useMemo(() => {
-    let filtered = modelParam ? accounts.filter((a: any) => a.id === modelParam) : accounts;
-    if (!modelParam && groupFilter !== "all") {
-      filtered = filtered.filter((a: any) => getAccountCategory(a) === groupFilter);
-    }
-    const getLtvField = () => {
-      if (timePeriod === "day") return "ltv_last_day";
-      if (timePeriod === "week") return "ltv_last_7d";
-      if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
-      return "ltv_total";
-    };
-    const field = getLtvField();
-    const total = filtered.reduce((sum: number, a: any) => sum + Number(a[field] || 0), 0);
-    const breakdown = {
-      subscriptions: filtered.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0),
-      tips: filtered.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0),
-      messages: filtered.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0),
-      posts: filtered.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0),
-    };
-    return { total, breakdown };
-  }, [accounts, modelParam, groupFilter, timePeriod]);
+
 
   // RPC: get_ltv_by_period (still used for period subs data)
   const { data: periodData, isLoading: isPeriodLoading } = useQuery({
