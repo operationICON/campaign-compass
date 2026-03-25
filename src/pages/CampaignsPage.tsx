@@ -114,6 +114,10 @@ export default function CampaignsPage() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [showBulkTagDropdown, setShowBulkTagDropdown] = useState(false);
   const [detailPanelLink, setDetailPanelLink] = useState<any>(null);
+  const [actionPanel, setActionPanel] = useState<{ link: any; action: "spend" | "source" | "buyer" } | null>(null);
+  const [buyerName, setBuyerName] = useState("");
+  const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
+  const [spendValue, setSpendValue] = useState("");
 
   // Media buyers
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
