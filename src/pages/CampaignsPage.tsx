@@ -131,25 +131,6 @@ export default function CampaignsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  // ─── Mutations ───
-  const handleSetSourceTag = async (linkId: string, tag: string) => {
-    try {
-      await setTrackingLinkSourceTag(linkId, tag);
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success(tag ? "Source saved" : "Tag cleared", { duration: 1000 });
-      setSourceDropdownId(null);
-    } catch (err: any) { toast.error("Save failed — please try again"); }
-  };
-
-  const handleBulkTag = async (tag: string) => {
-    try {
-      await bulkSetSourceTag(Array.from(selectedRows), tag);
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success(`Tagged ${selectedRows.size} campaigns as "${tag}"`);
-      setSelectedRows(new Set());
-      setShowBulkTagDropdown(false);
-    } catch (err: any) { toast.error(err.message); }
-  };
 
   const deleteSpendMutation = useMutation({
     mutationFn: deleteAdSpend,
