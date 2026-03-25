@@ -1066,6 +1066,7 @@ export default function CampaignsPage() {
               </div>
             )}
           </div>
+        </div>
 
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
       </div>
