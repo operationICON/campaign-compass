@@ -15,18 +15,35 @@ export type DashboardKpiCardId =
   | "best_source"
   | "total_ltv";
 
+export type CampaignKpiCardId =
+  | "profit_sub"
+  | "avg_cpl"
+  | "total_expenses"
+  | "total_profit"
+  | "active_campaigns"
+  | "untagged"
+  | "avg_cvr"
+  | "best_source_roi"
+  | "best_source_profit_sub"
+  | "most_profitable_source"
+  | "worst_source"
+  | "avg_expenses_per_campaign"
+  | "blended_roi";
+
+export type AnyKpiCardId = DashboardKpiCardId | CampaignKpiCardId;
+
 const DEFAULT_STORAGE_KEY = "dashboard_kpi_cards";
 
-const ALWAYS_ON: DashboardKpiCardId[] = ["profit_sub", "ltv_sub"];
-
-interface CardDef {
-  id: DashboardKpiCardId;
+interface CardDef<T extends string = string> {
+  id: T;
   label: string;
   alwaysOn?: boolean;
   defaultOn?: boolean;
 }
 
-const ALL_CARDS: CardDef[] = [
+const DASHBOARD_ALWAYS_ON: DashboardKpiCardId[] = ["profit_sub", "ltv_sub"];
+
+const DASHBOARD_CARDS: CardDef<DashboardKpiCardId>[] = [
   { id: "profit_sub", label: "Profit/Sub", alwaysOn: true },
   { id: "ltv_sub", label: "LTV/Sub", alwaysOn: true },
   { id: "avg_cpl", label: "Avg CPL", defaultOn: true },
@@ -40,6 +57,31 @@ const ALL_CARDS: CardDef[] = [
   { id: "best_source", label: "Best Source", defaultOn: false },
   { id: "total_ltv", label: "Total LTV", defaultOn: false },
 ];
+
+const CAMPAIGN_ALWAYS_ON: CampaignKpiCardId[] = ["profit_sub", "avg_cpl"];
+
+const CAMPAIGN_CARDS: CardDef<CampaignKpiCardId>[] = [
+  { id: "profit_sub", label: "Profit/Sub", alwaysOn: true },
+  { id: "avg_cpl", label: "Avg CPL", alwaysOn: true },
+  { id: "total_expenses", label: "Total Expenses", defaultOn: true },
+  { id: "total_profit", label: "Total Profit", defaultOn: true },
+  { id: "active_campaigns", label: "Active Campaigns", defaultOn: true },
+  { id: "untagged", label: "Untagged", defaultOn: true },
+  { id: "avg_cvr", label: "Avg CVR", defaultOn: false },
+  { id: "best_source_roi", label: "Best Source by ROI", defaultOn: false },
+  { id: "best_source_profit_sub", label: "Best Source by Profit/Sub", defaultOn: false },
+  { id: "most_profitable_source", label: "Most Profitable Source", defaultOn: false },
+  { id: "worst_source", label: "Worst Source", defaultOn: false },
+  { id: "avg_expenses_per_campaign", label: "Avg Expenses per Campaign", defaultOn: false },
+  { id: "blended_roi", label: "Blended ROI", defaultOn: false },
+];
+
+type CardVariant = "dashboard" | "campaigns";
+
+function getCardConfig(variant: CardVariant) {
+  if (variant === "campaigns") return { cards: CAMPAIGN_CARDS, alwaysOn: CAMPAIGN_ALWAYS_ON as string[] };
+  return { cards: DASHBOARD_CARDS, alwaysOn: DASHBOARD_ALWAYS_ON as string[] };
+}
 
 function getDefaults(): DashboardKpiCardId[] {
   return ALL_CARDS.filter(c => c.alwaysOn || c.defaultOn).map(c => c.id);
