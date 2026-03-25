@@ -545,12 +545,6 @@ export default function CampaignsPage() {
             <option value="all">All Accounts</option>
             {filteredAccountOptions.map((acc: any) => (<option key={acc.id} value={acc.id}>{acc.display_name} (@{acc.username})</option>))}
           </select>
-          <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-            <option value="all">All Sources</option>
-            {sourceOptions.map((src) => (<option key={src} value={src}>{src}</option>))}
-            <option value="__untagged__">Untagged</option>
-          </select>
           <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Campaigns</option>
@@ -636,7 +630,7 @@ export default function CampaignsPage() {
                         <th className="h-9 px-2 w-8"><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Model</th>
-                        <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
+                        
                         
                         <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />
                         <SortHeader label="Profit" sortKeyName="profit" width="80px" />
@@ -660,8 +654,6 @@ export default function CampaignsPage() {
                         const status = link.status || "NO_DATA";
                         const displayStatus = STATUS_LABELS[status] || "NO SPEND";
                         const statusStyle = STATUS_STYLES[displayStatus] || STATUS_STYLES["NO SPEND"];
-                        const sourceTag = link.source_tag || null;
-                        const sourceRule = tagRules.find((r: any) => r.tag_name === sourceTag);
                         const isExpanded = expandedRow === link.id;
                         const agePill = getAgePill(link.daysSinceCreated);
 
@@ -683,30 +675,6 @@ export default function CampaignsPage() {
                                 <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
                                 <span className="text-[11px] text-muted-foreground truncate">@{username}</span>
                               </div>
-                            </td>
-                            <td className="px-2 py-2 relative" onClick={(e) => { e.stopPropagation(); setSourceDropdownId(sourceDropdownId === link.id ? null : link.id); }}>
-                              <button className="text-left">
-                                {sourceTag && sourceRule ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-medium">
-                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sourceRule.color }} />
-                                    {sourceTag}
-                                  </span>
-                                ) : (<span className="text-[11px] text-muted-foreground italic">Untagged</span>)}
-                              </button>
-                              {sourceDropdownId === link.id && (
-                                <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[160px] py-1">
-                                  {tagRules.map((rule: any) => (
-                                    <button key={rule.id} onClick={() => handleSetSourceTag(link.id, rule.tag_name)}
-                                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/50 flex items-center gap-2">
-                                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: rule.color }} />
-                                      {rule.tag_name}
-                                    </button>
-                                  ))}
-                                  <div className="border-t border-border mt-1 pt-1">
-                                    <button onClick={() => handleSetSourceTag(link.id, "")} className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary/50">Untagged</button>
-                                  </div>
-                                </div>
-                              )}
                             </td>
                             
                             <td className="px-2 py-2 text-right">
