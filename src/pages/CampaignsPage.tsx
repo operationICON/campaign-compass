@@ -1268,6 +1268,226 @@ export default function CampaignsPage() {
         {/* Slide-ins */}
         {costSlideIn && <CostSettingSlideIn link={costSlideIn} onClose={() => setCostSlideIn(null)} onSaved={onSpendSaved} />}
         {selectedLink && <CampaignDetailSlideIn link={selectedLink} cost={Number(selectedLink.cost_total || 0)} onClose={() => setSelectedLink(null)} onSetCost={() => { setCostSlideIn(selectedLink); setSelectedLink(null); }} />}
+
+        {/* Action Panel */}
+        {actionPanel && (() => {
+          const al = actionPanel.link;
+          const hasCostAl = Number(al.cost_total || 0) > 0;
+          const subsAl = al.subscribers || 0;
+          const clicksAl = al.clicks || 0;
+          const revAl = Number(al.revenue || 0);
+
+          // Live spend preview
+          const numVal = parseFloat(spendValue);
+          const validVal = !isNaN(numVal) && numVal > 0;
+          let previewCost = 0, previewProfit = 0, previewProfitSub = 0, previewRoi = 0;
+          if (validVal) {
+            if (spendType === "CPL") previewCost = subsAl * numVal;
+            else if (spendType === "CPC") previewCost = clicksAl * numVal;
+            else previewCost = numVal;
+            previewProfit = revAl - previewCost;
+            previewProfitSub = subsAl > 0 ? previewProfit / subsAl : 0;
+            previewRoi = previewCost > 0 ? (previewProfit / previewCost) * 100 : 0;
+          }
+
+          const saveSpend = async () => {
+            if (!validVal) return;
+            try {
+              const cvr = clicksAl > 0 ? subsAl / clicksAl : 0;
+              const cpcReal = spendType === "CPC" ? numVal : (cvr > 0 ? (spendType === "CPL" ? numVal * cvr : (clicksAl > 0 ? previewCost / clicksAl : 0)) : 0);
+              const cplReal = spendType === "CPL" ? numVal : (subsAl > 0 ? previewCost / subsAl : 0);
+              const arpu = subsAl > 0 ? revAl / subsAl : 0;
+              const status = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
+              await supabase.from("tracking_links").update({
+                cost_type: spendType, cost_value: numVal, cost_total: previewCost,
+                cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,
+                profit: previewProfit, roi: previewRoi, status,
+              }).eq("id", al.id);
+              await supabase.from("ad_spend").insert({
+                campaign_id: al.campaign_id, traffic_source: al.source || "direct",
+                amount: previewCost, date: new Date().toISOString().split("T")[0],
+                notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: al.account_id,
+              });
+              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+              queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
+              toast.success("Spend saved");
+              setActionPanel(null);
+            } catch (err: any) { toast.error(err.message); }
+          };
+
+          const clearSpend = async () => {
+            try {
+              await clearTrackingLinkSpend(al.id, al.campaign_id);
+              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+              toast.success("Spend cleared");
+              setActionPanel(null);
+            } catch (err: any) { toast.error(err.message); }
+          };
+
+          const saveBuyer = async () => {
+            try {
+              await supabase.from("tracking_links").update({ media_buyer: buyerName || null }).eq("id", al.id);
+              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+              toast.success("Buyer saved");
+              setActionPanel(null);
+            } catch (err: any) { toast.error(err.message); }
+          };
+
+          return (
+            <div className="fixed top-0 right-0 w-[340px] h-full bg-card border-l border-border shadow-[-4px_0_12px_rgba(0,0,0,0.06)] z-50 overflow-y-auto animate-slide-in-right" style={{ transition: "transform 300ms ease" }}>
+              <div className="p-5 border-b border-border flex items-start justify-between">
+                <div>
+                  <p className="text-[13px] font-bold text-foreground truncate max-w-[260px]">{al.campaign_name || "Unnamed"}</p>
+                  <p className="text-[11px] text-muted-foreground">@{al.accounts?.username || "?"}</p>
+                </div>
+                <button onClick={() => setActionPanel(null)} className="p-1 rounded hover:bg-secondary"><X className="h-4 w-4 text-muted-foreground" /></button>
+              </div>
+
+              {/* SPEND panel */}
+              {actionPanel.action === "spend" && (
+                <div className="p-5 space-y-4">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Spend Type</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(["CPL", "CPC", "FIXED"] as const).map(t => (
+                        <button key={t} onClick={() => setSpendType(t)}
+                          className={`relative p-2.5 rounded-lg border text-center text-[11px] font-bold transition-all ${spendType === t ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"}`}>
+                          {t === "CPL" && <span className="absolute -top-1.5 right-1.5 px-1 py-0.5 rounded text-[7px] font-bold bg-primary text-primary-foreground">Rec</span>}
+                          {t}
+                          <span className="block text-[9px] font-normal text-muted-foreground mt-0.5">
+                            {t === "CPL" ? "Per sub" : t === "CPC" ? "Per click" : "Flat fee"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {spendType === "CPC" && <p className="text-[10px] text-[hsl(38_92%_50%)] mt-1.5">⚠ Clicks may include bot traffic</p>}
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">
+                      {spendType === "CPL" ? "Cost per subscriber ($)" : spendType === "CPC" ? "Cost per click ($)" : "Total amount ($)"}
+                    </p>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-lg">$</span>
+                      <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
+                        placeholder="0.00" autoFocus
+                        className="w-full pl-8 pr-3 py-2.5 bg-secondary border border-border rounded-lg text-lg font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary transition-all" />
+                    </div>
+                    {validVal && (
+                      <div className="mt-2 bg-secondary/50 border border-border rounded-lg p-3 space-y-1 text-[11px] font-mono text-muted-foreground">
+                        <p>Cost = {spendType === "CPL" ? `${subsAl} × $${numVal.toFixed(2)}` : spendType === "CPC" ? `${clicksAl} × $${numVal.toFixed(2)}` : `$${numVal.toFixed(2)} (flat)`} = {fmtC(previewCost)}</p>
+                      </div>
+                    )}
+                  </div>
+                  {validVal && (
+                    <div className="bg-secondary/30 border border-border rounded-lg p-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div><span className="text-muted-foreground block">Total Spend</span><span className="font-mono font-semibold text-foreground">{fmtC(previewCost)}</span></div>
+                        <div><span className="text-muted-foreground block">LTV</span><span className="font-mono font-semibold text-primary">{fmtC(revAl)}</span></div>
+                        <div><span className="text-muted-foreground block">Profit</span><span className={`font-mono font-semibold ${previewProfit >= 0 ? "text-primary" : "text-destructive"}`}>{previewProfit >= 0 ? "+" : ""}{fmtC(previewProfit)}</span></div>
+                        <div><span className="text-muted-foreground block">ROI</span><span className={`font-mono font-semibold ${previewRoi >= 0 ? "text-primary" : "text-destructive"}`}>{fmtP(previewRoi)}</span></div>
+                      </div>
+                      <div className="border-t border-border pt-2">
+                        <span className="text-muted-foreground text-[10px] block">Profit/Sub</span>
+                        <span className={`font-mono text-[14px] font-bold ${previewProfitSub >= 0 ? "text-primary" : "text-destructive"}`}>
+                          {previewProfitSub >= 0 ? "" : "-"}${Math.abs(previewProfitSub).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <button onClick={saveSpend} disabled={!validVal}
+                    className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                    Save Spend
+                  </button>
+                  {hasCostAl && (
+                    <button onClick={clearSpend}
+                      className="w-full py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                      <Trash2 className="h-3.5 w-3.5" /> Clear Spend
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* SOURCE panel */}
+              {actionPanel.action === "source" && (
+                <div className="p-5 space-y-4">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Source Tag</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tagRules.map((rule: any) => (
+                        <button key={rule.id} onClick={async () => {
+                          await handleSetSourceTag(al.id, rule.tag_name);
+                          setActionPanel(prev => prev ? { ...prev, link: { ...prev.link, source_tag: rule.tag_name } } : null);
+                        }}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${al.source_tag === rule.tag_name ? "text-white" : "hover:opacity-80"}`}
+                          style={{
+                            borderColor: rule.color,
+                            backgroundColor: al.source_tag === rule.tag_name ? rule.color : "transparent",
+                            color: al.source_tag === rule.tag_name ? "white" : rule.color,
+                          }}>
+                          {rule.tag_name}
+                        </button>
+                      ))}
+                      <button onClick={async () => {
+                        await handleSetSourceTag(al.id, "");
+                        setActionPanel(prev => prev ? { ...prev, link: { ...prev.link, source_tag: null } } : null);
+                      }} className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors">
+                        Untagged
+                      </button>
+                    </div>
+                  </div>
+                  {al.source_tag && (
+                    <div>
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Other campaigns under "{al.source_tag}"</p>
+                      <div className="space-y-1">
+                        {filtered.filter((l: any) => l.source_tag === al.source_tag && l.id !== al.id).slice(0, 5).map((l: any) => (
+                          <div key={l.id} className="px-2 py-1.5 rounded hover:bg-secondary/50 transition-colors">
+                            <p className="text-[11px] font-medium text-foreground truncate">{l.campaign_name}</p>
+                            <p className="text-[10px] text-muted-foreground">@{l.accounts?.username} · {fmtC(Number(l.revenue || 0))}</p>
+                          </div>
+                        ))}
+                        {filtered.filter((l: any) => l.source_tag === al.source_tag && l.id !== al.id).length === 0 && (
+                          <p className="text-[11px] text-muted-foreground">No other campaigns with this tag</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* BUYER panel */}
+              {actionPanel.action === "buyer" && (
+                <div className="p-5 space-y-4">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Media Buyer Name</p>
+                    <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)}
+                      placeholder="e.g. James, Saba..."
+                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" autoFocus />
+                  </div>
+                  <button onClick={saveBuyer}
+                    className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+                    Save Buyer
+                  </button>
+                  {buyerName && (
+                    <div>
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Other campaigns by "{buyerName}"</p>
+                      <div className="space-y-1">
+                        {filtered.filter((l: any) => l.media_buyer === buyerName && l.id !== al.id).slice(0, 5).map((l: any) => (
+                          <div key={l.id} className="px-2 py-1.5 rounded hover:bg-secondary/50 transition-colors">
+                            <p className="text-[11px] font-medium text-foreground truncate">{l.campaign_name}</p>
+                            <p className="text-[10px] text-muted-foreground">@{l.accounts?.username} · {fmtC(Number(l.revenue || 0))}</p>
+                          </div>
+                        ))}
+                        {filtered.filter((l: any) => l.media_buyer === buyerName && l.id !== al.id).length === 0 && (
+                          <p className="text-[11px] text-muted-foreground">No other campaigns with this buyer</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
       </div>
     </DashboardLayout>
