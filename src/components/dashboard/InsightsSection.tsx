@@ -574,10 +574,10 @@ export function InsightsSection({
             {/* Panel footer */}
             <div className="p-5 pt-3 border-t border-border shrink-0">
               <button
-                onClick={() => { setActivePanel(null); navigate("/tracking-links"); }}
+                onClick={() => { setActivePanel(null); navigate("/campaigns"); }}
                 className="text-[12px] font-medium text-primary hover:underline transition-colors"
               >
-                View all in Tracking Links →
+                View all in Campaigns →
               </button>
             </div>
           </div>
