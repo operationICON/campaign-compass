@@ -582,7 +582,7 @@ export default function DashboardPage() {
           getAccountCategory={getAccountCategory}
         />
 
-
+      </div>
 
       {/* SLIDE-INS */}
       {selectedLink && (
