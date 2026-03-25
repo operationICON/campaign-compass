@@ -531,6 +531,39 @@ export type Database = {
         }
         Relationships: []
       }
+      test_logs: {
+        Row: {
+          account_username: string | null
+          created_at: string
+          id: string
+          message: string | null
+          response_time_ms: number | null
+          run_at: string
+          status: string
+          test_name: string
+        }
+        Insert: {
+          account_username?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          response_time_ms?: number | null
+          run_at?: string
+          status?: string
+          test_name: string
+        }
+        Update: {
+          account_username?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          response_time_ms?: number | null
+          run_at?: string
+          status?: string
+          test_name?: string
+        }
+        Relationships: []
+      }
       tracking_links: {
         Row: {
           account_id: string
