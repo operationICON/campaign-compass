@@ -385,10 +385,14 @@ export default function CampaignsPage() {
       if (!worstSource || roi < worstSource.roi) worstSource = { name, roi };
     });
 
+    const avgExpensesPerCampaign = withSpend.length > 0 ? expSpend / withSpend.length : null;
+    const blendedRoi = expSpend > 0 ? ((expRev - expSpend) / expSpend) * 100 : null;
+
     return {
       totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
       profitPerSub, avgCpl, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
+      avgExpensesPerCampaign, blendedRoi,
     };
   }, [filtered]);
 
