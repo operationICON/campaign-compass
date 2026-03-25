@@ -290,7 +290,9 @@ export default function DashboardPage() {
           // Avg CPL
           const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
 
-          const periodLabel = TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
+          const periodLabel = customRange
+            ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
+            : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
 
           return (isLoading || isPeriodLoading) ? (
             <div className="grid grid-cols-5 gap-4">
