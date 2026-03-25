@@ -549,6 +549,7 @@ export default function CampaignsPage() {
             <option value="all">All Sources</option>
             {sourceOptions.map((src) => (<option key={src} value={src}>{src}</option>))}
             <option value="__untagged__">Untagged</option>
+          </select>
           <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Campaigns</option>
