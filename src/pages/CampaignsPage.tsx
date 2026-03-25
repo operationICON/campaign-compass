@@ -137,9 +137,9 @@ export default function CampaignsPage() {
     try {
       await setTrackingLinkSourceTag(linkId, tag);
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success(tag ? `Tagged as "${tag}"` : "Tag cleared");
+      toast.success(tag ? "Source saved" : "Tag cleared", { duration: 1000 });
       setSourceDropdownId(null);
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) { toast.error("Save failed — please try again"); }
   };
 
   const handleBulkTag = async (tag: string) => {
@@ -768,38 +768,60 @@ export default function CampaignsPage() {
                                 const cplReal = spendType === "CPL" ? numVal : (subsEl > 0 ? previewCost / subsEl : 0);
                                 const arpu = subsEl > 0 ? revEl / subsEl : 0;
                                 const newStatus = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
-                                await supabase.from("tracking_links").update({
+                                const { error: linkErr } = await supabase.from("tracking_links").update({
                                   cost_type: spendType, cost_value: numVal, cost_total: previewCost,
                                   cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,
                                   profit: previewProfit, roi: previewRoi, status: newStatus,
                                 }).eq("id", el.id);
-                                await supabase.from("ad_spend").insert({
-                                  campaign_id: el.campaign_id, traffic_source: el.source || "direct",
-                                  amount: previewCost, date: new Date().toISOString().split("T")[0],
-                                  notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
-                                });
+                                if (linkErr) throw linkErr;
+                                // Upsert ad_spend by tracking_link_id
+                                const { data: existing } = await supabase.from("ad_spend").select("id").eq("tracking_link_id", el.id).maybeSingle();
+                                if (existing) {
+                                  await supabase.from("ad_spend").update({
+                                    spend_type: spendType, amount: previewCost,
+                                    source_tag: el.source_tag, date: new Date().toISOString().split("T")[0],
+                                  } as any).eq("id", existing.id);
+                                } else {
+                                  await supabase.from("ad_spend").insert({
+                                    campaign_id: el.campaign_id, tracking_link_id: el.id,
+                                    traffic_source: el.source || "direct", spend_type: spendType,
+                                    amount: previewCost, date: new Date().toISOString().split("T")[0],
+                                    notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
+                                    source_tag: el.source_tag,
+                                  });
+                                }
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                 queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
                                 toast.success("Spend saved");
-                              } catch (err: any) { toast.error(err.message); }
+                              } catch (err: any) { toast.error("Save failed — please try again"); }
                             };
                             const clearSpendInline = async () => {
                               try {
                                 await clearTrackingLinkSpend(el.id, el.campaign_id);
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                 toast.success("Spend cleared");
-                              } catch (err: any) { toast.error(err.message); }
+                              } catch (err: any) { toast.error("Save failed — please try again"); }
                             };
                             const saveNoteInline = async () => {
                               if (!noteText.trim()) return;
                               try {
-                                await supabase.from("manual_notes").insert({
-                                  campaign_id: el.campaign_id, campaign_name: el.campaign_name,
-                                  account_id: el.account_id, content: noteText.trim(),
-                                });
+                                // Upsert: check if note exists for this tracking link
+                                const { data: existingNote } = await supabase.from("manual_notes")
+                                  .select("id").eq("campaign_id", el.campaign_id).eq("account_id", el.account_id).maybeSingle();
+                                if (existingNote) {
+                                  const { error } = await supabase.from("manual_notes").update({
+                                    note: noteText.trim(), content: noteText.trim(), updated_at: new Date().toISOString(),
+                                  } as any).eq("id", existingNote.id);
+                                  if (error) throw error;
+                                } else {
+                                  const { error } = await supabase.from("manual_notes").insert({
+                                    campaign_id: el.campaign_id, campaign_name: el.campaign_name,
+                                    account_id: el.account_id, content: noteText.trim(), note: noteText.trim(),
+                                  });
+                                  if (error) throw error;
+                                }
                                 toast.success("Note saved");
-                                setNoteText("");
-                              } catch (err: any) { toast.error(err.message); }
+                              } catch (err: any) { toast.error("Save failed — please try again"); }
                             };
                             return (
                               <tr>
@@ -882,9 +904,11 @@ export default function CampaignsPage() {
                                             e.stopPropagation();
                                             if (!buyerName.trim()) return;
                                             try {
-                                              await supabase.from("manual_notes").insert({ campaign_id: el.campaign_id, campaign_name: el.campaign_name, account_id: el.account_id, content: `Media buyer: ${buyerName}` });
+                                              const { error } = await supabase.from("tracking_links").update({ media_buyer: buyerName.trim() } as any).eq("id", el.id);
+                                              if (error) throw error;
+                                              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                               toast.success("Buyer saved"); setBuyerName("");
-                                            } catch (err: any) { toast.error(err.message); }
+                                            } catch (err: any) { toast.error("Save failed — please try again"); }
                                           }} className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold hover:bg-primary/90">Save</button>
                                         </div>
                                       </div>
