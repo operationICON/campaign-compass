@@ -21,6 +21,7 @@ import {
   Users, Activity, Info, BarChart3, Target, ChevronRight as ChevronR,
   Upload, Plus
 } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day";
@@ -423,6 +424,7 @@ export default function CampaignsPage() {
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
             </button>
+            <RefreshButton queryKeys={["tracking_links", "ad_spend", "source_tag_rules", "accounts"]} />
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
