@@ -1473,20 +1473,7 @@ export default function CampaignsPage() {
                     Save Buyer
                   </button>
                   {buyerName && (
-                    <div>
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Other campaigns by "{buyerName}"</p>
-                      <div className="space-y-1">
-                        {filtered.filter((l: any) => l.media_buyer === buyerName && l.id !== al.id).slice(0, 5).map((l: any) => (
-                          <div key={l.id} className="px-2 py-1.5 rounded hover:bg-secondary/50 transition-colors">
-                            <p className="text-[11px] font-medium text-foreground truncate">{l.campaign_name}</p>
-                            <p className="text-[10px] text-muted-foreground">@{l.accounts?.username} · {fmtC(Number(l.revenue || 0))}</p>
-                          </div>
-                        ))}
-                        {filtered.filter((l: any) => l.media_buyer === buyerName && l.id !== al.id).length === 0 && (
-                          <p className="text-[11px] text-muted-foreground">No other campaigns with this buyer</p>
-                        )}
-                      </div>
-                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-2">Buyer name will be saved as a note on this campaign.</p>
                   )}
                 </div>
               )}
