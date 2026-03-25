@@ -701,31 +701,54 @@ export default function CampaignsPage() {
                               <p className="text-[12px] font-semibold text-foreground truncate" title={link.campaign_name}>{link.campaign_name || "—"}</p>
                               <p className="text-[10px] text-muted-foreground truncate" title={link.url}>{link.url}</p>
                             </td>
-                            <td style={{ padding: "6px 12px" }}>
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
-                                <span className="text-[11px] text-muted-foreground truncate">@{username}</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: "6px 12px" }}>
-                              <TagBadge tagName={link.source_tag} size="sm" />
-                            </td>
-                            <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
-                              {hasCost ? (
-                                <span className="text-muted-foreground">{fmtC(costTotal)}</span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
-                                    <TooltipContent>No expenses set</TooltipContent>
-                                  </Tooltip>
-                                  —
-                                </span>
-                              )}
-                            </td>
-                            <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
-                              {hasCost ? <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span> : <span className="text-muted-foreground">—</span>}
-                            </td>
+                            {col("model") && (
+                              <td style={{ padding: "6px 12px" }}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
+                                  <span className="text-[11px] text-muted-foreground truncate">@{username}</span>
+                                </div>
+                              </td>
+                            )}
+                            {col("source") && (
+                              <td style={{ padding: "6px 12px" }}>
+                                <TagBadge tagName={link.source_tag} size="sm" />
+                              </td>
+                            )}
+                            {col("clicks") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {(link.clicks || 0).toLocaleString()}
+                              </td>
+                            )}
+                            {col("subscribers") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {(link.subscribers || 0).toLocaleString()}
+                              </td>
+                            )}
+                            {col("cvr") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            )}
+                            {col("expenses") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {hasCost ? (
+                                  <span className="text-muted-foreground">{fmtC(costTotal)}</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
+                                      <TooltipContent>No expenses set</TooltipContent>
+                                    </Tooltip>
+                                    —
+                                  </span>
+                                )}
+                              </td>
+                            )}
+                            {col("profit") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {hasCost ? <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span> : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            )}
                             <td className="text-right" style={{ padding: "6px 12px" }}>
                               {link.profitPerSub !== null ? (
                                 <span className={`font-mono text-[12px] font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
@@ -733,26 +756,51 @@ export default function CampaignsPage() {
                                 </span>
                               ) : <span className="text-muted-foreground text-[12px] font-bold">—</span>}
                             </td>
-                            <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
-                              {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
-                            </td>
-                            <td style={{ padding: "6px 12px" }}>
-                              <div className="flex items-center gap-1.5">
-                                {!hasCost && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>No spend set</TooltipContent>
-                                  </Tooltip>
-                                )}
-                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
-                                  style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
-                              </div>
-                            </td>
-                            <td className="font-mono text-[12px]" style={{ padding: "6px 12px" }}>
-                              {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
-                            </td>
+                            {col("roi") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            )}
+                            {col("status") && (
+                              <td style={{ padding: "6px 12px" }}>
+                                <div className="flex items-center gap-1.5">
+                                  {!hasCost && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>No spend set</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
+                                    style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
+                                </div>
+                              </td>
+                            )}
+                            {col("subs_day") && (
+                              <td className="font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            )}
+                            {col("created") && (() => {
+                              const days = link.daysSinceCreated;
+                              const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
+                              const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
+                                : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
+                                : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
+                                : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                              return (
+                                <td style={{ padding: "6px 12px" }}>
+                                  <p className="text-[11px] text-foreground">{createdDate}</p>
+                                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                                </td>
+                              );
+                            })()}
+                            {col("media_buyer") && (
+                              <td className="text-[11px]" style={{ padding: "6px 12px" }}>
+                                {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
+                              </td>
+                            )}
                             <td className="w-7 text-center" style={{ padding: "6px 12px" }}>
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             </td>
