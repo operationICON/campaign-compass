@@ -22,6 +22,7 @@ import {
   Upload, Plus, Award, AlertTriangle
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
+import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
@@ -116,6 +117,7 @@ function InfoDot({ title, desc }: { title: string; desc: string }) {
 
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
+  const campaignKpi = useKpiCardVisibility();
 
   // ─── Column visibility state ───
   const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
@@ -492,13 +494,18 @@ export default function CampaignsPage() {
                 <span className="text-[11px] text-muted-foreground truncate">{kpiSummary}</span>
               )}
             </div>
-            <button className="text-[11px] font-medium shrink-0 flex items-center gap-0.5" onClick={(e) => { e.stopPropagation(); setKpiCollapsed(!kpiCollapsed); }}>
-              {kpiCollapsed ? (
-                <span className="text-primary">Show metrics <ChevronDown className="inline h-3 w-3" /></span>
-              ) : (
-                <span className="text-muted-foreground">Hide metrics <ChevronUp className="inline h-3 w-3" /></span>
-              )}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <div onClick={(e) => e.stopPropagation()}>
+                <KpiCardCustomizer enabledCards={campaignKpi.enabledCards} toggleCard={campaignKpi.toggleCard} />
+              </div>
+              <button className="text-[11px] font-medium flex items-center gap-0.5" onClick={(e) => { e.stopPropagation(); setKpiCollapsed(!kpiCollapsed); }}>
+                {kpiCollapsed ? (
+                  <span className="text-primary">Show metrics <ChevronDown className="inline h-3 w-3" /></span>
+                ) : (
+                  <span className="text-muted-foreground">Hide metrics <ChevronUp className="inline h-3 w-3" /></span>
+                )}
+              </button>
+            </div>
           </div>
 
           {!kpiCollapsed && (
