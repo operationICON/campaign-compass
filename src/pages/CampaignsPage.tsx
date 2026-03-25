@@ -117,6 +117,7 @@ function InfoDot({ title, desc }: { title: string; desc: string }) {
 
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
+  const campaignKpi = useKpiCardVisibility();
 
   // ─── Column visibility state ───
   const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
