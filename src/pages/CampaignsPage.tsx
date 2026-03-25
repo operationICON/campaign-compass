@@ -792,7 +792,7 @@ export default function CampaignsPage() {
                               <tr>
                                 <td colSpan={99} className="p-0">
                                   <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-3.5">
-                                    <div className="grid grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-3 gap-4">
                                       {/* Col 1: Performance */}
                                       <div>
                                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Performance</p>
@@ -844,40 +844,7 @@ export default function CampaignsPage() {
                                           )}
                                         </div>
                                       </div>
-                                      {/* Col 3: Source + Buyer */}
-                                      <div>
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-primary" : "bg-[hsl(38_92%_50%)]"}`} />
-                                          <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 mb-3">
-                                          {tagRules.map((rule: any) => (
-                                            <button key={rule.id} onClick={(e) => { e.stopPropagation(); handleSetSourceTag(el.id, rule.tag_name); }}
-                                              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${el.source_tag === rule.tag_name ? "text-white" : "hover:opacity-80"}`}
-                                              style={{ borderColor: rule.color, backgroundColor: el.source_tag === rule.tag_name ? rule.color : "transparent", color: el.source_tag === rule.tag_name ? "white" : rule.color }}>
-                                              {rule.tag_name}
-                                            </button>
-                                          ))}
-                                        </div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Media buyer</p>
-                                        <div className="flex gap-1.5">
-                                          <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)}
-                                            placeholder="e.g. James, Saba..." onClick={(e) => e.stopPropagation()}
-                                            className="flex-1 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
-                                          <button onClick={async (e) => {
-                                            e.stopPropagation();
-                                            if (!buyerName.trim()) return;
-                                            try {
-                                              const { error } = await supabase.from("tracking_links").update({ media_buyer: buyerName.trim() } as any).eq("id", el.id);
-                                              if (error) throw error;
-                                              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                                              toast.success("Buyer saved"); setBuyerName("");
-                                            } catch (err: any) { toast.error("Save failed — please try again"); }
-                                          }} className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold hover:bg-primary/90">Save</button>
-                                        </div>
-                                      </div>
-                                      {/* Col 4: Notes */}
+                                      {/* Col 3: Notes */}
                                       <div>
                                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>
                                         <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
