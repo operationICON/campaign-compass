@@ -231,7 +231,8 @@ export default function CampaignsPage() {
       result = result.filter((l: any) => groupAccountIds.includes(l.account_id));
     }
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
-    if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
+    if (sourceFilter === "__untagged__") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
+    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
