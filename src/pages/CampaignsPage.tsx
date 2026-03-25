@@ -310,7 +310,6 @@ export default function CampaignsPage() {
     const totalSubs = qualifiedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const totalClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
     const avgCvr = totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
-    const untagged = scopedLinks.filter((l: any) => !l.source_tag || l.source_tag === "Untagged").length;
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
     const totalCount = scopedLinks.length;
 
@@ -323,40 +322,9 @@ export default function CampaignsPage() {
     const trackedCount = withSpend.length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
-    const sourceMap: Record<string, { rev: number; spend: number }> = {};
-    withSpend.forEach((l: any) => {
-      const src = l.source_tag || "Untagged";
-      if (!sourceMap[src]) sourceMap[src] = { rev: 0, spend: 0 };
-      sourceMap[src].rev += Number(l.revenue || 0);
-      sourceMap[src].spend += Number(l.cost_total || 0);
-    });
-    let bestSource: { name: string; roi: number } | null = null;
-    Object.entries(sourceMap).forEach(([name, { rev, spend }]) => {
-      if (spend > 0) { const roi = ((rev - spend) / spend) * 100; if (!bestSource || roi > bestSource.roi) bestSource = { name, roi }; }
-    });
-
-    const sourceProfit: Record<string, { profit: number; subs: number; spend: number; rev: number }> = {};
-    withSpend.forEach((l: any) => {
-      const src = l.source_tag || "Untagged";
-      if (!sourceProfit[src]) sourceProfit[src] = { profit: 0, subs: 0, spend: 0, rev: 0 };
-      sourceProfit[src].profit += Number(l.revenue || 0) - Number(l.cost_total || 0);
-      sourceProfit[src].subs += l.subscribers || 0;
-      sourceProfit[src].spend += Number(l.cost_total || 0);
-      sourceProfit[src].rev += Number(l.revenue || 0);
-    });
-    let bestProfitPerSub: { name: string; value: number } | null = null;
-    let mostProfitable: { name: string; value: number } | null = null;
-    let worstSource: { name: string; roi: number } | null = null;
-    Object.entries(sourceProfit).forEach(([name, d]) => {
-      if (d.subs > 0) { const pps = d.profit / d.subs; if (!bestProfitPerSub || pps > bestProfitPerSub.value) bestProfitPerSub = { name, value: pps }; }
-      if (!mostProfitable || d.profit > mostProfitable.value) mostProfitable = { name, value: d.profit };
-      if (d.spend > 0) { const roi = ((d.rev - d.spend) / d.spend) * 100; if (!worstSource || roi < worstSource.roi) worstSource = { name, roi }; }
-    });
-
     return {
-      totalLtv, activeCampaigns, avgCvr, untagged, noSpend, totalCount,
-      profitPerSub, avgCpl, bestSource, trackedCount, trackedPct,
-      bestProfitPerSub, mostProfitable, worstSource,
+      totalLtv, activeCampaigns, avgCvr, noSpend, totalCount,
+      profitPerSub, avgCpl, trackedCount, trackedPct,
     };
   }, [filtered]);
 
@@ -404,7 +372,7 @@ export default function CampaignsPage() {
   };
 
   // KPI summary text for collapsed state
-  const kpiSummary = `${fmtK(kpis.totalLtv)} LTV · ${kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} Profit/Sub · ${kpis.untagged} untagged · ${kpis.trackedCount} with spend`;
+  const kpiSummary = `${fmtK(kpis.totalLtv)} LTV · ${kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} Profit/Sub · ${kpis.trackedCount} with spend`;
 
   const modelCount = new Set(accounts.map((a: any) => a.id)).size;
 
