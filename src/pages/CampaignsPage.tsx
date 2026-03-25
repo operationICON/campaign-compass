@@ -548,7 +548,7 @@ export default function CampaignsPage() {
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Sources</option>
             {sourceOptions.map((src) => (<option key={src} value={src}>{src}</option>))}
-          </select>
+            <option value="__untagged__">Untagged</option>
           <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Campaigns</option>
@@ -635,13 +635,13 @@ export default function CampaignsPage() {
                         <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Model</th>
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
-                        <SortHeader label="LTV" sortKeyName="revenue" width="90px" sub="Attributed" />
+                        <SortHeader label="LTV" sortKeyName="revenue" width="90px" />
                         <SortHeader label="Profit" sortKeyName="profit" width="80px" />
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
                         <SortHeader label="ROI" sortKeyName="roi" width="70px" />
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px" }}>Status</th>
                         <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
-                        <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
+                        
                         <th className="h-9 px-2 text-center text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "28px" }}></th>
                       </tr>
                     </thead>
@@ -720,14 +720,21 @@ export default function CampaignsPage() {
                               {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                             </td>
                             <td className="px-2 py-2">
-                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
-                                style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
+                              <div className="flex items-center gap-1.5">
+                                {!hasCost && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>No spend set</TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
+                                  style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
+                              </div>
                             </td>
                             <td className="px-2 py-2 font-mono text-[12px]">
                               {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
-                            </td>
-                            <td className="px-2 py-2 font-mono text-[12px]">
-                              {link.clicks > 100 && link.subscribers > 0 ? `${((link.subscribers / link.clicks) * 100).toFixed(1)}%` : <span className="text-muted-foreground">—</span>}
                             </td>
                             <td className="px-2 py-2 w-7 text-center">
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
