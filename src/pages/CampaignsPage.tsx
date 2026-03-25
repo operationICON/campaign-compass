@@ -556,7 +556,7 @@ export default function CampaignsPage() {
                   ),
                 ].filter(Boolean);
                 return g1.length > 0 ? (
-                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(g1.length, 6)}, 1fr)`, gap: "10px", alignItems: "stretch" }}>{g1}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px", alignItems: "stretch" }}>{g1}</div>
                 ) : null;
               })()}
 
@@ -585,7 +585,7 @@ export default function CampaignsPage() {
                 return g2.length > 0 ? (
                   <>
                     <div className="h-px bg-border mx-0" style={{ margin: "8px 0" }} />
-                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(g2.length, 4)}, 1fr)`, gap: "10px", alignItems: "stretch" }}>{g2}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>{g2}</div>
                   </>
                 ) : null;
               })()}
@@ -615,7 +615,7 @@ export default function CampaignsPage() {
                 return g3.length > 0 ? (
                   <>
                     <div className="h-px bg-border mx-0" style={{ margin: "8px 0" }} />
-                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(g3.length, 3)}, 1fr)`, gap: "10px", alignItems: "stretch" }}>{g3}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>{g3}</div>
                   </>
                 ) : null;
               })()}
