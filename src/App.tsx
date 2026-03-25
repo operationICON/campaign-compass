@@ -5,14 +5,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
-import ExpensesPage from "./pages/ExpensesPage";
-import MediaBuyersPage from "./pages/MediaBuyersPage";
+import CampaignsPage from "./pages/CampaignsPage";
 import ChartsPage from "./pages/ChartsPage";
 import AlertsPage from "./pages/AlertsPage";
 import SettingsPage from "./pages/SettingsPage";
 import LogsPage from "./pages/LogsPage";
 import DebugPage from "./pages/DebugPage";
-import TrackingLinksPage from "./pages/TrackingLinksPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,10 +23,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/tracking-links" element={<TrackingLinksPage />} />
-          <Route path="/expenses" element={<ExpensesPage />} />
+          <Route path="/campaigns" element={<CampaignsPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
-          <Route path="/media-buyers" element={<MediaBuyersPage />} />
           <Route path="/charts" element={<ChartsPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
