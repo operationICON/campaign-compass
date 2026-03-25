@@ -904,9 +904,11 @@ export default function CampaignsPage() {
                                             e.stopPropagation();
                                             if (!buyerName.trim()) return;
                                             try {
-                                              await supabase.from("manual_notes").insert({ campaign_id: el.campaign_id, campaign_name: el.campaign_name, account_id: el.account_id, content: `Media buyer: ${buyerName}` });
+                                              const { error } = await supabase.from("tracking_links").update({ source_tag: el.source_tag, manually_tagged: true } as any).eq("id", el.id);
+                                              if (error) throw error;
+                                              queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                               toast.success("Buyer saved"); setBuyerName("");
-                                            } catch (err: any) { toast.error(err.message); }
+                                            } catch (err: any) { toast.error("Save failed — please try again"); }
                                           }} className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold hover:bg-primary/90">Save</button>
                                         </div>
                                       </div>
