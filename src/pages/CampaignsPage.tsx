@@ -872,6 +872,42 @@ export default function CampaignsPage() {
                                 {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
+                            {/* Actions column */}
+                            <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  title="Set Spend"
+                                  onClick={() => {
+                                    if (actionPanel?.link?.id === link.id && actionPanel.action === "spend") setActionPanel(null);
+                                    else { setActionPanel({ link, action: "spend" }); setSpendType(link.cost_type || "CPL"); setSpendValue(link.cost_value ? String(link.cost_value) : ""); }
+                                  }}
+                                  className={`p-1.5 rounded-md transition-colors ${hasCost ? "text-[hsl(142_71%_45%)] hover:bg-[hsl(142_71%_45%/0.1)]" : "text-[hsl(38_92%_50%)] hover:bg-[hsl(38_92%_50%/0.1)]"}`}
+                                >
+                                  <DollarSign className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  title="Set Source"
+                                  onClick={() => {
+                                    if (actionPanel?.link?.id === link.id && actionPanel.action === "source") setActionPanel(null);
+                                    else setActionPanel({ link, action: "source" });
+                                  }}
+                                  className={`p-1.5 rounded-md transition-colors ${sourceTag ? "hover:bg-secondary" : "text-[hsl(38_92%_50%)] hover:bg-[hsl(38_92%_50%/0.1)]"}`}
+                                  style={sourceTag && sourceRule ? { color: sourceRule.color } : undefined}
+                                >
+                                  <Tag className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  title="Set Buyer"
+                                  onClick={() => {
+                                    if (actionPanel?.link?.id === link.id && actionPanel.action === "buyer") setActionPanel(null);
+                                    else { setActionPanel({ link, action: "buyer" }); setBuyerName(link.media_buyer || ""); }
+                                  }}
+                                  className={`p-1.5 rounded-md transition-colors ${link.media_buyer ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-secondary"}`}
+                                >
+                                  <User className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}
