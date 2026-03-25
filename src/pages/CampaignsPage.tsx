@@ -502,11 +502,16 @@ export default function CampaignsPage() {
 
           {!kpiCollapsed && (
             <div className="px-3.5 pb-3 space-y-[8px]" onClick={(e) => e.stopPropagation()}>
-              {/* Group 1 — Overview (teal border) — 5 cards */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px", alignItems: "stretch" }}>
+              {/* Group 1 — Overview (teal border) — 6 cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "10px", alignItems: "stretch" }}>
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Attributed LTV" value={<span className="text-primary">{fmtC(kpis.totalLtv)}</span>} sub="All tracking links"
-                  tooltip={{ title: "Attributed LTV", desc: "Revenue from tracking links only. Excludes organic and untracked traffic." }} />
+                  label="Total Expenses" value={<span className="text-foreground">{fmtC(totalExpenses)}</span>} sub="All paid campaigns"
+                  tooltip={{ title: "Total Expenses", desc: "Sum of all ad spend across campaigns with costs set." }} />
+                <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
+                  label="Total Profit" value={hasAnyExpenses
+                    ? <span className={totalProfitAll >= 0 ? "text-primary" : "text-destructive"}>{fmtC(totalProfitAll)}</span>
+                    : <span className="text-muted-foreground">—</span>} sub="Revenue minus spend"
+                  tooltip={{ title: "Total Profit", desc: "Total revenue minus total expenses across paid campaigns." }} />
                 <KPICard borderColor="hsl(var(--primary))" icon={<Activity className="h-4 w-4 text-primary" />}
                   label="Active Campaigns" value={kpis.activeCampaigns.toLocaleString()} sub="Clicks in last 30 days"
                   tooltip={{ title: "Active Campaigns", desc: "Campaigns with at least 1 click in the last 30 days." }} />
