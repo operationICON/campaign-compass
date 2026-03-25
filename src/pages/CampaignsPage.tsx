@@ -788,7 +788,7 @@ export default function CampaignsPage() {
 
                         return (
                           <tr key={link.id}
-                            className={`border-b transition-colors cursor-pointer ${isSelected ? "bg-[hsl(var(--primary)/0.06)]" : "hover:bg-[hsl(var(--primary)/0.03)]"} ${!hasCost ? "opacity-[0.85]" : ""}`}
+                            className={`group border-b transition-colors cursor-pointer ${isSelected ? "bg-[hsl(var(--primary)/0.06)]" : "hover:bg-[hsl(var(--primary)/0.03)]"} ${!hasCost ? "opacity-[0.85]" : ""}`}
                             style={{ borderBottomColor: "#f1f5f9", borderLeftWidth: "3px", borderLeftColor: borderColor }}
                             onClick={() => handleRowClick(link)}>
                             <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
