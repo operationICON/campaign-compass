@@ -116,6 +116,18 @@ function InfoDot({ title, desc }: { title: string; desc: string }) {
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
 
+  // ─── Column visibility state ───
+  const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
+  const [colDropdownOpen, setColDropdownOpen] = useState(false);
+  const toggleColumn = (id: ColumnId) => {
+    setVisibleCols(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(COLUMNS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  const col = (id: ColumnId) => visibleCols[id];
+
   // ─── KPI collapse state ───
   const [kpiCollapsed, setKpiCollapsed] = useState(() => {
     try { return localStorage.getItem(KPI_COLLAPSED_KEY) !== "false"; } catch { return true; }
