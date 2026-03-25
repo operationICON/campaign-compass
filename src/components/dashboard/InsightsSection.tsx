@@ -280,30 +280,201 @@ export function InsightsSection({
         </div>
       </div>
 
-      {/* ── ROW 2: Campaign Decisions — Count Pills ── */}
-      <div className="bg-card border border-border rounded-2xl p-4 mt-2.5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium">Campaign Decisions</p>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          {(["scale", "watch", "kill", "dead"] as DecisionStatus[]).map((status) => {
-            const cfg = STATUS_CONFIG[status];
-            const count = decisionCounts[status].length;
+      {/* ── ROW 2: Campaign Decisions — Collapsible ── */}
+      {(() => {
+        const [collapsed, setCollapsed] = useState(() => {
+          const saved = localStorage.getItem("campaign_decisions_collapsed");
+          return saved === "true";
+        });
+        const toggleCollapsed = () => {
+          setCollapsed(prev => {
+            localStorage.setItem("campaign_decisions_collapsed", String(!prev));
+            return !prev;
+          });
+        };
+
+        type ColSort = "profit" | "ltv" | "cpl" | "roi";
+        const [scaleSort, setScaleSort] = useState<ColSort>("profit");
+        const [watchSort, setWatchSort] = useState<ColSort>("profit");
+        const [stopSort, setStopSort] = useState<ColSort>("profit");
+        const [scaleExpanded, setScaleExpanded] = useState(false);
+        const [watchExpanded, setWatchExpanded] = useState(false);
+        const [stopExpanded, setStopExpanded] = useState(false);
+
+        const sortList = (list: any[], sort: ColSort, ascending = false) => {
+          return [...list].sort((a, b) => {
+            const getVal = (item: any) => {
+              if (sort === "profit") return item.profit ?? (ascending ? Infinity : -Infinity);
+              if (sort === "ltv") return Number(item.revenue || 0);
+              if (sort === "cpl") return item.spend > 0 && item.subscribers > 0 ? item.spend / item.subscribers : (ascending ? Infinity : -Infinity);
+              if (sort === "roi") return item.roi ?? (ascending ? Infinity : -Infinity);
+              return 0;
+            };
+            return ascending ? getVal(a) - getVal(b) : getVal(b) - getVal(a);
+          });
+        };
+
+        const scaleList = sortList(decisionCounts.scale, scaleSort);
+        const watchList = sortList(decisionCounts.watch, watchSort);
+        const killList = enriched.filter((l) => l.roi !== null && l.roi < 0 && l.spend > 0);
+        const deadList = enriched.filter((l) => l.status === "DEAD" || l.status === "Dead");
+        const stopList = sortList([...killList, ...deadList], stopSort, true);
+
+        const summaryText = `${decisionCounts.scale.length} SCALE · ${decisionCounts.watch.length} WATCH · ${killList.length} KILL · ${deadList.length} DEAD`;
+
+        const MAX_VISIBLE = 8;
+
+        const renderRow = (l: any, isDead: boolean) => {
+          const isKill = l.roi !== null && l.roi < 0 && l.spend > 0;
+          const cpl = l.spend > 0 && l.subscribers > 0 ? l.spend / l.subscribers : null;
+          if (isDead && !isKill) {
+            const daysSinceActive = l.updated_at ? differenceInDays(new Date(), new Date(l.updated_at)) : 0;
             return (
-              <button
-                key={status}
-                onClick={() => setActivePanel(status)}
-                className="rounded-2xl p-3.5 text-left cursor-pointer transition-transform duration-150 ease-out hover:scale-[1.02]"
-                style={{ backgroundColor: cfg.bg, border: `0.5px solid ${cfg.border}` }}
-              >
-                <p className="text-[24px] font-bold font-mono" style={{ color: cfg.color }}>{count}</p>
-                <p className="text-[11px] font-bold mt-0.5" style={{ color: cfg.color }}>{cfg.title}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{cfg.rule}</p>
-              </button>
+              <div key={l.id} className="py-2 px-3 border-b border-[#f1f5f9] last:border-0 hover:bg-[#f8fafc] transition-colors">
+                <div className="flex items-center gap-1">
+                  <span className="text-[12px] font-bold text-foreground truncate max-w-[200px]">{l.campaign_name || "—"}</span>
+                  <span className="text-[10px] text-muted-foreground">@{l.accounts?.username || "—"}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] text-destructive">0 clicks for {daysSinceActive}d</span>
+                  {l.updated_at && <span className="text-[10px] text-muted-foreground">Last active: {format(new Date(l.updated_at), "MMM d, yyyy")}</span>}
+                </div>
+              </div>
             );
-          })}
-        </div>
-      </div>
+          }
+          return (
+            <div key={l.id} className="py-2 px-3 border-b border-[#f1f5f9] last:border-0 hover:bg-[#f8fafc] transition-colors">
+              <div className="flex items-center gap-1">
+                <span className="text-[12px] font-bold text-foreground truncate max-w-[200px]">{l.campaign_name || "—"}</span>
+                <span className="text-[10px] text-muted-foreground">@{l.accounts?.username || "—"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5 text-[10px]">
+                <span className="text-primary font-medium">LTV {fmtC(Number(l.revenue || 0))}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">Spend {l.spend > 0 ? fmtC(l.spend) : "—"}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className={l.profit !== null ? (l.profit >= 0 ? "text-[#16a34a] font-medium" : "text-destructive font-medium") : "text-muted-foreground"}>
+                  Profit {l.profit !== null ? fmtC(l.profit) : "—"}
+                </span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">CPL {cpl !== null ? fmtC(cpl) : "—"}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className={l.roi !== null ? (l.roi >= 0 ? "text-[#16a34a] font-medium" : "text-destructive font-medium") : "text-muted-foreground"}>
+                  ROI {l.roi !== null ? `${l.roi.toFixed(0)}%` : "—"}
+                </span>
+              </div>
+            </div>
+          );
+        };
+
+        const renderColumn = (
+          title: string, list: any[], sort: ColSort, setSort: (s: ColSort) => void,
+          expanded: boolean, setExpanded: (v: boolean) => void,
+          headerBg: string, headerColor: string, isDead: boolean,
+          emptyTitle: string, emptySub: string
+        ) => {
+          const visible = expanded ? list : list.slice(0, MAX_VISIBLE);
+          const remaining = list.length - MAX_VISIBLE;
+          return (
+            <div className="bg-card rounded-xl overflow-hidden" style={{ border: "0.5px solid #e8edf2" }}>
+              <div className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: headerBg }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-bold" style={{ color: headerColor }}>{title}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${headerColor}15`, color: headerColor }}>
+                    {list.length}
+                  </span>
+                </div>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as ColSort)}
+                  className="text-[10px] bg-transparent border border-border rounded px-1.5 py-0.5 text-muted-foreground outline-none"
+                >
+                  <option value="profit">Sort: Profit</option>
+                  <option value="ltv">Sort: LTV</option>
+                  <option value="cpl">Sort: CPL</option>
+                  <option value="roi">Sort: ROI</option>
+                </select>
+              </div>
+              <div>
+                {list.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <p className={`text-[11px] font-medium ${emptyTitle === "All clear" ? "text-[#16a34a] font-bold" : "text-muted-foreground"}`}>{emptyTitle}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{emptySub}</p>
+                  </div>
+                ) : (
+                  <>
+                    {visible.map(l => renderRow(l, isDead && (l.status === "DEAD" || l.status === "Dead")))}
+                    {remaining > 0 && !expanded && (
+                      <button onClick={() => setExpanded(true)} className="w-full py-2 text-[11px] text-primary hover:underline font-medium">
+                        Show {remaining} more ▾
+                      </button>
+                    )}
+                    {expanded && list.length > MAX_VISIBLE && (
+                      <button onClick={() => setExpanded(false)} className="w-full py-2 text-[11px] text-primary hover:underline font-medium">
+                        Show less ▴
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="bg-card border border-border rounded-2xl mt-2.5 overflow-hidden">
+            {/* Collapsible header */}
+            <div
+              className="flex items-center justify-between px-5 py-3.5 cursor-pointer select-none hover:bg-secondary/30 transition-colors"
+              onClick={toggleCollapsed}
+            >
+              <span className="text-[14px] font-bold text-foreground">Campaign Decisions</span>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-muted-foreground">{summaryText}</span>
+                {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-primary" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
+              </div>
+            </div>
+
+            {/* Collapsible content */}
+            <div
+              className="overflow-hidden transition-all duration-250 ease-in-out"
+              style={{ maxHeight: collapsed ? "0px" : "9999px", opacity: collapsed ? 0 : 1 }}
+            >
+              {/* 4 Summary cards */}
+              <div className="grid grid-cols-4 gap-2 px-5 pb-3">
+                {(["scale", "watch", "kill", "dead"] as DecisionStatus[]).map((status) => {
+                  const cfg = STATUS_CONFIG[status];
+                  const count = decisionCounts[status].length;
+                  return (
+                    <button
+                      key={status}
+                      onClick={(e) => { e.stopPropagation(); setActivePanel(status); }}
+                      className="rounded-2xl p-3.5 text-left cursor-pointer transition-transform duration-150 ease-out hover:scale-[1.02]"
+                      style={{ backgroundColor: cfg.bg, border: `0.5px solid ${cfg.border}` }}
+                    >
+                      <p className="text-[24px] font-bold font-mono" style={{ color: cfg.color }}>{count}</p>
+                      <p className="text-[11px] font-bold mt-0.5" style={{ color: cfg.color }}>{cfg.title}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{cfg.rule}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 3 Detail columns */}
+              <div className="border-t border-border px-5 py-4">
+                <div className="grid grid-cols-3 gap-2.5">
+                  {renderColumn("Scale Now", scaleList, scaleSort, setScaleSort, scaleExpanded, setScaleExpanded,
+                    "#f0fdf4", "#15803d", false, "No campaigns at scale yet", "Set spend on campaigns to unlock")}
+                  {renderColumn("Watch", watchList, watchSort, setWatchSort, watchExpanded, setWatchExpanded,
+                    "#eff6ff", "#0369a1", false, "No campaigns to watch", "")}
+                  {renderColumn("Stop / Fix", stopList, stopSort, setStopSort, stopExpanded, setStopExpanded,
+                    "#fef2f2", "#b91c1c", true, "All clear", "Nothing to stop or fix")}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Slide-in Panel ── */}
       {activePanel && (
