@@ -8,9 +8,10 @@ import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  DollarSign, TrendingUp, BarChart3, Receipt, Pencil, X, Plus, Upload,
-  ChevronUp, ChevronDown, Search, Lock
+  TrendingUp, BarChart3, Receipt, Pencil, X, Plus, Upload,
+  ChevronUp, ChevronDown, Search, Lock, Tag, Star
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
   "jessie_ca_xo": { bg: "bg-[hsl(24_95%_53%/0.15)]", text: "text-[hsl(24_95%_53%)]" },
@@ -220,13 +221,65 @@ export default function ExpensesPage() {
 
   const hasAnySpend = totalSpend > 0;
 
-  const kpis = [
-    { label: "Total LTV", value: fmtC(totalLtv), icon: DollarSign, color: "text-primary" },
-    { label: "Total Spend", value: hasAnySpend ? fmtC(totalSpend) : "$0.00", icon: Receipt, color: "text-foreground" },
-    { label: "Total Profit", value: hasAnySpend ? (totalProfit >= 0 ? `+${fmtC(totalProfit)}` : fmtC(totalProfit)) : "—", icon: TrendingUp, color: hasAnySpend ? (totalProfit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
-    { label: "Avg Profit/Sub", value: avgProfitPerSub !== null ? fmtC(avgProfitPerSub) : "—", icon: BarChart3, color: avgProfitPerSub !== null ? (avgProfitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground", sub: !hasAnySpend ? "Enter spend to calculate" : undefined },
-    { label: "Campaigns with Spend", value: String(campaignsWithSpend), icon: Receipt, color: "text-foreground" },
-  ];
+  // --- Filtered KPI calculations (respond to account/source/date filters) ---
+  const filteredAllLinks = useMemo(() => {
+    let result = allLinks;
+    if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
+    if (sourceFilter !== "all") result = result.filter((l: any) => (l.source_tag || "Untagged") === sourceFilter);
+    if (dateFilter === "this_month") result = result.filter((l: any) => l.updated_at >= thisMonthStart);
+    if (dateFilter === "last_month") result = result.filter((l: any) => l.updated_at >= lastMonthStart && l.updated_at < thisMonthStart);
+    return result;
+  }, [allLinks, accountFilter, sourceFilter, dateFilter, thisMonthStart, lastMonthStart]);
+
+  const filteredWithSpend = useMemo(() =>
+    filteredAllLinks.filter((l: any) => Number(l.cost_total || 0) > 0),
+    [filteredAllLinks]
+  );
+
+  const kpiProfitPerSub = useMemo(() => {
+    const rev = filteredWithSpend.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const spend = filteredWithSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const subs = filteredWithSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    if (spend === 0 || subs === 0) return null;
+    return (rev - spend) / subs;
+  }, [filteredWithSpend]);
+
+  const kpiAvgCPL = useMemo(() => {
+    const spend = filteredWithSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const subs = filteredWithSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    if (spend === 0 || subs === 0) return null;
+    return spend / subs;
+  }, [filteredWithSpend]);
+
+  const kpiBestSource = useMemo(() => {
+    const map: Record<string, { rev: number; spend: number }> = {};
+    filteredWithSpend.forEach((l: any) => {
+      const src = l.source_tag || "Untagged";
+      if (!map[src]) map[src] = { rev: 0, spend: 0 };
+      map[src].rev += Number(l.revenue || 0);
+      map[src].spend += Number(l.cost_total || 0);
+    });
+    let best: { name: string; roi: number } | null = null;
+    Object.entries(map).forEach(([name, { rev, spend }]) => {
+      if (spend > 0) {
+        const roi = ((rev - spend) / spend) * 100;
+        if (!best || roi > best.roi) best = { name, roi };
+      }
+    });
+    return best;
+  }, [filteredWithSpend]);
+
+  const kpiTrackedCount = filteredWithSpend.length;
+  const kpiTotalCount = filteredAllLinks.length;
+  const kpiTrackedPct = kpiTotalCount > 0 ? (kpiTrackedCount / kpiTotalCount) * 100 : 0;
+
+  // Active filter pills
+  const activeFilters: { label: string; clear: () => void }[] = [];
+  if (sourceFilter !== "all") activeFilters.push({ label: `Source: ${sourceFilter}`, clear: () => setSourceFilter("all") });
+  if (accountFilter !== "all") {
+    const acc = accounts.find((a: any) => a.id === accountFilter);
+    activeFilters.push({ label: `@${acc?.username || "?"}`, clear: () => setAccountFilter("all") });
+  }
 
   return (
     <DashboardLayout>
@@ -260,18 +313,82 @@ export default function ExpensesPage() {
           </div>
         </div>
 
+        {/* Active Filter Pills */}
+        {activeFilters.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeFilters.map((f, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full bg-[hsl(var(--primary)/0.1)] text-primary">
+                {f.label}
+                <button onClick={f.clear} className="hover:opacity-70">✕</button>
+              </span>
+            ))}
+            {activeFilters.length > 1 && (
+              <button onClick={() => { setSourceFilter("all"); setAccountFilter("all"); }} className="text-[11px] text-primary hover:underline">Clear all</button>
+            )}
+          </div>
+        )}
+
         {/* KPI Cards */}
-        <div className="grid grid-cols-5 gap-3">
-          {kpis.map((kpi, i) => (
-            <div key={i} className="bg-card border border-border rounded-[16px] p-4 shadow-sm">
-              <div className="flex items-center gap-1.5 mb-2">
-                <kpi.icon className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{kpi.label}</span>
+        <div className="grid grid-cols-4 gap-3">
+          {/* Card 1 — Profit/Sub */}
+          <div className="bg-card border border-border rounded-[16px] p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-primary" />
               </div>
-              <p className={`text-[22px] font-bold ${kpi.color}`}>{kpi.value}</p>
-              {kpi.sub && <p className="text-[10px] text-muted-foreground mt-0.5">{kpi.sub}</p>}
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Profit/Sub</span>
             </div>
-          ))}
+            <p className={`text-[16px] font-bold ${kpiProfitPerSub !== null ? (kpiProfitPerSub >= 0 ? "text-[hsl(142_71%_45%)]" : "text-destructive") : "text-muted-foreground"}`}>
+              {kpiProfitPerSub !== null ? fmtC(kpiProfitPerSub) : "—"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">Per acquired subscriber</p>
+          </div>
+
+          {/* Card 2 — Avg CPL */}
+          <div className="bg-card border border-border rounded-[16px] p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                <Tag className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Avg CPL</span>
+            </div>
+            <p className="text-[22px] font-bold text-foreground">
+              {kpiAvgCPL !== null ? fmtC(kpiAvgCPL) : "—"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">Cost per subscriber</p>
+          </div>
+
+          {/* Card 3 — Best Source */}
+          <div className="bg-card border border-border rounded-[16px] p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                <Star className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Best Source</span>
+            </div>
+            <p className="text-[22px] font-bold text-primary">
+              {kpiBestSource ? kpiBestSource.name : "—"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {kpiBestSource ? `${kpiBestSource.roi.toLocaleString("en-US", { maximumFractionDigits: 0 })}% ROI` : "No spend data"}
+            </p>
+          </div>
+
+          {/* Card 4 — Campaigns Tracked */}
+          <div className="bg-card border border-border rounded-[16px] p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                <BarChart3 className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Campaigns Tracked</span>
+            </div>
+            <p className="text-[22px] font-bold text-foreground">
+              {kpiTrackedCount} <span className="text-[14px] font-normal text-muted-foreground">of {kpiTotalCount.toLocaleString()}</span>
+            </p>
+            <div className="mt-2">
+              <Progress value={kpiTrackedPct} className="h-1 bg-secondary" />
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
