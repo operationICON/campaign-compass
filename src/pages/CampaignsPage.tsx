@@ -10,7 +10,7 @@ import {
 import {
   fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync,
   clearTrackingLinkSpend, fetchAccounts, fetchDailyMetrics,
-  fetchSourceTagRules, setTrackingLinkSourceTag,
+  setTrackingLinkSourceTag,
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -111,6 +111,7 @@ export default function CampaignsPage() {
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
   const [buyerName, setBuyerName] = useState("");
+  const [sourceInputValue, setSourceInputValue] = useState("");
   
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
@@ -119,7 +120,7 @@ export default function CampaignsPage() {
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: tagRules = [] } = useQuery({ queryKey: ["source_tag_rules"], queryFn: fetchSourceTagRules, staleTime: 60_000 });
+  
   const tagColorMap = useTagColors();
 
   // ─── Realtime ───
@@ -373,6 +374,7 @@ export default function CampaignsPage() {
       setSpendType(link.cost_type || "CPL");
       setSpendValue(link.cost_value ? String(link.cost_value) : "");
       setBuyerName(link.media_buyer || "");
+      setSourceInputValue(link.source_tag || "");
       setNoteText("");
     }
   };
@@ -760,9 +762,9 @@ export default function CampaignsPage() {
                                 toast.success("Note saved");
                               } catch (err: any) { toast.error("Save failed — please try again"); }
                             };
-                            const handleSetTag = async (tagName: string) => {
+                            const handleSaveSource = async () => {
                               try {
-                                await setTrackingLinkSourceTag(el.id, tagName, true);
+                                await setTrackingLinkSourceTag(el.id, sourceInputValue.trim(), true);
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                 toast.success("Source saved", { duration: 1000 });
                               } catch (err: any) { toast.error("Save failed"); }
@@ -838,23 +840,11 @@ export default function CampaignsPage() {
                                           <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-[hsl(142_71%_45%)]" : "bg-[hsl(38_92%_50%)]"}`} />
                                           <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
                                         </div>
-                                        <div className="flex flex-wrap gap-1 mb-3">
-                                          {tagRules.map((rule: any) => {
-                                            const isActive = el.source_tag === rule.tag_name;
-                                            return (
-                                              <button key={rule.id} onClick={(e) => { e.stopPropagation(); handleSetTag(rule.tag_name); }}
-                                                className="rounded transition-colors"
-                                                style={{
-                                                  padding: "3px 8px", fontSize: "10px", fontWeight: 600,
-                                                  border: `1.5px solid ${rule.color}`,
-                                                  backgroundColor: isActive ? rule.color : "transparent",
-                                                  color: isActive ? "#fff" : rule.color,
-                                                }}>
-                                                {rule.tag_name}
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
+                                        <input type="text" value={sourceInputValue} onChange={(e) => setSourceInputValue(e.target.value)}
+                                          placeholder="Type source name e.g. Reddit" onClick={(e) => e.stopPropagation()}
+                                          className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2" />
+                                        <button onClick={(e) => { e.stopPropagation(); handleSaveSource(); }}
+                                          className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 mb-3">Save source</button>
                                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Media Buyer</p>
                                         <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)}
                                           placeholder="Enter buyer name..." onClick={(e) => e.stopPropagation()}
