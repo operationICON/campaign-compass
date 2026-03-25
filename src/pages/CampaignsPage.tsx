@@ -900,9 +900,9 @@ export default function CampaignsPage() {
                                   title="Set Buyer"
                                   onClick={() => {
                                     if (actionPanel?.link?.id === link.id && actionPanel.action === "buyer") setActionPanel(null);
-                                    else { setActionPanel({ link, action: "buyer" }); setBuyerName(link.media_buyer || ""); }
+                                    else { setActionPanel({ link, action: "buyer" }); setBuyerName(""); }
                                   }}
-                                  className={`p-1.5 rounded-md transition-colors ${link.media_buyer ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-secondary"}`}
+                                  className="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-secondary"
                                 >
                                   <User className="h-3.5 w-3.5" />
                                 </button>
