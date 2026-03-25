@@ -245,7 +245,7 @@ export default function DashboardPage() {
           {/* Account dropdown */}
           <select
             value={selectedModel}
-            onChange={(e) => { setSelectedModel(e.target.value); setPage(1); }}
+            onChange={(e) => { setSelectedModel(e.target.value); }}
             className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="all">All Accounts</option>
