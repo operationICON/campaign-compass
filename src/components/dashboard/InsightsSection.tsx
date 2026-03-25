@@ -423,44 +423,40 @@ export function InsightsSection({
 
         return (
           <div className="bg-card border border-border rounded-2xl mt-2.5 overflow-hidden">
-            {/* Collapsible header */}
+            {/* Section header */}
             <div
               className="flex items-center justify-between px-5 py-3.5 cursor-pointer select-none hover:bg-secondary/30 transition-colors"
               onClick={toggleCollapsed}
             >
               <span className="text-[14px] font-bold text-foreground">Campaign Decisions</span>
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] text-muted-foreground">{summaryText}</span>
-                {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-primary" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
-              </div>
+              {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-primary" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
             </div>
 
-            {/* Collapsible content */}
+            {/* 4 Summary cards — ALWAYS visible */}
+            <div className="grid grid-cols-4 gap-2 px-5 pb-3">
+              {(["scale", "watch", "kill", "dead"] as DecisionStatus[]).map((status) => {
+                const cfg = STATUS_CONFIG[status];
+                const count = decisionCounts[status].length;
+                return (
+                  <button
+                    key={status}
+                    onClick={(e) => { e.stopPropagation(); setActivePanel(status); }}
+                    className="rounded-2xl p-3.5 text-left cursor-pointer transition-transform duration-150 ease-out hover:scale-[1.02]"
+                    style={{ backgroundColor: cfg.bg, border: `0.5px solid ${cfg.border}` }}
+                  >
+                    <p className="text-[24px] font-bold font-mono" style={{ color: cfg.color }}>{count}</p>
+                    <p className="text-[11px] font-bold mt-0.5" style={{ color: cfg.color }}>{cfg.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{cfg.rule}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 3 Detail columns — collapsible */}
             <div
-              className="overflow-hidden transition-all duration-250 ease-in-out"
+              className="overflow-hidden transition-all duration-200 ease-in-out"
               style={{ maxHeight: collapsed ? "0px" : "9999px", opacity: collapsed ? 0 : 1 }}
             >
-              {/* 4 Summary cards */}
-              <div className="grid grid-cols-4 gap-2 px-5 pb-3">
-                {(["scale", "watch", "kill", "dead"] as DecisionStatus[]).map((status) => {
-                  const cfg = STATUS_CONFIG[status];
-                  const count = decisionCounts[status].length;
-                  return (
-                    <button
-                      key={status}
-                      onClick={(e) => { e.stopPropagation(); setActivePanel(status); }}
-                      className="rounded-2xl p-3.5 text-left cursor-pointer transition-transform duration-150 ease-out hover:scale-[1.02]"
-                      style={{ backgroundColor: cfg.bg, border: `0.5px solid ${cfg.border}` }}
-                    >
-                      <p className="text-[24px] font-bold font-mono" style={{ color: cfg.color }}>{count}</p>
-                      <p className="text-[11px] font-bold mt-0.5" style={{ color: cfg.color }}>{cfg.title}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{cfg.rule}</p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* 3 Detail columns */}
               <div className="border-t border-border px-5 py-4">
                 <div className="grid grid-cols-3 gap-2.5">
                   {renderColumn("Scale Now", scaleList, scaleSort, setScaleSort, scaleExpanded, setScaleExpanded,
