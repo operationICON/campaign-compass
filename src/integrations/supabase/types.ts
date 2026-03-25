@@ -551,6 +551,7 @@ export type Database = {
           external_tracking_link_id: string | null
           id: string
           manually_tagged: boolean
+          media_buyer: string | null
           profit: number | null
           revenue: number
           revenue_per_click: number
@@ -583,6 +584,7 @@ export type Database = {
           external_tracking_link_id?: string | null
           id?: string
           manually_tagged?: boolean
+          media_buyer?: string | null
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
@@ -615,6 +617,7 @@ export type Database = {
           external_tracking_link_id?: string | null
           id?: string
           manually_tagged?: boolean
+          media_buyer?: string | null
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
