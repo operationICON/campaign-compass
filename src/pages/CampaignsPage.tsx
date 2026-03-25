@@ -489,11 +489,18 @@ export default function CampaignsPage() {
   );
 
   const handleRowClick = (link: any) => {
-    setDetailPanelLink(detailPanelLink?.id === link.id ? null : link);
+    if (expandedRow === link.id) {
+      setExpandedRow(null);
+    } else {
+      setExpandedRow(link.id);
+      setSpendType(link.cost_type || "CPL");
+      setSpendValue(link.cost_value ? String(link.cost_value) : "");
+      setBuyerName("");
+      setNoteText("");
+    }
   };
 
   const onSpendSaved = () => {
-    setCostSlideIn(null);
     queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
     queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
     toast.success("Spend saved — ROI and Profit updated");
