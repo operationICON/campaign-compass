@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
-import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { TagBadge } from "@/components/TagBadge";
 import { Progress } from "@/components/ui/progress";
@@ -12,16 +10,16 @@ import {
 import {
   fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync,
   clearTrackingLinkSpend, fetchSourceTagRules, setTrackingLinkSourceTag,
-  bulkSetSourceTag, fetchAccounts, runAutoTag, fetchDailyMetrics,
+  bulkSetSourceTag, fetchAccounts, fetchDailyMetrics,
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, Pencil, X, Tag,
-  Users, Activity, Info, Wand2, BarChart3, Target, ChevronRight as ChevronR,
-  Upload, Plus, User
+  RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, X, Tag,
+  Users, Activity, Info, BarChart3, Target, ChevronRight as ChevronR,
+  Upload, Plus
 } from "lucide-react";
 
 // ─── Types ───
