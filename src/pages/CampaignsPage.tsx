@@ -21,7 +21,7 @@ import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, Pencil, X, Tag,
   Users, Activity, Info, Wand2, BarChart3, Target, ChevronRight as ChevronR,
-  Upload, Plus
+  Upload, Plus, User
 } from "lucide-react";
 
 // ─── Types ───
