@@ -78,10 +78,44 @@ export async function fetchSyncLogs() {
   const { data, error } = await supabase
     .from("sync_logs")
     .select("*, accounts(display_name)")
-    .order("started_at", { ascending: false })
-    .limit(100);
+    .order("started_at", { ascending: false });
   if (error) throw error;
   return data;
+}
+
+export async function fetchSyncLogsCount() {
+  const { count, error } = await supabase
+    .from("sync_logs")
+    .select("*", { count: "exact", head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function fetchTestLogs() {
+  const { data, error } = await supabase
+    .from("test_logs")
+    .select("*")
+    .order("run_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function insertTestLog(entry: {
+  run_at: string;
+  test_name: string;
+  status: string;
+  message: string;
+  response_time_ms?: number;
+  account_username?: string;
+}) {
+  const { data, error } = await supabase.from("test_logs").insert(entry).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function clearTestLogs() {
+  const { error } = await supabase.from("test_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (error) throw error;
 }
 
 export async function fetchDailyMetrics(trackingLinkIds?: string[]) {
