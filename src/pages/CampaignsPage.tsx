@@ -762,9 +762,9 @@ export default function CampaignsPage() {
                   <table className="w-full text-[12px]">
                     <thead className="sticky top-0 z-10" style={{ background: "#f8fafc" }}>
                       <tr className="border-b border-border">
-                        <th className="w-8" style={{ height: "44px", padding: "6px 12px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
+                        <th className="w-8" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
-                        {col("model") && <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "100px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Model</th>}
+                        {col("model") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "100px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Model</th>}
                         {col("source") && <SortHeader label="Source" sortKeyName="source_tag" width="100px" />}
                         {col("clicks") && <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />}
                         {col("subscribers") && <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />}
@@ -773,12 +773,12 @@ export default function CampaignsPage() {
                         {col("profit") && <SortHeader label="Profit" sortKeyName="profit" width="80px" />}
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
                         {col("roi") && <SortHeader label="ROI" sortKeyName="roi" width="70px" />}
-                        {col("status") && <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "80px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</th>}
+                        {col("status") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "80px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Status</th>}
                         {col("subs_day") && <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />}
                         {col("created") && <SortHeader label="Created" sortKeyName="created_at" width="100px" />}
                         {col("media_buyer") && <SortHeader label="Buyer" sortKeyName="media_buyer" width="90px" />}
-                        {col("avg_expenses") && <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "90px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Avg Expenses</th>}
-                        <th className="text-center text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "28px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
+                        {col("avg_expenses") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "90px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Avg Expenses</th>}
+                        <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}></th>
                       </tr>
                     </thead>
                     <tbody>
