@@ -422,144 +422,154 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* ═══ SECTION 1 — AGENCY KPI ROW ═══ */}
-        {(isLoading || isPeriodLoading) ? (
-          <div className="grid grid-cols-6 gap-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-2xl p-5">
-                <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
-                <div className="skeleton-shimmer h-8 w-28 rounded" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-6 gap-4">
-            {/* Profit/Sub — HERO CARD */}
-            <div className="rounded-2xl p-5 text-primary-foreground shadow-lg hero-glow gradient-bg relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
-              <div className="relative z-10">
+        {/* ═══ 5 KPI CARDS ═══ */}
+        {(() => {
+          // Subs/Day from daily_metrics
+          const subsPerDayCalc = (() => {
+            const syncedAcctIds = new Set(accounts.filter((a: any) => a.sync_enabled !== false).map((a: any) => a.id));
+            const relevantMetrics = dailyMetrics.filter((m: any) => syncedAcctIds.has(m.account_id));
+            const dates = [...new Set(relevantMetrics.map((m: any) => m.date))].sort().reverse();
+            if (dates.length < 2) return null;
+            const latest = dates[0];
+            const previous = dates[1];
+            const latestSubs = relevantMetrics.filter((m: any) => m.date === latest).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+            const prevSubs = relevantMetrics.filter((m: any) => m.date === previous).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+            const daysBetween = Math.max(1, differenceInDays(new Date(latest), new Date(previous)));
+            return (latestSubs - prevSubs) / daysBetween;
+          })();
+
+          // Avg CPL
+          const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
+
+          const periodLabel = TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
+
+          return (isLoading || isPeriodLoading) ? (
+            <div className="grid grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="bg-card border border-border rounded-2xl p-5">
+                  <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
+                  <div className="skeleton-shimmer h-8 w-28 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-5 gap-4">
+              {/* Card 1 — Profit/Sub */}
+              <div className="bg-card border border-border rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 opacity-80" />
-                  <span className="text-xs opacity-80 font-medium uppercase tracking-wider">Profit/Sub</span>
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Profit/Sub</span>
                 </div>
                 {avgProfitPerSub !== null ? (
-                  <p className="text-[28px] font-bold font-mono leading-tight">{fmtC(avgProfitPerSub)}</p>
+                  <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
                 ) : (
-                  <>
-                    <p className="text-[28px] font-bold font-mono leading-tight opacity-60">—</p>
-                    <p className="text-[10px] opacity-60 mt-1">Enter spend to calculate</p>
-                  </>
+                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
                 )}
-                <p className="text-[10px] opacity-60 mt-1">Campaigns with spend set</p>
-                {showFallback && avgProfitPerSub !== null && (
-                  <p className="text-[10px] opacity-60 mt-1">Showing all time — builds with each sync</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Per acquired subscriber · {periodLabel}</p>
+              </div>
+
+              {/* Card 2 — LTV/Sub */}
+              <div className="bg-card border border-border rounded-2xl p-5 group relative" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Users className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
+                </div>
+                {(() => {
+                  const syncedAccts = accounts.filter((a: any) => a.sync_enabled !== false);
+                  let filtered = modelParam ? syncedAccts.filter((a: any) => a.id === modelParam) : syncedAccts;
+                  if (!modelParam && groupFilter !== "all") filtered = filtered.filter((a: any) => getAccountCategory(a) === groupFilter);
+                  const getLtvField = () => {
+                    if (timePeriod === "day") return "ltv_last_day";
+                    if (timePeriod === "week") return "ltv_last_7d";
+                    if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
+                    return "ltv_total";
+                  };
+                  const totalAccLtv = filtered.reduce((s: number, a: any) => s + Number(a[getLtvField()] || 0), 0);
+                  const totalAccSubs = filtered.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+                  const val = totalAccSubs > 0 ? totalAccLtv / totalAccSubs : null;
+                  return val !== null ? (
+                    <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(val)}</p>
+                  ) : (
+                    <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+                  );
+                })()}
+                <p className="text-[11px] text-muted-foreground mt-1">All subscribers · {periodLabel}</p>
+              </div>
+
+              {/* Card 3 — Avg CPL */}
+              <div className="bg-card border border-border rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Tag className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg CPL</span>
+                </div>
+                {avgCpl !== null ? (
+                  <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgCpl)}</p>
+                ) : (
+                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
                 )}
+                <p className="text-[11px] text-muted-foreground mt-1">Cost per subscriber · {periodLabel}</p>
               </div>
-            </div>
-            {/* Total LTV */}
-            <div className="bg-card border border-border rounded-2xl p-5 group relative">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
+
+              {/* Card 4 — Subs/Day */}
+              <div className="bg-card border border-border rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
+                </div>
+                {subsPerDayCalc !== null ? (
+                  <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
+                ) : (
+                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">Agency-wide daily growth · {periodLabel}</p>
               </div>
-              <p className="text-xl font-bold font-mono text-primary">{fmtC(totalLtv)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">All account subscribers</p>
-              {showFallback && (
-                <p className="text-[10px] text-muted-foreground">Showing all time — builds with each sync</p>
-              )}
-              {/* LTV Breakdown Tooltip */}
-              {totalLtv > 0 && (
-                <div className="absolute left-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[200px]">
-                  <p className="text-[11px] font-bold text-foreground mb-2">LTV Breakdown</p>
+
+              {/* Card 5 — Unattributed Subs */}
+              <div className="bg-card border border-border rounded-2xl p-5 group relative" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-[hsl(38_92%_50%)]/10 flex items-center justify-center">
+                    <PieChart className="h-4 w-4 text-[hsl(38_92%_50%)]" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed</span>
+                </div>
+                {unattributedStats.isOverflow ? (
+                  <p className="text-[22px] font-bold font-mono text-[hsl(38_92%_50%)]">Sync needed</p>
+                ) : unattributedStats.accountTotalSubs > 0 ? (
+                  <p className={`text-[22px] font-bold font-mono ${
+                    unattributedStats.pct <= 20 ? "text-primary" :
+                    unattributedStats.pct <= 30 ? "text-muted-foreground" :
+                    "text-[hsl(38_92%_50%)]"
+                  }`}>{unattributedStats.pct.toFixed(1)}%</p>
+                ) : (
+                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">Traffic with no campaign · {periodLabel}</p>
+                {!unattributedStats.allSyncing && (
+                  <p className="text-[10px] text-[hsl(38_92%_50%)] mt-1">
+                    {unattributedStats.syncEnabledCount}/{unattributedStats.totalAccountCount} accounts syncing
+                  </p>
+                )}
+                {/* Tooltip */}
+                <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
                   <div className="space-y-1 text-[11px]">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Subscriptions</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.subscriptions)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Tips</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.tips)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Messages</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.messages)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Posts</span><span className="font-mono text-foreground">{fmtC(accountLtv.breakdown.posts)}</span></div>
-                    <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Total</span><span className="font-mono font-bold text-primary">{fmtC(totalLtv)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Attributed to links</span><span className="font-mono text-foreground">{unattributedStats.attributedSubs.toLocaleString()}</span></div>
+                    <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Unattributed</span><span className="font-mono font-bold">{unattributedStats.unattributed.toLocaleString()} ({unattributedStats.pct.toFixed(1)}%)</span></div>
+                    <p className="text-muted-foreground mt-2 leading-relaxed">~20% is normal due to OnlyFans tracking limitations</p>
                   </div>
                 </div>
-              )}
-            </div>
-            {/* Total Spend */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <PiggyBank className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Spend</span>
-              </div>
-              {totalSpend > 0 ? (
-                <p className="text-xl font-bold font-mono text-foreground">{fmtC(totalSpend)}</p>
-              ) : (
-                <p className="text-xl font-bold font-mono text-muted-foreground">No spend data</p>
-              )}
-            </div>
-            {/* Total Profit */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
-              </div>
-              {totalProfit !== null ? (
-                <p className={`text-xl font-bold font-mono ${totalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(totalProfit)}</p>
-              ) : (
-                <>
-                  <p className="text-xl font-bold font-mono text-muted-foreground">—</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Enter spend to calculate</p>
-                </>
-              )}
-            </div>
-            {/* LTV/Sub — new card */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
-              </div>
-              {ltvPerSub !== null ? (
-                <p className="text-xl font-bold font-mono text-primary">{fmtC(ltvPerSub)}</p>
-              ) : (
-                <p className="text-xl font-bold font-mono text-muted-foreground">—</p>
-              )}
-              <p className="text-[10px] text-muted-foreground mt-1">All account subscribers</p>
-            </div>
-            {/* Unattributed Subs */}
-            <div className="bg-card border border-border rounded-2xl p-5 group relative">
-              <div className="flex items-center gap-2 mb-2">
-                <UserMinus className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed</span>
-              </div>
-              {unattributedStats.isOverflow ? (
-                <>
-                  <p className="text-xl font-bold font-mono text-[hsl(38_92%_50%)]">⚠</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Sync all accounts</p>
-                </>
-              ) : (
-                <p className={`text-xl font-bold font-mono ${
-                  unattributedStats.accountTotalSubs === 0 ? "text-muted-foreground" :
-                  unattributedStats.pct <= 30 ? "text-primary" : unattributedStats.pct <= 40 ? "text-[hsl(38_92%_50%)]" : "text-destructive"
-                }`}>
-                  {unattributedStats.accountTotalSubs > 0 ? `${unattributedStats.pct.toFixed(1)}%` : "—"}
-                </p>
-              )}
-              <p className="text-[10px] text-muted-foreground mt-1">Organic + untracked</p>
-              {!unattributedStats.allSyncing && (
-                <p className="text-[10px] text-[hsl(38_92%_50%)] mt-1">
-                  {unattributedStats.syncEnabledCount}/{unattributedStats.totalAccountCount} accounts
-                </p>
-              )}
-              <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
-                <div className="space-y-1 text-[11px]">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Attributed to links</span><span className="font-mono text-foreground">{unattributedStats.attributedSubs.toLocaleString()}</span></div>
-                  <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Unattributed</span><span className="font-mono font-bold">{unattributedStats.unattributed.toLocaleString()} ({unattributedStats.pct.toFixed(1)}%)</span></div>
-                  <p className="text-muted-foreground mt-2 leading-relaxed">~20% is normal due to OnlyFans tracking limitations</p>
-                  {!unattributedStats.allSyncing && (
-                    <p className="text-[hsl(38_92%_50%)] mt-1">Only {unattributedStats.syncEnabledCount} of {unattributedStats.totalAccountCount} accounts syncing</p>
-                  )}
-                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
 
         {/* ═══ INSIGHTS SECTION ═══ */}
@@ -572,251 +582,7 @@ export default function DashboardPage() {
           getAccountCategory={getAccountCategory}
         />
 
-        {/* ═══ SECTION 2 — CAMPAIGN PROFITABILITY ═══ */}
-        {(() => {
-          const withSpend = enrichedLinks.filter((l: any) => l.spend > 0).length;
-          const scaleCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Scale").length;
-          const watchCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Watch" || getStatus(l).label === "Low").length;
-          const killCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Kill").length;
-          const noSpendCount = enrichedLinks.filter((l: any) => getStatus(l).label === "No Spend").length;
-          const deadCount = enrichedLinks.filter((l: any) => getStatus(l).label === "Dead").length;
-          return (
-        <div>
-          {/* Collapsible header */}
-          <div
-            className={`bg-card border border-border ${tableExpanded ? "rounded-t-2xl border-b-0" : "rounded-2xl"} px-5 py-4 flex items-center justify-between cursor-pointer select-none`}
-            onClick={toggleTableExpanded}
-          >
-            <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-[14px] font-bold text-foreground">Campaign Profitability</h2>
-                <span className="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                  {sortedLinks.length.toLocaleString()} campaigns
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Profit per subscriber per campaign</p>
-              {/* Collapsed summary */}
-              {!tableExpanded && (
-                <div className="flex items-center gap-1.5 mt-2 text-xs flex-wrap">
-                  <span className="text-muted-foreground">{withSpend} with spend</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-primary font-medium">{scaleCount} SCALE</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-[hsl(var(--info))] font-medium">{watchCount} WATCH</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-destructive font-medium">{killCount} KILL</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground font-medium">{noSpendCount} NO SPEND</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground font-medium">{deadCount} DEAD</span>
-                </div>
-              )}
-            </div>
-            <button className={`inline-flex items-center gap-1 text-xs font-medium transition-colors ${tableExpanded ? "text-muted-foreground hover:text-foreground" : "text-primary hover:text-primary/80"}`}>
-              {tableExpanded ? "Minimize" : "Expand"}
-              <ChevronUp className={`h-3.5 w-3.5 transition-transform duration-250 ${tableExpanded ? "" : "rotate-180"}`} />
-            </button>
-          </div>
 
-          {/* Collapsible content */}
-          <div
-            className="overflow-hidden transition-all duration-250 ease-in-out"
-            style={{ maxHeight: tableExpanded ? "9999px" : "0px", opacity: tableExpanded ? 1 : 0 }}
-          >
-          {/* Filter bar */}
-          <div className="flex items-center gap-3 flex-wrap px-5 py-3 bg-card border-x border-border">
-            <select
-              value={sourceFilter}
-              onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="all">All Sources</option>
-              {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <div className="relative flex-1 max-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                placeholder="Search campaigns..."
-                className="w-full bg-background border border-border rounded-lg pl-9 pr-4 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                const map: Record<string, SortKey> = { "Profit/Sub": "profit_per_sub", "LTV": "revenue", "Profit": "profit", "ROI": "roi", "Subs": "subscribers" };
-                setSortKey(map[e.target.value] || "revenue");
-                setSortAsc(false);
-                setPage(1);
-              }}
-              className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-            >
-              {["Profit/Sub", "LTV", "Profit", "ROI", "Subs"].map(s => <option key={s} value={s}>Sort: {s}</option>)}
-            </select>
-          </div>
-
-          {/* Campaign table */}
-          <div className="bg-card border border-border border-t-0 rounded-b-2xl overflow-hidden">
-            {isLoading ? (
-              <div className="p-12 text-center">
-                <div className="space-y-3 max-w-lg mx-auto">
-                  {[...Array(5)].map((_, i) => <div key={i} className="skeleton-shimmer h-10 rounded-lg" />)}
-                </div>
-              </div>
-            ) : !sortedLinks.length ? (
-              <div className="p-16 text-center">
-                <p className="text-muted-foreground">No campaigns found</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 z-10">
-                      <tr className="border-b border-border bg-muted/30">
-                        <SortHeader label="Campaign" sortField="campaign_name" />
-                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Model</th>
-                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-left">Source</th>
-                        <SortHeader label="Subs" sortField="subscribers" align="right" />
-                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Subs/Day</th>
-                        <SortHeader label="LTV" sortField="revenue" align="right" />
-                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-right">Spend</th>
-                        <SortHeader label="Profit" sortField="profit" align="right" />
-                        <th
-                          onClick={() => toggleSort("profit_per_sub")}
-                          className="px-3 py-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
-                        >
-                          <span className="inline-flex items-center gap-1 justify-end">
-                            <span className="text-[11px] uppercase tracking-wider font-bold text-foreground">Profit/Sub</span>
-                            {sortKey === "profit_per_sub" && (sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />)}
-                          </span>
-                          <span className="block text-[9px] text-muted-foreground font-normal normal-case tracking-normal">LTV - CPL</span>
-                        </th>
-                        <SortHeader label="ROI" sortField="roi" align="right" />
-                        <th className="px-3 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedLinks.map((link: any) => {
-                        const status = getStatus(link);
-                        const subsPerDay = getSubsPerDay(link);
-                        const isScale = status.label === "Scale";
-                        const isKillDead = status.label === "Kill" || status.label === "Dead";
-                        const noSpend = link.spend <= 0;
-
-                        return (
-                          <tr
-                            key={link.id}
-                            onClick={() => setSelectedLink(link)}
-                            className={`border-b border-border transition-all duration-200 cursor-pointer group ${
-                              noSpend ? "opacity-80" : ""
-                            } ${isScale ? "border-l-2 border-l-primary" : isKillDead ? "border-l-2 border-l-destructive" : "hover:border-l-2 hover:border-l-primary"}`}
-                          >
-                            <td className="px-3 py-3">
-                              <p className="text-[13px] font-medium text-foreground">{link.campaign_name || "—"}</p>
-                              <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{link.url || ""}</p>
-                            </td>
-                            <td className="px-3 py-3">
-                              <span className="text-xs text-muted-foreground">@{link.accounts?.username || "—"}</span>
-                            </td>
-                            <td className="px-3 py-3"><TagBadge tagName={link.source_tag} /></td>
-                            <td className="px-3 py-3 text-right font-mono text-xs text-foreground">{(link.subscribers || 0).toLocaleString()}</td>
-                            <td className="px-3 py-3 text-right font-mono text-xs">
-                              {subsPerDay !== null ? (
-                                <span className="text-primary font-medium">{subsPerDay.toFixed(1)}/day</span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-3 text-right font-mono text-[13px] font-semibold text-primary">{fmtC(Number(link.revenue || 0))}</td>
-                            <td className="px-3 py-3 text-right font-mono text-xs">
-                              {link.spend > 0 ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <span className="text-foreground">{fmtC(link.spend)}</span>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
-                                    className="text-muted-foreground hover:text-primary transition-colors"
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setCostSlideIn(link); }}
-                                  className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
-                                >Set</button>
-                              )}
-                            </td>
-                            <td className={`px-3 py-3 text-right font-mono text-xs ${link.profit !== null ? (link.profit >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                              {link.profit !== null ? fmtC(link.profit) : "—"}
-                            </td>
-                            <td className={`px-3 py-3 text-right font-mono text-[14px] font-bold ${link.profitPerSub !== null ? (link.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                              {link.profitPerSub !== null ? fmtC(link.profitPerSub) : "—"}
-                            </td>
-                            <td className={`px-3 py-3 text-right font-mono text-xs font-semibold ${link.roi !== null ? (link.roi >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                              {link.roi !== null ? fmtP(link.roi) : "—"}
-                            </td>
-                            <td className="px-3 py-3 text-center">
-                              <span className={`inline-block min-w-[80px] px-2 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap ${status.color}`}>
-                                {status.label}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {/* Pagination */}
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                  <span className="text-xs text-muted-foreground">
-                    Showing {startIdx + 1}–{endIdx} of {sortedLinks.length} campaigns
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Rows:</span>
-                      {[10, 25, 50, 100].map(n => (
-                        <button key={n} onClick={() => { setPerPage(n); setPage(1); }}
-                          className={`px-2 py-0.5 text-xs rounded ${perPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                        >{n}</button>
-                      ))}
-                    </div>
-                    {totalPages > 1 && (
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
-                          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                        </button>
-                        {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                          let pageNum: number;
-                          if (totalPages <= 7) pageNum = i + 1;
-                          else if (safePage <= 4) pageNum = i + 1;
-                          else if (safePage >= totalPages - 3) pageNum = totalPages - 6 + i;
-                          else pageNum = safePage - 3 + i;
-                          return (
-                            <button key={pageNum} onClick={() => setPage(pageNum)}
-                              className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
-                                pageNum === safePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
-                              }`}
-                            >{pageNum}</button>
-                          );
-                        })}
-                        <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30 transition-colors">
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          </div>
-        </div>
-          );
-        })()}
-      </div>
 
       {/* SLIDE-INS */}
       {selectedLink && (
