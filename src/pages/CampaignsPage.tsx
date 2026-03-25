@@ -638,7 +638,7 @@ export default function CampaignsPage() {
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Model</th>
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
                         
-                        <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
+                        <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />
                         <SortHeader label="Profit" sortKeyName="profit" width="80px" />
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
                         <SortHeader label="ROI" sortKeyName="roi" width="70px" />
@@ -713,10 +713,13 @@ export default function CampaignsPage() {
                               {hasCost ? (
                                 <span className="font-mono text-[12px] text-muted-foreground">{fmtC(costTotal)}</span>
                               ) : (
-                                <button onClick={(e) => { e.stopPropagation(); handleRowClick(link); }}
-                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors whitespace-nowrap">
-                                  Set spend
-                                </button>
+                                <span className="inline-flex items-center gap-1 text-muted-foreground text-[12px]">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
+                                    <TooltipContent>No expenses set</TooltipContent>
+                                  </Tooltip>
+                                  —
+                                </span>
                               )}
                             </td>
                             <td className="px-2 py-2 text-right font-mono text-[12px]">
