@@ -500,7 +500,7 @@ export default function CampaignsPage() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <div onClick={(e) => e.stopPropagation()}>
-                <KpiCardCustomizer enabledCards={campaignKpi.enabledCards} toggleCard={campaignKpi.toggleCard} />
+                <KpiCardCustomizer enabledCards={campaignKpi.enabledCards} toggleCard={campaignKpi.toggleCard} variant="campaigns" />
               </div>
               <button className="text-[11px] font-medium flex items-center gap-0.5" onClick={(e) => { e.stopPropagation(); setKpiCollapsed(!kpiCollapsed); }}>
                 {kpiCollapsed ? (
