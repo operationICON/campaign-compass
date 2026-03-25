@@ -13,7 +13,8 @@ export type DashboardKpiCardId =
   | "blended_roi"
   | "active_campaigns"
   | "best_source"
-  | "total_ltv";
+  | "total_ltv"
+  | "ltv_30d_per_model";
 
 export type CampaignKpiCardId =
   | "profit_sub"
@@ -28,7 +29,8 @@ export type CampaignKpiCardId =
   | "most_profitable_source"
   | "worst_source"
   | "avg_expenses_per_campaign"
-  | "blended_roi";
+  | "blended_roi"
+  | "ltv_30d_per_model";
 
 export type AnyKpiCardId = DashboardKpiCardId | CampaignKpiCardId;
 
@@ -56,6 +58,7 @@ const DASHBOARD_CARDS: CardDef<DashboardKpiCardId>[] = [
   { id: "active_campaigns", label: "Active Campaigns", defaultOn: false },
   { id: "best_source", label: "Best Source", defaultOn: false },
   { id: "total_ltv", label: "Total LTV", defaultOn: false },
+  { id: "ltv_30d_per_model", label: "30d LTV per model", defaultOn: false },
 ];
 
 const CAMPAIGN_ALWAYS_ON: CampaignKpiCardId[] = ["profit_sub", "avg_cpl"];
@@ -74,6 +77,7 @@ const CAMPAIGN_CARDS: CardDef<CampaignKpiCardId>[] = [
   { id: "worst_source", label: "Worst Source", defaultOn: false },
   { id: "avg_expenses_per_campaign", label: "Avg Expenses per Campaign", defaultOn: false },
   { id: "blended_roi", label: "Blended ROI", defaultOn: false },
+  { id: "ltv_30d_per_model", label: "30d LTV per model", defaultOn: false },
 ];
 
 type CardVariant = "dashboard" | "campaigns";
