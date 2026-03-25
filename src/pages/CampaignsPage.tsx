@@ -105,12 +105,10 @@ export default function CampaignsPage() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
-  const [sourceDropdownId, setSourceDropdownId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [showBulkTagDropdown, setShowBulkTagDropdown] = useState(false);
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
-  const [buyerName, setBuyerName] = useState("");
+  
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
 
