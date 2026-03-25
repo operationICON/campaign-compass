@@ -1066,7 +1066,7 @@ export default function CampaignsPage() {
                                           )}
                                         </div>
                                       </div>
-                                      {/* Col 3: Source + Media Buyer */}
+                                      {/* Col 3: Source */}
                                       <div>
                                         <div className="flex items-center gap-1.5 mb-2">
                                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
@@ -1074,16 +1074,10 @@ export default function CampaignsPage() {
                                           <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
                                         </div>
                                         <input type="text" value={sourceInputValue} onChange={(e) => setSourceInputValue(e.target.value)}
-                                          placeholder="Type source name e.g. Reddit" onClick={(e) => e.stopPropagation()}
+                                          placeholder="Type source name e.g. Reddit, James - OnlyFinder..." onClick={(e) => e.stopPropagation()}
                                           className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2" />
                                         <button onClick={(e) => { e.stopPropagation(); handleSaveSource(); }}
-                                          className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 mb-3">Save source</button>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Media Buyer</p>
-                                        <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)}
-                                          placeholder="Enter buyer name..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2" />
-                                        <button onClick={(e) => { e.stopPropagation(); handleSaveBuyer(); }}
-                                          className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save buyer</button>
+                                          className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save</button>
                                       </div>
                                       {/* Col 4: Notes */}
                                       <div>
