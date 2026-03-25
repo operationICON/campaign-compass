@@ -216,12 +216,6 @@ export default function CampaignsPage() {
     return accountOptions.filter((a: any) => groupUsernames.includes(a.username));
   }, [accountOptions, groupFilter]);
 
-  const sourceOptions = useMemo(() => {
-    const set = new Set<string>();
-    enrichedLinks.forEach((l: any) => { if (l.source_tag) set.add(l.source_tag); });
-    return Array.from(set).sort();
-  }, [enrichedLinks]);
-
   // ─── Filtering ───
   const filtered = useMemo(() => {
     let result = enrichedLinks;
@@ -231,8 +225,6 @@ export default function CampaignsPage() {
       result = result.filter((l: any) => groupAccountIds.includes(l.account_id));
     }
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
-    if (sourceFilter === "__untagged__") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
-    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
@@ -244,7 +236,6 @@ export default function CampaignsPage() {
     if (campaignFilter === "active") result = result.filter((l: any) => l.isActive);
     else if (campaignFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
     else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
-    else if (campaignFilter === "untagged") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
     else if (["SCALE", "WATCH", "KILL", "DEAD"].includes(campaignFilter)) result = result.filter((l: any) => (l.status || "NO_DATA") === campaignFilter);
 
     if (ageFilter !== "all") {
@@ -257,7 +248,7 @@ export default function CampaignsPage() {
       });
     }
     return result;
-  }, [enrichedLinks, searchQuery, campaignFilter, ageFilter, groupFilter, accountFilter, sourceFilter, accounts]);
+  }, [enrichedLinks, searchQuery, campaignFilter, ageFilter, groupFilter, accountFilter, accounts]);
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
