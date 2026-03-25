@@ -134,7 +134,30 @@ export default function DashboardPage() {
     return Math.max(0, differenceInDays(nextDate, new Date()));
   }, [lastSynced, syncFrequency]);
 
-  // Unattributed subs calculation
+  // KPI calculations
+  const agencyAccountIds = useMemo(() => {
+    if (modelParam) return [modelParam];
+    if (groupFilter !== "all") return groupFilteredAccounts.map((a: any) => a.id);
+    return null;
+  }, [modelParam, groupFilter, groupFilteredAccounts]);
+
+  const filteredLinksForKpi = useMemo(() => {
+    if (!agencyAccountIds) return links;
+    const idSet = new Set(agencyAccountIds);
+    return links.filter((l: any) => idSet.has(l.account_id));
+  }, [links, agencyAccountIds]);
+
+  const totalSpend = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
+    const cost = Number(l.cost_total || 0);
+    return s + (cost > 0 ? cost : 0);
+  }, 0), [filteredLinksForKpi]);
+  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
+  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
+  const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
+    return Number(l.cost_total || 0) > 0 ? s + (l.subscribers || 0) : s;
+  }, 0), [filteredLinksForKpi]);
+  const avgProfitPerSub = (totalProfit !== null && paidSubscribers > 0) ? totalProfit / paidSubscribers : null;
+
   const unattributedStats = useMemo(() => {
     let accts = accounts.filter((a: any) => a.sync_enabled !== false);
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
