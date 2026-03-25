@@ -638,7 +638,7 @@ export default function CampaignsPage() {
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "100px" }}>Model</th>
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "90px" }}>Source</th>
                         
-                        <SortHeader label="Spend" sortKeyName="cost_total" width="85px" />
+                        <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />
                         <SortHeader label="Profit" sortKeyName="profit" width="80px" />
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
                         <SortHeader label="ROI" sortKeyName="roi" width="70px" />
