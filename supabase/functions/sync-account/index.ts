@@ -224,10 +224,7 @@ Deno.serve(async (req) => {
             payload.arpu = metrics.arpu
             payload.status = metrics.status
           }
-          if (existing.source_tag) {
-            payload.source_tag = existing.source_tag
-            payload.manually_tagged = existing.manually_tagged
-          }
+          // source_tag and manually_tagged are never touched during sync
         }
 
         linkPayloads.push(payload)

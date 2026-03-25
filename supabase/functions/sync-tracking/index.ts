@@ -279,11 +279,7 @@ Deno.serve(async (req) => {
           Object.assign(p, { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
         }
 
-        // Preserve manually-set source_tag
-        if (hasManualTag) {
-          p.source_tag = existing.source_tag
-          p.manually_tagged = existing.manually_tagged ?? false
-        }
+        // source_tag and manually_tagged are never touched during sync
 
         payloads.push(p)
       }

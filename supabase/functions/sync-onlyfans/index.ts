@@ -345,11 +345,7 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Preserve manually-set source_tag
-            if (hasManualTag) {
-              upsertPayload.source_tag = existing.source_tag
-              upsertPayload.manually_tagged = existing.manually_tagged ?? false
-            }
+            // source_tag and manually_tagged are never touched during sync
 
             await db.from('tracking_links').upsert(upsertPayload, {
               onConflict: 'external_tracking_link_id',
