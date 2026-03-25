@@ -430,8 +430,8 @@ export default function CampaignsPage() {
           {/* Expanded KPI cards */}
           {!kpiCollapsed && (
             <div className="px-4 pb-4 space-y-[10px]" onClick={(e) => e.stopPropagation()}>
-              {/* Group 1 — Tracking Links (teal border) */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px", alignItems: "stretch" }}>
+              {/* Group 1 — Overview (teal border) */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", alignItems: "stretch" }}>
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
                   label="Attributed LTV" value={<span className="text-primary">{fmtC(kpis.totalLtv)}</span>} sub="All tracking links"
                   tooltip={{ title: "Attributed LTV", desc: "Revenue from tracking links only. Excludes organic and untracked traffic." }} />
@@ -441,10 +441,6 @@ export default function CampaignsPage() {
                 <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
                   label="Avg CVR" value={kpis.avgCvr !== null ? `${kpis.avgCvr.toFixed(1)}%` : "—"} sub={<span className="text-primary">Agency benchmark</span>}
                   tooltip={{ title: "Avg CVR", desc: "Conversion rate across links with 100+ clicks." }} />
-                <KPICard borderColor="hsl(var(--primary))" icon={<Tag className="h-4 w-4 text-[hsl(var(--warning))]" />}
-                  label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.untagged}</span>} sub="Need source tag"
-                  tooltip={{ title: "Untagged", desc: "Campaigns with no source tag." }}
-                  progressBar={kpis.totalCount > 0 ? ((kpis.totalCount - kpis.untagged) / kpis.totalCount) * 100 : 0} progressColor="primary" />
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-[hsl(var(--warning))]" />}
                   label="No Spend Set" value={<span className={kpis.noSpend > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.noSpend}</span>} sub="ROI unknown"
                   tooltip={{ title: "No Spend Set", desc: "Campaigns where ROI and Profit are unknown." }}
@@ -454,7 +450,7 @@ export default function CampaignsPage() {
               <div className="h-px bg-border mx-0" style={{ margin: "10px 0" }} />
 
               {/* Group 2 — Expenses (green border) */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", alignItems: "stretch" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>
                 <KPICard borderColor="hsl(142 71% 45%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
                   label="Profit/Sub" value={kpis.profitPerSub !== null
                     ? <span className={`text-[16px] ${kpis.profitPerSub >= 0 ? "text-[hsl(142_71%_45%)]" : "text-destructive"}`}>{fmtC(kpis.profitPerSub)}</span>
@@ -463,39 +459,10 @@ export default function CampaignsPage() {
                 <KPICard borderColor="hsl(142 71% 45%)" icon={<Tag className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
                   label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} sub="Cost per subscriber"
                   tooltip={{ title: "Avg CPL", desc: "Average cost to acquire one subscriber." }} />
-                <KPICard borderColor="hsl(142 71% 45%)" icon={<Star className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-                  label="Best Source" value={kpis.bestSource ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.bestSource.name}</span> : "—"}
-                  sub={kpis.bestSource ? `${kpis.bestSource.roi.toLocaleString("en-US", { maximumFractionDigits: 0 })}% ROI` : "No spend data"}
-                  tooltip={{ title: "Best Source", desc: "Traffic source with the highest return on spend." }} />
                 <KPICard borderColor="hsl(142 71% 45%)" icon={<BarChart3 className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
                   label="Campaigns Tracked" value={<>{kpis.trackedCount} <span className="text-[14px] font-normal text-muted-foreground">of {kpis.totalCount.toLocaleString()}</span></>}
                   sub="Have spend set" progressBar={kpis.trackedPct} progressColor="success"
                   tooltip={{ title: "Campaigns Tracked", desc: "How many campaigns have spend entered." }} />
-              </div>
-
-              <div className="h-px bg-border mx-0" style={{ margin: "10px 0" }} />
-
-              {/* Group 3 — Media Buyers (purple border) */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>
-                <KPICard borderColor="hsl(263 70% 50%)" icon={<Star className="h-4 w-4 text-[hsl(263_70%_50%)]" />}
-                  label="Best Source by Profit/Sub"
-                  value={kpis.bestProfitPerSub ? <span className="text-[hsl(263_70%_50%)] text-[15px]">{kpis.bestProfitPerSub.name}</span> : "—"}
-                  sub={kpis.bestProfitPerSub ? `${fmtC(kpis.bestProfitPerSub.value)} profit per sub` : "No spend data"}
-                  tooltip={{ title: "Best Source by Profit/Sub", desc: "Traffic source delivering the highest profit per subscriber acquired." }} />
-                <KPICard borderColor="hsl(263 70% 50%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-                  label="Most Profitable Source"
-                  value={kpis.mostProfitable ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.mostProfitable.name}</span> : "—"}
-                  sub={kpis.mostProfitable ? `${fmtC(kpis.mostProfitable.value)} total profit` : "No spend data"}
-                  tooltip={{ title: "Most Profitable Source", desc: "Source generating the highest absolute profit." }} />
-                <KPICard borderColor="hsl(263 70% 50%)" icon={<Target className="h-4 w-4 text-[hsl(var(--warning))]" />}
-                  label="Worst Source"
-                  value={kpis.worstSource
-                    ? <span className={kpis.worstSource.roi < 0 ? "text-destructive text-[15px]" : "text-[hsl(var(--warning))] text-[15px]"}>{kpis.worstSource.name}</span>
-                    : "—"}
-                  sub={kpis.worstSource
-                    ? (kpis.worstSource.roi < 0 ? `Negative ROI — stop spend` : `${fmtP(kpis.worstSource.roi)} ROI — monitor closely`)
-                    : "No spend data"}
-                  tooltip={{ title: "Worst Source", desc: "Source with the lowest or negative ROI." }} />
               </div>
             </div>
           )}
