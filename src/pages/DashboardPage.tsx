@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   RefreshCw, TrendingUp, Users, UserMinus, Tag, BarChart3, PieChart,
-  X
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, X
 } from "lucide-react";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 
