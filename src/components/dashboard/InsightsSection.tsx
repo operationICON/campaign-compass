@@ -144,8 +144,8 @@ export function InsightsSection({
     <div>
       <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium mb-2.5">Insights</p>
 
-      {/* ── ROW 1: 4 equal cards ── */}
-      <div className="grid grid-cols-4 gap-2.5">
+      {/* ── ROW 1: 5 equal cards ── */}
+      <div className="grid grid-cols-5 gap-2.5">
         {/* CARD 1 — Top 5 by Profit/Sub */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
