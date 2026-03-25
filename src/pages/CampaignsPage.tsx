@@ -1326,9 +1326,14 @@ export default function CampaignsPage() {
 
           const saveBuyer = async () => {
             try {
-              await supabase.from("tracking_links").update({ media_buyer: buyerName || null }).eq("id", al.id);
+              await supabase.from("manual_notes").insert({
+                campaign_id: al.campaign_id,
+                campaign_name: al.campaign_name,
+                account_id: al.account_id,
+                content: `Media buyer: ${buyerName}`,
+              });
               queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-              toast.success("Buyer saved");
+              toast.success("Buyer note saved");
               setActionPanel(null);
             } catch (err: any) { toast.error(err.message); }
           };
