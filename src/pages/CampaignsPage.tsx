@@ -406,8 +406,8 @@ export default function CampaignsPage() {
   // ─── Sort Header Component ───
   const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
     <th
-      className={`h-[44px] text-left text-[10px] font-medium uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap ${primary ? "text-foreground font-bold" : "text-muted-foreground"}`}
-      style={{ letterSpacing: "0.05em", padding: "6px 12px", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
+      className={`h-[44px] text-left uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap`}
+      style={{ fontSize: "11px", fontWeight: 600, color: "#1a2332", letterSpacing: "0.04em", padding: "8px 12px", background: "#f8fafc", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
       onClick={() => handleSort(sortKeyName)}
     >
       <span className="flex flex-col">
@@ -607,9 +607,9 @@ export default function CampaignsPage() {
                   ),
                   campaignKpi.isVisible("worst_source") && (
                     <KPICard key="worst_source" borderColor="hsl(263 70% 50%)" icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-                      label="Worst Source" value={kpis.worstSource ? <span className="text-destructive">{kpis.worstSource.name}</span> : "—"}
+                      label="Lowest Profitable Source" value={kpis.worstSource ? <span className="text-destructive">{kpis.worstSource.name}</span> : "—"}
                       sub={kpis.worstSource ? `${kpis.worstSource.roi.toFixed(0)}% ROI` : "No data"}
-                      tooltip={{ title: "Worst Source", desc: "Source tag with the lowest ROI. Consider pausing or optimizing." }} />
+                      tooltip={{ title: "Lowest Profitable Source", desc: "Source tag with the lowest ROI. Consider pausing or optimizing." }} />
                   ),
                 ].filter(Boolean);
                 return g3.length > 0 ? (
@@ -1137,14 +1137,14 @@ function KPICard({ borderColor, icon, label, value, sub, tooltip, progressBar, p
   tooltip: { title: string; desc: string }; progressBar?: number; progressColor?: string;
 }) {
   return (
-    <div className="bg-card border border-border shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor, padding: "12px 14px", borderRadius: "0 12px 12px 0" }}>
+    <div className="bg-card border border-border shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor, padding: "16px 18px", borderRadius: "0 12px 12px 0" }}>
       <div className="flex items-center gap-2 mb-2">
         <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">{icon}</div>
-        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider leading-tight">{label}</span>
+        <span className="uppercase tracking-wider leading-tight" style={{ fontSize: "11px", fontWeight: 500, color: "#64748b" }}>{label}</span>
         <InfoDot title={tooltip.title} desc={tooltip.desc} />
       </div>
-      <p className="text-[20px] font-bold font-mono text-foreground leading-tight">{value}</p>
-      <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
+      <p className="font-bold font-mono leading-tight" style={{ fontSize: "24px" }}>{value}</p>
+      <p className="mt-1" style={{ fontSize: "12px", color: "#94a3b8" }}>{sub}</p>
       {progressBar !== undefined && (
         <div className="mt-2 h-1 w-full rounded-full bg-secondary overflow-hidden">
           <div className="h-full rounded-full transition-all" style={{
