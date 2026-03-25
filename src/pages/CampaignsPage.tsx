@@ -30,7 +30,7 @@ type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH"
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 const COLUMNS_KEY = "campaigns_columns";
 
-type ColumnId = "model" | "source" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer";
+type ColumnId = "model" | "source" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
 
 const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "model", label: "Model", defaultOn: true },
@@ -45,6 +45,7 @@ const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean 
   { id: "cvr", label: "CVR", defaultOn: false },
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
+  { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
 
 function getDefaultColumns(): Record<ColumnId, boolean> {
@@ -688,6 +689,7 @@ export default function CampaignsPage() {
                         {col("subs_day") && <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />}
                         {col("created") && <SortHeader label="Created" sortKeyName="created_at" width="100px" />}
                         {col("media_buyer") && <SortHeader label="Buyer" sortKeyName="media_buyer" width="90px" />}
+                        {col("avg_expenses") && <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "90px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Avg Expenses</th>}
                         <th className="text-center text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "28px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
                       </tr>
                     </thead>
@@ -816,6 +818,11 @@ export default function CampaignsPage() {
                             {col("media_buyer") && (
                               <td className="text-[11px]" style={{ padding: "6px 12px" }}>
                                 {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
+                              </td>
+                            )}
+                            {col("avg_expenses") && (
+                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                                {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
                             <td className="w-7 text-center" style={{ padding: "6px 12px" }}>
