@@ -191,11 +191,6 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {accounts.length > 0 && (
-              <span className="text-[11px] text-muted-foreground bg-secondary border border-border px-2.5 py-1 rounded-full">
-                {accounts.filter((a: any) => a.sync_enabled !== false).length} of {accounts.length} accounts active
-              </span>
-            )}
             <RefreshButton queryKeys={["tracking_links", "accounts", "daily_metrics", "sync_settings"]} />
             <button
               onClick={() => syncMutation.mutate()}
