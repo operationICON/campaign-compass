@@ -141,20 +141,17 @@ export default function DashboardPage() {
   const avgProfitPerSub = (totalProfit !== null && paidSubscribers > 0) ? totalProfit / paidSubscribers : null;
 
   const unattributedStats = useMemo(() => {
-    let accts = accounts.filter((a: any) => a.sync_enabled !== false);
+    let accts = [...accounts];
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
     const acctIds = new Set(accts.map((a: any) => a.id));
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
     const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
     const attributedSubs = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const syncEnabledCount = accounts.filter((a: any) => a.sync_enabled !== false).length;
-    const totalAccountCount = accounts.length;
-    const allSyncing = syncEnabledCount >= totalAccountCount;
     const isOverflow = attributedSubs > accountTotalSubs;
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
     const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
-    return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow, allSyncing, syncEnabledCount, totalAccountCount };
+    return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow };
   }, [accounts, links, modelParam, groupFilter]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -272,7 +269,7 @@ export default function DashboardPage() {
         {(() => {
           // Subs/Day from daily_metrics
           const subsPerDayCalc = (() => {
-            const syncedAcctIds = new Set(accounts.filter((a: any) => a.sync_enabled !== false).map((a: any) => a.id));
+            const syncedAcctIds = new Set(accounts.map((a: any) => a.id));
             const relevantMetrics = dailyMetrics.filter((m: any) => syncedAcctIds.has(m.account_id));
             const dates = [...new Set(relevantMetrics.map((m: any) => m.date))].sort().reverse();
             if (dates.length < 2) return null;
@@ -327,7 +324,7 @@ export default function DashboardPage() {
                   <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
                 </div>
                 {(() => {
-                  const syncedAccts = accounts.filter((a: any) => a.sync_enabled !== false);
+                  const syncedAccts = [...accounts];
                   let filtered = modelParam ? syncedAccts.filter((a: any) => a.id === modelParam) : syncedAccts;
                   if (!modelParam && groupFilter !== "all") filtered = filtered.filter((a: any) => getAccountCategory(a) === groupFilter);
                   const getLtvField = () => {
@@ -400,11 +397,6 @@ export default function DashboardPage() {
                   <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
                 )}
                 <p className="text-[11px] text-muted-foreground mt-1">Traffic with no campaign · {periodLabel}</p>
-                {!unattributedStats.allSyncing && (
-                  <p className="text-[10px] text-[hsl(38_92%_50%)] mt-1">
-                    {unattributedStats.syncEnabledCount}/{unattributedStats.totalAccountCount} accounts syncing
-                  </p>
-                )}
                 {/* Tooltip */}
                 <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
                   <div className="space-y-1 text-[11px]">
