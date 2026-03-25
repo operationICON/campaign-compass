@@ -800,44 +800,45 @@ export default function CampaignsPage() {
                           <tr
                             onClick={() => handleRowClick(link)}
                             className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "bg-[hsl(var(--primary)/0.04)]" : "hover:bg-secondary/30"}`}
+                            style={{ height: "46px" }}
                           >
-                            <td style={{ padding: "6px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
+                            <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                             </td>
-                            <td style={{ padding: "6px 12px", maxWidth: "200px" }}>
-                              <p className="text-[12px] font-semibold text-foreground truncate" title={link.campaign_name}>{link.campaign_name || "—"}</p>
-                              <p className="text-[10px] text-muted-foreground truncate" title={link.url}>{link.url}</p>
+                            <td style={{ padding: "8px 12px", maxWidth: "200px" }}>
+                              <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
+                              <p className="truncate" style={{ fontSize: "11px", color: "#94a3b8" }} title={link.url}>{link.url}</p>
                             </td>
                             {col("model") && (
-                              <td style={{ padding: "6px 12px" }}>
+                              <td style={{ padding: "8px 12px" }}>
                                 <div className="flex items-center gap-1.5">
                                   <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
-                                  <span className="text-[11px] text-muted-foreground truncate">@{username}</span>
+                                  <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
                                 </div>
                               </td>
                             )}
                             {col("source") && (
-                              <td style={{ padding: "6px 12px" }}>
+                              <td style={{ padding: "8px 12px" }}>
                                 <TagBadge tagName={link.source_tag} size="sm" />
                               </td>
                             )}
                             {col("clicks") && (
-                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {(link.clicks || 0).toLocaleString()}
                               </td>
                             )}
                             {col("subscribers") && (
-                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {(link.subscribers || 0).toLocaleString()}
                               </td>
                             )}
                             {col("cvr") && (
-                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
                             {col("expenses") && (
-                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {hasCost ? (
                                   <span className="text-muted-foreground">{fmtC(costTotal)}</span>
                                 ) : (
@@ -852,24 +853,24 @@ export default function CampaignsPage() {
                               </td>
                             )}
                             {col("profit") && (
-                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {hasCost ? <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
-                            <td className="text-right" style={{ padding: "6px 12px" }}>
+                            <td className="text-right" style={{ padding: "8px 12px" }}>
                               {link.profitPerSub !== null ? (
-                                <span className={`font-mono text-[12px] font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
+                                <span className={`font-mono font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`} style={{ fontSize: "12px" }}>
                                   {link.profitPerSub >= 0 ? "" : "-"}${Math.abs(link.profitPerSub).toFixed(2)}
                                 </span>
-                              ) : <span className="text-muted-foreground text-[12px] font-bold">—</span>}
+                              ) : <span className="text-muted-foreground font-bold" style={{ fontSize: "12px" }}>—</span>}
                             </td>
                             {col("roi") && (
-                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
                             {col("status") && (
-                              <td style={{ padding: "6px 12px" }}>
+                              <td style={{ padding: "8px 12px" }}>
                                 <div className="flex items-center gap-1.5">
                                   {!hasCost && (
                                     <Tooltip>
@@ -885,7 +886,7 @@ export default function CampaignsPage() {
                               </td>
                             )}
                             {col("subs_day") && (
-                              <td className="font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
@@ -897,23 +898,23 @@ export default function CampaignsPage() {
                                 : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
                                 : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
                               return (
-                                <td style={{ padding: "6px 12px" }}>
-                                  <p className="text-[11px] text-foreground">{createdDate}</p>
+                                <td style={{ padding: "8px 12px" }}>
+                                  <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
                                   <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
                                 </td>
                               );
                             })()}
                             {col("media_buyer") && (
-                              <td className="text-[11px]" style={{ padding: "6px 12px" }}>
+                              <td style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
                               </td>
                             )}
                             {col("avg_expenses") && (
-                              <td className="text-right font-mono text-[12px]" style={{ padding: "6px 12px" }}>
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
-                            <td className="w-7 text-center" style={{ padding: "6px 12px" }}>
+                            <td className="w-7 text-center" style={{ padding: "8px 12px" }}>
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             </td>
                           </tr>
