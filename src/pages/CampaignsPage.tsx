@@ -171,14 +171,14 @@ export default function CampaignsPage() {
   });
 
   const exportCampaignsCsv = useCallback(() => {
-    const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status,source_tag";
+    const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status";
     const rows = links.map((l: any) => {
       const cn = (l.campaign_name || "").replace(/,/g, " ");
       const un = (l.accounts?.username || "").replace(/,/g, " ");
       const subs = l.subscribers || 0;
       const profit = Number(l.profit || 0);
       const profitPerSub = subs > 0 && Number(l.cost_total || 0) > 0 ? (profit / subs).toFixed(2) : "";
-      return `${cn},${un},${l.clicks || 0},${subs},${Number(l.revenue || 0).toFixed(2)},${Number(l.cost_total || 0).toFixed(2)},${profit.toFixed(2)},${profitPerSub},${Number(l.roi || 0).toFixed(1)},${l.status || "NO_DATA"},${l.source_tag || ""}`;
+      return `${cn},${un},${l.clicks || 0},${subs},${Number(l.revenue || 0).toFixed(2)},${Number(l.cost_total || 0).toFixed(2)},${profit.toFixed(2)},${profitPerSub},${Number(l.roi || 0).toFixed(1)},${l.status || "NO_DATA"}`;
     });
     const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
