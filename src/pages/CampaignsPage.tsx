@@ -157,7 +157,7 @@ export default function CampaignsPage() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
-  const [buyerName, setBuyerName] = useState("");
+  
   const [sourceInputValue, setSourceInputValue] = useState("");
   
   const [noteText, setNoteText] = useState("");
@@ -428,7 +428,7 @@ export default function CampaignsPage() {
       setExpandedRow(link.id);
       setSpendType(link.cost_type || "CPL");
       setSpendValue(link.cost_value ? String(link.cost_value) : "");
-      setBuyerName(link.media_buyer || "");
+      
       setSourceInputValue(link.source_tag || "");
       setNoteText("");
     }
@@ -1000,14 +1000,6 @@ export default function CampaignsPage() {
                                 await setTrackingLinkSourceTag(el.id, sourceInputValue.trim(), true);
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                 toast.success("Source saved", { duration: 1000 });
-                              } catch (err: any) { toast.error("Save failed"); }
-                            };
-                            const handleSaveBuyer = async () => {
-                              try {
-                                const { error } = await supabase.from("tracking_links").update({ media_buyer: buyerName.trim() || null } as any).eq("id", el.id);
-                                if (error) throw error;
-                                queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                                toast.success("Buyer saved");
                               } catch (err: any) { toast.error("Save failed"); }
                             };
                             return (
