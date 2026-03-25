@@ -992,13 +992,13 @@ function KPICard({ borderColor, icon, label, value, sub, tooltip, progressBar, p
   tooltip: { title: string; desc: string }; progressBar?: number; progressColor?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor, padding: "14px 16px" }}>
+    <div className="bg-card border border-border shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor, padding: "14px 16px", borderRadius: "0 12px 12px 0" }}>
       <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">{icon}</div>
-        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+        <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">{icon}</div>
+        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider leading-tight">{label}</span>
         <InfoDot title={tooltip.title} desc={tooltip.desc} />
       </div>
-      <p className="text-[22px] font-bold font-mono text-foreground">{value}</p>
+      <p className="text-[20px] font-bold font-mono text-foreground leading-tight">{value}</p>
       <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
       {progressBar !== undefined && (
         <div className="mt-2 h-1 w-full rounded-full bg-secondary overflow-hidden">
