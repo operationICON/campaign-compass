@@ -9,10 +9,12 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
-  RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X
+  RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X,
+  DollarSign, Activity, Award, Percent
 } from "lucide-react";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { RefreshButton } from "@/components/RefreshButton";
+import { KpiCardCustomizer, useKpiCardVisibility, type DashboardKpiCardId } from "@/components/dashboard/KpiCardCustomizer";
 
 
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
@@ -35,6 +37,8 @@ export default function DashboardPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+
+  const { enabledCards, toggleCard, isVisible } = useKpiCardVisibility();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
@@ -188,6 +192,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <KpiCardCustomizer enabledCards={enabledCards} toggleCard={toggleCard} />
             <RefreshButton queryKeys={["tracking_links", "accounts", "daily_metrics", "sync_settings"]} />
             <button
               onClick={() => syncMutation.mutate()}
@@ -265,151 +270,31 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* ═══ 5 KPI CARDS ═══ */}
-        {(() => {
-          // Subs/Day from daily_metrics
-          const subsPerDayCalc = (() => {
-            const syncedAcctIds = new Set(accounts.map((a: any) => a.id));
-            const relevantMetrics = dailyMetrics.filter((m: any) => syncedAcctIds.has(m.account_id));
-            const dates = [...new Set(relevantMetrics.map((m: any) => m.date))].sort().reverse();
-            if (dates.length < 2) return null;
-            const latest = dates[0];
-            const previous = dates[1];
-            const latestSubs = relevantMetrics.filter((m: any) => m.date === latest).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-            const prevSubs = relevantMetrics.filter((m: any) => m.date === previous).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-            const daysBetween = Math.max(1, differenceInDays(new Date(latest), new Date(previous)));
-            return (latestSubs - prevSubs) / daysBetween;
-          })();
-
-          // Avg CPL
-          const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
-
-          const periodLabel = customRange
-            ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
-            : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
-
-          return (isLoading || isPeriodLoading) ? (
-            <div className="grid grid-cols-5 gap-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="bg-card border border-border rounded-2xl p-5">
-                  <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
-                  <div className="skeleton-shimmer h-8 w-28 rounded" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-5 gap-4">
-              {/* Card 1 — Profit/Sub */}
-              <div className="bg-card border border-border rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Profit/Sub</span>
-                </div>
-                {avgProfitPerSub !== null ? (
-                  <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
-                ) : (
-                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-                )}
-                <p className="text-[11px] text-muted-foreground mt-1">Per acquired subscriber · {periodLabel}</p>
-              </div>
-
-              {/* Card 2 — LTV/Sub */}
-              <div className="bg-card border border-border rounded-2xl p-5 group relative" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
-                </div>
-                {(() => {
-                  const syncedAccts = [...accounts];
-                  let filtered = modelParam ? syncedAccts.filter((a: any) => a.id === modelParam) : syncedAccts;
-                  if (!modelParam && groupFilter !== "all") filtered = filtered.filter((a: any) => getAccountCategory(a) === groupFilter);
-                  const getLtvField = () => {
-                    if (timePeriod === "day") return "ltv_last_day";
-                    if (timePeriod === "week") return "ltv_last_7d";
-                    if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
-                    return "ltv_total";
-                  };
-                  const totalAccLtv = filtered.reduce((s: number, a: any) => s + Number(a[getLtvField()] || 0), 0);
-                  const totalAccSubs = filtered.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-                  const val = totalAccSubs > 0 ? totalAccLtv / totalAccSubs : null;
-                  return val !== null ? (
-                    <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(val)}</p>
-                  ) : (
-                    <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-                  );
-                })()}
-                <p className="text-[11px] text-muted-foreground mt-1">All subscribers · {periodLabel}</p>
-              </div>
-
-              {/* Card 3 — Avg CPL */}
-              <div className="bg-card border border-border rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Tag className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg CPL</span>
-                </div>
-                {avgCpl !== null ? (
-                  <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgCpl)}</p>
-                ) : (
-                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-                )}
-                <p className="text-[11px] text-muted-foreground mt-1">Cost per subscriber · {periodLabel}</p>
-              </div>
-
-              {/* Card 4 — Subs/Day */}
-              <div className="bg-card border border-border rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <BarChart3 className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
-                </div>
-                {subsPerDayCalc !== null ? (
-                  <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
-                ) : (
-                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-                )}
-                <p className="text-[11px] text-muted-foreground mt-1">Agency-wide daily growth · {periodLabel}</p>
-              </div>
-
-              {/* Card 5 — Unattributed Subs */}
-              <div className="bg-card border border-border rounded-2xl p-5 group relative" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-[hsl(38_92%_50%)]/10 flex items-center justify-center">
-                    <PieChart className="h-4 w-4 text-[hsl(38_92%_50%)]" />
-                  </div>
-                  <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed</span>
-                </div>
-                {unattributedStats.isOverflow ? (
-                  <p className="text-[22px] font-bold font-mono text-[hsl(38_92%_50%)]">Sync needed</p>
-                ) : unattributedStats.accountTotalSubs > 0 ? (
-                  <p className={`text-[22px] font-bold font-mono ${
-                    unattributedStats.pct <= 20 ? "text-primary" :
-                    unattributedStats.pct <= 30 ? "text-muted-foreground" :
-                    "text-[hsl(38_92%_50%)]"
-                  }`}>{unattributedStats.pct.toFixed(1)}%</p>
-                ) : (
-                  <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-                )}
-                <p className="text-[11px] text-muted-foreground mt-1">Traffic with no campaign · {periodLabel}</p>
-                {/* Tooltip */}
-                <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
-                  <div className="space-y-1 text-[11px]">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Attributed to links</span><span className="font-mono text-foreground">{unattributedStats.attributedSubs.toLocaleString()}</span></div>
-                    <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Unattributed</span><span className="font-mono font-bold">{unattributedStats.unattributed.toLocaleString()} ({unattributedStats.pct.toFixed(1)}%)</span></div>
-                    <p className="text-muted-foreground mt-2 leading-relaxed">~20% is normal due to OnlyFans tracking limitations</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {/* ═══ KPI CARDS ═══ */}
+        <KpiCards
+          isLoading={isLoading || isPeriodLoading}
+          isVisible={isVisible}
+          enabledCards={enabledCards}
+          accounts={accounts}
+          links={filteredLinksForKpi}
+          dailyMetrics={dailyMetrics}
+          totalSpend={totalSpend}
+          totalLtv={totalLtv}
+          totalProfit={totalProfit}
+          paidSubscribers={paidSubscribers}
+          avgProfitPerSub={avgProfitPerSub}
+          unattributedStats={unattributedStats}
+          timePeriod={timePeriod}
+          customRange={customRange}
+          TIME_PERIODS={TIME_PERIODS}
+          modelParam={modelParam}
+          groupFilter={groupFilter}
+          getAccountCategory={(a: any) => {
+            const username = (a.username || "").replace("@", "");
+            return CATEGORY_MAP[username] || "Female";
+          }}
+          fmtC={fmtC}
+        />
 
 
         {/* ═══ INSIGHTS SECTION ═══ */}
@@ -445,5 +330,357 @@ export default function DashboardPage() {
         />
       )}
     </DashboardLayout>
+  );
+}
+
+
+// ═══ KPI Cards component ═══
+function KpiCards({
+  isLoading, isVisible, enabledCards,
+  accounts, links, dailyMetrics,
+  totalSpend, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
+  unattributedStats, timePeriod, customRange, TIME_PERIODS,
+  modelParam, groupFilter, getAccountCategory, fmtC,
+}: {
+  isLoading: boolean;
+  isVisible: (id: DashboardKpiCardId) => boolean;
+  enabledCards: DashboardKpiCardId[];
+  accounts: any[];
+  links: any[];
+  dailyMetrics: any[];
+  totalSpend: number;
+  totalLtv: number;
+  totalProfit: number | null;
+  paidSubscribers: number;
+  avgProfitPerSub: number | null;
+  unattributedStats: any;
+  timePeriod: string;
+  customRange: { from: Date; to: Date } | null;
+  TIME_PERIODS: { key: string; label: string }[];
+  modelParam: string | null;
+  groupFilter: string;
+  getAccountCategory: (a: any) => string;
+  fmtC: (v: number) => string;
+}) {
+  const periodLabel = customRange
+    ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
+    : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
+
+  // Subs/Day from daily_metrics
+  const subsPerDayCalc = (() => {
+    const syncedAcctIds = new Set(accounts.map((a: any) => a.id));
+    const relevantMetrics = dailyMetrics.filter((m: any) => syncedAcctIds.has(m.account_id));
+    const dates = [...new Set(relevantMetrics.map((m: any) => m.date))].sort().reverse();
+    if (dates.length < 2) return null;
+    const latest = dates[0];
+    const previous = dates[1];
+    const latestSubs = relevantMetrics.filter((m: any) => m.date === latest).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+    const prevSubs = relevantMetrics.filter((m: any) => m.date === previous).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+    const daysBetween = Math.max(1, differenceInDays(new Date(latest), new Date(previous)));
+    return (latestSubs - prevSubs) / daysBetween;
+  })();
+
+  const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
+
+  // Extra card computations
+  const withSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0);
+  const expenses = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+  const withSpendCount = withSpend.length;
+  const avgExpenses = withSpendCount > 0 ? expenses / withSpendCount : null;
+
+  const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+  const cardTotalProfit = expenses > 0 ? expRev - expenses : null;
+  const blendedRoi = expenses > 0 && cardTotalProfit !== null ? (cardTotalProfit / expenses) * 100 : null;
+
+  const activeCampaigns = links.filter((l: any) => {
+    if (l.clicks <= 0) return false;
+    const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
+    return calcDate ? differenceInDays(new Date(), calcDate) <= 30 : false;
+  }).length;
+
+  // Best source by ROI
+  const bySource: Record<string, { rev: number; spend: number; profit: number }> = {};
+  withSpend.forEach((l: any) => {
+    const tag = l.source_tag || "Untagged";
+    if (tag === "Untagged") return;
+    if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
+    bySource[tag].rev += Number(l.revenue || 0);
+    bySource[tag].spend += Number(l.cost_total || 0);
+    bySource[tag].profit += Number(l.profit || 0);
+  });
+  let bestSource: { name: string; roi: number } | null = null;
+  Object.entries(bySource).forEach(([name, d]) => {
+    const roi = d.spend > 0 ? (d.profit / d.spend) * 100 : 0;
+    if (!bestSource || roi > bestSource.roi) bestSource = { name, roi };
+  });
+
+  // Total LTV from accounts
+  const getLtvField = () => {
+    if (timePeriod === "day") return "ltv_last_day";
+    if (timePeriod === "week") return "ltv_last_7d";
+    if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
+    return "ltv_total";
+  };
+  const filteredAccts = (() => {
+    let accts = [...accounts];
+    if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
+    else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
+    return accts;
+  })();
+  const totalAccLtv = filteredAccts.reduce((s: number, a: any) => s + Number(a[getLtvField()] || 0), 0);
+  const totalAccSubs = filteredAccts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
+  const ltvPerSub = totalAccSubs > 0 ? totalAccLtv / totalAccSubs : null;
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="bg-card border border-border rounded-2xl p-5">
+            <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
+            <div className="skeleton-shimmer h-8 w-28 rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Build ordered card list: always-on first, then extras in order they appear in enabledCards
+  const orderedCards = enabledCards.filter(id => isVisible(id));
+
+  const cardStyle = { boxShadow: "0 2px 8px rgba(0,0,0,0.04)" };
+
+  const renderCard = (id: DashboardKpiCardId) => {
+    switch (id) {
+      case "profit_sub":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Profit/Sub</span>
+            </div>
+            {avgProfitPerSub !== null ? (
+              <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Per acquired subscriber · {periodLabel}</p>
+          </div>
+        );
+
+      case "ltv_sub":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5 group relative" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
+            </div>
+            {ltvPerSub !== null ? (
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(ltvPerSub)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">All subscribers · {periodLabel}</p>
+          </div>
+        );
+
+      case "avg_cpl":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Tag className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg CPL</span>
+            </div>
+            {avgCpl !== null ? (
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgCpl)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Cost per subscriber · {periodLabel}</p>
+          </div>
+        );
+
+      case "subs_day":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
+            </div>
+            {subsPerDayCalc !== null ? (
+              <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Agency-wide daily growth · {periodLabel}</p>
+          </div>
+        );
+
+      case "unattributed":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5 group relative" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-[hsl(38_92%_50%)]/10 flex items-center justify-center">
+                <PieChart className="h-4 w-4 text-[hsl(38_92%_50%)]" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed</span>
+            </div>
+            {unattributedStats.isOverflow ? (
+              <p className="text-[22px] font-bold font-mono text-[hsl(38_92%_50%)]">Sync needed</p>
+            ) : unattributedStats.accountTotalSubs > 0 ? (
+              <p className={`text-[22px] font-bold font-mono ${
+                unattributedStats.pct <= 20 ? "text-primary" :
+                unattributedStats.pct <= 30 ? "text-muted-foreground" :
+                "text-[hsl(38_92%_50%)]"
+              }`}>{unattributedStats.pct.toFixed(1)}%</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Traffic with no campaign · {periodLabel}</p>
+            <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
+              <div className="space-y-1 text-[11px]">
+                <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Attributed to links</span><span className="font-mono text-foreground">{unattributedStats.attributedSubs.toLocaleString()}</span></div>
+                <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-bold text-foreground">Unattributed</span><span className="font-mono font-bold">{unattributedStats.unattributed.toLocaleString()} ({unattributedStats.pct.toFixed(1)}%)</span></div>
+                <p className="text-muted-foreground mt-2 leading-relaxed">~20% is normal due to OnlyFans tracking limitations</p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "expenses":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Expenses</span>
+            </div>
+            <p className={`text-[22px] font-bold font-mono ${expenses === 0 ? "text-destructive" : "text-foreground"}`}>
+              {fmtC(expenses)}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">Total spend set</p>
+          </div>
+        );
+
+      case "avg_expenses":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg Expenses</span>
+            </div>
+            {avgExpenses !== null ? (
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgExpenses)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Per campaign with spend</p>
+          </div>
+        );
+
+      case "total_profit":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
+            </div>
+            {cardTotalProfit !== null ? (
+              <p className={`text-[22px] font-bold font-mono ${cardTotalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(cardTotalProfit)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Revenue minus spend</p>
+          </div>
+        );
+
+      case "blended_roi":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Percent className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Blended ROI</span>
+            </div>
+            {blendedRoi !== null ? (
+              <p className={`text-[22px] font-bold font-mono ${blendedRoi >= 0 ? "text-primary" : "text-destructive"}`}>{blendedRoi.toFixed(1)}%</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Profit / Expenses × 100</p>
+          </div>
+        );
+
+      case "active_campaigns":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Activity className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Active Campaigns</span>
+            </div>
+            <p className="text-[22px] font-bold font-mono text-foreground">{activeCampaigns}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Clicks in last 30 days</p>
+          </div>
+        );
+
+      case "best_source":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Award className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Best Source</span>
+            </div>
+            {bestSource ? (
+              <p className="text-[22px] font-bold font-mono text-primary">{bestSource.name}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {bestSource ? `${bestSource.roi.toFixed(0)}% ROI` : "No data"}
+            </p>
+          </div>
+        );
+
+      case "total_ltv":
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
+            </div>
+            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalAccLtv)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">All subscribers</p>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(orderedCards.length, 8)}, 1fr)` }}>
+      {orderedCards.map(id => renderCard(id))}
+    </div>
   );
 }
