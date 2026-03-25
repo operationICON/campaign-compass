@@ -619,6 +619,42 @@ export default function CampaignsPage() {
                   </>
                 ) : null;
               })()}
+
+              {/* 30d LTV per model */}
+              {campaignKpi.isVisible("ltv_30d_per_model") && (() => {
+                const sortedModels = [...accounts].sort((a: any, b: any) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
+                return (
+                  <>
+                    <div className="h-px bg-border mx-0" style={{ margin: "8px 0" }} />
+                    <div className="bg-card border border-border shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: "hsl(var(--primary))", padding: "12px 14px", borderRadius: "0 12px 12px 0" }}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                          <Users className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">30d LTV per model</span>
+                      </div>
+                      <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+                        {sortedModels.map((acc: any) => (
+                          <div key={acc.id} className="flex items-center gap-2 text-[12px]">
+                            <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
+                              {acc.avatar_thumb_url ? (
+                                <img src={acc.avatar_thumb_url} alt="" className="w-full h-full object-cover rounded-full" />
+                              ) : (
+                                <span className="text-[10px] font-bold text-muted-foreground">{(acc.display_name || "?")[0].toUpperCase()}</span>
+                              )}
+                            </div>
+                            <span className="text-muted-foreground truncate">@{acc.username || acc.display_name}</span>
+                            <span className="ml-auto font-mono font-semibold text-foreground shrink-0">
+                              {acc.ltv_last_30d != null ? fmtC(acc.ltv_last_30d) : "—"}
+                            </span>
+                          </div>
+                        ))}
+                        {sortedModels.length === 0 && <p className="text-[11px] text-muted-foreground">No models</p>}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
