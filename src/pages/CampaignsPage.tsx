@@ -631,6 +631,26 @@ export default function CampaignsPage() {
                 )}
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                   <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
+                  <div className="relative">
+                    <button onClick={() => setColDropdownOpen(!colDropdownOpen)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-secondary text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3h7a2 2 0 012 2v14a2 2 0 01-2 2h-7m0-18H5a2 2 0 00-2 2v14a2 2 0 002 2h7m0-18v18" /></svg>
+                      Columns
+                    </button>
+                    {colDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-20" onClick={() => setColDropdownOpen(false)} />
+                        <div className="absolute right-0 top-full mt-1 z-30 w-48 bg-card border border-border rounded-lg shadow-lg py-1.5 max-h-72 overflow-y-auto">
+                          {ALL_TOGGLEABLE_COLUMNS.map(c => (
+                            <label key={c.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-secondary/50 cursor-pointer transition-colors">
+                              <input type="checkbox" checked={visibleCols[c.id]} onChange={() => toggleColumn(c.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer accent-[hsl(var(--primary))]" />
+                              <span className="text-[11px] text-foreground">{c.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12px]">
@@ -638,14 +658,19 @@ export default function CampaignsPage() {
                       <tr className="border-b border-border">
                         <th className="w-8" style={{ height: "44px", padding: "6px 12px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
-                        <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "100px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Model</th>
-                        <SortHeader label="Source" sortKeyName="source_tag" width="100px" />
-                        <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />
-                        <SortHeader label="Profit" sortKeyName="profit" width="80px" />
+                        {col("model") && <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "100px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Model</th>}
+                        {col("source") && <SortHeader label="Source" sortKeyName="source_tag" width="100px" />}
+                        {col("clicks") && <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />}
+                        {col("subscribers") && <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />}
+                        {col("cvr") && <SortHeader label="CVR" sortKeyName="cvr" width="65px" />}
+                        {col("expenses") && <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />}
+                        {col("profit") && <SortHeader label="Profit" sortKeyName="profit" width="80px" />}
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
-                        <SortHeader label="ROI" sortKeyName="roi" width="70px" />
-                        <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "80px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</th>
-                        <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
+                        {col("roi") && <SortHeader label="ROI" sortKeyName="roi" width="70px" />}
+                        {col("status") && <th className="text-left text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "80px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</th>}
+                        {col("subs_day") && <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />}
+                        {col("created") && <SortHeader label="Created" sortKeyName="created_at" width="100px" />}
+                        {col("media_buyer") && <SortHeader label="Buyer" sortKeyName="media_buyer" width="90px" />}
                         <th className="text-center text-muted-foreground font-medium whitespace-nowrap" style={{ height: "44px", padding: "6px 12px", width: "28px", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
                       </tr>
                     </thead>
