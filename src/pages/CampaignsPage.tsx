@@ -708,7 +708,7 @@ export default function CampaignsPage() {
                                 </div>
                               )}
                             </td>
-                            <td className="px-2 py-2 text-right"><span className="font-mono text-[12px] text-primary font-semibold">{fmtC(Number(link.revenue))}</span></td>
+                            
                             <td className="px-2 py-2 text-right">
                               {hasCost ? (
                                 <span className="font-mono text-[12px] text-muted-foreground">{fmtC(costTotal)}</span>
