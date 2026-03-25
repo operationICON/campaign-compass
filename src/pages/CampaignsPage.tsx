@@ -648,7 +648,7 @@ export default function CampaignsPage() {
                                 if (existing) {
                                   await supabase.from("ad_spend").update({
                                     spend_type: spendType, amount: previewCost,
-                                    source_tag: el.source_tag, date: new Date().toISOString().split("T")[0],
+                                    date: new Date().toISOString().split("T")[0],
                                   } as any).eq("id", existing.id);
                                 } else {
                                   await supabase.from("ad_spend").insert({
@@ -656,7 +656,6 @@ export default function CampaignsPage() {
                                     traffic_source: el.source || "direct", spend_type: spendType,
                                     amount: previewCost, date: new Date().toISOString().split("T")[0],
                                     notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
-                                    source_tag: el.source_tag,
                                   });
                                 }
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
