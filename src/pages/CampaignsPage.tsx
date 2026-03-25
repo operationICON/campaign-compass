@@ -25,7 +25,7 @@ import { RefreshButton } from "@/components/RefreshButton";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day";
-type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "untagged" | "SCALE" | "WATCH" | "KILL" | "DEAD";
+type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
@@ -96,7 +96,7 @@ export default function CampaignsPage() {
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
   const [groupFilter, setGroupFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
+  
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
@@ -118,7 +118,7 @@ export default function CampaignsPage() {
   // ─── Data fetching ───
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
-  const { data: tagRules = [] } = useQuery({ queryKey: ["source_tag_rules"], queryFn: fetchSourceTagRules });
+  
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   // ─── Realtime ───
@@ -285,8 +285,8 @@ export default function CampaignsPage() {
     if (selectedRows.size === paginated.length) setSelectedRows(new Set());
     else setSelectedRows(new Set(paginated.map((l: any) => l.id)));
   };
-  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSourceFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setAgeFilter("all"); setPage(1); };
-  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, sourceFilter !== "all" ? 1 : 0, campaignFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
+  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setAgeFilter("all"); setPage(1); };
+  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, campaignFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
 
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
@@ -384,7 +384,7 @@ export default function CampaignsPage() {
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
             </button>
-            <RefreshButton queryKeys={["tracking_links", "ad_spend", "source_tag_rules", "accounts"]} />
+            <RefreshButton queryKeys={["tracking_links", "ad_spend", "accounts"]} />
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
@@ -477,7 +477,7 @@ export default function CampaignsPage() {
             <option value="active">Active Only</option>
             <option value="zero">Zero Clicks</option>
             <option value="no_spend">No Spend Set</option>
-            <option value="untagged">Untagged</option>
+            
             <option value="SCALE">SCALE</option>
             <option value="WATCH">WATCH</option>
             <option value="KILL">KILL</option>
