@@ -238,19 +238,19 @@ export async function fetchNotifications() {
 export async function clearTrackingLinkSpend(trackingLinkId: string, campaignId: string) {
   const { error: linkError } = await supabase.from("tracking_links").update({
     cost_type: null,
-    cost_value: 0,
-    cost_total: 0,
-    profit: 0,
-    roi: 0,
-    cpl_real: 0,
-    cpc_real: 0,
-    cvr: 0,
-    arpu: 0,
+    cost_value: null,
+    cost_total: null,
+    profit: null,
+    roi: null,
+    cpl_real: null,
+    cpc_real: null,
+    cvr: null,
+    arpu: null,
     status: "NO_DATA",
   } as any).eq("id", trackingLinkId);
   if (linkError) throw linkError;
 
-  await supabase.from("ad_spend").delete().eq("campaign_id", campaignId);
+  await supabase.from("ad_spend").delete().eq("tracking_link_id", trackingLinkId);
 }
 
 export async function markNotificationsRead() {

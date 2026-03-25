@@ -137,9 +137,9 @@ export default function CampaignsPage() {
     try {
       await setTrackingLinkSourceTag(linkId, tag);
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success(tag ? `Tagged as "${tag}"` : "Tag cleared");
+      toast.success(tag ? "Source saved" : "Tag cleared", { duration: 1000 });
       setSourceDropdownId(null);
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) { toast.error("Save failed — please try again"); }
   };
 
   const handleBulkTag = async (tag: string) => {
