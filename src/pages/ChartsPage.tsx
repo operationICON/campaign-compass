@@ -7,6 +7,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 import { format, subDays } from "date-fns";
+import { RefreshButton } from "@/components/RefreshButton";
 
 const MODEL_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(15,80%,45%)", "hsl(30,75%,40%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
 const TYPE_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
@@ -88,9 +89,12 @@ export default function ChartsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-5">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">LTV Charts</h1>
-          <p className="text-sm text-muted-foreground">Visual analytics across all accounts</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">LTV Charts</h1>
+            <p className="text-sm text-muted-foreground">Visual analytics across all accounts</p>
+          </div>
+          <RefreshButton queryKeys={["daily_metrics", "tracking_links", "accounts", "transactions"]} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

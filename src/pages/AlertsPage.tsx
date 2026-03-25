@@ -4,6 +4,7 @@ import { fetchAlerts } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Eye, X, Bell } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
