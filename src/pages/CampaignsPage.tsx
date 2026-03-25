@@ -23,11 +23,10 @@ import {
 } from "lucide-react";
 
 // ─── Types ───
-type ActiveView = "tracking" | "expenses" | "media";
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day";
-type ClickFilter = "all" | "active" | "zero";
+type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "untagged" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
-const VIEW_KEY = "campaigns_active_view";
+const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
 // ─── Constants ───
 const MODEL_COLORS: Record<string, string> = {
@@ -64,6 +63,7 @@ const GROUP_MAP: Record<string, string[]> = {
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtP = (v: number) => `${v.toFixed(1)}%`;
+const fmtK = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : fmtC(v);
 
 // ─── Info Tooltip ───
 function InfoDot({ title, desc }: { title: string; desc: string }) {
@@ -83,15 +83,15 @@ function InfoDot({ title, desc }: { title: string; desc: string }) {
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
 
-  // ─── View state ───
-  const [activeView, setActiveView] = useState<ActiveView>(() => {
-    try { return (localStorage.getItem(VIEW_KEY) as ActiveView) || "tracking"; } catch { return "tracking"; }
+  // ─── KPI collapse state ───
+  const [kpiCollapsed, setKpiCollapsed] = useState(() => {
+    try { return localStorage.getItem(KPI_COLLAPSED_KEY) !== "false"; } catch { return true; }
   });
-  useEffect(() => { try { localStorage.setItem(VIEW_KEY, activeView); } catch {} }, [activeView]);
+  useEffect(() => { try { localStorage.setItem(KPI_COLLAPSED_KEY, String(kpiCollapsed)); } catch {} }, [kpiCollapsed]);
 
   // ─── Filter/sort state ───
   const [searchQuery, setSearchQuery] = useState("");
-  const [clickFilter, setClickFilter] = useState<ClickFilter>("all");
+  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
   const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
   const [groupFilter, setGroupFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
@@ -112,11 +112,7 @@ export default function CampaignsPage() {
   const [spendValue, setSpendValue] = useState("");
   const [buyerName, setBuyerName] = useState("");
   const [noteText, setNoteText] = useState("");
-
-  // Media buyers
-  const [expandedSource, setExpandedSource] = useState<string | null>(null);
-  const [mediaSortKey, setMediaSortKey] = useState<"source" | "campaigns" | "totalSpend" | "totalLtv" | "totalProfit" | "roi" | "avgCvr">("totalProfit");
-  const [mediaSortAsc, setMediaSortAsc] = useState(false);
+  const [syncLabel, setSyncLabel] = useState("Sync Now");
 
   // ─── Data fetching ───
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
@@ -166,11 +162,12 @@ export default function CampaignsPage() {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setSyncLabel("Synced ✓");
+      setTimeout(() => setSyncLabel("Sync Now"), 2000);
     },
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
-
-  // (Auto-tag removed)
 
   const exportCampaignsCsv = useCallback(() => {
     const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status,source_tag";
@@ -233,10 +230,7 @@ export default function CampaignsPage() {
       result = result.filter((l: any) => groupAccountIds.includes(l.account_id));
     }
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
-    if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
-    else if (sourceFilter === "has_spend") result = result.filter((l: any) => Number(l.cost_total || 0) > 0);
-    else if (sourceFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
-    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
+    if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
@@ -244,8 +238,13 @@ export default function CampaignsPage() {
         (l.accounts?.username || "").toLowerCase().includes(q) || (l.accounts?.display_name || "").toLowerCase().includes(q)
       );
     }
-    if (clickFilter === "active") result = result.filter((l: any) => l.clicks > 0);
-    if (clickFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
+    // Campaign filter
+    if (campaignFilter === "active") result = result.filter((l: any) => l.isActive);
+    else if (campaignFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
+    else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
+    else if (campaignFilter === "untagged") result = result.filter((l: any) => !l.source_tag || l.source_tag === "Untagged");
+    else if (["SCALE", "WATCH", "KILL", "DEAD"].includes(campaignFilter)) result = result.filter((l: any) => (l.status || "NO_DATA") === campaignFilter);
+
     if (ageFilter !== "all") {
       result = result.filter((l: any) => {
         const days = differenceInDays(new Date(), new Date(l.created_at));
@@ -256,7 +255,7 @@ export default function CampaignsPage() {
       });
     }
     return result;
-  }, [enrichedLinks, searchQuery, clickFilter, ageFilter, groupFilter, accountFilter, sourceFilter, accounts]);
+  }, [enrichedLinks, searchQuery, campaignFilter, ageFilter, groupFilter, accountFilter, sourceFilter, accounts]);
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
@@ -293,13 +292,12 @@ export default function CampaignsPage() {
     if (selectedRows.size === paginated.length) setSelectedRows(new Set());
     else setSelectedRows(new Set(paginated.map((l: any) => l.id)));
   };
-  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSourceFilter("all"); setSearchQuery(""); setClickFilter("all"); setAgeFilter("all"); setPage(1); };
-  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, sourceFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
+  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSourceFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setAgeFilter("all"); setPage(1); };
+  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, sourceFilter !== "all" ? 1 : 0, campaignFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
 
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     let scopedLinks = filtered;
-    // Group 1 — Tracking Links
     const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
@@ -314,7 +312,6 @@ export default function CampaignsPage() {
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
     const totalCount = scopedLinks.length;
 
-    // Group 2 — Expenses
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const expSpend = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
@@ -324,7 +321,6 @@ export default function CampaignsPage() {
     const trackedCount = withSpend.length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
-    // Best source by ROI
     const sourceMap: Record<string, { rev: number; spend: number }> = {};
     withSpend.forEach((l: any) => {
       const src = l.source_tag || "Untagged";
@@ -337,7 +333,6 @@ export default function CampaignsPage() {
       if (spend > 0) { const roi = ((rev - spend) / spend) * 100; if (!bestSource || roi > bestSource.roi) bestSource = { name, roi }; }
     });
 
-    // Group 3 — Media Buyers
     const sourceProfit: Record<string, { profit: number; subs: number; spend: number; rev: number }> = {};
     withSpend.forEach((l: any) => {
       const src = l.source_tag || "Untagged";
@@ -363,112 +358,12 @@ export default function CampaignsPage() {
     };
   }, [filtered]);
 
-  // ─── Revenue map for spend history ───
-  const revenueMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    links.forEach((l: any) => { map[l.campaign_id] = (map[l.campaign_id] || 0) + Number(l.revenue || 0); });
-    return map;
-  }, [links]);
-
-  // ─── Media Buyers: source rows ───
-  const agencyAvgCvr = useMemo(() => {
-    const qualified = filtered.filter((l: any) => l.clicks > 100);
-    if (qualified.length === 0) return null;
-    const ts = qualified.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const tc = qualified.reduce((s: number, l: any) => s + l.clicks, 0);
-    return tc > 0 ? (ts / tc) * 100 : null;
-  }, [filtered]);
-
-  const sourceRows = useMemo(() => {
-    const map: Record<string, { source: string; campaigns: number; active: number; totalSpend: number; totalLtv: number; totalProfit: number; totalClicks: number; totalSubs: number }> = {};
-    filtered.forEach((l: any) => {
-      const src = l.source_tag || "Untagged";
-      if (!map[src]) map[src] = { source: src, campaigns: 0, active: 0, totalSpend: 0, totalLtv: 0, totalProfit: 0, totalClicks: 0, totalSubs: 0 };
-      map[src].campaigns++;
-      if (l.clicks > 0) map[src].active++;
-      map[src].totalSpend += Number(l.cost_total || 0);
-      map[src].totalLtv += Number(l.revenue || 0);
-      map[src].totalProfit += Number(l.revenue || 0) - Number(l.cost_total || 0);
-      map[src].totalClicks += l.clicks || 0;
-      map[src].totalSubs += l.subscribers || 0;
-    });
-    return Object.values(map).map(r => ({
-      ...r,
-      roi: r.totalSpend > 0 ? (r.totalProfit / r.totalSpend) * 100 : null,
-      avgCvr: r.totalClicks > 100 ? (r.totalSubs / r.totalClicks) * 100 : null,
-    }));
-  }, [filtered]);
-
-  const sortedSourceRows = useMemo(() => {
-    return [...sourceRows].sort((a: any, b: any) => {
-      if (a.source === "Untagged") return 1;
-      if (b.source === "Untagged") return -1;
-      const av = a[mediaSortKey] ?? (mediaSortKey === "source" ? "" : -Infinity);
-      const bv = b[mediaSortKey] ?? (mediaSortKey === "source" ? "" : -Infinity);
-      if (typeof av === "string") return mediaSortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
-      return mediaSortAsc ? av - bv : bv - av;
-    });
-  }, [sourceRows, mediaSortKey, mediaSortAsc]);
-
-  const expandedCampaigns = useMemo(() => {
-    if (!expandedSource) return [];
-    return filtered.filter((l: any) => (l.source_tag || "Untagged") === expandedSource)
-      .sort((a: any, b: any) => Number(b.revenue || 0) - Number(a.revenue || 0));
-  }, [filtered, expandedSource]);
-
-  const bestModelPerSource = useMemo(() => {
-    const withSpend = filtered.filter((l: any) => Number(l.cost_total || 0) > 0 && l.source_tag && l.source_tag !== "Untagged");
-    const map: Record<string, Record<string, { profit: number; subs: number; clicks: number; name: string }>> = {};
-    withSpend.forEach((l: any) => {
-      const src = l.source_tag;
-      const aid = l.account_id;
-      if (!map[src]) map[src] = {};
-      if (!map[src][aid]) {
-        const acc = accounts.find((a: any) => a.id === aid);
-        map[src][aid] = { profit: 0, subs: 0, clicks: 0, name: acc?.display_name || l.accounts?.display_name || "?" };
-      }
-      map[src][aid].profit += Number(l.profit || 0);
-      map[src][aid].subs += l.subscribers || 0;
-      map[src][aid].clicks += l.clicks || 0;
-    });
-    const result: Record<string, { bestProfit: { name: string; value: number }; bestCvr: { name: string; value: number } }> = {};
-    Object.entries(map).forEach(([src, models]) => {
-      let bestP = { name: "", value: -Infinity };
-      let bestC = { name: "", value: -Infinity };
-      Object.values(models).forEach(m => {
-        if (m.profit > bestP.value) bestP = { name: m.name, value: m.profit };
-        const cvr = m.clicks > 0 ? (m.subs / m.clicks) * 100 : 0;
-        if (cvr > bestC.value) bestC = { name: m.name, value: cvr };
-      });
-      result[src] = { bestProfit: bestP, bestCvr: bestC };
-    });
-    return result;
-  }, [filtered, accounts]);
-
-  // Expenses: breakdown data
-  const linksWithSpend = useMemo(() => filtered.filter((l: any) => Number(l.cost_total || 0) > 0), [filtered]);
-  const bySource = useMemo(() => {
-    const map: Record<string, { source: string; campaigns: number; spend: number; ltv: number; profit: number }> = {};
-    linksWithSpend.forEach((l: any) => {
-      const src = l.source_tag || "Untagged";
-      if (!map[src]) map[src] = { source: src, campaigns: 0, spend: 0, ltv: 0, profit: 0 };
-      map[src].campaigns++; map[src].spend += Number(l.cost_total || 0); map[src].ltv += Number(l.revenue || 0); map[src].profit += Number(l.revenue || 0) - Number(l.cost_total || 0);
-    });
-    return Object.values(map).sort((a, b) => b.profit - a.profit);
-  }, [linksWithSpend]);
-
-  const byModel = useMemo(() => {
-    const map: Record<string, { name: string; username: string; avatar: string | null; campaigns: number; spend: number; ltv: number; profit: number }> = {};
-    linksWithSpend.forEach((l: any) => {
-      const aid = l.account_id;
-      if (!map[aid]) {
-        const acc = accounts.find((a: any) => a.id === aid);
-        map[aid] = { name: acc?.display_name || l.accounts?.display_name || "Unknown", username: acc?.username || l.accounts?.username || "", avatar: acc?.avatar_thumb_url || null, campaigns: 0, spend: 0, ltv: 0, profit: 0 };
-      }
-      map[aid].campaigns++; map[aid].spend += Number(l.cost_total || 0); map[aid].ltv += Number(l.revenue || 0); map[aid].profit += Number(l.revenue || 0) - Number(l.cost_total || 0);
-    });
-    return Object.values(map).sort((a, b) => b.profit - a.profit);
-  }, [linksWithSpend, accounts]);
+  // ─── Last synced ───
+  const lastSynced = useMemo(() => {
+    const synced = accounts.filter((a: any) => a.last_synced_at).map((a: any) => new Date(a.last_synced_at).getTime());
+    if (synced.length === 0) return null;
+    return new Date(Math.max(...synced));
+  }, [accounts]);
 
   // ─── Sort Header Component ───
   const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
@@ -506,27 +401,10 @@ export default function CampaignsPage() {
     toast.success("Spend saved — ROI and Profit updated");
   };
 
-  const unattributedPct = useMemo(() => {
-    const syncedAccounts = accounts.filter((a: any) => a.sync_enabled !== false);
-    const accountTotalSubs = syncedAccounts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    const syncedIds = new Set(syncedAccounts.map((a: any) => a.id));
-    const attributedSubs = links.filter((l: any) => syncedIds.has(l.account_id)).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    if (accountTotalSubs === 0) return 0;
-    return Math.max(0, ((accountTotalSubs - attributedSubs) / accountTotalSubs) * 100);
-  }, [accounts, links]);
+  // KPI summary text for collapsed state
+  const kpiSummary = `${fmtK(kpis.totalLtv)} LTV · ${kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} Profit/Sub · ${kpis.untagged} untagged · ${kpis.trackedCount} with spend`;
 
-  // View config
-  const VIEW_CONFIG: Record<ActiveView, { border: string; activeBg: string; title: string; sub: string }> = {
-    tracking: { border: "border-primary", activeBg: "bg-[hsl(var(--primary)/0.06)]", title: "Tracking Links", sub: "Stats, timeline, notes" },
-    expenses: { border: "border-[hsl(142_71%_45%)]", activeBg: "bg-[hsl(142_71%_45%/0.04)]", title: "Expenses", sub: "Spend, profit, ROI" },
-    media: { border: "border-[hsl(263_70%_50%)]", activeBg: "bg-[hsl(263_70%_50%/0.04)]", title: "Media Buyers", sub: "Source tags, buyers" },
-  };
-
-  const SUBTITLES: Record<ActiveView, string> = {
-    tracking: "All tracking links and performance data",
-    expenses: "Spend, profit and cost per campaign",
-    media: "Performance by traffic source",
-  };
+  const modelCount = new Set(accounts.map((a: any) => a.id)).size;
 
   return (
     <DashboardLayout>
@@ -534,103 +412,122 @@ export default function CampaignsPage() {
         {/* ═══ HEADER ═══ */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[22px] font-bold text-foreground">Campaigns</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{sorted.length.toLocaleString()} tracking links across all models</p>
+            <h1 className="text-[20px] font-bold text-foreground">Campaigns</h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {sorted.length.toLocaleString()} tracking links · {modelCount} models
+              {lastSynced && ` · Last synced ${format(lastSynced, "MMM d, HH:mm")}`}
+            </p>
           </div>
           <div className="flex items-center gap-2">
-           <button onClick={exportCampaignsCsv}
+            <button onClick={exportCampaignsCsv}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
+            </button>
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+              {syncMutation.isPending ? "Syncing..." : syncLabel}
             </button>
           </div>
         </div>
 
-        {/* ═══ VIEW SELECTOR CARDS ═══ */}
-        <div className="grid grid-cols-3 gap-3">
-          {(["tracking", "expenses", "media"] as ActiveView[]).map(v => {
-            const cfg = VIEW_CONFIG[v];
-            const isActive = activeView === v;
-            return (
-              <button key={v} onClick={() => setActiveView(v)}
-                className={`text-left p-3 rounded-2xl border-2 transition-all ${isActive ? `${cfg.border} ${cfg.activeBg}` : "border-border/50 bg-card hover:border-border"}`}>
-                <p className="text-[12px] font-bold text-foreground">{cfg.title}</p>
-                <p className="text-[10px] text-muted-foreground">{cfg.sub}</p>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ═══ ALL 12 KPI CARDS ═══ */}
-        <div className="space-y-3">
-          {/* Group 1 — Tracking Links (teal border) */}
-          <div className="grid grid-cols-5 gap-3">
-            <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-              label="Attributed LTV" value={<span className="text-primary">{fmtC(kpis.totalLtv)}</span>} sub="All tracking links"
-              tooltip={{ title: "Attributed LTV", desc: "Revenue from tracking links only. Excludes organic and untracked traffic. For full agency LTV see the Dashboard." }} />
-            <KPICard borderColor="hsl(var(--primary))" icon={<Activity className="h-4 w-4 text-primary" />}
-              label="Active Campaigns" value={kpis.activeCampaigns.toLocaleString()} sub="Clicks in last 30 days"
-              tooltip={{ title: "Active Campaigns", desc: "Campaigns with at least 1 click in the last 30 days. Dead and zero-click campaigns are excluded." }} />
-            <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
-              label="Avg CVR" value={kpis.avgCvr !== null ? `${kpis.avgCvr.toFixed(1)}%` : "—"} sub={<span className="text-primary">Agency benchmark</span>}
-              tooltip={{ title: "Avg CVR", desc: "Conversion rate across links with 100+ clicks. Low CVR means the model profile or creative needs work — not a spend issue." }} />
-            <KPICard borderColor="hsl(var(--primary))" icon={<Tag className="h-4 w-4 text-[hsl(var(--warning))]" />}
-              label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.untagged}</span>} sub="Need source tag"
-              tooltip={{ title: "Untagged", desc: "Campaigns with no source tag. Invisible in Media Buyers view. Run Auto-Tag or assign manually." }}
-              progressBar={kpis.totalCount > 0 ? ((kpis.totalCount - kpis.untagged) / kpis.totalCount) * 100 : 0} progressColor="primary" />
-            <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-[hsl(var(--warning))]" />}
-              label="No Spend Set" value={<span className={kpis.noSpend > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.noSpend}</span>} sub="ROI unknown"
-              tooltip={{ title: "No Spend Set", desc: "Campaigns where ROI and Profit are unknown. Set CPL, CPC, or Fixed spend to unlock profitability data." }}
-              progressBar={kpis.totalCount > 0 ? ((kpis.totalCount - kpis.noSpend) / kpis.totalCount) * 100 : 0} progressColor="warning" />
+        {/* ═══ KPI CARDS — COLLAPSIBLE ═══ */}
+        <div
+          className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer transition-all duration-200"
+          onClick={() => setKpiCollapsed(!kpiCollapsed)}
+        >
+          {/* Summary bar — always visible */}
+          <div className="flex items-center justify-between px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[12px] font-bold text-foreground shrink-0">Overview</span>
+              {kpiCollapsed && (
+                <span className="text-[11px] text-muted-foreground truncate">{kpiSummary}</span>
+              )}
+            </div>
+            <button className="text-[11px] font-medium shrink-0 flex items-center gap-0.5" onClick={(e) => { e.stopPropagation(); setKpiCollapsed(!kpiCollapsed); }}>
+              {kpiCollapsed ? (
+                <span className="text-primary">Show metrics <ChevronDown className="inline h-3 w-3" /></span>
+              ) : (
+                <span className="text-muted-foreground">Hide metrics <ChevronUp className="inline h-3 w-3" /></span>
+              )}
+            </button>
           </div>
 
-          {/* Divider */}
-          <div className="h-px bg-border" />
+          {/* Expanded KPI cards */}
+          {!kpiCollapsed && (
+            <div className="px-4 pb-4 space-y-[10px]" onClick={(e) => e.stopPropagation()}>
+              {/* Group 1 — Tracking Links (teal border) */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px", alignItems: "stretch" }}>
+                <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
+                  label="Attributed LTV" value={<span className="text-primary">{fmtC(kpis.totalLtv)}</span>} sub="All tracking links"
+                  tooltip={{ title: "Attributed LTV", desc: "Revenue from tracking links only. Excludes organic and untracked traffic." }} />
+                <KPICard borderColor="hsl(var(--primary))" icon={<Activity className="h-4 w-4 text-primary" />}
+                  label="Active Campaigns" value={kpis.activeCampaigns.toLocaleString()} sub="Clicks in last 30 days"
+                  tooltip={{ title: "Active Campaigns", desc: "Campaigns with at least 1 click in the last 30 days." }} />
+                <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
+                  label="Avg CVR" value={kpis.avgCvr !== null ? `${kpis.avgCvr.toFixed(1)}%` : "—"} sub={<span className="text-primary">Agency benchmark</span>}
+                  tooltip={{ title: "Avg CVR", desc: "Conversion rate across links with 100+ clicks." }} />
+                <KPICard borderColor="hsl(var(--primary))" icon={<Tag className="h-4 w-4 text-[hsl(var(--warning))]" />}
+                  label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.untagged}</span>} sub="Need source tag"
+                  tooltip={{ title: "Untagged", desc: "Campaigns with no source tag." }}
+                  progressBar={kpis.totalCount > 0 ? ((kpis.totalCount - kpis.untagged) / kpis.totalCount) * 100 : 0} progressColor="primary" />
+                <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-[hsl(var(--warning))]" />}
+                  label="No Spend Set" value={<span className={kpis.noSpend > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.noSpend}</span>} sub="ROI unknown"
+                  tooltip={{ title: "No Spend Set", desc: "Campaigns where ROI and Profit are unknown." }}
+                  progressBar={kpis.totalCount > 0 ? ((kpis.totalCount - kpis.noSpend) / kpis.totalCount) * 100 : 0} progressColor="warning" />
+              </div>
 
-          {/* Group 2 — Expenses (green border) */}
-          <div className="grid grid-cols-4 gap-3">
-            <KPICard borderColor="hsl(142 71% 45%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-              label="Profit/Sub" value={kpis.profitPerSub !== null
-                ? <span className={`text-[16px] ${kpis.profitPerSub >= 0 ? "text-[hsl(142_71%_45%)]" : "text-destructive"}`}>{fmtC(kpis.profitPerSub)}</span>
-                : "—"} sub="Per acquired subscriber"
-              tooltip={{ title: "Profit/Sub", desc: "Profit generated per acquired subscriber across paid campaigns. The primary scaling metric — higher means each sub earns more than it costs." }} />
-            <KPICard borderColor="hsl(142 71% 45%)" icon={<Tag className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-              label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} sub="Cost per subscriber"
-              tooltip={{ title: "Avg CPL", desc: "Average cost to acquire one subscriber. Compare against LTV/Sub to confirm acquisition is profitable." }} />
-            <KPICard borderColor="hsl(142 71% 45%)" icon={<Star className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-              label="Best Source" value={kpis.bestSource ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.bestSource.name}</span> : "—"}
-              sub={kpis.bestSource ? `${kpis.bestSource.roi.toLocaleString("en-US", { maximumFractionDigits: 0 })}% ROI` : "No spend data"}
-              tooltip={{ title: "Best Source", desc: "Traffic source with the highest return on spend. Scale budget here first before expanding to other sources." }} />
-            <KPICard borderColor="hsl(142 71% 45%)" icon={<BarChart3 className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-              label="Campaigns Tracked" value={<>{kpis.trackedCount} <span className="text-[14px] font-normal text-muted-foreground">of {kpis.totalCount.toLocaleString()}</span></>}
-              sub="Have spend set" progressBar={kpis.trackedPct} progressColor="success"
-              tooltip={{ title: "Campaigns Tracked", desc: "How many campaigns have spend entered. Until spend is set ROI and Profit show blank. Use CSV bulk import to fill quickly." }} />
-          </div>
+              <div className="h-px bg-border mx-0" style={{ margin: "10px 0" }} />
 
-          {/* Divider */}
-          <div className="h-px bg-border" />
+              {/* Group 2 — Expenses (green border) */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", alignItems: "stretch" }}>
+                <KPICard borderColor="hsl(142 71% 45%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
+                  label="Profit/Sub" value={kpis.profitPerSub !== null
+                    ? <span className={`text-[16px] ${kpis.profitPerSub >= 0 ? "text-[hsl(142_71%_45%)]" : "text-destructive"}`}>{fmtC(kpis.profitPerSub)}</span>
+                    : "—"} sub="Per acquired subscriber"
+                  tooltip={{ title: "Profit/Sub", desc: "Profit generated per acquired subscriber across paid campaigns." }} />
+                <KPICard borderColor="hsl(142 71% 45%)" icon={<Tag className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
+                  label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} sub="Cost per subscriber"
+                  tooltip={{ title: "Avg CPL", desc: "Average cost to acquire one subscriber." }} />
+                <KPICard borderColor="hsl(142 71% 45%)" icon={<Star className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
+                  label="Best Source" value={kpis.bestSource ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.bestSource.name}</span> : "—"}
+                  sub={kpis.bestSource ? `${kpis.bestSource.roi.toLocaleString("en-US", { maximumFractionDigits: 0 })}% ROI` : "No spend data"}
+                  tooltip={{ title: "Best Source", desc: "Traffic source with the highest return on spend." }} />
+                <KPICard borderColor="hsl(142 71% 45%)" icon={<BarChart3 className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
+                  label="Campaigns Tracked" value={<>{kpis.trackedCount} <span className="text-[14px] font-normal text-muted-foreground">of {kpis.totalCount.toLocaleString()}</span></>}
+                  sub="Have spend set" progressBar={kpis.trackedPct} progressColor="success"
+                  tooltip={{ title: "Campaigns Tracked", desc: "How many campaigns have spend entered." }} />
+              </div>
 
-          {/* Group 3 — Media Buyers (purple border) */}
-          <div className="grid grid-cols-3 gap-3">
-            <KPICard borderColor="hsl(263 70% 50%)" icon={<Star className="h-4 w-4 text-[hsl(263_70%_50%)]" />}
-              label="Best Source by Profit/Sub"
-              value={kpis.bestProfitPerSub ? <span className="text-[hsl(263_70%_50%)] text-[15px]">{kpis.bestProfitPerSub.name}</span> : "—"}
-              sub={kpis.bestProfitPerSub ? `${fmtC(kpis.bestProfitPerSub.value)} profit per sub` : "No spend data"}
-              tooltip={{ title: "Best Source by Profit/Sub", desc: "Traffic source delivering the highest profit per subscriber acquired. Best value per dollar spent." }} />
-            <KPICard borderColor="hsl(263 70% 50%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-              label="Most Profitable Source"
-              value={kpis.mostProfitable ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.mostProfitable.name}</span> : "—"}
-              sub={kpis.mostProfitable ? `${fmtC(kpis.mostProfitable.value)} total profit` : "No spend data"}
-              tooltip={{ title: "Most Profitable Source", desc: "Source generating the highest absolute profit. High total profit means volume AND good margins — scale it." }} />
-            <KPICard borderColor="hsl(263 70% 50%)" icon={<Target className="h-4 w-4 text-[hsl(var(--warning))]" />}
-              label="Worst Source"
-              value={kpis.worstSource
-                ? <span className={kpis.worstSource.roi < 0 ? "text-destructive text-[15px]" : "text-[hsl(var(--warning))] text-[15px]"}>{kpis.worstSource.name}</span>
-                : "—"}
-              sub={kpis.worstSource
-                ? (kpis.worstSource.roi < 0 ? `Negative ROI — stop spend` : `${fmtP(kpis.worstSource.roi)} ROI — monitor closely`)
-                : "No spend data"}
-              tooltip={{ title: "Worst Source", desc: "Source with the lowest or negative ROI. If negative you are losing money on this traffic. Review or stop spend immediately." }} />
-          </div>
+              <div className="h-px bg-border mx-0" style={{ margin: "10px 0" }} />
+
+              {/* Group 3 — Media Buyers (purple border) */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>
+                <KPICard borderColor="hsl(263 70% 50%)" icon={<Star className="h-4 w-4 text-[hsl(263_70%_50%)]" />}
+                  label="Best Source by Profit/Sub"
+                  value={kpis.bestProfitPerSub ? <span className="text-[hsl(263_70%_50%)] text-[15px]">{kpis.bestProfitPerSub.name}</span> : "—"}
+                  sub={kpis.bestProfitPerSub ? `${fmtC(kpis.bestProfitPerSub.value)} profit per sub` : "No spend data"}
+                  tooltip={{ title: "Best Source by Profit/Sub", desc: "Traffic source delivering the highest profit per subscriber acquired." }} />
+                <KPICard borderColor="hsl(263 70% 50%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
+                  label="Most Profitable Source"
+                  value={kpis.mostProfitable ? <span className="text-[hsl(142_71%_45%)] text-[15px]">{kpis.mostProfitable.name}</span> : "—"}
+                  sub={kpis.mostProfitable ? `${fmtC(kpis.mostProfitable.value)} total profit` : "No spend data"}
+                  tooltip={{ title: "Most Profitable Source", desc: "Source generating the highest absolute profit." }} />
+                <KPICard borderColor="hsl(263 70% 50%)" icon={<Target className="h-4 w-4 text-[hsl(var(--warning))]" />}
+                  label="Worst Source"
+                  value={kpis.worstSource
+                    ? <span className={kpis.worstSource.roi < 0 ? "text-destructive text-[15px]" : "text-[hsl(var(--warning))] text-[15px]"}>{kpis.worstSource.name}</span>
+                    : "—"}
+                  sub={kpis.worstSource
+                    ? (kpis.worstSource.roi < 0 ? `Negative ROI — stop spend` : `${fmtP(kpis.worstSource.roi)} ROI — monitor closely`)
+                    : "No spend data"}
+                  tooltip={{ title: "Worst Source", desc: "Source with the lowest or negative ROI." }} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ═══ FILTER BAR ═══ */}
@@ -648,18 +545,20 @@ export default function CampaignsPage() {
           <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Sources</option>
-            {activeView === "expenses" && (<><option value="has_spend">Has Spend</option><option value="no_spend">No Spend</option></>)}
-            {activeView === "media" && (<option value="untagged">Untagged Only</option>)}
             {sourceOptions.map((src) => (<option key={src} value={src}>{src}</option>))}
           </select>
-          <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden">
-            {(["all", "active", "zero"] as ClickFilter[]).map((f) => (
-              <button key={f} onClick={() => { setClickFilter(f); setPage(1); }}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${clickFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                {f === "all" ? "Show All" : f === "active" ? "Active Only" : "Zero Clicks"}
-              </button>
-            ))}
-          </div>
+          <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
+            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
+            <option value="all">All Campaigns</option>
+            <option value="active">Active Only</option>
+            <option value="zero">Zero Clicks</option>
+            <option value="no_spend">No Spend Set</option>
+            <option value="untagged">Untagged</option>
+            <option value="SCALE">SCALE</option>
+            <option value="WATCH">WATCH</option>
+            <option value="KILL">KILL</option>
+            <option value="DEAD">DEAD</option>
+          </select>
           {activeFilterCount > 0 && (
             <button onClick={clearAllFilters} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
               <span className="px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-bold">{activeFilterCount}</span> filters · <X className="h-3 w-3" /> clear
@@ -696,7 +595,7 @@ export default function CampaignsPage() {
               <div className="bg-card border border-border rounded-2xl p-16 text-center">
                 <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-foreground font-medium mb-1">No tracking links found</p>
-                <p className="text-sm text-muted-foreground">{searchQuery || clickFilter !== "all" || ageFilter !== "all" || accountFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
+                <p className="text-sm text-muted-foreground">{searchQuery || campaignFilter !== "all" || ageFilter !== "all" || accountFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -739,22 +638,8 @@ export default function CampaignsPage() {
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
                         <SortHeader label="ROI" sortKeyName="roi" width="70px" />
                         <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "80px" }}>Status</th>
-                        {/* View-specific columns */}
-                        {activeView === "tracking" && (
-                          <>
-                            <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
-                            <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
-                          </>
-                        )}
-                        {activeView === "expenses" && (
-                          <>
-                            <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>Type</th>
-                            <SortHeader label="Spend" sortKeyName="cost_total" width="80px" />
-                          </>
-                        )}
-                        {activeView === "media" && (
-                          <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
-                        )}
+                        <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />
+                        <th className="h-9 px-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "60px" }}>CVR</th>
                         <th className="h-9 px-2 text-center text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap" style={{ width: "28px" }}></th>
                       </tr>
                     </thead>
@@ -772,30 +657,30 @@ export default function CampaignsPage() {
                         const statusStyle = STATUS_STYLES[displayStatus] || STATUS_STYLES["NO SPEND"];
                         const sourceTag = link.source_tag || null;
                         const sourceRule = tagRules.find((r: any) => r.tag_name === sourceTag);
-                        const borderColor = status === "SCALE" ? "#16a34a" : (status === "KILL" || status === "DEAD") ? "#dc2626" : "transparent";
                         const isExpanded = expandedRow === link.id;
+                        const agePill = getAgePill(link.daysSinceCreated);
 
                         return (
                           <React.Fragment key={link.id}>
                           <tr
-                            className={`group border-b transition-colors cursor-pointer ${isExpanded ? "bg-[hsl(var(--primary)/0.06)]" : "hover:bg-[hsl(var(--primary)/0.03)]"} ${!hasCost ? "opacity-[0.85]" : ""}`}
-                            style={{ borderBottomColor: "#f1f5f9", borderLeftWidth: "3px", borderLeftColor: borderColor }}
-                            onClick={() => handleRowClick(link)}>
+                            onClick={() => handleRowClick(link)}
+                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "bg-[hsl(var(--primary)/0.04)]" : "hover:bg-secondary/30"}`}
+                          >
                             <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                             </td>
                             <td className="px-2 py-2" style={{ maxWidth: "200px" }}>
-                              <p className="font-semibold text-foreground text-[13px] truncate">{link.campaign_name || "Unnamed"}</p>
-                              <a href={link.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[10px] text-muted-foreground hover:text-primary truncate block">{link.url}</a>
+                              <p className="text-[12px] font-semibold text-foreground truncate" title={link.campaign_name}>{link.campaign_name || "—"}</p>
+                              <p className="text-[10px] text-muted-foreground truncate" title={link.url}>{link.url}</p>
                             </td>
                             <td className="px-2 py-2">
                               <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white" style={{ backgroundColor: modelColor }}>{initials}</div>
-                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">@{username}</span>
+                                <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
+                                <span className="text-[11px] text-muted-foreground truncate">@{username}</span>
                               </div>
                             </td>
-                            <td className="px-2 py-2 relative" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => setSourceDropdownId(sourceDropdownId === link.id ? null : link.id)} className="w-full text-left">
+                            <td className="px-2 py-2 relative" onClick={(e) => { e.stopPropagation(); setSourceDropdownId(sourceDropdownId === link.id ? null : link.id); }}>
+                              <button className="text-left">
                                 {sourceTag && sourceRule ? (
                                   <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-medium">
                                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sourceRule.color }} />
@@ -836,33 +721,12 @@ export default function CampaignsPage() {
                               <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
                                 style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
                             </td>
-                            {/* View-specific cells */}
-                            {activeView === "tracking" && (
-                              <>
-                                <td className="px-2 py-2 font-mono text-[12px]">
-                                  {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
-                                </td>
-                                <td className="px-2 py-2 font-mono text-[12px]">
-                                  {link.clicks > 100 && link.subscribers > 0 ? `${((link.subscribers / link.clicks) * 100).toFixed(1)}%` : <span className="text-muted-foreground">—</span>}
-                                </td>
-                              </>
-                            )}
-                            {activeView === "expenses" && (
-                              <>
-                                <td className="px-2 py-2">
-                                  {link.cost_type ? <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${link.cost_type === "CPL" ? "bg-primary/15 text-primary" : link.cost_type === "CPC" ? "bg-[hsl(217_91%_60%/0.15)] text-[hsl(217_91%_60%)]" : "bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)]"}`}>{link.cost_type}</span> : <span className="text-muted-foreground text-[10px]">—</span>}
-                                </td>
-                                <td className="px-2 py-2 text-right font-mono text-[12px]">
-                                  {hasCost ? fmtC(costTotal) : <span className="text-muted-foreground">—</span>}
-                                </td>
-                              </>
-                            )}
-                            {activeView === "media" && (
-                              <td className="px-2 py-2 font-mono text-[12px]">
-                                {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            {/* Chevron */}
+                            <td className="px-2 py-2 font-mono text-[12px]">
+                              {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
+                            </td>
+                            <td className="px-2 py-2 font-mono text-[12px]">
+                              {link.clicks > 100 && link.subscribers > 0 ? `${((link.subscribers / link.clicks) * 100).toFixed(1)}%` : <span className="text-muted-foreground">—</span>}
+                            </td>
                             <td className="px-2 py-2 w-7 text-center">
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             </td>
@@ -926,11 +790,10 @@ export default function CampaignsPage() {
                                 setNoteText("");
                               } catch (err: any) { toast.error(err.message); }
                             };
-                            const elSourceRule = tagRules.find((r: any) => r.tag_name === el.source_tag);
                             return (
                               <tr>
                                 <td colSpan={99} className="p-0">
-                                  <div className="bg-[#f8fbff] border-l-[3px] border-l-primary px-4 py-3.5">
+                                  <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-3.5">
                                     <div className="grid grid-cols-4 gap-4">
                                       {/* Col 1: Performance */}
                                       <div>
@@ -1080,7 +943,7 @@ function KPICard({ borderColor, icon, label, value, sub, tooltip, progressBar, p
   tooltip: { title: string; desc: string }; progressBar?: number; progressColor?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-4 shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}>
+    <div className="bg-card border border-border rounded-2xl shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: borderColor, padding: "14px 16px" }}>
       <div className="flex items-center gap-2 mb-2">
         <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">{icon}</div>
         <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
