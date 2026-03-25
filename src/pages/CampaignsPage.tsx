@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
-import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { TagBadge } from "@/components/TagBadge";
 import { Progress } from "@/components/ui/progress";
@@ -12,16 +10,16 @@ import {
 import {
   fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync,
   clearTrackingLinkSpend, fetchSourceTagRules, setTrackingLinkSourceTag,
-  bulkSetSourceTag, fetchAccounts, runAutoTag, fetchDailyMetrics,
+  bulkSetSourceTag, fetchAccounts, fetchDailyMetrics,
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, Pencil, X, Tag,
-  Users, Activity, Info, Wand2, BarChart3, Target, ChevronRight as ChevronR,
-  Upload, Plus, User
+  RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, X, Tag,
+  Users, Activity, Info, BarChart3, Target, ChevronRight as ChevronR,
+  Upload, Plus
 } from "lucide-react";
 
 // ─── Types ───
@@ -104,20 +102,16 @@ export default function CampaignsPage() {
   const [perPage, setPerPage] = useState(25);
 
   // ─── Selection/interaction state ───
-  const [selectedLink, setSelectedLink] = useState<any>(null);
-  const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [csvOpen, setCsvOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
-  const [clearConfirmId, setClearConfirmId] = useState<string | null>(null);
   const [sourceDropdownId, setSourceDropdownId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [showBulkTagDropdown, setShowBulkTagDropdown] = useState(false);
-  const [detailPanelLink, setDetailPanelLink] = useState<any>(null);
-  const [actionPanel, setActionPanel] = useState<{ link: any; action: "spend" | "source" | "buyer" } | null>(null);
-  const [buyerName, setBuyerName] = useState("");
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
+  const [buyerName, setBuyerName] = useState("");
+  const [noteText, setNoteText] = useState("");
 
   // Media buyers
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
@@ -176,14 +170,7 @@ export default function CampaignsPage() {
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
-  const autoTagMutation = useMutation({
-    mutationFn: runAutoTag,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      toast.success("Auto-tagging complete");
-    },
-    onError: (err: any) => toast.error(`Auto-tag failed: ${err.message}`),
-  });
+  // (Auto-tag removed)
 
   const exportCampaignsCsv = useCallback(() => {
     const header = "campaign_name,account_username,clicks,subscribers,ltv,spend,profit,profit_per_sub,roi,status,source_tag";
@@ -502,11 +489,18 @@ export default function CampaignsPage() {
   );
 
   const handleRowClick = (link: any) => {
-    setDetailPanelLink(detailPanelLink?.id === link.id ? null : link);
+    if (expandedRow === link.id) {
+      setExpandedRow(null);
+    } else {
+      setExpandedRow(link.id);
+      setSpendType(link.cost_type || "CPL");
+      setSpendValue(link.cost_value ? String(link.cost_value) : "");
+      setBuyerName("");
+      setNoteText("");
+    }
   };
 
   const onSpendSaved = () => {
-    setCostSlideIn(null);
     queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
     queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
     toast.success("Spend saved — ROI and Profit updated");
@@ -544,12 +538,7 @@ export default function CampaignsPage() {
             <p className="text-sm text-muted-foreground mt-0.5">{sorted.length.toLocaleString()} tracking links across all models</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => autoTagMutation.mutate()} disabled={autoTagMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50">
-              <Wand2 className={`h-4 w-4 ${autoTagMutation.isPending ? "animate-spin" : ""}`} />
-              Auto-Tag
-            </button>
-            <button onClick={exportCampaignsCsv}
+           <button onClick={exportCampaignsCsv}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
             </button>
