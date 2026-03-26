@@ -367,9 +367,9 @@ Deno.serve(async (req) => {
       console.error(`Tracking links error for ${displayName}: ${err.message}`)
     }
 
-    // ── Sync transactions (batched) ──
+    // ── Sync transactions (batched, limited to 10 pages) ──
     try {
-      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey, 50)
+      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey, 10)
       console.log(`Got ${txItems.length} transactions for ${displayName}`)
 
       const txPayloads: Record<string, any>[] = []
