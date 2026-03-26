@@ -248,9 +248,9 @@ export default function CampaignsPage() {
       const subs = l.subscribers || 0;
       const hasCost = Number(l.cost_total || 0) > 0;
       const profitPerSub = subs > 0 && hasCost ? Number(l.profit || 0) / subs : null;
-      return { ...l, isActive, daysSinceActivity, subsDay, daysSinceCreated, profitPerSub };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub };
     });
-  }, [links, manualOverrides]);
+  }, [links, manualOverrides, dailyMetrics]);
 
   // ─── Source filter options ───
   const sourceOptions = useMemo(() => {
