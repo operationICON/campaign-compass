@@ -51,6 +51,56 @@ async function apiFetchAllPages(path: string, apiKey: string, maxPages = 100): P
   return allItems
 }
 
+// Marker-based pagination for subscribers/spenders endpoints
+async function apiFetchMarkerPaginated(path: string, apiKey: string, maxPages = 200): Promise<any[]> {
+  const allItems: any[] = []
+  let marker: string | null = null
+  let page = 0
+
+  while (page < maxPages) {
+    page++
+    let url = `${API_BASE}${path}${path.includes('?') ? '&' : '?'}limit=50`
+    if (marker) url += `&after=${marker}`
+
+    const res = await fetch(url, { headers: apiHeaders(apiKey) })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`API ${path} returned ${res.status}: ${body.substring(0, 200)}`)
+    }
+    const json = await res.json()
+
+    const data = json.data
+    if (data && Array.isArray(data.list)) {
+      allItems.push(...data.list)
+      if (!data.hasMore || data.list.length === 0) break
+      marker = data.list[data.list.length - 1]?.id?.toString() ?? null
+      if (!marker) break
+    } else if (Array.isArray(data)) {
+      allItems.push(...data)
+      break
+    } else if (Array.isArray(json)) {
+      allItems.push(...json)
+      break
+    } else {
+      break
+    }
+  }
+
+  return allItems
+}
+
+function parseDurationToDays(duration: string | null | undefined): number {
+  if (!duration) return 0
+  const lower = duration.toLowerCase()
+  const num = parseInt(lower)
+  if (isNaN(num)) return 0
+  if (lower.includes('year')) return num * 365
+  if (lower.includes('month')) return num * 30
+  if (lower.includes('week')) return num * 7
+  if (lower.includes('day')) return num
+  return 0
+}
+
 function calculateCostMetrics(clicks: number, subscribers: number, revenue: number, costType: string | null, costValue: number) {
   let cost_total = 0
   let cvr = clicks > 0 ? subscribers / clicks : 0
