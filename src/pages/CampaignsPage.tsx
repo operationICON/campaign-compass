@@ -167,6 +167,7 @@ export default function CampaignsPage() {
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
+  const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   
   const tagColorMap = useTagColors();
 
@@ -227,13 +228,29 @@ export default function CampaignsPage() {
       const isNaturallyActive = (l.clicks > 0 || Number(l.revenue) > 0) && daysSinceActivity <= 30;
       const hasOverride = manualOverrides[l.id] !== undefined;
       const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
-      const subsDay = daysSinceCreated >= 1 && l.subscribers > 0 ? l.subscribers / daysSinceCreated : null;
+      // Delta-based subs/day from daily_metrics snapshots
+      const linkMetrics = dailyMetrics
+        .filter((m: any) => m.tracking_link_id === l.id)
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      let subsDay: number | null = null;
+      let subsDayLabel: string | null = null;
+      if (linkMetrics.length >= 2) {
+        const latest = linkMetrics[0];
+        const prev = linkMetrics[1];
+        const days = Math.max(1, differenceInDays(new Date(latest.date), new Date(prev.date)));
+        const delta = (latest.subscribers || 0) - (prev.subscribers || 0);
+        subsDay = delta > 0 ? delta / days : 0;
+      } else if (linkMetrics.length === 1) {
+        subsDayLabel = "Needs 2nd sync";
+      } else {
+        subsDayLabel = "Sync needed";
+      }
       const subs = l.subscribers || 0;
       const hasCost = Number(l.cost_total || 0) > 0;
       const profitPerSub = subs > 0 && hasCost ? Number(l.profit || 0) / subs : null;
-      return { ...l, isActive, daysSinceActivity, subsDay, daysSinceCreated, profitPerSub };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub };
     });
-  }, [links, manualOverrides]);
+  }, [links, manualOverrides, dailyMetrics]);
 
   // ─── Source filter options ───
   const sourceOptions = useMemo(() => {
@@ -887,7 +904,11 @@ export default function CampaignsPage() {
                             )}
                             {col("subs_day") && (
                               <td className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
+                                {link.subsDay !== null && link.subsDay > 0
+                                  ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span>
+                                  : link.subsDayLabel
+                                    ? <span className="text-muted-foreground text-[10px]">{link.subsDayLabel}</span>
+                                    : <span className="text-muted-foreground">0/day</span>}
                               </td>
                             )}
                             {col("created") && (() => {
@@ -1016,7 +1037,7 @@ export default function CampaignsPage() {
                                             { l: "Clicks", v: clicksEl.toLocaleString() },
                                             { l: "Subscribers", v: subsEl.toLocaleString() },
                                             { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "" },
-                                            { l: "Subs/Day", v: el.subsDay ? `${Math.round(el.subsDay)}/day` : "—", c: el.subsDay ? "text-primary" : "" },
+                                            { l: "Subs/Day", v: el.subsDay !== null && el.subsDay > 0 ? `${Math.round(el.subsDay)}/day` : el.subsDayLabel || "0/day", c: el.subsDay ? "text-primary" : "" },
                                             { l: "LTV", v: fmtC(revEl), c: "text-primary font-bold" },
                                           ].map(r => (
                                             <div key={r.l} className="flex justify-between">

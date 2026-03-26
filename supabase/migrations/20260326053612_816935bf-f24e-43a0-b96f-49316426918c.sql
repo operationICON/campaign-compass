@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS daily_metrics_link_date_uniq ON public.daily_metrics (tracking_link_id, date);
