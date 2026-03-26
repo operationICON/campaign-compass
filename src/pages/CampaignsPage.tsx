@@ -314,7 +314,7 @@ export default function CampaignsPage() {
         case "campaign_name": aVal = (a.campaign_name || "").toLowerCase(); bVal = (b.campaign_name || "").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "source_tag": aVal = (a.source_tag || "zzz").toLowerCase(); bVal = (b.source_tag || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
-        case "revenue": aVal = Number(a.revenue); bVal = Number(b.revenue); break;
+        case "revenue": aVal = Number(a.ltv || a.revenue); bVal = Number(b.ltv || b.revenue); break;
         case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
         case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
         case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
@@ -352,7 +352,7 @@ export default function CampaignsPage() {
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
-    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
@@ -367,7 +367,7 @@ export default function CampaignsPage() {
     const totalCount = scopedLinks.length;
 
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
     const expSpend = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
     const expSubs = withSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const profitPerSub = expSpend > 0 && expSubs > 0 ? (expRev - expSpend) / expSubs : null;
@@ -380,7 +380,7 @@ export default function CampaignsPage() {
     withSpend.forEach((l: any) => {
       const tag = l.source_tag || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      bySource[tag].rev += Number(l.revenue || 0);
+      bySource[tag].rev += Number(l.ltv || l.revenue || 0);
       bySource[tag].spend += Number(l.cost_total || 0);
       bySource[tag].subs += (l.subscribers || 0);
       bySource[tag].profit += Number(l.profit || 0);
@@ -461,7 +461,7 @@ export default function CampaignsPage() {
   const totalExpenses = filtered.reduce((s: number, l: any) => s + (Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0), 0);
   const totalProfitAll = filtered.reduce((s: number, l: any) => {
     const ct = Number(l.cost_total || 0);
-    return ct > 0 ? s + (Number(l.revenue || 0) - ct) : s;
+    return ct > 0 ? s + (Number(l.ltv || l.revenue || 0) - ct) : s;
   }, 0);
   const hasAnyExpenses = totalExpenses > 0;
   const kpiSummary = (
@@ -944,7 +944,7 @@ export default function CampaignsPage() {
                             const el = link;
                             const subsEl = el.subscribers || 0;
                             const clicksEl = el.clicks || 0;
-                            const revEl = Number(el.revenue || 0);
+                            const revEl = Number(el.ltv || el.revenue || 0);
                             const hasCostEl = Number(el.cost_total || 0) > 0;
                             const numVal = parseFloat(spendValue);
                             const validVal = !isNaN(numVal) && numVal > 0;
@@ -1039,6 +1039,7 @@ export default function CampaignsPage() {
                                             { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "" },
                                             { l: "Subs/Day", v: el.subsDay !== null && el.subsDay > 0 ? `${Math.round(el.subsDay)}/day` : el.subsDayLabel || "0/day", c: el.subsDay ? "text-primary" : "" },
                                             { l: "LTV", v: fmtC(revEl), c: "text-primary font-bold" },
+                                            { l: "Spender Rate", v: el.spender_rate ? `${Number(el.spender_rate).toFixed(1)}%` : "—", c: Number(el.spender_rate || 0) > 10 ? "text-primary" : Number(el.spender_rate || 0) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive" },
                                           ].map(r => (
                                             <div key={r.l} className="flex justify-between">
                                               <span className="text-muted-foreground">{r.l}</span>

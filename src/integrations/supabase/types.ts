@@ -342,6 +342,105 @@ export type Database = {
           },
         ]
       }
+      fan_attributions: {
+        Row: {
+          account_id: string | null
+          created_at: string | null
+          fan_id: string
+          fan_username: string | null
+          id: string
+          is_active: boolean | null
+          is_expired: boolean | null
+          subscribe_date_approx: string | null
+          subscribed_on_duration: string | null
+          tracking_link_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string | null
+          fan_id: string
+          fan_username?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_expired?: boolean | null
+          subscribe_date_approx?: string | null
+          subscribed_on_duration?: string | null
+          tracking_link_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string | null
+          fan_id?: string
+          fan_username?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_expired?: boolean | null
+          subscribe_date_approx?: string | null
+          subscribed_on_duration?: string | null
+          tracking_link_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fan_attributions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fan_attributions_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fan_spend: {
+        Row: {
+          account_id: string | null
+          calculated_at: string | null
+          created_at: string | null
+          fan_id: string
+          id: string
+          revenue: number | null
+          tracking_link_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          calculated_at?: string | null
+          created_at?: string | null
+          fan_id: string
+          id?: string
+          revenue?: number | null
+          tracking_link_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          calculated_at?: string | null
+          created_at?: string | null
+          fan_id?: string
+          id?: string
+          revenue?: number | null
+          tracking_link_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fan_spend_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fan_spend_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manual_notes: {
         Row: {
           account_id: string | null
@@ -583,6 +682,8 @@ export type Database = {
           cvr: number | null
           external_tracking_link_id: string | null
           id: string
+          ltv: number | null
+          ltv_per_sub: number | null
           manually_tagged: boolean
           media_buyer: string | null
           profit: number | null
@@ -592,7 +693,9 @@ export type Database = {
           roi: number | null
           source: string | null
           source_tag: string | null
+          spender_rate: number | null
           spenders: number
+          spenders_count: number | null
           status: string | null
           subscribers: number
           updated_at: string
@@ -616,6 +719,8 @@ export type Database = {
           cvr?: number | null
           external_tracking_link_id?: string | null
           id?: string
+          ltv?: number | null
+          ltv_per_sub?: number | null
           manually_tagged?: boolean
           media_buyer?: string | null
           profit?: number | null
@@ -625,7 +730,9 @@ export type Database = {
           roi?: number | null
           source?: string | null
           source_tag?: string | null
+          spender_rate?: number | null
           spenders?: number
+          spenders_count?: number | null
           status?: string | null
           subscribers?: number
           updated_at?: string
@@ -649,6 +756,8 @@ export type Database = {
           cvr?: number | null
           external_tracking_link_id?: string | null
           id?: string
+          ltv?: number | null
+          ltv_per_sub?: number | null
           manually_tagged?: boolean
           media_buyer?: string | null
           profit?: number | null
@@ -658,7 +767,9 @@ export type Database = {
           roi?: number | null
           source?: string | null
           source_tag?: string | null
+          spender_rate?: number | null
           spenders?: number
+          spenders_count?: number | null
           status?: string | null
           subscribers?: number
           updated_at?: string
