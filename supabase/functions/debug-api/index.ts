@@ -31,6 +31,37 @@ Deno.serve(async (req) => {
     try { body = await req.json() } catch { body = null }
   }
 
+  if (body?.action === 'advanced_endpoint') {
+    const { url } = body
+    if (!url) {
+      return new Response(JSON.stringify({ error: 'Missing url' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    try {
+      const res = await fetch(url, { headers: reqHeaders })
+      const bodyText = await res.text()
+      let bodyParsed: any = null
+      try { bodyParsed = JSON.parse(bodyText) } catch { bodyParsed = bodyText }
+      const responseHeaders: Record<string, string> = {}
+      res.headers.forEach((v, k) => { responseHeaders[k] = v })
+      return new Response(JSON.stringify({
+        url,
+        status: res.status,
+        status_text: res.statusText,
+        headers: responseHeaders,
+        body: bodyParsed,
+      }, null, 2), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    } catch (err: any) {
+      return new Response(JSON.stringify({ url, error: err.message }, null, 2), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+  }
+
   if (body?.action === 'tracking_link_deep_dive') {
     const { account_id, tracking_link_id, endpoint } = body
     if (!account_id || !tracking_link_id || !endpoint) {
