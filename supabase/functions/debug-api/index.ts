@@ -29,6 +29,13 @@ Deno.serve(async (req) => {
     try { body = await req.json() } catch { body = null }
   }
 
+  // Return API key for direct browser calls (internal debug tool only)
+  if (body?.action === 'get_api_key') {
+    return new Response(JSON.stringify({ key: apiKey }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   // Generic endpoint proxy
   if (body?.action === 'call_endpoint') {
     const { url } = body
