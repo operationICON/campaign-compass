@@ -238,6 +238,42 @@ export type Database = {
           },
         ]
       }
+      bulk_import_logs: {
+        Row: {
+          created: number | null
+          created_at: string | null
+          deleted: number | null
+          error_details: Json | null
+          errors: number | null
+          id: string
+          imported_by: string | null
+          matched: number | null
+          total_rows: number | null
+        }
+        Insert: {
+          created?: number | null
+          created_at?: string | null
+          deleted?: number | null
+          error_details?: Json | null
+          errors?: number | null
+          id?: string
+          imported_by?: string | null
+          matched?: number | null
+          total_rows?: number | null
+        }
+        Update: {
+          created?: number | null
+          created_at?: string | null
+          deleted?: number | null
+          error_details?: Json | null
+          errors?: number | null
+          id?: string
+          imported_by?: string | null
+          matched?: number | null
+          total_rows?: number | null
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           account_id: string
@@ -680,6 +716,7 @@ export type Database = {
           cpl_real: number | null
           created_at: string
           cvr: number | null
+          deleted_at: string | null
           external_tracking_link_id: string | null
           id: string
           ltv: number | null
@@ -717,6 +754,7 @@ export type Database = {
           cpl_real?: number | null
           created_at?: string
           cvr?: number | null
+          deleted_at?: string | null
           external_tracking_link_id?: string | null
           id?: string
           ltv?: number | null
@@ -754,6 +792,7 @@ export type Database = {
           cpl_real?: number | null
           created_at?: string
           cvr?: number | null
+          deleted_at?: string | null
           external_tracking_link_id?: string | null
           id?: string
           ltv?: number | null
