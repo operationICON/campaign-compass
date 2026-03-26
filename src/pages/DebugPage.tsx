@@ -69,6 +69,20 @@ export default function DebugPage() {
     onSuccess: setSpendersResult,
   });
 
+  const statsMutation = useMutation({
+    mutationFn: () => fetchAdvanced(
+      `https://app.onlyfansapi.com/api/acct_50601363a87541b0910ffd6c1181314c/tracking-links/2876566/stats?date_start=${statsDateStart}&date_end=${statsDateEnd}`
+    ),
+    onSuccess: setStatsResult,
+  });
+
+  const storedMutation = useMutation({
+    mutationFn: () => fetchAdvanced(
+      `https://app.onlyfansapi.com/api/acct_50601363a87541b0910ffd6c1181314c/stored/tracking-links`
+    ),
+    onSuccess: setStoredResult,
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-5">
