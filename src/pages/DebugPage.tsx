@@ -36,6 +36,15 @@ export default function DebugPage() {
   const [subsResult, setSubsResult] = useState<any>(null);
   const [spendersResult, setSpendersResult] = useState<any>(null);
 
+  // Advanced endpoint state
+  const now = new Date();
+  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const today = format(now, "yyyy-MM-dd");
+  const [statsDateStart, setStatsDateStart] = useState(firstOfMonth);
+  const [statsDateEnd, setStatsDateEnd] = useState(today);
+  const [statsResult, setStatsResult] = useState<any>(null);
+  const [storedResult, setStoredResult] = useState<any>(null);
+
   // Fetch accounts for dropdown
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
