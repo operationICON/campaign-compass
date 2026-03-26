@@ -178,7 +178,8 @@ export async function updateSyncSetting(key: string, value: string) {
 export async function triggerSync(
   accountId?: string,
   force = false,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  testLinkId?: string
 ) {
   // Step 1: Sync accounts (fast — avatars, metadata)
   onProgress?.('Syncing accounts...');
@@ -198,13 +199,14 @@ export async function triggerSync(
 
   for (let i = 0; i < accountsToSync.length; i++) {
     const acc = accountsToSync[i];
-    onProgress?.(`Syncing ${acc.display_name} (${i + 1}/${accountsToSync.length})...`);
+    onProgress?.(`Syncing ${acc.display_name} (${i + 1}/${accountsToSync.length})${testLinkId ? ` [test link ${testLinkId}]` : ''}...`);
     try {
       const res = await supabase.functions.invoke("sync-tracking", {
         body: {
           account_id: acc.id,
           onlyfans_account_id: acc.onlyfans_account_id,
           display_name: acc.display_name,
+          ...(testLinkId ? { test_link_id: testLinkId } : {}),
         },
       });
       results.push({ account: acc.display_name, status: 'success', data: res.data });
