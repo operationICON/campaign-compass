@@ -1037,7 +1037,7 @@ export default function CampaignsPage() {
                                             { l: "Clicks", v: clicksEl.toLocaleString() },
                                             { l: "Subscribers", v: subsEl.toLocaleString() },
                                             { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "" },
-                                            { l: "Subs/Day", v: el.subsDay ? `${Math.round(el.subsDay)}/day` : "—", c: el.subsDay ? "text-primary" : "" },
+                                            { l: "Subs/Day", v: el.subsDay !== null && el.subsDay > 0 ? `${Math.round(el.subsDay)}/day` : el.subsDayLabel || "0/day", c: el.subsDay ? "text-primary" : "" },
                                             { l: "LTV", v: fmtC(revEl), c: "text-primary font-bold" },
                                           ].map(r => (
                                             <div key={r.l} className="flex justify-between">
