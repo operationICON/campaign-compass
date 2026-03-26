@@ -9,12 +9,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BulkEditCsvModal } from "@/components/audit/BulkEditCsvModal";
-import { ImportCsvModal } from "@/components/audit/ImportCsvModal";
 import { ExportCampaignsCsvButton } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
-  ShieldCheck, Download, FileSpreadsheet, Upload, Trash2, RotateCcw,
+  ShieldCheck, Upload, Trash2, RotateCcw,
   AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
@@ -44,8 +42,6 @@ export default function AuditPage() {
   const queryClient = useQueryClient();
   const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const [bulkEditOpen, setBulkEditOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deletedOpen, setDeletedOpen] = useState(false);
@@ -61,7 +57,10 @@ export default function AuditPage() {
   ), [activeLinks]);
 
   const dead = useMemo(() => activeLinks.filter((l: any) =>
-    (l.clicks > 0 || l.subscribers > 0) && l.calculated_at && new Date(l.calculated_at) < thirtyDaysAgo
+    (l.clicks > 0 || l.subscribers > 0) && (
+      (l.calculated_at && new Date(l.calculated_at) < thirtyDaysAgo) ||
+      (!l.calculated_at && new Date(l.created_at) < thirtyDaysAgo)
+    )
   ), [activeLinks]);
 
   const missingSource = useMemo(() => activeLinks.filter((l: any) =>
@@ -202,8 +201,6 @@ export default function AuditPage() {
           <div className="flex items-center gap-2">
             <RefreshButton queryKeys={["audit_all_links"]} />
             <ExportCampaignsCsvButton trackingLinks={activeLinks} accounts={accounts} />
-            <Button size="sm" onClick={() => setBulkEditOpen(true)}><FileSpreadsheet className="h-4 w-4 mr-1" /> Bulk Edit CSV</Button>
-            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import CSV</Button>
             <Button variant="outline" size="sm" onClick={() => setImportAuditOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import Audit CSV</Button>
           </div>
         </div>
@@ -238,6 +235,10 @@ export default function AuditPage() {
                     <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(zeroActivity.map((l: any) => l.id))} checked={zeroActivity.length > 0 && zeroActivity.every((l: any) => selected.has(l.id))} /></th>
                     <th className="text-left p-2 font-medium">Campaign + URL</th>
                     <th className="text-left p-2 font-medium">Model</th>
+                    <th className="text-left p-2 font-medium">Source</th>
+                    <th className="text-right p-2 font-medium">Clicks</th>
+                    <th className="text-right p-2 font-medium">Subs</th>
+                    <th className="text-right p-2 font-medium">LTV</th>
                     <th className="text-left p-2 font-medium">Created</th>
                     <th className="text-left p-2 font-medium">Age</th>
                     <th className="p-2 w-10"></th>
@@ -249,12 +250,16 @@ export default function AuditPage() {
                       <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
                       <td className="p-2"><div className="font-medium truncate max-w-[250px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[250px]">{l.url}</div></td>
                       <td className="p-2">{modelName(l)}</td>
+                      <td className="p-2">{l.source_tag || "—"}</td>
+                      <td className="p-2 text-right">{l.clicks}</td>
+                      <td className="p-2 text-right">{l.subscribers}</td>
+                      <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>
                       <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>
                       <td className="p-2">{age(l.created_at)}d</td>
                       <td className="p-2"><InlineDeleteBtn id={l.id} /></td>
                     </tr>
                   ))}
-                  {zeroActivity.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No zero-activity campaigns found ✓</td></tr>}
+                  {zeroActivity.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No zero-activity campaigns found ✓</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -271,12 +276,14 @@ export default function AuditPage() {
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(dead.map((l: any) => l.id))} checked={dead.length > 0 && dead.every((l: any) => selected.has(l.id))} /></th>
-                    <th className="text-left p-2 font-medium">Campaign</th>
+                    <th className="text-left p-2 font-medium">Campaign + URL</th>
                     <th className="text-left p-2 font-medium">Model</th>
                     <th className="text-left p-2 font-medium">Source</th>
+                    <th className="text-right p-2 font-medium">Clicks</th>
                     <th className="text-right p-2 font-medium">Subs</th>
                     <th className="text-right p-2 font-medium">LTV</th>
                     <th className="text-left p-2 font-medium">Last Activity</th>
+                    <th className="text-left p-2 font-medium">Days Since</th>
                     <th className="p-2 w-10"></th>
                   </tr>
                 </thead>
@@ -284,16 +291,18 @@ export default function AuditPage() {
                   {dead.map((l: any) => (
                     <tr key={l.id} className="border-t border-border hover:bg-muted/30">
                       <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
-                      <td className="p-2 max-w-[200px] truncate font-medium">{l.campaign_name}</td>
+                      <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>
                       <td className="p-2">{modelName(l)}</td>
                       <td className="p-2">{l.source_tag || "—"}</td>
+                      <td className="p-2 text-right">{l.clicks}</td>
                       <td className="p-2 text-right">{l.subscribers}</td>
                       <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>
                       <td className="p-2">{l.calculated_at ? format(new Date(l.calculated_at), "MMM d") : "—"}</td>
+                      <td className="p-2">{l.calculated_at ? age(l.calculated_at) + "d" : l.created_at ? age(l.created_at) + "d" : "—"}</td>
                       <td className="p-2"><InlineDeleteBtn id={l.id} /></td>
                     </tr>
                   ))}
-                  {dead.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No dead campaigns found ✓</td></tr>}
+                  {dead.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No dead campaigns found ✓</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -308,26 +317,34 @@ export default function AuditPage() {
               <table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left p-2 font-medium">Campaign</th>
+                    <th className="text-left p-2 font-medium">Campaign + URL</th>
                     <th className="text-left p-2 font-medium">Model</th>
                     <th className="text-right p-2 font-medium">Clicks</th>
                     <th className="text-right p-2 font-medium">Subs</th>
                     <th className="text-right p-2 font-medium">LTV</th>
+                    <th className="text-right p-2 font-medium">Subs/Day</th>
+                    <th className="text-left p-2 font-medium">Age</th>
                     <th className="text-left p-2 font-medium">Source</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {missingSource.map((l: any) => (
-                    <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-2 max-w-[200px] truncate font-medium">{l.campaign_name}</td>
-                      <td className="p-2">{modelName(l)}</td>
-                      <td className="p-2 text-right">{l.clicks}</td>
-                      <td className="p-2 text-right">{l.subscribers}</td>
-                      <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>
-                      <td className="p-2"><SourceDropdown link={l} /></td>
-                    </tr>
-                  ))}
-                  {missingSource.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">All campaigns have source tags ✓</td></tr>}
+                  {missingSource.map((l: any) => {
+                    const ageDays = age(l.created_at);
+                    const subsPerDay = ageDays > 0 ? (l.subscribers / ageDays).toFixed(1) : "—";
+                    return (
+                      <tr key={l.id} className="border-t border-border hover:bg-muted/30">
+                        <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>
+                        <td className="p-2">{modelName(l)}</td>
+                        <td className="p-2 text-right">{l.clicks}</td>
+                        <td className="p-2 text-right">{l.subscribers}</td>
+                        <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>
+                        <td className="p-2 text-right">{subsPerDay}</td>
+                        <td className="p-2">{ageDays}d</td>
+                        <td className="p-2"><SourceDropdown link={l} /></td>
+                      </tr>
+                    );
+                  })}
+                  {missingSource.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">All campaigns have source tags ✓</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -342,32 +359,44 @@ export default function AuditPage() {
               <table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left p-2 font-medium">Campaign</th>
+                    <th className="text-left p-2 font-medium">Campaign + URL</th>
                     <th className="text-left p-2 font-medium">Model</th>
                     <th className="text-left p-2 font-medium">Source</th>
                     <th className="text-right p-2 font-medium">Clicks</th>
                     <th className="text-right p-2 font-medium">Subs</th>
                     <th className="text-right p-2 font-medium">LTV</th>
+                    <th className="text-right p-2 font-medium">LTV/Sub</th>
+                    <th className="text-right p-2 font-medium">Subs/Day</th>
+                    <th className="text-right p-2 font-medium">Spender %</th>
                     <th className="p-2 font-medium">Set Spend</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {missingSpend.map((l: any) => (
-                    <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-2 max-w-[200px] truncate font-medium">{l.campaign_name}</td>
-                      <td className="p-2">{modelName(l)}</td>
-                      <td className="p-2">{l.source_tag || "—"}</td>
-                      <td className="p-2 text-right">{l.clicks}</td>
-                      <td className="p-2 text-right">{l.subscribers}</td>
-                      <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>
-                      <td className="p-2">
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.info("Use Bulk Edit CSV to set spend for multiple campaigns at once")}>
-                          <DollarSign className="h-3 w-3 mr-1" /> Set
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {missingSpend.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">All campaigns have spend data ✓</td></tr>}
+                  {missingSpend.map((l: any) => {
+                    const ageDays = age(l.created_at);
+                    const subsPerDay = ageDays > 0 ? (l.subscribers / ageDays).toFixed(1) : "—";
+                    const ltvPerSub = l.subscribers > 0 ? ((l.ltv || l.revenue || 0) / l.subscribers).toFixed(2) : "—";
+                    const spenderRate = l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—";
+                    return (
+                      <tr key={l.id} className="border-t border-border hover:bg-muted/30">
+                        <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>
+                        <td className="p-2">{modelName(l)}</td>
+                        <td className="p-2">{l.source_tag || "—"}</td>
+                        <td className="p-2 text-right">{l.clicks}</td>
+                        <td className="p-2 text-right">{l.subscribers}</td>
+                        <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>
+                        <td className="p-2 text-right">${ltvPerSub}</td>
+                        <td className="p-2 text-right">{subsPerDay}</td>
+                        <td className="p-2 text-right">{spenderRate}</td>
+                        <td className="p-2">
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.info("Use Bulk Edit CSV to set spend for multiple campaigns at once")}>
+                            <DollarSign className="h-3 w-3 mr-1" /> Set
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {missingSpend.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">All campaigns have spend data ✓</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -414,8 +443,7 @@ export default function AuditPage() {
         </Collapsible>
       </div>
 
-      <BulkEditCsvModal open={bulkEditOpen} onClose={() => setBulkEditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
-      <ImportCsvModal open={importOpen} onClose={() => setImportOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
+      <ImportAuditCsvModal open={importAuditOpen} onClose={() => setImportAuditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
       <ImportAuditCsvModal open={importAuditOpen} onClose={() => setImportAuditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
     </DashboardLayout>
   );
