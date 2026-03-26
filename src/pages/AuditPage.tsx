@@ -83,9 +83,10 @@ function getActivityStatus(l: any, thirtyDaysAgo: Date) {
 const ZERO_COLS = [
   { key: "campaign", label: "Campaign + URL", locked: true },
   { key: "model", label: "Model" },
+  { key: "activityStatus", label: "Activity Status" },
   { key: "source", label: "Source" },
   { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subs", align: "right" },
+  { key: "subs", label: "Subscribers", align: "right" },
   { key: "ltv", label: "LTV", align: "right" },
   { key: "created", label: "Created" },
   { key: "age", label: "Age" },
@@ -94,36 +95,55 @@ const ZERO_COLS = [
 const DEAD_COLS = [
   { key: "campaign", label: "Campaign + URL", locked: true },
   { key: "model", label: "Model" },
+  { key: "activityStatus", label: "Activity Status" },
   { key: "source", label: "Source" },
   { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subs", align: "right" },
+  { key: "subs", label: "Subscribers", align: "right" },
   { key: "ltv", label: "LTV", align: "right" },
   { key: "lastActivity", label: "Last Activity" },
-  { key: "daysSince", label: "Days Since" },
+  { key: "daysSince", label: "Days Since Last Activity" },
   { key: "delete", label: "", locked: true },
 ];
 const SOURCE_COLS = [
   { key: "campaign", label: "Campaign + URL", locked: true },
   { key: "model", label: "Model" },
+  { key: "activityStatus", label: "Activity Status" },
   { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subs", align: "right" },
+  { key: "subs", label: "Subscribers", align: "right" },
   { key: "ltv", label: "LTV", align: "right" },
+  { key: "ltvSub", label: "LTV/Sub", align: "right" },
   { key: "subsDay", label: "Subs/Day", align: "right" },
   { key: "age", label: "Age" },
   { key: "sourceDropdown", label: "Source", locked: true },
+  { key: "saveBtn", label: "", locked: true },
 ];
 const SPEND_COLS = [
   { key: "campaign", label: "Campaign + URL", locked: true },
   { key: "model", label: "Model" },
+  { key: "activityStatus", label: "Activity Status" },
   { key: "source", label: "Source" },
   { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subs", align: "right" },
+  { key: "subs", label: "Subscribers", align: "right" },
   { key: "ltv", label: "LTV", align: "right" },
   { key: "ltvSub", label: "LTV/Sub", align: "right" },
   { key: "subsDay", label: "Subs/Day", align: "right" },
-  { key: "spenderRate", label: "Spender %", align: "right" },
-  { key: "setSpend", label: "Set Spend", locked: true },
+  { key: "spenderRate", label: "Spender Rate", align: "right" },
+  { key: "setSpend", label: "", locked: true },
 ];
+
+const TAB_COL_MAP: Record<string, typeof ZERO_COLS> = { zero: ZERO_COLS, dead: DEAD_COLS, source: SOURCE_COLS, spend: SPEND_COLS };
+
+function loadHiddenCols(): Record<string, string[]> {
+  try {
+    const raw = localStorage.getItem(LS_COLS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+}
+
+function saveHiddenCols(h: Record<string, string[]>) {
+  localStorage.setItem(LS_COLS_KEY, JSON.stringify(h));
+}
 
 export default function AuditPage() {
   const queryClient = useQueryClient();
