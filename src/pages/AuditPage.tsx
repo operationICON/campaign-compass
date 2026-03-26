@@ -11,6 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BulkEditCsvModal } from "@/components/audit/BulkEditCsvModal";
 import { ImportCsvModal } from "@/components/audit/ImportCsvModal";
+import { ExportCampaignsCsvButton } from "@/components/audit/ExportCampaignsCsv";
+import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
   ShieldCheck, Download, FileSpreadsheet, Upload, Trash2, RotateCcw,
   AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2
@@ -44,6 +46,7 @@ export default function AuditPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deletedOpen, setDeletedOpen] = useState(false);
 
@@ -112,17 +115,7 @@ export default function AuditPage() {
     });
   };
 
-  const exportAll = () => {
-    const header = "campaign_name,account_username,url,source_tag,clicks,subscribers,revenue,ltv,status";
-    const rows = activeLinks.map((l: any) => {
-      const esc = (v: string) => `"${(v || "").replace(/"/g, '""')}"`;
-      return [esc(l.campaign_name || ""), esc(l.accounts?.username || ""), esc(l.url), esc(l.source_tag || ""), l.clicks, l.subscribers, l.revenue, l.ltv || 0, l.status || ""].join(",");
-    });
-    const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "all_campaigns.csv"; a.click();
-    URL.revokeObjectURL(url);
-  };
+  // Export handled by ExportCampaignsCsvButton component
 
   const modelName = (l: any) => l.accounts?.username || l.accounts?.display_name || "—";
   const age = (d: string) => differenceInDays(now, new Date(d));
@@ -208,9 +201,10 @@ export default function AuditPage() {
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton queryKeys={["audit_all_links"]} />
-            <Button variant="outline" size="sm" onClick={exportAll}><Download className="h-4 w-4 mr-1" /> Export All</Button>
+            <ExportCampaignsCsvButton trackingLinks={activeLinks} accounts={accounts} />
             <Button size="sm" onClick={() => setBulkEditOpen(true)}><FileSpreadsheet className="h-4 w-4 mr-1" /> Bulk Edit CSV</Button>
             <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import CSV</Button>
+            <Button variant="outline" size="sm" onClick={() => setImportAuditOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import Audit CSV</Button>
           </div>
         </div>
 
@@ -422,6 +416,7 @@ export default function AuditPage() {
 
       <BulkEditCsvModal open={bulkEditOpen} onClose={() => setBulkEditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
       <ImportCsvModal open={importOpen} onClose={() => setImportOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
+      <ImportAuditCsvModal open={importAuditOpen} onClose={() => setImportAuditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
     </DashboardLayout>
   );
 }

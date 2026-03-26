@@ -1,0 +1,2 @@
+ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS needs_spend BOOLEAN DEFAULT false;
+ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS review_flag BOOLEAN DEFAULT false;

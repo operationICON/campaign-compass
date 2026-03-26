@@ -723,10 +723,12 @@ export type Database = {
           ltv_per_sub: number | null
           manually_tagged: boolean
           media_buyer: string | null
+          needs_spend: boolean | null
           profit: number | null
           revenue: number
           revenue_per_click: number
           revenue_per_subscriber: number
+          review_flag: boolean | null
           roi: number | null
           source: string | null
           source_tag: string | null
@@ -761,10 +763,12 @@ export type Database = {
           ltv_per_sub?: number | null
           manually_tagged?: boolean
           media_buyer?: string | null
+          needs_spend?: boolean | null
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
+          review_flag?: boolean | null
           roi?: number | null
           source?: string | null
           source_tag?: string | null
@@ -799,10 +803,12 @@ export type Database = {
           ltv_per_sub?: number | null
           manually_tagged?: boolean
           media_buyer?: string | null
+          needs_spend?: boolean | null
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
           revenue_per_subscriber?: number
+          review_flag?: boolean | null
           roi?: number | null
           source?: string | null
           source_tag?: string | null
