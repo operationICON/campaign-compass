@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,19 @@ export default function DebugPage() {
   const [history, setHistory] = useState<ApiResponse[]>([]);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [sessionCredits, setSessionCredits] = useState(0);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+
+  // Fetch API key once on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("debug-api", {
+          body: { action: "get_api_key" },
+        });
+        if (!error && data?.key) setApiKey(data.key);
+      } catch {}
+    })();
+  }, []);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -25,26 +38,36 @@ export default function DebugPage() {
   });
 
   const callEndpoint = useCallback(async (url: string) => {
+    if (!apiKey) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("debug-api", {
-        body: { action: "call_endpoint", url },
+      const start = Date.now();
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
       });
-      if (error) throw error;
+      const responseTimeMs = Date.now() - start;
+      const bodyText = await res.text();
+      let bodyParsed: any = null;
+      try { bodyParsed = JSON.parse(bodyText); } catch { bodyParsed = bodyText; }
 
-      const creditsUsed = data?.body?._meta?._credits?.used ?? null;
-      const creditsBalance = data?.body?._meta?._credits?.balance ?? null;
+      const creditsUsed = bodyParsed?._meta?._credits?.used ?? null;
+      const creditsBalance = bodyParsed?._meta?._credits?.balance ?? null;
 
       const response: ApiResponse = {
         id: crypto.randomUUID(),
         timestamp: new Date(),
-        url: data?.url ?? url,
-        status: data?.status ?? 0,
-        status_text: data?.status_text ?? "Unknown",
-        response_time_ms: data?.response_time_ms ?? 0,
+        url,
+        status: res.status,
+        status_text: res.statusText,
+        response_time_ms: responseTimeMs,
         credits_used: creditsUsed,
         credits_balance: creditsBalance,
-        body: data?.body ?? data,
+        body: bodyParsed,
       };
 
       if (creditsBalance !== null) setCreditBalance(creditsBalance);
@@ -69,7 +92,7 @@ export default function DebugPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiKey]);
 
   return (
     <DashboardLayout>
