@@ -188,12 +188,13 @@ export default function CampaignsPage() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => triggerSync(undefined, true, (msg) => toast.info(msg, { id: 'sync-progress' })),
+    mutationFn: (testLinkId?: string) => triggerSync(undefined, true, (msg) => toast.info(msg, { id: 'sync-progress' }), testLinkId),
     onSuccess: (data) => {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["daily_metrics"] });
       setSyncLabel("Synced ✓");
       setTimeout(() => setSyncLabel("Sync Now"), 2000);
     },
