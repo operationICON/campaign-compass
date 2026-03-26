@@ -151,11 +151,12 @@ export default function DashboardPage() {
     const acctIds = new Set(accts.map((a: any) => a.id));
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
     const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
-    const attributedSubs = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const isOverflow = attributedSubs > accountTotalSubs;
-    const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
+    const rawAttributed = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    // Attributed can exceed current subscribers_count (cumulative vs active), cap at total
+    const attributedSubs = Math.min(rawAttributed, accountTotalSubs);
+    const unattributed = accountTotalSubs - attributedSubs;
     const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
-    return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow };
+    return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow: false };
   }, [accounts, links, modelParam, groupFilter]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
