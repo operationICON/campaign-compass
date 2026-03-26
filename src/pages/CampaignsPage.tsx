@@ -494,12 +494,20 @@ export default function CampaignsPage() {
             </button>
             <RefreshButton queryKeys={["tracking_links", "ad_spend", "accounts"]} />
             <button
-              onClick={() => syncMutation.mutate()}
+              onClick={() => syncMutation.mutate(undefined)}
               disabled={syncMutation.isPending}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
               {syncMutation.isPending ? "Syncing..." : syncLabel}
+            </button>
+            <button
+              onClick={() => syncMutation.mutate("2876566")}
+              disabled={syncMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/50 text-primary text-sm font-medium hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+              Test Link 2876566
             </button>
           </div>
         </div>
