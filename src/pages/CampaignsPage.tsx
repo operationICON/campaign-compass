@@ -904,7 +904,11 @@ export default function CampaignsPage() {
                             )}
                             {col("subs_day") && (
                               <td className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.subsDay !== null && link.subsDay > 0 ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span> : <span className="text-muted-foreground">—</span>}
+                                {link.subsDay !== null && link.subsDay > 0
+                                  ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span>
+                                  : link.subsDayLabel
+                                    ? <span className="text-muted-foreground text-[10px]">{link.subsDayLabel}</span>
+                                    : <span className="text-muted-foreground">0/day</span>}
                               </td>
                             )}
                             {col("created") && (() => {
