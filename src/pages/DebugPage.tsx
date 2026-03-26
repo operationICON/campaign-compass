@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Bug, RefreshCw, Search } from "lucide-react";
+import { Loader2, Bug, RefreshCw, Search, Zap } from "lucide-react";
+import { format } from "date-fns";
 
 async function testApiConnection(): Promise<Record<string, any>> {
   const { data, error } = await supabase.functions.invoke("debug-api");
@@ -18,6 +19,14 @@ async function fetchDeepDive(accountId: string, trackingLinkId: string, endpoint
   return data;
 }
 
+async function fetchAdvanced(url: string): Promise<any> {
+  const { data, error } = await supabase.functions.invoke("debug-api", {
+    body: { action: "advanced_endpoint", url },
+  });
+  if (error) throw error;
+  return data;
+}
+
 export default function DebugPage() {
   const [result, setResult] = useState<Record<string, any> | null>(null);
 
@@ -26,6 +35,15 @@ export default function DebugPage() {
   const [ddTrackingLinkId, setDdTrackingLinkId] = useState("2876566");
   const [subsResult, setSubsResult] = useState<any>(null);
   const [spendersResult, setSpendersResult] = useState<any>(null);
+
+  // Advanced endpoint state
+  const now = new Date();
+  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const today = format(now, "yyyy-MM-dd");
+  const [statsDateStart, setStatsDateStart] = useState(firstOfMonth);
+  const [statsDateEnd, setStatsDateEnd] = useState(today);
+  const [statsResult, setStatsResult] = useState<any>(null);
+  const [storedResult, setStoredResult] = useState<any>(null);
 
   // Fetch accounts for dropdown
   const { data: accounts } = useQuery({
@@ -49,6 +67,20 @@ export default function DebugPage() {
   const spendersMutation = useMutation({
     mutationFn: () => fetchDeepDive(ddAccountId, ddTrackingLinkId, "spenders"),
     onSuccess: setSpendersResult,
+  });
+
+  const statsMutation = useMutation({
+    mutationFn: () => fetchAdvanced(
+      `https://app.onlyfansapi.com/api/acct_50601363a87541b0910ffd6c1181314c/tracking-links/2876566/stats?date_start=${statsDateStart}&date_end=${statsDateEnd}`
+    ),
+    onSuccess: setStatsResult,
+  });
+
+  const storedMutation = useMutation({
+    mutationFn: () => fetchAdvanced(
+      `https://app.onlyfansapi.com/api/acct_50601363a87541b0910ffd6c1181314c/stored/tracking-links`
+    ),
+    onSuccess: setStoredResult,
   });
 
   return (
@@ -192,6 +224,100 @@ export default function DebugPage() {
               </div>
               <pre className="text-xs font-mono whitespace-pre-wrap break-all p-5 max-h-[600px] overflow-auto text-muted-foreground">
                 {JSON.stringify(spendersResult.body ?? spendersResult.error, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+
+        {/* Advanced Endpoint Testing */}
+        <div className="border-t border-border pt-6">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
+            <Zap className="h-5 w-5" /> Advanced Endpoint Testing
+          </h2>
+
+          {/* Stats */}
+          <div className="bg-card border border-border rounded-[10px] p-5 space-y-4">
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">Tracking Link Stats (Date Range)</p>
+              <p className="text-[10px] font-mono text-muted-foreground break-all">
+                https://app.onlyfansapi.com/api/acct_…14c/tracking-links/2876566/stats?date_start={statsDateStart}&date_end={statsDateEnd}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">date_start</label>
+                <input type="date" value={statsDateStart} onChange={(e) => setStatsDateStart(e.target.value)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">date_end</label>
+                <input type="date" value={statsDateEnd} onChange={(e) => setStatsDateEnd(e.target.value)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              </div>
+            </div>
+            <button onClick={() => statsMutation.mutate()} disabled={statsMutation.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+              {statsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Fetch Stats
+            </button>
+          </div>
+
+          {statsMutation.isError && (
+            <div className="mt-3 bg-destructive/10 border border-destructive/20 rounded-[10px] p-5">
+              <p className="text-destructive font-medium">Stats — Failed</p>
+              <pre className="mt-2 text-sm text-destructive/80 whitespace-pre-wrap">{(statsMutation.error as any)?.message}</pre>
+            </div>
+          )}
+          {statsResult && (
+            <div className="mt-3 bg-card border border-border rounded-[10px] overflow-hidden">
+              <div className="px-5 py-3 border-b border-border">
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Stats — {statsResult.status ?? "ERROR"} {statsResult.status_text ?? ""}
+                </p>
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{statsResult.url}</p>
+              </div>
+              <pre className="text-xs font-mono whitespace-pre-wrap break-all p-5 max-h-[600px] overflow-auto text-muted-foreground">
+                {JSON.stringify(statsResult.body ?? statsResult.error, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          {/* Stored Tracking Links */}
+          <div className="mt-5 bg-card border border-border rounded-[10px] p-5 space-y-4">
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">Stored Tracking Links (Cached — 0 Credits)</p>
+              <p className="text-[10px] font-mono text-muted-foreground break-all">
+                https://app.onlyfansapi.com/api/acct_…14c/stored/tracking-links
+              </p>
+            </div>
+            <button onClick={() => storedMutation.mutate()} disabled={storedMutation.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50">
+              {storedMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Fetch Stored
+            </button>
+          </div>
+
+          {storedMutation.isError && (
+            <div className="mt-3 bg-destructive/10 border border-destructive/20 rounded-[10px] p-5">
+              <p className="text-destructive font-medium">Stored — Failed</p>
+              <pre className="mt-2 text-sm text-destructive/80 whitespace-pre-wrap">{(storedMutation.error as any)?.message}</pre>
+            </div>
+          )}
+          {storedResult && (
+            <div className="mt-3 bg-card border border-border rounded-[10px] overflow-hidden">
+              <div className="px-5 py-3 border-b border-border">
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Stored — {storedResult.status ?? "ERROR"} {storedResult.status_text ?? ""}
+                </p>
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{storedResult.url}</p>
+                {storedResult.body?._meta?._credits && (
+                  <p className="text-xs font-mono mt-1 text-primary">
+                    Credits used: {storedResult.body._meta._credits.used}
+                  </p>
+                )}
+              </div>
+              <pre className="text-xs font-mono whitespace-pre-wrap break-all p-5 max-h-[600px] overflow-auto text-muted-foreground">
+                {JSON.stringify(storedResult.body ?? storedResult.error, null, 2)}
               </pre>
             </div>
           )}
