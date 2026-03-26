@@ -51,6 +51,56 @@ async function apiFetchAllPages(path: string, apiKey: string, maxPages = 100): P
   return allItems
 }
 
+// Marker-based pagination for subscribers/spenders endpoints
+async function apiFetchMarkerPaginated(path: string, apiKey: string, maxPages = 200): Promise<any[]> {
+  const allItems: any[] = []
+  let marker: string | null = null
+  let page = 0
+
+  while (page < maxPages) {
+    page++
+    let url = `${API_BASE}${path}${path.includes('?') ? '&' : '?'}limit=50`
+    if (marker) url += `&after=${marker}`
+
+    const res = await fetch(url, { headers: apiHeaders(apiKey) })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`API ${path} returned ${res.status}: ${body.substring(0, 200)}`)
+    }
+    const json = await res.json()
+
+    const data = json.data
+    if (data && Array.isArray(data.list)) {
+      allItems.push(...data.list)
+      if (!data.hasMore || data.list.length === 0) break
+      marker = data.list[data.list.length - 1]?.id?.toString() ?? null
+      if (!marker) break
+    } else if (Array.isArray(data)) {
+      allItems.push(...data)
+      break
+    } else if (Array.isArray(json)) {
+      allItems.push(...json)
+      break
+    } else {
+      break
+    }
+  }
+
+  return allItems
+}
+
+function parseDurationToDays(duration: string | null | undefined): number {
+  if (!duration) return 0
+  const lower = duration.toLowerCase()
+  const num = parseInt(lower)
+  if (isNaN(num)) return 0
+  if (lower.includes('year')) return num * 365
+  if (lower.includes('month')) return num * 30
+  if (lower.includes('week')) return num * 7
+  if (lower.includes('day')) return num
+  return 0
+}
+
 function calculateCostMetrics(clicks: number, subscribers: number, revenue: number, costType: string | null, costValue: number) {
   let cost_total = 0
   let cvr = clicks > 0 ? subscribers / clicks : 0
@@ -317,9 +367,145 @@ Deno.serve(async (req) => {
       console.error(`Tracking links error for ${displayName}: ${err.message}`)
     }
 
-    // ── Sync transactions (batched) ──
+    // ── FAN SYNC — fetch subscribers & spenders for active links ──
+    // Only run for Mia initially to verify
+    let ltvSyncCount = 0
+    const isMia = displayName.toLowerCase().includes('mia')
+    if (isMia) {
+      try {
+        const { data: activeDbLinks } = await db.from('tracking_links')
+          .select('id, external_tracking_link_id, created_at, clicks, subscribers')
+          .eq('account_id', accountId)
+          .gt('clicks', 0)
+          .gt('subscribers', 0)
+          .order('subscribers', { ascending: false })
+          .limit(5)
+
+        const activeLinks = activeDbLinks ?? []
+        console.log(`[FAN SYNC] ${displayName}: processing top ${activeLinks.length} links`)
+
+        for (let li = 0; li < activeLinks.length; li++) {
+          const dbLink = activeLinks[li]
+          const extId = dbLink.external_tracking_link_id
+          if (!extId) continue
+
+          // Rate limit: wait 3s between links (skip first)
+          if (li > 0) await new Promise(r => setTimeout(r, 3000))
+
+          try {
+            // SUBSCRIBERS — fetch all then batch upsert
+            const subscribers = await apiFetchMarkerPaginated(
+              `/${acctId}/tracking-links/${extId}/subscribers`,
+              apiKey
+            )
+            console.log(`  Link ${extId}: ${subscribers.length} subscribers`)
+
+            const fanPayloads: any[] = []
+            for (const sub of subscribers) {
+              const fanId = String(sub.id ?? sub.onlyfans_id ?? '')
+              if (!fanId) continue
+              const duration = sub.subscribedOnDuration ?? null
+              const days = parseDurationToDays(duration)
+              const subscribeDateApprox = days > 0
+                ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                : null
+              fanPayloads.push({
+                fan_id: fanId,
+                fan_username: sub.username ?? null,
+                tracking_link_id: dbLink.id,
+                account_id: accountId,
+                subscribed_on_duration: duration,
+                subscribe_date_approx: subscribeDateApprox,
+                is_active: sub.isActive ?? true,
+                is_expired: sub.subscribedOnExpiredNow ?? false,
+              })
+            }
+            // Batch upsert in chunks of 50
+            for (let i = 0; i < fanPayloads.length; i += 50) {
+              const batch = fanPayloads.slice(i, i + 50)
+              const { error } = await db.from('fan_attributions').upsert(batch, {
+                onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false
+              })
+              if (error) console.error(`  fan_attributions batch error: ${error.message}`)
+            }
+
+            // SPENDERS — fetch all then batch upsert
+            const spenders = await apiFetchMarkerPaginated(
+              `/${acctId}/tracking-links/${extId}/spenders`,
+              apiKey
+            )
+            console.log(`  Link ${extId}: ${spenders.length} spenders`)
+
+            const spendPayloads: any[] = []
+            for (const sp of spenders) {
+              const fanId = String(sp.onlyfans_id ?? sp.id ?? '')
+              if (!fanId) continue
+              spendPayloads.push({
+                fan_id: fanId,
+                tracking_link_id: dbLink.id,
+                account_id: accountId,
+                revenue: Number(sp.revenue?.total ?? sp.revenue ?? 0),
+                calculated_at: sp.revenue?.calculated_at ?? sp.calculated_at ?? new Date().toISOString(),
+              })
+            }
+            if (spendPayloads.length > 0) {
+              const { error } = await db.from('fan_spend').upsert(spendPayloads, {
+                onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false
+              })
+              if (error) console.error(`  fan_spend batch error: ${error.message}`)
+            }
+
+            // CALCULATE TRUE LTV
+            const linkCreatedAt = dbLink.created_at ? new Date(dbLink.created_at) : new Date(0)
+            const { data: fanData } = await db.from('fan_attributions')
+              .select('fan_id')
+              .eq('tracking_link_id', dbLink.id)
+              .eq('is_expired', false)
+              .gte('subscribe_date_approx', linkCreatedAt.toISOString().split('T')[0])
+
+            const newSubFanIds = (fanData ?? []).map((f: any) => f.fan_id)
+            const newSubsCount = newSubFanIds.length
+            let trueLtv = 0
+            let spendersCount = 0
+
+            if (newSubFanIds.length > 0) {
+              for (let i = 0; i < newSubFanIds.length; i += 200) {
+                const batch = newSubFanIds.slice(i, i + 200)
+                const { data: spendData } = await db.from('fan_spend')
+                  .select('revenue, fan_id')
+                  .eq('tracking_link_id', dbLink.id)
+                  .in('fan_id', batch)
+                for (const sp of spendData ?? []) {
+                  trueLtv += Number(sp.revenue || 0)
+                  spendersCount++
+                }
+              }
+            }
+
+            const ltvPerSub = newSubsCount > 0 ? trueLtv / newSubsCount : 0
+            const spenderRate = newSubsCount > 0 ? (spendersCount / newSubsCount) * 100 : 0
+
+            await db.from('tracking_links').update({
+              ltv: trueLtv, ltv_per_sub: ltvPerSub,
+              spenders_count: spendersCount, spender_rate: spenderRate,
+            }).eq('id', dbLink.id)
+
+            ltvSyncCount++
+            console.log(`  Link ${extId}: LTV=$${trueLtv.toFixed(2)}, Subs=${newSubsCount}, Spenders=${spendersCount}`)
+          } catch (err: any) {
+            console.error(`  Fan sync failed for link ${extId}: ${err.message}`)
+            continue
+          }
+        }
+        console.log(`[FAN SYNC] ${displayName}: completed ${ltvSyncCount} links`)
+      } catch (err: any) {
+        console.error(`[FAN SYNC] ${displayName} error: ${err.message}`)
+      }
+    }
+
+    // ── Sync transactions (batched, limited to 10 pages) ──
     try {
-      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey, 50)
+      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey, 10)
       console.log(`Got ${txItems.length} transactions for ${displayName}`)
 
       const txPayloads: Record<string, any>[] = []
@@ -357,7 +543,6 @@ Deno.serve(async (req) => {
       
       const today = new Date().toISOString().split('T')[0]
       
-      // All time earnings (API requires start_date, use earliest possible date)
       const allTimeRes = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=2015-01-01&end_date=${today}`, {
         headers: apiHeaders(apiKey),
       })
@@ -370,22 +555,17 @@ Deno.serve(async (req) => {
       if (allTimeRes.ok) {
         const allTimeJson = await allTimeRes.json()
         const totals = allTimeJson?.data?.total ?? allTimeJson?.data?.list?.total ?? {}
-        
-        // Use .gross field (GROSS revenue), NOT .total (which is NET after OF platform fee)
         ltvUpdate.ltv_total = Number(totals?.gross ?? totals?.all?.total_gross ?? 0)
-        // Individual breakdowns not available in this API format, set to 0
         ltvUpdate.ltv_tips = 0
         ltvUpdate.ltv_subscriptions = 0
         ltvUpdate.ltv_messages = 0
         ltvUpdate.ltv_posts = 0
-        
         console.log(`${displayName} all-time LTV (gross): $${ltvUpdate.ltv_total}`)
       } else {
         const errBody = await allTimeRes.text()
         console.error(`Earnings stats returned ${allTimeRes.status} for ${displayName}: ${errBody}`)
       }
 
-      // Last 30 days
       const d30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
       const res30 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d30}&end_date=${today}`, {
         headers: apiHeaders(apiKey),
@@ -396,7 +576,6 @@ Deno.serve(async (req) => {
         ltvUpdate.ltv_last_30d = Number(totals30?.gross ?? totals30?.all?.total_gross ?? 0)
       }
 
-      // Last 7 days
       const d7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
       const res7 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d7}&end_date=${today}`, {
         headers: apiHeaders(apiKey),
@@ -407,7 +586,6 @@ Deno.serve(async (req) => {
         ltvUpdate.ltv_last_7d = Number(totals7?.gross ?? totals7?.all?.total_gross ?? 0)
       }
 
-      // Last 1 day
       const d1 = new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0]
       const res1 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d1}&end_date=${today}`, {
         headers: apiHeaders(apiKey),
@@ -421,7 +599,6 @@ Deno.serve(async (req) => {
       await db.from('accounts').update(ltvUpdate).eq('id', accountId)
     } catch (err: any) {
       console.error(`Earnings stats error for ${displayName}: ${err.message}`)
-      // Still update last_synced_at even if earnings fail
       await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
     }
 
