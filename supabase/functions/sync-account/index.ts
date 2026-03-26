@@ -378,9 +378,11 @@ Deno.serve(async (req) => {
           .eq('account_id', accountId)
           .gt('clicks', 0)
           .gt('subscribers', 0)
+          .order('subscribers', { ascending: false })
+          .limit(10)
 
         const activeLinks = activeDbLinks ?? []
-        console.log(`[FAN SYNC] ${displayName}: ${activeLinks.length} active links to process`)
+        console.log(`[FAN SYNC] ${displayName}: processing top ${activeLinks.length} active links (by subs)`)
 
         for (const dbLink of activeLinks) {
           const extId = dbLink.external_tracking_link_id
