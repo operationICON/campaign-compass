@@ -82,10 +82,11 @@ export function InsightsSection({
     const totalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
     // Only count attributed subs from tracking links belonging to enabled accounts
     const attributed = links.filter((l: any) => enabledIds.has(l.account_id)).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const overflow = attributed > totalSubs;
-    const unattributed = overflow ? 0 : totalSubs - attributed;
-    const pct = totalSubs > 0 && !overflow ? (unattributed / totalSubs) * 100 : 0;
-    return { totalSubs, attributed, unattributed, pct, overflow };
+    // Attributed can exceed current subscribers_count (cumulative vs active), so cap at totalSubs
+    const effectiveAttributed = Math.min(attributed, totalSubs);
+    const unattributed = totalSubs - effectiveAttributed;
+    const pct = totalSubs > 0 ? (unattributed / totalSubs) * 100 : 0;
+    return { totalSubs, attributed: effectiveAttributed, unattributed, pct, overflow: false };
   }, [enabledAccounts, links, filteredAccountIds]);
 
   const unaHealth = unattr.pct <= 30 ? { label: "Healthy", color: "text-[hsl(160_84%_39%)]" }
