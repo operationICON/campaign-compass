@@ -119,21 +119,21 @@ export async function clearTestLogs() {
 }
 
 export async function fetchDailyMetrics(trackingLinkIds?: string[]) {
-  let query = supabase
-    .from("daily_metrics")
-    .select("*")
-    .order("date", { ascending: true });
-
-  if (trackingLinkIds && trackingLinkIds.length > 0) {
-    query = query.in("tracking_link_id", trackingLinkIds);
-  }
-
-  // Paginate to get all rows (default limit is 1000)
   const allData: any[] = [];
   let from = 0;
   const pageSize = 1000;
   while (true) {
-    const { data, error } = await query.range(from, from + pageSize - 1);
+    let query = supabase
+      .from("daily_metrics")
+      .select("*")
+      .order("date", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (trackingLinkIds && trackingLinkIds.length > 0) {
+      query = query.in("tracking_link_id", trackingLinkIds);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     if (!data || data.length === 0) break;
     allData.push(...data);
