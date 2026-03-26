@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
@@ -32,6 +32,18 @@ function loadFilters() {
 
 function saveFilters(f: any) {
   localStorage.setItem(LS_KEY, JSON.stringify(f));
+}
+
+function loadHiddenCols(): Record<string, string[]> {
+  try {
+    const raw = localStorage.getItem(LS_COLS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+}
+
+function saveHiddenCols(h: Record<string, string[]>) {
+  localStorage.setItem(LS_COLS_KEY, JSON.stringify(h));
 }
 
 async function fetchAllTrackingLinks() {
@@ -133,18 +145,6 @@ const SPEND_COLS = [
 
 const TAB_COL_MAP: Record<string, typeof ZERO_COLS> = { zero: ZERO_COLS, dead: DEAD_COLS, source: SOURCE_COLS, spend: SPEND_COLS };
 
-function loadHiddenCols(): Record<string, string[]> {
-  try {
-    const raw = localStorage.getItem(LS_COLS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return {};
-}
-
-function saveHiddenCols(h: Record<string, string[]>) {
-  localStorage.setItem(LS_COLS_KEY, JSON.stringify(h));
-}
-
 export default function AuditPage() {
   const queryClient = useQueryClient();
   const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
@@ -153,12 +153,26 @@ export default function AuditPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deletedOpen, setDeletedOpen] = useState(false);
   const [filters, setFilters] = useState(loadFilters);
-  const [hiddenCols, setHiddenCols] = useState<Record<string, Set<string>>>({
-    zero: new Set(), dead: new Set(), source: new Set(), spend: new Set(),
+  const [hiddenCols, setHiddenCols] = useState<Record<string, Set<string>>>(() => {
+    const saved = loadHiddenCols();
+    const result: Record<string, Set<string>> = {};
+    for (const tab of ["zero", "dead", "source", "spend"]) {
+      result[tab] = new Set(saved[tab] || []);
+    }
+    return result;
   });
   const [activeTab, setActiveTab] = useState("zero");
 
   useEffect(() => { saveFilters(filters); }, [filters]);
+
+  // Persist hidden cols to localStorage
+  useEffect(() => {
+    const serialized: Record<string, string[]> = {};
+    for (const [tab, set] of Object.entries(hiddenCols)) {
+      serialized[tab] = Array.from(set);
+    }
+    saveHiddenCols(serialized);
+  }, [hiddenCols]);
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
   const anyFilterActive = filters.model !== "all" || filters.source !== "all" || filters.status !== "all" || filters.activity !== "all" || filters.action !== "all";
@@ -170,7 +184,6 @@ export default function AuditPage() {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-  // Distinct values for filters
   const distinctModels = useMemo(() => [...new Set(activeLinks.map((l: any) => l.accounts?.username || l.accounts?.display_name).filter(Boolean))].sort(), [activeLinks]);
   const distinctSources = useMemo(() => {
     const s = [...new Set(activeLinks.map((l: any) => l.source_tag).filter(Boolean))].sort();
@@ -178,7 +191,6 @@ export default function AuditPage() {
     return s;
   }, [activeLinks]);
 
-  // Apply global filters to active links
   const filteredLinks = useMemo(() => {
     return activeLinks.filter((l: any) => {
       const mName = l.accounts?.username || l.accounts?.display_name || "";
@@ -195,7 +207,6 @@ export default function AuditPage() {
     });
   }, [activeLinks, filters]);
 
-  // Tab data from filtered links
   const zeroActivity = useMemo(() => filteredLinks.filter((l: any) =>
     l.clicks === 0 && l.subscribers === 0 && new Date(l.created_at) < thirtyDaysAgo
   ), [filteredLinks]);
@@ -254,7 +265,7 @@ export default function AuditPage() {
   };
 
   const modelName = (l: any) => l.accounts?.username || l.accounts?.display_name || "—";
-  const age = (d: string) => differenceInDays(now, new Date(d));
+  const ageDays = (d: string) => differenceInDays(now, new Date(d));
 
   const toggleCol = (tab: string, colKey: string) => {
     setHiddenCols((prev) => {
@@ -264,18 +275,12 @@ export default function AuditPage() {
     });
   };
 
-  const isColVisible = (tab: string, colKey: string) => !hiddenCols[tab]?.has(colKey);
-
-  // Get columns for current tab
-  const getTabCols = (tab: string) => {
-    const map: Record<string, typeof ZERO_COLS> = { zero: ZERO_COLS, dead: DEAD_COLS, source: SOURCE_COLS, spend: SPEND_COLS };
-    return map[tab] || ZERO_COLS;
+  const resetCols = (tab: string) => {
+    setHiddenCols((prev) => ({ ...prev, [tab]: new Set() }));
   };
 
-  const currentCols = getTabCols(activeTab);
-  const visibleCols = currentCols.filter((c) => c.locked || isColVisible(activeTab, c.key));
+  const isColVisible = (tab: string, colKey: string) => !hiddenCols[tab]?.has(colKey);
 
-  // Export count
   const exportCount = filteredLinks.length;
 
   const StatCard = ({ icon: Icon, label, count, color }: { icon: any; label: string; count: number; color: string }) => (
@@ -348,7 +353,7 @@ export default function AuditPage() {
 
   const FilterSelect = ({ value, onValueChange, placeholder, options }: { value: string; onValueChange: (v: string) => void; placeholder: string; options: { value: string; label: string }[] }) => (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="h-8 text-xs w-[140px] bg-card border-border">
+      <SelectTrigger className="h-8 text-xs w-[130px] bg-card border-border">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
@@ -357,6 +362,62 @@ export default function AuditPage() {
       </SelectContent>
     </Select>
   );
+
+  const ColumnsButton = ({ tab }: { tab: string }) => {
+    const cols = TAB_COL_MAP[tab] || ZERO_COLS;
+    const optionalCols = cols.filter((c) => !c.locked && c.label);
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 text-xs"><Columns3 className="h-3.5 w-3.5 mr-1" /> Columns</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {optionalCols.map((c) => (
+            <DropdownMenuCheckboxItem key={c.key} checked={isColVisible(tab, c.key)} onCheckedChange={() => toggleCol(tab, c.key)}>
+              {c.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+          <DropdownMenuSeparator />
+          <button className="w-full text-xs text-primary hover:text-primary/80 px-2 py-1.5 text-left" onClick={() => resetCols(tab)}>
+            Reset to defaults
+          </button>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  // Shared filter + action bar rendered inside each tab
+  const TabToolbar = ({ tab, rightContent }: { tab: string; rightContent: React.ReactNode }) => (
+    <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
+      <FilterSelect value={filters.model} onValueChange={(v) => setFilter("model", v)} placeholder="All Models" options={distinctModels.map((m: string) => ({ value: m, label: m }))} />
+      <FilterSelect value={filters.source} onValueChange={(v) => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map((s: string) => ({ value: s, label: s }))} />
+      <FilterSelect value={filters.status} onValueChange={(v) => setFilter("status", v)} placeholder="All Statuses" options={[
+        { value: "SCALE", label: "SCALE" }, { value: "WATCH", label: "WATCH" }, { value: "LOW", label: "LOW" },
+        { value: "KILL", label: "KILL" }, { value: "DEAD", label: "DEAD" }, { value: "NO SPEND", label: "NO SPEND" },
+      ]} />
+      <FilterSelect value={filters.activity} onValueChange={(v) => setFilter("activity", v)} placeholder="All Activity" options={[
+        { value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }, { value: "Testing", label: "Testing" },
+      ]} />
+      <FilterSelect value={filters.action} onValueChange={(v) => setFilter("action", v)} placeholder="All Actions" options={[
+        { value: "keep", label: "Keep" }, { value: "delete", label: "Delete" }, { value: "add_spend", label: "Add Spend" }, { value: "review", label: "Review" },
+      ]} />
+      <ColumnsButton tab={tab} />
+      {anyFilterActive && (
+        <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
+          <FilterX className="h-3.5 w-3.5 mr-1" /> Clear
+        </Button>
+      )}
+      <span className="text-xs text-muted-foreground">{filteredLinks.length} shown</span>
+      <div className="ml-auto flex items-center gap-2">{rightContent}</div>
+    </div>
+  );
+
+  // Helper to render activity status cell
+  const activityCell = (l: any) => {
+    const status = getActivityStatus(l, thirtyDaysAgo);
+    const colors: Record<string, string> = { Active: "text-primary", Inactive: "text-destructive", Testing: "text-muted-foreground" };
+    return <span className={`text-xs font-medium ${colors[status] || ""}`}>{status}</span>;
+  };
 
   return (
     <DashboardLayout>
@@ -376,44 +437,6 @@ export default function AuditPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => setImportAuditOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import Audit CSV</Button>
           </div>
-        </div>
-
-        {/* Filter bar */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <FilterSelect value={filters.model} onValueChange={(v) => setFilter("model", v)} placeholder="All Models" options={distinctModels.map((m: string) => ({ value: m, label: m }))} />
-          <FilterSelect value={filters.source} onValueChange={(v) => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map((s: string) => ({ value: s, label: s }))} />
-          <FilterSelect value={filters.status} onValueChange={(v) => setFilter("status", v)} placeholder="All Statuses" options={[
-            { value: "SCALE", label: "SCALE" }, { value: "WATCH", label: "WATCH" }, { value: "LOW", label: "LOW" },
-            { value: "KILL", label: "KILL" }, { value: "DEAD", label: "DEAD" }, { value: "NO SPEND", label: "NO SPEND" },
-          ]} />
-          <FilterSelect value={filters.activity} onValueChange={(v) => setFilter("activity", v)} placeholder="All Activity" options={[
-            { value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }, { value: "Testing", label: "Testing" },
-          ]} />
-          <FilterSelect value={filters.action} onValueChange={(v) => setFilter("action", v)} placeholder="All Actions" options={[
-            { value: "keep", label: "Keep" }, { value: "delete", label: "Delete" }, { value: "add_spend", label: "Add Spend" }, { value: "review", label: "Review" },
-          ]} />
-
-          {/* Columns toggle */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs"><Columns3 className="h-3.5 w-3.5 mr-1" /> Columns</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {currentCols.filter((c) => !c.locked && c.label).map((c) => (
-                <DropdownMenuCheckboxItem key={c.key} checked={isColVisible(activeTab, c.key)} onCheckedChange={() => toggleCol(activeTab, c.key)}>
-                  {c.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {anyFilterActive && (
-            <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
-              <FilterX className="h-3.5 w-3.5 mr-1" /> Clear filters
-            </Button>
-          )}
-
-          <span className="text-xs text-muted-foreground ml-auto">{filteredLinks.length} campaigns shown</span>
         </div>
 
         {/* Stat cards */}
@@ -436,15 +459,14 @@ export default function AuditPage() {
           {/* TAB 1 — Zero Activity */}
           <TabsContent value="zero">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="p-3 border-b border-border flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Campaigns with 0 clicks and 0 subscribers, created over 30 days ago</span>
+              <TabToolbar tab="zero" rightContent={
                 <DeleteConfirmBtn ids={Array.from(selected).filter((id) => zeroActivity.some((l: any) => l.id === id))} label="Delete selected" />
-              </div>
+              } />
               <table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(zeroActivity.map((l: any) => l.id))} checked={zeroActivity.length > 0 && zeroActivity.every((l: any) => selected.has(l.id))} /></th>
-                    {visibleCols.map((c) => activeTab === "zero" && (c.locked || isColVisible("zero", c.key)) ? (
+                    {ZERO_COLS.map((c) => (c.locked || isColVisible("zero", c.key)) ? (
                       <th key={c.key} className={`p-2 font-medium ${c.align === "right" ? "text-right" : "text-left"} ${c.key === "delete" ? "w-10" : ""}`}>{c.label}</th>
                     ) : null)}
                   </tr>
@@ -455,12 +477,13 @@ export default function AuditPage() {
                       <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
                       {isColVisible("zero", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[250px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[250px]">{l.url}</div></td>}
                       {isColVisible("zero", "model") && <td className="p-2">{modelName(l)}</td>}
+                      {isColVisible("zero", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
                       {isColVisible("zero", "source") && <td className="p-2">{l.source_tag || "—"}</td>}
                       {isColVisible("zero", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
                       {isColVisible("zero", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
                       {isColVisible("zero", "ltv") && <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>}
                       {isColVisible("zero", "created") && <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>}
-                      {isColVisible("zero", "age") && <td className="p-2">{age(l.created_at)}d</td>}
+                      {isColVisible("zero", "age") && <td className="p-2">{ageDays(l.created_at)}d</td>}
                       <td className="p-2"><InlineDeleteBtn id={l.id} /></td>
                     </tr>
                   ))}
@@ -473,10 +496,9 @@ export default function AuditPage() {
           {/* TAB 2 — Dead */}
           <TabsContent value="dead">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="p-3 border-b border-border flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Active campaigns with no data update in 30+ days</span>
+              <TabToolbar tab="dead" rightContent={
                 <DeleteConfirmBtn ids={Array.from(selected).filter((id) => dead.some((l: any) => l.id === id))} label="Delete selected" />
-              </div>
+              } />
               <table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
@@ -492,12 +514,13 @@ export default function AuditPage() {
                       <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
                       {isColVisible("dead", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>}
                       {isColVisible("dead", "model") && <td className="p-2">{modelName(l)}</td>}
+                      {isColVisible("dead", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
                       {isColVisible("dead", "source") && <td className="p-2">{l.source_tag || "—"}</td>}
                       {isColVisible("dead", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
                       {isColVisible("dead", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
                       {isColVisible("dead", "ltv") && <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>}
                       {isColVisible("dead", "lastActivity") && <td className="p-2">{l.calculated_at ? format(new Date(l.calculated_at), "MMM d") : "—"}</td>}
-                      {isColVisible("dead", "daysSince") && <td className="p-2">{l.calculated_at ? age(l.calculated_at) + "d" : l.created_at ? age(l.created_at) + "d" : "—"}</td>}
+                      {isColVisible("dead", "daysSince") && <td className="p-2">{l.calculated_at ? ageDays(l.calculated_at) + "d" : l.created_at ? ageDays(l.created_at) + "d" : "—"}</td>}
                       <td className="p-2"><InlineDeleteBtn id={l.id} /></td>
                     </tr>
                   ))}
@@ -510,9 +533,7 @@ export default function AuditPage() {
           {/* TAB 3 — Missing Source */}
           <TabsContent value="source">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="p-3 border-b border-border">
-                <span className="text-xs text-muted-foreground">Active campaigns with clicks or subs but no source tag</span>
-              </div>
+              <TabToolbar tab="source" rightContent={null} />
               <table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
@@ -523,17 +544,20 @@ export default function AuditPage() {
                 </thead>
                 <tbody>
                   {missingSource.map((l: any) => {
-                    const ageDays = age(l.created_at);
-                    const subsPerDay = ageDays > 0 ? (l.subscribers / ageDays).toFixed(1) : "—";
+                    const ad = ageDays(l.created_at);
+                    const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
+                    const ltvPerSub = l.subscribers > 0 ? ((l.ltv || l.revenue || 0) / l.subscribers).toFixed(2) : "—";
                     return (
                       <tr key={l.id} className="border-t border-border hover:bg-muted/30">
                         {isColVisible("source", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>}
                         {isColVisible("source", "model") && <td className="p-2">{modelName(l)}</td>}
+                        {isColVisible("source", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
                         {isColVisible("source", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
                         {isColVisible("source", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
                         {isColVisible("source", "ltv") && <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>}
+                        {isColVisible("source", "ltvSub") && <td className="p-2 text-right">${ltvPerSub}</td>}
                         {isColVisible("source", "subsDay") && <td className="p-2 text-right">{subsPerDay}</td>}
-                        {isColVisible("source", "age") && <td className="p-2">{ageDays}d</td>}
+                        {isColVisible("source", "age") && <td className="p-2">{ad}d</td>}
                         <td className="p-2"><SourceDropdown link={l} /></td>
                       </tr>
                     );
@@ -547,9 +571,7 @@ export default function AuditPage() {
           {/* TAB 4 — Missing Spend */}
           <TabsContent value="spend">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="p-3 border-b border-border">
-                <span className="text-xs text-muted-foreground">Active campaigns with clicks or subs but no spend data</span>
-              </div>
+              <TabToolbar tab="spend" rightContent={null} />
               <table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
@@ -560,14 +582,15 @@ export default function AuditPage() {
                 </thead>
                 <tbody>
                   {missingSpend.map((l: any) => {
-                    const ageDays = age(l.created_at);
-                    const subsPerDay = ageDays > 0 ? (l.subscribers / ageDays).toFixed(1) : "—";
+                    const ad = ageDays(l.created_at);
+                    const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
                     const ltvPerSub = l.subscribers > 0 ? ((l.ltv || l.revenue || 0) / l.subscribers).toFixed(2) : "—";
                     const spenderRate = l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—";
                     return (
                       <tr key={l.id} className="border-t border-border hover:bg-muted/30">
                         {isColVisible("spend", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>}
                         {isColVisible("spend", "model") && <td className="p-2">{modelName(l)}</td>}
+                        {isColVisible("spend", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
                         {isColVisible("spend", "source") && <td className="p-2">{l.source_tag || "—"}</td>}
                         {isColVisible("spend", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
                         {isColVisible("spend", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
@@ -576,7 +599,7 @@ export default function AuditPage() {
                         {isColVisible("spend", "subsDay") && <td className="p-2 text-right">{subsPerDay}</td>}
                         {isColVisible("spend", "spenderRate") && <td className="p-2 text-right">{spenderRate}</td>}
                         <td className="p-2">
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.info("Use Bulk Edit CSV to set spend for multiple campaigns at once")}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.info("Use Export CSV to set spend for multiple campaigns at once")}>
                             <DollarSign className="h-3 w-3 mr-1" /> Set
                           </Button>
                         </td>
