@@ -20,6 +20,7 @@ import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
 
 const LS_KEY = "ct_audit_filters";
+const LS_COLS_KEY = "ct_audit_cols";
 
 function loadFilters() {
   try {
