@@ -379,34 +379,33 @@ Deno.serve(async (req) => {
           .gt('clicks', 0)
           .gt('subscribers', 0)
           .order('subscribers', { ascending: false })
-          .limit(10)
+          .limit(5)
 
         const activeLinks = activeDbLinks ?? []
-        console.log(`[FAN SYNC] ${displayName}: processing top ${activeLinks.length} active links (by subs)`)
+        console.log(`[FAN SYNC] ${displayName}: processing top ${activeLinks.length} links`)
 
         for (const dbLink of activeLinks) {
           const extId = dbLink.external_tracking_link_id
           if (!extId) continue
 
           try {
-            // SUBSCRIBERS
+            // SUBSCRIBERS — fetch all then batch upsert
             const subscribers = await apiFetchMarkerPaginated(
               `/${acctId}/tracking-links/${extId}/subscribers`,
               apiKey
             )
             console.log(`  Link ${extId}: ${subscribers.length} subscribers`)
 
+            const fanPayloads: any[] = []
             for (const sub of subscribers) {
               const fanId = String(sub.id ?? sub.onlyfans_id ?? '')
               if (!fanId) continue
-
               const duration = sub.subscribedOnDuration ?? null
               const days = parseDurationToDays(duration)
               const subscribeDateApprox = days > 0
                 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
                 : null
-
-              const { error } = await db.from('fan_attributions').upsert({
+              fanPayloads.push({
                 fan_id: fanId,
                 fan_username: sub.username ?? null,
                 tracking_link_id: dbLink.id,
@@ -415,31 +414,41 @@ Deno.serve(async (req) => {
                 subscribe_date_approx: subscribeDateApprox,
                 is_active: sub.isActive ?? true,
                 is_expired: sub.subscribedOnExpiredNow ?? false,
-              }, { onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false })
-
-              if (error) console.error(`  fan_attributions upsert error: ${error.message}`)
+              })
+            }
+            // Batch upsert in chunks of 50
+            for (let i = 0; i < fanPayloads.length; i += 50) {
+              const batch = fanPayloads.slice(i, i + 50)
+              const { error } = await db.from('fan_attributions').upsert(batch, {
+                onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false
+              })
+              if (error) console.error(`  fan_attributions batch error: ${error.message}`)
             }
 
-            // SPENDERS
+            // SPENDERS — fetch all then batch upsert
             const spenders = await apiFetchMarkerPaginated(
               `/${acctId}/tracking-links/${extId}/spenders`,
               apiKey
             )
             console.log(`  Link ${extId}: ${spenders.length} spenders`)
 
+            const spendPayloads: any[] = []
             for (const sp of spenders) {
               const fanId = String(sp.onlyfans_id ?? sp.id ?? '')
               if (!fanId) continue
-
-              const { error } = await db.from('fan_spend').upsert({
+              spendPayloads.push({
                 fan_id: fanId,
                 tracking_link_id: dbLink.id,
                 account_id: accountId,
                 revenue: Number(sp.revenue?.total ?? sp.revenue ?? 0),
                 calculated_at: sp.revenue?.calculated_at ?? sp.calculated_at ?? new Date().toISOString(),
-              }, { onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false })
-
-              if (error) console.error(`  fan_spend upsert error: ${error.message}`)
+              })
+            }
+            if (spendPayloads.length > 0) {
+              const { error } = await db.from('fan_spend').upsert(spendPayloads, {
+                onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false
+              })
+              if (error) console.error(`  fan_spend batch error: ${error.message}`)
             }
 
             // CALCULATE TRUE LTV
@@ -452,7 +461,6 @@ Deno.serve(async (req) => {
 
             const newSubFanIds = (fanData ?? []).map((f: any) => f.fan_id)
             const newSubsCount = newSubFanIds.length
-
             let trueLtv = 0
             let spendersCount = 0
 
@@ -463,7 +471,6 @@ Deno.serve(async (req) => {
                   .select('revenue, fan_id')
                   .eq('tracking_link_id', dbLink.id)
                   .in('fan_id', batch)
-
                 for (const sp of spendData ?? []) {
                   trueLtv += Number(sp.revenue || 0)
                   spendersCount++
@@ -475,21 +482,17 @@ Deno.serve(async (req) => {
             const spenderRate = newSubsCount > 0 ? (spendersCount / newSubsCount) * 100 : 0
 
             await db.from('tracking_links').update({
-              ltv: trueLtv,
-              ltv_per_sub: ltvPerSub,
-              spenders_count: spendersCount,
-              spender_rate: spenderRate,
+              ltv: trueLtv, ltv_per_sub: ltvPerSub,
+              spenders_count: spendersCount, spender_rate: spenderRate,
             }).eq('id', dbLink.id)
 
             ltvSyncCount++
             console.log(`  Link ${extId}: LTV=$${trueLtv.toFixed(2)}, Subs=${newSubsCount}, Spenders=${spendersCount}`)
-
           } catch (err: any) {
             console.error(`  Fan sync failed for link ${extId}: ${err.message}`)
             continue
           }
         }
-
         console.log(`[FAN SYNC] ${displayName}: completed ${ltvSyncCount} links`)
       } catch (err: any) {
         console.error(`[FAN SYNC] ${displayName} error: ${err.message}`)
