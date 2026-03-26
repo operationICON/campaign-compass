@@ -384,9 +384,13 @@ Deno.serve(async (req) => {
         const activeLinks = activeDbLinks ?? []
         console.log(`[FAN SYNC] ${displayName}: processing top ${activeLinks.length} links`)
 
-        for (const dbLink of activeLinks) {
+        for (let li = 0; li < activeLinks.length; li++) {
+          const dbLink = activeLinks[li]
           const extId = dbLink.external_tracking_link_id
           if (!extId) continue
+
+          // Rate limit: wait 3s between links (skip first)
+          if (li > 0) await new Promise(r => setTimeout(r, 3000))
 
           try {
             // SUBSCRIBERS — fetch all then batch upsert
