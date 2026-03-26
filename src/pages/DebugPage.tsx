@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Bug, RefreshCw, Search } from "lucide-react";
+import { Loader2, Bug, RefreshCw, Search, Zap } from "lucide-react";
+import { format } from "date-fns";
 
 async function testApiConnection(): Promise<Record<string, any>> {
   const { data, error } = await supabase.functions.invoke("debug-api");
@@ -13,6 +14,14 @@ async function testApiConnection(): Promise<Record<string, any>> {
 async function fetchDeepDive(accountId: string, trackingLinkId: string, endpoint: string): Promise<any> {
   const { data, error } = await supabase.functions.invoke("debug-api", {
     body: { action: "tracking_link_deep_dive", account_id: accountId, tracking_link_id: trackingLinkId, endpoint },
+  });
+  if (error) throw error;
+  return data;
+}
+
+async function fetchAdvanced(url: string): Promise<any> {
+  const { data, error } = await supabase.functions.invoke("debug-api", {
+    body: { action: "advanced_endpoint", url },
   });
   if (error) throw error;
   return data;
