@@ -347,10 +347,24 @@ Deno.serve(async (req) => {
 
             // source_tag and manually_tagged are never touched during sync
 
-            await db.from('tracking_links').upsert(upsertPayload, {
+            const { data: upsertedLink } = await db.from('tracking_links').upsert(upsertPayload, {
               onConflict: 'external_tracking_link_id',
               ignoreDuplicates: false,
-            })
+            }).select('id, account_id, clicks, subscribers, revenue').single()
+
+            // Insert daily snapshot for subs/day delta tracking
+            if (upsertedLink) {
+              const today = new Date().toISOString().split('T')[0]
+              await db.from('daily_metrics').upsert({
+                tracking_link_id: upsertedLink.id,
+                account_id: upsertedLink.account_id,
+                date: today,
+                clicks: upsertedLink.clicks,
+                subscribers: upsertedLink.subscribers,
+                revenue: upsertedLink.revenue,
+              }, { onConflict: 'tracking_link_id,date' })
+            }
+
             linkCount++
           }
         } catch (err: any) {

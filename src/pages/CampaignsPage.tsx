@@ -227,7 +227,23 @@ export default function CampaignsPage() {
       const isNaturallyActive = (l.clicks > 0 || Number(l.revenue) > 0) && daysSinceActivity <= 30;
       const hasOverride = manualOverrides[l.id] !== undefined;
       const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
-      const subsDay = daysSinceCreated >= 1 && l.subscribers > 0 ? l.subscribers / daysSinceCreated : null;
+      // Delta-based subs/day from daily_metrics snapshots
+      const linkMetrics = dailyMetrics
+        .filter((m: any) => m.tracking_link_id === l.id)
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      let subsDay: number | null = null;
+      let subsDayLabel: string | null = null;
+      if (linkMetrics.length >= 2) {
+        const latest = linkMetrics[0];
+        const prev = linkMetrics[1];
+        const days = Math.max(1, differenceInDays(new Date(latest.date), new Date(prev.date)));
+        const delta = (latest.subscribers || 0) - (prev.subscribers || 0);
+        subsDay = delta > 0 ? delta / days : 0;
+      } else if (linkMetrics.length === 1) {
+        subsDayLabel = "Needs 2nd sync";
+      } else {
+        subsDayLabel = "Sync needed";
+      }
       const subs = l.subscribers || 0;
       const hasCost = Number(l.cost_total || 0) > 0;
       const profitPerSub = subs > 0 && hasCost ? Number(l.profit || 0) / subs : null;
