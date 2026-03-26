@@ -61,7 +61,10 @@ export default function AuditPage() {
   ), [activeLinks]);
 
   const dead = useMemo(() => activeLinks.filter((l: any) =>
-    (l.clicks > 0 || l.subscribers > 0) && l.calculated_at && new Date(l.calculated_at) < thirtyDaysAgo
+    (l.clicks > 0 || l.subscribers > 0) && (
+      (l.calculated_at && new Date(l.calculated_at) < thirtyDaysAgo) ||
+      (!l.calculated_at && new Date(l.created_at) < thirtyDaysAgo)
+    )
   ), [activeLinks]);
 
   const missingSource = useMemo(() => activeLinks.filter((l: any) =>
