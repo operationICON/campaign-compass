@@ -61,6 +61,48 @@ async function apiFetch(path: string, apiKey: string): Promise<any> {
   return await res.json()
 }
 
+// Marker-based pagination for subscribers/spenders endpoints
+async function apiFetchMarkerPaginated(path: string, apiKey: string, maxPages = 200): Promise<any[]> {
+  const allItems: any[] = []
+  let marker: string | null = null
+  let page = 0
+
+  while (page < maxPages) {
+    page++
+    let url = `${API_BASE}${path}${path.includes('?') ? '&' : '?'}limit=50`
+    if (marker) url += `&after=${marker}`
+
+    console.log(`Fetching marker page ${page}: ${url}`)
+    const res = await fetch(url, { headers: apiHeaders(apiKey) })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`API ${path} returned ${res.status}: ${body}`)
+    }
+    const json = await res.json()
+
+    const data = json.data
+    if (data && Array.isArray(data.list)) {
+      allItems.push(...data.list)
+      const hasMore = data.hasMore === true
+      if (!hasMore || data.list.length === 0) break
+      // Use last item id as marker
+      marker = data.list[data.list.length - 1]?.id?.toString() ?? null
+      if (!marker) break
+    } else if (Array.isArray(data)) {
+      allItems.push(...data)
+      break
+    } else if (Array.isArray(json)) {
+      allItems.push(...json)
+      break
+    } else {
+      break
+    }
+  }
+
+  console.log(`Fetched ${allItems.length} items from ${path} in ${page} marker pages`)
+  return allItems
+}
+
 async function markStuckSyncs(db: any) {
   const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString()
   const { data: stuck } = await db.from('sync_logs')
@@ -93,61 +135,17 @@ async function createNotification(db: any, type: string, message: string) {
   await db.from('notifications').insert({ type, message })
 }
 
-function calculateCostMetrics(link: any) {
-  const clicks = Number(link.clicks ?? 0)
-  const subscribers = Number(link.subscribers ?? 0)
-  const revenue = Number(link.revenue ?? 0)
-  const costType = link.cost_type
-  const costValue = Number(link.cost_value ?? 0)
-  const daysSinceCreated = (Date.now() - new Date(link.created_at).getTime()) / (1000 * 60 * 60 * 24)
-
-  let cost_total = 0
-  let cvr = clicks > 0 ? subscribers / clicks : 0
-  let cpc_real = 0
-  let cpl_real = 0
-  let arpu = subscribers > 0 ? revenue / subscribers : 0
-
-  if (costType === 'CPC') {
-    cost_total = clicks * costValue
-    cpc_real = costValue
-    cpl_real = cvr > 0 ? costValue / cvr : 0
-  } else if (costType === 'CPL') {
-    cost_total = subscribers * costValue
-    cpc_real = cvr > 0 ? costValue * cvr : 0
-    cpl_real = costValue
-  } else if (costType === 'FIXED') {
-    cost_total = costValue
-    cpc_real = clicks > 0 ? cost_total / clicks : 0
-    cpl_real = subscribers > 0 ? cost_total / subscribers : 0
-  }
-
-  const profit = revenue - cost_total
-  const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0
-
-  let status = 'NO_DATA'
-  if (!costType) {
-    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
-    else status = 'NO_DATA'
-  } else {
-    if (clicks === 0 && daysSinceCreated >= 3) status = 'DEAD'
-    else if (roi > 150) status = 'SCALE'
-    else if (roi >= 50) status = 'WATCH'
-    else if (roi >= 0) status = 'LOW'
-    else status = 'KILL'
-  }
-
-  return { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status }
-}
-
-async function recalcAllCostMetrics(db: any) {
-  const { data: allLinks } = await db.from('tracking_links').select('id, clicks, subscribers, revenue, cost_type, cost_value, created_at')
-  if (!allLinks || allLinks.length === 0) return
-
-  for (const link of allLinks) {
-    const metrics = calculateCostMetrics(link)
-    await db.from('tracking_links').update(metrics).eq('id', link.id)
-  }
-  console.log(`Recalculated cost metrics for ${allLinks.length} tracking links`)
+function parseDurationToDays(duration: string | null | undefined): number {
+  if (!duration) return 0
+  let days = 0
+  const lower = duration.toLowerCase()
+  const num = parseInt(lower)
+  if (isNaN(num)) return 0
+  if (lower.includes('year')) days = num * 365
+  else if (lower.includes('month')) days = num * 30
+  else if (lower.includes('week')) days = num * 7
+  else if (lower.includes('day')) days = num
+  return days
 }
 
 Deno.serve(async (req) => {
@@ -231,6 +229,8 @@ Deno.serve(async (req) => {
       console.log(`Syncing account: ${account.display_name} (${acctId})`)
       try {
         let linkCount = 0
+        const upsertedLinks: any[] = [] // Collect for LTV sync
+
         try {
           const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
           console.log(`Got ${items.length} tracking links for ${acctId}`)
@@ -293,7 +293,6 @@ Deno.serve(async (req) => {
             const hasManualTag = existing && existing.source_tag && existing.source_tag !== 'Untagged'
 
             if (hasManualCost) {
-              // PRESERVE existing cost — recalculate with updated API metrics
               const costType = existing.cost_type
               const costValue = Number(existing.cost_value)
               let cost_total = 0, cpc_real = 0, cpl_real = 0
@@ -313,7 +312,6 @@ Deno.serve(async (req) => {
               else status = 'KILL'
               Object.assign(upsertPayload, { cost_type: costType, cost_value: costValue, cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status })
             } else {
-              // No manual cost — use API cost if available
               const costPerSub = link.revenue?.costPerSubscriber || link.costPerSubscriber || null
               const costPerClick = link.revenue?.costPerClick || link.costPerClick || null
               const fixedCost = link.revenue?.cost || link.fixedCost || null
@@ -345,14 +343,12 @@ Deno.serve(async (req) => {
               }
             }
 
-            // source_tag and manually_tagged are never touched during sync
-
             const { data: upsertedLink } = await db.from('tracking_links').upsert(upsertPayload, {
               onConflict: 'external_tracking_link_id',
               ignoreDuplicates: false,
-            }).select('id, account_id, clicks, subscribers, revenue').single()
+            }).select('id, account_id, clicks, subscribers, revenue, external_tracking_link_id, created_at').single()
 
-            // Insert daily snapshot for subs/day delta tracking
+            // Insert daily snapshot
             if (upsertedLink) {
               const today = new Date().toISOString().split('T')[0]
               await db.from('daily_metrics').upsert({
@@ -363,6 +359,14 @@ Deno.serve(async (req) => {
                 subscribers: upsertedLink.subscribers,
                 revenue: upsertedLink.revenue,
               }, { onConflict: 'tracking_link_id,date' })
+
+              // Collect active links for LTV sync
+              if (clicks > 0 || subs > 0) {
+                upsertedLinks.push({
+                  ...upsertedLink,
+                  extId,
+                })
+              }
             }
 
             linkCount++
@@ -374,6 +378,20 @@ Deno.serve(async (req) => {
             message: `Failed tracking-links for ${acctId}: ${err.message}`,
             error_message: err.message, records_processed: 0,
           })
+        }
+
+        // ── STEP 2b: LTV Sync — fetch subscribers & spenders for active links ──
+        let ltvSyncCount = 0
+        for (const ul of upsertedLinks) {
+          try {
+            await syncLtvForLink(db, apiKey, acctId, ul)
+            ltvSyncCount++
+          } catch (err: any) {
+            console.error(`LTV sync error for link ${ul.external_tracking_link_id}: ${err.message}`)
+          }
+        }
+        if (ltvSyncCount > 0) {
+          console.log(`LTV synced for ${ltvSyncCount} active links in ${account.display_name}`)
         }
 
         let txCount = 0
@@ -412,13 +430,11 @@ Deno.serve(async (req) => {
 
         await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', account.id)
         totalRecords += linkCount + txCount
-        results.push({ account: account.display_name, status: 'success', links: linkCount, transactions: txCount })
+        results.push({ account: account.display_name, status: 'success', links: linkCount, transactions: txCount, ltv_synced: ltvSyncCount })
       } catch (err: any) {
         results.push({ account: account.display_name, status: 'error', error: err.message })
       }
     }
-
-    // ── STEP 3: Cost metrics now calculated inline with preservation ──
 
     // ── STEP 4: Zero-click alert check ──
     try {
@@ -481,6 +497,120 @@ Deno.serve(async (req) => {
     })
   }
 })
+
+// ── LTV Sync per tracking link ──
+async function syncLtvForLink(db: any, apiKey: string, acctId: string, link: any) {
+  const extId = link.extId || link.external_tracking_link_id
+  const linkId = link.id
+  const accountId = link.account_id
+  const linkCreatedAt = link.created_at ? new Date(link.created_at) : new Date(0)
+
+  // Step 1: Fetch all subscribers for this tracking link
+  try {
+    const subscribers = await apiFetchMarkerPaginated(
+      `/${acctId}/tracking-links/${extId}/subscribers`,
+      apiKey
+    )
+    console.log(`Got ${subscribers.length} subscribers for link ${extId}`)
+
+    // Upsert fan_attributions
+    for (const sub of subscribers) {
+      const fanId = String(sub.id ?? sub.onlyfans_id ?? '')
+      if (!fanId) continue
+
+      const duration = sub.subscribedOnDuration ?? null
+      const days = parseDurationToDays(duration)
+      const subscribeDateApprox = days > 0
+        ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        : null
+
+      await db.from('fan_attributions').upsert({
+        fan_id: fanId,
+        fan_username: sub.username ?? null,
+        tracking_link_id: linkId,
+        account_id: accountId,
+        subscribed_on_duration: duration,
+        subscribe_date_approx: subscribeDateApprox,
+        is_active: sub.isActive ?? true,
+        is_expired: sub.subscribedOnExpiredNow ?? false,
+      }, { onConflict: 'fan_id,tracking_link_id' })
+    }
+  } catch (err: any) {
+    console.error(`Subscribers fetch error for link ${extId}: ${err.message}`)
+  }
+
+  // Step 2: Fetch all spenders for this tracking link
+  try {
+    const spenders = await apiFetchMarkerPaginated(
+      `/${acctId}/tracking-links/${extId}/spenders`,
+      apiKey
+    )
+    console.log(`Got ${spenders.length} spenders for link ${extId}`)
+
+    // Upsert fan_spend
+    for (const sp of spenders) {
+      const fanId = String(sp.onlyfans_id ?? sp.id ?? '')
+      if (!fanId) continue
+
+      await db.from('fan_spend').upsert({
+        fan_id: fanId,
+        tracking_link_id: linkId,
+        account_id: accountId,
+        revenue: Number(sp.revenue?.total ?? sp.revenue ?? 0),
+        calculated_at: sp.revenue?.calculated_at ?? sp.calculated_at ?? new Date().toISOString(),
+      }, { onConflict: 'fan_id,tracking_link_id' })
+    }
+  } catch (err: any) {
+    console.error(`Spenders fetch error for link ${extId}: ${err.message}`)
+  }
+
+  // Step 3: Calculate true LTV for this link
+  try {
+    // Get new subscribers (subscribed after link was created, not expired)
+    const { data: fanData } = await db.from('fan_attributions')
+      .select('fan_id')
+      .eq('tracking_link_id', linkId)
+      .eq('is_expired', false)
+      .gte('subscribe_date_approx', linkCreatedAt.toISOString().split('T')[0])
+
+    const newSubFanIds = (fanData ?? []).map((f: any) => f.fan_id)
+    const newSubsCount = newSubFanIds.length
+
+    let trueLtv = 0
+    let spendersCount = 0
+
+    if (newSubFanIds.length > 0) {
+      // Get spend for these fans on this link
+      for (let i = 0; i < newSubFanIds.length; i += 200) {
+        const batch = newSubFanIds.slice(i, i + 200)
+        const { data: spendData } = await db.from('fan_spend')
+          .select('revenue, fan_id')
+          .eq('tracking_link_id', linkId)
+          .in('fan_id', batch)
+
+        for (const sp of spendData ?? []) {
+          trueLtv += Number(sp.revenue || 0)
+          spendersCount++
+        }
+      }
+    }
+
+    const ltvPerSub = newSubsCount > 0 ? trueLtv / newSubsCount : 0
+    const spenderRate = newSubsCount > 0 ? (spendersCount / newSubsCount) * 100 : 0
+
+    // Update tracking_links with true LTV
+    await db.from('tracking_links').update({
+      ltv: trueLtv,
+      ltv_per_sub: ltvPerSub,
+      spenders_count: spendersCount,
+      spender_rate: spenderRate,
+    }).eq('id', linkId)
+
+    console.log(`Link ${extId}: LTV=$${trueLtv.toFixed(2)}, LTV/Sub=$${ltvPerSub.toFixed(2)}, Spenders=${spendersCount}/${newSubsCount} (${spenderRate.toFixed(1)}%)`)
+  } catch (err: any) {
+    console.error(`LTV calculation error for link ${extId}: ${err.message}`)
+  }
+}
 
 async function updateSyncLog(db: any, id: string | undefined, updates: Record<string, any>) {
   if (!id) return
