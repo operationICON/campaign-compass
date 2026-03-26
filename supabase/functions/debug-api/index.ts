@@ -4,7 +4,6 @@ const corsHeaders = {
 }
 
 const API_BASE = 'https://app.onlyfansapi.com/api'
-const ACCT_ID = 'acct_50601363a87541b0910ffd6c1181314c'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -25,13 +24,13 @@ Deno.serve(async (req) => {
     'Accept': 'application/json',
   }
 
-  // Check for deep-dive request
   let body: any = null
   if (req.method === 'POST') {
     try { body = await req.json() } catch { body = null }
   }
 
-  if (body?.action === 'advanced_endpoint') {
+  // Generic endpoint proxy
+  if (body?.action === 'call_endpoint') {
     const { url } = body
     if (!url) {
       return new Response(JSON.stringify({ error: 'Missing url' }), {
@@ -39,41 +38,13 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    try {
-      const res = await fetch(url, { headers: reqHeaders })
-      const bodyText = await res.text()
-      let bodyParsed: any = null
-      try { bodyParsed = JSON.parse(bodyText) } catch { bodyParsed = bodyText }
-      const responseHeaders: Record<string, string> = {}
-      res.headers.forEach((v, k) => { responseHeaders[k] = v })
-      return new Response(JSON.stringify({
-        url,
-        status: res.status,
-        status_text: res.statusText,
-        headers: responseHeaders,
-        body: bodyParsed,
-      }, null, 2), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    } catch (err: any) {
-      return new Response(JSON.stringify({ url, error: err.message }, null, 2), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-  }
 
-  if (body?.action === 'tracking_link_deep_dive') {
-    const { account_id, tracking_link_id, endpoint } = body
-    if (!account_id || !tracking_link_id || !endpoint) {
-      return new Response(JSON.stringify({ error: 'Missing account_id, tracking_link_id, or endpoint' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`
 
-    const url = `${API_BASE}/${account_id}/tracking-links/${tracking_link_id}/${endpoint}`
     try {
-      const res = await fetch(url, { headers: reqHeaders })
+      const start = Date.now()
+      const res = await fetch(fullUrl, { headers: reqHeaders })
+      const response_time_ms = Date.now() - start
       const bodyText = await res.text()
       let bodyParsed: any = null
       try { bodyParsed = JSON.parse(bodyText) } catch { bodyParsed = bodyText }
@@ -82,22 +53,24 @@ Deno.serve(async (req) => {
       res.headers.forEach((v, k) => { responseHeaders[k] = v })
 
       return new Response(JSON.stringify({
-        url,
+        url: fullUrl,
         status: res.status,
         status_text: res.statusText,
+        response_time_ms,
         headers: responseHeaders,
         body: bodyParsed,
       }, null, 2), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } catch (err: any) {
-      return new Response(JSON.stringify({ url, error: err.message }, null, 2), {
+      return new Response(JSON.stringify({ url: fullUrl, error: err.message }, null, 2), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
   }
 
-  // Default: test all 3 standard endpoints
+  // Legacy: default test
+  const ACCT_ID = 'acct_50601363a87541b0910ffd6c1181314c'
   const endpoints = [
     { name: 'accounts', url: `${API_BASE}/accounts` },
     { name: 'tracking-links', url: `${API_BASE}/${ACCT_ID}/tracking-links` },
@@ -105,29 +78,19 @@ Deno.serve(async (req) => {
   ]
 
   const results: Record<string, any> = {}
-
   for (const ep of endpoints) {
     try {
+      const start = Date.now()
       const res = await fetch(ep.url, { headers: reqHeaders })
+      const response_time_ms = Date.now() - start
       const bodyText = await res.text()
       let bodyParsed: any = null
       try { bodyParsed = JSON.parse(bodyText) } catch { bodyParsed = bodyText }
-
       const responseHeaders: Record<string, string> = {}
       res.headers.forEach((v, k) => { responseHeaders[k] = v })
-
-      results[ep.name] = {
-        url: ep.url,
-        status: res.status,
-        status_text: res.statusText,
-        headers: responseHeaders,
-        body: bodyParsed,
-      }
+      results[ep.name] = { url: ep.url, status: res.status, status_text: res.statusText, response_time_ms, headers: responseHeaders, body: bodyParsed }
     } catch (err: any) {
-      results[ep.name] = {
-        url: ep.url,
-        error: err.message,
-      }
+      results[ep.name] = { url: ep.url, error: err.message }
     }
   }
 
