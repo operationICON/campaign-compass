@@ -9,12 +9,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BulkEditCsvModal } from "@/components/audit/BulkEditCsvModal";
-import { ImportCsvModal } from "@/components/audit/ImportCsvModal";
+import { ExportCampaignsCsvButton } from "@/components/audit/ExportCampaignsCsv";
+import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import { ExportCampaignsCsvButton } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
-  ShieldCheck, Download, FileSpreadsheet, Upload, Trash2, RotateCcw,
+  ShieldCheck, Upload, Trash2, RotateCcw,
   AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
@@ -44,8 +44,6 @@ export default function AuditPage() {
   const queryClient = useQueryClient();
   const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const [bulkEditOpen, setBulkEditOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deletedOpen, setDeletedOpen] = useState(false);
