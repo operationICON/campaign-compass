@@ -71,7 +71,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.ltv || l.revenue || 0))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
                           </span>
@@ -99,7 +99,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.ltv || l.revenue || 0))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
                           </span>
@@ -129,7 +129,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.ltv || l.revenue || 0))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
                           </span>

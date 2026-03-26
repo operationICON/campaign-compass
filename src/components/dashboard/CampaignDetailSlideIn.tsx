@@ -34,7 +34,7 @@ interface CampaignDetailSlideInProps {
 }
 
 export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: CampaignDetailSlideInProps) {
-  const ltv = Number(link.revenue || 0);
+  const ltv = Number(link.ltv || link.revenue || 0);
   const profit = Number(link.profit || 0);
   const roi = Number(link.roi || 0);
   const epc = link.clicks > 0 ? ltv / link.clicks : 0;

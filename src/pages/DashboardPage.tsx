@@ -137,7 +137,7 @@ export default function DashboardPage() {
     const cost = Number(l.cost_total || 0);
     return s + (cost > 0 ? cost : 0);
   }, 0), [filteredLinksForKpi]);
-  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
+  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0), [filteredLinksForKpi]);
   const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
   const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
     return Number(l.cost_total || 0) > 0 ? s + (l.subscribers || 0) : s;
@@ -389,7 +389,7 @@ function KpiCards({
   const withSpendCount = withSpend.length;
   const avgExpenses = withSpendCount > 0 ? expenses / withSpendCount : null;
 
-  const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+  const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
   const cardTotalProfit = expenses > 0 ? expRev - expenses : null;
   const blendedRoi = expenses > 0 && cardTotalProfit !== null ? (cardTotalProfit / expenses) * 100 : null;
 
@@ -405,7 +405,7 @@ function KpiCards({
     const tag = l.source_tag || "Untagged";
     if (tag === "Untagged") return;
     if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
-    bySource[tag].rev += Number(l.revenue || 0);
+    bySource[tag].rev += Number(l.ltv || l.revenue || 0);
     bySource[tag].spend += Number(l.cost_total || 0);
     bySource[tag].profit += Number(l.profit || 0);
   });
