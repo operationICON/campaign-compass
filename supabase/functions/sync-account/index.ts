@@ -367,121 +367,12 @@ Deno.serve(async (req) => {
       console.error(`Tracking links error for ${displayName}: ${err.message}`)
     }
 
-    // ── Sync transactions (batched, limited to 10 pages) ──
-    try {
-      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey, 10)
-      console.log(`Got ${txItems.length} transactions for ${displayName}`)
-
-      const txPayloads: Record<string, any>[] = []
-      for (const tx of txItems) {
-        const externalTxId = String(tx.id ?? '')
-        if (!externalTxId) continue
-        txPayloads.push({
-          external_transaction_id: externalTxId,
-          account_id: accountId,
-          revenue: Number(tx.amount ?? 0),
-          revenue_net: Number(tx.net ?? 0),
-          fee: Number(tx.fee ?? 0),
-          type: tx.type ?? null,
-          date: tx.createdAt ? tx.createdAt.split('T')[0] : startedAt.split('T')[0],
-          fan_id: tx.user?.id ? String(tx.user.id) : null,
-          fan_username: tx.user?.username ?? null,
-          currency: tx.currency ?? 'USD',
-          status: tx.status ?? null,
-          user_id: tx.user?.id ? String(tx.user.id) : null,
-        })
-      }
-
-      for (let i = 0; i < txPayloads.length; i += 100) {
-        const batch = txPayloads.slice(i, i + 100)
-        await db.from('transactions').upsert(batch, { onConflict: 'external_transaction_id' })
-      }
-      txCount = txPayloads.length
-    } catch (err: any) {
-      console.error(`Transactions error for ${displayName}: ${err.message}`)
-    }
-
-    // ── Fetch earnings statistics for true LTV ──
-    try {
-      console.log(`Fetching earnings stats for ${displayName}...`)
-      
-      const today = new Date().toISOString().split('T')[0]
-      
-      // All time earnings (API requires start_date, use earliest possible date)
-      const allTimeRes = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=2015-01-01&end_date=${today}`, {
-        headers: apiHeaders(apiKey),
-      })
-      
-      const ltvUpdate: Record<string, any> = {
-        last_synced_at: new Date().toISOString(),
-        ltv_updated_at: new Date().toISOString(),
-      }
-
-      if (allTimeRes.ok) {
-        const allTimeJson = await allTimeRes.json()
-        const totals = allTimeJson?.data?.total ?? allTimeJson?.data?.list?.total ?? {}
-        
-        // Use .gross field (GROSS revenue), NOT .total (which is NET after OF platform fee)
-        ltvUpdate.ltv_total = Number(totals?.gross ?? totals?.all?.total_gross ?? 0)
-        // Individual breakdowns not available in this API format, set to 0
-        ltvUpdate.ltv_tips = 0
-        ltvUpdate.ltv_subscriptions = 0
-        ltvUpdate.ltv_messages = 0
-        ltvUpdate.ltv_posts = 0
-        
-        console.log(`${displayName} all-time LTV (gross): $${ltvUpdate.ltv_total}`)
-      } else {
-        const errBody = await allTimeRes.text()
-        console.error(`Earnings stats returned ${allTimeRes.status} for ${displayName}: ${errBody}`)
-      }
-
-      // Last 30 days
-      const d30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-      const res30 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d30}&end_date=${today}`, {
-        headers: apiHeaders(apiKey),
-      })
-      if (res30.ok) {
-        const json30 = await res30.json()
-        const totals30 = json30?.data?.total ?? json30?.data?.list?.total ?? {}
-        ltvUpdate.ltv_last_30d = Number(totals30?.gross ?? totals30?.all?.total_gross ?? 0)
-      }
-
-      // Last 7 days
-      const d7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
-      const res7 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d7}&end_date=${today}`, {
-        headers: apiHeaders(apiKey),
-      })
-      if (res7.ok) {
-        const json7 = await res7.json()
-        const totals7 = json7?.data?.total ?? json7?.data?.list?.total ?? {}
-        ltvUpdate.ltv_last_7d = Number(totals7?.gross ?? totals7?.all?.total_gross ?? 0)
-      }
-
-      // Last 1 day
-      const d1 = new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0]
-      const res1 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d1}&end_date=${today}`, {
-        headers: apiHeaders(apiKey),
-      })
-      if (res1.ok) {
-        const json1 = await res1.json()
-        const totals1 = json1?.data?.total ?? json1?.data?.list?.total ?? {}
-        ltvUpdate.ltv_last_day = Number(totals1?.gross ?? totals1?.all?.total_gross ?? 0)
-      }
-
-      await db.from('accounts').update(ltvUpdate).eq('id', accountId)
-    } catch (err: any) {
-      console.error(`Earnings stats error for ${displayName}: ${err.message}`)
-      // Still update last_synced_at even if earnings fail
-      await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
-    }
-
     // ── FAN SYNC — fetch subscribers & spenders for active links ──
-    // Only run for Mia (miakitty.ts) initially to verify
+    // Only run for Mia initially to verify
     let ltvSyncCount = 0
     const isMia = displayName.toLowerCase().includes('mia')
     if (isMia) {
       try {
-        // Get all tracking links for this account with clicks > 0 AND subscribers > 0
         const { data: activeDbLinks } = await db.from('tracking_links')
           .select('id, external_tracking_link_id, created_at, clicks, subscribers')
           .eq('account_id', accountId)
@@ -601,6 +492,105 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         console.error(`[FAN SYNC] ${displayName} error: ${err.message}`)
       }
+    }
+
+    // ── Sync transactions (batched, limited to 10 pages) ──
+    try {
+      const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey, 10)
+      console.log(`Got ${txItems.length} transactions for ${displayName}`)
+
+      const txPayloads: Record<string, any>[] = []
+      for (const tx of txItems) {
+        const externalTxId = String(tx.id ?? '')
+        if (!externalTxId) continue
+        txPayloads.push({
+          external_transaction_id: externalTxId,
+          account_id: accountId,
+          revenue: Number(tx.amount ?? 0),
+          revenue_net: Number(tx.net ?? 0),
+          fee: Number(tx.fee ?? 0),
+          type: tx.type ?? null,
+          date: tx.createdAt ? tx.createdAt.split('T')[0] : startedAt.split('T')[0],
+          fan_id: tx.user?.id ? String(tx.user.id) : null,
+          fan_username: tx.user?.username ?? null,
+          currency: tx.currency ?? 'USD',
+          status: tx.status ?? null,
+          user_id: tx.user?.id ? String(tx.user.id) : null,
+        })
+      }
+
+      for (let i = 0; i < txPayloads.length; i += 100) {
+        const batch = txPayloads.slice(i, i + 100)
+        await db.from('transactions').upsert(batch, { onConflict: 'external_transaction_id' })
+      }
+      txCount = txPayloads.length
+    } catch (err: any) {
+      console.error(`Transactions error for ${displayName}: ${err.message}`)
+    }
+
+    // ── Fetch earnings statistics for true LTV ──
+    try {
+      console.log(`Fetching earnings stats for ${displayName}...`)
+      
+      const today = new Date().toISOString().split('T')[0]
+      
+      const allTimeRes = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=2015-01-01&end_date=${today}`, {
+        headers: apiHeaders(apiKey),
+      })
+      
+      const ltvUpdate: Record<string, any> = {
+        last_synced_at: new Date().toISOString(),
+        ltv_updated_at: new Date().toISOString(),
+      }
+
+      if (allTimeRes.ok) {
+        const allTimeJson = await allTimeRes.json()
+        const totals = allTimeJson?.data?.total ?? allTimeJson?.data?.list?.total ?? {}
+        ltvUpdate.ltv_total = Number(totals?.gross ?? totals?.all?.total_gross ?? 0)
+        ltvUpdate.ltv_tips = 0
+        ltvUpdate.ltv_subscriptions = 0
+        ltvUpdate.ltv_messages = 0
+        ltvUpdate.ltv_posts = 0
+        console.log(`${displayName} all-time LTV (gross): $${ltvUpdate.ltv_total}`)
+      } else {
+        const errBody = await allTimeRes.text()
+        console.error(`Earnings stats returned ${allTimeRes.status} for ${displayName}: ${errBody}`)
+      }
+
+      const d30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+      const res30 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d30}&end_date=${today}`, {
+        headers: apiHeaders(apiKey),
+      })
+      if (res30.ok) {
+        const json30 = await res30.json()
+        const totals30 = json30?.data?.total ?? json30?.data?.list?.total ?? {}
+        ltvUpdate.ltv_last_30d = Number(totals30?.gross ?? totals30?.all?.total_gross ?? 0)
+      }
+
+      const d7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+      const res7 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d7}&end_date=${today}`, {
+        headers: apiHeaders(apiKey),
+      })
+      if (res7.ok) {
+        const json7 = await res7.json()
+        const totals7 = json7?.data?.total ?? json7?.data?.list?.total ?? {}
+        ltvUpdate.ltv_last_7d = Number(totals7?.gross ?? totals7?.all?.total_gross ?? 0)
+      }
+
+      const d1 = new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0]
+      const res1 = await fetch(`${API_BASE}/${acctId}/statistics/statements/earnings?start_date=${d1}&end_date=${today}`, {
+        headers: apiHeaders(apiKey),
+      })
+      if (res1.ok) {
+        const json1 = await res1.json()
+        const totals1 = json1?.data?.total ?? json1?.data?.list?.total ?? {}
+        ltvUpdate.ltv_last_day = Number(totals1?.gross ?? totals1?.all?.total_gross ?? 0)
+      }
+
+      await db.from('accounts').update(ltvUpdate).eq('id', accountId)
+    } catch (err: any) {
+      console.error(`Earnings stats error for ${displayName}: ${err.message}`)
+      await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
     }
 
     // ── Zero-click alert check ──
