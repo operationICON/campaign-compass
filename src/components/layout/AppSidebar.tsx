@@ -2,13 +2,14 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, LayoutGrid, Users, BarChart3,
-  Bell, Activity, Settings, Code2, LogOut
+  Bell, Activity, Settings, Code2, LogOut, ShieldCheck
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 
 const mainNav = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/campaigns", icon: LayoutGrid, label: "Campaigns" },
+  { to: "/audit", icon: ShieldCheck, label: "Audit" },
   { to: "/accounts", icon: Users, label: "Models" },
   { to: "/charts", icon: BarChart3, label: "Charts" },
 ];
