@@ -1,0 +1,1 @@
+CREATE POLICY "Allow public read access to daily_metrics" ON public.daily_metrics FOR SELECT TO anon USING (true);
