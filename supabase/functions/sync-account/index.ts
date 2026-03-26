@@ -475,6 +475,134 @@ Deno.serve(async (req) => {
       await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', accountId)
     }
 
+    // ── FAN SYNC — fetch subscribers & spenders for active links ──
+    // Only run for Mia (miakitty.ts) initially to verify
+    let ltvSyncCount = 0
+    const isMia = displayName.toLowerCase().includes('mia')
+    if (isMia) {
+      try {
+        // Get all tracking links for this account with clicks > 0 AND subscribers > 0
+        const { data: activeDbLinks } = await db.from('tracking_links')
+          .select('id, external_tracking_link_id, created_at, clicks, subscribers')
+          .eq('account_id', accountId)
+          .gt('clicks', 0)
+          .gt('subscribers', 0)
+
+        const activeLinks = activeDbLinks ?? []
+        console.log(`[FAN SYNC] ${displayName}: ${activeLinks.length} active links to process`)
+
+        for (const dbLink of activeLinks) {
+          const extId = dbLink.external_tracking_link_id
+          if (!extId) continue
+
+          try {
+            // SUBSCRIBERS
+            const subscribers = await apiFetchMarkerPaginated(
+              `/${acctId}/tracking-links/${extId}/subscribers`,
+              apiKey
+            )
+            console.log(`  Link ${extId}: ${subscribers.length} subscribers`)
+
+            for (const sub of subscribers) {
+              const fanId = String(sub.id ?? sub.onlyfans_id ?? '')
+              if (!fanId) continue
+
+              const duration = sub.subscribedOnDuration ?? null
+              const days = parseDurationToDays(duration)
+              const subscribeDateApprox = days > 0
+                ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                : null
+
+              const { error } = await db.from('fan_attributions').upsert({
+                fan_id: fanId,
+                fan_username: sub.username ?? null,
+                tracking_link_id: dbLink.id,
+                account_id: accountId,
+                subscribed_on_duration: duration,
+                subscribe_date_approx: subscribeDateApprox,
+                is_active: sub.isActive ?? true,
+                is_expired: sub.subscribedOnExpiredNow ?? false,
+              }, { onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false })
+
+              if (error) console.error(`  fan_attributions upsert error: ${error.message}`)
+            }
+
+            // SPENDERS
+            const spenders = await apiFetchMarkerPaginated(
+              `/${acctId}/tracking-links/${extId}/spenders`,
+              apiKey
+            )
+            console.log(`  Link ${extId}: ${spenders.length} spenders`)
+
+            for (const sp of spenders) {
+              const fanId = String(sp.onlyfans_id ?? sp.id ?? '')
+              if (!fanId) continue
+
+              const { error } = await db.from('fan_spend').upsert({
+                fan_id: fanId,
+                tracking_link_id: dbLink.id,
+                account_id: accountId,
+                revenue: Number(sp.revenue?.total ?? sp.revenue ?? 0),
+                calculated_at: sp.revenue?.calculated_at ?? sp.calculated_at ?? new Date().toISOString(),
+              }, { onConflict: 'fan_id,tracking_link_id', ignoreDuplicates: false })
+
+              if (error) console.error(`  fan_spend upsert error: ${error.message}`)
+            }
+
+            // CALCULATE TRUE LTV
+            const linkCreatedAt = dbLink.created_at ? new Date(dbLink.created_at) : new Date(0)
+            const { data: fanData } = await db.from('fan_attributions')
+              .select('fan_id')
+              .eq('tracking_link_id', dbLink.id)
+              .eq('is_expired', false)
+              .gte('subscribe_date_approx', linkCreatedAt.toISOString().split('T')[0])
+
+            const newSubFanIds = (fanData ?? []).map((f: any) => f.fan_id)
+            const newSubsCount = newSubFanIds.length
+
+            let trueLtv = 0
+            let spendersCount = 0
+
+            if (newSubFanIds.length > 0) {
+              for (let i = 0; i < newSubFanIds.length; i += 200) {
+                const batch = newSubFanIds.slice(i, i + 200)
+                const { data: spendData } = await db.from('fan_spend')
+                  .select('revenue, fan_id')
+                  .eq('tracking_link_id', dbLink.id)
+                  .in('fan_id', batch)
+
+                for (const sp of spendData ?? []) {
+                  trueLtv += Number(sp.revenue || 0)
+                  spendersCount++
+                }
+              }
+            }
+
+            const ltvPerSub = newSubsCount > 0 ? trueLtv / newSubsCount : 0
+            const spenderRate = newSubsCount > 0 ? (spendersCount / newSubsCount) * 100 : 0
+
+            await db.from('tracking_links').update({
+              ltv: trueLtv,
+              ltv_per_sub: ltvPerSub,
+              spenders_count: spendersCount,
+              spender_rate: spenderRate,
+            }).eq('id', dbLink.id)
+
+            ltvSyncCount++
+            console.log(`  Link ${extId}: LTV=$${trueLtv.toFixed(2)}, Subs=${newSubsCount}, Spenders=${spendersCount}`)
+
+          } catch (err: any) {
+            console.error(`  Fan sync failed for link ${extId}: ${err.message}`)
+            continue
+          }
+        }
+
+        console.log(`[FAN SYNC] ${displayName}: completed ${ltvSyncCount} links`)
+      } catch (err: any) {
+        console.error(`[FAN SYNC] ${displayName} error: ${err.message}`)
+      }
+    }
+
     // ── Zero-click alert check ──
     try {
       const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
