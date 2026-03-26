@@ -445,8 +445,7 @@ export default function AuditPage() {
         </Collapsible>
       </div>
 
-      <BulkEditCsvModal open={bulkEditOpen} onClose={() => setBulkEditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
-      <ImportCsvModal open={importOpen} onClose={() => setImportOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
+      <ImportAuditCsvModal open={importAuditOpen} onClose={() => setImportAuditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
       <ImportAuditCsvModal open={importAuditOpen} onClose={() => setImportAuditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
     </DashboardLayout>
   );
