@@ -822,8 +822,8 @@ export default function TrafficSourcesPage() {
 
                   return (
                     <React.Fragment key={link.id}>
-                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid #f1f5f9", height: "44px", background: isExpanded ? "rgba(8,145,178,0.04)" : "white" }}
-                      onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f8fafc"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "white"; }}>
+                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid #e8edf2", height: "44px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd" }}
+                      onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}>
                       <td style={{ padding: "8px 12px" }} onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
                       </td>
