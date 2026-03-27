@@ -7,7 +7,7 @@ import {
 import { fetchAlerts } from "@/lib/supabase-helpers";
 
 const mainNav = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/", icon: LayoutDashboard, label: "Overview" },
   { to: "/campaigns", icon: LayoutGrid, label: "Campaigns" },
   { to: "/audit", icon: ShieldCheck, label: "Audit" },
   { to: "/accounts", icon: Users, label: "Models" },
