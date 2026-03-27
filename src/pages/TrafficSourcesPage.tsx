@@ -66,7 +66,7 @@ const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
   { id: "ltv_per_sub", label: "LTV/Sub", defaultOn: true },
-  { id: "expenses", label: "Expenses", defaultOn: true },
+  { id: "expenses", label: "Spend", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_per_sub", label: "Profit/Sub", defaultOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
@@ -792,7 +792,7 @@ export default function TrafficSourcesPage() {
                   {col("revenue") && <SortHeader label="Revenue" k="revenue" align="right" />}
                   {col("ltv") && <SortHeader label="LTV" k="ltv" align="right" />}
                   {col("ltv_per_sub") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>LTV/Sub</th>}
-                  {col("expenses") && <SortHeader label="Expenses" k="cost_total" align="right" />}
+                  {col("expenses") && <SortHeader label="Spend" k="cost_total" align="right" />}
                   {col("profit") && <SortHeader label="Profit" k="profit" align="right" />}
                   {col("profit_per_sub") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Profit/Sub</th>}
                   {col("roi") && <SortHeader label="ROI" k="roi" align="right" />}
