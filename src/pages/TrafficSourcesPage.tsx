@@ -437,6 +437,18 @@ export default function TrafficSourcesPage() {
     else setSelectedRows(new Set(paginated.map((l: any) => l.id)));
   }, [paginated, selectedRows]);
 
+  const handleRowClick = (link: any) => {
+    if (expandedRow === link.id) {
+      setExpandedRow(null);
+    } else {
+      setExpandedRow(link.id);
+      setSpendType(link.cost_type || "CPL");
+      setSpendValue(link.cost_value ? String(link.cost_value) : "");
+      setNoteText("");
+      setSourceInputValue(link.source_tag || "");
+    }
+  };
+
   const SortHeader = ({ label, k, align }: { label: string; k: SortKey; align?: string }) => (
     <th
       className="cursor-pointer select-none hover:text-[#1a2332] transition-colors whitespace-nowrap"
