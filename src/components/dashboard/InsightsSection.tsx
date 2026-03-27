@@ -2,6 +2,9 @@ import { useMemo, useState, useEffect } from "react";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Info } from "lucide-react";
 import { X, ChevronUp, ChevronDown } from "lucide-react";
 
 interface InsightsSectionProps {
