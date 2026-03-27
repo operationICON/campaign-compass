@@ -864,7 +864,18 @@ export default function TrafficSourcesPage() {
                         </td>
                       )}
                       {col("subs_day") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>}
-                      {col("created") && <td className="text-right" style={{ padding: "8px 12px", fontSize: "11px", color: "#64748b" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</td>}
+                      {col("created") && (() => {
+                        const pill = ageDays <= 30 ? { label: `${ageDays}d New`, bg: "#dcfce7", text: "#16a34a" }
+                          : ageDays <= 90 ? { label: `${ageDays}d Active`, bg: "#dbeafe", text: "#2563eb" }
+                          : ageDays <= 180 ? { label: `${ageDays}d Mature`, bg: "#fef9c3", text: "#854d0e" }
+                          : { label: `${ageDays}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                        return (
+                          <td style={{ padding: "8px 12px" }}>
+                            <p className="text-foreground" style={{ fontSize: "12px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
+                            <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                          </td>
+                        );
+                      })()}
                       {col("notes") && (() => {
                         const n = notes.find((nt: any) => nt.campaign_id === link.campaign_id && nt.account_id === link.account_id);
                         return <td style={{ padding: "8px 12px", fontSize: "11px", color: n?.note ? "#1a2332" : "#94a3b8", maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;

@@ -408,7 +408,19 @@ export default function AuditPage() {
         {isVis("clicks") && <td className="p-2 text-right">{l.clicks}</td>}
         {isVis("subscribers") && <td className="p-2 text-right">{l.subscribers}</td>}
         {isVis("cvr") && <td className="p-2 text-right">{l.cvr != null ? fmtP(l.cvr) : "—"}</td>}
-        {isVis("created") && <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>}
+        {isVis("created") && (() => {
+          const days = ad;
+          const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
+            : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
+            : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
+            : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+          return (
+            <td className="p-2">
+              <p className="text-foreground text-xs">{format(new Date(l.created_at), "MMM d, yyyy")}</p>
+              <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+            </td>
+          );
+        })()}
         {isVis("media_buyer") && <td className="p-2">{l.media_buyer || "—"}</td>}
         {/* Actions */}
         <td className="p-2">
