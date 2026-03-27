@@ -1133,7 +1133,9 @@ export default function CampaignsPage() {
                                             { l: "Subscribers", v: subsEl.toLocaleString() },
                                             { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "" },
                                             { l: "Subs/Day", v: el.subsDay !== null && el.subsDay > 0 ? `${Math.round(el.subsDay)}/day` : el.subsDayLabel || "0/day", c: el.subsDay ? "text-primary" : "" },
-                                            { l: "LTV", v: fmtC(revEl), c: "text-primary font-bold" },
+                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
+                                            { l: "LTV", v: Number(el.ltv || 0) > 0 ? fmtC(Number(el.ltv)) : (el.fans_last_synced_at ? "$0.00" : "—"), c: Number(el.ltv || 0) > 0 ? "text-[#0891b2] font-bold" : "text-muted-foreground" },
+                                            { l: "LTV/Sub", v: Number(el.ltv_per_sub || 0) > 0 ? fmtC(Number(el.ltv_per_sub)) : "—" },
                                             { l: "Spender Rate", v: el.spender_rate ? `${Number(el.spender_rate).toFixed(1)}%` : "—", c: Number(el.spender_rate || 0) > 10 ? "text-primary" : Number(el.spender_rate || 0) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive" },
                                           ].map(r => (
                                             <div key={r.l} className="flex justify-between">
