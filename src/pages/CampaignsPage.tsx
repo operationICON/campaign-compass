@@ -252,8 +252,11 @@ export default function CampaignsPage() {
       }
       const subs = l.subscribers || 0;
       const hasCost = Number(l.cost_total || 0) > 0;
-      const profitPerSub = subs > 0 && hasCost ? Number(l.profit || 0) / subs : null;
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub };
+      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const ltvBased = Number(l.ltv || 0) > 0;
+      const profit = hasCost ? effectiveRev - Number(l.cost_total || 0) : null;
+      const profitPerSub = subs > 0 && hasCost && profit !== null ? profit / subs : null;
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased };
     });
   }, [links, manualOverrides, dailyMetrics]);
 
@@ -319,7 +322,8 @@ export default function CampaignsPage() {
         case "campaign_name": aVal = (a.campaign_name || "").toLowerCase(); bVal = (b.campaign_name || "").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "source_tag": aVal = (a.source_tag || "zzz").toLowerCase(); bVal = (b.source_tag || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
-        case "revenue": aVal = Number(a.ltv || a.revenue); bVal = Number(b.ltv || b.revenue); break;
+        case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
+        case "ltv": aVal = Number(a.ltv || 0); bVal = Number(b.ltv || 0); break;
         case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
         case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
         case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
