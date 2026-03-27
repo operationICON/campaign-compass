@@ -476,7 +476,9 @@ export default function CampaignsPage() {
   const totalExpenses = filtered.reduce((s: number, l: any) => s + (Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0), 0);
   const totalProfitAll = filtered.reduce((s: number, l: any) => {
     const ct = Number(l.cost_total || 0);
-    return ct > 0 ? s + (Number(l.ltv || l.revenue || 0) - ct) : s;
+    if (ct <= 0) return s;
+    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+    return s + (effectiveRev - ct);
   }, 0);
   const hasAnyExpenses = totalExpenses > 0;
   const kpiSummary = (
