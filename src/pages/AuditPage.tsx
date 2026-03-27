@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 
 const LS_KEY = "ct_audit_filters";
 const LS_COLS_KEY = "ct_audit_cols";
@@ -193,9 +194,9 @@ export default function AuditPage() {
 
   const filteredLinks = useMemo(() => {
     return activeLinks.filter((l: any) => {
-      const mName = l.accounts?.username || l.accounts?.display_name || "";
+      const linkAccountId = l.account_id || "";
       const ageDays = differenceInDays(now, new Date(l.created_at));
-      if (filters.model !== "all" && mName !== filters.model) return false;
+      if (filters.model !== "all" && linkAccountId !== filters.model) return false;
       if (filters.source !== "all") {
         if (filters.source === "Untagged") { if (l.source_tag && l.source_tag !== "Untagged") return false; }
         else { if (l.source_tag !== filters.source) return false; }
@@ -389,7 +390,7 @@ export default function AuditPage() {
   // Shared filter + action bar rendered inside each tab
   const TabToolbar = ({ tab, rightContent }: { tab: string; rightContent: React.ReactNode }) => (
     <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
-      <FilterSelect value={filters.model} onValueChange={(v) => setFilter("model", v)} placeholder="All Models" options={distinctModels.map((m: string) => ({ value: m, label: m }))} />
+      <AccountFilterDropdown value={filters.model} onChange={(v) => setFilter("model", v)} accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))} />
       <FilterSelect value={filters.source} onValueChange={(v) => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map((s: string) => ({ value: s, label: s }))} />
       <FilterSelect value={filters.status} onValueChange={(v) => setFilter("status", v)} placeholder="All Statuses" options={[
         { value: "SCALE", label: "SCALE" }, { value: "WATCH", label: "WATCH" }, { value: "LOW", label: "LOW" },
