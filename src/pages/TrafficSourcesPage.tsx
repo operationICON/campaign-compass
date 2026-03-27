@@ -1072,8 +1072,12 @@ export default function TrafficSourcesPage() {
                                         }}
                                       />
                                       <div className="flex gap-1.5 mt-2">
+                                        <button onClick={(e) => { e.stopPropagation(); inputRef?.current?.focus?.(); }}
+                                          className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                          style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#1a2332", background: "white" }}>✏ Edit</button>
                                         {el.source_tag && (
-                                          <button onClick={async () => {
+                                          <button onClick={async (e) => {
+                                            e.stopPropagation();
                                             try {
                                               await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
                                               invalidateAll();
@@ -1083,6 +1087,13 @@ export default function TrafficSourcesPage() {
                                             className="px-2.5 py-1.5 text-[11px] font-medium border"
                                             style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>🗑 Delete</button>
                                         )}
+                                        <button onClick={async (e) => {
+                                          e.stopPropagation();
+                                          // Save triggers via the dropdown's onSave, this is a visual confirmation
+                                          toast.info("Use the dropdown to select a source — it saves automatically", { duration: 2000 });
+                                        }}
+                                          className="px-2.5 py-1.5 text-[11px] font-semibold"
+                                          style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
                                       </div>
                                     </div>
                                   </div>
