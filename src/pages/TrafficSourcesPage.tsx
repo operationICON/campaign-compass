@@ -159,6 +159,13 @@ export default function TrafficSourcesPage() {
   // Selection
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
+  // Expanded row state
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
+  const [spendValue, setSpendValue] = useState("");
+  const [noteText, setNoteText] = useState("");
+  const [sourceInputValue, setSourceInputValue] = useState("");
+
   // Source card state
   const [editSourceId, setEditSourceId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
