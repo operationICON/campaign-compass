@@ -608,11 +608,14 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
             </div>
             {cardTotalProfit !== null ? (
-              <p className={`text-[22px] font-bold font-mono ${cardTotalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(cardTotalProfit)}</p>
+              <div className="flex items-center gap-2">
+                <p className={`text-[22px] font-bold font-mono ${cardTotalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(cardTotalProfit)}</p>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${totalLtv > 0 ? "bg-[#0891b2]" : "bg-muted-foreground"}`} title={totalLtv > 0 ? "From LTV (accurate)" : "From Revenue (estimate)"} />
+              </div>
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Revenue minus spend</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{totalLtv > 0 ? "LTV minus spend" : "Revenue minus spend (estimate)"}</p>
           </div>
         );
 
