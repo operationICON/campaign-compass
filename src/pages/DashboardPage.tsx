@@ -15,8 +15,7 @@ import {
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { KpiCardCustomizer, useKpiCardVisibility, type DashboardKpiCardId } from "@/components/dashboard/KpiCardCustomizer";
-
+import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
 
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
 
@@ -39,7 +38,11 @@ export default function DashboardPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
-  const { enabledCards, toggleCard, isVisible } = useKpiCardVisibility();
+  const {
+    kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
+    insightPanels, toggleInsight, isInsightVisible,
+    modelCompCols, toggleModelCol, isModelColVisible,
+  } = useOverviewCustomizer();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
