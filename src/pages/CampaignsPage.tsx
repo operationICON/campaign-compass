@@ -175,6 +175,14 @@ export default function CampaignsPage() {
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
+  const { data: trafficSources = [] } = useQuery({
+    queryKey: ["traffic_sources"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("traffic_sources").select("*").order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   
   const tagColorMap = useTagColors();
 
