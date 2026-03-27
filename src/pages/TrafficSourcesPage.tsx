@@ -252,6 +252,7 @@ export default function TrafficSourcesPage() {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] });
     queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+    queryClient.invalidateQueries({ queryKey: ["manual_notes_ts"] });
   };
 
   // ── KPI calculations ──
@@ -454,8 +455,10 @@ export default function TrafficSourcesPage() {
       setExpandedRow(link.id);
       setSpendType(link.cost_type || "CPL");
       setSpendValue(link.cost_value ? String(link.cost_value) : "");
-      setNoteText("");
       setSourceInputValue(link.source_tag || "");
+      // Load existing note
+      const existingNote = notes.find((n: any) => n.campaign_id === link.campaign_id && n.account_id === link.account_id);
+      setNoteText(existingNote?.note || existingNote?.content || "");
     }
   };
 
