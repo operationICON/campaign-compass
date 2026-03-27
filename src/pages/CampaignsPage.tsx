@@ -421,7 +421,7 @@ export default function CampaignsPage() {
     const blendedRoi = expSpend > 0 ? ((expRev - expSpend) / expSpend) * 100 : null;
 
     return {
-      totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
+      totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
       profitPerSub, avgCpl, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
       avgExpensesPerCampaign, blendedRoi,
