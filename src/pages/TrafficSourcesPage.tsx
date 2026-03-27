@@ -8,18 +8,49 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
-  AlertTriangle, BarChart3,
+  AlertTriangle, BarChart3, Settings2, Lock,
+  Hash, Tag, HelpCircle, DollarSign, TrendingUp, Percent, Users, Activity, MousePointerClick, Award,
 } from "lucide-react";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, subDays } from "date-fns";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 const COLUMNS_KEY = "ct_traffic_sources_columns";
+const KPI_KEY = "ct_traffic_sources_kpis";
 const COLOR_CYCLE = ["#0891b2", "#16a34a", "#dc2626", "#d97706", "#7c3aed", "#ec4899", "#f97316", "#64748b"];
 
 type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created";
 type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
+
+type KpiId = "total_sources" | "tagged" | "untagged" | "total_spend" | "total_revenue" | "blended_roi"
+  | "total_profit" | "avg_cpl" | "total_subscribers" | "active_sources" | "total_clicks" | "avg_profit_sub" | "top_source";
+
+interface KpiDef { id: KpiId; label: string; defaultOn: boolean; alwaysOn?: boolean }
+
+const KPI_CARDS: KpiDef[] = [
+  { id: "total_sources", label: "Total Sources", defaultOn: true },
+  { id: "tagged", label: "Tagged Campaigns", defaultOn: true },
+  { id: "untagged", label: "Untagged", defaultOn: true },
+  { id: "total_spend", label: "Total Spend", defaultOn: true },
+  { id: "total_revenue", label: "Total Revenue", defaultOn: true },
+  { id: "blended_roi", label: "Blended ROI", defaultOn: true },
+  { id: "total_profit", label: "Total Profit", defaultOn: false },
+  { id: "avg_cpl", label: "Avg CPL", defaultOn: false },
+  { id: "total_subscribers", label: "Total Subscribers", defaultOn: false },
+  { id: "active_sources", label: "Active Sources", defaultOn: false },
+  { id: "total_clicks", label: "Total Clicks", defaultOn: false },
+  { id: "avg_profit_sub", label: "Avg Profit/Sub", defaultOn: false },
+  { id: "top_source", label: "Top Source", defaultOn: false },
+];
+
+function loadKpiVisibility(): Set<KpiId> {
+  try {
+    const s = localStorage.getItem(KPI_KEY);
+    if (s) return new Set(JSON.parse(s) as KpiId[]);
+  } catch {}
+  return new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id));
+}
 
 const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "model", label: "Model", defaultOn: true },
@@ -70,8 +101,34 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
 
 function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new Date(createdAt)); }
 
+// ── KPI Card ──
+function KpiCard({ label, value, sub, icon, color }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }) {
+  return (
+    <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px", borderLeft: `3px solid ${color}` }}>
+      <div className="flex items-center gap-2 mb-1">
+        <span style={{ color }}>{icon}</span>
+        <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
+      </div>
+      <p className="font-mono font-bold" style={{ fontSize: "20px", color: "#1a2332", lineHeight: 1.2 }}>{value}</p>
+      {sub && <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>{sub}</p>}
+    </div>
+  );
+}
+
 export default function TrafficSourcesPage() {
   const queryClient = useQueryClient();
+
+  // KPI visibility
+  const [visibleKpis, setVisibleKpis] = useState<Set<KpiId>>(loadKpiVisibility);
+  const [kpiDropdownOpen, setKpiDropdownOpen] = useState(false);
+  const toggleKpi = (id: KpiId) => {
+    setVisibleKpis(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem(KPI_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   // Column visibility
   const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
@@ -177,6 +234,42 @@ export default function TrafficSourcesPage() {
     queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] });
     queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
   };
+
+  // ── KPI calculations ──
+  const kpis = useMemo(() => {
+    const totalSources = sources.length;
+    const tagged = links.filter((l: any) => l.source_tag && l.source_tag !== "Untagged").length;
+    const untagged = links.filter((l: any) => (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)).length;
+    const totalSpend = links.reduce((s: number, l: any) => s + (Number(l.cost_total) > 0 ? Number(l.cost_total) : 0), 0);
+    const totalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const blendedRoi = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend) * 100 : 0;
+    const totalProfit = totalRevenue - totalSpend;
+    const totalSubscribers = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const avgCpl = totalSubscribers > 0 ? totalSpend / totalSubscribers : 0;
+    const totalClicks = links.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
+    const avgProfitSub = totalSubscribers > 0 ? totalProfit / totalSubscribers : 0;
+
+    // Active sources: sources with linked tracking_links that had clicks in last 30 days
+    const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+    const activeSourceIds = new Set<string>();
+    links.forEach((l: any) => {
+      if (l.traffic_source_id && l.clicks > 0 && l.updated_at >= thirtyDaysAgo) {
+        activeSourceIds.add(l.traffic_source_id);
+      }
+    });
+    const activeSources = activeSourceIds.size;
+
+    // Top source by revenue
+    const revenueBySource: Record<string, number> = {};
+    links.forEach((l: any) => {
+      if (l.source_tag && l.source_tag !== "Untagged") {
+        revenueBySource[l.source_tag] = (revenueBySource[l.source_tag] || 0) + Number(l.revenue || 0);
+      }
+    });
+    const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0];
+
+    return { totalSources, tagged, untagged, totalSpend, totalRevenue, blendedRoi, totalProfit, avgCpl, totalSubscribers, activeSources, totalClicks, avgProfitSub, topSource };
+  }, [sources, links]);
 
   // ── Source card logic ──
   const selectedSource = useMemo(() => sources.find((s: any) => s.id === editSourceId), [sources, editSourceId]);
@@ -374,9 +467,8 @@ export default function TrafficSourcesPage() {
   const getSourceCampaignCount = (sourceId: string) => links.filter((l: any) => l.traffic_source_id === sourceId).length;
 
   // Pagination helpers
-  const maxVisiblePages = 7;
   const pageNumbers = useMemo(() => {
-    if (totalPages <= maxVisiblePages) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
     const pages: (number | "...")[] = [];
     if (safePage <= 4) {
       for (let i = 1; i <= 5; i++) pages.push(i);
@@ -390,18 +482,74 @@ export default function TrafficSourcesPage() {
     return pages;
   }, [totalPages, safePage]);
 
+  // ── KPI rendering map ──
+  const kpiRenderMap: Record<KpiId, { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }> = {
+    total_sources: { label: "Total Sources", value: fmtN(kpis.totalSources), icon: <Hash className="h-4 w-4" />, color: "#0891b2" },
+    tagged: { label: "Tagged Campaigns", value: fmtN(kpis.tagged), sub: `${links.length > 0 ? ((kpis.tagged / links.length) * 100).toFixed(0) : 0}% of total`, icon: <Tag className="h-4 w-4" />, color: "#16a34a" },
+    untagged: { label: "Untagged", value: fmtN(kpis.untagged), sub: kpis.untagged > 0 ? "Need tagging" : "All tagged", icon: <HelpCircle className="h-4 w-4" />, color: kpis.untagged > 0 ? "#d97706" : "#16a34a" },
+    total_spend: { label: "Total Spend", value: fmtC(kpis.totalSpend), icon: <DollarSign className="h-4 w-4" />, color: "#dc2626" },
+    total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
+    blended_roi: { label: "Blended ROI", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", sub: kpis.totalSpend > 0 ? (kpis.blendedRoi > 0 ? "Profitable" : "Negative") : "No spend data", icon: <Percent className="h-4 w-4" />, color: kpis.blendedRoi > 0 ? "#16a34a" : kpis.totalSpend > 0 ? "#dc2626" : "#94a3b8" },
+    total_profit: { label: "Total Profit", value: kpis.totalSpend > 0 ? fmtC(kpis.totalProfit) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.totalProfit > 0 ? "#16a34a" : "#dc2626" },
+    avg_cpl: { label: "Avg CPL", value: kpis.avgCpl > 0 ? fmtC(kpis.avgCpl) : "—", icon: <DollarSign className="h-4 w-4" />, color: "#0891b2" },
+    total_subscribers: { label: "Total Subscribers", value: fmtN(kpis.totalSubscribers), icon: <Users className="h-4 w-4" />, color: "#7c3aed" },
+    active_sources: { label: "Active Sources", value: fmtN(kpis.activeSources), sub: "Last 30 days", icon: <Activity className="h-4 w-4" />, color: "#0891b2" },
+    total_clicks: { label: "Total Clicks", value: fmtN(kpis.totalClicks), icon: <MousePointerClick className="h-4 w-4" />, color: "#64748b" },
+    avg_profit_sub: { label: "Avg Profit/Sub", value: kpis.avgProfitSub !== 0 ? fmtC(kpis.avgProfitSub) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.avgProfitSub > 0 ? "#16a34a" : "#dc2626" },
+    top_source: { label: "Top Source", value: kpis.topSource ? kpis.topSource[0] : "—", sub: kpis.topSource ? fmtC(kpis.topSource[1]) : undefined, icon: <Award className="h-4 w-4" />, color: "#d97706" },
+  };
+
+  const visibleKpiList = KPI_CARDS.filter(k => visibleKpis.has(k.id));
+
   return (
     <DashboardLayout>
       <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-0">
-        {/* Header + Source Card side by side */}
+        {/* TOP SECTION — KPIs left + Source Card right */}
         <div className="flex gap-4 items-start mb-4">
-          <div className="flex-1">
-            <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
-            <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view campaign performance by source</p>
+          {/* Left 60% — KPI Cards */}
+          <div style={{ flex: "0 0 60%" }}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
+                <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view campaign performance by source</p>
+              </div>
+              {/* Columns picker for KPIs */}
+              <div className="relative">
+                <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
+                  <Settings2 className="h-3.5 w-3.5" /> Columns
+                </button>
+                {kpiDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1.5 max-h-80 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                      <p className="px-3 py-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
+                      {KPI_CARDS.map(k => (
+                        <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
+                          <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
+                          <span style={{ color: "#1a2332" }}>{k.label}</span>
+                        </label>
+                      ))}
+                      <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
+                      <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
+                        Reset to defaults
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 2x3 KPI grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {visibleKpiList.map(k => {
+                const r = kpiRenderMap[k.id];
+                return <KpiCard key={k.id} label={r.label} value={r.value} sub={r.sub} icon={r.icon} color={r.color} />;
+              })}
+            </div>
           </div>
 
-          {/* Source Card */}
-          <div style={{ width: "340px", flexShrink: 0 }}>
+          {/* Right 40% — Source Card */}
+          <div style={{ flex: "0 0 38%" }}>
             <div className="bg-white border px-5 py-4 space-y-4" style={{ borderColor: "#e8edf2", borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
               <p style={{ fontSize: "13px", fontWeight: 700, color: "#1a2332" }}>Traffic Source</p>
 
@@ -695,7 +843,6 @@ export default function TrafficSourcesPage() {
               Showing {showFrom}-{showTo} of {sorted.length}
             </span>
             <div className="flex items-center gap-3">
-              {/* Rows per page */}
               <div className="flex items-center gap-1.5">
                 <span style={{ fontSize: "12px", color: "#64748b" }}>Rows:</span>
                 {[10, 25, 50, 100].map(n => (
@@ -707,7 +854,6 @@ export default function TrafficSourcesPage() {
                 ))}
               </div>
 
-              {/* Page numbers */}
               <div className="flex items-center gap-0.5">
                 <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1 rounded hover:bg-gray-100 disabled:opacity-30">
                   <ChevronLeft className="h-4 w-4" style={{ color: "#64748b" }} />
