@@ -70,7 +70,8 @@ export default function AccountsPage() {
     const stats: Record<string, any> = {};
     for (const acc of accounts) {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
-      const totalLtv = accLinks.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
+      const totalRevenue = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      const totalLtv = accLinks.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
       const totalSpend = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
       const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
@@ -94,18 +95,19 @@ export default function AccountsPage() {
       const unattributedSubs = Math.max(0, (acc.subscribers_count || 0) - totalSubs);
       const unattributedPct = (acc.subscribers_count || 0) > 0 ? (unattributedSubs / acc.subscribers_count) * 100 : 0;
 
-      // Consistent formula: Total Profit = Total LTV - Total Spend
+      const effectiveLtv = totalLtv > 0 ? totalLtv : totalRevenue;
       stats[acc.id] = {
+        totalRevenue,
         totalLtv,
         totalSpend,
-        totalProfit: totalLtv - totalSpend,
+        totalProfit: effectiveLtv - totalSpend,
         totalCampaigns: accLinks.length,
         activeCampaigns: activeLinks.length,
         avgSubsDay: accLinks.length > 1 ? (totalSubs / Math.max(1, accLinks.length)).toFixed(0) : "—",
         ltv30d: accMetrics.length > 0 ? ltv30d : null,
         totalClicks,
         totalSubs,
-        blendedRoi: totalSpend > 0 ? ((totalLtv - totalSpend) / totalSpend) * 100 : null,
+        blendedRoi: totalSpend > 0 ? ((effectiveLtv - totalSpend) / totalSpend) * 100 : null,
         avgCvr,
         cvrDiff,
         unattributedPct,
@@ -243,7 +245,8 @@ export default function AccountsPage() {
                 {/* Stats row 1 */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   {[
-                    { label: "Total LTV", value: fmtCurrency(stats.totalLtv || 0), accent: true },
+                    { label: "Total Revenue", value: fmtCurrency(stats.totalRevenue || 0) },
+                    { label: "Total LTV", value: stats.totalLtv > 0 ? fmtCurrency(stats.totalLtv) : "Fan sync needed", accent: stats.totalLtv > 0 },
                     { label: "Last 30d LTV", value: stats.ltv30d != null ? fmtCurrency(stats.ltv30d) : "Syncing..." },
                     { label: "Total Spend", value: fmtCurrency(stats.totalSpend || 0) },
                     { label: "Total Profit", value: stats.totalSpend > 0 ? fmtCurrency(stats.totalProfit) : "—", positive: stats.totalProfit >= 0 },
@@ -508,7 +511,7 @@ export default function AccountsPage() {
                 </div>
 
                 <div className="mb-3">
-                  <p className="text-2xl font-bold font-mono text-primary">{fmtCurrency(stats.totalLtv || 0)}</p>
+                  <p className="text-2xl font-bold font-mono text-foreground">{fmtCurrency(stats.totalRevenue || 0)}</p>
                   <p className="text-[12px] text-muted-foreground mt-0.5">
                     Last 30d: {stats.ltv30d != null ? <span className="text-primary font-semibold">{fmtCurrency(stats.ltv30d)}</span> : <span className="italic opacity-60">Syncing...</span>}
                   </p>

@@ -34,11 +34,14 @@ interface CampaignDetailSlideInProps {
 }
 
 export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: CampaignDetailSlideInProps) {
-  const ltv = Number(link.ltv || link.revenue || 0);
+  const revenue = Number(link.revenue || 0);
+  const ltv = Number(link.ltv || 0);
+  const effectiveRev = ltv > 0 ? ltv : revenue;
+  const ltvBased = ltv > 0;
   const profit = Number(link.profit || 0);
   const roi = Number(link.roi || 0);
-  const epc = link.clicks > 0 ? ltv / link.clicks : 0;
-  const ltvPerSub = link.subscribers > 0 ? ltv / link.subscribers : 0;
+  const epc = link.clicks > 0 ? revenue / link.clicks : 0;
+  const ltvPerSub = Number(link.ltv_per_sub || 0);
   const cvr = Number(link.cvr || 0);
   const cplReal = Number(link.cpl_real || 0);
   const cpcReal = Number(link.cpc_real || 0);
@@ -179,9 +182,11 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
               { icon: MousePointerClick, label: "Clicks", value: link.clicks.toLocaleString() },
               { icon: Users, label: "Subscribers", value: link.subscribers.toLocaleString() },
               { icon: TrendingUp, label: "CVR", value: `${(cvr * 100).toFixed(1)}%` },
-              { icon: DollarSign, label: "LTV", value: fmtC(ltv), highlight: true },
+              { icon: DollarSign, label: "Revenue", value: fmtC(revenue) },
+              { icon: DollarSign, label: "LTV", value: ltv > 0 ? fmtC(ltv) : (link.fans_last_synced_at ? "$0.00" : "—"), highlight: ltv > 0 },
               { icon: BarChart3, label: "EPC", value: `$${epc.toFixed(2)}` },
-              { icon: UserCheck, label: "LTV/Sub", value: `$${ltvPerSub.toFixed(2)}` },
+              { icon: UserCheck, label: "LTV/Sub", value: ltvPerSub > 0 ? `$${ltvPerSub.toFixed(2)}` : "—" },
+              { icon: UserCheck, label: "Spender %", value: Number(link.spender_rate || 0) > 0 ? `${Number(link.spender_rate).toFixed(1)}%` : "—" },
             ].map((stat) => (
               <div key={stat.label} className="bg-secondary/30 border border-border rounded-lg p-3">
                 <div className="flex items-center gap-1.5 mb-1">
