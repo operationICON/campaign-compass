@@ -382,7 +382,7 @@ function KpiCards({
     const latestSubs = relevantMetrics.filter((m: any) => m.date === latest).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
     const prevSubs = relevantMetrics.filter((m: any) => m.date === previous).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
     const daysBetween = Math.max(1, differenceInDays(new Date(latest), new Date(previous)));
-    return (latestSubs - prevSubs) / daysBetween;
+    return Math.max(0, (latestSubs - prevSubs)) / daysBetween;
   })();
 
   const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
@@ -460,7 +460,10 @@ function KpiCards({
 
   const renderCard = (id: DashboardKpiCardId) => {
     switch (id) {
-      case "profit_sub":
+      case "profit_sub": {
+        const campaignsWithSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0 && (l.subscribers || 0) > 0).length;
+        const campaignsNeedingSpend = links.filter((l: any) => Number(l.cost_total || 0) <= 0 && (l.subscribers || 0) > 0).length;
+        const showProfitSub = campaignsWithSpend >= 10 && avgProfitPerSub !== null;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -469,14 +472,19 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Profit/Sub</span>
             </div>
-            {avgProfitPerSub !== null ? (
-              <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub)}</p>
+            {showProfitSub ? (
+              <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub! >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub!)}</p>
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Per acquired subscriber · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {showProfitSub
+                ? `Per acquired subscriber · ${periodLabel}`
+                : `Add spend to ${campaignsNeedingSpend} campaigns to calculate`}
+            </p>
           </div>
         );
+      }
 
       case "ltv_sub":
         return (
@@ -553,6 +561,9 @@ function KpiCards({
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">Traffic with no campaign · {periodLabel}</p>
+            {unattributedStats.accountTotalSubs > 0 && (
+              <p className="text-[10px] text-muted-foreground italic mt-0.5">Requires fan sync for accuracy</p>
+            )}
             <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
               <div className="space-y-1 text-[11px]">
                 <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
