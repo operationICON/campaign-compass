@@ -8,11 +8,13 @@ import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearTrackingLinkSpend, setTrackingLinkSourceTag } from "@/lib/supabase-helpers";
+import { RefreshButton } from "@/components/RefreshButton";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
-  AlertTriangle, BarChart3, Settings2, Lock,
+  AlertTriangle, BarChart3, Settings2, Lock, Info,
   Hash, Tag, HelpCircle, DollarSign, TrendingUp, Percent, Users, Activity, MousePointerClick, Award,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInDays, subDays } from "date-fns";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
