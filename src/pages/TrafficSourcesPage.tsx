@@ -264,6 +264,14 @@ export default function TrafficSourcesPage() {
     },
   });
 
+  const { data: dailyMetrics = [] } = useQuery({
+    queryKey: ["daily_metrics_ts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("daily_metrics").select("*").order("date", { ascending: false });
+      return data || [];
+    },
+  });
+
   // Migrate source_tag_rules → traffic_sources on load if empty
   useEffect(() => {
     if (sources.length > 0) return;
