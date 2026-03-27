@@ -886,6 +886,49 @@ export default function CampaignsPage() {
                                 {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
+                            {col("revenue") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
+                                </Tooltip>
+                              </td>
+                            )}
+                            {col("ltv") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
+                                      {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
+                                </Tooltip>
+                              </td>
+                            )}
+                            {col("ltv_sub") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-foreground">
+                                      {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Average revenue per new subscriber</TooltipContent>
+                                </Tooltip>
+                              </td>
+                            )}
+                            {col("spender_rate") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                {Number(link.spender_rate || 0) > 0 ? (
+                                  <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                    {Number(link.spender_rate).toFixed(1)}%
+                                  </span>
+                                ) : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            )}
                             {col("expenses") && (
                               <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {hasCost ? (
@@ -903,7 +946,17 @@ export default function CampaignsPage() {
                             )}
                             {col("profit") && (
                               <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span> : <span className="text-muted-foreground">—</span>}
+                                {hasCost ? (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
+                                      </TooltipTrigger>
+                                      <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
+                                    </Tooltip>
+                                    <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
+                                  </span>
+                                ) : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
                             <td className="text-right" style={{ padding: "8px 12px" }}>
