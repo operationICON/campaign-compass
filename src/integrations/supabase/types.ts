@@ -387,9 +387,11 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_expired: boolean | null
+          source: string | null
           subscribe_date_approx: string | null
           subscribed_on_duration: string | null
           tracking_link_id: string | null
+          updated_at: string | null
         }
         Insert: {
           account_id?: string | null
@@ -399,9 +401,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_expired?: boolean | null
+          source?: string | null
           subscribe_date_approx?: string | null
           subscribed_on_duration?: string | null
           tracking_link_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           account_id?: string | null
@@ -411,9 +415,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_expired?: boolean | null
+          source?: string | null
           subscribe_date_approx?: string | null
           subscribed_on_duration?: string | null
           tracking_link_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -440,7 +446,9 @@ export type Database = {
           fan_id: string
           id: string
           revenue: number | null
+          source: string | null
           tracking_link_id: string | null
+          updated_at: string | null
         }
         Insert: {
           account_id?: string | null
@@ -449,7 +457,9 @@ export type Database = {
           fan_id: string
           id?: string
           revenue?: number | null
+          source?: string | null
           tracking_link_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           account_id?: string | null
@@ -458,7 +468,9 @@ export type Database = {
           fan_id?: string
           id?: string
           revenue?: number | null
+          source?: string | null
           tracking_link_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -718,11 +730,13 @@ export type Database = {
           cvr: number | null
           deleted_at: string | null
           external_tracking_link_id: string | null
+          fans_last_synced_at: string | null
           id: string
           ltv: number | null
           ltv_per_sub: number | null
           manually_tagged: boolean
           media_buyer: string | null
+          needs_full_sync: boolean | null
           needs_spend: boolean | null
           profit: number | null
           revenue: number
@@ -758,11 +772,13 @@ export type Database = {
           cvr?: number | null
           deleted_at?: string | null
           external_tracking_link_id?: string | null
+          fans_last_synced_at?: string | null
           id?: string
           ltv?: number | null
           ltv_per_sub?: number | null
           manually_tagged?: boolean
           media_buyer?: string | null
+          needs_full_sync?: boolean | null
           needs_spend?: boolean | null
           profit?: number | null
           revenue?: number
@@ -798,11 +814,13 @@ export type Database = {
           cvr?: number | null
           deleted_at?: string | null
           external_tracking_link_id?: string | null
+          fans_last_synced_at?: string | null
           id?: string
           ltv?: number | null
           ltv_per_sub?: number | null
           manually_tagged?: boolean
           media_buyer?: string | null
+          needs_full_sync?: boolean | null
           needs_spend?: boolean | null
           profit?: number | null
           revenue?: number
