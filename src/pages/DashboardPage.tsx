@@ -184,7 +184,7 @@ export default function DashboardPage() {
         {/* ═══ HEADER ═══ */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[22px] font-bold text-foreground">Campaign Tracker</h1>
+            <h1 className="text-[22px] font-bold text-foreground">Overview</h1>
             <div className="flex items-center gap-2 mt-1">
               {lastSynced && (
                 <span className="text-xs text-muted-foreground">
@@ -199,7 +199,10 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <KpiCardCustomizer enabledCards={enabledCards} toggleCard={toggleCard} />
+            <OverviewCustomizer
+              kpiCards={enabledCards} insightPanels={insightPanels} modelCompCols={modelCompCols}
+              toggleKpi={toggleCard} toggleInsight={toggleInsight} toggleModelCol={toggleModelCol}
+            />
             <RefreshButton queryKeys={["tracking_links", "accounts", "daily_metrics", "sync_settings"]} />
             <button
               onClick={() => syncMutation.mutate()}
@@ -306,6 +309,8 @@ export default function DashboardPage() {
           groupFilter={groupFilter}
           selectedModel={selectedModel}
           getAccountCategory={getAccountCategory}
+          isInsightVisible={isInsightVisible}
+          isModelColVisible={isModelColVisible}
         />
 
       </div>
@@ -455,7 +460,7 @@ function KpiCards({
 
   const cardStyle = { boxShadow: "0 2px 8px rgba(0,0,0,0.04)" };
 
-  const renderCard = (id: DashboardKpiCardId) => {
+  const renderCard = (id: OverviewKpiCardId) => {
     switch (id) {
       case "profit_sub": {
         const campaignsWithSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0 && (l.subscribers || 0) > 0).length;
@@ -754,7 +759,7 @@ function KpiCards({
 
   return (
     <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(orderedCards.length, 8)}, 1fr)` }}>
-      {orderedCards.map(id => renderCard(id as DashboardKpiCardId))}
+      {orderedCards.map(id => renderCard(id as OverviewKpiCardId))}
     </div>
   );
 }
