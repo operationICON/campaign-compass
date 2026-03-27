@@ -1200,18 +1200,16 @@ export default function CampaignsPage() {
                                       {/* Col 4: Source + Notes */}
                                       <div className="space-y-4">
                                         <div>
-                                          <div className="flex items-center gap-1.5 mb-2">
+                                          <div className="flex items-center gap-1.5 mb-1.5">
                                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
                                             <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-[hsl(142_71%_45%)]" : "bg-[hsl(var(--warning))]"}`} />
                                             <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
                                           </div>
-                                          <div className="flex gap-1.5">
-                                            <input type="text" value={sourceInputValue} onChange={(e) => setSourceInputValue(e.target.value)}
-                                              placeholder="Source name..." onClick={(e) => e.stopPropagation()}
-                                              className="flex-1 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
-                                            <button onClick={(e) => { e.stopPropagation(); handleSaveSource(); }}
-                                              className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save</button>
-                                          </div>
+                                          <SourceTagDropdown
+                                            value={sourceInputValue}
+                                            onChange={setSourceInputValue}
+                                            onSave={(tag) => { setSourceInputValue(tag); handleSaveSource(); }}
+                                          />
                                         </div>
                                         <div>
                                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>
