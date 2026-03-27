@@ -1130,56 +1130,39 @@ export default function CampaignsPage() {
                             return (
                               <tr>
                                 <td colSpan={99} className="p-0">
-                                  <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-3.5">
+                                  <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-2.5">
                                     <div className="grid grid-cols-4 gap-4">
-                                      {/* Col 1: Traffic */}
-                                      <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Traffic</p>
-                                        <div className="space-y-1.5 text-[12px]">
-                                          {[
-                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
-                                            { l: "Subscribers", v: subsEl.toLocaleString(), c: "text-foreground" },
-                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "text-muted-foreground" },
-                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
-                                          ].map(r => (
-                                            <div key={r.l} className="flex justify-between">
-                                              <span className="text-muted-foreground">{r.l}</span>
-                                              <span className={r.c}>{r.v}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      {/* Col 2: Value */}
-                                      <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Value</p>
-                                        <div className="space-y-1.5 text-[12px]">
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Revenue</span>
-                                            <span className="text-foreground">{fmtC(Number(el.revenue || 0))}</span>
+                                      {/* Col 1+2: Performance (Traffic + Value side by side) */}
+                                      <div className="col-span-2">
+                                        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Performance</p>
+                                        <div className="grid grid-cols-2 gap-x-6">
+                                          {/* Traffic */}
+                                          <div>
+                                            {[
+                                              { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
+                                              { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
+                                              { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "text-muted-foreground" },
+                                              { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
+                                            ].map(r => (
+                                              <div key={r.l} className="flex justify-between items-center" style={{ height: "24px" }}>
+                                                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{r.l}</span>
+                                                <span className={`font-bold ${r.c}`} style={{ fontSize: "13px" }}>{r.v}</span>
+                                              </div>
+                                            ))}
                                           </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">LTV</span>
-                                            <div className="text-right">
-                                              <span className={ltvVal > 0 ? "text-[#0891b2] font-bold" : "text-muted-foreground"}>
-                                                {ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—")}
-                                              </span>
-                                              {needsFanSync && ltvVal <= 0 && <p className="text-[10px] text-muted-foreground italic">Fan sync needed</p>}
-                                            </div>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">LTV/Sub</span>
-                                            <div className="text-right">
-                                              <span className={ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground"}>
-                                                {ltvSubVal > 0 ? fmtC(ltvSubVal) : "—"}
-                                              </span>
-                                              {needsFanSync && ltvSubVal <= 0 && <p className="text-[10px] text-muted-foreground italic">Fan sync needed</p>}
-                                            </div>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Spender Rate</span>
-                                            <span className={spenderRateVal > 0 ? (spenderRateVal > 10 ? "text-primary" : spenderRateVal >= 5 ? "text-[hsl(var(--warning))]" : "text-muted-foreground") : "text-muted-foreground"}>
-                                              {spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—"}
-                                            </span>
+                                          {/* Value */}
+                                          <div>
+                                            {[
+                                              { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
+                                              { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-[#0891b2]" : "text-muted-foreground" },
+                                              { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
+                                              { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 0 ? (spenderRateVal > 10 ? "text-primary" : spenderRateVal >= 5 ? "text-[hsl(var(--warning))]" : "text-muted-foreground") : "text-muted-foreground" },
+                                            ].map(r => (
+                                              <div key={r.l} className="flex justify-between items-center" style={{ height: "24px" }}>
+                                                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{r.l}</span>
+                                                <span className={`font-bold ${r.c}`} style={{ fontSize: "13px" }}>{r.v}</span>
+                                              </div>
+                                            ))}
                                           </div>
                                         </div>
                                       </div>
