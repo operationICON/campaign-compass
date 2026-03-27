@@ -7,20 +7,17 @@ import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Tag,
-  AlertTriangle, Layers, DollarSign, TrendingUp, BarChart3, Percent,
-  Users, MousePointerClick, Activity, Award, Settings2,
+  Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
+  AlertTriangle, BarChart3,
 } from "lucide-react";
-import { format, differenceInDays, subDays } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 const COLUMNS_KEY = "ct_traffic_sources_columns";
-const KPI_KEY = "ct_traffic_sources_kpis";
 const COLOR_CYCLE = ["#0891b2", "#16a34a", "#dc2626", "#d97706", "#7c3aed", "#ec4899", "#f97316", "#64748b"];
 
-// ── Column system ──
 type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created";
 type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
 
@@ -53,30 +50,6 @@ function loadColumns(): Record<ColumnId, boolean> {
   return getDefaultColumns();
 }
 
-// ── KPI visibility ──
-type KpiId = "total_sources" | "tagged" | "untagged" | "total_spend" | "total_revenue" | "blended_roi" | "total_profit" | "avg_cpl" | "total_subs" | "active_sources" | "total_clicks" | "avg_profit_sub" | "top_source";
-
-const ALL_KPIS: { id: KpiId; label: string; defaultOn: boolean }[] = [
-  { id: "total_sources", label: "Total Sources", defaultOn: true },
-  { id: "tagged", label: "Tagged Campaigns", defaultOn: true },
-  { id: "untagged", label: "Untagged", defaultOn: true },
-  { id: "total_spend", label: "Total Spend", defaultOn: true },
-  { id: "total_revenue", label: "Total Revenue", defaultOn: true },
-  { id: "blended_roi", label: "Blended ROI", defaultOn: true },
-  { id: "total_profit", label: "Total Profit", defaultOn: false },
-  { id: "avg_cpl", label: "Avg CPL", defaultOn: false },
-  { id: "total_subs", label: "Total Subscribers", defaultOn: false },
-  { id: "active_sources", label: "Active Sources", defaultOn: false },
-  { id: "total_clicks", label: "Total Clicks", defaultOn: false },
-  { id: "avg_profit_sub", label: "Avg Profit/Sub", defaultOn: false },
-  { id: "top_source", label: "Top Source", defaultOn: false },
-];
-
-function loadKpis(): Set<KpiId> {
-  try { const s = localStorage.getItem(KPI_KEY); if (s) return new Set(JSON.parse(s)); } catch {}
-  return new Set(ALL_KPIS.filter(k => k.defaultOn).map(k => k.id));
-}
-
 function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
   const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
@@ -95,16 +68,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
 };
 
-// ── Age helpers ──
-type AgeFilter = "all" | "new" | "active" | "mature" | "old";
 function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new Date(createdAt)); }
-function matchesAge(days: number, filter: AgeFilter): boolean {
-  if (filter === "all") return true;
-  if (filter === "new") return days <= 7;
-  if (filter === "active") return days > 7 && days <= 30;
-  if (filter === "mature") return days > 30 && days <= 90;
-  return days > 90;
-}
 
 export default function TrafficSourcesPage() {
   const queryClient = useQueryClient();
@@ -121,30 +85,17 @@ export default function TrafficSourcesPage() {
   };
   const col = (id: ColumnId) => visibleCols[id];
 
-  // KPI visibility
-  const [visibleKpis, setVisibleKpis] = useState<Set<KpiId>>(loadKpis);
-  const [kpiDropdownOpen, setKpiDropdownOpen] = useState(false);
-  const toggleKpi = (id: KpiId) => {
-    setVisibleKpis(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      try { localStorage.setItem(KPI_KEY, JSON.stringify([...next])); } catch {}
-      return next;
-    });
-  };
-
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [accountFilter, setAccountFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "OnlyTraffic" | "Manual">("all");
-  const [ageFilter, setAgeFilter] = useState<AgeFilter>("all");
 
   // Sort/page
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
-  const perPage = 25;
+  const [perPage, setPerPage] = useState(25);
 
   // Selection
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
@@ -153,14 +104,12 @@ export default function TrafficSourcesPage() {
   const [editSourceId, setEditSourceId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formCategory, setFormCategory] = useState<"OnlyTraffic" | "Manual">("Manual");
-  const [formKeywords, setFormKeywords] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // New source form
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState<"OnlyTraffic" | "Manual">("Manual");
-  const [newKeywords, setNewKeywords] = useState("");
 
   // Source search
   const [sourceSearchOpen, setSourceSearchOpen] = useState(false);
@@ -215,10 +164,7 @@ export default function TrafficSourcesPage() {
       const { data: existingSources } = await supabase.from("traffic_sources").select("name");
       const existingNames = new Set((existingSources || []).map((s: any) => s.name));
       const toInsert = rules.filter((r: any) => !existingNames.has(r.tag_name)).map((r: any) => ({
-        name: r.tag_name,
-        color: r.color,
-        keywords: r.keywords || [],
-        category: "Manual",
+        name: r.tag_name, color: r.color, keywords: r.keywords || [], category: "Manual",
       }));
       if (toInsert.length > 0) {
         await supabase.from("traffic_sources").insert(toInsert);
@@ -232,59 +178,6 @@ export default function TrafficSourcesPage() {
     queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
   };
 
-  // ── KPI calculations ──
-  const kpis = useMemo(() => {
-    const totalSources = sources.length;
-    const tagged = links.filter((l: any) => l.source_tag && l.source_tag !== "Untagged").length;
-    const untagged = links.filter((l: any) => (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)).length;
-    const activeLinks = links.filter((l: any) => !l.deleted_at);
-    const totalSpend = activeLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
-    const totalRevenue = activeLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalSubs = activeLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const totalClicks = activeLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
-    const blendedRoi = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend * 100) : 0;
-    const totalProfit = totalRevenue - totalSpend;
-    const avgCpl = totalSubs > 0 ? totalSpend / totalSubs : 0;
-    const avgProfitSub = totalSubs > 0 ? totalProfit / totalSubs : 0;
-
-    // Active sources = sources with at least one link that had clicks in last 30 days
-    const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
-    const activeSourceIds = new Set<string>();
-    links.forEach((l: any) => {
-      if (l.traffic_source_id && l.clicks > 0 && l.created_at >= thirtyDaysAgo) {
-        activeSourceIds.add(l.traffic_source_id);
-      }
-    });
-    const activeSources = activeSourceIds.size;
-
-    // Top source by revenue
-    const revenueBySource: Record<string, number> = {};
-    links.forEach((l: any) => {
-      if (l.source_tag) revenueBySource[l.source_tag] = (revenueBySource[l.source_tag] || 0) + Number(l.revenue || 0);
-    });
-    const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
-
-    return { totalSources, tagged, untagged, totalSpend, totalRevenue, blendedRoi, totalProfit, avgCpl, totalSubs, activeSources, totalClicks, avgProfitSub, topSource };
-  }, [sources, links]);
-
-  const kpiCards: { id: KpiId; label: string; value: string; icon: React.ReactNode }[] = [
-    { id: "total_sources", label: "Total Sources", value: String(kpis.totalSources), icon: <Layers className="h-4 w-4" style={{ color: "#0891b2" }} /> },
-    { id: "tagged", label: "Tagged", value: fmtN(kpis.tagged), icon: <Tag className="h-4 w-4" style={{ color: "#16a34a" }} /> },
-    { id: "untagged", label: "Untagged", value: fmtN(kpis.untagged), icon: <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} /> },
-    { id: "total_spend", label: "Total Spend", value: fmtC(kpis.totalSpend), icon: <DollarSign className="h-4 w-4" style={{ color: "#dc2626" }} /> },
-    { id: "total_revenue", label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" style={{ color: "#0891b2" }} /> },
-    { id: "blended_roi", label: "Blended ROI", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", icon: <Percent className="h-4 w-4" style={{ color: "#7c3aed" }} /> },
-    { id: "total_profit", label: "Total Profit", value: fmtC(kpis.totalProfit), icon: <TrendingUp className="h-4 w-4" style={{ color: "#16a34a" }} /> },
-    { id: "avg_cpl", label: "Avg CPL", value: kpis.totalSubs > 0 ? fmtC(kpis.avgCpl) : "—", icon: <DollarSign className="h-4 w-4" style={{ color: "#d97706" }} /> },
-    { id: "total_subs", label: "Total Subs", value: fmtN(kpis.totalSubs), icon: <Users className="h-4 w-4" style={{ color: "#0891b2" }} /> },
-    { id: "active_sources", label: "Active Sources", value: String(kpis.activeSources), icon: <Activity className="h-4 w-4" style={{ color: "#16a34a" }} /> },
-    { id: "total_clicks", label: "Total Clicks", value: fmtN(kpis.totalClicks), icon: <MousePointerClick className="h-4 w-4" style={{ color: "#64748b" }} /> },
-    { id: "avg_profit_sub", label: "Avg Profit/Sub", value: kpis.totalSubs > 0 ? fmtC(kpis.avgProfitSub) : "—", icon: <TrendingUp className="h-4 w-4" style={{ color: "#0891b2" }} /> },
-    { id: "top_source", label: "Top Source", value: kpis.topSource, icon: <Award className="h-4 w-4" style={{ color: "#d97706" }} /> },
-  ];
-
-  const visibleKpiCards = kpiCards.filter(k => visibleKpis.has(k.id));
-
   // ── Source card logic ──
   const selectedSource = useMemo(() => sources.find((s: any) => s.id === editSourceId), [sources, editSourceId]);
 
@@ -292,7 +185,6 @@ export default function TrafficSourcesPage() {
     setEditSourceId(source.id);
     setFormName(source.name);
     setFormCategory(source.category === "OnlyTraffic" ? "OnlyTraffic" : "Manual");
-    setFormKeywords((source.keywords || []).join(", "));
     setConfirmDelete(false);
     setSourceSearchOpen(false);
     setSourceSearchQuery("");
@@ -302,7 +194,6 @@ export default function TrafficSourcesPage() {
     setEditSourceId(null);
     setFormName("");
     setFormCategory("Manual");
-    setFormKeywords("");
     setConfirmDelete(false);
   };
 
@@ -326,10 +217,9 @@ export default function TrafficSourcesPage() {
     if (!editSourceId || !formName.trim()) return;
     setSaving(true);
     try {
-      const keywords = formKeywords.split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
       const oldName = (selectedSource as any)?.name;
       const { error } = await supabase.from("traffic_sources").update({
-        name: formName.trim(), category: formCategory, keywords,
+        name: formName.trim(), category: formCategory,
       } as any).eq("id", editSourceId);
       if (error) throw error;
       if (oldName && oldName !== formName.trim()) {
@@ -337,7 +227,7 @@ export default function TrafficSourcesPage() {
       }
       toast.success("Source updated");
       invalidateAll();
-    } catch (err: any) { toast.error("Failed to save changes"); }
+    } catch { toast.error("Failed to save changes"); }
     finally { setSaving(false); }
   };
 
@@ -361,13 +251,12 @@ export default function TrafficSourcesPage() {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      const keywords = newKeywords.split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
       const { error } = await supabase.from("traffic_sources").insert({
-        name: newName.trim(), category: newCategory, keywords, color: nextColor,
+        name: newName.trim(), category: newCategory, color: nextColor,
       });
       if (error) throw error;
       toast.success("Source created");
-      setNewName(""); setNewKeywords(""); setNewCategory("Manual");
+      setNewName(""); setNewCategory("Manual");
       invalidateAll();
     } catch (err: any) { toast.error(err.message || "Failed to create source"); }
     finally { setSaving(false); }
@@ -392,14 +281,7 @@ export default function TrafficSourcesPage() {
     else if (sourceFilter !== "all") result = result.filter(l => l.source_tag === sourceFilter);
     if (categoryFilter !== "all") {
       const sourceIds = sources.filter((s: any) => s.category === categoryFilter).map((s: any) => s.id);
-      if (categoryFilter === "Manual") {
-        result = result.filter(l => sourceIds.includes(l.traffic_source_id));
-      } else {
-        result = result.filter(l => sourceIds.includes(l.traffic_source_id));
-      }
-    }
-    if (ageFilter !== "all") {
-      result = result.filter(l => matchesAge(getAgeDays(l.created_at), ageFilter));
+      result = result.filter(l => sourceIds.includes(l.traffic_source_id));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -410,7 +292,7 @@ export default function TrafficSourcesPage() {
       );
     }
     return result;
-  }, [links, accountFilter, sourceFilter, categoryFilter, ageFilter, searchQuery, sources]);
+  }, [links, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -437,6 +319,8 @@ export default function TrafficSourcesPage() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / perPage));
   const safePage = Math.min(page, totalPages);
   const paginated = sorted.slice((safePage - 1) * perPage, safePage * perPage);
+  const showFrom = sorted.length > 0 ? (safePage - 1) * perPage + 1 : 0;
+  const showTo = Math.min(safePage * perPage, sorted.length);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -489,59 +373,39 @@ export default function TrafficSourcesPage() {
 
   const getSourceCampaignCount = (sourceId: string) => links.filter((l: any) => l.traffic_source_id === sourceId).length;
 
+  // Pagination helpers
+  const maxVisiblePages = 7;
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= maxVisiblePages) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | "...")[] = [];
+    if (safePage <= 4) {
+      for (let i = 1; i <= 5; i++) pages.push(i);
+      pages.push("...", totalPages);
+    } else if (safePage >= totalPages - 3) {
+      pages.push(1, "...");
+      for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1, "...", safePage - 1, safePage, safePage + 1, "...", totalPages);
+    }
+    return pages;
+  }, [totalPages, safePage]);
+
   return (
     <DashboardLayout>
-      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-4">
-        {/* Header */}
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view campaign performance by source</p>
-        </div>
-
-        {/* ═══ TOP SECTION — KPIs + Source Card ═══ */}
-        <div className="flex gap-4" style={{ alignItems: "flex-start" }}>
-          {/* Left: KPI cards 2x3 grid */}
-          <div style={{ width: "60%" }}>
-            <div className="flex items-center justify-between mb-2">
-              <span style={{ fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>KPIs</span>
-              <div className="relative">
-                <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="px-2.5 py-1 border text-xs font-medium flex items-center gap-1" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b", background: "white" }}>
-                  <Settings2 className="h-3 w-3" /> Columns
-                </button>
-                {kpiDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
-                    <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                      {ALL_KPIS.map(k => (
-                        <label key={k.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
-                          <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
-                          <span style={{ color: "#1a2332" }}>{k.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {visibleKpiCards.map((kpi) => (
-                <div key={kpi.id} className="bg-white border flex flex-col justify-center px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    {kpi.icon}
-                    <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.04em" }}>{kpi.label}</span>
-                  </div>
-                  <span style={{ fontSize: "20px", fontWeight: 700, color: "#1a2332" }} className={kpi.id === "top_source" ? "text-sm truncate" : ""}>{kpi.value}</span>
-                </div>
-              ))}
-            </div>
+      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-0">
+        {/* Header + Source Card side by side */}
+        <div className="flex gap-4 items-start mb-4">
+          <div className="flex-1">
+            <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
+            <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view campaign performance by source</p>
           </div>
 
-          {/* Right: Source Card */}
-          <div style={{ width: "40%" }}>
+          {/* Source Card */}
+          <div style={{ width: "340px", flexShrink: 0 }}>
             <div className="bg-white border px-5 py-4 space-y-4" style={{ borderColor: "#e8edf2", borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
               <p style={{ fontSize: "13px", fontWeight: 700, color: "#1a2332" }}>Traffic Source</p>
 
-              {/* ── SOURCE LIST section ── */}
+              {/* SOURCE LIST */}
               <div>
                 <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Source List</label>
                 <div className="relative mt-1" ref={sourceSearchRef}>
@@ -577,7 +441,7 @@ export default function TrafficSourcesPage() {
                 </div>
               </div>
 
-              {/* Edit form when source selected */}
+              {/* Edit form */}
               {editSourceId && selectedSource && (
                 <div className="space-y-3 pt-1">
                   <div>
@@ -597,12 +461,6 @@ export default function TrafficSourcesPage() {
                         </button>
                       ))}
                     </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Keywords</label>
-                    <input type="text" value={formKeywords} onChange={(e) => setFormKeywords(e.target.value)} placeholder="keyword1, keyword2"
-                      className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
-                      style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
                   </div>
 
                   {confirmDelete ? (
@@ -633,7 +491,7 @@ export default function TrafficSourcesPage() {
               {/* Divider */}
               <div style={{ borderTop: "1px solid #e8edf2" }} />
 
-              {/* ── ADD NEW SOURCE section ── */}
+              {/* ADD NEW SOURCE */}
               <div className="space-y-3">
                 <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Add New Source</label>
                 <div>
@@ -659,12 +517,6 @@ export default function TrafficSourcesPage() {
                     ))}
                   </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Keywords</label>
-                  <input type="text" value={newKeywords} onChange={(e) => setNewKeywords(e.target.value)} placeholder="keyword1, keyword2"
-                    className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
-                    style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
-                </div>
                 <button onClick={handleNewSource} disabled={!newName.trim() || saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
                   {saving ? "Saving..." : "Save"}
                 </button>
@@ -673,8 +525,8 @@ export default function TrafficSourcesPage() {
           </div>
         </div>
 
-        {/* ═══ MIDDLE SECTION — Filter bar ═══ */}
-        <div className="bg-white border flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
+        {/* Filter bar */}
+        <div className="bg-white border flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderColor: "#e8edf2", borderRadius: "16px 16px 0 0", borderBottom: "none" }}>
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#94a3b8" }} />
             <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
@@ -698,17 +550,6 @@ export default function TrafficSourcesPage() {
             <option value="OnlyTraffic">OnlyTraffic</option>
             <option value="Manual">Manual</option>
           </select>
-
-          {/* Age pills */}
-          <div className="flex gap-1">
-            {([["all", "All Ages"], ["new", "New"], ["active", "Active"], ["mature", "Mature"], ["old", "Old"]] as [AgeFilter, string][]).map(([val, label]) => (
-              <button key={val} onClick={() => { setAgeFilter(val); setPage(1); }}
-                className="px-2.5 py-1 text-xs font-medium transition-colors"
-                style={{ borderRadius: "6px", background: ageFilter === val ? "#0891b2" : "#f1f5f9", color: ageFilter === val ? "white" : "#64748b" }}>
-                {label}
-              </button>
-            ))}
-          </div>
 
           {/* Columns button */}
           <div className="relative ml-auto">
@@ -737,8 +578,8 @@ export default function TrafficSourcesPage() {
           <span style={{ fontSize: "12px", color: "#64748b" }}>{filtered.length} campaigns</span>
         </div>
 
-        {/* ═══ BOTTOM SECTION — Campaign list ═══ */}
-        <div className="bg-white border overflow-hidden" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
+        {/* Campaign list */}
+        <div className="bg-white border overflow-hidden" style={{ borderColor: "#e8edf2", borderRadius: "0 0 16px 16px" }}>
           <BulkActionToolbar
             selectedIds={selectedRows}
             onClear={() => setSelectedRows(new Set())}
@@ -849,19 +690,45 @@ export default function TrafficSourcesPage() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid #e8edf2" }}>
-              <span style={{ fontSize: "12px", color: "#64748b" }}>Page {safePage} of {totalPages} · {filtered.length} total</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30">
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid #e8edf2" }}>
+            <span style={{ fontSize: "12px", color: "#64748b" }}>
+              Showing {showFrom}-{showTo} of {sorted.length}
+            </span>
+            <div className="flex items-center gap-3">
+              {/* Rows per page */}
+              <div className="flex items-center gap-1.5">
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Rows:</span>
+                {[10, 25, 50, 100].map(n => (
+                  <button key={n} onClick={() => { setPerPage(n); setPage(1); }}
+                    className="px-2 py-0.5 text-xs font-medium transition-colors"
+                    style={{ borderRadius: "4px", background: perPage === n ? "#0891b2" : "transparent", color: perPage === n ? "white" : "#64748b" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+
+              {/* Page numbers */}
+              <div className="flex items-center gap-0.5">
+                <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1 rounded hover:bg-gray-100 disabled:opacity-30">
                   <ChevronLeft className="h-4 w-4" style={{ color: "#64748b" }} />
                 </button>
-                <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30">
+                {pageNumbers.map((p, i) =>
+                  p === "..." ? (
+                    <span key={`e${i}`} className="px-1" style={{ fontSize: "12px", color: "#94a3b8" }}>…</span>
+                  ) : (
+                    <button key={p} onClick={() => setPage(p as number)}
+                      className="w-7 h-7 flex items-center justify-center text-xs font-medium transition-colors"
+                      style={{ borderRadius: "6px", background: safePage === p ? "#0891b2" : "transparent", color: safePage === p ? "white" : "#64748b" }}>
+                      {p}
+                    </button>
+                  )
+                )}
+                <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1 rounded hover:bg-gray-100 disabled:opacity-30">
                   <ChevronRight className="h-4 w-4" style={{ color: "#64748b" }} />
                 </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </DashboardLayout>
