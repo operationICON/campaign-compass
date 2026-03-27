@@ -25,17 +25,21 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 const COLUMNS_KEY = "campaigns_columns";
 
-type ColumnId = "model" | "source" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
+type ColumnId = "model" | "source" | "revenue" | "ltv" | "ltv_sub" | "spender_rate" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
 
 const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
+  { id: "revenue", label: "Revenue", defaultOn: true },
+  { id: "ltv", label: "LTV", defaultOn: true },
+  { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
+  { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
@@ -248,8 +252,11 @@ export default function CampaignsPage() {
       }
       const subs = l.subscribers || 0;
       const hasCost = Number(l.cost_total || 0) > 0;
-      const profitPerSub = subs > 0 && hasCost ? Number(l.profit || 0) / subs : null;
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub };
+      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const ltvBased = Number(l.ltv || 0) > 0;
+      const profit = hasCost ? effectiveRev - Number(l.cost_total || 0) : null;
+      const profitPerSub = subs > 0 && hasCost && profit !== null ? profit / subs : null;
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased };
     });
   }, [links, manualOverrides, dailyMetrics]);
 
@@ -315,7 +322,8 @@ export default function CampaignsPage() {
         case "campaign_name": aVal = (a.campaign_name || "").toLowerCase(); bVal = (b.campaign_name || "").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "source_tag": aVal = (a.source_tag || "zzz").toLowerCase(); bVal = (b.source_tag || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
-        case "revenue": aVal = Number(a.ltv || a.revenue); bVal = Number(b.ltv || b.revenue); break;
+        case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
+        case "ltv": aVal = Number(a.ltv || 0); bVal = Number(b.ltv || 0); break;
         case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
         case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
         case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
@@ -353,7 +361,8 @@ export default function CampaignsPage() {
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
-    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
+    const totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
@@ -368,7 +377,11 @@ export default function CampaignsPage() {
     const totalCount = scopedLinks.length;
 
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
+    const expLtv = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
+    const expRev = withSpend.reduce((s: number, l: any) => {
+      const ltv = Number(l.ltv || 0);
+      return s + (ltv > 0 ? ltv : Number(l.revenue || 0));
+    }, 0);
     const expSpend = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
     const expSubs = withSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const profitPerSub = expSpend > 0 && expSubs > 0 ? (expRev - expSpend) / expSubs : null;
@@ -381,10 +394,11 @@ export default function CampaignsPage() {
     withSpend.forEach((l: any) => {
       const tag = l.source_tag || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      bySource[tag].rev += Number(l.ltv || l.revenue || 0);
+      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      bySource[tag].rev += effectiveRev;
       bySource[tag].spend += Number(l.cost_total || 0);
       bySource[tag].subs += (l.subscribers || 0);
-      bySource[tag].profit += Number(l.profit || 0);
+      bySource[tag].profit += effectiveRev - Number(l.cost_total || 0);
       bySource[tag].count++;
     });
 
@@ -407,7 +421,7 @@ export default function CampaignsPage() {
     const blendedRoi = expSpend > 0 ? ((expRev - expSpend) / expSpend) * 100 : null;
 
     return {
-      totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
+      totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
       profitPerSub, avgCpl, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
       avgExpensesPerCampaign, blendedRoi,
@@ -462,7 +476,9 @@ export default function CampaignsPage() {
   const totalExpenses = filtered.reduce((s: number, l: any) => s + (Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0), 0);
   const totalProfitAll = filtered.reduce((s: number, l: any) => {
     const ct = Number(l.cost_total || 0);
-    return ct > 0 ? s + (Number(l.ltv || l.revenue || 0) - ct) : s;
+    if (ct <= 0) return s;
+    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+    return s + (effectiveRev - ct);
   }, 0);
   const hasAnyExpenses = totalExpenses > 0;
   const kpiSummary = (
@@ -795,6 +811,10 @@ export default function CampaignsPage() {
                         {col("clicks") && <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />}
                         {col("subscribers") && <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />}
                         {col("cvr") && <SortHeader label="CVR" sortKeyName="cvr" width="65px" />}
+                        {col("revenue") && <SortHeader label="Revenue" sortKeyName="revenue" width="90px" />}
+                        {col("ltv") && <SortHeader label="LTV" sortKeyName="ltv" width="80px" />}
+                        {col("ltv_sub") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>LTV/Sub</th>}
+                        {col("spender_rate") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Spender %</th>}
                         {col("expenses") && <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />}
                         {col("profit") && <SortHeader label="Profit" sortKeyName="profit" width="80px" />}
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
@@ -815,7 +835,9 @@ export default function CampaignsPage() {
                         const initials = username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?";
                         const costTotal = Number(link.cost_total || 0);
                         const hasCost = link.cost_type && costTotal > 0;
-                        const profit = Number(link.profit || 0);
+                        const effectiveRev = Number(link.ltv || 0) > 0 ? Number(link.ltv) : Number(link.revenue || 0);
+                        const profit = hasCost ? effectiveRev - costTotal : 0;
+                        const ltvBased = Number(link.ltv || 0) > 0;
                         const roi = Number(link.roi || 0);
                         const status = link.status || "NO_DATA";
                         const displayStatus = STATUS_LABELS[status] || "NO SPEND";
@@ -864,6 +886,49 @@ export default function CampaignsPage() {
                                 {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
+                            {col("revenue") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
+                                </Tooltip>
+                              </td>
+                            )}
+                            {col("ltv") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
+                                      {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
+                                </Tooltip>
+                              </td>
+                            )}
+                            {col("ltv_sub") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-foreground">
+                                      {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Average revenue per new subscriber</TooltipContent>
+                                </Tooltip>
+                              </td>
+                            )}
+                            {col("spender_rate") && (
+                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                {Number(link.spender_rate || 0) > 0 ? (
+                                  <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                    {Number(link.spender_rate).toFixed(1)}%
+                                  </span>
+                                ) : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            )}
                             {col("expenses") && (
                               <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                 {hasCost ? (
@@ -881,7 +946,17 @@ export default function CampaignsPage() {
                             )}
                             {col("profit") && (
                               <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span> : <span className="text-muted-foreground">—</span>}
+                                {hasCost ? (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
+                                      </TooltipTrigger>
+                                      <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
+                                    </Tooltip>
+                                    <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
+                                  </span>
+                                ) : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
                             <td className="text-right" style={{ padding: "8px 12px" }}>
@@ -964,7 +1039,7 @@ export default function CampaignsPage() {
                             const el = link;
                             const subsEl = el.subscribers || 0;
                             const clicksEl = el.clicks || 0;
-                            const revEl = Number(el.ltv || el.revenue || 0);
+                            const revEl = Number(el.ltv || 0) > 0 ? Number(el.ltv) : Number(el.revenue || 0);
                             const hasCostEl = Number(el.cost_total || 0) > 0;
                             const numVal = parseFloat(spendValue);
                             const validVal = !isNaN(numVal) && numVal > 0;
@@ -1058,7 +1133,9 @@ export default function CampaignsPage() {
                                             { l: "Subscribers", v: subsEl.toLocaleString() },
                                             { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "" },
                                             { l: "Subs/Day", v: el.subsDay !== null && el.subsDay > 0 ? `${Math.round(el.subsDay)}/day` : el.subsDayLabel || "0/day", c: el.subsDay ? "text-primary" : "" },
-                                            { l: "LTV", v: fmtC(revEl), c: "text-primary font-bold" },
+                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
+                                            { l: "LTV", v: Number(el.ltv || 0) > 0 ? fmtC(Number(el.ltv)) : (el.fans_last_synced_at ? "$0.00" : "—"), c: Number(el.ltv || 0) > 0 ? "text-[#0891b2] font-bold" : "text-muted-foreground" },
+                                            { l: "LTV/Sub", v: Number(el.ltv_per_sub || 0) > 0 ? fmtC(Number(el.ltv_per_sub)) : "—" },
                                             { l: "Spender Rate", v: el.spender_rate ? `${Number(el.spender_rate).toFixed(1)}%` : "—", c: Number(el.spender_rate || 0) > 10 ? "text-primary" : Number(el.spender_rate || 0) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive" },
                                           ].map(r => (
                                             <div key={r.l} className="flex justify-between">

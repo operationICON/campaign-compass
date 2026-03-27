@@ -28,7 +28,7 @@ export function useAgencyTotals(options?: UseAgencyTotalsOptions): AgencyTotals 
       filtered = filtered.filter((l: any) => idSet.has(l.account_id));
     }
 
-    const totalLtv = filtered.reduce((sum: number, l: any) => sum + Number(l.ltv || l.revenue || 0), 0);
+    const totalLtv = filtered.reduce((sum: number, l: any) => sum + Number(l.ltv || 0), 0);
     const totalSpend = filtered.reduce((sum: number, l: any) => {
       const cost = Number(l.cost_total || 0);
       return sum + (cost > 0 ? cost : 0);

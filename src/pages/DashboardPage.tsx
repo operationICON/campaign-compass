@@ -137,8 +137,10 @@ export default function DashboardPage() {
     const cost = Number(l.cost_total || 0);
     return s + (cost > 0 ? cost : 0);
   }, 0), [filteredLinksForKpi]);
-  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0), [filteredLinksForKpi]);
-  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
+  const totalRevenue = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
+  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0), [filteredLinksForKpi]);
+  const totalEffective = totalLtv > 0 ? totalLtv : totalRevenue;
+  const totalProfit = totalSpend > 0 ? totalEffective - totalSpend : null;
   const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
     return Number(l.cost_total || 0) > 0 ? s + (l.subscribers || 0) : s;
   }, 0), [filteredLinksForKpi]);
@@ -280,6 +282,7 @@ export default function DashboardPage() {
           links={filteredLinksForKpi}
           dailyMetrics={dailyMetrics}
           totalSpend={totalSpend}
+          totalRevenue={totalRevenue}
           totalLtv={totalLtv}
           totalProfit={totalProfit}
           paidSubscribers={paidSubscribers}
@@ -339,7 +342,7 @@ export default function DashboardPage() {
 function KpiCards({
   isLoading, isVisible, enabledCards,
   accounts, links, dailyMetrics,
-  totalSpend, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
+  totalSpend, totalRevenue, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC,
 }: {
@@ -350,6 +353,7 @@ function KpiCards({
   links: any[];
   dailyMetrics: any[];
   totalSpend: number;
+  totalRevenue: number;
   totalLtv: number;
   totalProfit: number | null;
   paidSubscribers: number;
@@ -389,8 +393,11 @@ function KpiCards({
   const withSpendCount = withSpend.length;
   const avgExpenses = withSpendCount > 0 ? expenses / withSpendCount : null;
 
-  const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
-  const cardTotalProfit = expenses > 0 ? expRev - expenses : null;
+  const expEffective = withSpend.reduce((s: number, l: any) => {
+    const ltv = Number(l.ltv || 0);
+    return s + (ltv > 0 ? ltv : Number(l.revenue || 0));
+  }, 0);
+  const cardTotalProfit = expenses > 0 ? expEffective - expenses : null;
   const blendedRoi = expenses > 0 && cardTotalProfit !== null ? (cardTotalProfit / expenses) * 100 : null;
 
   const activeCampaigns = links.filter((l: any) => {
@@ -405,9 +412,10 @@ function KpiCards({
     const tag = l.source_tag || "Untagged";
     if (tag === "Untagged") return;
     if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
-    bySource[tag].rev += Number(l.ltv || l.revenue || 0);
+    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+    bySource[tag].rev += effectiveRev;
     bySource[tag].spend += Number(l.cost_total || 0);
-    bySource[tag].profit += Number(l.profit || 0);
+    bySource[tag].profit += effectiveRev - Number(l.cost_total || 0);
   });
   let bestSource: { name: string; roi: number } | null = null;
   Object.entries(bySource).forEach(([name, d]) => {
@@ -600,11 +608,14 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
             </div>
             {cardTotalProfit !== null ? (
-              <p className={`text-[22px] font-bold font-mono ${cardTotalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(cardTotalProfit)}</p>
+              <div className="flex items-center gap-2">
+                <p className={`text-[22px] font-bold font-mono ${cardTotalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(cardTotalProfit)}</p>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${totalLtv > 0 ? "bg-[#0891b2]" : "bg-muted-foreground"}`} title={totalLtv > 0 ? "From LTV (accurate)" : "From Revenue (estimate)"} />
+              </div>
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Revenue minus spend</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{totalLtv > 0 ? "LTV minus spend" : "Revenue minus spend (estimate)"}</p>
           </div>
         );
 
@@ -662,15 +673,33 @@ function KpiCards({
 
       case "total_ltv":
         return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-primary" />
+          <div key={id} className="space-y-3">
+            {/* Total Revenue card */}
+            <div className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-foreground" />
+                </div>
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Revenue</span>
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalRevenue)}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Gross revenue from all subscribers</p>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalAccLtv)}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">All subscribers</p>
+            {/* Total LTV card */}
+            <div className="bg-card border border-[#0891b2]/30 rounded-2xl p-5" style={{ ...cardStyle, boxShadow: "0 2px 12px rgba(8,145,178,0.1)" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-[#0891b2]/10 flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-[#0891b2]" />
+                </div>
+                <span className="text-[11px] text-[#0891b2] font-medium uppercase tracking-wider">Total LTV</span>
+              </div>
+              {totalLtv > 0 ? (
+                <p className="text-[22px] font-bold font-mono text-[#0891b2]">{fmtC(totalLtv)}</p>
+              ) : (
+                <p className="text-[16px] font-bold text-muted-foreground">Fan sync needed</p>
+              )}
+              <p className="text-[11px] text-muted-foreground mt-1">From new subscribers only</p>
+            </div>
           </div>
         );
 
