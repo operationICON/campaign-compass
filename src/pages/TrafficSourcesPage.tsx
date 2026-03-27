@@ -71,6 +71,7 @@ const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "status", label: "Status", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
   { id: "created", label: "Created", defaultOn: true },
+  { id: "notes", label: "Notes", defaultOn: false },
 ];
 
 function getDefaultColumns(): Record<ColumnId, boolean> {
@@ -164,6 +165,7 @@ export default function TrafficSourcesPage() {
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [noteLoading, setNoteLoading] = useState(false);
   const [sourceInputValue, setSourceInputValue] = useState("");
 
   // Source card state
