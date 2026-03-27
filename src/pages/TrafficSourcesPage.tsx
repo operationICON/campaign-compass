@@ -403,8 +403,7 @@ export default function TrafficSourcesPage() {
           </div>
 
           {/* Right: Source Card */}
-          <div style={{ width: "40%" }} className="bg-white border px-5 py-4 space-y-3" style2="" >
-            <style>{`.source-card { border-color: #e8edf2; border-radius: 16px; border-width: 1px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }`}</style>
+          <div style={{ width: "40%" }}>
             <div className="bg-white border px-5 py-4 space-y-3" style={{ borderColor: "#e8edf2", borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", width: "100%" }}>
               <p style={{ fontSize: "13px", fontWeight: 700, color: "#1a2332" }}>Traffic Source</p>
 
