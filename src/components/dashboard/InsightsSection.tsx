@@ -280,35 +280,7 @@ export function InsightsSection({
         </div>
 
         {/* CARD 5 — 30d LTV per model */}
-        <div className="bg-card border border-border rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium">30d LTV · per model</p>
-          </div>
-          {(() => {
-            const filteredAccts = accounts.filter((a: any) => filteredAccountIds.has(a.id));
-            const sorted = [...filteredAccts].sort((a: any, b: any) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
-            if (sorted.length === 0) return <p className="text-xs text-muted-foreground py-4">No models</p>;
-            return (
-              <div className="space-y-2">
-                {sorted.map((acc: any) => (
-                  <div key={acc.id} className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
-                      {acc.avatar_thumb_url ? (
-                        <img src={acc.avatar_thumb_url} alt="" className="w-full h-full object-cover rounded-full" />
-                      ) : (
-                        <span className="text-[10px] font-bold text-muted-foreground">{(acc.display_name || "?")[0].toUpperCase()}</span>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-muted-foreground truncate flex-1">@{acc.username || acc.display_name}</span>
-                    <span className="text-[12px] font-bold font-mono shrink-0 text-foreground">
-                      {acc.ltv_last_30d != null ? fmtC(acc.ltv_last_30d) : "—"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-        </div>
+        <LtvPerModelCard accounts={accounts} filteredAccountIds={filteredAccountIds} fmtC={fmtC} />
       </div>
 
       {/* ── ROW 2: Campaign Decisions — Collapsible ── */}
