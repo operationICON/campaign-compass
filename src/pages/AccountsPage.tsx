@@ -45,11 +45,15 @@ type SortKey = "campaign_name" | "revenue" | "clicks" | "subscribers" | "profit"
 
 export default function AccountsPage() {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "Female" | "Trans">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
+  const [modelCategories, setModelCategories] = useState<Record<string, string>>(loadModelCategories);
+  const [editingCatFor, setEditingCatFor] = useState<string | null>(null);
+  const [editCatValue, setEditCatValue] = useState("");
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
@@ -68,7 +72,31 @@ export default function AccountsPage() {
   const fmtNum = (v: number) => v.toLocaleString();
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
-  const getCategory = (account: any) => MODEL_CATEGORIES[account.username] || "Female";
+  const getCategory = (account: any) => modelCategories[account.username] || "Uncategorized";
+
+  // All unique categories
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    accounts.forEach((a: any) => cats.add(getCategory(a)));
+    return Array.from(cats).sort();
+  }, [accounts, modelCategories]);
+
+  const handleSaveCategory = (username: string, category: string) => {
+    const updated = { ...modelCategories, [username]: category };
+    setModelCategories(updated);
+    saveModelCategories(updated);
+    setEditingCatFor(null);
+    toast.success(`Category set to "${category}"`);
+  };
+
+  const handleDeleteCategory = (username: string) => {
+    const updated = { ...modelCategories };
+    delete updated[username];
+    setModelCategories(updated);
+    saveModelCategories(updated);
+    setEditingCatFor(null);
+    toast.success("Category removed");
+  };
 
   // Agency benchmark CVR
   const agencyAvgCvr = useMemo(() => {
