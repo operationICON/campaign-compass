@@ -103,7 +103,7 @@ export default function TrafficSourcesPage() {
   const { data: sources = [] } = useQuery({
     queryKey: ["traffic_sources"],
     queryFn: async () => {
-      const { data } = await supabase.from("traffic_sources").select("*").order("name");
+      const { data } = await supabase.from("traffic_sources").select("*").neq("is_archived" as any, true).order("name");
       return data || [];
     },
   });
