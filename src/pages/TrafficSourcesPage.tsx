@@ -551,30 +551,30 @@ export default function TrafficSourcesPage() {
               </div>
               <div className="flex items-center gap-2">
                 <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
-              <div className="relative">
-                <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
-                  <Settings2 className="h-3.5 w-3.5" /> Columns
-                </button>
-                {kpiDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
-                    <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1.5 max-h-80 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                      <p className="px-3 py-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
-                      {KPI_CARDS.map(k => (
-                        <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
-                          <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
-                          <span style={{ color: "#1a2332" }}>{k.label}</span>
-                        </label>
-                      ))}
-                      <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
-                      <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
-                        Reset to defaults
-                      </button>
-                    </div>
-                  </>
-                )}
+                <div className="relative">
+                  <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
+                    <Settings2 className="h-3.5 w-3.5" /> Columns
+                  </button>
+                  {kpiDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1.5 max-h-80 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                        <p className="px-3 py-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
+                        {KPI_CARDS.map(k => (
+                          <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
+                            <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
+                            <span style={{ color: "#1a2332" }}>{k.label}</span>
+                          </label>
+                        ))}
+                        <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
+                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
+                          Reset to defaults
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
 
             {/* 2x3 KPI grid */}
             <div className="grid grid-cols-2 gap-3">
