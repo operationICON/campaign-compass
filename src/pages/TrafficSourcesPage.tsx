@@ -4,8 +4,10 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
 import { TagBadge } from "@/components/TagBadge";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
+import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { clearTrackingLinkSpend, setTrackingLinkSourceTag } from "@/lib/supabase-helpers";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
   AlertTriangle, BarChart3, Settings2, Lock,
