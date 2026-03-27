@@ -673,15 +673,33 @@ function KpiCards({
 
       case "total_ltv":
         return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-primary" />
+          <div key={id} className="space-y-3">
+            {/* Total Revenue card */}
+            <div className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-foreground" />
+                </div>
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Revenue</span>
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total LTV</span>
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalRevenue)}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Gross revenue from all subscribers</p>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalAccLtv)}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">All subscribers</p>
+            {/* Total LTV card */}
+            <div className="bg-card border border-[#0891b2]/30 rounded-2xl p-5" style={{ ...cardStyle, boxShadow: "0 2px 12px rgba(8,145,178,0.1)" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-[#0891b2]/10 flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-[#0891b2]" />
+                </div>
+                <span className="text-[11px] text-[#0891b2] font-medium uppercase tracking-wider">Total LTV</span>
+              </div>
+              {totalLtv > 0 ? (
+                <p className="text-[22px] font-bold font-mono text-[#0891b2]">{fmtC(totalLtv)}</p>
+              ) : (
+                <p className="text-[16px] font-bold text-muted-foreground">Fan sync needed</p>
+              )}
+              <p className="text-[11px] text-muted-foreground mt-1">From new subscribers only</p>
+            </div>
           </div>
         );
 
