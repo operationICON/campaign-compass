@@ -223,6 +223,14 @@ export default function TrafficSourcesPage() {
     },
   });
 
+  const { data: notes = [] } = useQuery({
+    queryKey: ["manual_notes_ts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("manual_notes").select("*").order("updated_at", { ascending: false });
+      return data || [];
+    },
+  });
+
   // Migrate source_tag_rules → traffic_sources on load if empty
   useEffect(() => {
     if (sources.length > 0) return;
