@@ -575,8 +575,9 @@ export default function TrafficSourcesPage() {
                   )}
                 </div>
               </div>
+            </div>
 
-            {/* 2x3 KPI grid */}
+
             <div className="grid grid-cols-2 gap-3">
               {visibleKpiList.map(k => {
                 const r = kpiRenderMap[k.id];
