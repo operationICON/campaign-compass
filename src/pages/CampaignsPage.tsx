@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { TagBadge, useTagColors } from "@/components/TagBadge";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
+import { SourceTagDropdown } from "@/components/SourceTagDropdown";
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
