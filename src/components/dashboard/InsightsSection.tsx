@@ -114,7 +114,7 @@ export function InsightsSection({
       const latest = accMetrics[0];
       const prev = accMetrics[1];
       const days = Math.max(1, differenceInDays(new Date(latest.date), new Date(prev.date)));
-      const delta = (latest.subscribers || 0) - (prev.subscribers || 0);
+      const delta = Math.max(0, (latest.subscribers || 0) - (prev.subscribers || 0));
       return { name: acc.display_name, username: acc.username, value: delta / days };
     });
   }, [accounts, dailyMetrics, filteredAccountIds]);
@@ -267,7 +267,7 @@ export function InsightsSection({
                       <div className="h-full rounded-[3px]" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />
                     )}
                   </div>
-                  <span className="text-[11px] font-bold font-mono min-w-[50px] text-right" style={{ color: m.value === null ? "#94a3b8" : m.value < 0 ? "#dc2626" : barColor }}>
+           <span className="text-[11px] font-bold font-mono min-w-[50px] text-right" style={{ color: m.value === null ? "#94a3b8" : barColor }}>
                     {m.value !== null ? `${Math.round(m.value)}/day` : "—"}
                   </span>
                 </div>
