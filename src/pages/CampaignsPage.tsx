@@ -770,12 +770,16 @@ export default function CampaignsPage() {
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {selectedRows.size > 0 && (
-                  <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-border">
-                    <span className="text-xs font-medium text-foreground">{selectedRows.size} selected</span>
-                    <button onClick={() => setSelectedRows(new Set())} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
-                  </div>
-                )}
+                <BulkActionToolbar
+                  selectedIds={selectedRows}
+                  onClear={() => setSelectedRows(new Set())}
+                  totalFiltered={sorted.length}
+                  onSelectAll={() => setSelectedRows(new Set(sorted.map((l: any) => l.id)))}
+                  actions={["assign_source", "delete"]}
+                  onComplete={() => {
+                    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                  }}
+                />
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                   <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
                   <div className="relative">
