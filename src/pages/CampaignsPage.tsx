@@ -1119,37 +1119,78 @@ export default function CampaignsPage() {
                                 toast.success("Source saved", { duration: 1000 });
                               } catch (err: any) { toast.error("Save failed"); }
                             };
+                            const subsDayDisplay = el.subsDay !== null && el.subsDay > 0
+                              ? { v: `${Math.round(el.subsDay)}/day`, c: "text-primary" }
+                              : el.subsDayLabel
+                                ? { v: el.subsDayLabel, c: "text-muted-foreground" }
+                                : el.subsDay === 0
+                                  ? { v: "0/day", c: "text-muted-foreground" }
+                                  : { v: "—", c: "text-muted-foreground" };
+                            const ltvVal = Number(el.ltv || 0);
+                            const ltvSubVal = Number(el.ltv_per_sub || 0);
+                            const spenderRateVal = Number(el.spender_rate || 0);
+                            const needsFanSync = !el.fans_last_synced_at;
                             return (
                               <tr>
                                 <td colSpan={99} className="p-0">
                                   <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-3.5">
                                     <div className="grid grid-cols-4 gap-4">
-                                      {/* Col 1: Performance */}
+                                      {/* Col 1: Traffic */}
                                       <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Performance</p>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Traffic</p>
                                         <div className="space-y-1.5 text-[12px]">
                                           {[
-                                            { l: "Clicks", v: clicksEl.toLocaleString() },
-                                            { l: "Subscribers", v: subsEl.toLocaleString() },
-                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "" },
-                                            { l: "Subs/Day", v: el.subsDay !== null && el.subsDay > 0 ? `${Math.round(el.subsDay)}/day` : el.subsDayLabel || "0/day", c: el.subsDay ? "text-primary" : "" },
-                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
-                                            { l: "LTV", v: Number(el.ltv || 0) > 0 ? fmtC(Number(el.ltv)) : (el.fans_last_synced_at ? "$0.00" : "—"), c: Number(el.ltv || 0) > 0 ? "text-[#0891b2] font-bold" : "text-muted-foreground" },
-                                            { l: "LTV/Sub", v: Number(el.ltv_per_sub || 0) > 0 ? fmtC(Number(el.ltv_per_sub)) : "—" },
-                                            { l: "Spender Rate", v: el.spender_rate ? `${Number(el.spender_rate).toFixed(1)}%` : "—", c: Number(el.spender_rate || 0) > 10 ? "text-primary" : Number(el.spender_rate || 0) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive" },
+                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "Subscribers", v: subsEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "text-muted-foreground" },
+                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
                                           ].map(r => (
                                             <div key={r.l} className="flex justify-between">
                                               <span className="text-muted-foreground">{r.l}</span>
-                                              <span className={r.c || "text-foreground"}>{r.v}</span>
+                                              <span className={r.c}>{r.v}</span>
                                             </div>
                                           ))}
                                         </div>
                                       </div>
-                                      {/* Col 2: Spend */}
+                                      {/* Col 2: Value */}
+                                      <div>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Value</p>
+                                        <div className="space-y-1.5 text-[12px]">
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Revenue</span>
+                                            <span className="text-foreground">{fmtC(Number(el.revenue || 0))}</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">LTV</span>
+                                            <div className="text-right">
+                                              <span className={ltvVal > 0 ? "text-[#0891b2] font-bold" : "text-muted-foreground"}>
+                                                {ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—")}
+                                              </span>
+                                              {needsFanSync && ltvVal <= 0 && <p className="text-[10px] text-muted-foreground italic">Fan sync needed</p>}
+                                            </div>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">LTV/Sub</span>
+                                            <div className="text-right">
+                                              <span className={ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground"}>
+                                                {ltvSubVal > 0 ? fmtC(ltvSubVal) : "—"}
+                                              </span>
+                                              {needsFanSync && ltvSubVal <= 0 && <p className="text-[10px] text-muted-foreground italic">Fan sync needed</p>}
+                                            </div>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Spender Rate</span>
+                                            <span className={spenderRateVal > 0 ? (spenderRateVal > 10 ? "text-primary" : spenderRateVal >= 5 ? "text-[hsl(var(--warning))]" : "text-muted-foreground") : "text-muted-foreground"}>
+                                              {spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—"}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {/* Col 3: Spend */}
                                       <div>
                                         <div className="flex items-center gap-1.5 mb-2">
                                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Spend</p>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${hasCostEl ? "bg-primary" : "bg-[hsl(38_92%_50%)]"}`} />
+                                          <span className={`w-1.5 h-1.5 rounded-full ${hasCostEl ? "bg-primary" : "bg-[hsl(var(--warning))]"}`} />
                                           <span className="text-[10px] text-muted-foreground">{hasCostEl ? "Set" : "Not set"}</span>
                                         </div>
                                         <div className="flex gap-1 mb-2">
@@ -1162,11 +1203,8 @@ export default function CampaignsPage() {
                                           placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
                                           className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-sm font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2" />
                                         {validVal && (
-                                          <div className="space-y-1 text-[11px] font-mono mb-2">
-                                            <div className="flex justify-between"><span className="text-muted-foreground">Spend</span><span>{fmtC(previewCost)}</span></div>
-                                            <div className="flex justify-between"><span className="text-muted-foreground">Profit</span><span className={previewProfit >= 0 ? "text-primary" : "text-destructive"}>{fmtC(previewProfit)}</span></div>
-                                            <div className="flex justify-between"><span className="text-muted-foreground">Profit/Sub</span><span className={`font-bold text-[13px] ${previewProfitSub >= 0 ? "text-primary" : "text-destructive"}`}>${Math.abs(previewProfitSub).toFixed(2)}</span></div>
-                                            <div className="flex justify-between"><span className="text-muted-foreground">ROI</span><span className={previewRoi >= 0 ? "text-primary" : "text-destructive"}>{previewRoi.toFixed(1)}%</span></div>
+                                          <div className="text-[11px] font-mono mb-2">
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Total Spend</span><span>{fmtC(previewCost)}</span></div>
                                           </div>
                                         )}
                                         <div className="flex gap-1.5">
@@ -1178,27 +1216,30 @@ export default function CampaignsPage() {
                                           )}
                                         </div>
                                       </div>
-                                      {/* Col 3: Source */}
-                                      <div>
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-[hsl(142_71%_45%)]" : "bg-[hsl(38_92%_50%)]"}`} />
-                                          <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
+                                      {/* Col 4: Source + Notes */}
+                                      <div className="space-y-4">
+                                        <div>
+                                          <div className="flex items-center gap-1.5 mb-2">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-[hsl(142_71%_45%)]" : "bg-[hsl(var(--warning))]"}`} />
+                                            <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
+                                          </div>
+                                          <div className="flex gap-1.5">
+                                            <input type="text" value={sourceInputValue} onChange={(e) => setSourceInputValue(e.target.value)}
+                                              placeholder="Source name..." onClick={(e) => e.stopPropagation()}
+                                              className="flex-1 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
+                                            <button onClick={(e) => { e.stopPropagation(); handleSaveSource(); }}
+                                              className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save</button>
+                                          </div>
                                         </div>
-                                        <input type="text" value={sourceInputValue} onChange={(e) => setSourceInputValue(e.target.value)}
-                                          placeholder="Type source name e.g. Reddit, James - OnlyFinder..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2" />
-                                        <button onClick={(e) => { e.stopPropagation(); handleSaveSource(); }}
-                                          className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save</button>
-                                      </div>
-                                      {/* Col 4: Notes */}
-                                      <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>
-                                        <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
-                                          placeholder="Add a note about this campaign..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full h-20 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary resize-none mb-2" />
-                                        <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
-                                          className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save note</button>
+                                        <div>
+                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>
+                                          <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                                            placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
+                                            className="w-full h-16 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary resize-none mb-1.5" />
+                                          <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
+                                            className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save note</button>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
