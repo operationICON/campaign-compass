@@ -4,7 +4,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { TagBadge, useTagColors } from "@/components/TagBadge";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { SourceTagDropdown } from "@/components/SourceTagDropdown";
+import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
+import { BulkActionToolbar } from "@/components/BulkActionToolbar";
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
@@ -769,12 +770,16 @@ export default function CampaignsPage() {
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {selectedRows.size > 0 && (
-                  <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-border">
-                    <span className="text-xs font-medium text-foreground">{selectedRows.size} selected</span>
-                    <button onClick={() => setSelectedRows(new Set())} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
-                  </div>
-                )}
+                <BulkActionToolbar
+                  selectedIds={selectedRows}
+                  onClear={() => setSelectedRows(new Set())}
+                  totalFiltered={sorted.length}
+                  onSelectAll={() => setSelectedRows(new Set(sorted.map((l: any) => l.id)))}
+                  actions={["assign_source", "delete"]}
+                  onComplete={() => {
+                    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                  }}
+                />
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                   <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
                   <div className="relative">
@@ -1188,22 +1193,35 @@ export default function CampaignsPage() {
                                       {/* Col 4: Source + Notes */}
                                       <div className="space-y-4">
                                         <div>
-                                          <div className="flex items-center gap-1.5 mb-1.5">
-                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Source</p>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${el.source_tag ? "bg-[hsl(142_71%_45%)]" : "bg-[hsl(var(--warning))]"}`} />
-                                            <span className="text-[10px] text-muted-foreground">{el.source_tag || "Untagged"}</span>
-                                          </div>
-                                          <SourceTagDropdown
-                                            value={sourceInputValue}
-                                            onChange={setSourceInputValue}
-                                            onSave={async (tag) => {
+                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5" style={{ letterSpacing: "0.05em" }}>Source</p>
+                                          <TrafficSourceDropdown
+                                            value={el.source_tag}
+                                            trafficSourceId={el.traffic_source_id}
+                                            onSave={async (tag, tsId) => {
                                               try {
-                                                await setTrackingLinkSourceTag(el.id, tag.trim(), true);
+                                                await supabase.from("tracking_links").update({
+                                                  source_tag: tag,
+                                                  traffic_source_id: tsId,
+                                                  manually_tagged: true,
+                                                } as any).eq("id", el.id);
                                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                                                toast.success("Source saved", { duration: 1000 });
+                                                toast.success("Source saved ✓", { duration: 1500 });
                                               } catch (err: any) { toast.error("Save failed"); }
                                             }}
                                           />
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              const tag = sourceInputValue.trim();
+                                              if (!tag) return;
+                                              try {
+                                                await setTrackingLinkSourceTag(el.id, tag, true);
+                                                queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                                                toast.success("Source saved ✓", { duration: 1500 });
+                                              } catch (err: any) { toast.error("Save failed"); }
+                                            }}
+                                            className="w-full mt-2 py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90"
+                                          >Save</button>
                                         </div>
                                         <div>
                                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>

@@ -751,6 +751,7 @@ export type Database = {
           spenders_count: number | null
           status: string | null
           subscribers: number
+          traffic_source_id: string | null
           updated_at: string
           url: string
         }
@@ -793,6 +794,7 @@ export type Database = {
           spenders_count?: number | null
           status?: string | null
           subscribers?: number
+          traffic_source_id?: string | null
           updated_at?: string
           url: string
         }
@@ -835,6 +837,7 @@ export type Database = {
           spenders_count?: number | null
           status?: string | null
           subscribers?: number
+          traffic_source_id?: string | null
           updated_at?: string
           url?: string
         }
@@ -860,7 +863,47 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tracking_links_traffic_source_id_fkey"
+            columns: ["traffic_source_id"]
+            isOneToOne: false
+            referencedRelation: "traffic_sources"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      traffic_sources: {
+        Row: {
+          campaign_count: number
+          category: string
+          color: string
+          created_at: string
+          id: string
+          keywords: string[]
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_count?: number
+          category?: string
+          color?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_count?: number
+          category?: string
+          color?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       transactions: {
         Row: {
