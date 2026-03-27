@@ -879,6 +879,7 @@ export type Database = {
           color: string
           created_at: string
           id: string
+          is_archived: boolean
           keywords: string[]
           name: string
           updated_at: string
@@ -889,6 +890,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          is_archived?: boolean
           keywords?: string[]
           name: string
           updated_at?: string
@@ -899,6 +901,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          is_archived?: boolean
           keywords?: string[]
           name?: string
           updated_at?: string
