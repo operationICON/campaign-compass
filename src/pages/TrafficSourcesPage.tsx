@@ -996,10 +996,20 @@ export default function TrafficSourcesPage() {
                                   </div>
                                 </div>
                                 <div className="flex-1 grid grid-cols-3 gap-5">
-                                  {/* Spend */}
+                                {/* Spend */}
                                   <div>
                                     <div className="flex items-center gap-1.5 mb-2">
                                       <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", fontWeight: 600 }}>Spend</p>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Info className="h-3 w-3 cursor-help" style={{ color: "#94a3b8" }} />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-[220px] text-xs">
+                                          <p><strong>CPL</strong> = I pay per subscriber gained</p>
+                                          <p><strong>CPC</strong> = I pay per click ⚠️</p>
+                                          <p><strong>FIXED</strong> = Fixed amount (pin, promo, deal)</p>
+                                        </TooltipContent>
+                                      </Tooltip>
                                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
                                       <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
                                     </div>
@@ -1010,27 +1020,33 @@ export default function TrafficSourcesPage() {
                                           style={{ borderRadius: "4px", background: spendType === t ? "#0891b2" : "#f1f5f9", color: spendType === t ? "white" : "#64748b" }}>{t}</button>
                                       ))}
                                     </div>
+                                    {/* CPC warning */}
+                                    {spendType === "CPC" && (
+                                      <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" style={{ background: "#fffbeb", borderRadius: "6px", border: "1px solid #fde68a" }}>
+                                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" style={{ color: "#d97706" }} />
+                                        <span style={{ fontSize: "10px", color: "#92400e", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
+                                      </div>
+                                    )}
                                     <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
                                       placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
                                       className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
                                       style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
                                     {validVal && (
                                       <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
-                                        <div className="flex justify-between"><span>Formula</span><span style={{ color: "#1a2332" }}>{spendType === "CPL" ? `${subsEl} subs × $${numVal.toFixed(2)}` : spendType === "CPC" ? `${clicksEl} clicks × $${numVal.toFixed(2)}` : `Fixed $${numVal.toFixed(2)}`}</span></div>
-                                        <div className="flex justify-between"><span>Total Cost</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
+                                        <div className="flex justify-between"><span>Cost/Sub</span><span style={{ color: "#1a2332" }}>{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
+                                        <div className="flex justify-between"><span>Total Spend</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
                                         <div className="flex justify-between"><span>Profit</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtC(previewProfit)}</span></div>
                                         <div className="flex justify-between"><span>ROI</span><span style={{ color: previewRoi >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtPct(previewRoi)}</span></div>
+                                        <div className="flex justify-between"><span>Profit/Sub</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626" }}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
                                       </div>
                                     )}
                                     <div className="flex gap-1.5">
                                       <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
                                         className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
                                         style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
-                                      {hasCostEl && (
-                                        <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
-                                          className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                          style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>Clear</button>
-                                      )}
+                                      <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
+                                        className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                        style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
                                     </div>
                                   </div>
                                   {/* Source */}
@@ -1040,16 +1056,7 @@ export default function TrafficSourcesPage() {
                                       {/* Current source display */}
                                       <div className="flex items-center gap-2 mb-2">
                                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
-                                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
-                                        {el.source_tag && (
-                                          <button onClick={async () => {
-                                            try {
-                                              await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
-                                              invalidateAll();
-                                              toast.success("Source removed");
-                                            } catch { toast.error("Failed"); }
-                                          }} title="Remove source" style={{ color: "#dc2626", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>🗑</button>
-                                        )}
+                                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || "Untagged"}</span>
                                       </div>
                                       <TrafficSourceDropdown
                                         value={el.source_tag}
@@ -1064,6 +1071,19 @@ export default function TrafficSourcesPage() {
                                           } catch { toast.error("Save failed"); }
                                         }}
                                       />
+                                      <div className="flex gap-1.5 mt-2">
+                                        {el.source_tag && (
+                                          <button onClick={async () => {
+                                            try {
+                                              await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
+                                              invalidateAll();
+                                              toast.success("Source removed");
+                                            } catch { toast.error("Failed"); }
+                                          }}
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                            style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>🗑 Delete</button>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                   {/* Notes */}
@@ -1077,11 +1097,9 @@ export default function TrafficSourcesPage() {
                                       <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }} disabled={noteLoading}
                                         className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
                                         style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>{noteLoading ? "..." : "Save note"}</button>
-                                      {noteText.trim() && (
-                                        <button onClick={(e) => { e.stopPropagation(); clearNoteInline(); }} disabled={noteLoading}
-                                          className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50"
-                                          style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>Clear</button>
-                                      )}
+                                      <button onClick={(e) => { e.stopPropagation(); setNoteText(""); }} disabled={noteLoading}
+                                        className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50"
+                                        style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
                                     </div>
                                   </div>
                                 </div>
