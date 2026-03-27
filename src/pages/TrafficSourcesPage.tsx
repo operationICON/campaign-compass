@@ -332,7 +332,86 @@ export default function TrafficSourcesPage() {
     return { totalSources, tagged, untagged, totalSpend, totalRevenue, blendedRoi, totalProfit, avgCpl, totalSubscribers, activeSources, totalClicks, avgProfitSub, topSource };
   }, [sources, links]);
 
-  // ── Source card logic ──
+  // ── Source Analysis calculations ──
+  const sourceAnalysis = useMemo(() => {
+    // Group links by source
+    const bySource: Record<string, any[]> = {};
+    links.forEach((l: any) => {
+      const tag = l.source_tag || "Untagged";
+      if (!bySource[tag]) bySource[tag] = [];
+      bySource[tag].push(l);
+    });
+
+    // Filter by sourceFilter
+    const relevantSources = sourceFilter !== "all" && sourceFilter !== "untagged"
+      ? { [sourceFilter]: bySource[sourceFilter] || [] }
+      : sourceFilter === "untagged"
+        ? { Untagged: bySource["Untagged"] || [] }
+        : bySource;
+
+    // Subs/Day per Source
+    const subsPerDay: { name: string; value: number; color: string }[] = [];
+    const totalSubs = Object.values(relevantSources).reduce((sum, arr) => sum + arr.reduce((s: number, l: any) => s + (l.subscribers || 0), 0), 0);
+
+    // Distribution
+    const distribution: { name: string; pct: number; color: string }[] = [];
+
+    // Source contribution
+    let topContrib = { name: "—", pct: 0, subs: 0 };
+
+    Object.entries(relevantSources).forEach(([name, arr]) => {
+      if (name === "Untagged" && sourceFilter !== "untagged") return;
+      const subs = arr.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const src = sources.find((s: any) => s.name === name);
+      const color = src ? (src as any).color : "#64748b";
+
+      // Calculate days active (from oldest created_at)
+      const oldest = arr.reduce((min: string, l: any) => l.created_at < min ? l.created_at : min, arr[0]?.created_at || new Date().toISOString());
+      const days = Math.max(1, differenceInDays(new Date(), new Date(oldest)));
+      const sd = subs / days;
+      subsPerDay.push({ name, value: parseFloat(sd.toFixed(2)), color });
+
+      const pct = totalSubs > 0 ? (subs / totalSubs) * 100 : 0;
+      distribution.push({ name, pct: parseFloat(pct.toFixed(1)), color });
+
+      if (subs > topContrib.subs) topContrib = { name, pct: parseFloat(pct.toFixed(1)), subs };
+    });
+
+    subsPerDay.sort((a, b) => b.value - a.value);
+    distribution.sort((a, b) => b.pct - a.pct);
+
+    // Growth Trend — last 30 days vs 30 before
+    const now = new Date();
+    const period1Start = subDays(now, 30);
+    const period2Start = subDays(now, 60);
+    const period2End = subDays(now, 30);
+
+    const growthTrend: { name: string; current: number; previous: number; change: number; color: string }[] = [];
+
+    Object.entries(relevantSources).forEach(([name, arr]) => {
+      if (name === "Untagged" && sourceFilter !== "untagged") return;
+      const linkIds = new Set(arr.map((l: any) => l.id));
+      const src = sources.find((s: any) => s.name === name);
+      const color = src ? (src as any).color : "#64748b";
+
+      let current = 0, previous = 0;
+      dailyMetrics.forEach((m: any) => {
+        if (!linkIds.has(m.tracking_link_id)) return;
+        const d = new Date(m.date);
+        if (d >= period1Start && d <= now) current += (m.new_subscribers || 0);
+        else if (d >= period2Start && d < period2End) previous += (m.new_subscribers || 0);
+      });
+
+      const change = previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
+      growthTrend.push({ name, current, previous, change: parseFloat(change.toFixed(1)), color });
+    });
+
+    growthTrend.sort((a, b) => b.change - a.change);
+
+    return { subsPerDay, distribution, growthTrend, topContrib };
+  }, [links, sources, sourceFilter, dailyMetrics]);
+
+
   const selectedSource = useMemo(() => sources.find((s: any) => s.id === editSourceId), [sources, editSourceId]);
 
   const selectSourceForEdit = (source: any) => {
