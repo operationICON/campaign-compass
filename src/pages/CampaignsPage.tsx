@@ -1134,36 +1134,36 @@ export default function CampaignsPage() {
                                     <div className="grid grid-cols-4 gap-4">
                                       {/* Col 1+2: Performance (Traffic + Value side by side) */}
                                       <div className="col-span-2">
-                                        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Performance</p>
-                                        <div className="grid grid-cols-2 gap-x-6">
-                                          {/* Traffic */}
-                                          <div>
-                                            {[
-                                              { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
-                                              { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
-                                              { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 ? "text-primary" : "text-muted-foreground" },
-                                              { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
-                                            ].map(r => (
-                                              <div key={r.l} className="flex justify-between items-center" style={{ height: "24px" }}>
-                                                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{r.l}</span>
-                                                <span className={`font-bold ${r.c}`} style={{ fontSize: "13px" }}>{r.v}</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                          {/* Value */}
-                                          <div>
-                                            {[
+                                        <div className="grid grid-cols-2 gap-x-4">
+                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Traffic</p>
+                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Value</p>
+                                          {/* Traffic rows */}
+                                          {[
+                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "text-primary" : "text-muted-foreground" },
+                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
+                                          ].map((r, i) => {
+                                            const valueRows = [
                                               { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
                                               { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-[#0891b2]" : "text-muted-foreground" },
                                               { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
                                               { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 0 ? (spenderRateVal > 10 ? "text-primary" : spenderRateVal >= 5 ? "text-[hsl(var(--warning))]" : "text-muted-foreground") : "text-muted-foreground" },
-                                            ].map(r => (
-                                              <div key={r.l} className="flex justify-between items-center" style={{ height: "24px" }}>
-                                                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{r.l}</span>
-                                                <span className={`font-bold ${r.c}`} style={{ fontSize: "13px" }}>{r.v}</span>
-                                              </div>
-                                            ))}
-                                          </div>
+                                            ];
+                                            const vr = valueRows[i];
+                                            return (
+                                              <React.Fragment key={r.l}>
+                                                <div className="flex justify-between items-center" style={{ height: "22px" }}>
+                                                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{r.l}</span>
+                                                  <span className={`font-bold ${r.c}`} style={{ fontSize: "12px" }}>{r.v}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center" style={{ height: "22px" }}>
+                                                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{vr.l}</span>
+                                                  <span className={`font-bold ${vr.c}`} style={{ fontSize: "12px" }}>{vr.v}</span>
+                                                </div>
+                                              </React.Fragment>
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                       {/* Col 3: Spend */}
