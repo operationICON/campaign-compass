@@ -25,17 +25,21 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 const COLUMNS_KEY = "campaigns_columns";
 
-type ColumnId = "model" | "source" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
+type ColumnId = "model" | "source" | "revenue" | "ltv" | "ltv_sub" | "spender_rate" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
 
 const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
+  { id: "revenue", label: "Revenue", defaultOn: true },
+  { id: "ltv", label: "LTV", defaultOn: true },
+  { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
+  { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
