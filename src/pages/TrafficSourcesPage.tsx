@@ -782,7 +782,7 @@ export default function TrafficSourcesPage() {
                   {col("status") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>}
                   {col("subs_day") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Subs/Day</th>}
                   {col("created") && <SortHeader label="Created" k="created_at" align="right" />}
-                </tr>
+                  <th style={{ width: "28px" }} />
               </thead>
               <tbody>
                 {paginated.map((link: any) => {
