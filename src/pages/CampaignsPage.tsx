@@ -859,7 +859,10 @@ export default function CampaignsPage() {
                           <React.Fragment key={link.id}>
                           <tr
                             onClick={() => handleRowClick(link)}
-                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "bg-[hsl(var(--primary)/0.04)]" : "hover:bg-secondary/30"}`}
+                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
+                            style={{ background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd" }}
+                            onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }}
+                            onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}
                             style={{ height: "46px" }}
                           >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
