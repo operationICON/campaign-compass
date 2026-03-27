@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
@@ -8,16 +8,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Tag,
-  AlertTriangle, Layers, DollarSign, TrendingUp, BarChart3,
+  AlertTriangle, Layers, DollarSign, TrendingUp, BarChart3, Percent,
+  Users, MousePointerClick, Activity, Award, Settings2,
 } from "lucide-react";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, subDays } from "date-fns";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtN = (v: number) => v.toLocaleString("en-US");
+const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 const COLUMNS_KEY = "ct_traffic_sources_columns";
+const KPI_KEY = "ct_traffic_sources_kpis";
 const COLOR_CYCLE = ["#0891b2", "#16a34a", "#dc2626", "#d97706", "#7c3aed", "#ec4899", "#f97316", "#64748b"];
 
-type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "revenue" | "status" | "created";
-type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at";
+// ── Column system ──
+type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created";
+type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
 
 const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "model", label: "Model", defaultOn: true },
@@ -25,8 +30,16 @@ const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "category", label: "Category", defaultOn: true },
   { id: "clicks", label: "Clicks", defaultOn: true },
   { id: "subscribers", label: "Subs", defaultOn: true },
+  { id: "cvr", label: "CVR", defaultOn: true },
   { id: "revenue", label: "Revenue", defaultOn: true },
+  { id: "ltv", label: "LTV", defaultOn: true },
+  { id: "ltv_per_sub", label: "LTV/Sub", defaultOn: true },
+  { id: "expenses", label: "Expenses", defaultOn: true },
+  { id: "profit", label: "Profit", defaultOn: true },
+  { id: "profit_per_sub", label: "Profit/Sub", defaultOn: true },
+  { id: "roi", label: "ROI", defaultOn: true },
   { id: "status", label: "Status", defaultOn: true },
+  { id: "subs_day", label: "Subs/Day", defaultOn: true },
   { id: "created", label: "Created", defaultOn: true },
 ];
 
@@ -38,6 +51,30 @@ function getDefaultColumns(): Record<ColumnId, boolean> {
 function loadColumns(): Record<ColumnId, boolean> {
   try { const s = localStorage.getItem(COLUMNS_KEY); if (s) return { ...getDefaultColumns(), ...JSON.parse(s) }; } catch {}
   return getDefaultColumns();
+}
+
+// ── KPI visibility ──
+type KpiId = "total_sources" | "tagged" | "untagged" | "total_spend" | "total_revenue" | "blended_roi" | "total_profit" | "avg_cpl" | "total_subs" | "active_sources" | "total_clicks" | "avg_profit_sub" | "top_source";
+
+const ALL_KPIS: { id: KpiId; label: string; defaultOn: boolean }[] = [
+  { id: "total_sources", label: "Total Sources", defaultOn: true },
+  { id: "tagged", label: "Tagged Campaigns", defaultOn: true },
+  { id: "untagged", label: "Untagged", defaultOn: true },
+  { id: "total_spend", label: "Total Spend", defaultOn: true },
+  { id: "total_revenue", label: "Total Revenue", defaultOn: true },
+  { id: "blended_roi", label: "Blended ROI", defaultOn: true },
+  { id: "total_profit", label: "Total Profit", defaultOn: false },
+  { id: "avg_cpl", label: "Avg CPL", defaultOn: false },
+  { id: "total_subs", label: "Total Subscribers", defaultOn: false },
+  { id: "active_sources", label: "Active Sources", defaultOn: false },
+  { id: "total_clicks", label: "Total Clicks", defaultOn: false },
+  { id: "avg_profit_sub", label: "Avg Profit/Sub", defaultOn: false },
+  { id: "top_source", label: "Top Source", defaultOn: false },
+];
+
+function loadKpis(): Set<KpiId> {
+  try { const s = localStorage.getItem(KPI_KEY); if (s) return new Set(JSON.parse(s)); } catch {}
+  return new Set(ALL_KPIS.filter(k => k.defaultOn).map(k => k.id));
 }
 
 function levenshtein(a: string, b: string): number {
@@ -58,6 +95,17 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
 };
 
+// ── Age helpers ──
+type AgeFilter = "all" | "new" | "active" | "mature" | "old";
+function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new Date(createdAt)); }
+function matchesAge(days: number, filter: AgeFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "new") return days <= 7;
+  if (filter === "active") return days > 7 && days <= 30;
+  if (filter === "mature") return days > 30 && days <= 90;
+  return days > 90;
+}
+
 export default function TrafficSourcesPage() {
   const queryClient = useQueryClient();
 
@@ -73,11 +121,24 @@ export default function TrafficSourcesPage() {
   };
   const col = (id: ColumnId) => visibleCols[id];
 
+  // KPI visibility
+  const [visibleKpis, setVisibleKpis] = useState<Set<KpiId>>(loadKpis);
+  const [kpiDropdownOpen, setKpiDropdownOpen] = useState(false);
+  const toggleKpi = (id: KpiId) => {
+    setVisibleKpis(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem(KPI_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [accountFilter, setAccountFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "Direct" | "OnlyTraffic">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "OnlyTraffic" | "Manual">("all");
+  const [ageFilter, setAgeFilter] = useState<AgeFilter>("all");
 
   // Sort/page
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
@@ -91,13 +152,20 @@ export default function TrafficSourcesPage() {
   // Source card state
   const [editSourceId, setEditSourceId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
-  const [formCategory, setFormCategory] = useState<"Direct" | "OnlyTraffic">("Direct");
+  const [formCategory, setFormCategory] = useState<"OnlyTraffic" | "Manual">("Manual");
   const [formKeywords, setFormKeywords] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [renameName, setRenameName] = useState("");
-  const [bulkAssignMode, setBulkAssignMode] = useState(false);
+
+  // New source form
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState<"OnlyTraffic" | "Manual">("Manual");
+  const [newKeywords, setNewKeywords] = useState("");
+
+  // Source search
+  const [sourceSearchOpen, setSourceSearchOpen] = useState(false);
+  const [sourceSearchQuery, setSourceSearchQuery] = useState("");
+  const sourceSearchRef = useRef<HTMLDivElement>(null);
 
   // Data
   const { data: sources = [] } = useQuery({
@@ -111,12 +179,22 @@ export default function TrafficSourcesPage() {
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links_ts"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("tracking_links")
-        .select("*, accounts(display_name, username, avatar_thumb_url)")
-        .is("deleted_at", null)
-        .order("revenue", { ascending: false });
-      return data || [];
+      let allLinks: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data } = await supabase
+          .from("tracking_links")
+          .select("*, accounts(display_name, username, avatar_thumb_url)")
+          .is("deleted_at", null)
+          .order("revenue", { ascending: false })
+          .range(from, from + batchSize - 1);
+        if (!data || data.length === 0) break;
+        allLinks = allLinks.concat(data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      return allLinks;
     },
   });
 
@@ -128,123 +206,138 @@ export default function TrafficSourcesPage() {
     },
   });
 
+  // Migrate source_tag_rules → traffic_sources on load if empty
+  useEffect(() => {
+    if (sources.length > 0) return;
+    (async () => {
+      const { data: rules } = await supabase.from("source_tag_rules").select("*");
+      if (!rules || rules.length === 0) return;
+      const { data: existingSources } = await supabase.from("traffic_sources").select("name");
+      const existingNames = new Set((existingSources || []).map((s: any) => s.name));
+      const toInsert = rules.filter((r: any) => !existingNames.has(r.tag_name)).map((r: any) => ({
+        name: r.tag_name,
+        color: r.color,
+        keywords: r.keywords || [],
+        category: "Manual",
+      }));
+      if (toInsert.length > 0) {
+        await supabase.from("traffic_sources").insert(toInsert);
+        queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+      }
+    })();
+  }, [sources.length]);
+
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] });
     queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
   };
 
-  // KPI calculations
+  // ── KPI calculations ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
-    const tagged = links.filter((l: any) => l.traffic_source_id).length;
-    const untagged = links.filter((l: any) => !l.traffic_source_id && (l.clicks > 0 || l.subscribers > 0)).length;
-    const taggedLinks = links.filter((l: any) => l.traffic_source_id);
-    const totalSpend = taggedLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const totalRevenue = taggedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    return { totalSources, tagged, untagged, totalSpend, totalRevenue };
+    const tagged = links.filter((l: any) => l.source_tag && l.source_tag !== "Untagged").length;
+    const untagged = links.filter((l: any) => (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)).length;
+    const activeLinks = links.filter((l: any) => !l.deleted_at);
+    const totalSpend = activeLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
+    const totalRevenue = activeLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const totalSubs = activeLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalClicks = activeLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
+    const blendedRoi = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend * 100) : 0;
+    const totalProfit = totalRevenue - totalSpend;
+    const avgCpl = totalSubs > 0 ? totalSpend / totalSubs : 0;
+    const avgProfitSub = totalSubs > 0 ? totalProfit / totalSubs : 0;
+
+    // Active sources = sources with at least one link that had clicks in last 30 days
+    const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+    const activeSourceIds = new Set<string>();
+    links.forEach((l: any) => {
+      if (l.traffic_source_id && l.clicks > 0 && l.created_at >= thirtyDaysAgo) {
+        activeSourceIds.add(l.traffic_source_id);
+      }
+    });
+    const activeSources = activeSourceIds.size;
+
+    // Top source by revenue
+    const revenueBySource: Record<string, number> = {};
+    links.forEach((l: any) => {
+      if (l.source_tag) revenueBySource[l.source_tag] = (revenueBySource[l.source_tag] || 0) + Number(l.revenue || 0);
+    });
+    const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+
+    return { totalSources, tagged, untagged, totalSpend, totalRevenue, blendedRoi, totalProfit, avgCpl, totalSubs, activeSources, totalClicks, avgProfitSub, topSource };
   }, [sources, links]);
 
-  // Source card: find similar name warning
-  const similarWarning = useMemo(() => {
-    if (!formName.trim()) return null;
-    const q = formName.trim().toLowerCase();
-    for (const s of sources) {
-      if ((s as any).id === editSourceId) continue;
-      if ((s as any).name.toLowerCase() === q) return (s as any).name;
-      if (levenshtein((s as any).name.toLowerCase(), q) <= 2) return (s as any).name;
-    }
-    return null;
-  }, [formName, sources, editSourceId]);
+  const kpiCards: { id: KpiId; label: string; value: string; icon: React.ReactNode }[] = [
+    { id: "total_sources", label: "Total Sources", value: String(kpis.totalSources), icon: <Layers className="h-4 w-4" style={{ color: "#0891b2" }} /> },
+    { id: "tagged", label: "Tagged", value: fmtN(kpis.tagged), icon: <Tag className="h-4 w-4" style={{ color: "#16a34a" }} /> },
+    { id: "untagged", label: "Untagged", value: fmtN(kpis.untagged), icon: <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} /> },
+    { id: "total_spend", label: "Total Spend", value: fmtC(kpis.totalSpend), icon: <DollarSign className="h-4 w-4" style={{ color: "#dc2626" }} /> },
+    { id: "total_revenue", label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" style={{ color: "#0891b2" }} /> },
+    { id: "blended_roi", label: "Blended ROI", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", icon: <Percent className="h-4 w-4" style={{ color: "#7c3aed" }} /> },
+    { id: "total_profit", label: "Total Profit", value: fmtC(kpis.totalProfit), icon: <TrendingUp className="h-4 w-4" style={{ color: "#16a34a" }} /> },
+    { id: "avg_cpl", label: "Avg CPL", value: kpis.totalSubs > 0 ? fmtC(kpis.avgCpl) : "—", icon: <DollarSign className="h-4 w-4" style={{ color: "#d97706" }} /> },
+    { id: "total_subs", label: "Total Subs", value: fmtN(kpis.totalSubs), icon: <Users className="h-4 w-4" style={{ color: "#0891b2" }} /> },
+    { id: "active_sources", label: "Active Sources", value: String(kpis.activeSources), icon: <Activity className="h-4 w-4" style={{ color: "#16a34a" }} /> },
+    { id: "total_clicks", label: "Total Clicks", value: fmtN(kpis.totalClicks), icon: <MousePointerClick className="h-4 w-4" style={{ color: "#64748b" }} /> },
+    { id: "avg_profit_sub", label: "Avg Profit/Sub", value: kpis.totalSubs > 0 ? fmtC(kpis.avgProfitSub) : "—", icon: <TrendingUp className="h-4 w-4" style={{ color: "#0891b2" }} /> },
+    { id: "top_source", label: "Top Source", value: kpis.topSource, icon: <Award className="h-4 w-4" style={{ color: "#d97706" }} /> },
+  ];
 
+  const visibleKpiCards = kpiCards.filter(k => visibleKpis.has(k.id));
+
+  // ── Source card logic ──
   const selectedSource = useMemo(() => sources.find((s: any) => s.id === editSourceId), [sources, editSourceId]);
 
   const selectSourceForEdit = (source: any) => {
     setEditSourceId(source.id);
     setFormName(source.name);
-    setFormCategory(source.category || "Direct");
+    setFormCategory(source.category === "OnlyTraffic" ? "OnlyTraffic" : "Manual");
     setFormKeywords((source.keywords || []).join(", "));
     setConfirmDelete(false);
-    setRenaming(false);
-    setBulkAssignMode(false);
+    setSourceSearchOpen(false);
+    setSourceSearchQuery("");
   };
 
-  const clearSourceForm = () => {
+  const clearSourceEdit = () => {
     setEditSourceId(null);
     setFormName("");
-    setFormCategory("Direct");
+    setFormCategory("Manual");
     setFormKeywords("");
     setConfirmDelete(false);
-    setRenaming(false);
-    setBulkAssignMode(false);
   };
 
-  // Next color from cycle
   const nextColor = useMemo(() => {
     const usedColors = sources.map((s: any) => s.color);
-    for (const c of COLOR_CYCLE) {
-      if (!usedColors.includes(c)) return c;
-    }
+    for (const c of COLOR_CYCLE) { if (!usedColors.includes(c)) return c; }
     return COLOR_CYCLE[sources.length % COLOR_CYCLE.length];
   }, [sources]);
 
-  const handleNewSource = async () => {
-    if (!formName.trim()) return;
-    setSaving(true);
-    try {
-      const keywords = formKeywords.split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
-      const { error } = await supabase.from("traffic_sources").insert({
-        name: formName.trim(),
-        category: formCategory,
-        keywords,
-        color: nextColor,
-      });
-      if (error) throw error;
-      toast.success("Source created");
-      invalidateAll();
-      clearSourceForm();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create source");
-    } finally { setSaving(false); }
-  };
+  const newNameWarning = useMemo(() => {
+    if (!newName.trim()) return null;
+    const q = newName.trim().toLowerCase();
+    for (const s of sources) {
+      if ((s as any).name.toLowerCase() === q) return (s as any).name;
+      if (levenshtein((s as any).name.toLowerCase(), q) <= 2) return (s as any).name;
+    }
+    return null;
+  }, [newName, sources]);
 
   const handleSaveChanges = async () => {
     if (!editSourceId || !formName.trim()) return;
     setSaving(true);
     try {
       const keywords = formKeywords.split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+      const oldName = (selectedSource as any)?.name;
       const { error } = await supabase.from("traffic_sources").update({
-        name: formName.trim(),
-        category: formCategory,
-        keywords,
+        name: formName.trim(), category: formCategory, keywords,
       } as any).eq("id", editSourceId);
       if (error) throw error;
-      // Also update source_tag on tracking_links if name changed
-      const oldName = (selectedSource as any)?.name;
       if (oldName && oldName !== formName.trim()) {
         await supabase.from("tracking_links").update({ source_tag: formName.trim() } as any).eq("source_tag", oldName);
       }
       toast.success("Source updated");
       invalidateAll();
-    } catch (err: any) {
-      toast.error("Failed to save changes");
-    } finally { setSaving(false); }
-  };
-
-  const handleRename = async () => {
-    if (!editSourceId || !renameName.trim()) return;
-    setSaving(true);
-    try {
-      const oldName = (selectedSource as any)?.name;
-      const { error } = await supabase.from("traffic_sources").update({ name: renameName.trim() } as any).eq("id", editSourceId);
-      if (error) throw error;
-      if (oldName) {
-        await supabase.from("tracking_links").update({ source_tag: renameName.trim() } as any).eq("source_tag", oldName);
-      }
-      toast.success("Source renamed");
-      setRenaming(false);
-      setFormName(renameName.trim());
-      invalidateAll();
-    } catch { toast.error("Failed to rename"); }
+    } catch (err: any) { toast.error("Failed to save changes"); }
     finally { setSaving(false); }
   };
 
@@ -252,41 +345,35 @@ export default function TrafficSourcesPage() {
     if (!editSourceId) return;
     setSaving(true);
     try {
-      const campaignCount = links.filter((l: any) => l.traffic_source_id === editSourceId).length;
-      // Untag campaigns
+      const name = (selectedSource as any)?.name;
+      const count = links.filter((l: any) => l.traffic_source_id === editSourceId).length;
       await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null } as any).eq("traffic_source_id", editSourceId);
-      // Delete source
       const { error } = await supabase.from("traffic_sources").delete().eq("id", editSourceId);
       if (error) throw error;
-      toast.success(`Source deleted — ${campaignCount} campaigns untagged`);
-      clearSourceForm();
+      toast.success(`Deleted ${name} — ${count} campaigns untagged`);
+      clearSourceEdit();
       invalidateAll();
     } catch { toast.error("Failed to delete source"); }
     finally { setSaving(false); }
   };
 
-  const handleBulkAssignFromCard = async () => {
-    if (!editSourceId || selectedRows.size === 0) return;
+  const handleNewSource = async () => {
+    if (!newName.trim()) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({
-          source_tag: (selectedSource as any)?.name,
-          traffic_source_id: editSourceId,
-          manually_tagged: true,
-        } as any)
-        .in("id", Array.from(selectedRows));
+      const keywords = newKeywords.split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+      const { error } = await supabase.from("traffic_sources").insert({
+        name: newName.trim(), category: newCategory, keywords, color: nextColor,
+      });
       if (error) throw error;
-      toast.success(`Source assigned to ${selectedRows.size} campaigns`);
-      setSelectedRows(new Set());
-      setBulkAssignMode(false);
+      toast.success("Source created");
+      setNewName(""); setNewKeywords(""); setNewCategory("Manual");
       invalidateAll();
-    } catch { toast.error("Failed to assign"); }
+    } catch (err: any) { toast.error(err.message || "Failed to create source"); }
     finally { setSaving(false); }
   };
 
-  // Filtering
+  // ── Filtering ──
   const accountOptions = useMemo(() =>
     accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))
       .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name)),
@@ -301,11 +388,18 @@ export default function TrafficSourcesPage() {
   const filtered = useMemo(() => {
     let result = links as any[];
     if (accountFilter !== "all") result = result.filter(l => l.account_id === accountFilter);
-    if (sourceFilter === "untagged") result = result.filter(l => !l.source_tag);
+    if (sourceFilter === "untagged") result = result.filter(l => !l.source_tag || l.source_tag === "Untagged");
     else if (sourceFilter !== "all") result = result.filter(l => l.source_tag === sourceFilter);
     if (categoryFilter !== "all") {
       const sourceIds = sources.filter((s: any) => s.category === categoryFilter).map((s: any) => s.id);
-      result = result.filter(l => sourceIds.includes(l.traffic_source_id));
+      if (categoryFilter === "Manual") {
+        result = result.filter(l => sourceIds.includes(l.traffic_source_id));
+      } else {
+        result = result.filter(l => sourceIds.includes(l.traffic_source_id));
+      }
+    }
+    if (ageFilter !== "all") {
+      result = result.filter(l => matchesAge(getAgeDays(l.created_at), ageFilter));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -316,7 +410,7 @@ export default function TrafficSourcesPage() {
       );
     }
     return result;
-  }, [links, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
+  }, [links, accountFilter, sourceFilter, categoryFilter, ageFilter, searchQuery, sources]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -328,6 +422,11 @@ export default function TrafficSourcesPage() {
         case "clicks": aVal = a.clicks || 0; bVal = b.clicks || 0; break;
         case "subscribers": aVal = a.subscribers || 0; bVal = b.subscribers || 0; break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
+        case "cvr": aVal = Number(a.cvr || 0); bVal = Number(b.cvr || 0); break;
+        case "ltv": aVal = Number(a.ltv || 0); bVal = Number(b.ltv || 0); break;
+        case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
+        case "profit": aVal = Number(a.profit || 0); bVal = Number(b.profit || 0); break;
+        case "roi": aVal = Number(a.roi || 0); bVal = Number(b.roi || 0); break;
         case "created_at": aVal = new Date(a.created_at).getTime(); bVal = new Date(b.created_at).getTime(); break;
         default: aVal = 0; bVal = 0;
       }
@@ -365,12 +464,30 @@ export default function TrafficSourcesPage() {
     </th>
   );
 
-  // Get source category for a link
   const getCategory = (link: any) => {
     if (!link.traffic_source_id) return null;
     const src = sources.find((s: any) => s.id === link.traffic_source_id);
     return src ? (src as any).category : null;
   };
+
+  // Source search dropdown — close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (sourceSearchRef.current && !sourceSearchRef.current.contains(e.target as Node)) {
+        setSourceSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filteredSources = useMemo(() => {
+    if (!sourceSearchQuery.trim()) return sources;
+    const q = sourceSearchQuery.toLowerCase();
+    return sources.filter((s: any) => s.name.toLowerCase().includes(q));
+  }, [sources, sourceSearchQuery]);
+
+  const getSourceCampaignCount = (sourceId: string) => links.filter((l: any) => l.traffic_source_id === sourceId).length;
 
   return (
     <DashboardLayout>
@@ -382,169 +499,182 @@ export default function TrafficSourcesPage() {
         </div>
 
         {/* ═══ TOP SECTION — KPIs + Source Card ═══ */}
-        <div className="flex gap-4">
-          {/* Left: KPI cards */}
-          <div style={{ width: "60%" }} className="flex gap-3">
-            {[
-              { label: "Total Sources", value: String(kpis.totalSources), icon: <Layers className="h-4 w-4" style={{ color: "#0891b2" }} /> },
-              { label: "Tagged", value: kpis.tagged.toLocaleString(), icon: <Tag className="h-4 w-4" style={{ color: "#16a34a" }} /> },
-              { label: "Untagged", value: kpis.untagged.toLocaleString(), icon: <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} /> },
-              { label: "Total Spend", value: fmtC(kpis.totalSpend), icon: <DollarSign className="h-4 w-4" style={{ color: "#dc2626" }} /> },
-              { label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" style={{ color: "#0891b2" }} /> },
-            ].map((kpi, i) => (
-              <div key={i} className="flex-1 bg-white border flex flex-col justify-center px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  {kpi.icon}
-                  <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.04em" }}>{kpi.label}</span>
-                </div>
-                <span style={{ fontSize: "20px", fontWeight: 700, color: "#1a2332" }}>{kpi.value}</span>
+        <div className="flex gap-4" style={{ alignItems: "flex-start" }}>
+          {/* Left: KPI cards 2x3 grid */}
+          <div style={{ width: "60%" }}>
+            <div className="flex items-center justify-between mb-2">
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>KPIs</span>
+              <div className="relative">
+                <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="px-2.5 py-1 border text-xs font-medium flex items-center gap-1" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b", background: "white" }}>
+                  <Settings2 className="h-3 w-3" /> Columns
+                </button>
+                {kpiDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                      {ALL_KPIS.map(k => (
+                        <label key={k.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
+                          <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
+                          <span style={{ color: "#1a2332" }}>{k.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            ))}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {visibleKpiCards.map((kpi) => (
+                <div key={kpi.id} className="bg-white border flex flex-col justify-center px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {kpi.icon}
+                    <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.04em" }}>{kpi.label}</span>
+                  </div>
+                  <span style={{ fontSize: "20px", fontWeight: 700, color: "#1a2332" }} className={kpi.id === "top_source" ? "text-sm truncate" : ""}>{kpi.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Right: Source Card */}
           <div style={{ width: "40%" }}>
-            <div className="bg-white border px-5 py-4 space-y-3" style={{ borderColor: "#e8edf2", borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", width: "100%" }}>
+            <div className="bg-white border px-5 py-4 space-y-4" style={{ borderColor: "#e8edf2", borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
               <p style={{ fontSize: "13px", fontWeight: 700, color: "#1a2332" }}>Traffic Source</p>
 
-              {/* Source selector dropdown */}
-              <select
-                value={editSourceId || ""}
-                onChange={(e) => {
-                  if (e.target.value === "") clearSourceForm();
-                  else {
-                    const src = sources.find((s: any) => s.id === e.target.value);
-                    if (src) selectSourceForEdit(src);
-                  }
-                }}
-                className="w-full px-3 py-2 bg-white border text-sm outline-none"
-                style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }}
-              >
-                <option value="">Select source to edit...</option>
-                {sources.map((s: any) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — {s.category} ({links.filter((l: any) => l.traffic_source_id === s.id).length} campaigns)
-                  </option>
-                ))}
-              </select>
-
-              {/* Bulk assign message */}
-              {bulkAssignMode && selectedRows.size > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2" style={{ background: "#f0fdfa", borderRadius: "8px", border: "1px solid #99f6e4" }}>
-                  <Tag className="h-3.5 w-3.5" style={{ color: "#0891b2" }} />
-                  <span style={{ fontSize: "12px", color: "#0891b2", fontWeight: 600 }}>Assign to {selectedRows.size} campaigns</span>
-                </div>
-              )}
-
-              {/* Name */}
+              {/* ── SOURCE LIST section ── */}
               <div>
-                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Name</label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="Source name..."
-                  className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
-                  style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }}
-                />
-                {similarWarning && (
-                  <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: "11px", color: "#d97706" }}>
-                    <AlertTriangle className="h-3 w-3" />
-                    <span>Similar to <strong>{similarWarning}</strong> — did you mean that?</span>
+                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Source List</label>
+                <div className="relative mt-1" ref={sourceSearchRef}>
+                  <input
+                    type="text"
+                    value={sourceSearchQuery}
+                    onChange={(e) => { setSourceSearchQuery(e.target.value); setSourceSearchOpen(true); }}
+                    onFocus={() => setSourceSearchOpen(true)}
+                    placeholder="Select source..."
+                    className="w-full px-3 py-2 bg-white border text-sm outline-none"
+                    style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }}
+                  />
+                  {sourceSearchOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white border shadow-lg py-1 max-h-52 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                      {filteredSources.map((s: any) => (
+                        <button key={s.id} onClick={() => selectSourceForEdit(s)}
+                          className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 transition-colors" style={{ fontSize: "13px" }}>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || "#0891b2" }} />
+                          <span className="flex-1 font-medium" style={{ color: "#1a2332" }}>{s.name}</span>
+                          <span className="px-1.5 py-0.5 text-[10px] font-semibold" style={{
+                            borderRadius: "4px",
+                            background: s.category === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe",
+                            color: s.category === "OnlyTraffic" ? "#7c3aed" : "#0891b2",
+                          }}>{s.category}</span>
+                          <span style={{ fontSize: "11px", color: "#94a3b8" }}>{getSourceCampaignCount(s.id)}</span>
+                        </button>
+                      ))}
+                      {filteredSources.length === 0 && (
+                        <p className="px-3 py-2" style={{ fontSize: "12px", color: "#94a3b8" }}>No sources found</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Edit form when source selected */}
+              {editSourceId && selectedSource && (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Source Name</label>
+                    <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
+                      style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
                   </div>
-                )}
-              </div>
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
+                    <div className="flex gap-2 mt-1">
+                      {(["OnlyTraffic", "Manual"] as const).map(cat => (
+                        <button key={cat} onClick={() => setFormCategory(cat)}
+                          className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors"
+                          style={{ borderRadius: "8px", background: formCategory === cat ? "#0891b2" : "#f1f5f9", color: formCategory === cat ? "white" : "#64748b" }}>
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Keywords</label>
+                    <input type="text" value={formKeywords} onChange={(e) => setFormKeywords(e.target.value)} placeholder="keyword1, keyword2"
+                      className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
+                      style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
+                  </div>
 
-              {/* Category toggle */}
-              <div>
-                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
-                <div className="flex gap-2 mt-1">
-                  {(["Direct", "OnlyTraffic"] as const).map(cat => (
-                    <button key={cat} onClick={() => setFormCategory(cat)}
-                      className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors"
-                      style={{
-                        borderRadius: "8px",
-                        background: formCategory === cat ? "#0891b2" : "#f1f5f9",
-                        color: formCategory === cat ? "white" : "#64748b",
-                      }}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {confirmDelete ? (
+                    <div className="px-3 py-2" style={{ background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                      <p style={{ fontSize: "12px", color: "#dc2626", fontWeight: 600 }}>
+                        Delete {(selectedSource as any)?.name}? {getSourceCampaignCount(editSourceId)} campaigns will be untagged.
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={handleDelete} disabled={saving} className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50" style={{ background: "#dc2626", borderRadius: "6px" }}>Confirm Delete</button>
+                        <button onClick={() => setConfirmDelete(false)} className="text-xs" style={{ color: "#64748b" }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <button onClick={handleSaveChanges} disabled={!formName.trim() || saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
+                        {saving ? "Saving..." : "Save Changes"}
+                      </button>
+                      <button onClick={() => setConfirmDelete(true)} className="w-full py-2 text-sm font-medium border" style={{ borderColor: "#fecaca", borderRadius: "8px", color: "#dc2626" }}>
+                        Delete
+                      </button>
+                    </div>
+                  )}
 
-              {/* Keywords */}
-              <div>
-                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Keywords</label>
-                <input
-                  type="text"
-                  value={formKeywords}
-                  onChange={(e) => setFormKeywords(e.target.value)}
-                  placeholder="onlyfinder, finder, findeross"
-                  className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
-                  style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }}
-                />
-              </div>
-
-              {/* Rename inline */}
-              {renaming && (
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: "12px", color: "#1a2332" }}>New Source:</span>
-                  <input type="text" value={renameName} onChange={(e) => setRenameName(e.target.value)} autoFocus
-                    className="flex-1 px-2 py-1 border text-sm outline-none" style={{ borderColor: "#e8edf2", borderRadius: "6px", fontSize: "13px" }} />
-                  <button onClick={handleRename} disabled={saving || !renameName.trim()} className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "6px" }}>
-                    Confirm
-                  </button>
-                  <button onClick={() => setRenaming(false)} className="text-xs" style={{ color: "#64748b" }}>Cancel</button>
+                  <button onClick={clearSourceEdit} className="text-xs" style={{ color: "#94a3b8" }}>Clear selection</button>
                 </div>
               )}
 
-              {/* Delete confirmation */}
-              {confirmDelete && (
-                <div className="px-3 py-2" style={{ background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
-                  <p style={{ fontSize: "12px", color: "#dc2626", fontWeight: 600 }}>
-                    Delete {(selectedSource as any)?.name}? {links.filter((l: any) => l.traffic_source_id === editSourceId).length} campaigns will be untagged.
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    <button onClick={handleDelete} disabled={saving} className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50" style={{ background: "#dc2626", borderRadius: "6px" }}>
-                      Confirm Delete
-                    </button>
-                    <button onClick={() => setConfirmDelete(false)} className="text-xs" style={{ color: "#64748b" }}>Cancel</button>
+              {/* Divider */}
+              <div style={{ borderTop: "1px solid #e8edf2" }} />
+
+              {/* ── ADD NEW SOURCE section ── */}
+              <div className="space-y-3">
+                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Add New Source</label>
+                <div>
+                  <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Source name..."
+                    className="w-full px-3 py-2 bg-white border text-sm outline-none"
+                    style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
+                  {newNameWarning && (
+                    <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: "11px", color: "#d97706" }}>
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>Similar to <strong>{newNameWarning}</strong> — did you mean that?</span>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
+                  <div className="flex gap-2 mt-1">
+                    {(["OnlyTraffic", "Manual"] as const).map(cat => (
+                      <button key={cat} onClick={() => setNewCategory(cat)}
+                        className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors"
+                        style={{ borderRadius: "8px", background: newCategory === cat ? "#0891b2" : "#f1f5f9", color: newCategory === cat ? "white" : "#64748b" }}>
+                        {cat}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="flex gap-2">
-                {!editSourceId ? (
-                  <button onClick={handleNewSource} disabled={!formName.trim() || saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
-                    {saving ? "Saving..." : "New Source"}
-                  </button>
-                ) : bulkAssignMode && selectedRows.size > 0 ? (
-                  <button onClick={handleBulkAssignFromCard} disabled={saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
-                    {saving ? "Assigning..." : `Assign to ${selectedRows.size} Campaigns`}
-                  </button>
-                ) : (
-                  <>
-                    <button onClick={handleSaveChanges} disabled={!formName.trim() || saving} className="flex-1 py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
-                      {saving ? "Saving..." : "Save Changes"}
-                    </button>
-                    <button onClick={() => { setRenaming(true); setRenameName(formName); }} className="px-3 py-2 text-sm font-medium border" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
-                      Edit
-                    </button>
-                    <button onClick={() => setConfirmDelete(true)} className="px-3 py-2 text-sm font-medium border" style={{ borderColor: "#fecaca", borderRadius: "8px", color: "#dc2626" }}>
-                      Delete
-                    </button>
-                  </>
-                )}
+                <div>
+                  <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Keywords</label>
+                  <input type="text" value={newKeywords} onChange={(e) => setNewKeywords(e.target.value)} placeholder="keyword1, keyword2"
+                    className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
+                    style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
+                </div>
+                <button onClick={handleNewSource} disabled={!newName.trim() || saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
               </div>
             </div>
           </div>
         </div>
 
         {/* ═══ MIDDLE SECTION — Filter bar ═══ */}
-        <div className="bg-white border flex items-center gap-3 px-4 py-2.5" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
+        <div className="bg-white border flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#94a3b8" }} />
             <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
@@ -553,7 +683,6 @@ export default function TrafficSourcesPage() {
 
           <AccountFilterDropdown value={accountFilter} onChange={(v) => { setAccountFilter(v); setPage(1); }} accounts={accountOptions} />
 
-          {/* Source filter */}
           <div className="relative">
             <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
               className="px-3 py-1.5 border text-sm outline-none appearance-none pr-7 cursor-pointer" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px", background: "white" }}>
@@ -563,13 +692,23 @@ export default function TrafficSourcesPage() {
             </select>
           </div>
 
-          {/* Category filter */}
           <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value as any); setPage(1); }}
             className="px-3 py-1.5 border text-sm outline-none appearance-none pr-7 cursor-pointer" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px", background: "white" }}>
             <option value="all">All Categories</option>
-            <option value="Direct">Direct</option>
             <option value="OnlyTraffic">OnlyTraffic</option>
+            <option value="Manual">Manual</option>
           </select>
+
+          {/* Age pills */}
+          <div className="flex gap-1">
+            {([["all", "All Ages"], ["new", "New"], ["active", "Active"], ["mature", "Mature"], ["old", "Old"]] as [AgeFilter, string][]).map(([val, label]) => (
+              <button key={val} onClick={() => { setAgeFilter(val); setPage(1); }}
+                className="px-2.5 py-1 text-xs font-medium transition-colors"
+                style={{ borderRadius: "6px", background: ageFilter === val ? "#0891b2" : "#f1f5f9", color: ageFilter === val ? "white" : "#64748b" }}>
+                {label}
+              </button>
+            ))}
+          </div>
 
           {/* Columns button */}
           <div className="relative ml-auto">
@@ -600,24 +739,14 @@ export default function TrafficSourcesPage() {
 
         {/* ═══ BOTTOM SECTION — Campaign list ═══ */}
         <div className="bg-white border overflow-hidden" style={{ borderColor: "#e8edf2", borderRadius: "16px" }}>
-          {/* Bulk toolbar */}
           <BulkActionToolbar
             selectedIds={selectedRows}
-            onClear={() => { setSelectedRows(new Set()); setBulkAssignMode(false); }}
+            onClear={() => setSelectedRows(new Set())}
             totalFiltered={filtered.length}
             onSelectAll={() => setSelectedRows(new Set(filtered.map((l: any) => l.id)))}
             actions={["assign_source", "remove_source", "delete"]}
             onComplete={invalidateAll}
           />
-
-          {/* Extra bulk action: Assign via card */}
-          {selectedRows.size > 0 && !bulkAssignMode && (
-            <div className="px-4 py-1.5 border-b flex items-center gap-2" style={{ borderColor: "#e8edf2", background: "#f8fffe" }}>
-              <button onClick={() => setBulkAssignMode(true)} className="text-xs font-semibold" style={{ color: "#0891b2" }}>
-                Or use Source Card to assign →
-              </button>
-            </div>
-          )}
 
           <div className="overflow-x-auto">
             <table className="w-full" style={{ fontSize: "12px" }}>
@@ -632,8 +761,16 @@ export default function TrafficSourcesPage() {
                   {col("category") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Category</th>}
                   {col("clicks") && <SortHeader label="Clicks" k="clicks" align="right" />}
                   {col("subscribers") && <SortHeader label="Subs" k="subscribers" align="right" />}
+                  {col("cvr") && <SortHeader label="CVR" k="cvr" align="right" />}
                   {col("revenue") && <SortHeader label="Revenue" k="revenue" align="right" />}
+                  {col("ltv") && <SortHeader label="LTV" k="ltv" align="right" />}
+                  {col("ltv_per_sub") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>LTV/Sub</th>}
+                  {col("expenses") && <SortHeader label="Expenses" k="cost_total" align="right" />}
+                  {col("profit") && <SortHeader label="Profit" k="profit" align="right" />}
+                  {col("profit_per_sub") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Profit/Sub</th>}
+                  {col("roi") && <SortHeader label="ROI" k="roi" align="right" />}
                   {col("status") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>}
+                  {col("subs_day") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Subs/Day</th>}
                   {col("created") && <SortHeader label="Created" k="created_at" align="right" />}
                 </tr>
               </thead>
@@ -643,6 +780,16 @@ export default function TrafficSourcesPage() {
                   const cat = getCategory(link);
                   const status = link.status || "NO_DATA";
                   const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
+                  const ltv = Number(link.ltv || 0);
+                  const ltvPerSub = Number(link.ltv_per_sub || 0);
+                  const costTotal = Number(link.cost_total || 0);
+                  const profit = Number(link.profit || 0);
+                  const roi = Number(link.roi || 0);
+                  const subs = link.subscribers || 0;
+                  const profitPerSub = subs > 0 ? profit / subs : 0;
+                  const ageDays = getAgeDays(link.created_at);
+                  const subsDay = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
+
                   return (
                     <tr key={link.id} className="transition-colors" style={{ borderBottom: "1px solid #f1f5f9", height: "44px" }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={(e) => (e.currentTarget.style.background = "white")}>
@@ -660,7 +807,7 @@ export default function TrafficSourcesPage() {
                           {cat ? (
                             <span className="inline-block px-2 py-0.5" style={{
                               fontSize: "10px", fontWeight: 600, borderRadius: "4px",
-                              background: cat === "OnlyTraffic" ? "#f3e8ff" : "#e0f2fe",
+                              background: cat === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe",
                               color: cat === "OnlyTraffic" ? "#7c3aed" : "#0891b2",
                             }}>{cat}</span>
                           ) : (
@@ -668,9 +815,16 @@ export default function TrafficSourcesPage() {
                           )}
                         </td>
                       )}
-                      {col("clicks") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{(link.clicks || 0).toLocaleString()}</td>}
-                      {col("subscribers") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{(link.subscribers || 0).toLocaleString()}</td>}
+                      {col("clicks") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(link.clicks || 0)}</td>}
+                      {col("subscribers") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(subs)}</td>}
+                      {col("cvr") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "#0891b2" : "#1a2332" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>}
                       {col("revenue") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtC(Number(link.revenue || 0))}</td>}
+                      {col("ltv") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv > 0 ? "#0891b2" : "#94a3b8" }}>{ltv > 0 ? fmtC(ltv) : "—"}</td>}
+                      {col("ltv_per_sub") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{ltvPerSub > 0 ? fmtC(ltvPerSub) : "—"}</td>}
+                      {col("expenses") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>}
+                      {col("profit") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit > 0 ? "#16a34a" : profit < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(profit) : "—"}</td>}
+                      {col("profit_per_sub") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub > 0 ? "#16a34a" : profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 && subs > 0 ? fmtC(profitPerSub) : "—"}</td>}
+                      {col("roi") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi > 0 ? "#16a34a" : roi < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtPct(roi) : "—"}</td>}
                       {col("status") && (
                         <td style={{ padding: "8px 12px" }}>
                           <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 700, borderRadius: "4px", background: st.bg, color: st.text }}>
@@ -678,13 +832,14 @@ export default function TrafficSourcesPage() {
                           </span>
                         </td>
                       )}
+                      {col("subs_day") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>}
                       {col("created") && <td className="text-right" style={{ padding: "8px 12px", fontSize: "11px", color: "#64748b" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</td>}
                     </tr>
                   );
                 })}
                 {paginated.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="text-center py-10" style={{ color: "#94a3b8", fontSize: "13px" }}>
+                    <td colSpan={20} className="text-center py-10" style={{ color: "#94a3b8", fontSize: "13px" }}>
                       {isLoading ? "Loading campaigns..." : "No campaigns found"}
                     </td>
                   </tr>
