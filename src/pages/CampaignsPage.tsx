@@ -1141,7 +1141,7 @@ export default function CampaignsPage() {
                             const ltvSubVal = Number(el.ltv_per_sub || 0);
                             const spenderRateVal = Number(el.spender_rate || 0);
                             const needsFanSync = !el.fans_last_synced_at;
-                            const currentSource = (window as any).__ts_sources?.find((s: any) => s.id === el.traffic_source_id || s.name === el.source_tag);
+                            const currentSource = trafficSources.find((s: any) => s.id === el.traffic_source_id || s.name === el.source_tag);
                             return (
                               <tr>
                                 <td colSpan={99} className="p-0">
