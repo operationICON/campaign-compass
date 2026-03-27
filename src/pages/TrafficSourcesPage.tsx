@@ -551,7 +551,6 @@ export default function TrafficSourcesPage() {
               </div>
               <div className="flex items-center gap-2">
                 <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
-              </div>
               <div className="relative">
                 <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
                   <Settings2 className="h-3.5 w-3.5" /> Columns
