@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { TagBadge, useTagColors } from "@/components/TagBadge";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
@@ -269,7 +270,7 @@ export default function CampaignsPage() {
 
   // ─── Account/filter options ───
   const accountOptions = useMemo(() => {
-    return accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name }))
+    return accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))
       .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name));
   }, [accounts]);
 
@@ -708,11 +709,7 @@ export default function CampaignsPage() {
             <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors" />
           </div>
-          <select value={accountFilter} onChange={(e) => { setAccountFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-            <option value="all">All Accounts</option>
-            {filteredAccountOptions.map((acc: any) => (<option key={acc.id} value={acc.id}>{acc.display_name} (@{acc.username})</option>))}
-          </select>
+          <AccountFilterDropdown value={accountFilter} onChange={(v) => { setAccountFilter(v); setPage(1); }} accounts={filteredAccountOptions} />
           <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Campaigns</option>
