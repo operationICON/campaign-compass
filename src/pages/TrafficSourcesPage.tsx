@@ -22,7 +22,27 @@ const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 const COLUMNS_KEY = "ct_traffic_sources_columns";
 const KPI_KEY = "ct_traffic_sources_kpis";
+const SOURCE_ANALYSIS_KEY = "ct_traffic_sources_analysis";
 const COLOR_CYCLE = ["#0891b2", "#16a34a", "#dc2626", "#d97706", "#7c3aed", "#ec4899", "#f97316", "#64748b"];
+
+type SourceAnalysisId = "subs_day_source" | "distribution" | "growth_trend" | "contribution";
+
+interface SourceAnalysisDef { id: SourceAnalysisId; label: string; defaultOn: boolean }
+
+const SOURCE_ANALYSIS_CARDS: SourceAnalysisDef[] = [
+  { id: "subs_day_source", label: "Subs/Day per Source", defaultOn: true },
+  { id: "distribution", label: "Distribution %", defaultOn: true },
+  { id: "growth_trend", label: "Growth Trend", defaultOn: true },
+  { id: "contribution", label: "Source Contribution", defaultOn: true },
+];
+
+function loadAnalysisVisibility(): Set<SourceAnalysisId> {
+  try {
+    const s = localStorage.getItem(SOURCE_ANALYSIS_KEY);
+    if (s) return new Set(JSON.parse(s) as SourceAnalysisId[]);
+  } catch {}
+  return new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id));
+}
 
 type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created" | "notes";
 type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
