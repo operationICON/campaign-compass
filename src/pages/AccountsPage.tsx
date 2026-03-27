@@ -136,23 +136,27 @@ export default function AccountsPage() {
       const unattributedSubs = Math.max(0, (acc.subscribers_count || 0) - totalSubs);
       const unattributedPct = (acc.subscribers_count || 0) > 0 ? (unattributedSubs / acc.subscribers_count) * 100 : 0;
 
-      const effectiveLtv = totalLtv > 0 ? totalLtv : totalRevenue;
-      stats[acc.id] = {
-        totalRevenue,
-        totalLtv,
-        totalSpend,
-        totalProfit: effectiveLtv - totalSpend,
-        totalCampaigns: accLinks.length,
-        activeCampaigns: activeLinks.length,
-        avgSubsDay: accLinks.length > 1 ? (totalSubs / Math.max(1, accLinks.length)).toFixed(0) : "—",
-        ltv30d: accMetrics.length > 0 ? ltv30d : null,
-        totalClicks,
-        totalSubs,
-        blendedRoi: totalSpend > 0 ? ((effectiveLtv - totalSpend) / totalSpend) * 100 : null,
-        avgCvr,
-        cvrDiff,
-        unattributedPct,
-      };
+        const effectiveLtv = totalLtv > 0 ? totalLtv : totalRevenue;
+        const profit = effectiveLtv - totalSpend;
+        const profitPerSub = totalSubs > 0 ? profit / totalSubs : null;
+        stats[acc.id] = {
+          totalRevenue,
+          totalLtv,
+          totalSpend,
+          totalProfit: profit,
+          totalCampaigns: accLinks.length,
+          activeCampaigns: activeLinks.length,
+          avgSubsDay: accLinks.length > 1 ? (totalSubs / Math.max(1, accLinks.length)).toFixed(0) : "—",
+          ltv30d: accMetrics.length > 0 ? ltv30d : null,
+          totalClicks,
+          totalSubs,
+          apiSubs: acc.subscribers_count || 0,
+          blendedRoi: totalSpend > 0 ? ((effectiveLtv - totalSpend) / totalSpend) * 100 : null,
+          avgCvr,
+          cvrDiff,
+          unattributedPct,
+          profitPerSub,
+        };
     }
     return stats;
   }, [accounts, links, dailyMetrics, agencyAvgCvr]);
