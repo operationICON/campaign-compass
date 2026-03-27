@@ -1132,41 +1132,29 @@ export default function CampaignsPage() {
                               <tr>
                                 <td colSpan={99} className="p-0">
                                   <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-2.5">
-                                    <div className="grid grid-cols-4 gap-4">
-                                      {/* Col 1+2: Performance (Traffic + Value side by side) */}
-                                      <div className="col-span-2">
-                                        <div className="grid grid-cols-2 gap-x-4">
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Traffic</p>
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Value</p>
-                                          {/* Traffic rows */}
+                                    <div className="flex gap-4">
+                                      {/* Performance */}
+                                      <div style={{ width: "280px", flexShrink: 0 }}>
+                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "8px", fontWeight: 500 }}>Performance</p>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                                           {[
-                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
-                                            { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
-                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "text-primary" : "text-muted-foreground" },
-                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
-                                          ].map((r, i) => {
-                                            const valueRows = [
-                                              { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
-                                              { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-[#0891b2]" : "text-muted-foreground" },
-                                              { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
-                                              { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 0 ? (spenderRateVal > 10 ? "text-primary" : spenderRateVal >= 5 ? "text-[hsl(var(--warning))]" : "text-muted-foreground") : "text-muted-foreground" },
-                                            ];
-                                            const vr = valueRows[i];
-                                            return (
-                                              <React.Fragment key={r.l}>
-                                                <div className="flex justify-between items-center" style={{ height: "22px" }}>
-                                                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{r.l}</span>
-                                                  <span className={`font-bold ${r.c}`} style={{ fontSize: "12px" }}>{r.v}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center" style={{ height: "22px" }}>
-                                                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{vr.l}</span>
-                                                  <span className={`font-bold ${vr.c}`} style={{ fontSize: "12px" }}>{vr.v}</span>
-                                                </div>
-                                              </React.Fragment>
-                                            );
-                                          })}
+                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
+                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "#1a2332" },
+                                            { l: "Subs", v: subsEl.toLocaleString(), c: "#1a2332" },
+                                            { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "#0891b2" : "#94a3b8" },
+                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "#0891b2" : "#94a3b8" },
+                                            { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
+                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "#0891b2" : "#94a3b8" },
+                                            { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
+                                          ].map(r => (
+                                            <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "24px", padding: "0 8px" }}>
+                                              <span style={{ fontSize: "11px", color: "#64748b" }}>{r.l}</span>
+                                              <span style={{ fontSize: "12px", fontWeight: 700, color: r.c }}>{r.v}</span>
+                                            </div>
+                                          ))}
                                         </div>
                                       </div>
+                                      <div className="flex-1 grid grid-cols-3 gap-4">
                                       {/* Col 3: Spend */}
                                       <div>
                                         <div className="flex items-center gap-1.5 mb-2">
@@ -1226,6 +1214,7 @@ export default function CampaignsPage() {
                                             className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save note</button>
                                         </div>
                                       </div>
+                                     </div>
                                     </div>
                                   </div>
                                 </td>
