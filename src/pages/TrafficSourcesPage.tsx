@@ -549,6 +549,8 @@ export default function TrafficSourcesPage() {
                 <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
                 <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view campaign performance by source</p>
               </div>
+              <div className="flex items-center gap-2">
+                <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
               {/* Columns picker for KPIs */}
               <div className="relative">
                 <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
