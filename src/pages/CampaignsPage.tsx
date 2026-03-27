@@ -804,6 +804,7 @@ export default function CampaignsPage() {
                         {col("created") && <SortHeader label="Created" sortKeyName="created_at" width="100px" />}
                         {col("media_buyer") && <SortHeader label="Buyer" sortKeyName="media_buyer" width="90px" />}
                         {col("avg_expenses") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "90px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Avg Expenses</th>}
+                        <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }} title="Fan sync status">👥</th>
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}></th>
                       </tr>
                     </thead>
@@ -944,6 +945,16 @@ export default function CampaignsPage() {
                                 {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
                               </td>
                             )}
+                            <td className="w-7 text-center" style={{ padding: "8px 4px" }} title={link.fans_last_synced_at ? `Fan data synced: ${format(new Date(link.fans_last_synced_at), "MMM d, yyyy")}` : "Fan data not yet synced"}>
+                              {(() => {
+                                const synced = link.fans_last_synced_at;
+                                if (!synced) return <Users className="h-3.5 w-3.5 text-muted-foreground mx-auto" />;
+                                const daysSince = Math.floor((Date.now() - new Date(synced).getTime()) / 86400000);
+                                if (daysSince <= 7) return <Users className="h-3.5 w-3.5 text-primary mx-auto" />;
+                                if (daysSince <= 30) return <Users className="h-3.5 w-3.5 text-[hsl(var(--warning))] mx-auto" />;
+                                return <Users className="h-3.5 w-3.5 text-muted-foreground mx-auto" />;
+                              })()}
+                            </td>
                             <td className="w-7 text-center" style={{ padding: "8px 12px" }}>
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             </td>

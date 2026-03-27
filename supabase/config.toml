@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.sync-scheduler]
 verify_jwt = false
+
+[functions.sync-fans]
+verify_jwt = false

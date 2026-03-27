@@ -6,9 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, FlaskConical, X, Loader2,
-  ChevronDown, ChevronRight, Search, Filter, ChevronLeft, ChevronRight as ChevronRightIcon, Trash2,
+  ChevronDown, ChevronRight, Search, Filter, ChevronLeft, ChevronRight as ChevronRightIcon, Trash2, Users,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
+import { FanSyncModal } from "@/components/dashboard/FanSyncModal";
 import { toast } from "sonner";
 
 const STUCK_THRESHOLD_MS = 3 * 60 * 1000;
@@ -61,6 +62,7 @@ export default function LogsPage() {
   const [testPage, setTestPage] = useState(1);
   const [testFilter, setTestFilter] = useState<TestFilter>("all");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [fanSyncOpen, setFanSyncOpen] = useState(false);
 
   const clearMutation = useMutation({
     mutationFn: clearTestLogs,
@@ -251,6 +253,13 @@ export default function LogsPage() {
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton queryKeys={["sync_logs", "accounts", "test_logs"]} />
+            <button
+              onClick={() => setFanSyncOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
+            >
+              <Users className="h-4 w-4" />
+              Sync Fan LTV
+            </button>
             <button
               onClick={() => { setShowTest(true); runTests(); }}
               disabled={testRunning}
@@ -586,6 +595,7 @@ export default function LogsPage() {
           </>
         )}
       </div>
+      <FanSyncModal open={fanSyncOpen} onOpenChange={setFanSyncOpen} />
     </DashboardLayout>
   );
 }
