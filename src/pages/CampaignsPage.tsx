@@ -175,6 +175,14 @@ export default function CampaignsPage() {
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
+  const { data: trafficSources = [] } = useQuery({
+    queryKey: ["traffic_sources"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("traffic_sources").select("*").order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   
   const tagColorMap = useTagColors();
 
@@ -851,8 +859,10 @@ export default function CampaignsPage() {
                           <React.Fragment key={link.id}>
                           <tr
                             onClick={() => handleRowClick(link)}
-                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "bg-[hsl(var(--primary)/0.04)]" : "hover:bg-secondary/30"}`}
-                            style={{ height: "46px" }}
+                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
+                            style={{ height: "46px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd" }}
+                            onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }}
+                            onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}
                           >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
@@ -1133,14 +1143,15 @@ export default function CampaignsPage() {
                             const ltvSubVal = Number(el.ltv_per_sub || 0);
                             const spenderRateVal = Number(el.spender_rate || 0);
                             const needsFanSync = !el.fans_last_synced_at;
+                            const currentSource = trafficSources.find((s: any) => s.id === el.traffic_source_id || s.name === el.source_tag);
                             return (
                               <tr>
                                 <td colSpan={99} className="p-0">
-                                  <div className="bg-[hsl(var(--primary)/0.03)] border-l-[3px] border-l-primary px-4 py-2.5">
-                                    <div className="flex gap-4">
+                                  <div style={{ background: "#e8eef4", borderLeft: "3px solid #0891b2", padding: "14px 20px" }}>
+                                    <div className="flex gap-5">
                                       {/* Performance */}
                                       <div style={{ width: "280px", flexShrink: 0 }}>
-                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "8px", fontWeight: 500 }}>Performance</p>
+                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                                           {[
                                             { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
@@ -1152,84 +1163,126 @@ export default function CampaignsPage() {
                                             { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "#0891b2" : "#94a3b8" },
                                             { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
                                           ].map(r => (
-                                            <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "24px", padding: "0 8px" }}>
-                                              <span style={{ fontSize: "11px", color: "#64748b" }}>{r.l}</span>
-                                              <span style={{ fontSize: "12px", fontWeight: 700, color: r.c }}>{r.v}</span>
+                                            <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "26px", padding: "0 8px" }}>
+                                              <span style={{ fontSize: "13px", color: "#1a2332", fontWeight: 700 }}>{r.l}</span>
+                                              <span style={{ fontSize: "12px", fontWeight: 500, color: r.c, fontFamily: "monospace" }}>{r.v}</span>
                                             </div>
                                           ))}
                                         </div>
                                       </div>
-                                      <div className="flex-1 grid grid-cols-3 gap-4">
-                                      {/* Col 3: Spend */}
+                                      <div className="flex-1 grid grid-cols-3 gap-5">
+                                      {/* Spend */}
                                       <div>
                                         <div className="flex items-center gap-1.5 mb-2">
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Spend</p>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${hasCostEl ? "bg-primary" : "bg-[hsl(var(--warning))]"}`} />
-                                          <span className="text-[10px] text-muted-foreground">{hasCostEl ? "Set" : "Not set"}</span>
+                                          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", fontWeight: 600 }}>Spend</p>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Info className="h-3 w-3 cursor-help" style={{ color: "#94a3b8" }} />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-[220px] text-xs">
+                                              <p><strong>CPL</strong> = I pay per subscriber gained</p>
+                                              <p><strong>CPC</strong> = I pay per click ⚠️</p>
+                                              <p><strong>FIXED</strong> = Fixed amount (pin, promo, deal)</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
+                                          <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
                                         </div>
                                         <div className="flex gap-1 mb-2">
                                           {(["CPL", "CPC", "FIXED"] as const).map(t => (
                                             <button key={t} onClick={(e) => { e.stopPropagation(); setSpendType(t); }}
-                                              className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${spendType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>{t}</button>
+                                              className="px-2 py-1 text-[10px] font-bold transition-colors"
+                                              style={{ borderRadius: "4px", background: spendType === t ? "#0891b2" : "#f1f5f9", color: spendType === t ? "white" : "#64748b" }}>{t}</button>
                                           ))}
                                         </div>
+                                        {spendType === "CPC" && (
+                                          <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" style={{ background: "#fffbeb", borderRadius: "6px", border: "1px solid #fde68a" }}>
+                                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" style={{ color: "#d97706" }} />
+                                            <span style={{ fontSize: "10px", color: "#92400e", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
+                                          </div>
+                                        )}
                                         <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
                                           placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-sm font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2" />
+                                          className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
+                                          style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
                                         {validVal && (
-                                          <div className="text-[11px] font-mono mb-2">
-                                            <div className="flex justify-between"><span className="text-muted-foreground">Total Spend</span><span>{fmtC(previewCost)}</span></div>
+                                          <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
+                                            <div className="flex justify-between"><span>Cost/Sub</span><span style={{ color: "#1a2332" }}>{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
+                                            <div className="flex justify-between"><span>Total Spend</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
+                                            <div className="flex justify-between"><span>Profit</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtC(previewProfit)}</span></div>
+                                            <div className="flex justify-between"><span>ROI</span><span style={{ color: previewRoi >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{previewRoi.toFixed(1)}%</span></div>
+                                            <div className="flex justify-between"><span>Profit/Sub</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626" }}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
                                           </div>
                                         )}
                                         <div className="flex gap-1.5">
                                           <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
-                                            className="flex-1 py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">Save</button>
-                                          {hasCostEl && (
-                                            <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
-                                              className="px-2.5 py-1.5 rounded-md text-[11px] font-medium text-destructive hover:bg-destructive/10 border border-destructive/30">Clear</button>
-                                          )}
+                                            className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
+                                            style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                          <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                            style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
                                         </div>
                                       </div>
-                                      {/* Col 4: Source + Notes */}
-                                      <div className="space-y-4">
-                                        <div>
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5" style={{ letterSpacing: "0.05em" }}>Source</p>
+                                      {/* Source */}
+                                      <div>
+                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Source</p>
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
+                                            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
+                                          </div>
                                           <TrafficSourceDropdown
                                             value={el.source_tag}
                                             trafficSourceId={el.traffic_source_id}
                                             onSave={async (tag, tsId) => {
                                               try {
                                                 await supabase.from("tracking_links").update({
-                                                  source_tag: tag,
-                                                  traffic_source_id: tsId,
-                                                  manually_tagged: true,
+                                                  source_tag: tag, traffic_source_id: tsId, manually_tagged: true,
                                                 } as any).eq("id", el.id);
                                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                                 toast.success("Source saved ✓", { duration: 1500 });
-                                              } catch (err: any) { toast.error("Save failed"); }
+                                              } catch { toast.error("Save failed"); }
                                             }}
                                           />
-                                          <button
-                                            onClick={async (e) => {
+                                          <div className="flex gap-1.5 mt-2">
+                                            <button onClick={(e) => { e.stopPropagation(); const inp = (e.currentTarget.parentElement?.parentElement?.querySelector('input[type="text"]') as HTMLInputElement); if (inp) { inp.focus(); inp.click(); } }}
+                                              className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                              style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#1a2332", background: "white" }}>✏ Edit</button>
+                                            {el.source_tag && (
+                                              <button onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                  await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
+                                                  queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                                                  toast.success("Source removed");
+                                                } catch { toast.error("Failed"); }
+                                              }}
+                                                className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                                style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>🗑 Delete</button>
+                                            )}
+                                            <button onClick={async (e) => {
                                               e.stopPropagation();
-                                              const tag = sourceInputValue.trim();
-                                              if (!tag) return;
-                                              try {
-                                                await setTrackingLinkSourceTag(el.id, tag, true);
-                                                queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                                                toast.success("Source saved ✓", { duration: 1500 });
-                                              } catch (err: any) { toast.error("Save failed"); }
+                                              toast.info("Use the dropdown to select a source — it saves automatically", { duration: 2000 });
                                             }}
-                                            className="w-full mt-2 py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90"
-                                          >Save</button>
+                                              className="px-2.5 py-1.5 text-[11px] font-semibold"
+                                              style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                          </div>
                                         </div>
-                                        <div>
-                                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notes</p>
-                                          <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
-                                            placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
-                                            className="w-full h-16 px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary resize-none mb-1.5" />
+                                      </div>
+                                      {/* Notes */}
+                                      <div>
+                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Notes</p>
+                                        <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                                          placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
+                                          className="w-full h-16 px-2.5 py-1.5 bg-white border text-[11px] outline-none resize-none mb-1.5"
+                                          style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332" }} />
+                                        <div className="flex gap-1.5">
                                           <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
-                                            className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save note</button>
+                                            className="flex-1 py-1.5 text-[11px] font-semibold"
+                                            style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save note</button>
+                                          <button onClick={(e) => { e.stopPropagation(); setNoteText(""); }}
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                            style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
                                         </div>
                                       </div>
                                      </div>
