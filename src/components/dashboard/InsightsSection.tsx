@@ -43,7 +43,8 @@ export function InsightsSection({
 
   const enriched = useMemo(() => filteredLinks.map((l: any) => {
     const spend = Number(l.cost_total || 0);
-    const revenue = Number(l.ltv || l.revenue || 0);
+    const ltvVal = Number(l.ltv || 0);
+    const revenue = ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     const profit = spend > 0 ? revenue - spend : null;
     const roi = spend > 0 ? ((revenue - spend) / spend) * 100 : null;
     const profitPerSub = (profit !== null && l.subscribers > 0) ? profit / l.subscribers : null;

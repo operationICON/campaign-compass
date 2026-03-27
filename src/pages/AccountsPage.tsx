@@ -169,7 +169,7 @@ export default function AccountsPage() {
       if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
       groups[src].links++;
       groups[src].spend += Number(l.cost_total || 0);
-      groups[src].ltv += Number(l.ltv || l.revenue || 0);
+      groups[src].ltv += Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
     }
     for (const g of Object.values(groups)) {
       g.profit = g.ltv - g.spend;
@@ -332,7 +332,8 @@ export default function AccountsPage() {
                           {sortedLinks.map((l: any) => {
                             const status = getStatus(l);
                             const hasSpend = Number(l.cost_total || 0) > 0;
-                            const profit = Number(l.ltv || l.revenue || 0) - Number(l.cost_total || 0);
+                            const effectiveRevL = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+                            const profit = effectiveRevL - Number(l.cost_total || 0);
                             const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
                             const subsPerDay = daysActive && daysActive > 0 && l.subscribers > 0 ? (l.subscribers / daysActive).toFixed(0) : null;
                             return (
@@ -347,7 +348,7 @@ export default function AccountsPage() {
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.clicks)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.subscribers)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{subsPerDay ? `${subsPerDay}/day` : "—"}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(Number(l.ltv || l.revenue))}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-foreground">{fmtCurrency(Number(l.revenue || 0))}</td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend ? (profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
                                   {hasSpend ? fmtCurrency(profit) : "—"}
                                 </td>
