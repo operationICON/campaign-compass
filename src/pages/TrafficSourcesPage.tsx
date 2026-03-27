@@ -8,11 +8,13 @@ import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearTrackingLinkSpend, setTrackingLinkSourceTag } from "@/lib/supabase-helpers";
+import { RefreshButton } from "@/components/RefreshButton";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
-  AlertTriangle, BarChart3, Settings2, Lock,
+  AlertTriangle, BarChart3, Settings2, Lock, Info,
   Hash, Tag, HelpCircle, DollarSign, TrendingUp, Percent, Users, Activity, MousePointerClick, Award,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInDays, subDays } from "date-fns";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -547,33 +549,35 @@ export default function TrafficSourcesPage() {
                 <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
                 <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view campaign performance by source</p>
               </div>
-              {/* Columns picker for KPIs */}
-              <div className="relative">
-                <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
-                  <Settings2 className="h-3.5 w-3.5" /> Columns
-                </button>
-                {kpiDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
-                    <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1.5 max-h-80 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                      <p className="px-3 py-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
-                      {KPI_CARDS.map(k => (
-                        <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
-                          <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
-                          <span style={{ color: "#1a2332" }}>{k.label}</span>
-                        </label>
-                      ))}
-                      <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
-                      <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
-                        Reset to defaults
-                      </button>
-                    </div>
-                  </>
-                )}
+              <div className="flex items-center gap-2">
+                <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
+                <div className="relative">
+                  <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
+                    <Settings2 className="h-3.5 w-3.5" /> Columns
+                  </button>
+                  {kpiDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1.5 max-h-80 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                        <p className="px-3 py-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
+                        {KPI_CARDS.map(k => (
+                          <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
+                            <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
+                            <span style={{ color: "#1a2332" }}>{k.label}</span>
+                          </label>
+                        ))}
+                        <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
+                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
+                          Reset to defaults
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* 2x3 KPI grid */}
+
             <div className="grid grid-cols-2 gap-3">
               {visibleKpiList.map(k => {
                 const r = kpiRenderMap[k.id];
@@ -818,8 +822,8 @@ export default function TrafficSourcesPage() {
 
                   return (
                     <React.Fragment key={link.id}>
-                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid #f1f5f9", height: "44px", background: isExpanded ? "rgba(8,145,178,0.04)" : "white" }}
-                      onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f8fafc"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "white"; }}>
+                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid #e8edf2", height: "44px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd" }}
+                      onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}>
                       <td style={{ padding: "8px 12px" }} onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
                       </td>
@@ -992,10 +996,20 @@ export default function TrafficSourcesPage() {
                                   </div>
                                 </div>
                                 <div className="flex-1 grid grid-cols-3 gap-5">
-                                  {/* Spend */}
+                                {/* Spend */}
                                   <div>
                                     <div className="flex items-center gap-1.5 mb-2">
                                       <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", fontWeight: 600 }}>Spend</p>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Info className="h-3 w-3 cursor-help" style={{ color: "#94a3b8" }} />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-[220px] text-xs">
+                                          <p><strong>CPL</strong> = I pay per subscriber gained</p>
+                                          <p><strong>CPC</strong> = I pay per click ⚠️</p>
+                                          <p><strong>FIXED</strong> = Fixed amount (pin, promo, deal)</p>
+                                        </TooltipContent>
+                                      </Tooltip>
                                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
                                       <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
                                     </div>
@@ -1006,27 +1020,33 @@ export default function TrafficSourcesPage() {
                                           style={{ borderRadius: "4px", background: spendType === t ? "#0891b2" : "#f1f5f9", color: spendType === t ? "white" : "#64748b" }}>{t}</button>
                                       ))}
                                     </div>
+                                    {/* CPC warning */}
+                                    {spendType === "CPC" && (
+                                      <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" style={{ background: "#fffbeb", borderRadius: "6px", border: "1px solid #fde68a" }}>
+                                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" style={{ color: "#d97706" }} />
+                                        <span style={{ fontSize: "10px", color: "#92400e", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
+                                      </div>
+                                    )}
                                     <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
                                       placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
                                       className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
                                       style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
                                     {validVal && (
                                       <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
-                                        <div className="flex justify-between"><span>Formula</span><span style={{ color: "#1a2332" }}>{spendType === "CPL" ? `${subsEl} subs × $${numVal.toFixed(2)}` : spendType === "CPC" ? `${clicksEl} clicks × $${numVal.toFixed(2)}` : `Fixed $${numVal.toFixed(2)}`}</span></div>
-                                        <div className="flex justify-between"><span>Total Cost</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
+                                        <div className="flex justify-between"><span>Cost/Sub</span><span style={{ color: "#1a2332" }}>{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
+                                        <div className="flex justify-between"><span>Total Spend</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
                                         <div className="flex justify-between"><span>Profit</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtC(previewProfit)}</span></div>
                                         <div className="flex justify-between"><span>ROI</span><span style={{ color: previewRoi >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtPct(previewRoi)}</span></div>
+                                        <div className="flex justify-between"><span>Profit/Sub</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626" }}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
                                       </div>
                                     )}
                                     <div className="flex gap-1.5">
                                       <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
                                         className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
                                         style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
-                                      {hasCostEl && (
-                                        <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
-                                          className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                          style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>Clear</button>
-                                      )}
+                                      <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
+                                        className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                        style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
                                     </div>
                                   </div>
                                   {/* Source */}
@@ -1036,16 +1056,7 @@ export default function TrafficSourcesPage() {
                                       {/* Current source display */}
                                       <div className="flex items-center gap-2 mb-2">
                                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
-                                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
-                                        {el.source_tag && (
-                                          <button onClick={async () => {
-                                            try {
-                                              await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
-                                              invalidateAll();
-                                              toast.success("Source removed");
-                                            } catch { toast.error("Failed"); }
-                                          }} title="Remove source" style={{ color: "#dc2626", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>🗑</button>
-                                        )}
+                                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || "Untagged"}</span>
                                       </div>
                                       <TrafficSourceDropdown
                                         value={el.source_tag}
@@ -1060,6 +1071,19 @@ export default function TrafficSourcesPage() {
                                           } catch { toast.error("Save failed"); }
                                         }}
                                       />
+                                      <div className="flex gap-1.5 mt-2">
+                                        {el.source_tag && (
+                                          <button onClick={async () => {
+                                            try {
+                                              await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
+                                              invalidateAll();
+                                              toast.success("Source removed");
+                                            } catch { toast.error("Failed"); }
+                                          }}
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                            style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>🗑 Delete</button>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                   {/* Notes */}
@@ -1073,11 +1097,9 @@ export default function TrafficSourcesPage() {
                                       <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }} disabled={noteLoading}
                                         className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
                                         style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>{noteLoading ? "..." : "Save note"}</button>
-                                      {noteText.trim() && (
-                                        <button onClick={(e) => { e.stopPropagation(); clearNoteInline(); }} disabled={noteLoading}
-                                          className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50"
-                                          style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>Clear</button>
-                                      )}
+                                      <button onClick={(e) => { e.stopPropagation(); setNoteText(""); }} disabled={noteLoading}
+                                        className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50"
+                                        style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
                                     </div>
                                   </div>
                                 </div>

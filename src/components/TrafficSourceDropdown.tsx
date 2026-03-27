@@ -92,16 +92,6 @@ export function TrafficSourceDropdown({ value, trafficSourceId, onSave, classNam
 
   return (
     <div ref={ref} className={`relative ${className || ""}`} onClick={(e) => e.stopPropagation()}>
-      {/* Current value display */}
-      <div className="flex items-center gap-1.5 mb-2">
-        <span
-          className="w-2 h-2 rounded-full shrink-0"
-          style={{ backgroundColor: currentSource?.color || "#94a3b8" }}
-        />
-        <span className="text-[11px] text-foreground">
-          {currentSource?.name || value || "Untagged"}
-        </span>
-      </div>
 
       {/* Search input */}
       <div
