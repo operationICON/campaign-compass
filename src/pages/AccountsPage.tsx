@@ -164,7 +164,7 @@ export default function AccountsPage() {
   const filteredAccounts = useMemo(() => {
     if (categoryFilter === "all") return accounts;
     return accounts.filter((a: any) => getCategory(a) === categoryFilter);
-  }, [accounts, categoryFilter]);
+  }, [accounts, categoryFilter, modelCategories]);
 
   const AvatarCircle = ({ account, size = 80 }: { account: any; size?: number }) => {
     const colorIdx = accounts.indexOf(account) % AVATAR_COLORS.length;
