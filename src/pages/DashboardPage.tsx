@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { RefreshButton } from "@/components/RefreshButton";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { KpiCardCustomizer, useKpiCardVisibility, type DashboardKpiCardId } from "@/components/dashboard/KpiCardCustomizer";
 
 
@@ -225,18 +226,11 @@ export default function DashboardPage() {
           </select>
 
           {/* Account dropdown */}
-          <select
+          <AccountFilterDropdown
             value={selectedModel}
-            onChange={(e) => { setSelectedModel(e.target.value); }}
-            className="bg-card border border-border text-foreground text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="all">All Accounts</option>
-            {groupFilteredAccounts.map((a: any) => (
-              <option key={a.id} value={a.id}>
-                {a.display_name} {a.username ? `(@${a.username.replace("@","")})` : ""}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setSelectedModel(v)}
+            accounts={groupFilteredAccounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+          />
 
           {/* Time period pills */}
           <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
