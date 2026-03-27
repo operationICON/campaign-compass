@@ -22,7 +22,27 @@ const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 const COLUMNS_KEY = "ct_traffic_sources_columns";
 const KPI_KEY = "ct_traffic_sources_kpis";
+const SOURCE_ANALYSIS_KEY = "ct_traffic_sources_analysis";
 const COLOR_CYCLE = ["#0891b2", "#16a34a", "#dc2626", "#d97706", "#7c3aed", "#ec4899", "#f97316", "#64748b"];
+
+type SourceAnalysisId = "subs_day_source" | "distribution" | "growth_trend" | "contribution";
+
+interface SourceAnalysisDef { id: SourceAnalysisId; label: string; defaultOn: boolean }
+
+const SOURCE_ANALYSIS_CARDS: SourceAnalysisDef[] = [
+  { id: "subs_day_source", label: "Subs/Day per Source", defaultOn: true },
+  { id: "distribution", label: "Distribution %", defaultOn: true },
+  { id: "growth_trend", label: "Growth Trend", defaultOn: true },
+  { id: "contribution", label: "Source Contribution", defaultOn: true },
+];
+
+function loadAnalysisVisibility(): Set<SourceAnalysisId> {
+  try {
+    const s = localStorage.getItem(SOURCE_ANALYSIS_KEY);
+    if (s) return new Set(JSON.parse(s) as SourceAnalysisId[]);
+  } catch {}
+  return new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id));
+}
 
 type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created" | "notes";
 type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
@@ -135,6 +155,17 @@ export default function TrafficSourcesPage() {
     });
   };
 
+  // Source Analysis visibility
+  const [visibleAnalysis, setVisibleAnalysis] = useState<Set<SourceAnalysisId>>(loadAnalysisVisibility);
+  const toggleAnalysis = (id: SourceAnalysisId) => {
+    setVisibleAnalysis(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem(SOURCE_ANALYSIS_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
   // Column visibility
   const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
@@ -233,6 +264,14 @@ export default function TrafficSourcesPage() {
     },
   });
 
+  const { data: dailyMetrics = [] } = useQuery({
+    queryKey: ["daily_metrics_ts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("daily_metrics").select("*").order("date", { ascending: false });
+      return data || [];
+    },
+  });
+
   // Migrate source_tag_rules → traffic_sources on load if empty
   useEffect(() => {
     if (sources.length > 0) return;
@@ -293,7 +332,86 @@ export default function TrafficSourcesPage() {
     return { totalSources, tagged, untagged, totalSpend, totalRevenue, blendedRoi, totalProfit, avgCpl, totalSubscribers, activeSources, totalClicks, avgProfitSub, topSource };
   }, [sources, links]);
 
-  // ── Source card logic ──
+  // ── Source Analysis calculations ──
+  const sourceAnalysis = useMemo(() => {
+    // Group links by source
+    const bySource: Record<string, any[]> = {};
+    links.forEach((l: any) => {
+      const tag = l.source_tag || "Untagged";
+      if (!bySource[tag]) bySource[tag] = [];
+      bySource[tag].push(l);
+    });
+
+    // Filter by sourceFilter
+    const relevantSources = sourceFilter !== "all" && sourceFilter !== "untagged"
+      ? { [sourceFilter]: bySource[sourceFilter] || [] }
+      : sourceFilter === "untagged"
+        ? { Untagged: bySource["Untagged"] || [] }
+        : bySource;
+
+    // Subs/Day per Source
+    const subsPerDay: { name: string; value: number; color: string }[] = [];
+    const totalSubs = Object.values(relevantSources).reduce((sum, arr) => sum + arr.reduce((s: number, l: any) => s + (l.subscribers || 0), 0), 0);
+
+    // Distribution
+    const distribution: { name: string; pct: number; color: string }[] = [];
+
+    // Source contribution
+    let topContrib = { name: "—", pct: 0, subs: 0 };
+
+    Object.entries(relevantSources).forEach(([name, arr]) => {
+      if (name === "Untagged" && sourceFilter !== "untagged") return;
+      const subs = arr.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const src = sources.find((s: any) => s.name === name);
+      const color = src ? (src as any).color : "#64748b";
+
+      // Calculate days active (from oldest created_at)
+      const oldest = arr.reduce((min: string, l: any) => l.created_at < min ? l.created_at : min, arr[0]?.created_at || new Date().toISOString());
+      const days = Math.max(1, differenceInDays(new Date(), new Date(oldest)));
+      const sd = subs / days;
+      subsPerDay.push({ name, value: parseFloat(sd.toFixed(2)), color });
+
+      const pct = totalSubs > 0 ? (subs / totalSubs) * 100 : 0;
+      distribution.push({ name, pct: parseFloat(pct.toFixed(1)), color });
+
+      if (subs > topContrib.subs) topContrib = { name, pct: parseFloat(pct.toFixed(1)), subs };
+    });
+
+    subsPerDay.sort((a, b) => b.value - a.value);
+    distribution.sort((a, b) => b.pct - a.pct);
+
+    // Growth Trend — last 30 days vs 30 before
+    const now = new Date();
+    const period1Start = subDays(now, 30);
+    const period2Start = subDays(now, 60);
+    const period2End = subDays(now, 30);
+
+    const growthTrend: { name: string; current: number; previous: number; change: number; color: string }[] = [];
+
+    Object.entries(relevantSources).forEach(([name, arr]) => {
+      if (name === "Untagged" && sourceFilter !== "untagged") return;
+      const linkIds = new Set(arr.map((l: any) => l.id));
+      const src = sources.find((s: any) => s.name === name);
+      const color = src ? (src as any).color : "#64748b";
+
+      let current = 0, previous = 0;
+      dailyMetrics.forEach((m: any) => {
+        if (!linkIds.has(m.tracking_link_id)) return;
+        const d = new Date(m.date);
+        if (d >= period1Start && d <= now) current += (m.new_subscribers || 0);
+        else if (d >= period2Start && d < period2End) previous += (m.new_subscribers || 0);
+      });
+
+      const change = previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
+      growthTrend.push({ name, current, previous, change: parseFloat(change.toFixed(1)), color });
+    });
+
+    growthTrend.sort((a, b) => b.change - a.change);
+
+    return { subsPerDay, distribution, growthTrend, topContrib };
+  }, [links, sources, sourceFilter, dailyMetrics]);
+
+
   const selectedSource = useMemo(() => sources.find((s: any) => s.id === editSourceId), [sources, editSourceId]);
 
   const selectSourceForEdit = (source: any) => {
@@ -567,7 +685,15 @@ export default function TrafficSourcesPage() {
                           </label>
                         ))}
                         <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
-                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
+                        <p className="px-3 py-1 mt-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Source Analysis</p>
+                        {SOURCE_ANALYSIS_CARDS.map(k => (
+                          <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
+                            <input type="checkbox" checked={visibleAnalysis.has(k.id)} onChange={() => toggleAnalysis(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
+                            <span style={{ color: "#1a2332" }}>{k.label}</span>
+                          </label>
+                        ))}
+                        <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
+                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); const aDef = new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleAnalysis(aDef); localStorage.removeItem(SOURCE_ANALYSIS_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
                           Reset to defaults
                         </button>
                       </div>
@@ -578,7 +704,7 @@ export default function TrafficSourcesPage() {
             </div>
 
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {visibleKpiList.map(k => {
                 const r = kpiRenderMap[k.id];
                 return <KpiCard key={k.id} label={r.label} value={r.value} sub={r.sub} icon={r.icon} color={r.color} />;
@@ -710,6 +836,86 @@ export default function TrafficSourcesPage() {
             </div>
           </div>
         </div>
+
+        {/* SOURCE ANALYSIS SECTION */}
+        {(visibleAnalysis.has("subs_day_source") || visibleAnalysis.has("distribution") || visibleAnalysis.has("growth_trend") || visibleAnalysis.has("contribution")) && (
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            {visibleAnalysis.has("subs_day_source") && (
+              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Subs/Day per Source</p>
+                <div className="space-y-2">
+                  {sourceAnalysis.subsPerDay.slice(0, 6).map(s => (
+                    <div key={s.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                        <span style={{ fontSize: "12px", color: "#1a2332", fontWeight: 500 }}>{s.name}</span>
+                      </div>
+                      <span className="font-mono font-bold" style={{ fontSize: "13px", color: "#1a2332" }}>{s.value}</span>
+                    </div>
+                  ))}
+                  {sourceAnalysis.subsPerDay.length === 0 && <p style={{ fontSize: "12px", color: "#94a3b8" }}>No data</p>}
+                </div>
+              </div>
+            )}
+
+            {visibleAnalysis.has("distribution") && (
+              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Distribution %</p>
+                <div className="space-y-2">
+                  {sourceAnalysis.distribution.slice(0, 6).map(s => (
+                    <div key={s.name}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                          <span style={{ fontSize: "12px", color: "#1a2332", fontWeight: 500 }}>{s.name}</span>
+                        </div>
+                        <span className="font-mono font-bold" style={{ fontSize: "12px", color: "#1a2332" }}>{s.pct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full" style={{ background: "#f1f5f9" }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(s.pct, 100)}%`, background: s.color }} />
+                      </div>
+                    </div>
+                  ))}
+                  {sourceAnalysis.distribution.length === 0 && <p style={{ fontSize: "12px", color: "#94a3b8" }}>No data</p>}
+                </div>
+              </div>
+            )}
+
+            {visibleAnalysis.has("growth_trend") && (
+              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" }}>Growth Trend</p>
+                <p style={{ fontSize: "10px", color: "#94a3b8", marginBottom: "8px" }}>Last 30d vs previous 30d</p>
+                <div className="space-y-2">
+                  {sourceAnalysis.growthTrend.slice(0, 6).map(s => (
+                    <div key={s.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                        <span style={{ fontSize: "12px", color: "#1a2332", fontWeight: 500 }}>{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span style={{ fontSize: "12px", color: s.change > 0 ? "#16a34a" : s.change < 0 ? "#dc2626" : "#94a3b8", fontWeight: 700 }}>
+                          {s.change > 0 ? "↑" : s.change < 0 ? "↓" : "–"} {Math.abs(s.change)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {sourceAnalysis.growthTrend.length === 0 && <p style={{ fontSize: "12px", color: "#94a3b8" }}>No data</p>}
+                </div>
+              </div>
+            )}
+
+            {visibleAnalysis.has("contribution") && (
+              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Source Contribution</p>
+                <div className="flex flex-col items-center justify-center" style={{ minHeight: "80px" }}>
+                  <p className="font-bold" style={{ fontSize: "22px", color: "#1a2332" }}>{sourceAnalysis.topContrib.name}</p>
+                  <p className="font-mono" style={{ fontSize: "28px", color: "#0891b2", fontWeight: 800, lineHeight: 1.1 }}>{sourceAnalysis.topContrib.pct}%</p>
+                  <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px" }}>of total subscribers</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filter bar */}
         <div className="bg-white border flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderColor: "#e8edf2", borderRadius: "16px 16px 0 0", borderBottom: "none" }}>
