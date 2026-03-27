@@ -1214,6 +1214,7 @@ export default function CampaignsPage() {
                                             className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90">Save note</button>
                                         </div>
                                       </div>
+                                     </div>
                                     </div>
                                   </div>
                                 </td>
