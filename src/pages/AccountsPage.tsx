@@ -507,9 +507,19 @@ export default function AccountsPage() {
         </div>
 
         {/* Filter pills */}
-        <div className="flex gap-2">
-          {(["all", "Female", "Trans"] as const).map((cat) => {
-            const count = cat === "all" ? accounts.length : accounts.filter((a: any) => getCategory(a) === cat).length;
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setCategoryFilter("all")}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              categoryFilter === "all"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+            }`}
+          >
+            All <span className="ml-1.5 text-xs opacity-70">{accounts.length}</span>
+          </button>
+          {allCategories.map((cat) => {
+            const count = accounts.filter((a: any) => getCategory(a) === cat).length;
             return (
               <button
                 key={cat}
@@ -520,8 +530,7 @@ export default function AccountsPage() {
                     : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
                 }`}
               >
-                {cat === "all" ? "All" : cat}
-                <span className="ml-1.5 text-xs opacity-70">{count}</span>
+                {cat} <span className="ml-1.5 text-xs opacity-70">{count}</span>
               </button>
             );
           })}
@@ -532,21 +541,42 @@ export default function AccountsPage() {
           {filteredAccounts.map((acc: any) => {
             const stats = accountStats[acc.id] || {};
             const category = getCategory(acc);
+            const isEditing = editingCatFor === acc.id;
             return (
               <div
                 key={acc.id}
-                onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}
                 className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40 cursor-pointer"
               >
-                <div className="flex items-start gap-4 mb-4">
+                <div className="flex items-start gap-4 mb-4" onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}>
                   <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
                     <p className="text-[13px] text-muted-foreground">@{acc.username || "—"}</p>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
-                        {category}
-                      </span>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            autoFocus
+                            value={editCatValue}
+                            onChange={(e) => setEditCatValue(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter" && editCatValue.trim()) handleSaveCategory(acc.username, editCatValue.trim()); if (e.key === "Escape") setEditingCatFor(null); }}
+                            className="w-24 px-2 py-0.5 rounded text-[11px] bg-secondary border border-border text-foreground outline-none"
+                            placeholder="e.g. Female"
+                          />
+                          <button onClick={() => editCatValue.trim() && handleSaveCategory(acc.username, editCatValue.trim())} className="text-primary hover:text-primary/80"><Check className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => setEditingCatFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : category === "Uncategorized" ? "bg-muted text-muted-foreground" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
+                            {category}
+                          </span>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingCatFor(acc.id); setEditCatValue(category === "Uncategorized" ? "" : category); }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-3 w-3" /></button>
+                          {category !== "Uncategorized" && (
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(acc.username); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
+                          )}
+                        </>
+                      )}
                       {acc.performer_top != null && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
                           Top {acc.performer_top}%
@@ -556,19 +586,48 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
-                <div className="mb-3">
-                  <p className="text-2xl font-bold font-mono text-foreground">{fmtCurrency(stats.totalRevenue || 0)}</p>
-                  <p className="text-[12px] text-muted-foreground mt-0.5">
-                    Last 30d: {stats.ltv30d != null ? <span className="text-primary font-semibold">{fmtCurrency(stats.ltv30d)}</span> : <span className="italic opacity-60">Syncing...</span>}
-                  </p>
-                </div>
+                <div onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}>
+                  {/* KPI grid */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Subs (API)</span>
+                      <span className="font-mono font-semibold text-foreground">{fmtNum(stats.apiSubs || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tracked Subs</span>
+                      <span className="font-mono font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">LTV (All)</span>
+                      <span className="font-mono font-semibold text-primary">{stats.totalLtv > 0 ? fmtCurrency(stats.totalLtv) : "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">LTV (30d)</span>
+                      <span className="font-mono font-semibold text-primary">{stats.ltv30d != null ? fmtCurrency(stats.ltv30d) : "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Spend</span>
+                      <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpend || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Revenue</span>
+                      <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalRevenue || 0)}</span>
+                    </div>
+                    <div className="flex justify-between col-span-2">
+                      <span className="text-muted-foreground">Profit/Sub</span>
+                      <span className={`font-mono font-semibold ${stats.profitPerSub != null ? (stats.profitPerSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
+                        {stats.profitPerSub != null ? fmtCurrency(stats.profitPerSub) : "—"}
+                      </span>
+                    </div>
+                  </div>
 
-                <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
-                  <span>{stats.totalCampaigns || 0} campaigns</span>
-                  <span className="text-border">·</span>
-                  <span>{stats.activeCampaigns || 0} active</span>
-                  <span className="text-border">·</span>
-                  <span>{stats.avgSubsDay} subs/day</span>
+                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
+                    <span>{stats.totalCampaigns || 0} campaigns</span>
+                    <span className="text-border">·</span>
+                    <span>{stats.activeCampaigns || 0} active</span>
+                    <span className="text-border">·</span>
+                    <span>{stats.avgSubsDay} subs/day</span>
+                  </div>
                 </div>
               </div>
             );
