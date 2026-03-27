@@ -361,7 +361,8 @@ export default function CampaignsPage() {
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
-    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
+    const totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
@@ -376,7 +377,11 @@ export default function CampaignsPage() {
     const totalCount = scopedLinks.length;
 
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
+    const expLtv = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
+    const expRev = withSpend.reduce((s: number, l: any) => {
+      const ltv = Number(l.ltv || 0);
+      return s + (ltv > 0 ? ltv : Number(l.revenue || 0));
+    }, 0);
     const expSpend = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
     const expSubs = withSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const profitPerSub = expSpend > 0 && expSubs > 0 ? (expRev - expSpend) / expSubs : null;
@@ -389,10 +394,11 @@ export default function CampaignsPage() {
     withSpend.forEach((l: any) => {
       const tag = l.source_tag || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      bySource[tag].rev += Number(l.ltv || l.revenue || 0);
+      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      bySource[tag].rev += effectiveRev;
       bySource[tag].spend += Number(l.cost_total || 0);
       bySource[tag].subs += (l.subscribers || 0);
-      bySource[tag].profit += Number(l.profit || 0);
+      bySource[tag].profit += effectiveRev - Number(l.cost_total || 0);
       bySource[tag].count++;
     });
 
