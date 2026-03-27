@@ -811,6 +811,10 @@ export default function CampaignsPage() {
                         {col("clicks") && <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />}
                         {col("subscribers") && <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />}
                         {col("cvr") && <SortHeader label="CVR" sortKeyName="cvr" width="65px" />}
+                        {col("revenue") && <SortHeader label="Revenue" sortKeyName="revenue" width="90px" />}
+                        {col("ltv") && <SortHeader label="LTV" sortKeyName="ltv" width="80px" />}
+                        {col("ltv_sub") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>LTV/Sub</th>}
+                        {col("spender_rate") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Spender %</th>}
                         {col("expenses") && <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />}
                         {col("profit") && <SortHeader label="Profit" sortKeyName="profit" width="80px" />}
                         <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
