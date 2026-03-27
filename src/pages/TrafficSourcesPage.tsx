@@ -4,8 +4,10 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
 import { TagBadge } from "@/components/TagBadge";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
+import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { clearTrackingLinkSpend, setTrackingLinkSourceTag } from "@/lib/supabase-helpers";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
   AlertTriangle, BarChart3, Settings2, Lock,
@@ -156,6 +158,13 @@ export default function TrafficSourcesPage() {
 
   // Selection
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
+  // Expanded row state
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
+  const [spendValue, setSpendValue] = useState("");
+  const [noteText, setNoteText] = useState("");
+  const [sourceInputValue, setSourceInputValue] = useState("");
 
   // Source card state
   const [editSourceId, setEditSourceId] = useState<string | null>(null);
@@ -427,6 +436,18 @@ export default function TrafficSourcesPage() {
     if (selectedRows.size === paginated.length) setSelectedRows(new Set());
     else setSelectedRows(new Set(paginated.map((l: any) => l.id)));
   }, [paginated, selectedRows]);
+
+  const handleRowClick = (link: any) => {
+    if (expandedRow === link.id) {
+      setExpandedRow(null);
+    } else {
+      setExpandedRow(link.id);
+      setSpendType(link.cost_type || "CPL");
+      setSpendValue(link.cost_value ? String(link.cost_value) : "");
+      setNoteText("");
+      setSourceInputValue(link.source_tag || "");
+    }
+  };
 
   const SortHeader = ({ label, k, align }: { label: string; k: SortKey; align?: string }) => (
     <th
@@ -761,6 +782,7 @@ export default function TrafficSourcesPage() {
                   {col("status") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>}
                   {col("subs_day") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Subs/Day</th>}
                   {col("created") && <SortHeader label="Created" k="created_at" align="right" />}
+                  <th style={{ width: "28px" }} />
                 </tr>
               </thead>
               <tbody>
@@ -778,11 +800,13 @@ export default function TrafficSourcesPage() {
                   const profitPerSub = subs > 0 ? profit / subs : 0;
                   const ageDays = getAgeDays(link.created_at);
                   const subsDay = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
+                  const isExpanded = expandedRow === link.id;
 
                   return (
-                    <tr key={link.id} className="transition-colors" style={{ borderBottom: "1px solid #f1f5f9", height: "44px" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={(e) => (e.currentTarget.style.background = "white")}>
-                      <td style={{ padding: "8px 12px" }}>
+                    <React.Fragment key={link.id}>
+                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid #f1f5f9", height: "44px", background: isExpanded ? "rgba(8,145,178,0.04)" : "white" }}
+                      onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f8fafc"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "white"; }}>
+                      <td style={{ padding: "8px 12px" }} onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
                       </td>
                       <td style={{ padding: "8px 12px", maxWidth: "220px" }}>
@@ -823,7 +847,188 @@ export default function TrafficSourcesPage() {
                       )}
                       {col("subs_day") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>}
                       {col("created") && <td className="text-right" style={{ padding: "8px 12px", fontSize: "11px", color: "#64748b" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</td>}
+                      <td className="w-7 text-center" style={{ padding: "8px 4px" }}>
+                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} style={{ color: "#94a3b8" }} />
+                      </td>
                     </tr>
+                    {/* Expanded detail row */}
+                    {isExpanded && (() => {
+                      const el = link;
+                      const subsEl = el.subscribers || 0;
+                      const clicksEl = el.clicks || 0;
+                      const revEl = Number(el.ltv || 0) > 0 ? Number(el.ltv) : Number(el.revenue || 0);
+                      const hasCostEl = Number(el.cost_total || 0) > 0;
+                      const numVal = parseFloat(spendValue);
+                      const validVal = !isNaN(numVal) && numVal > 0;
+                      let previewCost = 0, previewProfit = 0, previewRoi = 0;
+                      if (validVal) {
+                        if (spendType === "CPL") previewCost = subsEl * numVal;
+                        else if (spendType === "CPC") previewCost = clicksEl * numVal;
+                        else previewCost = numVal;
+                        previewProfit = revEl - previewCost;
+                        previewRoi = previewCost > 0 ? (previewProfit / previewCost) * 100 : 0;
+                      }
+                      const saveSpendInline = async () => {
+                        if (!validVal) return;
+                        try {
+                          const cvr = clicksEl > 0 ? subsEl / clicksEl : 0;
+                          const cpcReal = spendType === "CPC" ? numVal : (cvr > 0 ? (spendType === "CPL" ? numVal * cvr : (clicksEl > 0 ? previewCost / clicksEl : 0)) : 0);
+                          const cplReal = spendType === "CPL" ? numVal : (subsEl > 0 ? previewCost / subsEl : 0);
+                          const arpu = subsEl > 0 ? revEl / subsEl : 0;
+                          const newStatus = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
+                          await supabase.from("tracking_links").update({
+                            cost_type: spendType, cost_value: numVal, cost_total: previewCost,
+                            cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,
+                            profit: previewProfit, roi: previewRoi, status: newStatus,
+                          } as any).eq("id", el.id);
+                          const { data: existing } = await supabase.from("ad_spend").select("id").eq("tracking_link_id", el.id).maybeSingle();
+                          if (existing) {
+                            await supabase.from("ad_spend").update({
+                              spend_type: spendType, amount: previewCost,
+                              date: new Date().toISOString().split("T")[0],
+                            } as any).eq("id", existing.id);
+                          } else {
+                            await supabase.from("ad_spend").insert({
+                              campaign_id: el.campaign_id, tracking_link_id: el.id,
+                              traffic_source: el.source || "direct", spend_type: spendType,
+                              amount: previewCost, date: new Date().toISOString().split("T")[0],
+                              notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
+                            });
+                          }
+                          invalidateAll();
+                          toast.success("Spend saved");
+                        } catch { toast.error("Save failed"); }
+                      };
+                      const clearSpendInline = async () => {
+                        try {
+                          await clearTrackingLinkSpend(el.id, el.campaign_id);
+                          invalidateAll();
+                          toast.success("Spend cleared");
+                        } catch { toast.error("Clear failed"); }
+                      };
+                      const saveNoteInline = async () => {
+                        if (!noteText.trim()) return;
+                        try {
+                          const { data: existingNote } = await supabase.from("manual_notes")
+                            .select("id").eq("campaign_id", el.campaign_id).eq("account_id", el.account_id).maybeSingle();
+                          if (existingNote) {
+                            await supabase.from("manual_notes").update({
+                              note: noteText.trim(), content: noteText.trim(), updated_at: new Date().toISOString(),
+                            } as any).eq("id", existingNote.id);
+                          } else {
+                            await supabase.from("manual_notes").insert({
+                              campaign_id: el.campaign_id, campaign_name: el.campaign_name,
+                              account_id: el.account_id, content: noteText.trim(), note: noteText.trim(),
+                            });
+                          }
+                          toast.success("Note saved");
+                        } catch { toast.error("Save failed"); }
+                      };
+                      const ltvVal = Number(el.ltv || 0);
+                      const ltvSubVal = Number(el.ltv_per_sub || 0);
+                      const spenderRateVal = Number(el.spender_rate || 0);
+                      const subsDayVal = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
+                      const subsDayDisplay = subsDayVal > 0 ? { v: `${Math.round(subsDayVal)}/day`, c: "#0891b2" } : { v: "0/day", c: "#94a3b8" };
+
+                      return (
+                        <tr>
+                          <td colSpan={99} className="p-0">
+                            <div style={{ background: "rgba(8,145,178,0.03)", borderLeft: "3px solid #0891b2", padding: "10px 16px" }}>
+                              <div className="flex gap-4">
+                                {/* Performance */}
+                                <div style={{ width: "280px", flexShrink: 0 }}>
+                                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "8px", fontWeight: 500 }}>Performance</p>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
+                                    {[
+                                      { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
+                                      { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "#1a2332" },
+                                      { l: "Subs", v: subsEl.toLocaleString(), c: "#1a2332" },
+                                      { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "#0891b2" : "#94a3b8" },
+                                      { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "#0891b2" : "#94a3b8" },
+                                      { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
+                                      { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
+                                      { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
+                                    ].map(r => (
+                                      <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "24px", padding: "0 8px" }}>
+                                        <span style={{ fontSize: "11px", color: "#64748b" }}>{r.l}</span>
+                                        <span style={{ fontSize: "12px", fontWeight: 700, color: r.c }}>{r.v}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex-1 grid grid-cols-3 gap-4">
+                                  {/* Spend */}
+                                  <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", fontWeight: 500 }}>Spend</p>
+                                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
+                                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
+                                    </div>
+                                    <div className="flex gap-1 mb-2">
+                                      {(["CPL", "CPC", "FIXED"] as const).map(t => (
+                                        <button key={t} onClick={(e) => { e.stopPropagation(); setSpendType(t); }}
+                                          className="px-2 py-1 text-[10px] font-bold transition-colors"
+                                          style={{ borderRadius: "4px", background: spendType === t ? "#0891b2" : "#f1f5f9", color: spendType === t ? "white" : "#64748b" }}>{t}</button>
+                                      ))}
+                                    </div>
+                                    <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
+                                      placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
+                                      className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
+                                      style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
+                                    {validVal && (
+                                      <div className="text-[11px] font-mono mb-2" style={{ color: "#64748b" }}>
+                                        <div className="flex justify-between"><span>Total Spend</span><span>{fmtC(previewCost)}</span></div>
+                                      </div>
+                                    )}
+                                    <div className="flex gap-1.5">
+                                      <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
+                                        className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
+                                        style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                      {hasCostEl && (
+                                        <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
+                                          className="px-2.5 py-1.5 text-[11px] font-medium border"
+                                          style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>Clear</button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {/* Source */}
+                                  <div>
+                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "6px", fontWeight: 500 }}>Source</p>
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                      <TrafficSourceDropdown
+                                        value={el.source_tag}
+                                        trafficSourceId={el.traffic_source_id}
+                                        onSave={async (tag, tsId) => {
+                                          try {
+                                            await supabase.from("tracking_links").update({
+                                              source_tag: tag, traffic_source_id: tsId, manually_tagged: true,
+                                            } as any).eq("id", el.id);
+                                            invalidateAll();
+                                            toast.success("Source saved ✓", { duration: 1500 });
+                                          } catch { toast.error("Save failed"); }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  {/* Notes */}
+                                  <div>
+                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "6px", fontWeight: 500 }}>Notes</p>
+                                    <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                                      placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
+                                      className="w-full h-16 px-2.5 py-1.5 bg-white border text-[11px] outline-none resize-none mb-1.5"
+                                      style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332" }} />
+                                    <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
+                                      className="w-full py-1.5 text-[11px] font-semibold"
+                                      style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save note</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                    </React.Fragment>
                   );
                 })}
                 {paginated.length === 0 && (
