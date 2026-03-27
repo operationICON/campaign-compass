@@ -708,12 +708,13 @@ function KpiCards({
           .sort((a, b) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5 col-span-2" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Users className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">30d LTV per model</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">30D LTV per Model</span>
             </div>
+            <p className="text-[11px] text-muted-foreground italic mb-3 ml-10">Revenue from new subscribers in last 30 days</p>
             <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
               {sortedModels.map((acc: any) => (
                 <div key={acc.id} className="flex items-center gap-2 text-[12px]">
@@ -725,8 +726,10 @@ function KpiCards({
                     )}
                   </div>
                   <span className="text-muted-foreground truncate">@{acc.username || acc.display_name}</span>
-                  <span className="ml-auto font-mono font-semibold text-foreground shrink-0">
-                    {acc.ltv_last_30d != null ? fmtC(acc.ltv_last_30d) : "—"}
+                  <span className="ml-auto font-mono font-semibold shrink-0 text-muted-foreground">
+                    {acc.ltv_last_30d != null && acc.ltv_last_30d > 0
+                      ? <span className="text-[#0891b2]">{fmtC(acc.ltv_last_30d)}</span>
+                      : "—"}
                   </span>
                 </div>
               ))}
