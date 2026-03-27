@@ -155,6 +155,17 @@ export default function TrafficSourcesPage() {
     });
   };
 
+  // Source Analysis visibility
+  const [visibleAnalysis, setVisibleAnalysis] = useState<Set<SourceAnalysisId>>(loadAnalysisVisibility);
+  const toggleAnalysis = (id: SourceAnalysisId) => {
+    setVisibleAnalysis(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem(SOURCE_ANALYSIS_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
   // Column visibility
   const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
