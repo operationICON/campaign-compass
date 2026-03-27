@@ -835,7 +835,9 @@ export default function CampaignsPage() {
                         const initials = username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?";
                         const costTotal = Number(link.cost_total || 0);
                         const hasCost = link.cost_type && costTotal > 0;
-                        const profit = Number(link.profit || 0);
+                        const effectiveRev = Number(link.ltv || 0) > 0 ? Number(link.ltv) : Number(link.revenue || 0);
+                        const profit = hasCost ? effectiveRev - costTotal : 0;
+                        const ltvBased = Number(link.ltv || 0) > 0;
                         const roi = Number(link.roi || 0);
                         const status = link.status || "NO_DATA";
                         const displayStatus = STATUS_LABELS[status] || "NO SPEND";
