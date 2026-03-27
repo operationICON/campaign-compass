@@ -245,6 +245,7 @@ export function InsightsSection({
               <span className={`text-[11px] font-medium ${unaHealth.color}`}>{unaHealth.label}</span>
             </div>
           )}
+          <p className="text-[10px] text-muted-foreground italic mt-2">Tracking link subs include historical overlap — exact unattributed % requires fan sync</p>
           <p className="text-[10px] text-muted-foreground mt-1">~20% is normal due to OF tracking limits</p>
         </div>
 
