@@ -137,8 +137,10 @@ export default function DashboardPage() {
     const cost = Number(l.cost_total || 0);
     return s + (cost > 0 ? cost : 0);
   }, 0), [filteredLinksForKpi]);
-  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0), [filteredLinksForKpi]);
-  const totalProfit = totalSpend > 0 ? totalLtv - totalSpend : null;
+  const totalRevenue = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
+  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0), [filteredLinksForKpi]);
+  const totalEffective = totalLtv > 0 ? totalLtv : totalRevenue;
+  const totalProfit = totalSpend > 0 ? totalEffective - totalSpend : null;
   const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
     return Number(l.cost_total || 0) > 0 ? s + (l.subscribers || 0) : s;
   }, 0), [filteredLinksForKpi]);
@@ -280,6 +282,7 @@ export default function DashboardPage() {
           links={filteredLinksForKpi}
           dailyMetrics={dailyMetrics}
           totalSpend={totalSpend}
+          totalRevenue={totalRevenue}
           totalLtv={totalLtv}
           totalProfit={totalProfit}
           paidSubscribers={paidSubscribers}
@@ -339,7 +342,7 @@ export default function DashboardPage() {
 function KpiCards({
   isLoading, isVisible, enabledCards,
   accounts, links, dailyMetrics,
-  totalSpend, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
+  totalSpend, totalRevenue, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC,
 }: {
@@ -350,6 +353,7 @@ function KpiCards({
   links: any[];
   dailyMetrics: any[];
   totalSpend: number;
+  totalRevenue: number;
   totalLtv: number;
   totalProfit: number | null;
   paidSubscribers: number;
@@ -389,8 +393,11 @@ function KpiCards({
   const withSpendCount = withSpend.length;
   const avgExpenses = withSpendCount > 0 ? expenses / withSpendCount : null;
 
-  const expRev = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || l.revenue || 0), 0);
-  const cardTotalProfit = expenses > 0 ? expRev - expenses : null;
+  const expEffective = withSpend.reduce((s: number, l: any) => {
+    const ltv = Number(l.ltv || 0);
+    return s + (ltv > 0 ? ltv : Number(l.revenue || 0));
+  }, 0);
+  const cardTotalProfit = expenses > 0 ? expEffective - expenses : null;
   const blendedRoi = expenses > 0 && cardTotalProfit !== null ? (cardTotalProfit / expenses) * 100 : null;
 
   const activeCampaigns = links.filter((l: any) => {
@@ -405,9 +412,10 @@ function KpiCards({
     const tag = l.source_tag || "Untagged";
     if (tag === "Untagged") return;
     if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
-    bySource[tag].rev += Number(l.ltv || l.revenue || 0);
+    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+    bySource[tag].rev += effectiveRev;
     bySource[tag].spend += Number(l.cost_total || 0);
-    bySource[tag].profit += Number(l.profit || 0);
+    bySource[tag].profit += effectiveRev - Number(l.cost_total || 0);
   });
   let bestSource: { name: string; roi: number } | null = null;
   Object.entries(bySource).forEach(([name, d]) => {
