@@ -22,7 +22,7 @@ const COLUMNS_KEY = "ct_traffic_sources_columns";
 const KPI_KEY = "ct_traffic_sources_kpis";
 const COLOR_CYCLE = ["#0891b2", "#16a34a", "#dc2626", "#d97706", "#7c3aed", "#ec4899", "#f97316", "#64748b"];
 
-type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created";
+type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created" | "notes";
 type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
 
 type KpiId = "total_sources" | "tagged" | "untagged" | "total_spend" | "total_revenue" | "blended_roi"
@@ -71,6 +71,7 @@ const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "status", label: "Status", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
   { id: "created", label: "Created", defaultOn: true },
+  { id: "notes", label: "Notes", defaultOn: false },
 ];
 
 function getDefaultColumns(): Record<ColumnId, boolean> {
@@ -164,6 +165,7 @@ export default function TrafficSourcesPage() {
   const [spendType, setSpendType] = useState<"CPL" | "CPC" | "FIXED">("CPL");
   const [spendValue, setSpendValue] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [noteLoading, setNoteLoading] = useState(false);
   const [sourceInputValue, setSourceInputValue] = useState("");
 
   // Source card state
@@ -221,6 +223,14 @@ export default function TrafficSourcesPage() {
     },
   });
 
+  const { data: notes = [] } = useQuery({
+    queryKey: ["manual_notes_ts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("manual_notes").select("*").order("updated_at", { ascending: false });
+      return data || [];
+    },
+  });
+
   // Migrate source_tag_rules → traffic_sources on load if empty
   useEffect(() => {
     if (sources.length > 0) return;
@@ -242,6 +252,7 @@ export default function TrafficSourcesPage() {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] });
     queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+    queryClient.invalidateQueries({ queryKey: ["manual_notes_ts"] });
   };
 
   // ── KPI calculations ──
@@ -444,8 +455,10 @@ export default function TrafficSourcesPage() {
       setExpandedRow(link.id);
       setSpendType(link.cost_type || "CPL");
       setSpendValue(link.cost_value ? String(link.cost_value) : "");
-      setNoteText("");
       setSourceInputValue(link.source_tag || "");
+      // Load existing note
+      const existingNote = notes.find((n: any) => n.campaign_id === link.campaign_id && n.account_id === link.account_id);
+      setNoteText(existingNote?.note || existingNote?.content || "");
     }
   };
 
@@ -782,6 +795,7 @@ export default function TrafficSourcesPage() {
                   {col("status") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>}
                   {col("subs_day") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Subs/Day</th>}
                   {col("created") && <SortHeader label="Created" k="created_at" align="right" />}
+                  {col("notes") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Notes</th>}
                   <th style={{ width: "28px" }} />
                 </tr>
               </thead>
@@ -847,8 +861,12 @@ export default function TrafficSourcesPage() {
                       )}
                       {col("subs_day") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>}
                       {col("created") && <td className="text-right" style={{ padding: "8px 12px", fontSize: "11px", color: "#64748b" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</td>}
+                      {col("notes") && (() => {
+                        const n = notes.find((nt: any) => nt.campaign_id === link.campaign_id && nt.account_id === link.account_id);
+                        return <td style={{ padding: "8px 12px", fontSize: "11px", color: n?.note ? "#1a2332" : "#94a3b8", maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;
+                      })()}
                       <td className="w-7 text-center" style={{ padding: "8px 4px" }}>
-                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} style={{ color: "#94a3b8" }} />
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} style={{ color: isExpanded ? "#0891b2" : "#94a3b8" }} />
                       </td>
                     </tr>
                     {/* Expanded detail row */}
@@ -902,12 +920,15 @@ export default function TrafficSourcesPage() {
                       const clearSpendInline = async () => {
                         try {
                           await clearTrackingLinkSpend(el.id, el.campaign_id);
+                          setSpendValue("");
+                          setSpendType("CPL");
                           invalidateAll();
                           toast.success("Spend cleared");
                         } catch { toast.error("Clear failed"); }
                       };
                       const saveNoteInline = async () => {
                         if (!noteText.trim()) return;
+                        setNoteLoading(true);
                         try {
                           const { data: existingNote } = await supabase.from("manual_notes")
                             .select("id").eq("campaign_id", el.campaign_id).eq("account_id", el.account_id).maybeSingle();
@@ -921,23 +942,37 @@ export default function TrafficSourcesPage() {
                               account_id: el.account_id, content: noteText.trim(), note: noteText.trim(),
                             });
                           }
+                          invalidateAll();
                           toast.success("Note saved");
                         } catch { toast.error("Save failed"); }
+                        finally { setNoteLoading(false); }
+                      };
+                      const clearNoteInline = async () => {
+                        setNoteLoading(true);
+                        try {
+                          await supabase.from("manual_notes").delete()
+                            .eq("campaign_id", el.campaign_id).eq("account_id", el.account_id);
+                          setNoteText("");
+                          invalidateAll();
+                          toast.success("Note cleared");
+                        } catch { toast.error("Clear failed"); }
+                        finally { setNoteLoading(false); }
                       };
                       const ltvVal = Number(el.ltv || 0);
                       const ltvSubVal = Number(el.ltv_per_sub || 0);
                       const spenderRateVal = Number(el.spender_rate || 0);
                       const subsDayVal = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
                       const subsDayDisplay = subsDayVal > 0 ? { v: `${Math.round(subsDayVal)}/day`, c: "#0891b2" } : { v: "0/day", c: "#94a3b8" };
+                      const currentSource = sources.find((s: any) => s.id === el.traffic_source_id || s.name === el.source_tag);
 
                       return (
                         <tr>
                           <td colSpan={99} className="p-0">
-                            <div style={{ background: "rgba(8,145,178,0.03)", borderLeft: "3px solid #0891b2", padding: "10px 16px" }}>
-                              <div className="flex gap-4">
+                            <div style={{ background: "#e8eef4", borderLeft: "3px solid #0891b2", padding: "14px 20px" }}>
+                              <div className="flex gap-5">
                                 {/* Performance */}
                                 <div style={{ width: "280px", flexShrink: 0 }}>
-                                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "8px", fontWeight: 500 }}>Performance</p>
+                                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
                                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                                     {[
                                       { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
@@ -949,18 +984,18 @@ export default function TrafficSourcesPage() {
                                       { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
                                       { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
                                     ].map(r => (
-                                      <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "24px", padding: "0 8px" }}>
-                                        <span style={{ fontSize: "11px", color: "#64748b" }}>{r.l}</span>
-                                        <span style={{ fontSize: "12px", fontWeight: 700, color: r.c }}>{r.v}</span>
+                                      <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "26px", padding: "0 8px" }}>
+                                        <span style={{ fontSize: "13px", color: "#1a2332", fontWeight: 700 }}>{r.l}</span>
+                                        <span style={{ fontSize: "12px", fontWeight: 500, color: r.c, fontFamily: "monospace" }}>{r.v}</span>
                                       </div>
                                     ))}
                                   </div>
                                 </div>
-                                <div className="flex-1 grid grid-cols-3 gap-4">
+                                <div className="flex-1 grid grid-cols-3 gap-5">
                                   {/* Spend */}
                                   <div>
                                     <div className="flex items-center gap-1.5 mb-2">
-                                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", fontWeight: 500 }}>Spend</p>
+                                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", fontWeight: 600 }}>Spend</p>
                                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
                                       <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
                                     </div>
@@ -976,8 +1011,11 @@ export default function TrafficSourcesPage() {
                                       className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
                                       style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
                                     {validVal && (
-                                      <div className="text-[11px] font-mono mb-2" style={{ color: "#64748b" }}>
-                                        <div className="flex justify-between"><span>Total Spend</span><span>{fmtC(previewCost)}</span></div>
+                                      <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
+                                        <div className="flex justify-between"><span>Formula</span><span style={{ color: "#1a2332" }}>{spendType === "CPL" ? `${subsEl} subs × $${numVal.toFixed(2)}` : spendType === "CPC" ? `${clicksEl} clicks × $${numVal.toFixed(2)}` : `Fixed $${numVal.toFixed(2)}`}</span></div>
+                                        <div className="flex justify-between"><span>Total Cost</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
+                                        <div className="flex justify-between"><span>Profit</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtC(previewProfit)}</span></div>
+                                        <div className="flex justify-between"><span>ROI</span><span style={{ color: previewRoi >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtPct(previewRoi)}</span></div>
                                       </div>
                                     )}
                                     <div className="flex gap-1.5">
@@ -993,8 +1031,22 @@ export default function TrafficSourcesPage() {
                                   </div>
                                   {/* Source */}
                                   <div>
-                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "6px", fontWeight: 500 }}>Source</p>
+                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Source</p>
                                     <div onClick={(e) => e.stopPropagation()}>
+                                      {/* Current source display */}
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
+                                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
+                                        {el.source_tag && (
+                                          <button onClick={async () => {
+                                            try {
+                                              await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
+                                              invalidateAll();
+                                              toast.success("Source removed");
+                                            } catch { toast.error("Failed"); }
+                                          }} title="Remove source" style={{ color: "#dc2626", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>🗑</button>
+                                        )}
+                                      </div>
                                       <TrafficSourceDropdown
                                         value={el.source_tag}
                                         trafficSourceId={el.traffic_source_id}
@@ -1012,14 +1064,21 @@ export default function TrafficSourcesPage() {
                                   </div>
                                   {/* Notes */}
                                   <div>
-                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#94a3b8", marginBottom: "6px", fontWeight: 500 }}>Notes</p>
+                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Notes</p>
                                     <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
                                       placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
                                       className="w-full h-16 px-2.5 py-1.5 bg-white border text-[11px] outline-none resize-none mb-1.5"
                                       style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332" }} />
-                                    <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
-                                      className="w-full py-1.5 text-[11px] font-semibold"
-                                      style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save note</button>
+                                    <div className="flex gap-1.5">
+                                      <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }} disabled={noteLoading}
+                                        className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
+                                        style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>{noteLoading ? "..." : "Save note"}</button>
+                                      {noteText.trim() && (
+                                        <button onClick={(e) => { e.stopPropagation(); clearNoteInline(); }} disabled={noteLoading}
+                                          className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50"
+                                          style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>Clear</button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
