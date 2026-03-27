@@ -1208,7 +1208,13 @@ export default function CampaignsPage() {
                                           <SourceTagDropdown
                                             value={sourceInputValue}
                                             onChange={setSourceInputValue}
-                                            onSave={(tag) => { setSourceInputValue(tag); handleSaveSource(); }}
+                                            onSave={async (tag) => {
+                                              try {
+                                                await setTrackingLinkSourceTag(el.id, tag.trim(), true);
+                                                queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                                                toast.success("Source saved", { duration: 1000 });
+                                              } catch (err: any) { toast.error("Save failed"); }
+                                            }}
                                           />
                                         </div>
                                         <div>
