@@ -1,12 +1,11 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { fetchTrackingLinks, fetchAccounts } from "@/lib/supabase-helpers";
+import { fetchAccounts } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -30,10 +29,7 @@ function loadFilters() {
   } catch {}
   return { model: "all", source: "all", status: "all", activity: "all", action: "all" };
 }
-
-function saveFilters(f: any) {
-  localStorage.setItem(LS_KEY, JSON.stringify(f));
-}
+function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
 function loadHiddenCols(): Record<string, string[]> {
   try {
@@ -42,10 +38,7 @@ function loadHiddenCols(): Record<string, string[]> {
   } catch {}
   return {};
 }
-
-function saveHiddenCols(h: Record<string, string[]>) {
-  localStorage.setItem(LS_COLS_KEY, JSON.stringify(h));
-}
+function saveHiddenCols(h: Record<string, string[]>) { localStorage.setItem(LS_COLS_KEY, JSON.stringify(h)); }
 
 async function fetchAllTrackingLinks() {
   const allData: any[] = [];
@@ -75,6 +68,7 @@ function getAction(l: any, ageDays: number) {
 }
 
 function getStatus(l: any) {
+  if (l.deleted_at) return "DELETED";
   if (!l.cost_total && l.subscribers > 0) return "NO SPEND";
   if (l.roi !== null && l.roi !== undefined) {
     if (l.roi >= 100) return "SCALE";
@@ -83,7 +77,7 @@ function getStatus(l: any) {
     if (l.roi >= -100) return "KILL";
     return "DEAD";
   }
-  return "";
+  return "NO_DATA";
 }
 
 function getActivityStatus(l: any, thirtyDaysAgo: Date) {
@@ -92,59 +86,51 @@ function getActivityStatus(l: any, thirtyDaysAgo: Date) {
   return lastDate < thirtyDaysAgo ? "Inactive" : "Active";
 }
 
-// Column definitions per tab
-const ZERO_COLS = [
-  { key: "campaign", label: "Campaign + URL", locked: true },
-  { key: "model", label: "Model" },
-  { key: "activityStatus", label: "Activity Status" },
-  { key: "source", label: "Source" },
-  { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subscribers", align: "right" },
-  { key: "ltv", label: "LTV", align: "right" },
-  { key: "created", label: "Created" },
-  { key: "age", label: "Age" },
-  { key: "delete", label: "", locked: true },
-];
-const DEAD_COLS = [
-  { key: "campaign", label: "Campaign + URL", locked: true },
-  { key: "model", label: "Model" },
-  { key: "activityStatus", label: "Activity Status" },
-  { key: "source", label: "Source" },
-  { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subscribers", align: "right" },
-  { key: "ltv", label: "LTV", align: "right" },
-  { key: "lastActivity", label: "Last Activity" },
-  { key: "daysSince", label: "Days Since Last Activity" },
-  { key: "delete", label: "", locked: true },
-];
-const SOURCE_COLS = [
-  { key: "campaign", label: "Campaign + URL", locked: true },
-  { key: "model", label: "Model" },
-  { key: "activityStatus", label: "Activity Status" },
-  { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subscribers", align: "right" },
-  { key: "ltv", label: "LTV", align: "right" },
-  { key: "ltvSub", label: "LTV/Sub", align: "right" },
-  { key: "subsDay", label: "Subs/Day", align: "right" },
-  { key: "age", label: "Age" },
-  { key: "sourceDropdown", label: "Source", locked: true },
-  { key: "saveBtn", label: "", locked: true },
-];
-const SPEND_COLS = [
-  { key: "campaign", label: "Campaign + URL", locked: true },
-  { key: "model", label: "Model" },
-  { key: "activityStatus", label: "Activity Status" },
-  { key: "source", label: "Source" },
-  { key: "clicks", label: "Clicks", align: "right" },
-  { key: "subs", label: "Subscribers", align: "right" },
-  { key: "ltv", label: "LTV", align: "right" },
-  { key: "ltvSub", label: "LTV/Sub", align: "right" },
-  { key: "subsDay", label: "Subs/Day", align: "right" },
-  { key: "spenderRate", label: "Spender Rate", align: "right" },
-  { key: "setSpend", label: "", locked: true },
+const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
+  SCALE: { bg: "#dcfce7", text: "#16a34a" }, WATCH: { bg: "#dbeafe", text: "#0891b2" },
+  LOW: { bg: "#fef9c3", text: "#854d0e" }, KILL: { bg: "#fee2e2", text: "#dc2626" },
+  DEAD: { bg: "#f3f4f6", text: "#6b7280" }, "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
+  NO_DATA: { bg: "#f9fafb", text: "#94a3b8" }, DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
+};
+
+const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtP = (v: number) => `${v.toFixed(1)}%`;
+
+// ─── Unified columns matching Campaigns page ───
+type ColumnId = "model" | "source" | "revenue" | "ltv" | "ltv_sub" | "spender_rate" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer";
+
+const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean; align?: string }[] = [
+  { id: "model", label: "Model", defaultOn: true },
+  { id: "source", label: "Source", defaultOn: true },
+  { id: "revenue", label: "Revenue", defaultOn: true, align: "right" },
+  { id: "ltv", label: "LTV", defaultOn: true, align: "right" },
+  { id: "ltv_sub", label: "LTV/Sub", defaultOn: true, align: "right" },
+  { id: "spender_rate", label: "Spender %", defaultOn: false, align: "right" },
+  { id: "expenses", label: "Expenses", defaultOn: true, align: "right" },
+  { id: "profit", label: "Profit", defaultOn: true, align: "right" },
+  { id: "roi", label: "ROI", defaultOn: true, align: "right" },
+  { id: "status", label: "Status", defaultOn: true },
+  { id: "subs_day", label: "Subs/Day", defaultOn: true, align: "right" },
+  { id: "clicks", label: "Clicks", defaultOn: false, align: "right" },
+  { id: "subscribers", label: "Subscribers", defaultOn: false, align: "right" },
+  { id: "cvr", label: "CVR", defaultOn: false, align: "right" },
+  { id: "created", label: "Created", defaultOn: false },
+  { id: "media_buyer", label: "Media Buyer", defaultOn: false },
 ];
 
-const TAB_COL_MAP: Record<string, typeof ZERO_COLS> = { zero: ZERO_COLS, dead: DEAD_COLS, source: SOURCE_COLS, spend: SPEND_COLS };
+function getDefaultColumns(): Record<ColumnId, boolean> {
+  const d: Record<string, boolean> = {};
+  ALL_COLUMNS.forEach(c => { d[c.id] = c.defaultOn; });
+  return d as Record<ColumnId, boolean>;
+}
+
+function loadColumnVisibility(): Record<ColumnId, boolean> {
+  try {
+    const saved = localStorage.getItem("ct_audit_columns");
+    if (saved) return { ...getDefaultColumns(), ...JSON.parse(saved) };
+  } catch {}
+  return getDefaultColumns();
+}
 
 export default function AuditPage() {
   const queryClient = useQueryClient();
@@ -152,28 +138,12 @@ export default function AuditPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [deletedOpen, setDeletedOpen] = useState(false);
   const [filters, setFilters] = useState(loadFilters);
-  const [hiddenCols, setHiddenCols] = useState<Record<string, Set<string>>>(() => {
-    const saved = loadHiddenCols();
-    const result: Record<string, Set<string>> = {};
-    for (const tab of ["zero", "dead", "source", "spend"]) {
-      result[tab] = new Set(saved[tab] || []);
-    }
-    return result;
-  });
   const [activeTab, setActiveTab] = useState("zero");
+  const [columns, setColumns] = useState<Record<ColumnId, boolean>>(loadColumnVisibility);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
-
-  // Persist hidden cols to localStorage
-  useEffect(() => {
-    const serialized: Record<string, string[]> = {};
-    for (const [tab, set] of Object.entries(hiddenCols)) {
-      serialized[tab] = Array.from(set);
-    }
-    saveHiddenCols(serialized);
-  }, [hiddenCols]);
+  useEffect(() => { localStorage.setItem("ct_audit_columns", JSON.stringify(columns)); }, [columns]);
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
   const anyFilterActive = filters.model !== "all" || filters.source !== "all" || filters.status !== "all" || filters.activity !== "all" || filters.action !== "all";
@@ -185,7 +155,6 @@ export default function AuditPage() {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-  const distinctModels = useMemo(() => [...new Set(activeLinks.map((l: any) => l.accounts?.username || l.accounts?.display_name).filter(Boolean))].sort(), [activeLinks]);
   const distinctSources = useMemo(() => {
     const s = [...new Set(activeLinks.map((l: any) => l.source_tag).filter(Boolean))].sort();
     if (!s.includes("Untagged")) s.push("Untagged");
@@ -195,7 +164,7 @@ export default function AuditPage() {
   const filteredLinks = useMemo(() => {
     return activeLinks.filter((l: any) => {
       const linkAccountId = l.account_id || "";
-      const ageDays = differenceInDays(now, new Date(l.created_at));
+      const ad = differenceInDays(now, new Date(l.created_at));
       if (filters.model !== "all" && linkAccountId !== filters.model) return false;
       if (filters.source !== "all") {
         if (filters.source === "Untagged") { if (l.source_tag && l.source_tag !== "Untagged") return false; }
@@ -203,7 +172,7 @@ export default function AuditPage() {
       }
       if (filters.status !== "all") { if (getStatus(l) !== filters.status) return false; }
       if (filters.activity !== "all") { if (getActivityStatus(l, thirtyDaysAgo) !== filters.activity) return false; }
-      if (filters.action !== "all") { if (getAction(l, ageDays) !== filters.action) return false; }
+      if (filters.action !== "all") { if (getAction(l, ad) !== filters.action) return false; }
       return true;
     });
   }, [activeLinks, filters]);
@@ -268,19 +237,9 @@ export default function AuditPage() {
   const modelName = (l: any) => l.accounts?.username || l.accounts?.display_name || "—";
   const ageDays = (d: string) => differenceInDays(now, new Date(d));
 
-  const toggleCol = (tab: string, colKey: string) => {
-    setHiddenCols((prev) => {
-      const s = new Set(prev[tab]);
-      s.has(colKey) ? s.delete(colKey) : s.add(colKey);
-      return { ...prev, [tab]: s };
-    });
-  };
-
-  const resetCols = (tab: string) => {
-    setHiddenCols((prev) => ({ ...prev, [tab]: new Set() }));
-  };
-
-  const isColVisible = (tab: string, colKey: string) => !hiddenCols[tab]?.has(colKey);
+  const toggleCol = (id: ColumnId) => setColumns(prev => ({ ...prev, [id]: !prev[id] }));
+  const resetCols = () => setColumns(getDefaultColumns());
+  const isVis = (id: ColumnId) => columns[id];
 
   const exportCount = filteredLinks.length;
 
@@ -319,7 +278,7 @@ export default function AuditPage() {
   const InlineDeleteBtn = ({ id }: { id: string }) => (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <button className="text-destructive hover:text-destructive/80 p-1 rounded transition-colors"><X className="h-4 w-4" /></button>
+        <button className="text-destructive hover:text-destructive/80 p-1 rounded transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -364,31 +323,26 @@ export default function AuditPage() {
     </Select>
   );
 
-  const ColumnsButton = ({ tab }: { tab: string }) => {
-    const cols = TAB_COL_MAP[tab] || ZERO_COLS;
-    const optionalCols = cols.filter((c) => !c.locked && c.label);
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 text-xs"><Columns3 className="h-3.5 w-3.5 mr-1" /> Columns</Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {optionalCols.map((c) => (
-            <DropdownMenuCheckboxItem key={c.key} checked={isColVisible(tab, c.key)} onCheckedChange={() => toggleCol(tab, c.key)}>
-              {c.label}
-            </DropdownMenuCheckboxItem>
-          ))}
-          <DropdownMenuSeparator />
-          <button className="w-full text-xs text-primary hover:text-primary/80 px-2 py-1.5 text-left" onClick={() => resetCols(tab)}>
-            Reset to defaults
-          </button>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
+  const ColumnsButton = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 text-xs"><Columns3 className="h-3.5 w-3.5 mr-1" /> Columns</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {ALL_COLUMNS.map((c) => (
+          <DropdownMenuCheckboxItem key={c.id} checked={columns[c.id]} onCheckedChange={() => toggleCol(c.id)}>
+            {c.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+        <DropdownMenuSeparator />
+        <button className="w-full text-xs text-primary hover:text-primary/80 px-2 py-1.5 text-left" onClick={resetCols}>
+          Reset to defaults
+        </button>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
-  // Shared filter + action bar rendered inside each tab
-  const TabToolbar = ({ tab, rightContent }: { tab: string; rightContent: React.ReactNode }) => (
+  const TabToolbar = ({ rightContent }: { rightContent: React.ReactNode }) => (
     <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
       <AccountFilterDropdown value={filters.model} onChange={(v) => setFilter("model", v)} accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))} />
       <FilterSelect value={filters.source} onValueChange={(v) => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map((s: string) => ({ value: s, label: s }))} />
@@ -402,7 +356,7 @@ export default function AuditPage() {
       <FilterSelect value={filters.action} onValueChange={(v) => setFilter("action", v)} placeholder="All Actions" options={[
         { value: "keep", label: "Keep" }, { value: "delete", label: "Delete" }, { value: "add_spend", label: "Add Spend" }, { value: "review", label: "Review" },
       ]} />
-      <ColumnsButton tab={tab} />
+      <ColumnsButton />
       {anyFilterActive && (
         <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
           <FilterX className="h-3.5 w-3.5 mr-1" /> Clear
@@ -413,12 +367,105 @@ export default function AuditPage() {
     </div>
   );
 
-  // Helper to render activity status cell
-  const activityCell = (l: any) => {
-    const status = getActivityStatus(l, thirtyDaysAgo);
-    const colors: Record<string, string> = { Active: "text-primary", Inactive: "text-destructive", Testing: "text-muted-foreground" };
-    return <span className={`text-xs font-medium ${colors[status] || ""}`}>{status}</span>;
+  // ─── Render a row (shared for active + deleted) ───
+  const renderRow = (l: any, opts: { isDeleted?: boolean; showCheckbox?: boolean; showSourceDropdown?: boolean }) => {
+    const ad = ageDays(l.created_at);
+    const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
+    const ltvVal = l.ltv || l.revenue || 0;
+    const ltvPerSub = l.subscribers > 0 ? (ltvVal / l.subscribers).toFixed(2) : "—";
+    const spenderRate = l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—";
+    const status = getStatus(l);
+    const ss = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
+    const rowClass = opts.isDeleted
+      ? "border-t border-border opacity-50 bg-muted/20"
+      : "border-t border-border hover:bg-muted/30";
+
+    return (
+      <tr key={l.id} className={rowClass}>
+        {opts.showCheckbox && (
+          <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
+        )}
+        {/* Campaign — always visible */}
+        <td className="p-2">
+          <div className={`font-medium truncate max-w-[220px] ${opts.isDeleted ? "line-through text-muted-foreground" : ""}`}>{l.campaign_name}</div>
+          <div className="text-muted-foreground truncate max-w-[220px] text-[10px]">{l.url}</div>
+        </td>
+        {isVis("model") && <td className="p-2">{modelName(l)}</td>}
+        {isVis("source") && <td className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (l.source_tag || "—")}</td>}
+        {isVis("revenue") && <td className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>}
+        {isVis("ltv") && <td className="p-2 text-right font-mono">{fmtC(ltvVal)}</td>}
+        {isVis("ltv_sub") && <td className="p-2 text-right font-mono">${ltvPerSub}</td>}
+        {isVis("spender_rate") && <td className="p-2 text-right">{spenderRate}</td>}
+        {isVis("expenses") && <td className="p-2 text-right font-mono">{fmtC(l.cost_total || 0)}</td>}
+        {isVis("profit") && <td className="p-2 text-right font-mono" style={{ color: (l.profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{fmtC(l.profit || 0)}</td>}
+        {isVis("roi") && <td className="p-2 text-right font-mono" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{l.roi != null ? fmtP(l.roi) : "—"}</td>}
+        {isVis("status") && (
+          <td className="p-2">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span>
+          </td>
+        )}
+        {isVis("subs_day") && <td className="p-2 text-right">{subsPerDay}</td>}
+        {isVis("clicks") && <td className="p-2 text-right">{l.clicks}</td>}
+        {isVis("subscribers") && <td className="p-2 text-right">{l.subscribers}</td>}
+        {isVis("cvr") && <td className="p-2 text-right">{l.cvr != null ? fmtP(l.cvr) : "—"}</td>}
+        {isVis("created") && <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>}
+        {isVis("media_buyer") && <td className="p-2">{l.media_buyer || "—"}</td>}
+        {/* Actions */}
+        <td className="p-2">
+          <div className="flex items-center gap-1">
+            {opts.isDeleted ? (
+              <button onClick={() => restore(l.id)} className="text-primary hover:text-primary/80 p-1 rounded transition-colors" title="Restore">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <InlineDeleteBtn id={l.id} />
+            )}
+          </div>
+        </td>
+      </tr>
+    );
   };
+
+  // Visible column count for colSpan
+  const visibleColCount = 2 + ALL_COLUMNS.filter(c => columns[c.id]).length + 1; // campaign(locked) + checkbox + actions
+
+  const renderTable = (items: any[], tabKey: string, showCheckbox: boolean, showSourceDropdown: boolean) => (
+    <table className="w-full text-xs">
+      <thead className="bg-muted/50">
+        <tr>
+          {showCheckbox && <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(items.map((l: any) => l.id))} checked={items.length > 0 && items.every((l: any) => selected.has(l.id))} /></th>}
+          <th className="p-2 font-medium text-left">Campaign</th>
+          {isVis("model") && <th className="p-2 font-medium text-left">Model</th>}
+          {isVis("source") && <th className="p-2 font-medium text-left">Source</th>}
+          {isVis("revenue") && <th className="p-2 font-medium text-right">Revenue</th>}
+          {isVis("ltv") && <th className="p-2 font-medium text-right">LTV</th>}
+          {isVis("ltv_sub") && <th className="p-2 font-medium text-right">LTV/Sub</th>}
+          {isVis("spender_rate") && <th className="p-2 font-medium text-right">Spender %</th>}
+          {isVis("expenses") && <th className="p-2 font-medium text-right">Expenses</th>}
+          {isVis("profit") && <th className="p-2 font-medium text-right">Profit</th>}
+          {isVis("roi") && <th className="p-2 font-medium text-right">ROI</th>}
+          {isVis("status") && <th className="p-2 font-medium text-left">Status</th>}
+          {isVis("subs_day") && <th className="p-2 font-medium text-right">Subs/Day</th>}
+          {isVis("clicks") && <th className="p-2 font-medium text-right">Clicks</th>}
+          {isVis("subscribers") && <th className="p-2 font-medium text-right">Subs</th>}
+          {isVis("cvr") && <th className="p-2 font-medium text-right">CVR</th>}
+          {isVis("created") && <th className="p-2 font-medium text-left">Created</th>}
+          {isVis("media_buyer") && <th className="p-2 font-medium text-left">Media Buyer</th>}
+          <th className="p-2 w-12"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((l: any) => renderRow(l, { showCheckbox, showSourceDropdown }))}
+        {/* Show deleted items in same table, grayed out */}
+        {deletedLinks.length > 0 && items.length > 0 && tabKey === activeTab && deletedLinks.map((l: any) =>
+          renderRow(l, { isDeleted: true, showCheckbox: false, showSourceDropdown: false })
+        )}
+        {items.length === 0 && deletedLinks.length === 0 && (
+          <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No campaigns found ✓</td></tr>
+        )}
+      </tbody>
+    </table>
+  );
 
   return (
     <DashboardLayout>
@@ -457,201 +504,38 @@ export default function AuditPage() {
             <TabsTrigger value="spend">Missing Spend ({missingSpend.length})</TabsTrigger>
           </TabsList>
 
-          {/* TAB 1 — Zero Activity */}
           <TabsContent value="zero">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar tab="zero" rightContent={
+              <TabToolbar rightContent={
                 <DeleteConfirmBtn ids={Array.from(selected).filter((id) => zeroActivity.some((l: any) => l.id === id))} label="Delete selected" />
               } />
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(zeroActivity.map((l: any) => l.id))} checked={zeroActivity.length > 0 && zeroActivity.every((l: any) => selected.has(l.id))} /></th>
-                    {ZERO_COLS.map((c) => (c.locked || isColVisible("zero", c.key)) ? (
-                      <th key={c.key} className={`p-2 font-medium ${c.align === "right" ? "text-right" : "text-left"} ${c.key === "delete" ? "w-10" : ""}`}>{c.label}</th>
-                    ) : null)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {zeroActivity.map((l: any) => (
-                    <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
-                      {isColVisible("zero", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[250px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[250px]">{l.url}</div></td>}
-                      {isColVisible("zero", "model") && <td className="p-2">{modelName(l)}</td>}
-                      {isColVisible("zero", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
-                      {isColVisible("zero", "source") && <td className="p-2">{l.source_tag || "—"}</td>}
-                      {isColVisible("zero", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
-                      {isColVisible("zero", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
-                      {isColVisible("zero", "ltv") && <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>}
-                      {isColVisible("zero", "created") && <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>}
-                      {isColVisible("zero", "age") && <td className="p-2">{ageDays(l.created_at)}d</td>}
-                      <td className="p-2"><InlineDeleteBtn id={l.id} /></td>
-                    </tr>
-                  ))}
-                  {zeroActivity.length === 0 && <tr><td colSpan={20} className="p-8 text-center text-muted-foreground">No zero-activity campaigns found ✓</td></tr>}
-                </tbody>
-              </table>
+              {renderTable(zeroActivity, "zero", true, false)}
             </div>
           </TabsContent>
 
-          {/* TAB 2 — Dead */}
           <TabsContent value="dead">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar tab="dead" rightContent={
+              <TabToolbar rightContent={
                 <DeleteConfirmBtn ids={Array.from(selected).filter((id) => dead.some((l: any) => l.id === id))} label="Delete selected" />
               } />
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(dead.map((l: any) => l.id))} checked={dead.length > 0 && dead.every((l: any) => selected.has(l.id))} /></th>
-                    {DEAD_COLS.map((c) => (c.locked || isColVisible("dead", c.key)) ? (
-                      <th key={c.key} className={`p-2 font-medium ${c.align === "right" ? "text-right" : "text-left"} ${c.key === "delete" ? "w-10" : ""}`}>{c.label}</th>
-                    ) : null)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {dead.map((l: any) => (
-                    <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
-                      {isColVisible("dead", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>}
-                      {isColVisible("dead", "model") && <td className="p-2">{modelName(l)}</td>}
-                      {isColVisible("dead", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
-                      {isColVisible("dead", "source") && <td className="p-2">{l.source_tag || "—"}</td>}
-                      {isColVisible("dead", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
-                      {isColVisible("dead", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
-                      {isColVisible("dead", "ltv") && <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>}
-                      {isColVisible("dead", "lastActivity") && <td className="p-2">{l.calculated_at ? format(new Date(l.calculated_at), "MMM d") : "—"}</td>}
-                      {isColVisible("dead", "daysSince") && <td className="p-2">{l.calculated_at ? ageDays(l.calculated_at) + "d" : l.created_at ? ageDays(l.created_at) + "d" : "—"}</td>}
-                      <td className="p-2"><InlineDeleteBtn id={l.id} /></td>
-                    </tr>
-                  ))}
-                  {dead.length === 0 && <tr><td colSpan={20} className="p-8 text-center text-muted-foreground">No dead campaigns found ✓</td></tr>}
-                </tbody>
-              </table>
+              {renderTable(dead, "dead", true, false)}
             </div>
           </TabsContent>
 
-          {/* TAB 3 — Missing Source */}
           <TabsContent value="source">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar tab="source" rightContent={null} />
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50">
-                  <tr>
-                    {SOURCE_COLS.map((c) => (c.locked || isColVisible("source", c.key)) ? (
-                      <th key={c.key} className={`p-2 font-medium ${c.align === "right" ? "text-right" : "text-left"}`}>{c.label}</th>
-                    ) : null)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {missingSource.map((l: any) => {
-                    const ad = ageDays(l.created_at);
-                    const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
-                    const ltvPerSub = l.subscribers > 0 ? ((l.ltv || l.revenue || 0) / l.subscribers).toFixed(2) : "—";
-                    return (
-                      <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                        {isColVisible("source", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>}
-                        {isColVisible("source", "model") && <td className="p-2">{modelName(l)}</td>}
-                        {isColVisible("source", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
-                        {isColVisible("source", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
-                        {isColVisible("source", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
-                        {isColVisible("source", "ltv") && <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>}
-                        {isColVisible("source", "ltvSub") && <td className="p-2 text-right">${ltvPerSub}</td>}
-                        {isColVisible("source", "subsDay") && <td className="p-2 text-right">{subsPerDay}</td>}
-                        {isColVisible("source", "age") && <td className="p-2">{ad}d</td>}
-                        <td className="p-2"><SourceDropdown link={l} /></td>
-                      </tr>
-                    );
-                  })}
-                  {missingSource.length === 0 && <tr><td colSpan={20} className="p-8 text-center text-muted-foreground">All campaigns have source tags ✓</td></tr>}
-                </tbody>
-              </table>
+              <TabToolbar rightContent={null} />
+              {renderTable(missingSource, "source", false, true)}
             </div>
           </TabsContent>
 
-          {/* TAB 4 — Missing Spend */}
           <TabsContent value="spend">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar tab="spend" rightContent={null} />
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50">
-                  <tr>
-                    {SPEND_COLS.map((c) => (c.locked || isColVisible("spend", c.key)) ? (
-                      <th key={c.key} className={`p-2 font-medium ${c.align === "right" ? "text-right" : "text-left"}`}>{c.label}</th>
-                    ) : null)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {missingSpend.map((l: any) => {
-                    const ad = ageDays(l.created_at);
-                    const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
-                    const ltvPerSub = l.subscribers > 0 ? ((l.ltv || l.revenue || 0) / l.subscribers).toFixed(2) : "—";
-                    const spenderRate = l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—";
-                    return (
-                      <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                        {isColVisible("spend", "campaign") && <td className="p-2"><div className="font-medium truncate max-w-[200px]">{l.campaign_name}</div><div className="text-muted-foreground truncate max-w-[200px]">{l.url}</div></td>}
-                        {isColVisible("spend", "model") && <td className="p-2">{modelName(l)}</td>}
-                        {isColVisible("spend", "activityStatus") && <td className="p-2">{activityCell(l)}</td>}
-                        {isColVisible("spend", "source") && <td className="p-2">{l.source_tag || "—"}</td>}
-                        {isColVisible("spend", "clicks") && <td className="p-2 text-right">{l.clicks}</td>}
-                        {isColVisible("spend", "subs") && <td className="p-2 text-right">{l.subscribers}</td>}
-                        {isColVisible("spend", "ltv") && <td className="p-2 text-right">${(l.ltv || l.revenue || 0).toFixed(0)}</td>}
-                        {isColVisible("spend", "ltvSub") && <td className="p-2 text-right">${ltvPerSub}</td>}
-                        {isColVisible("spend", "subsDay") && <td className="p-2 text-right">{subsPerDay}</td>}
-                        {isColVisible("spend", "spenderRate") && <td className="p-2 text-right">{spenderRate}</td>}
-                        <td className="p-2">
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.info("Use Export CSV to set spend for multiple campaigns at once")}>
-                            <DollarSign className="h-3 w-3 mr-1" /> Set
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {missingSpend.length === 0 && <tr><td colSpan={20} className="p-8 text-center text-muted-foreground">All campaigns have spend data ✓</td></tr>}
-                </tbody>
-              </table>
+              <TabToolbar rightContent={null} />
+              {renderTable(missingSpend, "spend", false, false)}
             </div>
           </TabsContent>
         </Tabs>
-
-        {/* Deleted campaigns */}
-        <Collapsible open={deletedOpen} onOpenChange={setDeletedOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronDown className={`h-4 w-4 transition-transform ${deletedOpen ? "rotate-0" : "-rotate-90"}`} />
-              Deleted Campaigns ({deletedLinks.length})
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-3 bg-card rounded-2xl border border-border overflow-hidden">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-2 font-medium">Campaign</th>
-                    <th className="text-left p-2 font-medium">Model</th>
-                    <th className="text-left p-2 font-medium">Deleted At</th>
-                    <th className="p-2 font-medium">Restore</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {deletedLinks.map((l: any) => (
-                    <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-2 max-w-[250px] truncate font-medium">{l.campaign_name}</td>
-                      <td className="p-2">{modelName(l)}</td>
-                      <td className="p-2">{l.deleted_at ? format(new Date(l.deleted_at), "MMM d, yyyy HH:mm") : "—"}</td>
-                      <td className="p-2">
-                        <Button variant="outline" size="sm" className="h-7 text-xs text-primary hover:text-primary" onClick={() => restore(l.id)}>
-                          <RotateCcw className="h-3 w-3 mr-1" /> Restore
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {deletedLinks.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No deleted campaigns</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
       </div>
 
       <ImportAuditCsvModal open={importAuditOpen} onClose={() => setImportAuditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
