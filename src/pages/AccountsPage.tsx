@@ -1,23 +1,36 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 
 import { format, differenceInDays, subDays } from "date-fns";
-import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, Pencil, Trash2, Plus, Check, X } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
+import { toast } from "sonner";
 
-const MODEL_CATEGORIES: Record<string, string> = {
+const DEFAULT_CATEGORIES: Record<string, string> = {
   "jessie_ca_xo": "Female",
   "zoey.skyy": "Female",
   "miakitty.ts": "Trans",
   "ella_cherryy": "Female",
   "aylin_bigts": "Trans",
 };
+
+function loadModelCategories(): Record<string, string> {
+  try {
+    const saved = localStorage.getItem("ct_model_categories");
+    if (saved) return { ...DEFAULT_CATEGORIES, ...JSON.parse(saved) };
+  } catch {}
+  return { ...DEFAULT_CATEGORIES };
+}
+
+function saveModelCategories(cats: Record<string, string>) {
+  localStorage.setItem("ct_model_categories", JSON.stringify(cats));
+}
 
 const AVATAR_COLORS = [
   "from-teal-400 to-cyan-500",
