@@ -1045,7 +1045,7 @@ export default function CampaignsPage() {
                                 const cpcReal = spendType === "CPC" ? numVal : (cvr > 0 ? (spendType === "CPL" ? numVal * cvr : (clicksEl > 0 ? previewCost / clicksEl : 0)) : 0);
                                 const cplReal = spendType === "CPL" ? numVal : (subsEl > 0 ? previewCost / subsEl : 0);
                                 const arpu = subsEl > 0 ? revEl / subsEl : 0;
-                                const newStatus = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
+                                const newStatus = calcStatusFromRoi(previewRoi);
                                 const { error: linkErr } = await supabase.from("tracking_links").update({
                                   cost_type: spendType, cost_value: numVal, cost_total: previewCost,
                                   cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,

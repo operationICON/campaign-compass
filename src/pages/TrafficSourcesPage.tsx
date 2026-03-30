@@ -61,7 +61,7 @@ const KPI_CARDS: KpiDef[] = [
   { id: "untagged", label: "Untagged", defaultOn: true },
   { id: "total_spend", label: "Total Spend", defaultOn: true },
   { id: "total_revenue", label: "Total Revenue", defaultOn: true },
-  { id: "blended_roi", label: "Blended ROI", defaultOn: true },
+  { id: "blended_roi", label: "ROI %", defaultOn: true },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
   { id: "avg_cpl", label: "Avg CPL", defaultOn: false },
   { id: "total_subscribers", label: "Total Subscribers", defaultOn: false },
@@ -110,12 +110,8 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  SCALE: { bg: "#dcfce7", text: "#16a34a" }, WATCH: { bg: "#dbeafe", text: "#0891b2" },
-  LOW: { bg: "#fef9c3", text: "#854d0e" }, KILL: { bg: "#fee2e2", text: "#dc2626" },
-  DEAD: { bg: "#f3f4f6", text: "#6b7280" }, "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
-  NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
-};
+import { STATUS_STYLES, calcStatusFromRoi, calcAgencyTotals, getEffectiveRevenue, calcCvr, calcStatus, STATUS_LABELS } from "@/lib/calc-helpers";
+import { EstBadge } from "@/components/EstBadge";
 
 function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new Date(createdAt)); }
 
@@ -286,16 +282,11 @@ export default function TrafficSourcesPage() {
     const totalSources = sources.length;
     const tagged = links.filter((l: any) => l.source_tag && l.source_tag !== "Untagged").length;
     const untagged = links.filter((l: any) => (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)).length;
-    const totalSpend = links.reduce((s: number, l: any) => s + (Number(l.cost_total) > 0 ? Number(l.cost_total) : 0), 0);
+    const ag = calcAgencyTotals(links);
     const totalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const blendedRoi = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend) * 100 : 0;
-    const totalProfit = totalRevenue - totalSpend;
     const totalSubscribers = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const avgCpl = totalSubscribers > 0 ? totalSpend / totalSubscribers : 0;
     const totalClicks = links.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
-    const avgProfitSub = totalSubscribers > 0 ? totalProfit / totalSubscribers : 0;
 
-    // Active sources: sources with linked tracking_links that had clicks in last 30 days
     const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
     const activeSourceIds = new Set<string>();
     links.forEach((l: any) => {
@@ -305,7 +296,6 @@ export default function TrafficSourcesPage() {
     });
     const activeSources = activeSourceIds.size;
 
-    // Top source by revenue
     const revenueBySource: Record<string, number> = {};
     links.forEach((l: any) => {
       if (l.source_tag && l.source_tag !== "Untagged") {
@@ -314,7 +304,13 @@ export default function TrafficSourcesPage() {
     });
     const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0];
 
-    return { totalSources, tagged, untagged, totalSpend, totalRevenue, blendedRoi, totalProfit, avgCpl, totalSubscribers, activeSources, totalClicks, avgProfitSub, topSource };
+    return {
+      totalSources, tagged, untagged,
+      totalSpend: ag.totalSpend, totalRevenue, blendedRoi: ag.roiPct ?? 0,
+      totalProfit: ag.totalProfit, avgCpl: ag.avgCpl ?? 0, totalSubscribers,
+      activeSources, totalClicks, avgProfitSub: ag.avgProfitPerSub ?? 0, topSource,
+      isEstimate: ag.isEstimate,
+    };
   }, [sources, links]);
 
   // ── Source Analysis calculations ──
@@ -628,7 +624,7 @@ export default function TrafficSourcesPage() {
     untagged: { label: "Untagged", value: fmtN(kpis.untagged), sub: kpis.untagged > 0 ? "Need tagging" : "All tagged", icon: <HelpCircle className="h-4 w-4" />, color: kpis.untagged > 0 ? "#d97706" : "#16a34a" },
     total_spend: { label: "Total Spend", value: fmtC(kpis.totalSpend), icon: <DollarSign className="h-4 w-4" />, color: "#dc2626" },
     total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
-    blended_roi: { label: "Blended ROI", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", sub: kpis.totalSpend > 0 ? (kpis.blendedRoi > 0 ? "Profitable" : "Negative") : "No spend data", icon: <Percent className="h-4 w-4" />, color: kpis.blendedRoi > 0 ? "#16a34a" : kpis.totalSpend > 0 ? "#dc2626" : "#94a3b8" },
+    blended_roi: { label: "ROI %", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", sub: kpis.totalSpend > 0 ? (kpis.blendedRoi > 0 ? "Profitable" : "Negative") : "No spend data", icon: <Percent className="h-4 w-4" />, color: kpis.blendedRoi > 0 ? "#16a34a" : kpis.totalSpend > 0 ? "#dc2626" : "#94a3b8" },
     total_profit: { label: "Total Profit", value: kpis.totalSpend > 0 ? fmtC(kpis.totalProfit) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.totalProfit > 0 ? "#16a34a" : "#dc2626" },
     avg_cpl: { label: "Avg CPL", value: kpis.avgCpl > 0 ? fmtC(kpis.avgCpl) : "—", icon: <DollarSign className="h-4 w-4" />, color: "#0891b2" },
     total_subscribers: { label: "Total Subscribers", value: fmtN(kpis.totalSubscribers), icon: <Users className="h-4 w-4" />, color: "#7c3aed" },
@@ -1086,7 +1082,7 @@ export default function TrafficSourcesPage() {
                           const cpcReal = spendType === "CPC" ? numVal : (cvr > 0 ? (spendType === "CPL" ? numVal * cvr : (clicksEl > 0 ? previewCost / clicksEl : 0)) : 0);
                           const cplReal = spendType === "CPL" ? numVal : (subsEl > 0 ? previewCost / subsEl : 0);
                           const arpu = subsEl > 0 ? revEl / subsEl : 0;
-                          const newStatus = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
+                          const newStatus = calcStatusFromRoi(previewRoi);
                           await supabase.from("tracking_links").update({
                             cost_type: spendType, cost_value: numVal, cost_total: previewCost,
                             cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,
