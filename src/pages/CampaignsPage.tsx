@@ -826,7 +826,7 @@ export default function CampaignsPage() {
                           <tr
                             onClick={() => handleRowClick(link)}
                             className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
-                            style={{ height: "46px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd" }}
+                            style={{ height: "46px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd", opacity: isInactive ? 0.6 : 1 }}
                             onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }}
                             onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}
                           >
