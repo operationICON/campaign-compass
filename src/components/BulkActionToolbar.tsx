@@ -52,7 +52,7 @@ export function BulkActionToolbar({
         } as any)
         .in("id", ids);
       if (error) throw error;
-      toast.success(`Source assigned to ${count} campaigns`);
+      toast.success(`Source assigned to ${count} tracking links`);
       setSourceDropdownOpen(false);
       onComplete();
       onClear();
@@ -75,7 +75,7 @@ export function BulkActionToolbar({
         } as any)
         .in("id", ids);
       if (error) throw error;
-      toast.success(`Source removed from ${count} campaigns`);
+      toast.success(`Source removed from ${count} tracking links`);
       setConfirmAction(null);
       onComplete();
       onClear();
@@ -94,12 +94,12 @@ export function BulkActionToolbar({
         .update({ deleted_at: new Date().toISOString() } as any)
         .in("id", ids);
       if (error) throw error;
-      toast.success(`${count} campaigns deleted`);
+      toast.success(`${count} tracking links deleted`);
       setConfirmAction(null);
       onComplete();
       onClear();
     } catch (err: any) {
-      toast.error("Failed to delete campaigns");
+      toast.error("Failed to delete tracking links");
     } finally {
       setProcessing(false);
     }
@@ -113,7 +113,7 @@ export function BulkActionToolbar({
         .update({ deleted_at: null } as any)
         .in("id", ids);
       if (error) throw error;
-      toast.success(`${count} campaigns restored`);
+      toast.success(`${count} tracking links restored`);
       setConfirmAction(null);
       onComplete();
       onClear();
@@ -188,7 +188,7 @@ export function BulkActionToolbar({
         {actions.includes("delete") && (
           confirmAction === "delete" ? (
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-white">Delete {count} campaigns?</span>
+              <span className="text-[11px] text-white">Delete {count} tracking links?</span>
               <button onClick={handleDelete} disabled={processing} className="px-2 py-1 rounded bg-destructive text-white text-[10px] font-bold">Yes</button>
               <button onClick={() => setConfirmAction(null)} className="px-2 py-1 rounded bg-secondary text-foreground text-[10px]">No</button>
             </div>

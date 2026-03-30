@@ -96,7 +96,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-foreground leading-tight">
-                {link.campaign_name || "Unnamed Campaign"}
+                {link.campaign_name || "Unnamed Tracking Link"}
               </h2>
               <div className="flex items-center gap-2 mt-2">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">

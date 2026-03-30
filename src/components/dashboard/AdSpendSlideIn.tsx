@@ -45,7 +45,7 @@ export function AdSpendSlideIn({ link, onClose, onSubmit }: AdSpendSlideInProps)
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">Campaign</label>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">Tracking Link</label>
             <div className="bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground">
               {link.campaign_name || "Unknown"}
             </div>

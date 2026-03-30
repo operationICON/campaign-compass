@@ -169,14 +169,14 @@ export function InsightsSection({
   if (isInsightVisible("top_campaigns")) {
     visiblePanels.push(
       <div key="top_campaigns" className="bg-card border border-border rounded-2xl p-4 flex-1 min-w-0">
-        <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium mb-3">Top Campaigns</p>
+        <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium mb-3">Top Tracking Links</p>
         {top5.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-4">Enter spend on campaigns to see top performers</p>
+          <p className="text-xs text-muted-foreground py-4">Enter spend on tracking links to see top performers</p>
         ) : (
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Campaign</th>
+                <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Tracking Link</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Model</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Source</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Profit/Sub</th>
@@ -217,13 +217,13 @@ export function InsightsSection({
       <div key="perf_by_source" className="bg-card border border-border rounded-2xl p-4 flex-1 min-w-0">
         <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium mb-3">Performance by Source</p>
         {sourcePerf.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-4">Tag campaigns to see source performance</p>
+          <p className="text-xs text-muted-foreground py-4">Tag tracking links to see source performance</p>
         ) : (
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Source</th>
-                <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Campaigns</th>
+                <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Links</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Spend</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Profit/Sub</th>
               </tr>

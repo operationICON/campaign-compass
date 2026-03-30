@@ -205,14 +205,14 @@ export default function AuditPage() {
     for (const id of ids) {
       await supabase.from("tracking_links").update({ deleted_at: new Date().toISOString() } as any).eq("id", id);
     }
-    toast.success(`Deleted ${ids.length} campaign(s)`);
+    toast.success(`Deleted ${ids.length} tracking link(s)`);
     setSelected(new Set());
     refreshAll();
   };
 
   const restore = async (id: string) => {
     await supabase.from("tracking_links").update({ deleted_at: null } as any).eq("id", id);
-    toast.success("Campaign restored");
+    toast.success("Tracking link restored");
     refreshAll();
   };
 
@@ -264,8 +264,8 @@ export default function AuditPage() {
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {ids.length} campaign(s)?</AlertDialogTitle>
-          <AlertDialogDescription>Campaigns will be soft-deleted and can be restored later.</AlertDialogDescription>
+          <AlertDialogTitle>Delete {ids.length} tracking link(s)?</AlertDialogTitle>
+          <AlertDialogDescription>Tracking links will be soft-deleted and can be restored later.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -282,7 +282,7 @@ export default function AuditPage() {
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this campaign?</AlertDialogTitle>
+          <AlertDialogTitle>Delete this tracking link?</AlertDialogTitle>
           <AlertDialogDescription>It will be soft-deleted and can be restored later.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -446,7 +446,7 @@ export default function AuditPage() {
       <thead className="bg-muted/50">
         <tr>
           {showCheckbox && <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(items.map((l: any) => l.id))} checked={items.length > 0 && items.every((l: any) => selected.has(l.id))} /></th>}
-          <th className="p-2 font-medium text-left">Campaign</th>
+          <th className="p-2 font-medium text-left">Tracking Link</th>
           {isVis("model") && <th className="p-2 font-medium text-left">Model</th>}
           {isVis("source") && <th className="p-2 font-medium text-left">Source</th>}
           {isVis("revenue") && <th className="p-2 font-medium text-right">Revenue</th>}
@@ -473,7 +473,7 @@ export default function AuditPage() {
           renderRow(l, { isDeleted: true, showCheckbox: false, showSourceDropdown: false })
         )}
         {items.length === 0 && deletedLinks.length === 0 && (
-          <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No campaigns found ✓</td></tr>
+          <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No tracking links found ✓</td></tr>
         )}
       </tbody>
     </table>
@@ -486,9 +486,9 @@ export default function AuditPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" /> Campaign Audit
+              <ShieldCheck className="h-5 w-5 text-primary" /> Tracking Link Audit
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Review, clean up, and manage your tracking link campaigns</p>
+            <p className="text-sm text-muted-foreground mt-1">Review, clean up, and manage your tracking links</p>
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton queryKeys={["audit_all_links"]} />
