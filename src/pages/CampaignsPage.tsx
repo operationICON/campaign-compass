@@ -557,8 +557,8 @@ export default function CampaignsPage() {
                   ),
                   campaignKpi.isVisible("blended_roi") && (
                     <KPICard key="blended_roi" borderColor="hsl(var(--primary))" icon={<BarChart3 className="h-4 w-4 text-primary" />}
-                      label="Blended ROI" value={kpis.blendedRoi !== null ? `${kpis.blendedRoi.toFixed(0)}%` : "—"} sub="Revenue vs spend"
-                      tooltip={{ title: "Blended ROI", desc: "Overall return on investment across all paid campaigns." }} />
+                      label="ROI %" value={kpis.blendedRoi !== null ? `${kpis.blendedRoi.toFixed(0)}%` : "—"} sub="Revenue vs spend"
+                      tooltip={{ title: "ROI %", desc: "Overall return on investment across all paid campaigns." }} />
                   ),
                   campaignKpi.isVisible("avg_expenses_per_campaign") && (
                     <KPICard key="avg_expenses_per_campaign" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
@@ -687,7 +687,8 @@ export default function CampaignsPage() {
             <option value="SCALE">SCALE</option>
             <option value="WATCH">WATCH</option>
             <option value="KILL">KILL</option>
-            <option value="DEAD">DEAD</option>
+            <option value="TESTING">TESTING</option>
+            <option value="INACTIVE">INACTIVE</option>
           </select>
           <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
