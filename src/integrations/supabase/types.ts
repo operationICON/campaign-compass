@@ -438,6 +438,42 @@ export type Database = {
           },
         ]
       }
+      fan_ltv: {
+        Row: {
+          fan_id: string
+          first_seen_date: string | null
+          first_seen_model: string | null
+          first_seen_tracking_link: string | null
+          id: string
+          is_cross_pollinated: boolean | null
+          models_spent_on: string[] | null
+          total_ltv_all_models: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          fan_id: string
+          first_seen_date?: string | null
+          first_seen_model?: string | null
+          first_seen_tracking_link?: string | null
+          id?: string
+          is_cross_pollinated?: boolean | null
+          models_spent_on?: string[] | null
+          total_ltv_all_models?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          fan_id?: string
+          first_seen_date?: string | null
+          first_seen_model?: string | null
+          first_seen_tracking_link?: string | null
+          id?: string
+          is_cross_pollinated?: boolean | null
+          models_spent_on?: string[] | null
+          total_ltv_all_models?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       fan_spend: {
         Row: {
           account_id: string | null
@@ -488,6 +524,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fan_spenders: {
+        Row: {
+          account_id: string
+          fan_id: string
+          id: string
+          revenue_total: number | null
+          tracking_link_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          fan_id: string
+          id?: string
+          revenue_total?: number | null
+          tracking_link_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          fan_id?: string
+          id?: string
+          revenue_total?: number | null
+          tracking_link_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      fan_subscriptions: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          fan_id: string
+          id: string
+          is_active: boolean | null
+          is_new_sub: boolean | null
+          subscribed_on: string | null
+          tracking_link_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          fan_id: string
+          id?: string
+          is_active?: boolean | null
+          is_new_sub?: boolean | null
+          subscribed_on?: string | null
+          tracking_link_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          fan_id?: string
+          id?: string
+          is_active?: boolean | null
+          is_new_sub?: boolean | null
+          subscribed_on?: string | null
+          tracking_link_id?: string
+        }
+        Relationships: []
       }
       manual_notes: {
         Row: {
@@ -708,6 +804,60 @@ export type Database = {
           run_at?: string
           status?: string
           test_name?: string
+        }
+        Relationships: []
+      }
+      tracking_link_ltv: {
+        Row: {
+          account_id: string
+          cross_poll_revenue: number | null
+          external_tracking_link_id: string
+          id: string
+          ltv_last_30d: number | null
+          ltv_last_7d: number | null
+          ltv_per_sub: number | null
+          new_subs_last_30d: number | null
+          new_subs_last_7d: number | null
+          new_subs_total: number | null
+          spender_pct: number | null
+          spenders_count: number | null
+          total_ltv: number | null
+          tracking_link_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          cross_poll_revenue?: number | null
+          external_tracking_link_id: string
+          id?: string
+          ltv_last_30d?: number | null
+          ltv_last_7d?: number | null
+          ltv_per_sub?: number | null
+          new_subs_last_30d?: number | null
+          new_subs_last_7d?: number | null
+          new_subs_total?: number | null
+          spender_pct?: number | null
+          spenders_count?: number | null
+          total_ltv?: number | null
+          tracking_link_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          cross_poll_revenue?: number | null
+          external_tracking_link_id?: string
+          id?: string
+          ltv_last_30d?: number | null
+          ltv_last_7d?: number | null
+          ltv_per_sub?: number | null
+          new_subs_last_30d?: number | null
+          new_subs_last_7d?: number | null
+          new_subs_total?: number | null
+          spender_pct?: number | null
+          spenders_count?: number | null
+          total_ltv?: number | null
+          tracking_link_id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
