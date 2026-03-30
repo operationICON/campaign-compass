@@ -63,15 +63,8 @@ function getAction(l: any, ageDays: number) {
 
 function getStatus(l: any) {
   if (l.deleted_at) return "DELETED";
-  if (!l.cost_total && l.subscribers > 0) return "NO SPEND";
-  if (l.roi !== null && l.roi !== undefined) {
-    if (l.roi >= 100) return "SCALE";
-    if (l.roi >= 0) return "WATCH";
-    if (l.roi >= -50) return "LOW";
-    if (l.roi >= -100) return "KILL";
-    return "DEAD";
-  }
-  return "NO_DATA";
+  const { calcStatus: cs } = require("@/lib/calc-helpers");
+  return cs(l);
 }
 
 function getActivityStatus(l: any, thirtyDaysAgo: Date) {
@@ -80,11 +73,12 @@ function getActivityStatus(l: any, thirtyDaysAgo: Date) {
   return lastDate < thirtyDaysAgo ? "Inactive" : "Active";
 }
 
+import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn, calcProfit, getEffectiveRevenue } from "@/lib/calc-helpers";
+import { EstBadge } from "@/components/EstBadge";
+
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  SCALE: { bg: "#dcfce7", text: "#16a34a" }, WATCH: { bg: "#dbeafe", text: "#0891b2" },
-  LOW: { bg: "#fef9c3", text: "#854d0e" }, KILL: { bg: "#fee2e2", text: "#dc2626" },
-  DEAD: { bg: "#f3f4f6", text: "#6b7280" }, "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
-  NO_DATA: { bg: "#f9fafb", text: "#94a3b8" }, DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
+  ...SHARED_STATUS_STYLES,
+  DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
 };
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
