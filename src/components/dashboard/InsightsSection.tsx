@@ -74,13 +74,15 @@ export function InsightsSection({
     const enabledAccts = accounts.filter((a: any) => filteredAccountIds.has(a.id));
     return enabledAccts.map((acc: any) => {
       const accMetrics = dailyMetrics
-        .filter((m: any) => m.account_id === acc.id)
-        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      if (accMetrics.length < 2) return { name: acc.display_name, username: acc.username, value: null };
-      const latest = accMetrics[0];
-      const prev = accMetrics[1];
-      const days = Math.max(1, differenceInDays(new Date(latest.date), new Date(prev.date)));
-      const delta = Math.max(0, (latest.subscribers || 0) - (prev.subscribers || 0));
+        .filter((m: any) => m.account_id === acc.id);
+      const distinctDates = [...new Set(accMetrics.map((m: any) => m.date))].sort().reverse();
+      if (distinctDates.length < 2) return { name: acc.display_name, username: acc.username, value: null };
+      const latestDate = distinctDates[0];
+      const prevDate = distinctDates[1];
+      const latestSubs = accMetrics.filter((m: any) => m.date === latestDate).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+      const prevSubs = accMetrics.filter((m: any) => m.date === prevDate).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+      const days = Math.max(1, differenceInDays(new Date(latestDate), new Date(prevDate)));
+      const delta = Math.max(0, latestSubs - prevSubs);
       return { name: acc.display_name, username: acc.username, value: delta / days };
     });
   }, [accounts, dailyMetrics, filteredAccountIds]);
@@ -151,13 +153,14 @@ export function InsightsSection({
       const profitPerSub = spend > 0 && subs > 0 ? (revenue - spend) / subs : null;
       const roi = spend > 0 ? ((revenue - spend) / spend) * 100 : null;
       // subs/day
-      const accMetrics = dailyMetrics
-        .filter((m: any) => m.account_id === acc.id)
-        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const accMetrics = dailyMetrics.filter((m: any) => m.account_id === acc.id);
+      const accDates = [...new Set(accMetrics.map((m: any) => m.date))].sort().reverse();
       let subsDay: number | null = null;
-      if (accMetrics.length >= 2) {
-        const days = Math.max(1, differenceInDays(new Date(accMetrics[0].date), new Date(accMetrics[1].date)));
-        subsDay = Math.max(0, (accMetrics[0].subscribers || 0) - (accMetrics[1].subscribers || 0)) / days;
+      if (accDates.length >= 2) {
+        const latestSubs = accMetrics.filter((m: any) => m.date === accDates[0]).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+        const prevSubs = accMetrics.filter((m: any) => m.date === accDates[1]).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+        const days = Math.max(1, differenceInDays(new Date(accDates[0]), new Date(accDates[1])));
+        subsDay = Math.max(0, latestSubs - prevSubs) / days;
       }
       return { id: acc.id, name: acc.display_name, username: acc.username, avatar: acc.avatar_thumb_url, revenue, ltv, spend, profitPerSub, roi, subsDay };
     }).sort((a, b) => b.revenue - a.revenue);
@@ -271,8 +274,8 @@ export function InsightsSection({
                 <div className="flex-1 h-[5px] rounded-[3px] bg-secondary overflow-hidden">
                   {m.value !== null && <div className="h-full rounded-[3px]" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />}
                 </div>
-                <span className="text-[11px] font-bold font-mono min-w-[50px] text-right" style={{ color: m.value === null ? "#94a3b8" : barColor }}>
-                  {m.value !== null ? `${Math.round(m.value)}/day` : "—"}
+                <span className="text-[11px] font-bold font-mono min-w-[50px] text-right" style={{ color: m.value === null ? "#94a3b8" : barColor }} title={m.value === null ? "Needs 2+ syncs to calculate" : undefined}>
+                  {m.value !== null ? `${Math.round(m.value)}/day` : "---"}
                 </span>
               </div>
             );
