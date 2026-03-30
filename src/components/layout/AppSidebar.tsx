@@ -58,7 +58,7 @@ export function AppSidebar() {
             CT
           </div>
           <div>
-            <div className="text-white font-bold text-sm leading-tight">Campaign Tracker</div>
+            <div className="text-white font-bold text-sm leading-tight">CT Tracker</div>
             <div className="text-sidebar-foreground text-[11px]">Icon Models Agency</div>
           </div>
         </div>
