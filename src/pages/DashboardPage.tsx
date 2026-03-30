@@ -373,18 +373,35 @@ function KpiCards({
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
     : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
 
-  // Subs/Day from daily_metrics
+  // Subs/Day from daily_metrics (sum of per-model deltas)
   const subsPerDayCalc = (() => {
-    const syncedAcctIds = new Set(accounts.map((a: any) => a.id));
-    const relevantMetrics = dailyMetrics.filter((m: any) => syncedAcctIds.has(m.account_id));
-    const dates = [...new Set(relevantMetrics.map((m: any) => m.date))].sort().reverse();
-    if (dates.length < 2) return null;
-    const latest = dates[0];
-    const previous = dates[1];
-    const latestSubs = relevantMetrics.filter((m: any) => m.date === latest).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-    const prevSubs = relevantMetrics.filter((m: any) => m.date === previous).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-    const daysBetween = Math.max(1, differenceInDays(new Date(latest), new Date(previous)));
-    return Math.max(0, (latestSubs - prevSubs)) / daysBetween;
+    const scopedAccounts = modelParam
+      ? accounts.filter((a: any) => a.id === modelParam)
+      : groupFilter !== "all"
+        ? accounts.filter((a: any) => getAccountCategory(a) === groupFilter)
+        : accounts;
+
+    const perModelValues = scopedAccounts.map((acc: any) => {
+      const accMetrics = dailyMetrics.filter((m: any) => m.account_id === acc.id);
+      const distinctDates = [...new Set(accMetrics.map((m: any) => m.date))].sort().reverse();
+      if (distinctDates.length < 2) return null;
+
+      const latestDate = distinctDates[0];
+      const previousDate = distinctDates[1];
+      const latestSubs = accMetrics
+        .filter((m: any) => m.date === latestDate)
+        .reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+      const previousSubs = accMetrics
+        .filter((m: any) => m.date === previousDate)
+        .reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
+
+      const daysBetween = Math.max(1, differenceInDays(new Date(latestDate), new Date(previousDate)));
+      return Math.max(0, latestSubs - previousSubs) / daysBetween;
+    });
+
+    const validValues = perModelValues.filter((v): v is number => v !== null);
+    if (validValues.length === 0) return null;
+    return validValues.reduce((sum, value) => sum + value, 0);
   })();
 
   const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
