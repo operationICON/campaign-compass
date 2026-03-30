@@ -1026,7 +1026,6 @@ export default function CampaignsPage() {
                                 default: return null;
                               }
                             })}
-                            )}
                             <td className="w-7 text-center" style={{ padding: "8px 4px" }} title={link.fans_last_synced_at ? `Fan data synced: ${format(new Date(link.fans_last_synced_at), "MMM d, yyyy")}` : "Fan data not yet synced"}>
                               {(() => {
                                 const synced = link.fans_last_synced_at;
