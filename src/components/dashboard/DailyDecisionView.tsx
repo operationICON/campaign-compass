@@ -32,9 +32,18 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
   const stopLinks = useMemo(() =>
     links.filter(l => {
       if (l.status === "Kill" || l.status === "KILL") return true;
-      if (l.status === "Dead" || l.status === "DEAD") return true;
       if (l.roi !== null && l.roi < 0) return true;
       return false;
+    }).filter(l => {
+      // Exclude TESTING and INACTIVE
+      if (l.clicks === 0 && l.subscribers === 0) return false;
+      const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
+      if (calcDate) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        if (calcDate < thirtyDaysAgo) return false;
+      }
+      return true;
     }).slice(0, 5),
     [links]
   );

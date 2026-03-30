@@ -639,7 +639,7 @@ function KpiCards({
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Percent className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Blended ROI</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">ROI %</span>
             </div>
             {blendedRoi !== null ? (
               <p className={`text-[22px] font-bold font-mono ${blendedRoi >= 0 ? "text-primary" : "text-destructive"}`}>{blendedRoi.toFixed(1)}%</p>
