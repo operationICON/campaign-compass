@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
@@ -18,9 +18,11 @@ import {
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
+import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
+import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 
 const LS_KEY = "ct_audit_filters";
-const LS_COLS_KEY = "ct_audit_cols";
+
 
 function loadFilters() {
   try {
@@ -31,14 +33,6 @@ function loadFilters() {
 }
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
-function loadHiddenCols(): Record<string, string[]> {
-  try {
-    const raw = localStorage.getItem(LS_COLS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return {};
-}
-function saveHiddenCols(h: Record<string, string[]>) { localStorage.setItem(LS_COLS_KEY, JSON.stringify(h)); }
 
 async function fetchAllTrackingLinks() {
   const allData: any[] = [];
@@ -97,40 +91,24 @@ const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigit
 const fmtP = (v: number) => `${v.toFixed(1)}%`;
 
 // ─── Unified columns matching Campaigns page ───
-type ColumnId = "model" | "source" | "revenue" | "ltv" | "ltv_sub" | "spender_rate" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer";
-
-const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean; align?: string }[] = [
+const AUDIT_COLUMNS: ColumnDef[] = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
-  { id: "revenue", label: "Revenue", defaultOn: true, align: "right" },
-  { id: "ltv", label: "LTV", defaultOn: true, align: "right" },
-  { id: "ltv_sub", label: "LTV/Sub", defaultOn: true, align: "right" },
-  { id: "spender_rate", label: "Spender %", defaultOn: false, align: "right" },
-  { id: "expenses", label: "Expenses", defaultOn: true, align: "right" },
-  { id: "profit", label: "Profit", defaultOn: true, align: "right" },
-  { id: "roi", label: "ROI", defaultOn: true, align: "right" },
+  { id: "revenue", label: "Revenue", defaultOn: true },
+  { id: "ltv", label: "LTV", defaultOn: true },
+  { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
+  { id: "spender_rate", label: "Spender %", defaultOn: false },
+  { id: "expenses", label: "Expenses", defaultOn: true },
+  { id: "profit", label: "Profit", defaultOn: true },
+  { id: "roi", label: "ROI", defaultOn: true },
   { id: "status", label: "Status", defaultOn: true },
-  { id: "subs_day", label: "Subs/Day", defaultOn: true, align: "right" },
-  { id: "clicks", label: "Clicks", defaultOn: false, align: "right" },
-  { id: "subscribers", label: "Subscribers", defaultOn: false, align: "right" },
-  { id: "cvr", label: "CVR", defaultOn: false, align: "right" },
+  { id: "subs_day", label: "Subs/Day", defaultOn: true },
+  { id: "clicks", label: "Clicks", defaultOn: false },
+  { id: "subscribers", label: "Subscribers", defaultOn: false },
+  { id: "cvr", label: "CVR", defaultOn: false },
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
 ];
-
-function getDefaultColumns(): Record<ColumnId, boolean> {
-  const d: Record<string, boolean> = {};
-  ALL_COLUMNS.forEach(c => { d[c.id] = c.defaultOn; });
-  return d as Record<ColumnId, boolean>;
-}
-
-function loadColumnVisibility(): Record<ColumnId, boolean> {
-  try {
-    const saved = localStorage.getItem("ct_audit_columns");
-    if (saved) return { ...getDefaultColumns(), ...JSON.parse(saved) };
-  } catch {}
-  return getDefaultColumns();
-}
 
 export default function AuditPage() {
   const queryClient = useQueryClient();
@@ -140,10 +118,10 @@ export default function AuditPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
   const [activeTab, setActiveTab] = useState("zero");
-  const [columns, setColumns] = useState<Record<ColumnId, boolean>>(loadColumnVisibility);
+  const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
-  useEffect(() => { localStorage.setItem("ct_audit_columns", JSON.stringify(columns)); }, [columns]);
+  
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
   const anyFilterActive = filters.model !== "all" || filters.source !== "all" || filters.status !== "all" || filters.activity !== "all" || filters.action !== "all";
@@ -237,9 +215,7 @@ export default function AuditPage() {
   const modelName = (l: any) => l.accounts?.username || l.accounts?.display_name || "—";
   const ageDays = (d: string) => differenceInDays(now, new Date(d));
 
-  const toggleCol = (id: ColumnId) => setColumns(prev => ({ ...prev, [id]: !prev[id] }));
-  const resetCols = () => setColumns(getDefaultColumns());
-  const isVis = (id: ColumnId) => columns[id];
+  const isVis = (id: string) => columnOrder.isVisible(id);
 
   const exportCount = filteredLinks.length;
 
@@ -328,16 +304,14 @@ export default function AuditPage() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="h-8 text-xs"><Columns3 className="h-3.5 w-3.5 mr-1" /> Columns</Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {ALL_COLUMNS.map((c) => (
-          <DropdownMenuCheckboxItem key={c.id} checked={columns[c.id]} onCheckedChange={() => toggleCol(c.id)}>
-            {c.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <button className="w-full text-xs text-primary hover:text-primary/80 px-2 py-1.5 text-left" onClick={resetCols}>
-          Reset to defaults
-        </button>
+      <DropdownMenuContent align="end" className="w-52">
+        <DraggableColumnSelector
+          columns={columnOrder.orderedColumns}
+          isVisible={columnOrder.isVisible}
+          onToggle={columnOrder.toggleColumn}
+          onReorder={columnOrder.reorder}
+          onReset={columnOrder.reset}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -390,38 +364,39 @@ export default function AuditPage() {
           <div className={`font-medium truncate max-w-[220px] ${opts.isDeleted ? "line-through text-muted-foreground" : ""}`}>{l.campaign_name}</div>
           <div className="text-muted-foreground truncate max-w-[220px] text-[10px]">{l.url}</div>
         </td>
-        {isVis("model") && <td className="p-2">{modelName(l)}</td>}
-        {isVis("source") && <td className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (l.source_tag || "—")}</td>}
-        {isVis("revenue") && <td className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>}
-        {isVis("ltv") && <td className="p-2 text-right font-mono">{fmtC(ltvVal)}</td>}
-        {isVis("ltv_sub") && <td className="p-2 text-right font-mono">${ltvPerSub}</td>}
-        {isVis("spender_rate") && <td className="p-2 text-right">{spenderRate}</td>}
-        {isVis("expenses") && <td className="p-2 text-right font-mono">{fmtC(l.cost_total || 0)}</td>}
-        {isVis("profit") && <td className="p-2 text-right font-mono" style={{ color: (l.profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{fmtC(l.profit || 0)}</td>}
-        {isVis("roi") && <td className="p-2 text-right font-mono" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{l.roi != null ? fmtP(l.roi) : "—"}</td>}
-        {isVis("status") && (
-          <td className="p-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span>
-          </td>
-        )}
-        {isVis("subs_day") && <td className="p-2 text-right">{subsPerDay}</td>}
-        {isVis("clicks") && <td className="p-2 text-right">{l.clicks}</td>}
-        {isVis("subscribers") && <td className="p-2 text-right">{l.subscribers}</td>}
-        {isVis("cvr") && <td className="p-2 text-right">{l.cvr != null ? fmtP(l.cvr) : "—"}</td>}
-        {isVis("created") && (() => {
-          const days = ad;
-          const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
-            : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
-            : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
-            : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
-          return (
-            <td className="p-2">
-              <p className="text-foreground text-xs">{format(new Date(l.created_at), "MMM d, yyyy")}</p>
-              <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
-            </td>
-          );
-        })()}
-        {isVis("media_buyer") && <td className="p-2">{l.media_buyer || "—"}</td>}
+        {columnOrder.visibleOrderedColumns.map(c => {
+          switch (c.id) {
+            case "model": return <td key={c.id} className="p-2">{modelName(l)}</td>;
+            case "source": return <td key={c.id} className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (l.source_tag || "—")}</td>;
+            case "revenue": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>;
+            case "ltv": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(ltvVal)}</td>;
+            case "ltv_sub": return <td key={c.id} className="p-2 text-right font-mono">${ltvPerSub}</td>;
+            case "spender_rate": return <td key={c.id} className="p-2 text-right">{spenderRate}</td>;
+            case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.cost_total || 0)}</td>;
+            case "profit": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (l.profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{fmtC(l.profit || 0)}</td>;
+            case "roi": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{l.roi != null ? fmtP(l.roi) : "—"}</td>;
+            case "status": return <td key={c.id} className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span></td>;
+            case "subs_day": return <td key={c.id} className="p-2 text-right">{subsPerDay}</td>;
+            case "clicks": return <td key={c.id} className="p-2 text-right">{l.clicks}</td>;
+            case "subscribers": return <td key={c.id} className="p-2 text-right">{l.subscribers}</td>;
+            case "cvr": return <td key={c.id} className="p-2 text-right">{l.cvr != null ? fmtP(l.cvr) : "—"}</td>;
+            case "created": {
+              const days = ad;
+              const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
+                : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
+                : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
+                : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+              return (
+                <td key={c.id} className="p-2">
+                  <p className="text-foreground text-xs">{format(new Date(l.created_at), "MMM d, yyyy")}</p>
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                </td>
+              );
+            }
+            case "media_buyer": return <td key={c.id} className="p-2">{l.media_buyer || "—"}</td>;
+            default: return null;
+          }
+        })}
         {/* Actions */}
         <td className="p-2">
           <div className="flex items-center gap-1">
@@ -439,7 +414,7 @@ export default function AuditPage() {
   };
 
   // Visible column count for colSpan
-  const visibleColCount = 2 + ALL_COLUMNS.filter(c => columns[c.id]).length + 1; // campaign(locked) + checkbox + actions
+  const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length + 1; // campaign(locked) + checkbox + actions
 
   const renderTable = (items: any[], tabKey: string, showCheckbox: boolean, showSourceDropdown: boolean) => (
     <table className="w-full text-xs">
@@ -447,22 +422,10 @@ export default function AuditPage() {
         <tr>
           {showCheckbox && <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(items.map((l: any) => l.id))} checked={items.length > 0 && items.every((l: any) => selected.has(l.id))} /></th>}
           <th className="p-2 font-medium text-left">Tracking Link</th>
-          {isVis("model") && <th className="p-2 font-medium text-left">Model</th>}
-          {isVis("source") && <th className="p-2 font-medium text-left">Source</th>}
-          {isVis("revenue") && <th className="p-2 font-medium text-right">Revenue</th>}
-          {isVis("ltv") && <th className="p-2 font-medium text-right">LTV</th>}
-          {isVis("ltv_sub") && <th className="p-2 font-medium text-right">LTV/Sub</th>}
-          {isVis("spender_rate") && <th className="p-2 font-medium text-right">Spender %</th>}
-          {isVis("expenses") && <th className="p-2 font-medium text-right">Expenses</th>}
-          {isVis("profit") && <th className="p-2 font-medium text-right">Profit</th>}
-          {isVis("roi") && <th className="p-2 font-medium text-right">ROI</th>}
-          {isVis("status") && <th className="p-2 font-medium text-left">Status</th>}
-          {isVis("subs_day") && <th className="p-2 font-medium text-right">Subs/Day</th>}
-          {isVis("clicks") && <th className="p-2 font-medium text-right">Clicks</th>}
-          {isVis("subscribers") && <th className="p-2 font-medium text-right">Subs</th>}
-          {isVis("cvr") && <th className="p-2 font-medium text-right">CVR</th>}
-          {isVis("created") && <th className="p-2 font-medium text-left">Created</th>}
-          {isVis("media_buyer") && <th className="p-2 font-medium text-left">Media Buyer</th>}
+          {columnOrder.visibleOrderedColumns.map(c => {
+            const align = ["revenue","ltv","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr"].includes(c.id) ? "text-right" : "text-left";
+            return <th key={c.id} className={`p-2 font-medium ${align}`}>{c.label}</th>;
+          })}
           <th className="p-2 w-12"></th>
         </tr>
       </thead>
