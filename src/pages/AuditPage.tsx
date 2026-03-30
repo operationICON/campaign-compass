@@ -350,6 +350,11 @@ export default function AuditPage() {
     const ltvVal = l.ltv || l.revenue || 0;
     const ltvPerSub = l.subscribers > 0 ? (ltvVal / l.subscribers).toFixed(2) : "—";
     const spenderRate = l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—";
+    const costTotal = Number(l.cost_total || 0);
+    const hasCost = costTotal > 0;
+    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+    const profit = hasCost ? effectiveRev - costTotal : null;
+    const profitPerSub = l.subscribers > 0 && hasCost && profit !== null ? profit / l.subscribers : null;
     const status = getStatus(l);
     const ss = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
     const rowClass = opts.isDeleted
@@ -370,18 +375,27 @@ export default function AuditPage() {
           switch (c.id) {
             case "model": return <td key={c.id} className="p-2">{modelName(l)}</td>;
             case "source": return <td key={c.id} className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (l.source_tag || "—")}</td>;
+            case "clicks": return <td key={c.id} className="p-2 text-right font-mono">{(l.clicks || 0).toLocaleString()}</td>;
+            case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
+            case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
             case "revenue": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>;
             case "ltv": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(ltvVal)}</td>;
             case "ltv_sub": return <td key={c.id} className="p-2 text-right font-mono">${ltvPerSub}</td>;
             case "spender_rate": return <td key={c.id} className="p-2 text-right">{spenderRate}</td>;
-            case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.cost_total || 0)}</td>;
-            case "profit": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (l.profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{fmtC(l.profit || 0)}</td>;
+            case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(costTotal)}</td>;
+            case "profit": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
+            case "profit_sub": return (
+              <td key={c.id} className="p-2 text-right">
+                {profitPerSub !== null ? (
+                  <span className={`font-mono font-bold ${profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
+                    {profitPerSub >= 0 ? "" : "-"}${Math.abs(profitPerSub).toFixed(2)}
+                  </span>
+                ) : <span className="text-muted-foreground font-bold">—</span>}
+              </td>
+            );
             case "roi": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{l.roi != null ? fmtP(l.roi) : "—"}</td>;
             case "status": return <td key={c.id} className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span></td>;
             case "subs_day": return <td key={c.id} className="p-2 text-right">{subsPerDay}</td>;
-            case "clicks": return <td key={c.id} className="p-2 text-right">{l.clicks}</td>;
-            case "subscribers": return <td key={c.id} className="p-2 text-right">{l.subscribers}</td>;
-            case "cvr": return <td key={c.id} className="p-2 text-right">{l.cvr != null ? fmtP(l.cvr) : "—"}</td>;
             case "created": {
               const days = ad;
               const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
@@ -396,6 +410,7 @@ export default function AuditPage() {
               );
             }
             case "media_buyer": return <td key={c.id} className="p-2">{l.media_buyer || "—"}</td>;
+            case "avg_expenses": return <td key={c.id} className="p-2 text-right font-mono">{hasCost ? fmtC(costTotal) : "—"}</td>;
             default: return null;
           }
         })}
