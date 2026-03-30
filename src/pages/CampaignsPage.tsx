@@ -929,13 +929,8 @@ export default function CampaignsPage() {
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {hasCost ? (
                                       <span className="inline-flex items-center gap-1">
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
-                                          </TooltipTrigger>
-                                          <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
-                                        </Tooltip>
                                         <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
+                                        {link.profitIsEstimate && <EstBadge />}
                                       </span>
                                     ) : <span className="text-muted-foreground">—</span>}
                                   </td>
@@ -951,7 +946,12 @@ export default function CampaignsPage() {
                                 );
                                 case "roi": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                                    {hasCost ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span>
+                                        {link.roiIsEstimate && <EstBadge />}
+                                      </span>
+                                    ) : <span className="text-muted-foreground">—</span>}
                                   </td>
                                 );
                                 case "status": return (
