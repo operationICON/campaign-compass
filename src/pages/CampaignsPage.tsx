@@ -261,9 +261,18 @@ export default function CampaignsPage() {
     return accountOptions.filter((a: any) => groupUsernames.includes(a.username));
   }, [accountOptions, groupFilter]);
 
+  // ─── Permanent filter: hide old zero-traffic links ───
+  const baseLinks = useMemo(() => {
+    return enrichedLinks.filter((l: any) => {
+      const hasTraffic = (l.clicks || 0) > 0 || (l.subscribers || 0) > 0;
+      const isNew = l.daysSinceCreated <= 30;
+      return hasTraffic || isNew;
+    });
+  }, [enrichedLinks]);
+
   // ─── Filtering ───
   const filtered = useMemo(() => {
-    let result = enrichedLinks;
+    let result = baseLinks;
     if (groupFilter !== "all") {
       const groupUsernames = GROUP_MAP[groupFilter] || [];
       const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
