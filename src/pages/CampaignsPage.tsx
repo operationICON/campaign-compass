@@ -715,7 +715,7 @@ export default function CampaignsPage() {
         {/* Age pills */}
         <div className="flex items-center gap-1 bg-card border border-border rounded-lg overflow-hidden w-fit">
           {(["all", "new", "active", "mature", "old"] as const).map((f) => {
-            const count = f === "all" ? enrichedLinks.length : enrichedLinks.filter((l: any) => {
+            const count = f === "all" ? baseLinks.length : baseLinks.filter((l: any) => {
               const days = differenceInDays(new Date(), new Date(l.created_at));
               if (f === "new") return days <= 30;
               if (f === "active") return days > 30 && days <= 90;
