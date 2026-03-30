@@ -31,7 +31,7 @@ import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
-type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
+type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
@@ -66,16 +66,8 @@ function getModelColor(username: string | null): string {
   return MODEL_COLORS[username.replace("@", "").toLowerCase()] || "#94a3b8";
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  SCALE: { bg: "#dcfce7", text: "#16a34a" }, WATCH: { bg: "#dbeafe", text: "#0891b2" },
-  LOW: { bg: "#fef9c3", text: "#854d0e" }, KILL: { bg: "#fee2e2", text: "#dc2626" },
-  DEAD: { bg: "#f3f4f6", text: "#6b7280" }, "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
-  NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
-};
-const STATUS_LABELS: Record<string, string> = {
-  SCALE: "SCALE", WATCH: "WATCH", LOW: "LOW", KILL: "KILL", DEAD: "DEAD",
-  "NO SPEND": "NO SPEND", NO_DATA: "NO SPEND",
-};
+import { STATUS_STYLES, STATUS_LABELS, calcStatus, calcProfit, calcRoi, calcCvr, calcAgencyTotals, calcStatusFromRoi, getEffectiveRevenue } from "@/lib/calc-helpers";
+import { EstBadge } from "@/components/EstBadge";
 
 function getAgePill(days: number) {
   if (days <= 30) return { label: "New", bg: "#dcfce7", text: "#16a34a" };
@@ -241,12 +233,12 @@ export default function CampaignsPage() {
         subsDayLabel = "Sync needed";
       }
       const subs = l.subscribers || 0;
-      const hasCost = Number(l.cost_total || 0) > 0;
-      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const { profit, isEstimate: profitIsEstimate } = calcProfit(l);
+      const { roi, isEstimate: roiIsEstimate } = calcRoi(l);
       const ltvBased = Number(l.ltv || 0) > 0;
-      const profit = hasCost ? effectiveRev - Number(l.cost_total || 0) : null;
-      const profitPerSub = subs > 0 && hasCost && profit !== null ? profit / subs : null;
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased };
+      const profitPerSub = subs > 0 && profit !== null ? profit / subs : null;
+      const computedStatus = calcStatus(l);
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus };
     });
   }, [links, manualOverrides, dailyMetrics]);
 
@@ -290,7 +282,7 @@ export default function CampaignsPage() {
     if (campaignFilter === "active") result = result.filter((l: any) => l.isActive);
     else if (campaignFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
     else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
-    else if (["SCALE", "WATCH", "KILL", "DEAD"].includes(campaignFilter)) result = result.filter((l: any) => (l.status || "NO_DATA") === campaignFilter);
+    else if (["SCALE", "WATCH", "KILL", "TESTING", "INACTIVE"].includes(campaignFilter)) result = result.filter((l: any) => l.computedStatus === campaignFilter);
 
     if (ageFilter !== "all") {
       result = result.filter((l: any) => {
