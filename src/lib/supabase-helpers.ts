@@ -285,7 +285,7 @@ export async function clearTrackingLinkSpend(trackingLinkId: string, campaignId:
     cpc_real: null,
     cvr: null,
     arpu: null,
-    status: "NO_DATA",
+    status: "NO_SPEND",
   } as any).eq("id", trackingLinkId);
   if (linkError) throw linkError;
 
