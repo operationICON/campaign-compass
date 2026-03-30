@@ -90,24 +90,26 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtP = (v: number) => `${v.toFixed(1)}%`;
 
-// ─── Unified columns matching Campaigns page ───
+// ─── Unified columns matching Tracking Links page ───
 const AUDIT_COLUMNS: ColumnDef[] = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
+  { id: "clicks", label: "Clicks", defaultOn: false },
+  { id: "subscribers", label: "Subscribers", defaultOn: false },
+  { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
   { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
+  { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
   { id: "status", label: "Status", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
-  { id: "clicks", label: "Clicks", defaultOn: false },
-  { id: "subscribers", label: "Subscribers", defaultOn: false },
-  { id: "cvr", label: "CVR", defaultOn: false },
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
+  { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
 
 export default function AuditPage() {
