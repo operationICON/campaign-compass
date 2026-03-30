@@ -303,7 +303,7 @@ export default function CampaignsPage() {
       });
     }
     return result;
-  }, [enrichedLinks, searchQuery, campaignFilter, sourceFilter, ageFilter, groupFilter, accountFilter, accounts]);
+  }, [baseLinks, searchQuery, campaignFilter, sourceFilter, ageFilter, groupFilter, accountFilter, accounts]);
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
