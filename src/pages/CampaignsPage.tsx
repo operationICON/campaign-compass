@@ -778,13 +778,14 @@ export default function CampaignsPage() {
                     {colDropdownOpen && (
                       <>
                         <div className="fixed inset-0 z-20" onClick={() => setColDropdownOpen(false)} />
-                        <div className="absolute right-0 top-full mt-1 z-30 w-48 bg-card border border-border rounded-lg shadow-lg py-1.5 max-h-72 overflow-y-auto">
-                          {ALL_TOGGLEABLE_COLUMNS.map(c => (
-                            <label key={c.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-secondary/50 cursor-pointer transition-colors">
-                              <input type="checkbox" checked={visibleCols[c.id]} onChange={() => toggleColumn(c.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer accent-[hsl(var(--primary))]" />
-                              <span className="text-[11px] text-foreground">{c.label}</span>
-                            </label>
-                          ))}
+                        <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-card border border-border rounded-lg shadow-lg max-h-[400px] overflow-y-auto">
+                          <DraggableColumnSelector
+                            columns={columnOrder.orderedColumns}
+                            isVisible={columnOrder.isVisible}
+                            onToggle={columnOrder.toggleColumn}
+                            onReorder={columnOrder.reorder}
+                            onReset={columnOrder.reset}
+                          />
                         </div>
                       </>
                     )}
@@ -796,24 +797,30 @@ export default function CampaignsPage() {
                       <tr className="border-b border-border">
                         <th className="w-8" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Tracking Link" sortKeyName="campaign_name" width="200px" />
-                        {col("model") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "100px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Model</th>}
-                        {col("source") && <SortHeader label="Source" sortKeyName="source_tag" width="100px" />}
-                        {col("clicks") && <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />}
-                        {col("subscribers") && <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />}
-                        {col("cvr") && <SortHeader label="CVR" sortKeyName="cvr" width="65px" />}
-                        {col("revenue") && <SortHeader label="Revenue" sortKeyName="revenue" width="90px" />}
-                        {col("ltv") && <SortHeader label="LTV" sortKeyName="ltv" width="80px" />}
-                        {col("ltv_sub") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>LTV/Sub</th>}
-                        {col("spender_rate") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Spender %</th>}
-                        {col("expenses") && <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />}
-                        {col("profit") && <SortHeader label="Profit" sortKeyName="profit" width="80px" />}
-                        <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
-                        {col("roi") && <SortHeader label="ROI" sortKeyName="roi" width="70px" />}
-                        {col("status") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "80px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Status</th>}
-                        {col("subs_day") && <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />}
-                        {col("created") && <SortHeader label="Created" sortKeyName="created_at" width="100px" />}
-                        {col("media_buyer") && <SortHeader label="Buyer" sortKeyName="media_buyer" width="90px" />}
-                        {col("avg_expenses") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "90px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Avg Expenses</th>}
+                        {columnOrder.visibleOrderedColumns.map(c => {
+                          const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, color: "#1a2332", textTransform: "uppercase" as const, letterSpacing: "0.04em", background: "#f8fafc" };
+                          switch (c.id) {
+                            case "model": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "100px" }}>Model</th>;
+                            case "source": return <SortHeader key={c.id} label="Source" sortKeyName="source_tag" width="100px" />;
+                            case "clicks": return <SortHeader key={c.id} label="Clicks" sortKeyName="clicks" width="70px" />;
+                            case "subscribers": return <SortHeader key={c.id} label="Subs" sortKeyName="subscribers" width="70px" />;
+                            case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
+                            case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
+                            case "ltv": return <SortHeader key={c.id} label="LTV" sortKeyName="ltv" width="80px" />;
+                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
+                            case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
+                            case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
+                            case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
+                            case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
+                            case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
+                            case "status": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "80px" }}>Status</th>;
+                            case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
+                            case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
+                            case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
+                            case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
+                            default: return null;
+                          }
+                        })}
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }} title="Fan sync status">👥</th>
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}></th>
                       </tr>
