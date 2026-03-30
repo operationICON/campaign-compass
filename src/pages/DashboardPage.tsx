@@ -482,7 +482,7 @@ function KpiCards({
             <p className="text-[11px] text-muted-foreground mt-1">
               {showProfitSub
                 ? `Per acquired subscriber · ${periodLabel}`
-                : `Add spend to ${campaignsNeedingSpend} campaigns to calculate`}
+                : `Add spend to ${campaignsNeedingSpend} tracking links to calculate`}
             </p>
           </div>
         );
@@ -562,7 +562,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Traffic with no campaign · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Traffic with no tracking link · {periodLabel}</p>
             {unattributedStats.accountTotalSubs > 0 && (
               <p className="text-[10px] text-muted-foreground italic mt-0.5">Requires fan sync for accuracy</p>
             )}
@@ -607,7 +607,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Per campaign with spend</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Per tracking link with spend</p>
           </div>
         );
 
@@ -657,7 +657,7 @@ function KpiCards({
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Activity className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Active Campaigns</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Active Links</span>
             </div>
             <p className="text-[22px] font-bold font-mono text-foreground">{activeCampaigns}</p>
             <p className="text-[11px] text-muted-foreground mt-1">Clicks in last 30 days</p>

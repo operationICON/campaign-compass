@@ -34,14 +34,14 @@ const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
   { id: "blended_roi", label: "ROI", defaultOn: false },
-  { id: "active_campaigns", label: "Active Campaigns", defaultOn: false },
+  { id: "active_campaigns", label: "Active Tracking Links", defaultOn: false },
   { id: "best_source", label: "Best Source", defaultOn: false },
   { id: "total_ltv", label: "Total LTV", defaultOn: false },
   { id: "ltv_30d_per_model", label: "30D LTV Per Model", defaultOn: false },
 ];
 
 const INSIGHT_PANELS: ItemDef<InsightPanelId>[] = [
-  { id: "top_campaigns", label: "Top Campaigns", alwaysOn: true },
+  { id: "top_campaigns", label: "Top Tracking Links", alwaysOn: true },
   { id: "perf_by_source", label: "Performance by Source", alwaysOn: true },
   { id: "subs_day_model", label: "Subs/Day per Model", alwaysOn: true },
   { id: "roi_by_source", label: "ROI by Source", defaultOn: false },

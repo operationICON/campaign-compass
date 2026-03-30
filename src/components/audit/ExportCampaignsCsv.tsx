@@ -91,7 +91,7 @@ export function exportCampaignsCsv(trackingLinks: any[], accounts: any[]) {
 export function ExportCampaignsCsvButton({ trackingLinks, accounts }: Props) {
   return (
     <Button variant="outline" size="sm" onClick={() => exportCampaignsCsv(trackingLinks, accounts)}>
-      <Download className="h-4 w-4 mr-1" /> Export Campaigns CSV
+      <Download className="h-4 w-4 mr-1" /> Export Tracking Links CSV
     </Button>
   );
 }

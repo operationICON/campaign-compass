@@ -508,7 +508,7 @@ export default function CampaignsPage() {
         {/* ═══ HEADER ═══ */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[20px] font-bold text-foreground">Campaigns</h1>
+            <h1 className="text-[20px] font-bold text-foreground">Tracking Links</h1>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {sorted.length.toLocaleString()} tracking links · {modelCount} models
               {lastSynced && ` · Last synced ${format(lastSynced, "MMM d, HH:mm")}`}
@@ -816,7 +816,7 @@ export default function CampaignsPage() {
                     <thead className="sticky top-0 z-10" style={{ background: "#f8fafc" }}>
                       <tr className="border-b border-border">
                         <th className="w-8" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
-                        <SortHeader label="Campaign" sortKeyName="campaign_name" width="200px" />
+                        <SortHeader label="Tracking Link" sortKeyName="campaign_name" width="200px" />
                         {col("model") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "100px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Model</th>}
                         {col("source") && <SortHeader label="Source" sortKeyName="source_tag" width="100px" />}
                         {col("clicks") && <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />}

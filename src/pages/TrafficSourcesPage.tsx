@@ -665,7 +665,7 @@ export default function TrafficSourcesPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
-                <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view campaign performance by source</p>
+                <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view tracking link performance by source</p>
               </div>
               <div className="flex items-center gap-2">
                 <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
@@ -988,7 +988,7 @@ export default function TrafficSourcesPage() {
                   <th style={{ padding: "10px 12px", width: "36px" }}>
                     <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
                   </th>
-                  <SortHeader label="Campaign" k="campaign_name" />
+                  <SortHeader label="Tracking Link" k="campaign_name" />
                   {col("model") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Model</th>}
                   {col("source") && <SortHeader label="Source" k="source_tag" />}
                   {col("category") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Category</th>}

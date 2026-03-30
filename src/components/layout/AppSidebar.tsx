@@ -8,7 +8,7 @@ import { fetchAlerts } from "@/lib/supabase-helpers";
 
 const mainNav = [
   { to: "/", icon: LayoutDashboard, label: "Overview" },
-  { to: "/campaigns", icon: LayoutGrid, label: "Campaigns" },
+  { to: "/campaigns", icon: LayoutGrid, label: "Tracking Links" },
   { to: "/audit", icon: ShieldCheck, label: "Audit" },
   { to: "/accounts", icon: Users, label: "Models" },
   { to: "/charts", icon: BarChart3, label: "Charts" },
@@ -58,7 +58,7 @@ export function AppSidebar() {
             CT
           </div>
           <div>
-            <div className="text-white font-bold text-sm leading-tight">Campaign Tracker</div>
+            <div className="text-white font-bold text-sm leading-tight">CT Tracker</div>
             <div className="text-sidebar-foreground text-[11px]">Icon Models Agency</div>
           </div>
         </div>
