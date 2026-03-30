@@ -31,7 +31,7 @@ import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
-type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
+type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
@@ -66,16 +66,8 @@ function getModelColor(username: string | null): string {
   return MODEL_COLORS[username.replace("@", "").toLowerCase()] || "#94a3b8";
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  SCALE: { bg: "#dcfce7", text: "#16a34a" }, WATCH: { bg: "#dbeafe", text: "#0891b2" },
-  LOW: { bg: "#fef9c3", text: "#854d0e" }, KILL: { bg: "#fee2e2", text: "#dc2626" },
-  DEAD: { bg: "#f3f4f6", text: "#6b7280" }, "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
-  NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
-};
-const STATUS_LABELS: Record<string, string> = {
-  SCALE: "SCALE", WATCH: "WATCH", LOW: "LOW", KILL: "KILL", DEAD: "DEAD",
-  "NO SPEND": "NO SPEND", NO_DATA: "NO SPEND",
-};
+import { STATUS_STYLES, STATUS_LABELS, calcStatus, calcProfit, calcRoi, calcCvr, calcAgencyTotals, calcStatusFromRoi, getEffectiveRevenue } from "@/lib/calc-helpers";
+import { EstBadge } from "@/components/EstBadge";
 
 function getAgePill(days: number) {
   if (days <= 30) return { label: "New", bg: "#dcfce7", text: "#16a34a" };
@@ -241,12 +233,12 @@ export default function CampaignsPage() {
         subsDayLabel = "Sync needed";
       }
       const subs = l.subscribers || 0;
-      const hasCost = Number(l.cost_total || 0) > 0;
-      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const { profit, isEstimate: profitIsEstimate } = calcProfit(l);
+      const { roi, isEstimate: roiIsEstimate } = calcRoi(l);
       const ltvBased = Number(l.ltv || 0) > 0;
-      const profit = hasCost ? effectiveRev - Number(l.cost_total || 0) : null;
-      const profitPerSub = subs > 0 && hasCost && profit !== null ? profit / subs : null;
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased };
+      const profitPerSub = subs > 0 && profit !== null ? profit / subs : null;
+      const computedStatus = calcStatus(l);
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus };
     });
   }, [links, manualOverrides, dailyMetrics]);
 
@@ -290,7 +282,7 @@ export default function CampaignsPage() {
     if (campaignFilter === "active") result = result.filter((l: any) => l.isActive);
     else if (campaignFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
     else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
-    else if (["SCALE", "WATCH", "KILL", "DEAD"].includes(campaignFilter)) result = result.filter((l: any) => (l.status || "NO_DATA") === campaignFilter);
+    else if (["SCALE", "WATCH", "KILL", "TESTING", "INACTIVE"].includes(campaignFilter)) result = result.filter((l: any) => l.computedStatus === campaignFilter);
 
     if (ageFilter !== "all") {
       result = result.filter((l: any) => {
@@ -366,25 +358,17 @@ export default function CampaignsPage() {
     const untagged = scopedLinks.filter((l: any) => !l.source_tag).length;
     const totalCount = scopedLinks.length;
 
-    const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const expLtv = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
-    const expRev = withSpend.reduce((s: number, l: any) => {
-      const ltv = Number(l.ltv || 0);
-      return s + (ltv > 0 ? ltv : Number(l.revenue || 0));
-    }, 0);
-    const expSpend = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const expSubs = withSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const profitPerSub = expSpend > 0 && expSubs > 0 ? (expRev - expSpend) / expSubs : null;
-    const avgCpl = expSpend > 0 && expSubs > 0 ? expSpend / expSubs : null;
-    const trackedCount = withSpend.length;
+    const agTotals = calcAgencyTotals(scopedLinks);
+    const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
     // Source-based KPIs
+    const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const bySource: Record<string, { rev: number; spend: number; subs: number; profit: number; count: number }> = {};
     withSpend.forEach((l: any) => {
       const tag = l.source_tag || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const { value: effectiveRev } = getEffectiveRevenue(l);
       bySource[tag].rev += effectiveRev;
       bySource[tag].spend += Number(l.cost_total || 0);
       bySource[tag].subs += (l.subscribers || 0);
@@ -407,14 +391,14 @@ export default function CampaignsPage() {
       if (!worstSource || roi < worstSource.roi) worstSource = { name, roi };
     });
 
-    const avgExpensesPerCampaign = withSpend.length > 0 ? expSpend / withSpend.length : null;
-    const blendedRoi = expSpend > 0 ? ((expRev - expSpend) / expSpend) * 100 : null;
+    const avgExpensesPerCampaign = withSpend.length > 0 ? agTotals.totalSpend / withSpend.length : null;
 
     return {
       totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
-      profitPerSub, avgCpl, trackedCount, trackedPct,
+      profitPerSub: agTotals.avgProfitPerSub, avgCpl: agTotals.avgCpl, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
-      avgExpensesPerCampaign, blendedRoi,
+      avgExpensesPerCampaign, blendedRoi: agTotals.roiPct, isEstimate: agTotals.isEstimate,
+      totalSpend: agTotals.totalSpend, totalProfit: agTotals.totalProfit,
     };
   }, [filtered]);
 
@@ -463,13 +447,8 @@ export default function CampaignsPage() {
   };
 
   // KPI summary text for collapsed state
-  const totalExpenses = filtered.reduce((s: number, l: any) => s + (Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0), 0);
-  const totalProfitAll = filtered.reduce((s: number, l: any) => {
-    const ct = Number(l.cost_total || 0);
-    if (ct <= 0) return s;
-    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
-    return s + (effectiveRev - ct);
-  }, 0);
+  const totalExpenses = kpis.totalSpend;
+  const totalProfitAll = kpis.totalProfit;
   const hasAnyExpenses = totalExpenses > 0;
   const kpiSummary = (
     <>
@@ -578,8 +557,8 @@ export default function CampaignsPage() {
                   ),
                   campaignKpi.isVisible("blended_roi") && (
                     <KPICard key="blended_roi" borderColor="hsl(var(--primary))" icon={<BarChart3 className="h-4 w-4 text-primary" />}
-                      label="Blended ROI" value={kpis.blendedRoi !== null ? `${kpis.blendedRoi.toFixed(0)}%` : "—"} sub="Revenue vs spend"
-                      tooltip={{ title: "Blended ROI", desc: "Overall return on investment across all paid campaigns." }} />
+                      label="ROI %" value={kpis.blendedRoi !== null ? `${kpis.blendedRoi.toFixed(0)}%` : "—"} sub="Revenue vs spend"
+                      tooltip={{ title: "ROI %", desc: "Overall return on investment across all paid campaigns." }} />
                   ),
                   campaignKpi.isVisible("avg_expenses_per_campaign") && (
                     <KPICard key="avg_expenses_per_campaign" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
@@ -708,7 +687,8 @@ export default function CampaignsPage() {
             <option value="SCALE">SCALE</option>
             <option value="WATCH">WATCH</option>
             <option value="KILL">KILL</option>
-            <option value="DEAD">DEAD</option>
+            <option value="TESTING">TESTING</option>
+            <option value="INACTIVE">INACTIVE</option>
           </select>
           <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
@@ -832,13 +812,13 @@ export default function CampaignsPage() {
                         const initials = username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?";
                         const costTotal = Number(link.cost_total || 0);
                         const hasCost = link.cost_type && costTotal > 0;
-                        const effectiveRev = Number(link.ltv || 0) > 0 ? Number(link.ltv) : Number(link.revenue || 0);
-                        const profit = hasCost ? effectiveRev - costTotal : 0;
-                        const ltvBased = Number(link.ltv || 0) > 0;
-                        const roi = Number(link.roi || 0);
-                        const status = link.status || "NO_DATA";
+                        const profit = link.computedProfit ?? 0;
+                        const ltvBased = link.ltvBased;
+                        const roi = link.computedRoi ?? 0;
+                        const status = link.computedStatus;
                         const displayStatus = STATUS_LABELS[status] || "NO SPEND";
-                        const statusStyle = STATUS_STYLES[displayStatus] || STATUS_STYLES["NO SPEND"];
+                        const statusStyle = STATUS_STYLES[status] || STATUS_STYLES["NO_SPEND"];
+                        const isInactive = status === "INACTIVE";
                         const isExpanded = expandedRow === link.id;
 
                         return (
@@ -846,7 +826,7 @@ export default function CampaignsPage() {
                           <tr
                             onClick={() => handleRowClick(link)}
                             className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
-                            style={{ height: "46px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd" }}
+                            style={{ height: "46px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd", opacity: isInactive ? 0.6 : 1 }}
                             onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }}
                             onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}
                           >
@@ -949,13 +929,8 @@ export default function CampaignsPage() {
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {hasCost ? (
                                       <span className="inline-flex items-center gap-1">
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
-                                          </TooltipTrigger>
-                                          <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
-                                        </Tooltip>
                                         <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
+                                        {link.profitIsEstimate && <EstBadge />}
                                       </span>
                                     ) : <span className="text-muted-foreground">—</span>}
                                   </td>
@@ -971,7 +946,12 @@ export default function CampaignsPage() {
                                 );
                                 case "roi": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                                    {hasCost ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span>
+                                        {link.roiIsEstimate && <EstBadge />}
+                                      </span>
+                                    ) : <span className="text-muted-foreground">—</span>}
                                   </td>
                                 );
                                 case "status": return (
@@ -1065,7 +1045,7 @@ export default function CampaignsPage() {
                                 const cpcReal = spendType === "CPC" ? numVal : (cvr > 0 ? (spendType === "CPL" ? numVal * cvr : (clicksEl > 0 ? previewCost / clicksEl : 0)) : 0);
                                 const cplReal = spendType === "CPL" ? numVal : (subsEl > 0 ? previewCost / subsEl : 0);
                                 const arpu = subsEl > 0 ? revEl / subsEl : 0;
-                                const newStatus = previewRoi > 150 ? "SCALE" : previewRoi >= 50 ? "WATCH" : previewRoi >= 0 ? "LOW" : "KILL";
+                                const newStatus = calcStatusFromRoi(previewRoi);
                                 const { error: linkErr } = await supabase.from("tracking_links").update({
                                   cost_type: spendType, cost_value: numVal, cost_total: previewCost,
                                   cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,

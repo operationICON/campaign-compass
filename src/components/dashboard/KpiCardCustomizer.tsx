@@ -54,7 +54,7 @@ const DASHBOARD_CARDS: CardDef<DashboardKpiCardId>[] = [
   { id: "expenses", label: "Expenses", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
-  { id: "blended_roi", label: "Blended ROI", defaultOn: false },
+  { id: "blended_roi", label: "ROI %", defaultOn: false },
   { id: "active_campaigns", label: "Active Campaigns", defaultOn: false },
   { id: "best_source", label: "Best Source", defaultOn: false },
   { id: "total_ltv", label: "Total LTV", defaultOn: false },
@@ -76,7 +76,7 @@ const CAMPAIGN_CARDS: CardDef<CampaignKpiCardId>[] = [
   { id: "most_profitable_source", label: "Most Profitable Source", defaultOn: false },
   { id: "worst_source", label: "Lowest Profitable Source", defaultOn: false },
   { id: "avg_expenses_per_campaign", label: "Avg Expenses per Campaign", defaultOn: false },
-  { id: "blended_roi", label: "Blended ROI", defaultOn: false },
+  { id: "blended_roi", label: "ROI %", defaultOn: false },
   { id: "ltv_30d_per_model", label: "30d LTV per model", defaultOn: false },
 ];
 

@@ -61,17 +61,12 @@ function getAction(l: any, ageDays: number) {
   return "keep";
 }
 
+import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn, calcProfit, getEffectiveRevenue, calcStatusFromRoi, STATUS_LABELS } from "@/lib/calc-helpers";
+import { EstBadge } from "@/components/EstBadge";
+
 function getStatus(l: any) {
   if (l.deleted_at) return "DELETED";
-  if (!l.cost_total && l.subscribers > 0) return "NO SPEND";
-  if (l.roi !== null && l.roi !== undefined) {
-    if (l.roi >= 100) return "SCALE";
-    if (l.roi >= 0) return "WATCH";
-    if (l.roi >= -50) return "LOW";
-    if (l.roi >= -100) return "KILL";
-    return "DEAD";
-  }
-  return "NO_DATA";
+  return calcStatusFn(l);
 }
 
 function getActivityStatus(l: any, thirtyDaysAgo: Date) {
@@ -81,10 +76,8 @@ function getActivityStatus(l: any, thirtyDaysAgo: Date) {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  SCALE: { bg: "#dcfce7", text: "#16a34a" }, WATCH: { bg: "#dbeafe", text: "#0891b2" },
-  LOW: { bg: "#fef9c3", text: "#854d0e" }, KILL: { bg: "#fee2e2", text: "#dc2626" },
-  DEAD: { bg: "#f3f4f6", text: "#6b7280" }, "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
-  NO_DATA: { bg: "#f9fafb", text: "#94a3b8" }, DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
+  ...SHARED_STATUS_STYLES,
+  DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
 };
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -161,7 +154,7 @@ export default function AuditPage() {
     l.clicks === 0 && l.subscribers === 0 && new Date(l.created_at) < thirtyDaysAgo
   ), [filteredLinks]);
 
-  const dead = useMemo(() => filteredLinks.filter((l: any) =>
+  const inactive = useMemo(() => filteredLinks.filter((l: any) =>
     (l.clicks > 0 || l.subscribers > 0) && (
       (l.calculated_at && new Date(l.calculated_at) < thirtyDaysAgo) ||
       (!l.calculated_at && new Date(l.created_at) < thirtyDaysAgo)
@@ -324,7 +317,7 @@ export default function AuditPage() {
       <FilterSelect value={filters.source} onValueChange={(v) => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map((s: string) => ({ value: s, label: s }))} />
       <FilterSelect value={filters.status} onValueChange={(v) => setFilter("status", v)} placeholder="All Statuses" options={[
         { value: "SCALE", label: "SCALE" }, { value: "WATCH", label: "WATCH" }, { value: "LOW", label: "LOW" },
-        { value: "KILL", label: "KILL" }, { value: "DEAD", label: "DEAD" }, { value: "NO SPEND", label: "NO SPEND" },
+        { value: "KILL", label: "KILL" }, { value: "INACTIVE", label: "INACTIVE" }, { value: "TESTING", label: "TESTING" }, { value: "NO_SPEND", label: "NO SPEND" },
       ]} />
       <FilterSelect value={filters.activity} onValueChange={(v) => setFilter("activity", v)} placeholder="All Activity" options={[
         { value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }, { value: "Testing", label: "Testing" },
@@ -484,7 +477,7 @@ export default function AuditPage() {
         {/* Stat cards */}
         <div className="grid grid-cols-4 gap-4">
           <StatCard icon={AlertCircle} label="Zero Activity" count={zeroActivity.length} color="bg-muted text-muted-foreground" />
-          <StatCard icon={Skull} label="Dead" count={dead.length} color="bg-destructive/10 text-destructive" />
+          <StatCard icon={Skull} label="Inactive" count={inactive.length} color="bg-destructive/10 text-destructive" />
           <StatCard icon={Tag} label="Missing Source" count={missingSource.length} color="bg-warning/10 text-warning" />
           <StatCard icon={DollarSign} label="Missing Spend" count={missingSpend.length} color="bg-info/10 text-primary" />
         </div>
@@ -493,7 +486,7 @@ export default function AuditPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-muted">
             <TabsTrigger value="zero">Zero Activity ({zeroActivity.length})</TabsTrigger>
-            <TabsTrigger value="dead">Dead ({dead.length})</TabsTrigger>
+            <TabsTrigger value="dead">Inactive ({inactive.length})</TabsTrigger>
             <TabsTrigger value="source">Missing Source ({missingSource.length})</TabsTrigger>
             <TabsTrigger value="spend">Missing Spend ({missingSpend.length})</TabsTrigger>
           </TabsList>
@@ -510,9 +503,9 @@ export default function AuditPage() {
           <TabsContent value="dead">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <TabToolbar rightContent={
-                <DeleteConfirmBtn ids={Array.from(selected).filter((id) => dead.some((l: any) => l.id === id))} label="Delete selected" />
+                <DeleteConfirmBtn ids={Array.from(selected).filter((id) => inactive.some((l: any) => l.id === id))} label="Delete selected" />
               } />
-              {renderTable(dead, "dead", true, false)}
+              {renderTable(inactive, "dead", true, false)}
             </div>
           </TabsContent>
 

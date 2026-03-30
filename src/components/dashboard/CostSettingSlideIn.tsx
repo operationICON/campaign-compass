@@ -40,8 +40,8 @@ function calcMetrics(costType: CostType, costValue: number, clicks: number, subs
   const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0;
   const daysSinceCreated = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
 
-  let status = "NO_DATA";
-  if (clicks === 0 && daysSinceCreated >= 3) status = "DEAD";
+  let status = "NO_SPEND";
+  if (clicks === 0 && subscribers === 0) status = "TESTING";
   else if (roi > 150) status = "SCALE";
   else if (roi >= 50) status = "WATCH";
   else if (roi >= 0) status = "LOW";
@@ -55,12 +55,13 @@ const STATUS_STYLES: Record<string, string> = {
   WATCH: "bg-warning/20 text-warning",
   LOW: "bg-warning/20 text-warning",
   KILL: "bg-destructive/20 text-destructive",
-  DEAD: "bg-destructive/20 text-destructive",
-  NO_DATA: "bg-secondary text-muted-foreground",
+  TESTING: "bg-secondary text-muted-foreground",
+  INACTIVE: "bg-secondary text-muted-foreground",
+  NO_SPEND: "bg-secondary text-muted-foreground",
 };
 
 const STATUS_EMOJI: Record<string, string> = {
-  SCALE: "🚀", WATCH: "👀", LOW: "📉", KILL: "🔴", DEAD: "💀", NO_DATA: "⏳",
+  SCALE: "🚀", WATCH: "👀", LOW: "📉", KILL: "🔴", TESTING: "⏳", INACTIVE: "💤", NO_SPEND: "⏳",
 };
 
 export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideInProps) {

@@ -197,7 +197,8 @@ export default function AccountsPage() {
     if (link.status === "WATCH") return { label: "Watch", cls: "bg-[#fffbeb] text-[#d97706] dark:bg-[rgba(245,158,11,0.15)] dark:text-[#F59E0B]" };
     if (link.status === "LOW") return { label: "Low", cls: "bg-[#fffbeb] text-[#d97706] dark:bg-[rgba(245,158,11,0.15)] dark:text-[#F59E0B]" };
     if (link.status === "KILL") return { label: "Kill", cls: "bg-[#fef2f2] text-[#dc2626] dark:bg-[rgba(239,68,68,0.15)] dark:text-[#EF4444]" };
-    if (link.status === "DEAD") return { label: "Dead", cls: "bg-[#fef2f2] text-[#dc2626] dark:bg-[rgba(239,68,68,0.15)] dark:text-[#EF4444]" };
+    if (link.status === "INACTIVE") return { label: "Inactive", cls: "bg-[#f3f4f6] text-[#6b7280] dark:bg-[rgba(107,114,128,0.15)] dark:text-[#9CA3AF]" };
+    if (link.status === "TESTING") return { label: "Testing", cls: "bg-[#f3f4f6] text-[#6b7280] dark:bg-[rgba(107,114,128,0.15)] dark:text-[#9CA3AF]" };
     return { label: "No Spend", cls: "bg-muted text-muted-foreground" };
   };
 
@@ -308,7 +309,7 @@ export default function AccountsPage() {
                     { label: "Total Campaigns", value: String(stats.totalCampaigns || 0) },
                     { label: "Active Campaigns", value: String(stats.activeCampaigns || 0) },
                     { label: "Avg Subs/Day", value: stats.avgSubsDay },
-                    { label: "Blended ROI", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
+                    { label: "ROI %", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
                     { label: "Unattributed", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
                       colored: true, pctVal: stats.unattributedPct },
                   ].map((s: any) => (

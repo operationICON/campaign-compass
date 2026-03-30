@@ -43,16 +43,12 @@ function calcMetrics(
   const profit = revenue - cost_total;
   const roi = cost_total > 0 ? (profit / cost_total) * 100 : 0;
 
-  let status = "NO_DATA";
+  let status = "NO_SPEND";
   if (cost_total > 0) {
-    if (roi >= 100) status = "SCALE";
-    else if (roi >= 0) status = "WATCH";
-    else if (roi >= -50) status = "LOW";
+    if (roi > 150) status = "SCALE";
+    else if (roi >= 50) status = "WATCH";
+    else if (roi >= 0) status = "LOW";
     else status = "KILL";
-  }
-  if (clicks > 0 && cost_total > 0) {
-    const daysSinceActivity = differenceInDays(new Date(), new Date(createdAt));
-    if (daysSinceActivity > 3 && clicks === 0) status = "DEAD";
   }
 
   return { cost_total, cvr, cpc_real, cpl_real, arpu, profit, roi, status };
