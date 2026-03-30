@@ -710,10 +710,10 @@ function KpiCards({
                 <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-foreground" />
                 </div>
-                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Revenue</span>
+                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Est. Revenue</span>
               </div>
-              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalRevenue)}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Gross revenue from all subscribers</p>
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalRevenue)} <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none align-middle">Est.</span></p>
+              <p className="text-[11px] text-muted-foreground mt-1">Gross revenue — estimated, includes all subscribers</p>
             </div>
             {/* Total LTV card */}
             <div className="bg-card border border-[#0891b2]/30 rounded-2xl p-5" style={{ ...cardStyle, boxShadow: "0 2px 12px rgba(8,145,178,0.1)" }}>
