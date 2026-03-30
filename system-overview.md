@@ -106,6 +106,226 @@ sync-scheduler (cron)
 
 ---
 
+## KPI & Metric Definitions
+
+### Core Terminology
+
+| Term | Definition |
+|------|-----------|
+| **Revenue** | Gross all-time earnings from OnlyFans API for all subscribers on a tracking link (`tracking_links.revenue`) |
+| **LTV** | Lifetime value from **new, non-expired subscribers only** who joined after a tracking link was created. Computed via fan attribution sync (`tracking_links.ltv`). More accurate than Revenue for measuring acquisition value. |
+| **Spend** | Total advertising cost assigned to a tracking link (`tracking_links.cost_total`). Can be set via CPC, CPL, or Fixed cost types. |
+| **Profit** | `Effective Revenue − Spend`. Where Effective Revenue = LTV if available, else Revenue. |
+| **ROI** | `(Profit / Spend) × 100`. Return on investment as a percentage. |
+
+### Revenue vs LTV (Critical Distinction)
+
+```
+Revenue = All-time gross earnings from ALL subscribers on a tracking link
+LTV     = Revenue from NEW subscribers only (post-link-creation, non-expired)
+```
+
+- **Revenue** includes historical/organic fans — overstates acquisition performance
+- **LTV** requires a fan attribution sync (`sync-fans`) to populate
+- If `ltv > 0`, the system uses LTV for profit/ROI calculations ("LTV-based")
+- If `ltv = 0`, the system falls back to Revenue ("Revenue-based estimate")
+- A cyan dot (●) indicates LTV-based; gray dot indicates Revenue-based
+
+---
+
+## KPI Card Calculations — Overview Page
+
+### Always-Available Cards
+
+| Card | Formula | Source |
+|------|---------|--------|
+| **Total Revenue** | `SUM(tracking_links.revenue)` for filtered links | All tracking links |
+| **Total LTV** | `SUM(tracking_links.ltv)` for filtered links | Requires fan sync; shows "Fan sync needed" if all zero |
+| **30D LTV per Model** | `accounts.ltv_last_30d` per model, sorted descending | `accounts` table, period field mapped by time filter |
+
+### Spend-Dependent Cards
+
+These require at least one tracking link with `cost_total > 0`:
+
+| Card | Formula | Notes |
+|------|---------|-------|
+| **Profit/Sub** | `(Total Effective Revenue − Total Spend) / Paid Subscribers` | Only shown when ≥10 tracking links have spend. `Paid Subscribers` = sum of subscribers on links that have spend set. |
+| **LTV/Sub** | `Total Account LTV / Total Account Subscribers` | Uses `accounts.[ltv_field]` based on time period. Field mapping: `day` → `ltv_last_day`, `week` → `ltv_last_7d`, `month` → `ltv_last_30d`, `all` → `ltv_total`. |
+| **Avg CPL** | `Total Spend / Paid Subscribers` | Cost per acquired subscriber across all links with spend |
+| **Expenses** | `SUM(cost_total)` for links where `cost_total > 0` | Total spend set across all tracking links |
+| **Avg Expenses** | `Total Expenses / Count of links with spend` | Average spend per tracking link |
+| **Total Profit** | `Effective Revenue − Total Expenses` | For links with spend only. Effective = LTV if available, else Revenue. |
+| **Blended ROI** | `(Total Profit / Total Expenses) × 100` | Agency-wide return on investment |
+
+### Growth & Activity Cards
+
+| Card | Formula | Notes |
+|------|---------|-------|
+| **Subs/Day** | `(latest_snapshot.subscribers − previous_snapshot.subscribers) / days_between` | Delta-based from `daily_metrics`. Requires ≥2 snapshots. Negative deltas capped at 0. Shows "—" until 2 data points exist. |
+| **Active Links** | Count of links where `clicks > 0` AND `calculated_at` within last 30 days | Measures links with recent activity |
+| **Best Source** | Source tag with highest ROI among tagged links with spend | `ROI = (Profit / Spend) × 100` per source. Excludes "Untagged". |
+
+### Attribution Card
+
+| Card | Formula | Notes |
+|------|---------|-------|
+| **Unattributed %** | `(Account Total Subs − Attributed Subs) / Account Total Subs × 100` | `Account Total Subs` = `accounts.subscribers_count`. `Attributed Subs` = `SUM(tracking_links.subscribers)`, capped at account total. ~20% is normal due to OnlyFans tracking limitations. Requires fan sync for accuracy. |
+
+---
+
+## KPI Card Calculations — Tracking Links Page
+
+| Card | Formula | Notes |
+|------|---------|-------|
+| **Total Revenue** | `SUM(filtered_links.revenue)` | Scoped to current filter state |
+| **Total LTV** | `SUM(filtered_links.ltv)` | Scoped to current filter state |
+| **Active Links** | Count where `clicks > 0` AND `calculated_at` ≤ 30 days ago | |
+| **Avg CVR** | `SUM(subscribers) / SUM(clicks) × 100` | Only for links with `clicks > 100` (qualified) |
+| **No Spend** | Count where `cost_total = 0` or null | Links missing cost data |
+| **Untagged** | Count where `source_tag` is null | Links without source attribution |
+| **Profit/Sub** | `(Effective Revenue − Spend) / Subscribers` for links with spend | Per acquired subscriber |
+| **Avg CPL** | `Total Spend / Total Subscribers` for links with spend | Average cost to acquire one subscriber |
+| **Tracked %** | `Links with spend / Total links × 100` | Percentage of links with cost data |
+| **Best Source (ROI)** | Source with highest `(Profit / Spend) × 100` | Excludes "Untagged" |
+| **Best Source (Profit/Sub)** | Source with highest `Profit / Subscribers` | Excludes "Untagged" |
+| **Most Profitable** | Source with highest absolute profit | Excludes "Untagged" |
+| **Worst Source** | Source with lowest ROI | Excludes "Untagged" |
+| **Avg Expenses** | `Total Spend / Count of links with spend` | Per campaign average |
+| **Blended ROI** | `(Effective Revenue − Spend) / Spend × 100` | For links with spend only |
+
+---
+
+## Per-Tracking-Link Metrics (Table Columns)
+
+| Column | Formula | Source |
+|--------|---------|--------|
+| **Clicks** | Raw click count from OnlyFans API | `tracking_links.clicks` |
+| **Subscribers** | Total subscribers attributed to link | `tracking_links.subscribers` |
+| **CVR** | `Subscribers / Clicks × 100` | Conversion rate |
+| **Revenue** | Gross all-time revenue | `tracking_links.revenue` |
+| **LTV** | Revenue from new subs only | `tracking_links.ltv` (requires fan sync) |
+| **LTV/Sub** | `LTV / Subscribers` | Per-subscriber lifetime value |
+| **Spender %** | `Spenders / Subscribers × 100` | Percentage of subs who spent money |
+| **Expenses** | Total cost assigned | `tracking_links.cost_total` |
+| **Profit** | `Effective Revenue − cost_total` | Effective = LTV if > 0, else Revenue |
+| **Profit/Sub** | `Profit / Subscribers` | Per-subscriber profitability |
+| **ROI** | `(Profit / cost_total) × 100` | Return on investment |
+| **Subs/Day** | `(latest.subscribers − previous.subscribers) / days_between` | From `daily_metrics` snapshots |
+| **Avg Expenses** | `cost_total / 1` (per link) | Same as Expenses for single link |
+
+---
+
+## Cost Setting Calculations (CostSettingSlideIn)
+
+Three cost types with different calculation methods:
+
+### Cost Per Sub (CPL) — Recommended
+```
+cost_total   = subscribers × cost_value
+cpc_real     = cost_value × CVR      (where CVR = subscribers / clicks)
+cpl_real     = cost_value             (same as input)
+```
+
+### Fixed Amount
+```
+cost_total   = cost_value             (flat fee)
+cpc_real     = cost_total / clicks
+cpl_real     = cost_total / subscribers
+```
+
+### Cost Per Click (CPC) — Warning: may include bot traffic
+```
+cost_total   = clicks × cost_value
+cpc_real     = cost_value             (same as input)
+cpl_real     = cost_value / CVR       (where CVR = subscribers / clicks)
+```
+
+### Derived Metrics (all cost types)
+```
+arpu         = revenue / subscribers
+profit       = revenue − cost_total
+roi          = (profit / cost_total) × 100
+```
+
+### Status Assignment
+| Condition | Status |
+|-----------|--------|
+| `clicks = 0` AND `age ≥ 3 days` | DEAD |
+| `ROI > 150%` | SCALE |
+| `ROI ≥ 50%` | WATCH |
+| `ROI ≥ 0%` | LOW |
+| `ROI < 0%` | KILL |
+| No data | NO_DATA |
+
+### Status Badge Styles
+| Status | Color | Emoji |
+|--------|-------|-------|
+| SCALE | Green (`bg-primary/20`) | 🚀 |
+| WATCH | Amber (`bg-warning/20`) | 👀 |
+| LOW | Amber (`bg-warning/20`) | 📉 |
+| KILL | Red (`bg-destructive/20`) | 🔴 |
+| DEAD | Red (`bg-destructive/20`) | 💀 |
+| NO_DATA / NO SPEND | Gray (`bg-secondary`) | ⏳ |
+
+---
+
+## Campaign Age Classification
+
+| Age | Label | Color |
+|-----|-------|-------|
+| ≤ 30 days | New | Green |
+| 31–90 days | Active | Blue |
+| 91–180 days | Mature | Amber |
+| > 180 days | Old | Gray |
+
+---
+
+## Source Performance Calculations (Insights Section)
+
+Source-level KPIs are computed by grouping tracking links by `source_tag`:
+
+| Metric | Formula |
+|--------|---------|
+| **Source ROI** | `(Source Profit / Source Spend) × 100` |
+| **Source CPL** | `Source Spend / Source Subscribers` |
+| **Source Profit/Sub** | `Source Profit / Source Subscribers` |
+| **Subs/Day per Source** | Delta-based from `daily_metrics` grouped by source |
+| **Distribution %** | `Source Subscribers / Total Subscribers × 100` |
+| **Growth Trend** | Current period vs same-length previous period comparison |
+
+---
+
+## Agency Totals (useAgencyTotals hook)
+
+Used across pages for consistent aggregate calculations:
+
+```typescript
+totalLtv         = SUM(tracking_links.ltv)           // filtered by account
+totalSpend       = SUM(tracking_links.cost_total)     // only where cost_total > 0
+totalProfit      = totalLtv − totalSpend
+paidSubscribers  = SUM(subscribers) for links with cost_total > 0
+avgProfitPerSub  = totalProfit / paidSubscribers      // null if no spend
+hasSpend         = totalSpend > 0
+```
+
+---
+
+## Model Page KPIs (AccountsPage)
+
+Per-model cards display:
+
+| Metric | Source |
+|--------|--------|
+| **Total Subs (API)** | `accounts.subscribers_count` |
+| **Tracked Subs** | `SUM(tracking_links.subscribers)` for model's links |
+| **LTV** | `accounts.ltv_total` / `ltv_last_7d` / `ltv_last_30d` based on period |
+| **Total Spend** | `SUM(tracking_links.cost_total)` for model's links with spend |
+| **Total Revenue** | `SUM(tracking_links.revenue)` for model's links |
+| **Profit/Sub** | `(Effective Revenue − Total Spend) / Paid Subscribers` |
+| **Blended CVR** | `Total Subscribers / Total Clicks × 100` vs agency average |
+
+---
+
 ## Key Frontend Patterns
 
 - **Data fetching**: All via `src/lib/supabase-helpers.ts` → Supabase JS client → React Query
