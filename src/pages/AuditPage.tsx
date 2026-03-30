@@ -364,7 +364,9 @@ export default function AuditPage() {
     return (
       <tr key={l.id} className={rowClass}>
         {opts.showCheckbox && (
-          <td className="p-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} /></td>
+          <td className="p-2">
+            {!opts.isDeleted && <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} />}
+          </td>
         )}
         {/* Campaign — always visible */}
         <td className="p-2">
