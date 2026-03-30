@@ -482,7 +482,7 @@ function KpiCards({
             <p className="text-[11px] text-muted-foreground mt-1">
               {showProfitSub
                 ? `Per acquired subscriber · ${periodLabel}`
-                : `Add spend to ${campaignsNeedingSpend} campaigns to calculate`}
+                : `Add spend to ${campaignsNeedingSpend} tracking links to calculate`}
             </p>
           </div>
         );
