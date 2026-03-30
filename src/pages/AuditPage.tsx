@@ -452,7 +452,7 @@ export default function AuditPage() {
         {items.map((l: any) => renderRow(l, { showCheckbox, showSourceDropdown }))}
         {/* Show deleted items in same table, grayed out */}
         {deletedLinks.length > 0 && items.length > 0 && tabKey === activeTab && deletedLinks.map((l: any) =>
-          renderRow(l, { isDeleted: true, showCheckbox: false, showSourceDropdown: false })
+          renderRow(l, { isDeleted: true, showCheckbox, showSourceDropdown: false })
         )}
         {items.length === 0 && deletedLinks.length === 0 && (
           <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No tracking links found ✓</td></tr>
