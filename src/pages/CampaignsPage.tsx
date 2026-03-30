@@ -26,49 +26,35 @@ import {
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
+import { useColumnOrder } from "@/hooks/useColumnOrder";
+import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
-const COLUMNS_KEY = "campaigns_columns";
 
-type ColumnId = "model" | "source" | "revenue" | "ltv" | "ltv_sub" | "spender_rate" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
-
-const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
+const ALL_COLUMNS = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
+  { id: "clicks", label: "Clicks", defaultOn: false },
+  { id: "subscribers", label: "Subscribers", defaultOn: false },
+  { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
   { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
+  { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
   { id: "status", label: "Status", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
-  { id: "clicks", label: "Clicks", defaultOn: false },
-  { id: "subscribers", label: "Subscribers", defaultOn: false },
-  { id: "cvr", label: "CVR", defaultOn: false },
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
-
-function getDefaultColumns(): Record<ColumnId, boolean> {
-  const defaults: Record<string, boolean> = {};
-  ALL_TOGGLEABLE_COLUMNS.forEach(c => { defaults[c.id] = c.defaultOn; });
-  return defaults as Record<ColumnId, boolean>;
-}
-
-function loadColumns(): Record<ColumnId, boolean> {
-  try {
-    const saved = localStorage.getItem(COLUMNS_KEY);
-    if (saved) return { ...getDefaultColumns(), ...JSON.parse(saved) };
-  } catch {}
-  return getDefaultColumns();
-}
 
 // ─── Constants ───
 const MODEL_COLORS: Record<string, string> = {
@@ -126,17 +112,10 @@ export default function CampaignsPage() {
   const queryClient = useQueryClient();
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
 
-  // ─── Column visibility state ───
-  const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
+  // ─── Column order + visibility ───
+  const columnOrder = useColumnOrder("campaigns_columns", ALL_COLUMNS);
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
-  const toggleColumn = (id: ColumnId) => {
-    setVisibleCols(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      try { localStorage.setItem(COLUMNS_KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-  const col = (id: ColumnId) => visibleCols[id];
+  const col = (id: string) => columnOrder.isVisible(id);
 
   // ─── KPI collapse state ───
   const [kpiCollapsed, setKpiCollapsed] = useState(() => {
@@ -799,13 +778,14 @@ export default function CampaignsPage() {
                     {colDropdownOpen && (
                       <>
                         <div className="fixed inset-0 z-20" onClick={() => setColDropdownOpen(false)} />
-                        <div className="absolute right-0 top-full mt-1 z-30 w-48 bg-card border border-border rounded-lg shadow-lg py-1.5 max-h-72 overflow-y-auto">
-                          {ALL_TOGGLEABLE_COLUMNS.map(c => (
-                            <label key={c.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-secondary/50 cursor-pointer transition-colors">
-                              <input type="checkbox" checked={visibleCols[c.id]} onChange={() => toggleColumn(c.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer accent-[hsl(var(--primary))]" />
-                              <span className="text-[11px] text-foreground">{c.label}</span>
-                            </label>
-                          ))}
+                        <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-card border border-border rounded-lg shadow-lg max-h-[400px] overflow-y-auto">
+                          <DraggableColumnSelector
+                            columns={columnOrder.orderedColumns}
+                            isVisible={columnOrder.isVisible}
+                            onToggle={columnOrder.toggleColumn}
+                            onReorder={columnOrder.reorder}
+                            onReset={columnOrder.reset}
+                          />
                         </div>
                       </>
                     )}
@@ -817,24 +797,30 @@ export default function CampaignsPage() {
                       <tr className="border-b border-border">
                         <th className="w-8" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Tracking Link" sortKeyName="campaign_name" width="200px" />
-                        {col("model") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "100px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Model</th>}
-                        {col("source") && <SortHeader label="Source" sortKeyName="source_tag" width="100px" />}
-                        {col("clicks") && <SortHeader label="Clicks" sortKeyName="clicks" width="70px" />}
-                        {col("subscribers") && <SortHeader label="Subs" sortKeyName="subscribers" width="70px" />}
-                        {col("cvr") && <SortHeader label="CVR" sortKeyName="cvr" width="65px" />}
-                        {col("revenue") && <SortHeader label="Revenue" sortKeyName="revenue" width="90px" />}
-                        {col("ltv") && <SortHeader label="LTV" sortKeyName="ltv" width="80px" />}
-                        {col("ltv_sub") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>LTV/Sub</th>}
-                        {col("spender_rate") && <th className="text-right whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "75px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Spender %</th>}
-                        {col("expenses") && <SortHeader label="Expenses" sortKeyName="cost_total" width="90px" />}
-                        {col("profit") && <SortHeader label="Profit" sortKeyName="profit" width="80px" />}
-                        <SortHeader label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />
-                        {col("roi") && <SortHeader label="ROI" sortKeyName="roi" width="70px" />}
-                        {col("status") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "80px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Status</th>}
-                        {col("subs_day") && <SortHeader label="Subs/Day" sortKeyName="subs_day" width="80px" />}
-                        {col("created") && <SortHeader label="Created" sortKeyName="created_at" width="100px" />}
-                        {col("media_buyer") && <SortHeader label="Buyer" sortKeyName="media_buyer" width="90px" />}
-                        {col("avg_expenses") && <th className="text-left whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "90px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}>Avg Expenses</th>}
+                        {columnOrder.visibleOrderedColumns.map(c => {
+                          const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, color: "#1a2332", textTransform: "uppercase" as const, letterSpacing: "0.04em", background: "#f8fafc" };
+                          switch (c.id) {
+                            case "model": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "100px" }}>Model</th>;
+                            case "source": return <SortHeader key={c.id} label="Source" sortKeyName="source_tag" width="100px" />;
+                            case "clicks": return <SortHeader key={c.id} label="Clicks" sortKeyName="clicks" width="70px" />;
+                            case "subscribers": return <SortHeader key={c.id} label="Subs" sortKeyName="subscribers" width="70px" />;
+                            case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
+                            case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
+                            case "ltv": return <SortHeader key={c.id} label="LTV" sortKeyName="ltv" width="80px" />;
+                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
+                            case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
+                            case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
+                            case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
+                            case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
+                            case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
+                            case "status": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "80px" }}>Status</th>;
+                            case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
+                            case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
+                            case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
+                            case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
+                            default: return null;
+                          }
+                        })}
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }} title="Fan sync status">👥</th>
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}></th>
                       </tr>
@@ -871,168 +857,175 @@ export default function CampaignsPage() {
                               <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
                               <p className="truncate" style={{ fontSize: "11px", color: "#94a3b8" }} title={link.url}>{link.url}</p>
                             </td>
-                            {col("model") && (
-                              <td style={{ padding: "8px 12px" }}>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
-                                  <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
-                                </div>
-                              </td>
-                            )}
-                            {col("source") && (
-                              <td style={{ padding: "8px 12px" }}>
-                                <TagBadge tagName={link.source_tag} size="sm" />
-                              </td>
-                            )}
-                            {col("clicks") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {(link.clicks || 0).toLocaleString()}
-                              </td>
-                            )}
-                            {col("subscribers") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {(link.subscribers || 0).toLocaleString()}
-                              </td>
-                            )}
-                            {col("cvr") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            {col("revenue") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
-                                </Tooltip>
-                              </td>
-                            )}
-                            {col("ltv") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
-                                      {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
-                                </Tooltip>
-                              </td>
-                            )}
-                            {col("ltv_sub") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-foreground">
-                                      {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Average revenue per new subscriber</TooltipContent>
-                                </Tooltip>
-                              </td>
-                            )}
-                            {col("spender_rate") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {Number(link.spender_rate || 0) > 0 ? (
-                                  <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
-                                    {Number(link.spender_rate).toFixed(1)}%
-                                  </span>
-                                ) : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            {col("expenses") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? (
-                                  <span className="text-muted-foreground">{fmtC(costTotal)}</span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                    <Tooltip>
-                                      <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
-                                      <TooltipContent>No expenses set</TooltipContent>
-                                    </Tooltip>
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                            )}
-                            {col("profit") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? (
-                                  <span className="inline-flex items-center gap-1">
+                            {columnOrder.visibleOrderedColumns.map(c => {
+                              switch (c.id) {
+                                case "model": return (
+                                  <td key={c.id} style={{ padding: "8px 12px" }}>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
+                                      <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
+                                    </div>
+                                  </td>
+                                );
+                                case "source": return (
+                                  <td key={c.id} style={{ padding: "8px 12px" }}>
+                                    <TagBadge tagName={link.source_tag} size="sm" />
+                                  </td>
+                                );
+                                case "clicks": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {(link.clicks || 0).toLocaleString()}
+                                  </td>
+                                );
+                                case "subscribers": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {(link.subscribers || 0).toLocaleString()}
+                                  </td>
+                                );
+                                case "cvr": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "revenue": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
+                                        <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
                                       </TooltipTrigger>
-                                      <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
+                                      <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
                                     </Tooltip>
-                                    <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
-                                  </span>
-                                ) : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            <td className="text-right" style={{ padding: "8px 12px" }}>
-                              {link.profitPerSub !== null ? (
-                                <span className={`font-mono font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`} style={{ fontSize: "12px" }}>
-                                  {link.profitPerSub >= 0 ? "" : "-"}${Math.abs(link.profitPerSub).toFixed(2)}
-                                </span>
-                              ) : <span className="text-muted-foreground font-bold" style={{ fontSize: "12px" }}>—</span>}
-                            </td>
-                            {col("roi") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            {col("status") && (
-                              <td style={{ padding: "8px 12px" }}>
-                                <div className="flex items-center gap-1.5">
-                                  {!hasCost && (
+                                  </td>
+                                );
+                                case "ltv": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                                        <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
+                                          {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
+                                        </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>No spend set</TooltipContent>
+                                      <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
                                     </Tooltip>
-                                  )}
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
-                                    style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
-                                </div>
-                              </td>
-                            )}
-                            {col("subs_day") && (
-                              <td className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.subsDay !== null && link.subsDay > 0
-                                  ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span>
-                                  : link.subsDayLabel
-                                    ? <span className="text-muted-foreground text-[10px]">{link.subsDayLabel}</span>
-                                    : <span className="text-muted-foreground">0/day</span>}
-                              </td>
-                            )}
-                            {col("created") && (() => {
-                              const days = link.daysSinceCreated;
-                              const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
-                              const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
-                                : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
-                                : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
-                                : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
-                              return (
-                                <td style={{ padding: "8px 12px" }}>
-                                  <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
-                                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
-                                </td>
-                              );
-                            })()}
-                            {col("media_buyer") && (
-                              <td style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
-                              </td>
-                            )}
-                            {col("avg_expenses") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
+                                  </td>
+                                );
+                                case "ltv_sub": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-foreground">
+                                          {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Average revenue per new subscriber</TooltipContent>
+                                    </Tooltip>
+                                  </td>
+                                );
+                                case "spender_rate": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {Number(link.spender_rate || 0) > 0 ? (
+                                      <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                        {Number(link.spender_rate).toFixed(1)}%
+                                      </span>
+                                    ) : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "expenses": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? (
+                                      <span className="text-muted-foreground">{fmtC(costTotal)}</span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                        <Tooltip>
+                                          <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
+                                          <TooltipContent>No expenses set</TooltipContent>
+                                        </Tooltip>
+                                        —
+                                      </span>
+                                    )}
+                                  </td>
+                                );
+                                case "profit": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
+                                          </TooltipTrigger>
+                                          <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
+                                        </Tooltip>
+                                        <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
+                                      </span>
+                                    ) : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "profit_sub": return (
+                                  <td key={c.id} className="text-right" style={{ padding: "8px 12px" }}>
+                                    {link.profitPerSub !== null ? (
+                                      <span className={`font-mono font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`} style={{ fontSize: "12px" }}>
+                                        {link.profitPerSub >= 0 ? "" : "-"}${Math.abs(link.profitPerSub).toFixed(2)}
+                                      </span>
+                                    ) : <span className="text-muted-foreground font-bold" style={{ fontSize: "12px" }}>—</span>}
+                                  </td>
+                                );
+                                case "roi": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "status": return (
+                                  <td key={c.id} style={{ padding: "8px 12px" }}>
+                                    <div className="flex items-center gap-1.5">
+                                      {!hasCost && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                                          </TooltipTrigger>
+                                          <TooltipContent>No spend set</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
+                                        style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
+                                    </div>
+                                  </td>
+                                );
+                                case "subs_day": return (
+                                  <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.subsDay !== null && link.subsDay > 0
+                                      ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span>
+                                      : link.subsDayLabel
+                                        ? <span className="text-muted-foreground text-[10px]">{link.subsDayLabel}</span>
+                                        : <span className="text-muted-foreground">0/day</span>}
+                                  </td>
+                                );
+                                case "created": {
+                                  const days = link.daysSinceCreated;
+                                  const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
+                                  const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
+                                    : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
+                                    : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
+                                    : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                                  return (
+                                    <td key={c.id} style={{ padding: "8px 12px" }}>
+                                      <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
+                                      <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                                    </td>
+                                  );
+                                }
+                                case "media_buyer": return (
+                                  <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
+                                  </td>
+                                );
+                                case "avg_expenses": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                default: return null;
+                              }
+                            })}
                             <td className="w-7 text-center" style={{ padding: "8px 4px" }} title={link.fans_last_synced_at ? `Fan data synced: ${format(new Date(link.fans_last_synced_at), "MMM d, yyyy")}` : "Fan data not yet synced"}>
                               {(() => {
                                 const synced = link.fans_last_synced_at;
