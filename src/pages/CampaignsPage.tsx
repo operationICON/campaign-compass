@@ -358,25 +358,17 @@ export default function CampaignsPage() {
     const untagged = scopedLinks.filter((l: any) => !l.source_tag).length;
     const totalCount = scopedLinks.length;
 
-    const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const expLtv = withSpend.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
-    const expRev = withSpend.reduce((s: number, l: any) => {
-      const ltv = Number(l.ltv || 0);
-      return s + (ltv > 0 ? ltv : Number(l.revenue || 0));
-    }, 0);
-    const expSpend = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const expSubs = withSpend.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const profitPerSub = expSpend > 0 && expSubs > 0 ? (expRev - expSpend) / expSubs : null;
-    const avgCpl = expSpend > 0 && expSubs > 0 ? expSpend / expSubs : null;
-    const trackedCount = withSpend.length;
+    const agTotals = calcAgencyTotals(scopedLinks);
+    const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
     // Source-based KPIs
+    const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const bySource: Record<string, { rev: number; spend: number; subs: number; profit: number; count: number }> = {};
     withSpend.forEach((l: any) => {
       const tag = l.source_tag || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const { value: effectiveRev } = getEffectiveRevenue(l);
       bySource[tag].rev += effectiveRev;
       bySource[tag].spend += Number(l.cost_total || 0);
       bySource[tag].subs += (l.subscribers || 0);
@@ -399,14 +391,14 @@ export default function CampaignsPage() {
       if (!worstSource || roi < worstSource.roi) worstSource = { name, roi };
     });
 
-    const avgExpensesPerCampaign = withSpend.length > 0 ? expSpend / withSpend.length : null;
-    const blendedRoi = expSpend > 0 ? ((expRev - expSpend) / expSpend) * 100 : null;
+    const avgExpensesPerCampaign = withSpend.length > 0 ? agTotals.totalSpend / withSpend.length : null;
 
     return {
       totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
-      profitPerSub, avgCpl, trackedCount, trackedPct,
+      profitPerSub: agTotals.avgProfitPerSub, avgCpl: agTotals.avgCpl, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
-      avgExpensesPerCampaign, blendedRoi,
+      avgExpensesPerCampaign, blendedRoi: agTotals.roiPct, isEstimate: agTotals.isEstimate,
+      totalSpend: agTotals.totalSpend, totalProfit: agTotals.totalProfit,
     };
   }, [filtered]);
 
@@ -455,13 +447,8 @@ export default function CampaignsPage() {
   };
 
   // KPI summary text for collapsed state
-  const totalExpenses = filtered.reduce((s: number, l: any) => s + (Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0), 0);
-  const totalProfitAll = filtered.reduce((s: number, l: any) => {
-    const ct = Number(l.cost_total || 0);
-    if (ct <= 0) return s;
-    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
-    return s + (effectiveRev - ct);
-  }, 0);
+  const totalExpenses = kpis.totalSpend;
+  const totalProfitAll = kpis.totalProfit;
   const hasAnyExpenses = totalExpenses > 0;
   const kpiSummary = (
     <>
