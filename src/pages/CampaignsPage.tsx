@@ -34,43 +34,27 @@ type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "DEAD";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
-const COLUMNS_KEY = "campaigns_columns";
 
-type ColumnId = "model" | "source" | "revenue" | "ltv" | "ltv_sub" | "spender_rate" | "expenses" | "profit" | "roi" | "status" | "subs_day" | "clicks" | "subscribers" | "cvr" | "created" | "media_buyer" | "avg_expenses";
-
-const ALL_TOGGLEABLE_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
+const ALL_COLUMNS = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
+  { id: "clicks", label: "Clicks", defaultOn: false },
+  { id: "subscribers", label: "Subscribers", defaultOn: false },
+  { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
   { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
+  { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
   { id: "status", label: "Status", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
-  { id: "clicks", label: "Clicks", defaultOn: false },
-  { id: "subscribers", label: "Subscribers", defaultOn: false },
-  { id: "cvr", label: "CVR", defaultOn: false },
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
-
-function getDefaultColumns(): Record<ColumnId, boolean> {
-  const defaults: Record<string, boolean> = {};
-  ALL_TOGGLEABLE_COLUMNS.forEach(c => { defaults[c.id] = c.defaultOn; });
-  return defaults as Record<ColumnId, boolean>;
-}
-
-function loadColumns(): Record<ColumnId, boolean> {
-  try {
-    const saved = localStorage.getItem(COLUMNS_KEY);
-    if (saved) return { ...getDefaultColumns(), ...JSON.parse(saved) };
-  } catch {}
-  return getDefaultColumns();
-}
 
 // ─── Constants ───
 const MODEL_COLORS: Record<string, string> = {
