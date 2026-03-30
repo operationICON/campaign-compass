@@ -26,7 +26,7 @@ export function InsightsSection({
   isInsightVisible, isModelColVisible,
 }: InsightsSectionProps) {
   const colorMap = useTagColors();
-  const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtC = (v: number | null | undefined) => `$${(v ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const filteredAccountIds = useMemo(() => {
     let accts = accounts;
