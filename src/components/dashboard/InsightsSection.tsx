@@ -47,11 +47,21 @@ export function InsightsSection({
     return { ...l, spend, profit, roi, profitPerSub, effectiveRevenue: revenue };
   }), [filteredLinks]);
 
-  // ── TOP CAMPAIGNS ──
+  // ── TOP TRACKING LINKS (across ALL accounts, by subscribers desc) ──
+  const allEnriched = useMemo(() => links.map((l: any) => {
+    const spend = Number(l.cost_total || 0);
+    const ltvVal = Number(l.ltv || 0);
+    const revenue = ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
+    const profit = spend > 0 ? revenue - spend : null;
+    const roi = spend > 0 ? ((revenue - spend) / spend) * 100 : null;
+    const profitPerSub = (profit !== null && l.subscribers > 0) ? profit / l.subscribers : null;
+    return { ...l, spend, profit, roi, profitPerSub, effectiveRevenue: revenue };
+  }), [links]);
+
   const top5 = useMemo(() =>
-    enriched.filter(l => l.profitPerSub !== null && l.spend > 0)
-      .sort((a, b) => (b.profitPerSub ?? 0) - (a.profitPerSub ?? 0)).slice(0, 5),
-    [enriched]);
+    allEnriched.filter(l => (l.subscribers || 0) > 0)
+      .sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0)).slice(0, 3),
+    [allEnriched]);
 
   // ── PERFORMANCE BY SOURCE ──
   const sourcePerf = useMemo(() => {
