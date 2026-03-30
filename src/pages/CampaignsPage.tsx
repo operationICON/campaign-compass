@@ -857,167 +857,175 @@ export default function CampaignsPage() {
                               <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
                               <p className="truncate" style={{ fontSize: "11px", color: "#94a3b8" }} title={link.url}>{link.url}</p>
                             </td>
-                            {col("model") && (
-                              <td style={{ padding: "8px 12px" }}>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
-                                  <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
-                                </div>
-                              </td>
-                            )}
-                            {col("source") && (
-                              <td style={{ padding: "8px 12px" }}>
-                                <TagBadge tagName={link.source_tag} size="sm" />
-                              </td>
-                            )}
-                            {col("clicks") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {(link.clicks || 0).toLocaleString()}
-                              </td>
-                            )}
-                            {col("subscribers") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {(link.subscribers || 0).toLocaleString()}
-                              </td>
-                            )}
-                            {col("cvr") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            {col("revenue") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
-                                </Tooltip>
-                              </td>
-                            )}
-                            {col("ltv") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
-                                      {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
-                                </Tooltip>
-                              </td>
-                            )}
-                            {col("ltv_sub") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-foreground">
-                                      {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Average revenue per new subscriber</TooltipContent>
-                                </Tooltip>
-                              </td>
-                            )}
-                            {col("spender_rate") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {Number(link.spender_rate || 0) > 0 ? (
-                                  <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
-                                    {Number(link.spender_rate).toFixed(1)}%
-                                  </span>
-                                ) : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            {col("expenses") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? (
-                                  <span className="text-muted-foreground">{fmtC(costTotal)}</span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                    <Tooltip>
-                                      <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
-                                      <TooltipContent>No expenses set</TooltipContent>
-                                    </Tooltip>
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                            )}
-                            {col("profit") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? (
-                                  <span className="inline-flex items-center gap-1">
+                            {columnOrder.visibleOrderedColumns.map(c => {
+                              switch (c.id) {
+                                case "model": return (
+                                  <td key={c.id} style={{ padding: "8px 12px" }}>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
+                                      <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
+                                    </div>
+                                  </td>
+                                );
+                                case "source": return (
+                                  <td key={c.id} style={{ padding: "8px 12px" }}>
+                                    <TagBadge tagName={link.source_tag} size="sm" />
+                                  </td>
+                                );
+                                case "clicks": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {(link.clicks || 0).toLocaleString()}
+                                  </td>
+                                );
+                                case "subscribers": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {(link.subscribers || 0).toLocaleString()}
+                                  </td>
+                                );
+                                case "cvr": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "revenue": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
+                                        <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
                                       </TooltipTrigger>
-                                      <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
+                                      <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
                                     </Tooltip>
-                                    <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
-                                  </span>
-                                ) : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            <td className="text-right" style={{ padding: "8px 12px" }}>
-                              {link.profitPerSub !== null ? (
-                                <span className={`font-mono font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`} style={{ fontSize: "12px" }}>
-                                  {link.profitPerSub >= 0 ? "" : "-"}${Math.abs(link.profitPerSub).toFixed(2)}
-                                </span>
-                              ) : <span className="text-muted-foreground font-bold" style={{ fontSize: "12px" }}>—</span>}
-                            </td>
-                            {col("roi") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            {col("status") && (
-                              <td style={{ padding: "8px 12px" }}>
-                                <div className="flex items-center gap-1.5">
-                                  {!hasCost && (
+                                  </td>
+                                );
+                                case "ltv": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                                        <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
+                                          {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
+                                        </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>No spend set</TooltipContent>
+                                      <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
                                     </Tooltip>
-                                  )}
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
-                                    style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
-                                </div>
-                              </td>
-                            )}
-                            {col("subs_day") && (
-                              <td className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.subsDay !== null && link.subsDay > 0
-                                  ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span>
-                                  : link.subsDayLabel
-                                    ? <span className="text-muted-foreground text-[10px]">{link.subsDayLabel}</span>
-                                    : <span className="text-muted-foreground">0/day</span>}
-                              </td>
-                            )}
-                            {col("created") && (() => {
-                              const days = link.daysSinceCreated;
-                              const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
-                              const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
-                                : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
-                                : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
-                                : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
-                              return (
-                                <td style={{ padding: "8px 12px" }}>
-                                  <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
-                                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
-                                </td>
-                              );
-                            })()}
-                            {col("media_buyer") && (
-                              <td style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
-                              </td>
-                            )}
-                            {col("avg_expenses") && (
-                              <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
+                                  </td>
+                                );
+                                case "ltv_sub": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-foreground">
+                                          {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Average revenue per new subscriber</TooltipContent>
+                                    </Tooltip>
+                                  </td>
+                                );
+                                case "spender_rate": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {Number(link.spender_rate || 0) > 0 ? (
+                                      <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                        {Number(link.spender_rate).toFixed(1)}%
+                                      </span>
+                                    ) : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "expenses": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? (
+                                      <span className="text-muted-foreground">{fmtC(costTotal)}</span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                        <Tooltip>
+                                          <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
+                                          <TooltipContent>No expenses set</TooltipContent>
+                                        </Tooltip>
+                                        —
+                                      </span>
+                                    )}
+                                  </td>
+                                );
+                                case "profit": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 cursor-help ${ltvBased ? "bg-[#0891b2]" : "bg-muted-foreground"}`} />
+                                          </TooltipTrigger>
+                                          <TooltipContent>{ltvBased ? "Calculated from LTV (accurate)" : "Calculated from Revenue (estimate)"}</TooltipContent>
+                                        </Tooltip>
+                                        <span className={profit >= 0 ? "text-primary" : "text-destructive"}>{profit >= 0 ? "+" : ""}{fmtC(profit)}</span>
+                                      </span>
+                                    ) : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "profit_sub": return (
+                                  <td key={c.id} className="text-right" style={{ padding: "8px 12px" }}>
+                                    {link.profitPerSub !== null ? (
+                                      <span className={`font-mono font-bold ${link.profitPerSub >= 0 ? "text-primary" : "text-destructive"}`} style={{ fontSize: "12px" }}>
+                                        {link.profitPerSub >= 0 ? "" : "-"}${Math.abs(link.profitPerSub).toFixed(2)}
+                                      </span>
+                                    ) : <span className="text-muted-foreground font-bold" style={{ fontSize: "12px" }}>—</span>}
+                                  </td>
+                                );
+                                case "roi": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? <span className={roi >= 0 ? "text-primary" : "text-destructive"}>{roi.toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "status": return (
+                                  <td key={c.id} style={{ padding: "8px 12px" }}>
+                                    <div className="flex items-center gap-1.5">
+                                      {!hasCost && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                                          </TooltipTrigger>
+                                          <TooltipContent>No spend set</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
+                                        style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
+                                    </div>
+                                  </td>
+                                );
+                                case "subs_day": return (
+                                  <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.subsDay !== null && link.subsDay > 0
+                                      ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span>
+                                      : link.subsDayLabel
+                                        ? <span className="text-muted-foreground text-[10px]">{link.subsDayLabel}</span>
+                                        : <span className="text-muted-foreground">0/day</span>}
+                                  </td>
+                                );
+                                case "created": {
+                                  const days = link.daysSinceCreated;
+                                  const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
+                                  const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
+                                    : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
+                                    : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
+                                    : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                                  return (
+                                    <td key={c.id} style={{ padding: "8px 12px" }}>
+                                      <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
+                                      <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                                    </td>
+                                  );
+                                }
+                                case "media_buyer": return (
+                                  <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
+                                  </td>
+                                );
+                                case "avg_expenses": return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                default: return null;
+                              }
+                            })}
                             )}
                             <td className="w-7 text-center" style={{ padding: "8px 4px" }} title={link.fans_last_synced_at ? `Fan data synced: ${format(new Date(link.fans_last_synced_at), "MMM d, yyyy")}` : "Fan data not yet synced"}>
                               {(() => {
