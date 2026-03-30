@@ -8,6 +8,9 @@ import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearTrackingLinkSpend, setTrackingLinkSourceTag } from "@/lib/supabase-helpers";
+import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
+import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { RefreshButton } from "@/components/RefreshButton";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
@@ -76,7 +79,7 @@ function loadKpiVisibility(): Set<KpiId> {
   return new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id));
 }
 
-const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
+const TS_COLUMNS: ColumnDef[] = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
   { id: "category", label: "Category", defaultOn: true },
@@ -95,16 +98,6 @@ const ALL_COLUMNS: { id: ColumnId; label: string; defaultOn: boolean }[] = [
   { id: "created", label: "Created", defaultOn: true },
   { id: "notes", label: "Notes", defaultOn: false },
 ];
-
-function getDefaultColumns(): Record<ColumnId, boolean> {
-  const d: Record<string, boolean> = {};
-  ALL_COLUMNS.forEach(c => { d[c.id] = c.defaultOn; });
-  return d as Record<ColumnId, boolean>;
-}
-function loadColumns(): Record<ColumnId, boolean> {
-  try { const s = localStorage.getItem(COLUMNS_KEY); if (s) return { ...getDefaultColumns(), ...JSON.parse(s) }; } catch {}
-  return getDefaultColumns();
-}
 
 function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
@@ -166,17 +159,9 @@ export default function TrafficSourcesPage() {
     });
   };
 
-  // Column visibility
-  const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
-  const [colDropdownOpen, setColDropdownOpen] = useState(false);
-  const toggleColumn = (id: ColumnId) => {
-    setVisibleCols(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      try { localStorage.setItem(COLUMNS_KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-  const col = (id: ColumnId) => visibleCols[id];
+  // Column order (drag-and-drop)
+  const columnOrder = useColumnOrder("ct_traffic_sources_columns", TS_COLUMNS);
+  const col = (id: string) => columnOrder.isVisible(id);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -945,26 +930,22 @@ export default function TrafficSourcesPage() {
 
           {/* Columns button */}
           <div className="relative ml-auto">
-            <button onClick={() => setColDropdownOpen(!colDropdownOpen)} className="px-3 py-1.5 border text-sm font-medium flex items-center gap-1.5" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
-              <BarChart3 className="h-3.5 w-3.5" /> Columns
-            </button>
-            {colDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setColDropdownOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-white border shadow-lg py-1" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                  {ALL_COLUMNS.map(c => (
-                    <label key={c.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
-                      <input type="checkbox" checked={visibleCols[c.id]} onChange={() => toggleColumn(c.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
-                      <span style={{ color: "#1a2332" }}>{c.label}</span>
-                    </label>
-                  ))}
-                  <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
-                  <button onClick={() => { setVisibleCols(getDefaultColumns()); localStorage.removeItem(COLUMNS_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
-                    Reset to defaults
-                  </button>
-                </div>
-              </>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="px-3 py-1.5 border text-sm font-medium flex items-center gap-1.5" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
+                  <BarChart3 className="h-3.5 w-3.5" /> Columns
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DraggableColumnSelector
+                  columns={columnOrder.orderedColumns}
+                  isVisible={columnOrder.isVisible}
+                  onToggle={columnOrder.toggleColumn}
+                  onReorder={columnOrder.reorder}
+                  onReset={columnOrder.reset}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <span style={{ fontSize: "12px", color: "#64748b" }}>{filtered.length} campaigns</span>
@@ -989,23 +970,13 @@ export default function TrafficSourcesPage() {
                     <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
                   </th>
                   <SortHeader label="Tracking Link" k="campaign_name" />
-                  {col("model") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Model</th>}
-                  {col("source") && <SortHeader label="Source" k="source_tag" />}
-                  {col("category") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Category</th>}
-                  {col("clicks") && <SortHeader label="Clicks" k="clicks" align="right" />}
-                  {col("subscribers") && <SortHeader label="Subs" k="subscribers" align="right" />}
-                  {col("cvr") && <SortHeader label="CVR" k="cvr" align="right" />}
-                  {col("revenue") && <SortHeader label="Revenue" k="revenue" align="right" />}
-                  {col("ltv") && <SortHeader label="LTV" k="ltv" align="right" />}
-                  {col("ltv_per_sub") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>LTV/Sub</th>}
-                  {col("expenses") && <SortHeader label="Spend" k="cost_total" align="right" />}
-                  {col("profit") && <SortHeader label="Profit" k="profit" align="right" />}
-                  {col("profit_per_sub") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Profit/Sub</th>}
-                  {col("roi") && <SortHeader label="ROI" k="roi" align="right" />}
-                  {col("status") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>}
-                  {col("subs_day") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" }}>Subs/Day</th>}
-                  {col("created") && <SortHeader label="Created" k="created_at" align="right" />}
-                  {col("notes") && <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Notes</th>}
+                  {columnOrder.visibleOrderedColumns.map(c => {
+                    const rightAligned = ["clicks","subscribers","cvr","revenue","ltv","ltv_per_sub","expenses","profit","profit_per_sub","roi","subs_day"].includes(c.id);
+                    const sortMap: Record<string, SortKey> = { clicks: "clicks", subscribers: "subscribers", cvr: "cvr", revenue: "revenue", ltv: "ltv", expenses: "cost_total", profit: "profit", roi: "roi", source: "source_tag", created: "created_at" };
+                    const sk = sortMap[c.id];
+                    if (sk) return <SortHeader key={c.id} label={c.label} k={sk} align={rightAligned ? "right" : undefined} />;
+                    return <th key={c.id} style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: rightAligned ? "right" : undefined }}>{c.label}</th>;
+                  })}
                   <th style={{ width: "28px" }} />
                 </tr>
               </thead>
@@ -1037,55 +1008,56 @@ export default function TrafficSourcesPage() {
                         <p style={{ fontSize: "12px", fontWeight: 700, color: "#1a2332" }} className="truncate">{link.campaign_name || "—"}</p>
                         <p style={{ fontSize: "10px", color: "#94a3b8" }} className="truncate">{link.url}</p>
                       </td>
-                      {col("model") && <td style={{ padding: "8px 12px", fontSize: "11px", color: "#64748b" }}>@{username}</td>}
-                      {col("source") && <td style={{ padding: "8px 12px" }}><TagBadge tagName={link.source_tag} size="sm" /></td>}
-                      {col("category") && (
-                        <td style={{ padding: "8px 12px" }}>
-                          {cat ? (
-                            <span className="inline-block px-2 py-0.5" style={{
-                              fontSize: "10px", fontWeight: 600, borderRadius: "4px",
-                              background: cat === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe",
-                              color: cat === "OnlyTraffic" ? "#7c3aed" : "#0891b2",
-                            }}>{cat}</span>
-                          ) : (
-                            <span style={{ fontSize: "10px", color: "#94a3b8" }}>—</span>
-                          )}
-                        </td>
-                      )}
-                      {col("clicks") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(link.clicks || 0)}</td>}
-                      {col("subscribers") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(subs)}</td>}
-                      {col("cvr") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "#0891b2" : "#1a2332" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>}
-                      {col("revenue") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtC(Number(link.revenue || 0))}</td>}
-                      {col("ltv") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv > 0 ? "#0891b2" : "#94a3b8" }}>{ltv > 0 ? fmtC(ltv) : "—"}</td>}
-                      {col("ltv_per_sub") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{ltvPerSub > 0 ? fmtC(ltvPerSub) : "—"}</td>}
-                      {col("expenses") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>}
-                      {col("profit") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit > 0 ? "#16a34a" : profit < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(profit) : "—"}</td>}
-                      {col("profit_per_sub") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub > 0 ? "#16a34a" : profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 && subs > 0 ? fmtC(profitPerSub) : "—"}</td>}
-                      {col("roi") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi > 0 ? "#16a34a" : roi < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtPct(roi) : "—"}</td>}
-                      {col("status") && (
-                        <td style={{ padding: "8px 12px" }}>
-                          <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 700, borderRadius: "4px", background: st.bg, color: st.text }}>
-                            {status === "NO_DATA" ? "NO SPEND" : status}
-                          </span>
-                        </td>
-                      )}
-                      {col("subs_day") && <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>}
-                      {col("created") && (() => {
-                        const pill = ageDays <= 30 ? { label: `${ageDays}d New`, bg: "#dcfce7", text: "#16a34a" }
-                          : ageDays <= 90 ? { label: `${ageDays}d Active`, bg: "#dbeafe", text: "#2563eb" }
-                          : ageDays <= 180 ? { label: `${ageDays}d Mature`, bg: "#fef9c3", text: "#854d0e" }
-                          : { label: `${ageDays}d Old`, bg: "#f3f4f6", text: "#6b7280" };
-                        return (
-                          <td style={{ padding: "8px 12px" }}>
-                            <p className="text-foreground" style={{ fontSize: "12px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
-                            <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
-                          </td>
-                        );
-                      })()}
-                      {col("notes") && (() => {
-                        const n = notes.find((nt: any) => nt.campaign_id === link.campaign_id && nt.account_id === link.account_id);
-                        return <td style={{ padding: "8px 12px", fontSize: "11px", color: n?.note ? "#1a2332" : "#94a3b8", maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;
-                      })()}
+                      {columnOrder.visibleOrderedColumns.map(c => {
+                        switch (c.id) {
+                          case "model": return <td key={c.id} style={{ padding: "8px 12px", fontSize: "11px", color: "#64748b" }}>@{username}</td>;
+                          case "source": return <td key={c.id} style={{ padding: "8px 12px" }}><TagBadge tagName={link.source_tag} size="sm" /></td>;
+                          case "category": return (
+                            <td key={c.id} style={{ padding: "8px 12px" }}>
+                              {cat ? (
+                                <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 600, borderRadius: "4px", background: cat === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe", color: cat === "OnlyTraffic" ? "#7c3aed" : "#0891b2" }}>{cat}</span>
+                              ) : (
+                                <span style={{ fontSize: "10px", color: "#94a3b8" }}>—</span>
+                              )}
+                            </td>
+                          );
+                          case "clicks": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(link.clicks || 0)}</td>;
+                          case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(subs)}</td>;
+                          case "cvr": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "#0891b2" : "#1a2332" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>;
+                          case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtC(Number(link.revenue || 0))}</td>;
+                          case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv > 0 ? "#0891b2" : "#94a3b8" }}>{ltv > 0 ? fmtC(ltv) : "—"}</td>;
+                          case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{ltvPerSub > 0 ? fmtC(ltvPerSub) : "—"}</td>;
+                          case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
+                          case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit > 0 ? "#16a34a" : profit < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(profit) : "—"}</td>;
+                          case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub > 0 ? "#16a34a" : profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 && subs > 0 ? fmtC(profitPerSub) : "—"}</td>;
+                          case "roi": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi > 0 ? "#16a34a" : roi < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtPct(roi) : "—"}</td>;
+                          case "status": return (
+                            <td key={c.id} style={{ padding: "8px 12px" }}>
+                              <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 700, borderRadius: "4px", background: st.bg, color: st.text }}>
+                                {status === "NO_DATA" ? "NO SPEND" : status}
+                              </span>
+                            </td>
+                          );
+                          case "subs_day": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>;
+                          case "created": {
+                            const pill = ageDays <= 30 ? { label: `${ageDays}d New`, bg: "#dcfce7", text: "#16a34a" }
+                              : ageDays <= 90 ? { label: `${ageDays}d Active`, bg: "#dbeafe", text: "#2563eb" }
+                              : ageDays <= 180 ? { label: `${ageDays}d Mature`, bg: "#fef9c3", text: "#854d0e" }
+                              : { label: `${ageDays}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                            return (
+                              <td key={c.id} style={{ padding: "8px 12px" }}>
+                                <p className="text-foreground" style={{ fontSize: "12px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
+                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                              </td>
+                            );
+                          }
+                          case "notes": {
+                            const n = notes.find((nt: any) => nt.campaign_id === link.campaign_id && nt.account_id === link.account_id);
+                            return <td key={c.id} style={{ padding: "8px 12px", fontSize: "11px", color: n?.note ? "#1a2332" : "#94a3b8", maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;
+                          }
+                          default: return null;
+                        }
+                      })}
                       <td className="w-7 text-center" style={{ padding: "8px 4px" }}>
                         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} style={{ color: isExpanded ? "#0891b2" : "#94a3b8" }} />
                       </td>
