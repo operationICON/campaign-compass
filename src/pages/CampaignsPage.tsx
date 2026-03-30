@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
+import { useColumnOrder } from "@/hooks/useColumnOrder";
+import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
@@ -126,17 +128,10 @@ export default function CampaignsPage() {
   const queryClient = useQueryClient();
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
 
-  // ─── Column visibility state ───
-  const [visibleCols, setVisibleCols] = useState<Record<ColumnId, boolean>>(loadColumns);
+  // ─── Column order + visibility ───
+  const columnOrder = useColumnOrder("campaigns_columns", ALL_COLUMNS);
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
-  const toggleColumn = (id: ColumnId) => {
-    setVisibleCols(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      try { localStorage.setItem(COLUMNS_KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-  const col = (id: ColumnId) => visibleCols[id];
+  const col = (id: string) => columnOrder.isVisible(id);
 
   // ─── KPI collapse state ───
   const [kpiCollapsed, setKpiCollapsed] = useState(() => {
