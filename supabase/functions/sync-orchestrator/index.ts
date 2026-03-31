@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
   const triggeredBy = body.triggered_by ?? 'manual'
 
   try {
-    // Mark stuck syncs (running > 3 min) as failed
-    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString()
+    // Mark stuck syncs (running > 8 min) as failed — increased from 3 min for large accounts
+    const threeMinutesAgo = new Date(Date.now() - 8 * 60 * 1000).toISOString()
     const { data: stuck } = await db.from('sync_logs')
       .select('id')
       .eq('status', 'running')
