@@ -893,6 +893,7 @@ export type Database = {
           cross_poll_revenue: number | null
           external_tracking_link_id: string
           id: string
+          is_estimated: boolean | null
           ltv_last_30d: number | null
           ltv_last_7d: number | null
           ltv_per_sub: number | null
@@ -913,6 +914,7 @@ export type Database = {
           cross_poll_revenue?: number | null
           external_tracking_link_id: string
           id?: string
+          is_estimated?: boolean | null
           ltv_last_30d?: number | null
           ltv_last_7d?: number | null
           ltv_per_sub?: number | null
@@ -933,6 +935,7 @@ export type Database = {
           cross_poll_revenue?: number | null
           external_tracking_link_id?: string
           id?: string
+          is_estimated?: boolean | null
           ltv_last_30d?: number | null
           ltv_last_7d?: number | null
           ltv_per_sub?: number | null

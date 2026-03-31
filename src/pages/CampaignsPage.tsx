@@ -29,6 +29,8 @@ import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { useColumnOrder } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
+import { TrackingLinkPanel } from "@/components/dashboard/TrackingLinkPanel";
+import { Pencil } from "lucide-react";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
@@ -142,6 +144,8 @@ export default function CampaignsPage() {
   
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<any>(null);
 
   // ─── Data fetching ───
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
@@ -511,6 +515,13 @@ export default function CampaignsPage() {
             </button>
             <RefreshButton queryKeys={["tracking_links", "ad_spend", "accounts"]} />
             <button
+              onClick={() => { setEditingLink(null); setPanelOpen(true); }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-colors"
+              style={{ background: "#0891b2" }}
+            >
+              <Plus className="h-4 w-4" /> New
+            </button>
+            <button
               onClick={() => syncMutation.mutate(undefined)}
               disabled={syncMutation.isPending}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
@@ -756,8 +767,8 @@ export default function CampaignsPage() {
           })}
         </div>
 
-        {/* ═══ CAMPAIGN TABLE ═══ */}
-        <div className="flex gap-0">
+        {/* ═══ CAMPAIGN TABLE + PANEL ═══ */}
+        <div className="flex gap-4">
           <div className="flex-1 min-w-0">
             {isLoading ? (
               <div className="bg-card border border-border rounded-2xl p-8"><div className="space-y-3">{[...Array(8)].map((_, i) => (<div key={i} className="skeleton-shimmer h-10 rounded" />))}</div></div>
@@ -835,6 +846,7 @@ export default function CampaignsPage() {
                           }
                         })}
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }} title="Fan sync status">👥</th>
+                        <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 4px", width: "28px", background: "#f8fafc" }}></th>
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}></th>
                       </tr>
                     </thead>
@@ -1069,6 +1081,12 @@ export default function CampaignsPage() {
                                 if (daysSince <= 30) return <Users className="h-3.5 w-3.5 text-[hsl(var(--warning))] mx-auto" />;
                                 return <Users className="h-3.5 w-3.5 text-muted-foreground mx-auto" />;
                               })()}
+                            </td>
+                            <td className="w-7 text-center" style={{ padding: "8px 4px" }} onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => { setEditingLink(link); setPanelOpen(true); }}
+                                className="p-1 rounded hover:bg-secondary transition-colors opacity-0 group-hover:opacity-100">
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              </button>
                             </td>
                             <td className="w-7 text-center" style={{ padding: "8px 12px" }}>
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
@@ -1356,6 +1374,14 @@ export default function CampaignsPage() {
               </div>
             )}
           </div>
+          {panelOpen && (
+            <TrackingLinkPanel
+              open={panelOpen}
+              onClose={() => { setPanelOpen(false); setEditingLink(null); }}
+              editLink={editingLink}
+              accounts={accounts}
+            />
+          )}
         </div>
 
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
