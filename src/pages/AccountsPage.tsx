@@ -580,7 +580,7 @@ export default function AccountsPage() {
                 key={acc.id}
                 className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40 cursor-pointer"
               >
-                <div className="flex items-start gap-4 mb-4" onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}>
+                <div className="flex items-start gap-4 mb-4" onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
                   <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
