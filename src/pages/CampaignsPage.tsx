@@ -767,8 +767,18 @@ export default function CampaignsPage() {
           })}
         </div>
 
-        {/* ═══ CAMPAIGN TABLE + PANEL ═══ */}
-        <div className="flex gap-4">
+        {/* ═══ NEW/EDIT TRACKING LINK PANEL (inline) ═══ */}
+        {panelOpen && (
+          <TrackingLinkPanel
+            open={panelOpen}
+            onClose={() => { setPanelOpen(false); setEditingLink(null); }}
+            editLink={editingLink}
+            accounts={accounts}
+          />
+        )}
+
+        {/* ═══ CAMPAIGN TABLE ═══ */}
+        <div className="flex gap-0">
           <div className="flex-1 min-w-0">
             {isLoading ? (
               <div className="bg-card border border-border rounded-2xl p-8"><div className="space-y-3">{[...Array(8)].map((_, i) => (<div key={i} className="skeleton-shimmer h-10 rounded" />))}</div></div>
