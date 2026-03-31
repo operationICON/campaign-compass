@@ -52,6 +52,23 @@ export default function ChartsPage() {
 
   const modelNames = useMemo(() => accounts.map((a: any) => a.display_name), [accounts]);
 
+  const renderModelLegend = (props: any) => {
+    const { payload } = props;
+    return (
+      <div className="flex flex-wrap gap-3 justify-center mt-1">
+        {(payload || []).map((entry: any) => {
+          const acc = accounts.find((a: any) => a.display_name === entry.value);
+          return (
+            <div key={entry.value} className="flex items-center gap-1.5">
+              <ModelAvatar avatarUrl={acc?.avatar_thumb_url} name={entry.value} size={18} />
+              <span style={{ color: entry.color, fontSize: 11 }}>{entry.value}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const ltvByType = useMemo(() => {
     const map: Record<string, number> = {};
     transactions.forEach((t: any) => {
