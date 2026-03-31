@@ -150,7 +150,13 @@ export default function DashboardPage() {
     return s + (cost > 0 ? cost : 0);
   }, 0), [filteredLinksForKpi]);
   const totalRevenue = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
-  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0), [filteredLinksForKpi]);
+  // Total LTV from tracking_link_ltv table (is_estimated = false only)
+  const totalLtv = useMemo(() => {
+    const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+    return trackingLinkLtv
+      .filter((r: any) => r.is_estimated === false && (!accountIdSet || accountIdSet.has(r.account_id)))
+      .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
+  }, [trackingLinkLtv, agencyAccountIds]);
   const totalEffective = totalLtv > 0 ? totalLtv : totalRevenue;
   const totalProfit = totalSpend > 0 ? totalEffective - totalSpend : null;
   const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
