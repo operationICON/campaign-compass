@@ -332,15 +332,34 @@ Deno.serve(async (req) => {
         payloads.push(p)
       }
 
-      // Batch upsert in chunks of 25
-      for (let i = 0; i < payloads.length; i += 25) {
-        const batch = payloads.slice(i, i + 25)
-        await db.from('tracking_links').upsert(batch, {
-          onConflict: 'external_tracking_link_id', ignoreDuplicates: false,
-        })
+      // Apply batch offset for resume support
+      const payloadsToProcess = batchOffset > 0 ? payloads.slice(batchOffset) : payloads
+      console.log(`[${displayName}] Processing ${payloadsToProcess.length} links${batchOffset > 0 ? ` (skipped ${batchOffset} already processed)` : ''}`)
+
+      // Batch upsert in chunks of 50
+      for (let i = 0; i < payloadsToProcess.length; i += 50) {
+        const batch = payloadsToProcess.slice(i, i + 50)
+        try {
+          await db.from('tracking_links').upsert(batch, {
+            onConflict: 'external_tracking_link_id', ignoreDuplicates: false,
+          })
+        } catch (upsertErr: any) {
+          // Log progress so next call can resume
+          const processed = batchOffset + i
+          console.error(`[${displayName}] Upsert failed at offset ${processed}: ${upsertErr.message}`)
+          if (syncLogId) {
+            await db.from('sync_logs').update({
+              status: 'partial', success: false,
+              message: `${displayName}: partial sync — ${processed}/${payloads.length} links processed. Resume with batch_offset=${processed}`,
+              records_processed: processed,
+              details: JSON.stringify({ batch_offset: processed, total: payloads.length }),
+            }).eq('id', syncLogId)
+          }
+          throw upsertErr
+        }
       }
       linkCount = payloads.length
-      console.log(`[${displayName}] Upserted ${linkCount} links`)
+      console.log(`[${displayName}] Upserted ${payloadsToProcess.length} links`)
 
       // ── Daily metrics snapshot ──
       const { data: dbLinks } = await db.from('tracking_links')
