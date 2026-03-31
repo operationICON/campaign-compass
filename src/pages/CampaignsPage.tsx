@@ -144,6 +144,8 @@ export default function CampaignsPage() {
   
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<any>(null);
 
   // ─── Data fetching ───
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
