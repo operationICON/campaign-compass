@@ -321,6 +321,7 @@ export default function DashboardPage() {
           links={links}
           accounts={accounts}
           dailyMetrics={dailyMetrics}
+          trackingLinkLtv={trackingLinkLtv}
           groupFilter={groupFilter}
           selectedModel={selectedModel}
           getAccountCategory={getAccountCategory}
