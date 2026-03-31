@@ -1165,8 +1165,9 @@ export default function TrafficSourcesPage() {
                         } catch { toast.error("Clear failed"); }
                         finally { setNoteLoading(false); }
                       };
-                      const ltvVal = Number(el.ltv || 0);
-                      const ltvSubVal = Number(el.ltv_per_sub || 0);
+                      const detailLtvRecord = ltvLookup[el.id];
+                      const ltvVal = detailLtvRecord ? Number(detailLtvRecord.total_ltv || 0) : null;
+                      const ltvSubVal = detailLtvRecord ? Number(detailLtvRecord.ltv_per_sub || 0) : null;
                       const spenderRateVal = Number(el.spender_rate || 0);
                       const subsDayVal = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
                       const subsDayDisplay = subsDayVal > 0 ? { v: `${Math.round(subsDayVal)}/day`, c: "#0891b2" } : { v: "0/day", c: "#94a3b8" };
