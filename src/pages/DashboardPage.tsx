@@ -39,6 +39,22 @@ export default function DashboardPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
+  // Compute date filter bounds from time period
+  const dateFilter = useMemo(() => {
+    if (customRange) {
+      return { from: startOfDay(customRange.from).toISOString(), to: startOfDay(customRange.to).toISOString() };
+    }
+    const now = new Date();
+    switch (timePeriod) {
+      case "day": return { from: subDays(now, 1).toISOString(), to: null };
+      case "week": return { from: subDays(now, 7).toISOString(), to: null };
+      case "month": return { from: subDays(now, 30).toISOString(), to: null };
+      case "prev_month": return { from: subDays(now, 60).toISOString(), to: subDays(now, 30).toISOString() };
+      case "since_sync": return { from: null, to: null, sincSync: true };
+      case "all": default: return { from: null, to: null };
+    }
+  }, [timePeriod, customRange]);
+
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
     insightPanels, toggleInsight, isInsightVisible,
@@ -46,13 +62,30 @@ export default function DashboardPage() {
   } = useOverviewCustomizer();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+  const { data: links = [], isLoading } = useQuery({
+    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
+    queryFn: async () => {
+      let query = supabase
+        .from("tracking_links")
+        .select("*, accounts(display_name, username, avatar_thumb_url)")
+        .is("deleted_at", null)
+        .order("revenue", { ascending: false });
+      if (dateFilter.from) query = query.gte("created_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("created_at", dateFilter.to);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      let query = supabase.from("tracking_link_ltv").select("*");
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
