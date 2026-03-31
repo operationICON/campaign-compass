@@ -43,6 +43,7 @@ const ALL_COLUMNS = [
   { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
+  { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
   { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
