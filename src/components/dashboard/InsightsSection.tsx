@@ -202,7 +202,12 @@ export function InsightsSection({
                   <td className="py-1.5 pr-2">
                     <p className="text-[12px] font-bold text-foreground truncate max-w-[140px]">{l.campaign_name || "—"}</p>
                   </td>
-                  <td className="py-1.5 pr-2 text-[11px] text-muted-foreground">@{l.accounts?.username || "—"}</td>
+                  <td className="py-1.5 pr-2 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} />
+                      <span>@{l.accounts?.username || "—"}</span>
+                    </div>
+                  </td>
                   <td className="py-1.5 pr-2">
                     {l.source_tag ? (
                       <span className="inline-flex items-center gap-1 text-[11px]">
