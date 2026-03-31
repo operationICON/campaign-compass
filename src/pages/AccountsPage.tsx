@@ -49,7 +49,7 @@ export default function AccountsPage() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
-  const [sortKey, setSortKey] = useState<SortKey>("revenue");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [modelCategories, setModelCategories] = useState<Record<string, string>>(loadModelCategories);
   const [editingCatFor, setEditingCatFor] = useState<string | null>(null);
