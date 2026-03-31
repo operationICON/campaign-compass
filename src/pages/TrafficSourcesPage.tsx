@@ -1080,7 +1080,8 @@ export default function TrafficSourcesPage() {
                       const el = link;
                       const subsEl = el.subscribers || 0;
                       const clicksEl = el.clicks || 0;
-                      const revEl = Number(el.ltv || 0) > 0 ? Number(el.ltv) : Number(el.revenue || 0);
+                      const elLtvRecord = ltvLookup[el.id];
+                      const revEl = (elLtvRecord && Number(elLtvRecord.total_ltv || 0) > 0) ? Number(elLtvRecord.total_ltv) : Number(el.revenue || 0);
                       const hasCostEl = Number(el.cost_total || 0) > 0;
                       const numVal = parseFloat(spendValue);
                       const validVal = !isNaN(numVal) && numVal > 0;
