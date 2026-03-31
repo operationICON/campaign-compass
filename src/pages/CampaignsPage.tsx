@@ -1194,9 +1194,9 @@ export default function CampaignsPage() {
                                 : el.subsDay === 0
                                   ? { v: "0/day", c: "text-muted-foreground" }
                                   : { v: "—", c: "text-muted-foreground" };
-                            const ltvVal = Number(el.ltv || 0);
-                            const ltvSubVal = Number(el.ltv_per_sub || 0);
-                            const spenderRateVal = Number(el.spender_rate || 0);
+                            const ltvVal = el.ltvFromTable;
+                            const ltvSubVal = el.ltvRecord ? Number(el.ltvRecord.ltv_per_sub || 0) : 0;
+                            const spenderRateVal = el.ltvRecord ? Number(el.ltvRecord.spender_pct || 0) : 0;
                             const needsFanSync = !el.fans_last_synced_at;
                             const currentSource = trafficSources.find((s: any) => s.id === el.traffic_source_id || s.name === el.source_tag);
                             return (
