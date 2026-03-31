@@ -110,6 +110,19 @@ export default function AuditPage() {
   const queryClient = useQueryClient();
   const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    return map;
+  }, [trackingLinkLtv]);
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
