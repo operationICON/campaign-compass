@@ -1367,6 +1367,14 @@ export default function CampaignsPage() {
               </div>
             )}
           </div>
+          {panelOpen && (
+            <TrackingLinkPanel
+              open={panelOpen}
+              onClose={() => { setPanelOpen(false); setEditingLink(null); }}
+              editLink={editingLink}
+              accounts={accounts}
+            />
+          )}
         </div>
 
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
