@@ -29,6 +29,8 @@ import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { useColumnOrder } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
+import { TrackingLinkPanel } from "@/components/dashboard/TrackingLinkPanel";
+import { Pencil } from "lucide-react";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
