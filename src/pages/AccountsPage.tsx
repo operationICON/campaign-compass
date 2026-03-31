@@ -357,7 +357,7 @@ export default function AccountsPage() {
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
                     {sortedLinks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-8 text-center">No campaigns found for this model</p>
+                      <p className="text-sm text-muted-foreground py-8 text-center">No tracking links found for this model</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
