@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { format, subDays } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
+import { ModelAvatar } from "@/components/ModelAvatar";
 
 const MODEL_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(15,80%,45%)", "hsl(30,75%,40%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
 const TYPE_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
+import { ModelAvatar } from "@/components/ModelAvatar";
 import { useColumnOrder } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 

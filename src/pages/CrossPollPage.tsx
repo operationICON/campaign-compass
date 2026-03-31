@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
+import { ModelAvatar } from "@/components/ModelAvatar";
 import { GitBranch, Users, DollarSign, Award } from "lucide-react";
 
 const fmtC = (v: number | null) =>

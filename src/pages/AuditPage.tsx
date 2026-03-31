@@ -63,6 +63,7 @@ function getAction(l: any, ageDays: number) {
 
 import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn, calcProfit, getEffectiveRevenue, calcStatusFromRoi, STATUS_LABELS } from "@/lib/calc-helpers";
 import { EstBadge } from "@/components/EstBadge";
+import { ModelAvatar } from "@/components/ModelAvatar";
 
 function getStatus(l: any) {
   if (l.deleted_at) return "DELETED";
