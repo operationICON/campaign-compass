@@ -181,6 +181,8 @@ Deno.serve(async (req) => {
   const acctId = body.onlyfans_account_id as string
   const displayName = body.display_name as string || 'Unknown'
   const testLinkId = body.test_link_id as string | undefined
+  // Resume support: skip already-processed links on retry
+  const batchOffset = Number(body.batch_offset ?? 0)
 
   if (!accountId || !acctId) {
     return new Response(JSON.stringify({ error: 'account_id and onlyfans_account_id required' }),
@@ -191,7 +193,7 @@ Deno.serve(async (req) => {
   const { data: syncLog } = await db.from('sync_logs').insert({
     account_id: accountId, started_at: startedAt,
     status: 'running', success: false,
-    message: testLinkId ? `Test sync link ${testLinkId} for ${displayName}…` : `Syncing ${displayName}…`,
+    message: testLinkId ? `Test sync link ${testLinkId} for ${displayName}…` : `Syncing ${displayName}${batchOffset > 0 ? ` (resuming from ${batchOffset})` : ''}…`,
     records_processed: 0,
   }).select().single()
   const syncLogId = syncLog?.id
