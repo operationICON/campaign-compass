@@ -24,7 +24,7 @@ const MODEL_COLORS: Record<string, string> = {
 };
 
 export function InsightsSection({
-  links, accounts, dailyMetrics, groupFilter, selectedModel, getAccountCategory,
+  links, accounts, dailyMetrics, trackingLinkLtv = [], groupFilter, selectedModel, getAccountCategory,
   isInsightVisible, isModelColVisible,
 }: InsightsSectionProps) {
   const colorMap = useTagColors();
