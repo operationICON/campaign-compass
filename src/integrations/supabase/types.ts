@@ -585,6 +585,42 @@ export type Database = {
         }
         Relationships: []
       }
+      fans: {
+        Row: {
+          created_at: string | null
+          fan_id: string
+          first_subscribe_account: string | null
+          first_subscribe_date: string | null
+          first_subscribe_link_id: string | null
+          id: string
+          is_new_fan: boolean | null
+          sub_history_checked_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fan_id: string
+          first_subscribe_account?: string | null
+          first_subscribe_date?: string | null
+          first_subscribe_link_id?: string | null
+          id?: string
+          is_new_fan?: boolean | null
+          sub_history_checked_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fan_id?: string
+          first_subscribe_account?: string | null
+          first_subscribe_date?: string | null
+          first_subscribe_link_id?: string | null
+          id?: string
+          is_new_fan?: boolean | null
+          sub_history_checked_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       manual_notes: {
         Row: {
           account_id: string | null
