@@ -341,7 +341,7 @@ export default function CampaignsPage() {
         case "source_tag": aVal = (a.source_tag || "zzz").toLowerCase(); bVal = (b.source_tag || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
-        case "ltv": aVal = Number(a.ltv || 0); bVal = Number(b.ltv || 0); break;
+        case "ltv": aVal = a.ltvFromTable ?? -1; bVal = b.ltvFromTable ?? -1; break;
         case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
         case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
         case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
@@ -380,7 +380,7 @@ export default function CampaignsPage() {
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
     const totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
+    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0), 0);
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
@@ -1107,7 +1107,7 @@ export default function CampaignsPage() {
                             const el = link;
                             const subsEl = el.subscribers || 0;
                             const clicksEl = el.clicks || 0;
-                            const revEl = Number(el.ltv || 0) > 0 ? Number(el.ltv) : Number(el.revenue || 0);
+                            const revEl = el.ltvFromTable != null && el.ltvFromTable > 0 ? el.ltvFromTable : Number(el.revenue || 0);
                             const hasCostEl = Number(el.cost_total || 0) > 0;
                             const numVal = parseFloat(spendValue);
                             const validVal = !isNaN(numVal) && numVal > 0;
@@ -1194,9 +1194,9 @@ export default function CampaignsPage() {
                                 : el.subsDay === 0
                                   ? { v: "0/day", c: "text-muted-foreground" }
                                   : { v: "—", c: "text-muted-foreground" };
-                            const ltvVal = Number(el.ltv || 0);
-                            const ltvSubVal = Number(el.ltv_per_sub || 0);
-                            const spenderRateVal = Number(el.spender_rate || 0);
+                            const ltvVal = el.ltvFromTable;
+                            const ltvSubVal = el.ltvRecord ? Number(el.ltvRecord.ltv_per_sub || 0) : 0;
+                            const spenderRateVal = el.ltvRecord ? Number(el.ltvRecord.spender_pct || 0) : 0;
                             const needsFanSync = !el.fans_last_synced_at;
                             const currentSource = trafficSources.find((s: any) => s.id === el.traffic_source_id || s.name === el.source_tag);
                             return (

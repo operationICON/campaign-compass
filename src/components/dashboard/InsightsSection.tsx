@@ -168,11 +168,14 @@ export function InsightsSection({
     return enabledAccts.map((acc: any) => {
       const accLinks = enriched.filter(l => l.account_id === acc.id);
       const revenue = accLinks.reduce((s: number, l: any) => s + l.effectiveRevenue, 0);
-      const ltv = Number(acc.ltv_total || 0);
+      // LTV from tracking_link_ltv table
+      const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
+      const ltv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
       const spend = accLinks.reduce((s: number, l: any) => s + l.spend, 0);
       const subs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-      const profitPerSub = spend > 0 && subs > 0 ? (revenue - spend) / subs : null;
-      const roi = spend > 0 ? ((revenue - spend) / spend) * 100 : null;
+      const effectiveLtv = ltv > 0 ? ltv : revenue;
+      const profitPerSub = spend > 0 && subs > 0 ? (effectiveLtv - spend) / subs : null;
+      const roi = spend > 0 ? ((effectiveLtv - spend) / spend) * 100 : null;
       // subs/day
       const accMetrics = dailyMetrics.filter((m: any) => m.account_id === acc.id);
       const accDates = [...new Set(accMetrics.map((m: any) => m.date))].sort().reverse();
@@ -184,8 +187,8 @@ export function InsightsSection({
         subsDay = Math.max(0, latestSubs - prevSubs) / days;
       }
       return { id: acc.id, name: acc.display_name, username: acc.username, avatar: acc.avatar_thumb_url, revenue, ltv, spend, profitPerSub, roi, subsDay };
-    }).sort((a, b) => b.revenue - a.revenue);
-  }, [accounts, enriched, dailyMetrics, filteredAccountIds]);
+    }).sort((a, b) => b.ltv - a.ltv || b.revenue - a.revenue);
+  }, [accounts, enriched, dailyMetrics, filteredAccountIds, trackingLinkLtv]);
 
   const visiblePanels: React.ReactNode[] = [];
 

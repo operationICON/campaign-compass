@@ -110,6 +110,19 @@ export default function AuditPage() {
   const queryClient = useQueryClient();
   const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    return map;
+  }, [trackingLinkLtv]);
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
@@ -341,12 +354,13 @@ export default function AuditPage() {
   const renderRow = (l: any, opts: { isDeleted?: boolean; showCheckbox?: boolean; showSourceDropdown?: boolean }) => {
     const ad = ageDays(l.created_at);
     const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
-    const ltvVal = l.ltv || l.revenue || 0;
-    const ltvPerSub = l.subscribers > 0 ? (ltvVal / l.subscribers).toFixed(2) : "—";
-    const spenderRate = l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—";
+    const ltvRecord = ltvLookup[l.id] || null;
+    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+    const ltvPerSub = ltvRecord && l.subscribers > 0 ? Number(ltvRecord.ltv_per_sub || 0).toFixed(2) : "—";
+    const spenderRate = ltvRecord ? `${Number(ltvRecord.spender_pct || 0).toFixed(1)}%` : (l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—");
     const costTotal = Number(l.cost_total || 0);
     const hasCost = costTotal > 0;
-    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+    const effectiveRev = ltvVal !== null && ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     const profit = hasCost ? effectiveRev - costTotal : null;
     const profitPerSub = l.subscribers > 0 && hasCost && profit !== null ? profit / l.subscribers : null;
     const status = getStatus(l);
@@ -375,7 +389,7 @@ export default function AuditPage() {
             case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
             case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
             case "revenue": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>;
-            case "ltv": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(ltvVal)}</td>;
+            case "ltv": return <td key={c.id} className="p-2 text-right font-mono">{ltvVal !== null ? fmtC(ltvVal) : <span className="text-muted-foreground">—</span>}</td>;
             case "ltv_sub": return <td key={c.id} className="p-2 text-right font-mono">${ltvPerSub}</td>;
             case "spender_rate": return <td key={c.id} className="p-2 text-right">{spenderRate}</td>;
             case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(costTotal)}</td>;

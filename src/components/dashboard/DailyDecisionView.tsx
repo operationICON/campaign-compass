@@ -3,13 +3,17 @@ import { ChevronDown, ChevronUp, TrendingUp, Eye, XCircle } from "lucide-react";
 
 interface DailyDecisionViewProps {
   links: any[];
+  ltvLookup?: Record<string, any>;
 }
 
-export function DailyDecisionView({ links }: DailyDecisionViewProps) {
+export function DailyDecisionView({ links, ltvLookup = {} }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
+  const getLtv = (l: any) => {
+    const rec = ltvLookup[l.id];
+    return rec ? Number(rec.total_ltv || 0) : Number(l.revenue || 0);
+  };
   const linksWithSpend = useMemo(() => links.filter(l => l.cost_total > 0 || l.ad_spend > 0), [links]);
   const noSpendCount = useMemo(() => links.filter(l => !l.cost_total && !l.ad_spend).length, [links]);
 
@@ -80,7 +84,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.ltv || l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(getLtv(l))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
                           </span>
@@ -108,7 +112,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.ltv || l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(getLtv(l))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
                           </span>
@@ -138,7 +142,7 @@ export function DailyDecisionView({ links }: DailyDecisionViewProps) {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(Number(l.ltv || l.revenue || 0))}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">LTV {fmtC(getLtv(l))}</span>
                           <span className={`text-[10px] font-mono font-bold ${Number(l.profit || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
                             P {fmtC(Number(l.profit || 0))}
                           </span>
