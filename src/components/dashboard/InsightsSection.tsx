@@ -195,7 +195,7 @@ export function InsightsSection({
       <div key="top_campaigns" className="bg-card border border-border rounded-2xl p-4 flex-1 min-w-0">
         <p className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium mb-3">Top Tracking Links</p>
         {top5.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-4">Enter spend on tracking links to see top performers</p>
+          <p className="text-xs text-muted-foreground py-4">Run fan sync to see top performers by LTV</p>
         ) : (
           <table className="w-full text-left">
             <thead>
@@ -203,7 +203,7 @@ export function InsightsSection({
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Tracking Link</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Model</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Source</th>
-                <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Profit/Sub</th>
+                <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">LTV</th>
               </tr>
             </thead>
             <tbody>
@@ -227,8 +227,8 @@ export function InsightsSection({
                     ) : <span className="text-[11px] text-muted-foreground">—</span>}
                   </td>
                   <td className="py-1.5 text-right">
-                    <span className={`text-[12px] font-bold font-mono ${(l.profitPerSub ?? 0) >= 0 ? "text-[hsl(160_84%_39%)]" : "text-destructive"}`}>
-                      {fmtC(l.profitPerSub!)}
+                    <span className="text-[12px] font-bold font-mono text-[#0891b2]">
+                      {l.ltvFromTable != null ? fmtC(l.ltvFromTable) : "—"}
                     </span>
                   </td>
                 </tr>
