@@ -623,7 +623,7 @@ export default function AccountsPage() {
                   </div>
 
                   <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
-                    <span>{stats.totalCampaigns || 0} campaigns</span>
+                    <span>{stats.totalCampaigns || 0} tracking links</span>
                     <span className="text-border">·</span>
                     <span>{stats.activeCampaigns || 0} active</span>
                     <span className="text-border">·</span>
