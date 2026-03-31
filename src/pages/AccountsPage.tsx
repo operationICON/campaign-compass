@@ -58,6 +58,23 @@ export default function AccountsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // LTV lookup map
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) {
+      map[r.tracking_link_id] = r;
+    }
+    return map;
+  }, [trackingLinkLtv]);
 
   // Auto-select model from URL param
   useEffect(() => {
