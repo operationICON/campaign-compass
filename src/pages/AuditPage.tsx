@@ -341,12 +341,13 @@ export default function AuditPage() {
   const renderRow = (l: any, opts: { isDeleted?: boolean; showCheckbox?: boolean; showSourceDropdown?: boolean }) => {
     const ad = ageDays(l.created_at);
     const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
-    const ltvVal = l.ltv || l.revenue || 0;
-    const ltvPerSub = l.subscribers > 0 ? (ltvVal / l.subscribers).toFixed(2) : "—";
-    const spenderRate = l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—";
+    const ltvRecord = ltvLookup[l.id] || null;
+    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+    const ltvPerSub = ltvRecord && l.subscribers > 0 ? Number(ltvRecord.ltv_per_sub || 0).toFixed(2) : "—";
+    const spenderRate = ltvRecord ? `${Number(ltvRecord.spender_pct || 0).toFixed(1)}%` : (l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—");
     const costTotal = Number(l.cost_total || 0);
     const hasCost = costTotal > 0;
-    const effectiveRev = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+    const effectiveRev = ltvVal !== null && ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     const profit = hasCost ? effectiveRev - costTotal : null;
     const profitPerSub = l.subscribers > 0 && hasCost && profit !== null ? profit / l.subscribers : null;
     const status = getStatus(l);
