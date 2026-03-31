@@ -438,6 +438,44 @@ export type Database = {
           },
         ]
       }
+      fan_link_subs: {
+        Row: {
+          account_id: string
+          entry_timestamp: string | null
+          fan_id: string
+          id: string
+          link_id: string
+          revenue: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          entry_timestamp?: string | null
+          fan_id: string
+          id?: string
+          link_id: string
+          revenue?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          entry_timestamp?: string | null
+          fan_id?: string
+          id?: string
+          link_id?: string
+          revenue?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fan_link_subs_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fan_ltv: {
         Row: {
           fan_id: string
@@ -594,6 +632,7 @@ export type Database = {
           first_subscribe_link_id: string | null
           id: string
           is_new_fan: boolean | null
+          join_date: string | null
           sub_history_checked_at: string | null
           updated_at: string | null
         }
@@ -605,6 +644,7 @@ export type Database = {
           first_subscribe_link_id?: string | null
           id?: string
           is_new_fan?: boolean | null
+          join_date?: string | null
           sub_history_checked_at?: string | null
           updated_at?: string | null
         }
@@ -616,6 +656,7 @@ export type Database = {
           first_subscribe_link_id?: string | null
           id?: string
           is_new_fan?: boolean | null
+          join_date?: string | null
           sub_history_checked_at?: string | null
           updated_at?: string | null
         }
@@ -846,6 +887,9 @@ export type Database = {
       tracking_link_ltv: {
         Row: {
           account_id: string
+          cross_poll_avg_per_fan: number | null
+          cross_poll_conversion_pct: number | null
+          cross_poll_fans: number | null
           cross_poll_revenue: number | null
           external_tracking_link_id: string
           id: string
@@ -863,6 +907,9 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          cross_poll_avg_per_fan?: number | null
+          cross_poll_conversion_pct?: number | null
+          cross_poll_fans?: number | null
           cross_poll_revenue?: number | null
           external_tracking_link_id: string
           id?: string
@@ -880,6 +927,9 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          cross_poll_avg_per_fan?: number | null
+          cross_poll_conversion_pct?: number | null
+          cross_poll_fans?: number | null
           cross_poll_revenue?: number | null
           external_tracking_link_id?: string
           id?: string

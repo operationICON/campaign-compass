@@ -58,6 +58,23 @@ export default function AccountsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // LTV lookup map
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) {
+      map[r.tracking_link_id] = r;
+    }
+    return map;
+  }, [trackingLinkLtv]);
 
   // Auto-select model from URL param
   useEffect(() => {
@@ -306,8 +323,8 @@ export default function AccountsPage() {
                 {/* Stats row 2 */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                   {[
-                    { label: "Total Campaigns", value: String(stats.totalCampaigns || 0) },
-                    { label: "Active Campaigns", value: String(stats.activeCampaigns || 0) },
+                    { label: "Total Tracking Links", value: String(stats.totalCampaigns || 0) },
+                    { label: "Active Tracking Links", value: String(stats.activeCampaigns || 0) },
                     { label: "Avg Subs/Day", value: stats.avgSubsDay },
                     { label: "ROI %", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
                     { label: "Unattributed", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
@@ -347,7 +364,7 @@ export default function AccountsPage() {
                           activeTab === tab ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        {tab === "campaigns" ? "Campaigns" : tab === "sources" ? "Traffic Sources" : "Performance"}
+                        {tab === "campaigns" ? "Tracking Links" : tab === "sources" ? "Traffic Sources" : "Performance"}
                       </button>
                     ))}
                   </div>
@@ -357,17 +374,18 @@ export default function AccountsPage() {
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
                     {sortedLinks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-8 text-center">No campaigns found for this model</p>
+                      <p className="text-sm text-muted-foreground py-8 text-center">No tracking links found for this model</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                            <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Campaign <SortIcon col="campaign_name" /></th>
+                            <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Tracking Link <SortIcon col="campaign_name" /></th>
                             <th className="text-left py-2 px-3">Source</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
                             <th className="text-right py-2 px-3">Subs/Day</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>LTV <SortIcon col="revenue" /></th>
+                            <th className="text-right py-2 px-3">Cross-Poll</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
                             <th className="text-center py-2 px-3">Status</th>
@@ -378,7 +396,11 @@ export default function AccountsPage() {
                           {sortedLinks.map((l: any) => {
                             const status = getStatus(l);
                             const hasSpend = Number(l.cost_total || 0) > 0;
-                            const effectiveRevL = Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+                            const ltvRecord = ltvLookup[l.id] || null;
+                            const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+                            const crossPoll = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
+                            const hasLtv = ltvVal !== null && ltvVal > 0;
+                            const effectiveRevL = hasLtv ? ltvVal : Number(l.revenue || 0);
                             const profit = effectiveRevL - Number(l.cost_total || 0);
                             const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
                             const subsPerDay = daysActive && daysActive > 0 && l.subscribers > 0 ? (l.subscribers / daysActive).toFixed(0) : null;
@@ -394,7 +416,17 @@ export default function AccountsPage() {
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.clicks)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.subscribers)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{subsPerDay ? `${subsPerDay}/day` : "—"}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px] text-foreground">{fmtCurrency(Number(l.revenue || 0))}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  <span className={hasLtv ? "text-primary font-semibold" : "text-muted-foreground"}>
+                                    {hasLtv ? fmtCurrency(ltvVal) : ltvVal === 0 ? "$0.00" : "—"}
+                                  </span>
+                                  {!hasLtv && ltvVal === null && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">No data</span>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {crossPoll !== null && crossPoll > 0 ? (
+                                    <span className="text-[#7c3aed] font-semibold">{fmtCurrency(crossPoll)}</span>
+                                  ) : <span className="text-muted-foreground">—</span>}
+                                </td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend ? (profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
                                   {hasSpend ? fmtCurrency(profit) : "—"}
                                 </td>
@@ -623,7 +655,7 @@ export default function AccountsPage() {
                   </div>
 
                   <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
-                    <span>{stats.totalCampaigns || 0} campaigns</span>
+                    <span>{stats.totalCampaigns || 0} tracking links</span>
                     <span className="text-border">·</span>
                     <span>{stats.activeCampaigns || 0} active</span>
                     <span className="text-border">·</span>

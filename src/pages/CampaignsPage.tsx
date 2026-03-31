@@ -43,6 +43,7 @@ const ALL_COLUMNS = [
   { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
+  { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
   { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
@@ -146,6 +147,14 @@ export default function CampaignsPage() {
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { data: trafficSources = [] } = useQuery({
     queryKey: ["traffic_sources"],
     queryFn: async () => {
@@ -206,6 +215,15 @@ export default function CampaignsPage() {
     toast.success(`Exported ${links.length} campaigns`);
   }, [links]);
 
+  // ─── LTV lookup map from tracking_link_ltv table ───
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) {
+      map[r.tracking_link_id] = r;
+    }
+    return map;
+  }, [trackingLinkLtv]);
+
   // ─── Enriched links ───
   const enrichedLinks = useMemo(() => {
     return links.map((l: any) => {
@@ -235,12 +253,16 @@ export default function CampaignsPage() {
       const subs = l.subscribers || 0;
       const { profit, isEstimate: profitIsEstimate } = calcProfit(l);
       const { roi, isEstimate: roiIsEstimate } = calcRoi(l);
-      const ltvBased = Number(l.ltv || 0) > 0;
+      // LTV from tracking_link_ltv table
+      const ltvRecord = ltvLookup[l.id] || null;
+      const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+      const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
+      const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
       const profitPerSub = subs > 0 && profit !== null ? profit / subs : null;
       const computedStatus = calcStatus(l);
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
     });
-  }, [links, manualOverrides, dailyMetrics]);
+  }, [links, manualOverrides, dailyMetrics, ltvLookup]);
 
   // ─── Source filter options ───
   const sourceOptions = useMemo(() => {
@@ -796,6 +818,7 @@ export default function CampaignsPage() {
                             case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
                             case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
                             case "ltv": return <SortHeader key={c.id} label="LTV" sortKeyName="ltv" width="80px" />;
+                            case "cross_poll": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "85px" }}>Cross-Poll</th>;
                             case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
                             case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
@@ -886,18 +909,39 @@ export default function CampaignsPage() {
                                     </Tooltip>
                                   </td>
                                 );
-                                case "ltv": return (
-                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
-                                          {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
-                                    </Tooltip>
-                                  </td>
-                                );
+                                case "ltv": {
+                                  const ltvVal = link.ltvFromTable;
+                                  const hasLtv = ltvVal !== null && ltvVal > 0;
+                                  const isEstimated = ltvVal === null;
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className={hasLtv ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
+                                            {hasLtv ? fmtC(ltvVal) : ltvVal === 0 ? "$0.00" : "—"}
+                                            {hasLtv && isEstimated && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)] leading-none">Est.</span>}
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{hasLtv ? "LTV from tracking_link_ltv table" : "No LTV record — run fan sync"}</TooltipContent>
+                                      </Tooltip>
+                                    </td>
+                                  );
+                                }
+                                case "cross_poll": {
+                                  const cp = link.crossPollRevenue;
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {cp !== null && cp > 0 ? (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-[#7c3aed] font-semibold">{fmtC(cp)}</span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Revenue from fans who crossed to other models</TooltipContent>
+                                        </Tooltip>
+                                      ) : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                  );
+                                }
                                 case "ltv_sub": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
