@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
   const triggeredBy = body.triggered_by ?? 'manual'
 
   try {
-    // Mark stuck syncs (running > 3 min) as failed
-    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString()
+    // Mark stuck syncs (running > 8 min) as failed — increased from 3 min for large accounts
+    const threeMinutesAgo = new Date(Date.now() - 8 * 60 * 1000).toISOString()
     const { data: stuck } = await db.from('sync_logs')
       .select('id')
       .eq('status', 'running')
@@ -33,8 +33,8 @@ Deno.serve(async (req) => {
         await db.from('sync_logs').update({
           status: 'error', success: false,
           finished_at: now, completed_at: now,
-          error_message: 'Sync timed out — exceeded 3 minute limit',
-          message: 'Sync timed out — exceeded 3 minute limit',
+          error_message: 'Sync timed out — exceeded 8 minute limit',
+          message: 'Sync timed out — exceeded 8 minute limit',
         }).eq('id', row.id)
       }
       console.log(`Marked ${stuck.length} stuck syncs as failed`)

@@ -181,6 +181,8 @@ Deno.serve(async (req) => {
   const acctId = body.onlyfans_account_id as string
   const displayName = body.display_name as string || 'Unknown'
   const testLinkId = body.test_link_id as string | undefined
+  // Resume support: skip already-processed links on retry
+  const batchOffset = Number(body.batch_offset ?? 0)
 
   if (!accountId || !acctId) {
     return new Response(JSON.stringify({ error: 'account_id and onlyfans_account_id required' }),
@@ -191,7 +193,7 @@ Deno.serve(async (req) => {
   const { data: syncLog } = await db.from('sync_logs').insert({
     account_id: accountId, started_at: startedAt,
     status: 'running', success: false,
-    message: testLinkId ? `Test sync link ${testLinkId} for ${displayName}…` : `Syncing ${displayName}…`,
+    message: testLinkId ? `Test sync link ${testLinkId} for ${displayName}…` : `Syncing ${displayName}${batchOffset > 0 ? ` (resuming from ${batchOffset})` : ''}…`,
     records_processed: 0,
   }).select().single()
   const syncLogId = syncLog?.id
@@ -332,15 +334,34 @@ Deno.serve(async (req) => {
         payloads.push(p)
       }
 
-      // Batch upsert in chunks of 25
-      for (let i = 0; i < payloads.length; i += 25) {
-        const batch = payloads.slice(i, i + 25)
-        await db.from('tracking_links').upsert(batch, {
-          onConflict: 'external_tracking_link_id', ignoreDuplicates: false,
-        })
+      // Apply batch offset for resume support
+      const payloadsToProcess = batchOffset > 0 ? payloads.slice(batchOffset) : payloads
+      console.log(`[${displayName}] Processing ${payloadsToProcess.length} links${batchOffset > 0 ? ` (skipped ${batchOffset} already processed)` : ''}`)
+
+      // Batch upsert in chunks of 50
+      for (let i = 0; i < payloadsToProcess.length; i += 50) {
+        const batch = payloadsToProcess.slice(i, i + 50)
+        try {
+          await db.from('tracking_links').upsert(batch, {
+            onConflict: 'external_tracking_link_id', ignoreDuplicates: false,
+          })
+        } catch (upsertErr: any) {
+          // Log progress so next call can resume
+          const processed = batchOffset + i
+          console.error(`[${displayName}] Upsert failed at offset ${processed}: ${upsertErr.message}`)
+          if (syncLogId) {
+            await db.from('sync_logs').update({
+              status: 'partial', success: false,
+              message: `${displayName}: partial sync — ${processed}/${payloads.length} links processed. Resume with batch_offset=${processed}`,
+              records_processed: processed,
+              details: JSON.stringify({ batch_offset: processed, total: payloads.length }),
+            }).eq('id', syncLogId)
+          }
+          throw upsertErr
+        }
       }
       linkCount = payloads.length
-      console.log(`[${displayName}] Upserted ${linkCount} links`)
+      console.log(`[${displayName}] Upserted ${payloadsToProcess.length} links`)
 
       // ── Daily metrics snapshot ──
       const { data: dbLinks } = await db.from('tracking_links')
@@ -366,48 +387,31 @@ Deno.serve(async (req) => {
         console.log(`[${displayName}] Inserted ${metricsPayloads.length} daily_metrics snapshots`)
       }
 
-      // ── LTV Sync — only for links with clicks > 0 AND subscribers > 0 ──
-      // If test_link_id provided, only sync that one link
-      const linksForLtv = testLinkId
-        ? allLinks.filter((l: any) => String(l.id) === testLinkId)
-        : allLinks.filter((l: any) => Number(l.subscribersCount ?? 0) > 0 && Number(l.clicksCount ?? 0) > 0)
+      // ── LTV Sync — ONLY for test_link_id (single link test mode) ──
+      // Full LTV sync is handled separately by sync-fans to avoid timeouts
+      if (testLinkId) {
+        const linksForLtv = allLinks.filter((l: any) => String(l.id) === testLinkId)
+        console.log(`[${displayName}] LTV sync for test link ${testLinkId}`)
 
-      console.log(`[${displayName}] LTV sync for ${linksForLtv.length} active links${testLinkId ? ` (test mode: ${testLinkId})` : ''}`)
-      
-      let ltvSyncCount = 0
-      const ltvErrors: string[] = []
+        for (const link of linksForLtv) {
+          const extId = String(link.id ?? '')
+          const { data: dbLink } = await db.from('tracking_links')
+            .select('id, created_at')
+            .eq('external_tracking_link_id', extId)
+            .eq('account_id', accountId)
+            .single()
 
-      for (const link of linksForLtv) {
-        const extId = String(link.id ?? '')
-        // Look up the DB id for this link
-        const { data: dbLink } = await db.from('tracking_links')
-          .select('id, created_at')
-          .eq('external_tracking_link_id', extId)
-          .eq('account_id', accountId)
-          .single()
+          if (!dbLink) { console.error(`  Could not find DB link for ext ${extId}`); continue }
 
-        if (!dbLink) {
-          console.error(`  Could not find DB link for ext ${extId}`)
-          continue
+          try {
+            await syncLtvForLink(db, apiKey, acctId, dbLink.id, extId, accountId, new Date(dbLink.created_at))
+          } catch (err: any) {
+            console.error(`  Failed LTV sync for link ${extId}: ${err.message?.substring(0, 100)}`)
+          }
         }
-
-        try {
-          const result = await syncLtvForLink(
-            db, apiKey, acctId,
-            dbLink.id, extId, accountId,
-            new Date(dbLink.created_at)
-          )
-          ltvSyncCount++
-        } catch (err: any) {
-          const msg = `Failed LTV sync for link ${extId}: ${err.message?.substring(0, 100)}`
-          console.error(`  ${msg}`)
-          ltvErrors.push(msg)
-          // Continue to next link — never stop the whole sync
-          continue
-        }
+      } else {
+        console.log(`[${displayName}] Skipping LTV sync (handled by sync-fans separately)`)
       }
-
-      console.log(`[${displayName}] LTV synced ${ltvSyncCount}/${linksForLtv.length} links`)
     }
 
     // Update account
