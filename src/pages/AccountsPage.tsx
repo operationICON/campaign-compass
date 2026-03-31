@@ -306,8 +306,8 @@ export default function AccountsPage() {
                 {/* Stats row 2 */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                   {[
-                    { label: "Total Campaigns", value: String(stats.totalCampaigns || 0) },
-                    { label: "Active Campaigns", value: String(stats.activeCampaigns || 0) },
+                    { label: "Total Tracking Links", value: String(stats.totalCampaigns || 0) },
+                    { label: "Active Tracking Links", value: String(stats.activeCampaigns || 0) },
                     { label: "Avg Subs/Day", value: stats.avgSubsDay },
                     { label: "ROI %", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
                     { label: "Unattributed", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
