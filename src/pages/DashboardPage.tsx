@@ -541,7 +541,7 @@ function KpiCards({
         const campaignsNeedingSpend = links.filter((l: any) => Number(l.cost_total || 0) <= 0 && (l.subscribers || 0) > 0).length;
         const showProfitSub = campaignsWithSpend >= 10 && avgProfitPerSub !== null;
         return (
-          <div key={id} className="rounded-2xl p-5" style={{ ...cardStyle, background: "#0F172A", border: "1px solid #1E293B" }}>
+          <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "#0F172A", border: "1px solid #1E293B" }}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                 <TrendingUp className="h-4 w-4 text-white" />
@@ -549,14 +549,14 @@ function KpiCards({
               <span className="text-[11px] text-white/70 font-medium uppercase tracking-wider">Profit/Sub</span>
             </div>
             {showProfitSub ? (
-              <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub! >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmtC(avgProfitPerSub!)}</p>
+              <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub!)}</p>
             ) : (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-white/50 mt-1">
+            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">
               {showProfitSub
                 ? `Per acquired subscriber · ${periodLabel}`
-                : `Add spend to ${campaignsNeedingSpend} tracking links to calculate`}
+                : `Add spend to ${campaignsNeedingSpend} links`}
             </p>
           </div>
         );
