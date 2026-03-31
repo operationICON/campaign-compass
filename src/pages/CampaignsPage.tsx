@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
+import { ModelAvatar } from "@/components/ModelAvatar";
 import { useColumnOrder } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 
@@ -874,7 +875,7 @@ export default function CampaignsPage() {
                                 case "model": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     <div className="flex items-center gap-1.5">
-                                      <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: modelColor }}>{initials}</span>
+                                      <ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} />
                                       <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
                                     </div>
                                   </td>

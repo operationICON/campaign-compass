@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { format, subDays } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
+import { ModelAvatar } from "@/components/ModelAvatar";
 
 const MODEL_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(15,80%,45%)", "hsl(30,75%,40%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
 const TYPE_COLORS = ["hsl(24,95%,53%)", "hsl(40,96%,53%)", "hsl(0,72%,51%)", "hsl(38,92%,50%)", "hsl(263,70%,50%)"];
@@ -50,6 +51,23 @@ export default function ChartsPage() {
   }, [metrics, accountNameMap]);
 
   const modelNames = useMemo(() => accounts.map((a: any) => a.display_name), [accounts]);
+
+  const renderModelLegend = (props: any) => {
+    const { payload } = props;
+    return (
+      <div className="flex flex-wrap gap-3 justify-center mt-1">
+        {(payload || []).map((entry: any) => {
+          const acc = accounts.find((a: any) => a.display_name === entry.value);
+          return (
+            <div key={entry.value} className="flex items-center gap-1.5">
+              <ModelAvatar avatarUrl={acc?.avatar_thumb_url} name={entry.value} size={18} />
+              <span style={{ color: entry.color, fontSize: 11 }}>{entry.value}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const ltvByType = useMemo(() => {
     const map: Record<string, number> = {};
@@ -106,7 +124,7 @@ export default function ChartsPage() {
                 <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={v => `$${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, ""]} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend content={renderModelLegend} />
                 {modelNames.map((name, i) => (
                   <Line key={name} type="monotone" dataKey={name} stroke={MODEL_COLORS[i % MODEL_COLORS.length]} strokeWidth={2} dot={false} />
                 ))}
@@ -123,7 +141,7 @@ export default function ChartsPage() {
                   {ltvByType.map((_, i) => (<Cell key={i} fill={TYPE_COLORS[i % TYPE_COLORS.length]} />))}
                 </Pie>
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, "LTV"]} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend content={renderModelLegend} />
                 <text x="50%" y="47%" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={11}>Total</text>
                 <text x="50%" y="55%" textAnchor="middle" fill="hsl(var(--foreground))" fontSize={16} fontWeight="bold">
                   ${totalTxLtv >= 1000 ? `${(totalTxLtv/1000).toFixed(1)}k` : totalTxLtv.toFixed(0)}

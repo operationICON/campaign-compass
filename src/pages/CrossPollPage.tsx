@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
+import { ModelAvatar } from "@/components/ModelAvatar";
 import { GitBranch, Users, DollarSign, Award } from "lucide-react";
 
 const fmtC = (v: number | null) =>
@@ -235,7 +236,7 @@ export default function CrossPollPage() {
                 ) : topCampaigns.map((r: any) => (
                   <TableRow key={r.id} className="border-border">
                     <TableCell className="font-medium text-foreground max-w-[200px] truncate">{r.campaignName}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.modelName}</TableCell>
+                    <TableCell className="text-muted-foreground"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={accounts.find((a: any) => a.id === r.account_id)?.avatar_thumb_url} name={r.modelName} size={24} /><span>{r.modelName}</span></div></TableCell>
                     <TableCell className="text-right text-foreground">{Number(r.new_subs_total || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-foreground">{Number(r.cross_poll_fans || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium text-primary">{fmtC(Number(r.cross_poll_revenue || 0))}</TableCell>
@@ -275,7 +276,7 @@ export default function CrossPollPage() {
                     <TableRow key={f.id} className="border-border">
                       <TableCell className="font-mono text-xs text-foreground">{f.fan_id?.slice(0, 12)}…</TableCell>
                       <TableCell className="text-foreground max-w-[180px] truncate">{sourceLink?.campaign_name || f.first_seen_tracking_link || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{sourceAcc?.display_name || f.first_seen_model || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={sourceAcc?.avatar_thumb_url} name={sourceAcc?.display_name || f.first_seen_model || "?"} size={24} /><span>{sourceAcc?.display_name || f.first_seen_model || "—"}</span></div></TableCell>
                       <TableCell className="text-muted-foreground">{f.first_seen_date || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">

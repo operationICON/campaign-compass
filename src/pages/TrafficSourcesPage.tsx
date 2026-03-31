@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInDays, subDays } from "date-fns";
+import { ModelAvatar } from "@/components/ModelAvatar";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -1006,7 +1007,7 @@ export default function TrafficSourcesPage() {
                       </td>
                       {columnOrder.visibleOrderedColumns.map(c => {
                         switch (c.id) {
-                          case "model": return <td key={c.id} style={{ padding: "8px 12px", fontSize: "11px", color: "#64748b" }}>@{username}</td>;
+                          case "model": return <td key={c.id} style={{ padding: "8px 12px" }}><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} /><span style={{ fontSize: "11px", color: "#64748b" }}>@{username}</span></div></td>;
                           case "source": return <td key={c.id} style={{ padding: "8px 12px" }}><TagBadge tagName={link.source_tag} size="sm" /></td>;
                           case "category": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>

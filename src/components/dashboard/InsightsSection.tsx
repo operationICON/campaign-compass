@@ -4,6 +4,7 @@ import { differenceInDays } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Info } from "lucide-react";
+import { ModelAvatar } from "@/components/ModelAvatar";
 
 interface InsightsSectionProps {
   links: any[];
@@ -201,7 +202,12 @@ export function InsightsSection({
                   <td className="py-1.5 pr-2">
                     <p className="text-[12px] font-bold text-foreground truncate max-w-[140px]">{l.campaign_name || "—"}</p>
                   </td>
-                  <td className="py-1.5 pr-2 text-[11px] text-muted-foreground">@{l.accounts?.username || "—"}</td>
+                  <td className="py-1.5 pr-2 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} />
+                      <span>@{l.accounts?.username || "—"}</span>
+                    </div>
+                  </td>
                   <td className="py-1.5 pr-2">
                     {l.source_tag ? (
                       <span className="inline-flex items-center gap-1 text-[11px]">
@@ -280,6 +286,7 @@ export function InsightsSection({
             const barWidth = m.value !== null ? Math.max(4, (Math.abs(m.value) / maxSubsDay) * 100) : 0;
             return (
               <div key={m.name} className="flex items-center gap-2">
+                <ModelAvatar avatarUrl={accounts.find((a: any) => a.display_name === m.name)?.avatar_thumb_url} name={m.name} size={24} />
                 <span className="text-[11px] text-muted-foreground min-w-[50px] truncate">{m.name}</span>
                 <div className="flex-1 h-[5px] rounded-[3px] bg-secondary overflow-hidden">
                   {m.value !== null && <div className="h-full rounded-[3px]" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />}
