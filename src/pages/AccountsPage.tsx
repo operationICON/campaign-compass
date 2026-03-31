@@ -234,14 +234,16 @@ export default function AccountsPage() {
       if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
       groups[src].links++;
       groups[src].spend += Number(l.cost_total || 0);
-      groups[src].ltv += Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const ltvRecord = ltvLookup[l.id];
+      const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
+      groups[src].ltv += ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     }
     for (const g of Object.values(groups)) {
       g.profit = g.ltv - g.spend;
       g.roi = g.spend > 0 ? (g.profit / g.spend) * 100 : null;
     }
     return Object.values(groups).sort((a, b) => b.profit - a.profit);
-  }, [selectedAccLinks]);
+  }, [selectedAccLinks, ltvLookup]);
 
   const perfData = useMemo(() => {
     const linkIds = new Set(selectedAccLinks.map((l: any) => l.id));
