@@ -341,7 +341,7 @@ export default function CampaignsPage() {
         case "source_tag": aVal = (a.source_tag || "zzz").toLowerCase(); bVal = (b.source_tag || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
-        case "ltv": aVal = Number(a.ltv || 0); bVal = Number(b.ltv || 0); break;
+        case "ltv": aVal = a.ltvFromTable ?? -1; bVal = b.ltvFromTable ?? -1; break;
         case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
         case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
         case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
