@@ -254,6 +254,21 @@ export default function TrafficSourcesPage() {
     },
   });
 
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data } = await supabase.from("tracking_link_ltv").select("*");
+      return data || [];
+    },
+  });
+
+  // LTV lookup map
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    return map;
+  }, [trackingLinkLtv]);
+
   // Migrate source_tag_rules → traffic_sources on load if empty
   useEffect(() => {
     if (sources.length > 0) return;
@@ -520,7 +535,7 @@ export default function TrafficSourcesPage() {
         case "subscribers": aVal = a.subscribers || 0; bVal = b.subscribers || 0; break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
         case "cvr": aVal = Number(a.cvr || 0); bVal = Number(b.cvr || 0); break;
-        case "ltv": aVal = Number(a.ltv || 0); bVal = Number(b.ltv || 0); break;
+        case "ltv": aVal = (ltvLookup[a.id] ? Number(ltvLookup[a.id].total_ltv || 0) : 0); bVal = (ltvLookup[b.id] ? Number(ltvLookup[b.id].total_ltv || 0) : 0); break;
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "profit": aVal = Number(a.profit || 0); bVal = Number(b.profit || 0); break;
         case "roi": aVal = Number(a.roi || 0); bVal = Number(b.roi || 0); break;
@@ -983,8 +998,9 @@ export default function TrafficSourcesPage() {
                   const cat = getCategory(link);
                   const status = link.status || "NO_DATA";
                   const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
-                  const ltv = Number(link.ltv || 0);
-                  const ltvPerSub = Number(link.ltv_per_sub || 0);
+                  const ltvRecord = ltvLookup[link.id];
+                  const ltv = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+                  const ltvPerSub = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
                   const costTotal = Number(link.cost_total || 0);
                   const profit = Number(link.profit || 0);
                   const roi = Number(link.roi || 0);
@@ -1064,7 +1080,8 @@ export default function TrafficSourcesPage() {
                       const el = link;
                       const subsEl = el.subscribers || 0;
                       const clicksEl = el.clicks || 0;
-                      const revEl = Number(el.ltv || 0) > 0 ? Number(el.ltv) : Number(el.revenue || 0);
+                      const elLtvRecord = ltvLookup[el.id];
+                      const revEl = (elLtvRecord && Number(elLtvRecord.total_ltv || 0) > 0) ? Number(elLtvRecord.total_ltv) : Number(el.revenue || 0);
                       const hasCostEl = Number(el.cost_total || 0) > 0;
                       const numVal = parseFloat(spendValue);
                       const validVal = !isNaN(numVal) && numVal > 0;
@@ -1148,8 +1165,9 @@ export default function TrafficSourcesPage() {
                         } catch { toast.error("Clear failed"); }
                         finally { setNoteLoading(false); }
                       };
-                      const ltvVal = Number(el.ltv || 0);
-                      const ltvSubVal = Number(el.ltv_per_sub || 0);
+                      const detailLtvRecord = ltvLookup[el.id];
+                      const ltvVal = detailLtvRecord ? Number(detailLtvRecord.total_ltv || 0) : null;
+                      const ltvSubVal = detailLtvRecord ? Number(detailLtvRecord.ltv_per_sub || 0) : null;
                       const spenderRateVal = Number(el.spender_rate || 0);
                       const subsDayVal = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
                       const subsDayDisplay = subsDayVal > 0 ? { v: `${Math.round(subsDayVal)}/day`, c: "#0891b2" } : { v: "0/day", c: "#94a3b8" };

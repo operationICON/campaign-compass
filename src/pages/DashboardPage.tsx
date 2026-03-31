@@ -48,6 +48,14 @@ export default function DashboardPage() {
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
@@ -142,7 +150,13 @@ export default function DashboardPage() {
     return s + (cost > 0 ? cost : 0);
   }, 0), [filteredLinksForKpi]);
   const totalRevenue = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
-  const totalLtv = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0), [filteredLinksForKpi]);
+  // Total LTV from tracking_link_ltv table (is_estimated = false only)
+  const totalLtv = useMemo(() => {
+    const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+    return trackingLinkLtv
+      .filter((r: any) => r.is_estimated === false && (!accountIdSet || accountIdSet.has(r.account_id)))
+      .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
+  }, [trackingLinkLtv, agencyAccountIds]);
   const totalEffective = totalLtv > 0 ? totalLtv : totalRevenue;
   const totalProfit = totalSpend > 0 ? totalEffective - totalSpend : null;
   const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
@@ -281,6 +295,7 @@ export default function DashboardPage() {
           accounts={accounts}
           links={filteredLinksForKpi}
           dailyMetrics={dailyMetrics}
+          trackingLinkLtv={trackingLinkLtv}
           totalSpend={totalSpend}
           totalRevenue={totalRevenue}
           totalLtv={totalLtv}
@@ -306,6 +321,7 @@ export default function DashboardPage() {
           links={links}
           accounts={accounts}
           dailyMetrics={dailyMetrics}
+          trackingLinkLtv={trackingLinkLtv}
           groupFilter={groupFilter}
           selectedModel={selectedModel}
           getAccountCategory={getAccountCategory}
@@ -343,7 +359,7 @@ export default function DashboardPage() {
 // ═══ KPI Cards component ═══
 function KpiCards({
   isLoading, isVisible, enabledCards,
-  accounts, links, dailyMetrics,
+  accounts, links, dailyMetrics, trackingLinkLtv,
   totalSpend, totalRevenue, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC,
@@ -354,6 +370,7 @@ function KpiCards({
   accounts: any[];
   links: any[];
   dailyMetrics: any[];
+  trackingLinkLtv: any[];
   totalSpend: number;
   totalRevenue: number;
   totalLtv: number;
@@ -442,22 +459,18 @@ function KpiCards({
     if (!bestSource || roi > bestSource.roi) bestSource = { name, roi };
   });
 
-  // Total LTV from accounts
-  const getLtvField = () => {
-    if (timePeriod === "day") return "ltv_last_day";
-    if (timePeriod === "week") return "ltv_last_7d";
-    if (timePeriod === "month" || timePeriod === "since_sync") return "ltv_last_30d";
-    return "ltv_total";
-  };
-  const filteredAccts = (() => {
-    let accts = [...accounts];
-    if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
-    else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
-    return accts;
-  })();
-  const totalAccLtv = filteredAccts.reduce((s: number, a: any) => s + Number(a[getLtvField()] || 0), 0);
-  const totalAccSubs = filteredAccts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-  const ltvPerSub = totalAccSubs > 0 ? totalAccLtv / totalAccSubs : null;
+  // LTV/Sub from tracking_link_ltv table (is_estimated = false)
+  const ltvPerSubCalc = useMemo(() => {
+    const accountIdSet = modelParam ? new Set([modelParam]) : 
+      groupFilter !== "all" ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id)) : null;
+    const filtered = trackingLinkLtv.filter((r: any) => 
+      r.is_estimated === false && (!accountIdSet || accountIdSet.has(r.account_id))
+    );
+    const sumLtv = filtered.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
+    const sumSubs = filtered.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+    return sumSubs > 0 ? sumLtv / sumSubs : null;
+  }, [trackingLinkLtv, modelParam, groupFilter, accounts, getAccountCategory]);
+  const ltvPerSub = ltvPerSubCalc;
 
   if (isLoading) {
     return (

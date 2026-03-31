@@ -129,7 +129,9 @@ export default function AccountsPage() {
     for (const acc of accounts) {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
       const totalRevenue = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      const totalLtv = accLinks.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
+      // LTV from tracking_link_ltv table
+      const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
+      const totalLtv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
       const totalSpend = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
       const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
@@ -176,7 +178,7 @@ export default function AccountsPage() {
         };
     }
     return stats;
-  }, [accounts, links, dailyMetrics, agencyAvgCvr]);
+  }, [accounts, links, dailyMetrics, agencyAvgCvr, trackingLinkLtv]);
 
   const filteredAccounts = useMemo(() => {
     if (categoryFilter === "all") return accounts;
@@ -232,14 +234,16 @@ export default function AccountsPage() {
       if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
       groups[src].links++;
       groups[src].spend += Number(l.cost_total || 0);
-      groups[src].ltv += Number(l.ltv || 0) > 0 ? Number(l.ltv) : Number(l.revenue || 0);
+      const ltvRecord = ltvLookup[l.id];
+      const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
+      groups[src].ltv += ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     }
     for (const g of Object.values(groups)) {
       g.profit = g.ltv - g.spend;
       g.roi = g.spend > 0 ? (g.profit / g.spend) * 100 : null;
     }
     return Object.values(groups).sort((a, b) => b.profit - a.profit);
-  }, [selectedAccLinks]);
+  }, [selectedAccLinks, ltvLookup]);
 
   const perfData = useMemo(() => {
     const linkIds = new Set(selectedAccLinks.map((l: any) => l.id));
