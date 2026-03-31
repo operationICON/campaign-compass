@@ -295,6 +295,7 @@ export default function DashboardPage() {
           accounts={accounts}
           links={filteredLinksForKpi}
           dailyMetrics={dailyMetrics}
+          trackingLinkLtv={trackingLinkLtv}
           totalSpend={totalSpend}
           totalRevenue={totalRevenue}
           totalLtv={totalLtv}
