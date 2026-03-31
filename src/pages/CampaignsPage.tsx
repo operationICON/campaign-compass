@@ -515,6 +515,13 @@ export default function CampaignsPage() {
             </button>
             <RefreshButton queryKeys={["tracking_links", "ad_spend", "accounts"]} />
             <button
+              onClick={() => { setEditingLink(null); setPanelOpen(true); }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-colors"
+              style={{ background: "#0891b2" }}
+            >
+              <Plus className="h-4 w-4" /> New
+            </button>
+            <button
               onClick={() => syncMutation.mutate(undefined)}
               disabled={syncMutation.isPending}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
