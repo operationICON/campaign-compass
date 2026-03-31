@@ -6,7 +6,7 @@ export type OverviewKpiCardId =
   | "profit_sub" | "ltv_sub" | "avg_cpl" | "subs_day"
   | "unattributed" | "expenses" | "avg_expenses"
   | "total_profit" | "blended_roi" | "active_campaigns"
-  | "best_source" | "total_ltv" | "ltv_30d_per_model";
+  | "best_source" | "est_revenue" | "total_ltv" | "ltv_30d_per_model";
 
 // ── Insight Panel IDs ──
 export type InsightPanelId =
