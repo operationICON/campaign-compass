@@ -818,6 +818,7 @@ export default function CampaignsPage() {
                             case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
                             case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
                             case "ltv": return <SortHeader key={c.id} label="LTV" sortKeyName="ltv" width="80px" />;
+                            case "cross_poll": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "85px" }}>Cross-Poll</th>;
                             case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
                             case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
