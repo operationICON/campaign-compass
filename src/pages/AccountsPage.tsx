@@ -347,7 +347,7 @@ export default function AccountsPage() {
                           activeTab === tab ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        {tab === "campaigns" ? "Campaigns" : tab === "sources" ? "Traffic Sources" : "Performance"}
+                        {tab === "campaigns" ? "Tracking Links" : tab === "sources" ? "Traffic Sources" : "Performance"}
                       </button>
                     ))}
                   </div>
