@@ -846,6 +846,7 @@ export default function CampaignsPage() {
                           }
                         })}
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }} title="Fan sync status">👥</th>
+                        <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 4px", width: "28px", background: "#f8fafc" }}></th>
                         <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}></th>
                       </tr>
                     </thead>
