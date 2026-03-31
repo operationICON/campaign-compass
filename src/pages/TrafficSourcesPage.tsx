@@ -998,8 +998,9 @@ export default function TrafficSourcesPage() {
                   const cat = getCategory(link);
                   const status = link.status || "NO_DATA";
                   const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
-                  const ltv = Number(link.ltv || 0);
-                  const ltvPerSub = Number(link.ltv_per_sub || 0);
+                  const ltvRecord = ltvLookup[link.id];
+                  const ltv = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+                  const ltvPerSub = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
                   const costTotal = Number(link.cost_total || 0);
                   const profit = Number(link.profit || 0);
                   const roi = Number(link.roi || 0);
