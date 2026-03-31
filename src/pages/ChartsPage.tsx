@@ -141,7 +141,7 @@ export default function ChartsPage() {
                   {ltvByType.map((_, i) => (<Cell key={i} fill={TYPE_COLORS[i % TYPE_COLORS.length]} />))}
                 </Pie>
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, "LTV"]} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend content={renderModelLegend} />
                 <text x="50%" y="47%" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={11}>Total</text>
                 <text x="50%" y="55%" textAnchor="middle" fill="hsl(var(--foreground))" fontSize={16} fontWeight="bold">
                   ${totalTxLtv >= 1000 ? `${(totalTxLtv/1000).toFixed(1)}k` : totalTxLtv.toFixed(0)}
