@@ -541,19 +541,19 @@ function KpiCards({
         const campaignsNeedingSpend = links.filter((l: any) => Number(l.cost_total || 0) <= 0 && (l.subscribers || 0) > 0).length;
         const showProfitSub = campaignsWithSpend >= 10 && avgProfitPerSub !== null;
         return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+          <div key={id} className="rounded-2xl p-5" style={{ ...cardStyle, background: "#0F172A", border: "1px solid #1E293B" }}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-primary" />
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Profit/Sub</span>
+              <span className="text-[11px] text-white/70 font-medium uppercase tracking-wider">Profit/Sub</span>
             </div>
             {showProfitSub ? (
-              <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub! >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(avgProfitPerSub!)}</p>
+              <p className={`text-[18px] font-bold font-mono ${avgProfitPerSub! >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmtC(avgProfitPerSub!)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-[11px] text-white/50 mt-1">
               {showProfitSub
                 ? `Per acquired subscriber · ${periodLabel}`
                 : `Add spend to ${campaignsNeedingSpend} tracking links to calculate`}
@@ -564,19 +564,19 @@ function KpiCards({
 
       case "ltv_sub":
         return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5 group relative" style={cardStyle}>
+          <div key={id} className="rounded-2xl p-5 group relative" style={{ ...cardStyle, background: "#0D9488", border: "1px solid #14B8A6" }}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="h-4 w-4 text-primary" />
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Users className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
+              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">LTV/Sub</span>
             </div>
             {ltvPerSub !== null ? (
-              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(ltvPerSub)}</p>
+              <p className="text-[22px] font-bold font-mono text-white">{fmtC(ltvPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">All subscribers · {periodLabel}</p>
+            <p className="text-[11px] text-white/60 mt-1">All subscribers · {periodLabel}</p>
           </div>
         );
 
@@ -773,19 +773,19 @@ function KpiCards({
               <p className="text-[11px] text-muted-foreground mt-1">Gross revenue — estimated, includes all subscribers</p>
             </div>
             {/* Total LTV card */}
-            <div className="bg-card border border-[#0891b2]/30 rounded-2xl p-5" style={{ ...cardStyle, boxShadow: "0 2px 12px rgba(8,145,178,0.1)" }}>
+            <div className="rounded-2xl p-5" style={{ ...cardStyle, background: "#10B981", border: "1px solid #34D399", boxShadow: "0 2px 12px rgba(16,185,129,0.15)" }}>
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-[#0891b2]/10 flex items-center justify-center">
-                  <DollarSign className="h-4 w-4 text-[#0891b2]" />
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-white" />
                 </div>
-                <span className="text-[11px] text-[#0891b2] font-medium uppercase tracking-wider">Total LTV</span>
+                <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total LTV</span>
               </div>
               {totalLtv > 0 ? (
-                <p className="text-[22px] font-bold font-mono text-[#0891b2]">{fmtC(totalLtv)}</p>
+                <p className="text-[22px] font-bold font-mono text-white">{fmtC(totalLtv)}</p>
               ) : (
-                <p className="text-[16px] font-bold text-muted-foreground">Fan sync needed</p>
+                <p className="text-[16px] font-bold text-white/50">Fan sync needed</p>
               )}
-              <p className="text-[11px] text-muted-foreground mt-1">From new subscribers only</p>
+              <p className="text-[11px] text-white/60 mt-1">From new subscribers only</p>
             </div>
           </div>
         );
