@@ -215,6 +215,15 @@ export default function CampaignsPage() {
     toast.success(`Exported ${links.length} campaigns`);
   }, [links]);
 
+  // ─── LTV lookup map from tracking_link_ltv table ───
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) {
+      map[r.tracking_link_id] = r;
+    }
+    return map;
+  }, [trackingLinkLtv]);
+
   // ─── Enriched links ───
   const enrichedLinks = useMemo(() => {
     return links.map((l: any) => {
@@ -244,12 +253,16 @@ export default function CampaignsPage() {
       const subs = l.subscribers || 0;
       const { profit, isEstimate: profitIsEstimate } = calcProfit(l);
       const { roi, isEstimate: roiIsEstimate } = calcRoi(l);
-      const ltvBased = Number(l.ltv || 0) > 0;
+      // LTV from tracking_link_ltv table
+      const ltvRecord = ltvLookup[l.id] || null;
+      const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+      const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
+      const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
       const profitPerSub = subs > 0 && profit !== null ? profit / subs : null;
       const computedStatus = calcStatus(l);
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
     });
-  }, [links, manualOverrides, dailyMetrics]);
+  }, [links, manualOverrides, dailyMetrics, ltvLookup]);
 
   // ─── Source filter options ───
   const sourceOptions = useMemo(() => {
