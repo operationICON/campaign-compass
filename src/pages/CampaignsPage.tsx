@@ -909,18 +909,39 @@ export default function CampaignsPage() {
                                     </Tooltip>
                                   </td>
                                 );
-                                case "ltv": return (
-                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className={Number(link.ltv || 0) > 0 ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
-                                          {Number(link.ltv || 0) > 0 ? fmtC(Number(link.ltv)) : link.fans_last_synced_at ? "$0.00" : "—"}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>{Number(link.ltv || 0) > 0 ? "Revenue from new subscribers only" : "Run fan sync to calculate LTV"}</TooltipContent>
-                                    </Tooltip>
-                                  </td>
-                                );
+                                case "ltv": {
+                                  const ltvVal = link.ltvFromTable;
+                                  const hasLtv = ltvVal !== null && ltvVal > 0;
+                                  const isEstimated = ltvVal === null;
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className={hasLtv ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
+                                            {hasLtv ? fmtC(ltvVal) : ltvVal === 0 ? "$0.00" : "—"}
+                                            {hasLtv && isEstimated && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)] leading-none">Est.</span>}
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{hasLtv ? "LTV from tracking_link_ltv table" : "No LTV record — run fan sync"}</TooltipContent>
+                                      </Tooltip>
+                                    </td>
+                                  );
+                                }
+                                case "cross_poll": {
+                                  const cp = link.crossPollRevenue;
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {cp !== null && cp > 0 ? (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-[#7c3aed] font-semibold">{fmtC(cp)}</span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Revenue from fans who crossed to other models</TooltipContent>
+                                        </Tooltip>
+                                      ) : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                  );
+                                }
                                 case "ltv_sub": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
