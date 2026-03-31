@@ -358,7 +358,7 @@ export default function DashboardPage() {
 // ═══ KPI Cards component ═══
 function KpiCards({
   isLoading, isVisible, enabledCards,
-  accounts, links, dailyMetrics,
+  accounts, links, dailyMetrics, trackingLinkLtv,
   totalSpend, totalRevenue, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC,
@@ -369,6 +369,7 @@ function KpiCards({
   accounts: any[];
   links: any[];
   dailyMetrics: any[];
+  trackingLinkLtv: any[];
   totalSpend: number;
   totalRevenue: number;
   totalLtv: number;
