@@ -619,7 +619,7 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
-                <div onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}>
+                <div onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
                   {/* KPI grid */}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
                     <div className="flex justify-between">
