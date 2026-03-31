@@ -10,6 +10,7 @@ interface InsightsSectionProps {
   links: any[];
   accounts: any[];
   dailyMetrics: any[];
+  trackingLinkLtv?: any[];
   groupFilter: string;
   selectedModel: string;
   getAccountCategory: (account: any) => string;
