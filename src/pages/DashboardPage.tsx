@@ -564,19 +564,19 @@ function KpiCards({
 
       case "ltv_sub":
         return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5 group relative" style={cardStyle}>
+          <div key={id} className="rounded-2xl p-5 group relative" style={{ ...cardStyle, background: "#0D9488", border: "1px solid #14B8A6" }}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="h-4 w-4 text-primary" />
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Users className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
+              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">LTV/Sub</span>
             </div>
             {ltvPerSub !== null ? (
-              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(ltvPerSub)}</p>
+              <p className="text-[22px] font-bold font-mono text-white">{fmtC(ltvPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">All subscribers · {periodLabel}</p>
+            <p className="text-[11px] text-white/60 mt-1">All subscribers · {periodLabel}</p>
           </div>
         );
 
