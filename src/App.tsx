@@ -13,6 +13,7 @@ import SettingsPage from "./pages/SettingsPage";
 import LogsPage from "./pages/LogsPage";
 import DebugPage from "./pages/DebugPage";
 import TrafficSourcesPage from "./pages/TrafficSourcesPage";
+import CrossPollPage from "./pages/CrossPollPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
