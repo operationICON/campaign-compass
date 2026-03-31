@@ -236,7 +236,7 @@ export default function CrossPollPage() {
                 ) : topCampaigns.map((r: any) => (
                   <TableRow key={r.id} className="border-border">
                     <TableCell className="font-medium text-foreground max-w-[200px] truncate">{r.campaignName}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.modelName}</TableCell>
+                    <TableCell className="text-muted-foreground"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={accounts.find((a: any) => a.id === r.account_id)?.avatar_thumb_url} name={r.modelName} size={24} /><span>{r.modelName}</span></div></TableCell>
                     <TableCell className="text-right text-foreground">{Number(r.new_subs_total || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-foreground">{Number(r.cross_poll_fans || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium text-primary">{fmtC(Number(r.cross_poll_revenue || 0))}</TableCell>
