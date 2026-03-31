@@ -39,30 +39,39 @@ export function InsightsSection({
 
   const filteredLinks = useMemo(() => links.filter((l: any) => filteredAccountIds.has(l.account_id)), [links, filteredAccountIds]);
 
+  // Build LTV lookup from tracking_link_ltv
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    return map;
+  }, [trackingLinkLtv]);
+
   const enriched = useMemo(() => filteredLinks.map((l: any) => {
     const spend = Number(l.cost_total || 0);
-    const ltvVal = Number(l.ltv || 0);
+    const ltvRecord = ltvLookup[l.id];
+    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
     const revenue = ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     const profit = spend > 0 ? revenue - spend : null;
     const roi = spend > 0 ? ((revenue - spend) / spend) * 100 : null;
     const profitPerSub = (profit !== null && l.subscribers > 0) ? profit / l.subscribers : null;
-    return { ...l, spend, profit, roi, profitPerSub, effectiveRevenue: revenue };
-  }), [filteredLinks]);
+    return { ...l, spend, profit, roi, profitPerSub, effectiveRevenue: revenue, ltvFromTable: ltvRecord ? ltvVal : null };
+  }), [filteredLinks, ltvLookup]);
 
-  // ── TOP TRACKING LINKS (across ALL accounts, by subscribers desc) ──
+  // ── TOP TRACKING LINKS (across ALL accounts, by total_ltv desc from tracking_link_ltv) ──
   const allEnriched = useMemo(() => links.map((l: any) => {
     const spend = Number(l.cost_total || 0);
-    const ltvVal = Number(l.ltv || 0);
+    const ltvRecord = ltvLookup[l.id];
+    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
     const revenue = ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     const profit = spend > 0 ? revenue - spend : null;
     const roi = spend > 0 ? ((revenue - spend) / spend) * 100 : null;
     const profitPerSub = (profit !== null && l.subscribers > 0) ? profit / l.subscribers : null;
-    return { ...l, spend, profit, roi, profitPerSub, effectiveRevenue: revenue };
-  }), [links]);
+    return { ...l, spend, profit, roi, profitPerSub, effectiveRevenue: revenue, ltvFromTable: ltvRecord ? ltvVal : null };
+  }), [links, ltvLookup]);
 
   const top5 = useMemo(() =>
-    allEnriched.filter(l => (l.subscribers || 0) > 0)
-      .sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0)).slice(0, 3),
+    allEnriched.filter(l => (l.ltvFromTable ?? 0) > 0 || (l.subscribers || 0) > 0)
+      .sort((a, b) => (b.ltvFromTable ?? 0) - (a.ltvFromTable ?? 0)).slice(0, 3),
     [allEnriched]);
 
   // ── PERFORMANCE BY SOURCE ──
