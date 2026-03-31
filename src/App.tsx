@@ -35,6 +35,7 @@ const App = () => (
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/debug" element={<DebugPage />} />
           <Route path="/traffic-sources" element={<TrafficSourcesPage />} />
+          <Route path="/cross-poll" element={<CrossPollPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
