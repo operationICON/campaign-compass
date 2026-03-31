@@ -42,7 +42,7 @@ async function fetchAllTrackingLinks() {
     const { data, error } = await supabase
       .from("tracking_links")
       .select("*, accounts(display_name, username, avatar_thumb_url)")
-      .order("revenue", { ascending: false })
+      .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;

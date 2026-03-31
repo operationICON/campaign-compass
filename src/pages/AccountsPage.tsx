@@ -49,7 +49,7 @@ export default function AccountsPage() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
-  const [sortKey, setSortKey] = useState<SortKey>("revenue");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [modelCategories, setModelCategories] = useState<Record<string, string>>(loadModelCategories);
   const [editingCatFor, setEditingCatFor] = useState<string | null>(null);
@@ -580,7 +580,7 @@ export default function AccountsPage() {
                 key={acc.id}
                 className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40 cursor-pointer"
               >
-                <div className="flex items-start gap-4 mb-4" onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}>
+                <div className="flex items-start gap-4 mb-4" onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
                   <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
@@ -619,7 +619,7 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
-                <div onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("revenue"); setSortAsc(false); }}>
+                <div onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
                   {/* KPI grid */}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
                     <div className="flex justify-between">

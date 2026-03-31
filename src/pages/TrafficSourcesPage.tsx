@@ -167,7 +167,7 @@ export default function TrafficSourcesPage() {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "OnlyTraffic" | "Manual">("all");
 
   // Sort/page
-  const [sortKey, setSortKey] = useState<SortKey>("revenue");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
