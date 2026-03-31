@@ -767,8 +767,8 @@ export default function CampaignsPage() {
           })}
         </div>
 
-        {/* ═══ CAMPAIGN TABLE ═══ */}
-        <div className="flex gap-0">
+        {/* ═══ CAMPAIGN TABLE + PANEL ═══ */}
+        <div className="flex gap-4">
           <div className="flex-1 min-w-0">
             {isLoading ? (
               <div className="bg-card border border-border rounded-2xl p-8"><div className="space-y-3">{[...Array(8)].map((_, i) => (<div key={i} className="skeleton-shimmer h-10 rounded" />))}</div></div>
