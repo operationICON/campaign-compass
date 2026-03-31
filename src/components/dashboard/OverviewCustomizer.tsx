@@ -36,7 +36,8 @@ const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "blended_roi", label: "ROI", defaultOn: false },
   { id: "active_campaigns", label: "Active Tracking Links", defaultOn: false },
   { id: "best_source", label: "Best Source", defaultOn: false },
-  { id: "total_ltv", label: "Total LTV", defaultOn: false },
+  { id: "est_revenue", label: "Est. Revenue", defaultOn: true },
+  { id: "total_ltv", label: "True LTV", defaultOn: true },
   { id: "ltv_30d_per_model", label: "30D LTV Per Model", defaultOn: false },
 ];
 
