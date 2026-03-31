@@ -236,7 +236,7 @@ export default function AccountsPage() {
       groups[src].spend += Number(l.cost_total || 0);
       const ltvRecord = ltvLookup[l.id];
       const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
-      groups[src].ltv += ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
+      groups[src].ltv += ltvVal;
     }
     for (const g of Object.values(groups)) {
       g.profit = g.ltv - g.spend;
