@@ -6,11 +6,14 @@ interface DailyDecisionViewProps {
   ltvLookup?: Record<string, any>;
 }
 
-export function DailyDecisionView({ links }: DailyDecisionViewProps) {
+export function DailyDecisionView({ links, ltvLookup = {} }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
+  const getLtv = (l: any) => {
+    const rec = ltvLookup[l.id];
+    return rec ? Number(rec.total_ltv || 0) : Number(l.revenue || 0);
+  };
   const linksWithSpend = useMemo(() => links.filter(l => l.cost_total > 0 || l.ad_spend > 0), [links]);
   const noSpendCount = useMemo(() => links.filter(l => !l.cost_total && !l.ad_spend).length, [links]);
 

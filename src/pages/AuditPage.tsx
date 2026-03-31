@@ -389,7 +389,7 @@ export default function AuditPage() {
             case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
             case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
             case "revenue": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>;
-            case "ltv": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(ltvVal)}</td>;
+            case "ltv": return <td key={c.id} className="p-2 text-right font-mono">{ltvVal !== null ? fmtC(ltvVal) : <span className="text-muted-foreground">—</span>}</td>;
             case "ltv_sub": return <td key={c.id} className="p-2 text-right font-mono">${ltvPerSub}</td>;
             case "spender_rate": return <td key={c.id} className="p-2 text-right">{spenderRate}</td>;
             case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(costTotal)}</td>;
