@@ -388,7 +388,7 @@ export default function AccountsPage() {
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
                             <th className="text-right py-2 px-3">Subs/Day</th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>LTV <SortIcon col="revenue" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>LTV <SortIcon col="revenue" /></th>{/* TODO: sort by ltv from lookup */}
                             <th className="text-right py-2 px-3">Cross-Poll</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
