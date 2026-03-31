@@ -124,7 +124,7 @@ export default function ChartsPage() {
                 <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={v => `$${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, ""]} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend content={renderModelLegend} />
                 {modelNames.map((name, i) => (
                   <Line key={name} type="monotone" dataKey={name} stroke={MODEL_COLORS[i % MODEL_COLORS.length]} strokeWidth={2} dot={false} />
                 ))}
