@@ -286,6 +286,7 @@ export function InsightsSection({
             const barWidth = m.value !== null ? Math.max(4, (Math.abs(m.value) / maxSubsDay) * 100) : 0;
             return (
               <div key={m.name} className="flex items-center gap-2">
+                <ModelAvatar avatarUrl={accounts.find((a: any) => a.display_name === m.name)?.avatar_thumb_url} name={m.name} size={24} />
                 <span className="text-[11px] text-muted-foreground min-w-[50px] truncate">{m.name}</span>
                 <div className="flex-1 h-[5px] rounded-[3px] bg-secondary overflow-hidden">
                   {m.value !== null && <div className="h-full rounded-[3px]" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />}

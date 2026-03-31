@@ -276,7 +276,7 @@ export default function CrossPollPage() {
                     <TableRow key={f.id} className="border-border">
                       <TableCell className="font-mono text-xs text-foreground">{f.fan_id?.slice(0, 12)}…</TableCell>
                       <TableCell className="text-foreground max-w-[180px] truncate">{sourceLink?.campaign_name || f.first_seen_tracking_link || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{sourceAcc?.display_name || f.first_seen_model || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={sourceAcc?.avatar_thumb_url} name={sourceAcc?.display_name || f.first_seen_model || "?"} size={24} /><span>{sourceAcc?.display_name || f.first_seen_model || "—"}</span></div></TableCell>
                       <TableCell className="text-muted-foreground">{f.first_seen_date || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
