@@ -129,7 +129,9 @@ export default function AccountsPage() {
     for (const acc of accounts) {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
       const totalRevenue = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      const totalLtv = accLinks.reduce((s: number, l: any) => s + Number(l.ltv || 0), 0);
+      // LTV from tracking_link_ltv table
+      const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
+      const totalLtv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
       const totalSpend = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
       const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
@@ -176,7 +178,7 @@ export default function AccountsPage() {
         };
     }
     return stats;
-  }, [accounts, links, dailyMetrics, agencyAvgCvr]);
+  }, [accounts, links, dailyMetrics, agencyAvgCvr, trackingLinkLtv]);
 
   const filteredAccounts = useMemo(() => {
     if (categoryFilter === "all") return accounts;
