@@ -254,6 +254,21 @@ export default function TrafficSourcesPage() {
     },
   });
 
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: async () => {
+      const { data } = await supabase.from("tracking_link_ltv").select("*");
+      return data || [];
+    },
+  });
+
+  // LTV lookup map
+  const ltvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    return map;
+  }, [trackingLinkLtv]);
+
   // Migrate source_tag_rules → traffic_sources on load if empty
   useEffect(() => {
     if (sources.length > 0) return;
