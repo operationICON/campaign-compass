@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, TrendingUp, Eye, XCircle } from "lucide-react";
 
 interface DailyDecisionViewProps {
   links: any[];
+  ltvLookup?: Record<string, any>;
 }
 
 export function DailyDecisionView({ links }: DailyDecisionViewProps) {
