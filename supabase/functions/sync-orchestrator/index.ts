@@ -33,8 +33,8 @@ Deno.serve(async (req) => {
         await db.from('sync_logs').update({
           status: 'error', success: false,
           finished_at: now, completed_at: now,
-          error_message: 'Sync timed out — exceeded 3 minute limit',
-          message: 'Sync timed out — exceeded 3 minute limit',
+          error_message: 'Sync timed out — exceeded 8 minute limit',
+          message: 'Sync timed out — exceeded 8 minute limit',
         }).eq('id', row.id)
       }
       console.log(`Marked ${stuck.length} stuck syncs as failed`)
