@@ -256,16 +256,33 @@ export default function CampaignsPage() {
         subsDayLabel = "Sync needed";
       }
       const subs = l.subscribers || 0;
-      const { profit, isEstimate: profitIsEstimate } = calcProfit(l);
-      const { roi, isEstimate: roiIsEstimate } = calcRoi(l);
       // LTV from tracking_link_ltv table
       const ltvRecord = ltvLookup[l.id] || null;
       const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
       const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
-      const profitPerSub = subs > 0 && profit !== null ? profit / subs : null;
+      // FIX 4/5: Profit = (total_ltv + cross_poll_revenue) - cost_total; ROI = profit / cost_total * 100
+      const costTotalVal = Number(l.cost_total || 0);
+      const hasLtvData = ltvFromTable !== null;
+      let computedProfit: number | null = null;
+      let computedRoi: number | null = null;
+      let profitIsEstimate = false;
+      let roiIsEstimate = false;
+      if (hasLtvData && costTotalVal > 0) {
+        computedProfit = (ltvFromTable + (crossPollRevenue || 0)) - costTotalVal;
+        computedRoi = costTotalVal > 0 ? (computedProfit / costTotalVal) * 100 : null;
+      } else if (!hasLtvData && costTotalVal > 0) {
+        // Fallback to revenue-based
+        const { profit: fp, isEstimate: fe } = calcProfit(l);
+        const { roi: fr, isEstimate: re } = calcRoi(l);
+        computedProfit = fp;
+        computedRoi = fr;
+        profitIsEstimate = fe;
+        roiIsEstimate = re;
+      }
+      const profitPerSub = subs > 0 && computedProfit !== null ? computedProfit / subs : null;
       const computedStatus = calcStatus(l);
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
     });
   }, [links, manualOverrides, dailyMetrics, ltvLookup]);
 
@@ -398,17 +415,35 @@ export default function CampaignsPage() {
     const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
+    // FIX 6: Total Profit = SUM(total_ltv + cross_poll_revenue) - SUM(cost_total) for links with cost
+    const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const ltvPlusCrossPoll = linksWithCost.reduce((s: number, l: any) => {
+      const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
+      const cp = l.crossPollRevenue ?? 0;
+      return s + ltv + cp;
+    }, 0);
+    const totalCostForProfit = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const totalProfitCalc = ltvPlusCrossPoll - totalCostForProfit;
+
+    // FIX 7: Total Expenses = SUM(cost_total) WHERE traffic_category = 'OnlyTraffic'
+    const onlyTrafficExpenses = scopedLinks
+      .filter((l: any) => l.traffic_category === "OnlyTraffic" && Number(l.cost_total || 0) > 0)
+      .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    // Also keep total spend across all sources
+    const totalSpendAll = scopedLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
     // Source-based KPIs
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const bySource: Record<string, { rev: number; spend: number; subs: number; profit: number; count: number }> = {};
     withSpend.forEach((l: any) => {
       const tag = l.source_tag || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      const { value: effectiveRev } = getEffectiveRevenue(l);
-      bySource[tag].rev += effectiveRev;
+      const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
+      const cp = l.crossPollRevenue ?? 0;
+      bySource[tag].rev += ltv + cp;
       bySource[tag].spend += Number(l.cost_total || 0);
       bySource[tag].subs += (l.subscribers || 0);
-      bySource[tag].profit += effectiveRev - Number(l.cost_total || 0);
+      bySource[tag].profit += (ltv + cp) - Number(l.cost_total || 0);
       bySource[tag].count++;
     });
 
@@ -427,14 +462,20 @@ export default function CampaignsPage() {
       if (!worstSource || roi < worstSource.roi) worstSource = { name, roi };
     });
 
-    const avgExpensesPerCampaign = withSpend.length > 0 ? agTotals.totalSpend / withSpend.length : null;
+    const avgExpensesPerCampaign = withSpend.length > 0 ? totalSpendAll / withSpend.length : null;
+    // Profit/sub based on LTV
+    const paidSubs = linksWithCost.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const profitPerSubCalc = paidSubs > 0 ? totalProfitCalc / paidSubs : null;
+    const avgCplCalc = paidSubs > 0 ? totalCostForProfit / paidSubs : null;
+    const blendedRoiCalc = totalCostForProfit > 0 ? (totalProfitCalc / totalCostForProfit) * 100 : null;
 
     return {
       totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
-      profitPerSub: agTotals.avgProfitPerSub, avgCpl: agTotals.avgCpl, trackedCount, trackedPct,
+      profitPerSub: profitPerSubCalc, avgCpl: avgCplCalc, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
-      avgExpensesPerCampaign, blendedRoi: agTotals.roiPct, isEstimate: agTotals.isEstimate,
-      totalSpend: agTotals.totalSpend, totalProfit: agTotals.totalProfit,
+      avgExpensesPerCampaign, blendedRoi: blendedRoiCalc, isEstimate: agTotals.isEstimate,
+      totalSpend: totalSpendAll, totalProfit: totalProfitCalc,
+      onlyTrafficExpenses,
     };
   }, [filtered]);
 
@@ -468,10 +509,29 @@ export default function CampaignsPage() {
       setExpandedRow(null);
     } else {
       setExpandedRow(link.id);
-      setSpendType(link.cost_type || "CPL");
-      setSpendValue(link.cost_value ? String(link.cost_value) : "");
-      
-      setSourceInputValue(link.source_tag || "");
+      // FIX 2: Pre-fill with payment_type/cost_type and cost_total
+      const pt = link.payment_type || link.cost_type;
+      if (pt === "CPL" || pt === "CPC" || pt === "FIXED") {
+        setSpendType(pt);
+      } else if (pt === "CPL+CPC") {
+        setSpendType("CPL"); // default to CPL for combined
+      } else {
+        setSpendType("CPL");
+      }
+      // Pre-fill cost value: use cost_per_lead/cost_per_click if available, else cost_total
+      if (pt === "CPL" && link.cost_per_lead) {
+        setSpendValue(String(link.cost_per_lead));
+      } else if (pt === "CPC" && link.cost_per_click) {
+        setSpendValue(String(link.cost_per_click));
+      } else if (Number(link.cost_total || 0) > 0) {
+        setSpendValue(String(link.cost_total));
+      } else if (link.cost_value) {
+        setSpendValue(String(link.cost_value));
+      } else {
+        setSpendValue("");
+      }
+      // FIX 3: Pre-fill source with onlytraffic_marketer if available
+      setSourceInputValue(link.onlytraffic_marketer || link.source_tag || "");
       setNoteText("");
     }
   };
@@ -965,27 +1025,33 @@ export default function CampaignsPage() {
                                     </td>
                                   );
                                 }
-                                case "ltv_sub": return (
+                                case "ltv_sub": {
+                                  const ltvSubFromRecord = link.ltvRecord ? Number(link.ltvRecord.ltv_per_sub || 0) : null;
+                                  return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span className="text-foreground">
-                                          {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
+                                          {ltvSubFromRecord !== null && ltvSubFromRecord > 0 ? fmtC(ltvSubFromRecord) : "—"}
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>Average revenue per new subscriber</TooltipContent>
+                                      <TooltipContent>Average LTV per new subscriber</TooltipContent>
                                     </Tooltip>
                                   </td>
-                                );
-                                case "spender_rate": return (
+                                  );
+                                }
+                                case "spender_rate": {
+                                  const spenderPctFromRecord = link.ltvRecord ? Number(link.ltvRecord.spender_pct || 0) : null;
+                                  return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {Number(link.spender_rate || 0) > 0 ? (
-                                      <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
-                                        {Number(link.spender_rate).toFixed(1)}%
+                                    {spenderPctFromRecord !== null && spenderPctFromRecord > 0 ? (
+                                      <span className={spenderPctFromRecord > 10 ? "text-primary" : spenderPctFromRecord >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                        {spenderPctFromRecord.toFixed(1)}%
                                       </span>
                                     ) : <span className="text-muted-foreground">—</span>}
                                   </td>
-                                );
+                                  );
+                                }
                                 case "expenses": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {hasCost ? (
