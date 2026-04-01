@@ -226,7 +226,10 @@ export default function CampaignsPage() {
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
-      map[r.tracking_link_id] = r;
+      const trackingLinkId = String(r.tracking_link_id ?? "").trim();
+      if (!trackingLinkId) continue;
+      map[trackingLinkId] = r;
+      map[trackingLinkId.toLowerCase()] = r;
     }
     return map;
   }, [trackingLinkLtv]);
