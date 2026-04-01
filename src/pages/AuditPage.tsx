@@ -529,11 +529,12 @@ export default function AuditPage() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           <StatCard icon={AlertCircle} label="Zero Activity" count={zeroActivity.length} color="bg-muted text-muted-foreground" />
           <StatCard icon={Skull} label="Inactive" count={inactive.length} color="bg-destructive/10 text-destructive" />
           <StatCard icon={Tag} label="Missing Source" count={missingSource.length} color="bg-warning/10 text-warning" />
           <StatCard icon={DollarSign} label="Missing Spend" count={missingSpend.length} color="bg-info/10 text-primary" />
+          <StatCard icon={Copy} label="Duplicates" count={duplicateCount} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
         </div>
 
         {/* Tabs */}
