@@ -153,9 +153,11 @@ export default function CampaignsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+    queryKey: ["campaigns_tracking_link_ltv"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      const { data, error } = await supabase
+        .from("tracking_link_ltv")
+        .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct");
       if (error) throw error;
       return data || [];
     },
