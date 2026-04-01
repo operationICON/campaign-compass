@@ -1004,9 +1004,12 @@ export default function CampaignsPage() {
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
+                                        <span className="text-foreground inline-flex items-center gap-1">
+                                          {fmtC(Number(link.revenue || 0))}
+                                          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">Est.</span>
+                                        </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
+                                      <TooltipContent>Estimated revenue · includes all subscribers (not just new)</TooltipContent>
                                     </Tooltip>
                                   </td>
                                 );
