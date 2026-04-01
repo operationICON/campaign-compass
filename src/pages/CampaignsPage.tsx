@@ -415,17 +415,35 @@ export default function CampaignsPage() {
     const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
+    // FIX 6: Total Profit = SUM(total_ltv + cross_poll_revenue) - SUM(cost_total) for links with cost
+    const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const ltvPlusCrossPoll = linksWithCost.reduce((s: number, l: any) => {
+      const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
+      const cp = l.crossPollRevenue ?? 0;
+      return s + ltv + cp;
+    }, 0);
+    const totalCostForProfit = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const totalProfitCalc = ltvPlusCrossPoll - totalCostForProfit;
+
+    // FIX 7: Total Expenses = SUM(cost_total) WHERE traffic_category = 'OnlyTraffic'
+    const onlyTrafficExpenses = scopedLinks
+      .filter((l: any) => l.traffic_category === "OnlyTraffic" && Number(l.cost_total || 0) > 0)
+      .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    // Also keep total spend across all sources
+    const totalSpendAll = scopedLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
     // Source-based KPIs
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const bySource: Record<string, { rev: number; spend: number; subs: number; profit: number; count: number }> = {};
     withSpend.forEach((l: any) => {
       const tag = l.source_tag || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      const { value: effectiveRev } = getEffectiveRevenue(l);
-      bySource[tag].rev += effectiveRev;
+      const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
+      const cp = l.crossPollRevenue ?? 0;
+      bySource[tag].rev += ltv + cp;
       bySource[tag].spend += Number(l.cost_total || 0);
       bySource[tag].subs += (l.subscribers || 0);
-      bySource[tag].profit += effectiveRev - Number(l.cost_total || 0);
+      bySource[tag].profit += (ltv + cp) - Number(l.cost_total || 0);
       bySource[tag].count++;
     });
 
@@ -444,14 +462,20 @@ export default function CampaignsPage() {
       if (!worstSource || roi < worstSource.roi) worstSource = { name, roi };
     });
 
-    const avgExpensesPerCampaign = withSpend.length > 0 ? agTotals.totalSpend / withSpend.length : null;
+    const avgExpensesPerCampaign = withSpend.length > 0 ? totalSpendAll / withSpend.length : null;
+    // Profit/sub based on LTV
+    const paidSubs = linksWithCost.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const profitPerSubCalc = paidSubs > 0 ? totalProfitCalc / paidSubs : null;
+    const avgCplCalc = paidSubs > 0 ? totalCostForProfit / paidSubs : null;
+    const blendedRoiCalc = totalCostForProfit > 0 ? (totalProfitCalc / totalCostForProfit) * 100 : null;
 
     return {
       totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
-      profitPerSub: agTotals.avgProfitPerSub, avgCpl: agTotals.avgCpl, trackedCount, trackedPct,
+      profitPerSub: profitPerSubCalc, avgCpl: avgCplCalc, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
-      avgExpensesPerCampaign, blendedRoi: agTotals.roiPct, isEstimate: agTotals.isEstimate,
-      totalSpend: agTotals.totalSpend, totalProfit: agTotals.totalProfit,
+      avgExpensesPerCampaign, blendedRoi: blendedRoiCalc, isEstimate: agTotals.isEstimate,
+      totalSpend: totalSpendAll, totalProfit: totalProfitCalc,
+      onlyTrafficExpenses,
     };
   }, [filtered]);
 
