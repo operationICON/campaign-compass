@@ -959,6 +959,8 @@ export type Database = {
           campaign_name: string | null
           clicks: number
           conversion_rate: number
+          cost_per_click: number | null
+          cost_per_lead: number | null
           cost_total: number | null
           cost_type: string | null
           cost_value: number | null
@@ -977,6 +979,11 @@ export type Database = {
           media_buyer: string | null
           needs_full_sync: boolean | null
           needs_spend: boolean | null
+          onlytraffic_marketer: string | null
+          onlytraffic_order_id: string | null
+          onlytraffic_order_type: string | null
+          onlytraffic_status: string | null
+          payment_type: string | null
           profit: number | null
           revenue: number
           revenue_per_click: number
@@ -990,6 +997,7 @@ export type Database = {
           spenders_count: number | null
           status: string | null
           subscribers: number
+          traffic_category: string | null
           traffic_source_id: string | null
           updated_at: string
           url: string
@@ -1002,6 +1010,8 @@ export type Database = {
           campaign_name?: string | null
           clicks?: number
           conversion_rate?: number
+          cost_per_click?: number | null
+          cost_per_lead?: number | null
           cost_total?: number | null
           cost_type?: string | null
           cost_value?: number | null
@@ -1020,6 +1030,11 @@ export type Database = {
           media_buyer?: string | null
           needs_full_sync?: boolean | null
           needs_spend?: boolean | null
+          onlytraffic_marketer?: string | null
+          onlytraffic_order_id?: string | null
+          onlytraffic_order_type?: string | null
+          onlytraffic_status?: string | null
+          payment_type?: string | null
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
@@ -1033,6 +1048,7 @@ export type Database = {
           spenders_count?: number | null
           status?: string | null
           subscribers?: number
+          traffic_category?: string | null
           traffic_source_id?: string | null
           updated_at?: string
           url: string
@@ -1045,6 +1061,8 @@ export type Database = {
           campaign_name?: string | null
           clicks?: number
           conversion_rate?: number
+          cost_per_click?: number | null
+          cost_per_lead?: number | null
           cost_total?: number | null
           cost_type?: string | null
           cost_value?: number | null
@@ -1063,6 +1081,11 @@ export type Database = {
           media_buyer?: string | null
           needs_full_sync?: boolean | null
           needs_spend?: boolean | null
+          onlytraffic_marketer?: string | null
+          onlytraffic_order_id?: string | null
+          onlytraffic_order_type?: string | null
+          onlytraffic_status?: string | null
+          payment_type?: string | null
           profit?: number | null
           revenue?: number
           revenue_per_click?: number
@@ -1076,6 +1099,7 @@ export type Database = {
           spenders_count?: number | null
           status?: string | null
           subscribers?: number
+          traffic_category?: string | null
           traffic_source_id?: string | null
           updated_at?: string
           url?: string
