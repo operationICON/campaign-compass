@@ -544,7 +544,8 @@ export default function AuditPage() {
             <TabsTrigger value="dead">Inactive ({inactive.length})</TabsTrigger>
             <TabsTrigger value="source">Missing Source ({missingSource.length})</TabsTrigger>
             <TabsTrigger value="spend">Missing Spend ({missingSpend.length})</TabsTrigger>
-          <TabsTrigger value="dupes">Duplicates ({duplicateCount})</TabsTrigger>
+            <TabsTrigger value="dupes">Duplicates ({duplicateCount})</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="zero">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
