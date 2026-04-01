@@ -485,10 +485,29 @@ export default function CampaignsPage() {
       setExpandedRow(null);
     } else {
       setExpandedRow(link.id);
-      setSpendType(link.cost_type || "CPL");
-      setSpendValue(link.cost_value ? String(link.cost_value) : "");
-      
-      setSourceInputValue(link.source_tag || "");
+      // FIX 2: Pre-fill with payment_type/cost_type and cost_total
+      const pt = link.payment_type || link.cost_type;
+      if (pt === "CPL" || pt === "CPC" || pt === "FIXED") {
+        setSpendType(pt);
+      } else if (pt === "CPL+CPC") {
+        setSpendType("CPL"); // default to CPL for combined
+      } else {
+        setSpendType("CPL");
+      }
+      // Pre-fill cost value: use cost_per_lead/cost_per_click if available, else cost_total
+      if (pt === "CPL" && link.cost_per_lead) {
+        setSpendValue(String(link.cost_per_lead));
+      } else if (pt === "CPC" && link.cost_per_click) {
+        setSpendValue(String(link.cost_per_click));
+      } else if (Number(link.cost_total || 0) > 0) {
+        setSpendValue(String(link.cost_total));
+      } else if (link.cost_value) {
+        setSpendValue(String(link.cost_value));
+      } else {
+        setSpendValue("");
+      }
+      // FIX 3: Pre-fill source with onlytraffic_marketer if available
+      setSourceInputValue(link.onlytraffic_marketer || link.source_tag || "");
       setNoteText("");
     }
   };
