@@ -262,7 +262,8 @@ export default function CampaignsPage() {
       }
       const subs = l.subscribers || 0;
       // LTV from tracking_link_ltv table
-      const ltvRecord = ltvLookup[l.id] || null;
+      const linkId = String(l.id ?? "").trim();
+      const ltvRecord = ltvLookup[linkId] || ltvLookup[linkId.toLowerCase()] || null;
       const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
       const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
