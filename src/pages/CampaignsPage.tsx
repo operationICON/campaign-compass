@@ -256,16 +256,33 @@ export default function CampaignsPage() {
         subsDayLabel = "Sync needed";
       }
       const subs = l.subscribers || 0;
-      const { profit, isEstimate: profitIsEstimate } = calcProfit(l);
-      const { roi, isEstimate: roiIsEstimate } = calcRoi(l);
       // LTV from tracking_link_ltv table
       const ltvRecord = ltvLookup[l.id] || null;
       const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
       const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
-      const profitPerSub = subs > 0 && profit !== null ? profit / subs : null;
+      // FIX 4/5: Profit = (total_ltv + cross_poll_revenue) - cost_total; ROI = profit / cost_total * 100
+      const costTotalVal = Number(l.cost_total || 0);
+      const hasLtvData = ltvFromTable !== null;
+      let computedProfit: number | null = null;
+      let computedRoi: number | null = null;
+      let profitIsEstimate = false;
+      let roiIsEstimate = false;
+      if (hasLtvData && costTotalVal > 0) {
+        computedProfit = (ltvFromTable + (crossPollRevenue || 0)) - costTotalVal;
+        computedRoi = costTotalVal > 0 ? (computedProfit / costTotalVal) * 100 : null;
+      } else if (!hasLtvData && costTotalVal > 0) {
+        // Fallback to revenue-based
+        const { profit: fp, isEstimate: fe } = calcProfit(l);
+        const { roi: fr, isEstimate: re } = calcRoi(l);
+        computedProfit = fp;
+        computedRoi = fr;
+        profitIsEstimate = fe;
+        roiIsEstimate = re;
+      }
+      const profitPerSub = subs > 0 && computedProfit !== null ? computedProfit / subs : null;
       const computedStatus = calcStatus(l);
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit: profit, computedRoi: roi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
     });
   }, [links, manualOverrides, dailyMetrics, ltvLookup]);
 
