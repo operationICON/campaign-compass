@@ -5,9 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAccounts } from "@/lib/supabase-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { GitBranch, Users, DollarSign, Award } from "lucide-react";
 
@@ -19,43 +17,46 @@ const fmtP = (v: number | null) =>
 
 export default function CrossPollPage() {
   const [modelFilter, setModelFilter] = useState("all");
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | null>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
+  // Section 1 & 2: tracking_link_ltv with cross_poll_revenue > 0
   const { data: ltvData = [], isLoading: ltvLoading } = useQuery({
-    queryKey: ["tracking_link_ltv_crosspoll"],
+    queryKey: ["crosspoll_ltv"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_link_ltv")
-        .select("*");
+        .select("*")
+        .gt("cross_poll_revenue", 0)
+        .order("cross_poll_revenue", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
+  // Tracking links for campaign names
   const { data: trackingLinks = [] } = useQuery({
-    queryKey: ["tracking_links_crosspoll"],
+    queryKey: ["crosspoll_tracking_links"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_links")
-        .select("id, campaign_name, account_id, subscribers, accounts(display_name, username)")
+        .select("id, campaign_name, account_id")
         .is("deleted_at", null);
       if (error) throw error;
       return data;
     },
   });
 
-  const { data: fanLtvData = [], isLoading: fanLoading } = useQuery({
-    queryKey: ["fan_ltv_crosspoll"],
+  // Section 3: Fan migration from fan_spenders (cross-model fans)
+  const { data: fanMigrationData = [], isLoading: fanLoading } = useQuery({
+    queryKey: ["crosspoll_fan_migration"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fan_ltv")
-        .select("*")
-        .eq("is_cross_pollinated", true)
-        .order("first_seen_date", { ascending: false });
+      // Get all fan_spenders
+      const { data: spenders, error } = await supabase
+        .from("fan_spenders")
+        .select("fan_id, tracking_link_id, account_id, revenue_total");
       if (error) throw error;
-      return data;
+      return spenders || [];
     },
   });
 
@@ -72,13 +73,10 @@ export default function CrossPollPage() {
     return map;
   }, [accounts]);
 
-  // Filter LTV data by model
+  // Filter by model
   const filteredLtv = useMemo(() => {
-    let items = ltvData;
-    if (modelFilter !== "all") {
-      items = items.filter((r: any) => r.account_id === modelFilter);
-    }
-    return items;
+    if (modelFilter === "all") return ltvData;
+    return ltvData.filter((r: any) => r.account_id === modelFilter);
   }, [ltvData, modelFilter]);
 
   // Summary cards
@@ -87,59 +85,87 @@ export default function CrossPollPage() {
     const totalFans = filteredLtv.reduce((s: number, r: any) => s + Number(r.cross_poll_fans || 0), 0);
     const avgPerFan = totalFans > 0 ? totalRevenue / totalFans : 0;
 
-    // Top receiving model: aggregate cross_poll_revenue by account
     const byAccount: Record<string, number> = {};
     filteredLtv.forEach((r: any) => {
-      const accId = r.account_id;
-      byAccount[accId] = (byAccount[accId] || 0) + Number(r.cross_poll_revenue || 0);
+      byAccount[r.account_id] = (byAccount[r.account_id] || 0) + Number(r.cross_poll_revenue || 0);
     });
     let topModel = "—";
     let topVal = 0;
+    let topAccId = "";
     Object.entries(byAccount).forEach(([accId, val]) => {
       if (val > topVal) {
         topVal = val;
-        const acc = accountLookup[accId];
-        topModel = acc?.display_name || accId;
+        topAccId = accId;
+        topModel = accountLookup[accId]?.display_name || accId;
       }
     });
 
-    return { totalRevenue, totalFans, avgPerFan, topModel };
+    return { totalRevenue, totalFans, avgPerFan, topModel, topAccId };
   }, [filteredLtv, accountLookup]);
 
   // Top campaigns table
   const topCampaigns = useMemo(() => {
-    return [...filteredLtv]
-      .filter((r: any) => Number(r.cross_poll_revenue || 0) > 0)
-      .sort((a: any, b: any) => Number(b.cross_poll_revenue || 0) - Number(a.cross_poll_revenue || 0))
-      .slice(0, 50)
-      .map((r: any) => {
-        const link = linkLookup[r.tracking_link_id];
-        return {
-          ...r,
-          campaignName: link?.campaign_name || r.tracking_link_id,
-          modelName: link?.accounts?.display_name || accountLookup[r.account_id]?.display_name || "—",
-        };
-      });
+    return filteredLtv.slice(0, 50).map((r: any) => {
+      const link = linkLookup[r.tracking_link_id];
+      const acc = accountLookup[r.account_id];
+      return {
+        ...r,
+        campaignName: link?.campaign_name || r.tracking_link_id,
+        modelName: acc?.display_name || "—",
+        avatarUrl: acc?.avatar_thumb_url,
+      };
+    });
   }, [filteredLtv, linkLookup, accountLookup]);
 
-  // Fan migration table
-  const filteredFans = useMemo(() => {
-    let items = fanLtvData;
+  // Fan migration: deduplicate cross-model fans
+  const fanMigrationRows = useMemo(() => {
+    // Group spenders by fan_id
+    const byFan: Record<string, any[]> = {};
+    fanMigrationData.forEach((s: any) => {
+      if (!byFan[s.fan_id]) byFan[s.fan_id] = [];
+      byFan[s.fan_id].push(s);
+    });
+
+    // Only fans that appear on 2+ different accounts
+    const rows: any[] = [];
+    Object.entries(byFan).forEach(([fanId, entries]) => {
+      const uniqueAccounts = new Set(entries.map((e: any) => e.account_id));
+      if (uniqueAccounts.size < 2) return;
+
+      // Pick the first entry as "source", others as "destinations"
+      const sorted = [...entries].sort((a: any, b: any) => 
+        (a.tracking_link_id || "").localeCompare(b.tracking_link_id || "")
+      );
+      const source = sorted[0];
+      const sourceLink = linkLookup[source.tracking_link_id];
+      const sourceAcc = accountLookup[source.account_id];
+
+      sorted.slice(1).forEach((dest: any) => {
+        if (dest.account_id === source.account_id) return;
+        const destLink = linkLookup[dest.tracking_link_id];
+        const destAcc = accountLookup[dest.account_id];
+        rows.push({
+          fanId: fanId,
+          acquiredVia: sourceLink?.campaign_name || source.tracking_link_id || "—",
+          sourceModel: sourceAcc?.display_name || source.account_id || "—",
+          sourceAvatarUrl: sourceAcc?.avatar_thumb_url,
+          spentOnCampaign: destLink?.campaign_name || dest.tracking_link_id || "—",
+          spentOnModel: destAcc?.display_name || dest.account_id || "—",
+          destAvatarUrl: destAcc?.avatar_thumb_url,
+        });
+      });
+    });
+
+    // Apply model filter
     if (modelFilter !== "all") {
-      items = items.filter((f: any) => f.first_seen_model === modelFilter);
-    }
-    if (dateRange) {
-      const fromStr = dateRange.from.toISOString().slice(0, 10);
-      const toStr = dateRange.to.toISOString().slice(0, 10);
-      items = items.filter((f: any) => {
-        const d = f.first_seen_date;
-        return d && d >= fromStr && d <= toStr;
+      return rows.filter(r => {
+        const srcId = accounts.find((a: any) => a.display_name === r.sourceModel)?.id;
+        return srcId === modelFilter;
       });
     }
-    return items.slice(0, 100);
-  }, [fanLtvData, modelFilter, dateRange]);
 
-  const MODEL_COLORS = ["#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#10b981", "#f97316", "#6366f1"];
+    return rows.slice(0, 100);
+  }, [fanMigrationData, linkLookup, accountLookup, modelFilter, accounts]);
 
   return (
     <DashboardLayout>
@@ -152,23 +178,20 @@ export default function CrossPollPage() {
               Cross-Pollination
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Revenue from fans who subscribe to multiple models after being acquired via a tracking link
+              Revenue generated on other models from fans acquired by each campaign
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Select value={modelFilter} onValueChange={setModelFilter}>
-              <SelectTrigger className="w-[180px] bg-card border-border">
-                <SelectValue placeholder="All Models" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Models</SelectItem>
-                {accounts.map((a: any) => (
-                  <SelectItem key={a.id} value={a.id}>{a.display_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
-          </div>
+          <Select value={modelFilter} onValueChange={setModelFilter}>
+            <SelectTrigger className="w-[180px] bg-card border-border">
+              <SelectValue placeholder="All Models" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Models</SelectItem>
+              {accounts.map((a: any) => (
+                <SelectItem key={a.id} value={a.id}>{a.display_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Summary Cards */}
@@ -202,11 +225,14 @@ export default function CrossPollPage() {
           </Card>
           <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Top Receiving Model</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Top Source Model</CardTitle>
               <Award className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground truncate">{summary.topModel}</div>
+              <div className="flex items-center gap-2">
+                <ModelAvatar avatarUrl={accountLookup[summary.topAccId]?.avatar_thumb_url} name={summary.topModel} size={32} />
+                <span className="text-2xl font-bold text-foreground truncate">{summary.topModel}</span>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -221,7 +247,7 @@ export default function CrossPollPage() {
               <TableHeader>
                 <TableRow className="border-border">
                   <TableHead className="text-muted-foreground">Campaign</TableHead>
-                  <TableHead className="text-muted-foreground">Model</TableHead>
+                  <TableHead className="text-muted-foreground">Source Model</TableHead>
                   <TableHead className="text-muted-foreground text-right">New Fans</TableHead>
                   <TableHead className="text-muted-foreground text-right">Cross-Poll Fans</TableHead>
                   <TableHead className="text-muted-foreground text-right">Cross-Poll Revenue</TableHead>
@@ -236,7 +262,12 @@ export default function CrossPollPage() {
                 ) : topCampaigns.map((r: any) => (
                   <TableRow key={r.id} className="border-border">
                     <TableCell className="font-medium text-foreground max-w-[200px] truncate">{r.campaignName}</TableCell>
-                    <TableCell className="text-muted-foreground"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={accounts.find((a: any) => a.id === r.account_id)?.avatar_thumb_url} name={r.modelName} size={24} /><span>{r.modelName}</span></div></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <ModelAvatar avatarUrl={r.avatarUrl} name={r.modelName} size={24} />
+                        <span className="text-muted-foreground">{r.modelName}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right text-foreground">{Number(r.new_subs_total || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-foreground">{Number(r.cross_poll_fans || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium text-primary">{fmtC(Number(r.cross_poll_revenue || 0))}</TableCell>
@@ -251,7 +282,7 @@ export default function CrossPollPage() {
         {/* Fan Migration Table */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold text-foreground">Fan Migration</CardTitle>
+            <CardTitle className="text-sm font-semibold text-foreground">Fan Migration Detail</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -260,44 +291,34 @@ export default function CrossPollPage() {
                   <TableHead className="text-muted-foreground">Fan ID</TableHead>
                   <TableHead className="text-muted-foreground">Acquired Via</TableHead>
                   <TableHead className="text-muted-foreground">Source Model</TableHead>
-                  <TableHead className="text-muted-foreground">Entry Date</TableHead>
-                  <TableHead className="text-muted-foreground">Models Spent On</TableHead>
+                  <TableHead className="text-muted-foreground">Spent On Campaign</TableHead>
+                  <TableHead className="text-muted-foreground">Spent On Model</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {fanLoading ? (
                   <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
-                ) : filteredFans.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No cross-pollinated fans found</TableCell></TableRow>
-                ) : filteredFans.map((f: any) => {
-                  const sourceLink = linkLookup[f.first_seen_tracking_link];
-                  const sourceAcc = accountLookup[f.first_seen_model];
-                  return (
-                    <TableRow key={f.id} className="border-border">
-                      <TableCell className="font-mono text-xs text-foreground">{f.fan_id?.slice(0, 12)}…</TableCell>
-                      <TableCell className="text-foreground max-w-[180px] truncate">{sourceLink?.campaign_name || f.first_seen_tracking_link || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={sourceAcc?.avatar_thumb_url} name={sourceAcc?.display_name || f.first_seen_model || "?"} size={24} /><span>{sourceAcc?.display_name || f.first_seen_model || "—"}</span></div></TableCell>
-                      <TableCell className="text-muted-foreground">{f.first_seen_date || "—"}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(f.models_spent_on || []).map((m: string, i: number) => {
-                            const acc = accounts.find((a: any) => a.id === m || a.display_name === m);
-                            return (
-                              <Badge
-                                key={i}
-                                variant="outline"
-                                className="text-[10px] border-border"
-                                style={{ backgroundColor: MODEL_COLORS[i % MODEL_COLORS.length] + "22", color: MODEL_COLORS[i % MODEL_COLORS.length], borderColor: MODEL_COLORS[i % MODEL_COLORS.length] + "44" }}
-                              >
-                                {acc?.display_name || m}
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                ) : fanMigrationRows.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No cross-model fan migrations found</TableCell></TableRow>
+                ) : fanMigrationRows.map((r: any, i: number) => (
+                  <TableRow key={`${r.fanId}-${i}`} className="border-border">
+                    <TableCell className="font-mono text-xs text-foreground">{r.fanId.slice(0, 12)}…</TableCell>
+                    <TableCell className="text-foreground max-w-[180px] truncate">{r.acquiredVia}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <ModelAvatar avatarUrl={r.sourceAvatarUrl} name={r.sourceModel} size={24} />
+                        <span className="text-muted-foreground">{r.sourceModel}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-foreground max-w-[180px] truncate">{r.spentOnCampaign}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <ModelAvatar avatarUrl={r.destAvatarUrl} name={r.spentOnModel} size={24} />
+                        <span className="text-muted-foreground">{r.spentOnModel}</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </CardContent>
