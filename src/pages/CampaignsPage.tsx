@@ -289,7 +289,7 @@ export default function CampaignsPage() {
       }
       const profitPerSub = subs > 0 && computedProfit !== null ? computedProfit / subs : null;
       const computedStatus = calcStatus(l);
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord };
     });
   }, [links, manualOverrides, dailyMetrics, ltvLookup]);
 
