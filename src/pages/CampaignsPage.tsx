@@ -157,7 +157,7 @@ export default function CampaignsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_link_ltv")
-        .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct");
+        .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated");
       if (error) throw error;
       return data || [];
     },
