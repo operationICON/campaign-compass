@@ -1025,27 +1025,33 @@ export default function CampaignsPage() {
                                     </td>
                                   );
                                 }
-                                case "ltv_sub": return (
+                                case "ltv_sub": {
+                                  const ltvSubFromRecord = link.ltvRecord ? Number(link.ltvRecord.ltv_per_sub || 0) : null;
+                                  return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span className="text-foreground">
-                                          {Number(link.ltv_per_sub || 0) > 0 ? fmtC(Number(link.ltv_per_sub)) : "—"}
+                                          {ltvSubFromRecord !== null && ltvSubFromRecord > 0 ? fmtC(ltvSubFromRecord) : "—"}
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>Average revenue per new subscriber</TooltipContent>
+                                      <TooltipContent>Average LTV per new subscriber</TooltipContent>
                                     </Tooltip>
                                   </td>
-                                );
-                                case "spender_rate": return (
+                                  );
+                                }
+                                case "spender_rate": {
+                                  const spenderPctFromRecord = link.ltvRecord ? Number(link.ltvRecord.spender_pct || 0) : null;
+                                  return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {Number(link.spender_rate || 0) > 0 ? (
-                                      <span className={Number(link.spender_rate) > 10 ? "text-primary" : Number(link.spender_rate) >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
-                                        {Number(link.spender_rate).toFixed(1)}%
+                                    {spenderPctFromRecord !== null && spenderPctFromRecord > 0 ? (
+                                      <span className={spenderPctFromRecord > 10 ? "text-primary" : spenderPctFromRecord >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                        {spenderPctFromRecord.toFixed(1)}%
                                       </span>
                                     ) : <span className="text-muted-foreground">—</span>}
                                   </td>
-                                );
+                                  );
+                                }
                                 case "expenses": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {hasCost ? (
