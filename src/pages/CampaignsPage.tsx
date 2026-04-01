@@ -264,8 +264,9 @@ export default function CampaignsPage() {
       // LTV from tracking_link_ltv table
       const linkId = String(l.id ?? "").trim();
       const ltvRecord = ltvLookup[linkId] || ltvLookup[linkId.toLowerCase()] || null;
-      const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
-      const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
+      const hasLtvRecord = ltvRecord !== null;
+      const ltvFromTable = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+      const crossPollRevenue = hasLtvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
       // FIX 4/5: Profit = (total_ltv + cross_poll_revenue) - cost_total; ROI = profit / cost_total * 100
       const costTotalVal = Number(l.cost_total || 0);
