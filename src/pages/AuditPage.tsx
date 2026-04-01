@@ -183,6 +183,45 @@ export default function AuditPage() {
     (!l.cost_total || l.cost_total === 0) && (l.clicks > 0 || l.subscribers > 0)
   ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
 
+  // Duplicates: same external_tracking_link_id or same URL
+  const duplicateGroups = useMemo(() => {
+    const byExtId: Record<string, any[]> = {};
+    const byUrl: Record<string, any[]> = {};
+    for (const l of activeLinks) {
+      if (l.external_tracking_link_id) {
+        const key = l.external_tracking_link_id;
+        if (!byExtId[key]) byExtId[key] = [];
+        byExtId[key].push(l);
+      }
+      if (l.url) {
+        const key = l.url.trim().toLowerCase();
+        if (!byUrl[key]) byUrl[key] = [];
+        byUrl[key].push(l);
+      }
+    }
+    // Merge groups, dedup by link id
+    const seenIds = new Set<string>();
+    const groups: { key: string; links: any[] }[] = [];
+    for (const [key, links] of Object.entries(byExtId)) {
+      if (links.length < 2) continue;
+      const sorted = [...links].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      groups.push({ key: `ext:${key}`, links: sorted });
+      sorted.forEach(l => seenIds.add(l.id));
+    }
+    for (const [key, links] of Object.entries(byUrl)) {
+      if (links.length < 2) continue;
+      const unseen = links.filter(l => !seenIds.has(l.id));
+      if (unseen.length === links.length) {
+        const sorted = [...links].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        groups.push({ key: `url:${key}`, links: sorted });
+        sorted.forEach(l => seenIds.add(l.id));
+      }
+    }
+    return groups;
+  }, [activeLinks]);
+
+  const duplicateCount = duplicateGroups.reduce((sum, g) => sum + g.links.length - 1, 0);
+
   const refreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["audit_all_links"] });
     queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
