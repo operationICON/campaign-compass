@@ -1,0 +1,209 @@
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ModelAvatar } from "@/components/ModelAvatar";
+
+const fmtC = (v: number | null) =>
+  v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+interface Props {
+  accounts: any[];
+  accountLookup: Record<string, any>;
+  linkLookup: Record<string, any>;
+  globalModelFilter: string;
+}
+
+export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, globalModelFilter }: Props) {
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [destFilter, setDestFilter] = useState("all");
+
+  // Fetch fan_spenders with revenue
+  const { data: spenders = [], isLoading } = useQuery({
+    queryKey: ["crosspoll_detail_spenders"],
+    queryFn: async () => {
+      const all: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("fan_spenders")
+          .select("fan_id, tracking_link_id, account_id, revenue_total")
+          .range(from, from + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      return all;
+    },
+  });
+
+  // Fetch new fans lookup
+  const { data: newFans = [] } = useQuery({
+    queryKey: ["crosspoll_new_fans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fans")
+        .select("fan_id")
+        .eq("is_new_fan", true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const newFanSet = useMemo(() => new Set(newFans.map((f: any) => f.fan_id)), [newFans]);
+
+  // Build cross-poll detail rows
+  const detailRows = useMemo(() => {
+    // Group by fan_id
+    const byFan: Record<string, any[]> = {};
+    spenders.forEach((s: any) => {
+      if (!byFan[s.fan_id]) byFan[s.fan_id] = [];
+      byFan[s.fan_id].push(s);
+    });
+
+    const rows: any[] = [];
+    Object.entries(byFan).forEach(([fanId, entries]) => {
+      if (!newFanSet.has(fanId)) return;
+      const uniqueAccounts = new Set(entries.map((e: any) => e.account_id));
+      if (uniqueAccounts.size < 2) return;
+
+      // For each pair where accounts differ
+      for (let i = 0; i < entries.length; i++) {
+        for (let j = 0; j < entries.length; j++) {
+          if (i === j) continue;
+          const src = entries[i];
+          const dest = entries[j];
+          if (src.account_id === dest.account_id) continue;
+
+          const srcLink = linkLookup[src.tracking_link_id];
+          const destLink = linkLookup[dest.tracking_link_id];
+          const srcAcc = accountLookup[src.account_id];
+          const destAcc = accountLookup[dest.account_id];
+
+          rows.push({
+            fanId: fanId,
+            sourceCampaign: srcLink?.campaign_name || src.tracking_link_id || "—",
+            sourceModel: srcAcc?.display_name || src.account_id || "—",
+            sourceAvatarUrl: srcAcc?.avatar_thumb_url,
+            sourceAccountId: src.account_id,
+            spentOnModel: destAcc?.display_name || dest.account_id || "—",
+            destAvatarUrl: destAcc?.avatar_thumb_url,
+            destAccountId: dest.account_id,
+            spentOnCampaign: destLink?.campaign_name || dest.tracking_link_id || "—",
+            revenue: Number(dest.revenue_total || 0),
+          });
+        }
+      }
+    });
+
+    // Deduplicate: unique by fanId + sourceAccountId + destAccountId
+    const seen = new Set<string>();
+    const deduped = rows.filter(r => {
+      const key = `${r.fanId}-${r.sourceAccountId}-${r.destAccountId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Sort by revenue desc
+    deduped.sort((a, b) => b.revenue - a.revenue);
+    return deduped;
+  }, [spenders, newFanSet, linkLookup, accountLookup]);
+
+  // Apply filters
+  const filteredRows = useMemo(() => {
+    let rows = detailRows;
+    if (globalModelFilter !== "all") {
+      rows = rows.filter(r => r.sourceAccountId === globalModelFilter);
+    }
+    if (sourceFilter !== "all") {
+      rows = rows.filter(r => r.sourceAccountId === sourceFilter);
+    }
+    if (destFilter !== "all") {
+      rows = rows.filter(r => r.destAccountId === destFilter);
+    }
+    return rows.slice(0, 200);
+  }, [detailRows, globalModelFilter, sourceFilter, destFilter]);
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <CardTitle className="text-sm font-semibold text-foreground">Cross-Poll Revenue Detail</CardTitle>
+          <div className="flex items-center gap-2">
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[160px] h-8 text-xs bg-card border-border">
+                <SelectValue placeholder="Source Model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                {accounts.map((a: any) => (
+                  <SelectItem key={a.id} value={a.id}>{a.display_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={destFilter} onValueChange={setDestFilter}>
+              <SelectTrigger className="w-[160px] h-8 text-xs bg-card border-border">
+                <SelectValue placeholder="Received By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Receivers</SelectItem>
+                {accounts.map((a: any) => (
+                  <SelectItem key={a.id} value={a.id}>{a.display_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border">
+              <TableHead className="text-muted-foreground">Source Campaign</TableHead>
+              <TableHead className="text-muted-foreground">Source Model</TableHead>
+              <TableHead className="text-muted-foreground">Fan ID</TableHead>
+              <TableHead className="text-muted-foreground">Spent On Model</TableHead>
+              <TableHead className="text-muted-foreground">Spent On Campaign</TableHead>
+              <TableHead className="text-muted-foreground text-right">Revenue</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
+            ) : filteredRows.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No cross-poll transactions found</TableCell></TableRow>
+            ) : filteredRows.map((r: any, i: number) => (
+              <TableRow key={`${r.fanId}-${r.sourceAccountId}-${r.destAccountId}-${i}`} className="border-border">
+                <TableCell className="text-foreground max-w-[180px] truncate">{r.sourceCampaign}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <ModelAvatar avatarUrl={r.sourceAvatarUrl} name={r.sourceModel} size={24} />
+                    <span className="text-muted-foreground text-sm">{r.sourceModel}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="font-mono text-xs text-foreground">{r.fanId.length > 12 ? r.fanId.slice(0, 12) + "…" : r.fanId}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <ModelAvatar avatarUrl={r.destAvatarUrl} name={r.spentOnModel} size={24} />
+                    <span className="text-muted-foreground text-sm">{r.spentOnModel}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-foreground max-w-[180px] truncate">{r.spentOnCampaign}</TableCell>
+                <TableCell className="text-right font-medium text-primary">{fmtC(r.revenue)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {filteredRows.length >= 200 && (
+          <div className="text-center text-xs text-muted-foreground py-3">Showing first 200 rows</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
