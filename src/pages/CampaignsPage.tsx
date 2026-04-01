@@ -932,7 +932,7 @@ export default function CampaignsPage() {
                         const modelColor = getModelColor(link.accounts?.username);
                         const initials = username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?";
                         const costTotal = Number(link.cost_total || 0);
-                        const hasCost = link.cost_type && costTotal > 0;
+                        const hasCost = costTotal > 0;
                         const profit = link.computedProfit ?? 0;
                         const ltvBased = link.ltvBased;
                         const roi = link.computedRoi ?? 0;
