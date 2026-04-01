@@ -1015,18 +1015,18 @@ export default function CampaignsPage() {
                                 );
                                 case "ltv": {
                                   const ltvVal = link.ltvFromTable;
+                                  const hasRecord = link.hasLtvRecord;
                                   const hasLtv = ltvVal !== null && ltvVal > 0;
-                                  const isEstimated = ltvVal === null;
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <span className={hasLtv ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
-                                            {hasLtv ? fmtC(ltvVal) : ltvVal === 0 ? "$0.00" : "—"}
-                                            {hasLtv && isEstimated && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)] leading-none">Est.</span>}
+                                          <span className={hasLtv ? "text-[hsl(var(--primary))] font-semibold" : "text-muted-foreground"}>
+                                            {hasRecord ? fmtC(ltvVal ?? 0) : "—"}
+                                            {hasRecord && link.ltvRecord?.is_estimated && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)] leading-none">Est.</span>}
                                           </span>
                                         </TooltipTrigger>
-                                        <TooltipContent>{hasLtv ? "LTV from tracking_link_ltv table" : "No LTV record — run fan sync"}</TooltipContent>
+                                        <TooltipContent>{hasRecord ? "True LTV from new subscribers" : "No LTV record — run fan sync"}</TooltipContent>
                                       </Tooltip>
                                     </td>
                                   );
