@@ -1033,15 +1033,18 @@ export default function CampaignsPage() {
                                 }
                                 case "cross_poll": {
                                   const cp = link.crossPollRevenue;
+                                  const hasRecord = link.hasLtvRecord;
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                      {cp !== null && cp > 0 ? (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="text-[#7c3aed] font-semibold">{fmtC(cp)}</span>
-                                          </TooltipTrigger>
-                                          <TooltipContent>Revenue from fans who crossed to other models</TooltipContent>
-                                        </Tooltip>
+                                      {hasRecord ? (
+                                        cp && cp > 0 ? (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="text-[#7c3aed] font-semibold">{fmtC(cp)}</span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Revenue from fans who crossed to other models</TooltipContent>
+                                          </Tooltip>
+                                        ) : <span className="text-muted-foreground">$0.00</span>
                                       ) : <span className="text-muted-foreground">—</span>}
                                     </td>
                                   );
