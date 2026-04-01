@@ -1081,12 +1081,8 @@ export default function CampaignsPage() {
                                     {hasCost ? (
                                       <span className="text-muted-foreground">{fmtC(costTotal)}</span>
                                     ) : (
-                                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                        <Tooltip>
-                                          <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
-                                          <TooltipContent>No expenses set</TooltipContent>
-                                        </Tooltip>
-                                        —
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)]">
+                                        No Spend
                                       </span>
                                     )}
                                   </td>
