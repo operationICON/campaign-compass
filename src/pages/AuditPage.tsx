@@ -13,7 +13,7 @@ import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
-  AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2, FilterX
+  AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2, FilterX, Copy
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
