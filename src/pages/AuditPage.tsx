@@ -13,7 +13,7 @@ import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
-  AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2, FilterX
+  AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2, FilterX, Copy
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -182,6 +182,45 @@ export default function AuditPage() {
   const missingSpend = useMemo(() => filteredLinks.filter((l: any) =>
     (!l.cost_total || l.cost_total === 0) && (l.clicks > 0 || l.subscribers > 0)
   ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
+
+  // Duplicates: same external_tracking_link_id or same URL
+  const duplicateGroups = useMemo(() => {
+    const byExtId: Record<string, any[]> = {};
+    const byUrl: Record<string, any[]> = {};
+    for (const l of activeLinks) {
+      if (l.external_tracking_link_id) {
+        const key = l.external_tracking_link_id;
+        if (!byExtId[key]) byExtId[key] = [];
+        byExtId[key].push(l);
+      }
+      if (l.url) {
+        const key = l.url.trim().toLowerCase();
+        if (!byUrl[key]) byUrl[key] = [];
+        byUrl[key].push(l);
+      }
+    }
+    // Merge groups, dedup by link id
+    const seenIds = new Set<string>();
+    const groups: { key: string; links: any[] }[] = [];
+    for (const [key, links] of Object.entries(byExtId)) {
+      if (links.length < 2) continue;
+      const sorted = [...links].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      groups.push({ key: `ext:${key}`, links: sorted });
+      sorted.forEach(l => seenIds.add(l.id));
+    }
+    for (const [key, links] of Object.entries(byUrl)) {
+      if (links.length < 2) continue;
+      const unseen = links.filter(l => !seenIds.has(l.id));
+      if (unseen.length === links.length) {
+        const sorted = [...links].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        groups.push({ key: `url:${key}`, links: sorted });
+        sorted.forEach(l => seenIds.add(l.id));
+      }
+    }
+    return groups;
+  }, [activeLinks]);
+
+  const duplicateCount = duplicateGroups.reduce((sum, g) => sum + g.links.length - 1, 0);
 
   const refreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["audit_all_links"] });
@@ -490,11 +529,12 @@ export default function AuditPage() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           <StatCard icon={AlertCircle} label="Zero Activity" count={zeroActivity.length} color="bg-muted text-muted-foreground" />
           <StatCard icon={Skull} label="Inactive" count={inactive.length} color="bg-destructive/10 text-destructive" />
           <StatCard icon={Tag} label="Missing Source" count={missingSource.length} color="bg-warning/10 text-warning" />
           <StatCard icon={DollarSign} label="Missing Spend" count={missingSpend.length} color="bg-info/10 text-primary" />
+          <StatCard icon={Copy} label="Duplicates" count={duplicateCount} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
         </div>
 
         {/* Tabs */}
@@ -504,6 +544,7 @@ export default function AuditPage() {
             <TabsTrigger value="dead">Inactive ({inactive.length})</TabsTrigger>
             <TabsTrigger value="source">Missing Source ({missingSource.length})</TabsTrigger>
             <TabsTrigger value="spend">Missing Spend ({missingSpend.length})</TabsTrigger>
+            <TabsTrigger value="dupes">Duplicates ({duplicateCount})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="zero">
@@ -535,6 +576,66 @@ export default function AuditPage() {
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <TabToolbar rightContent={null} />
               {renderTable(missingSpend, "spend", false, false)}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="dupes">
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="p-3 border-b border-border">
+                <p className="text-xs text-muted-foreground italic">
+                  Same campaign name on different models is not flagged as a duplicate — only exact URL or tracking link ID matches are flagged.
+                </p>
+              </div>
+              {duplicateGroups.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No duplicates found ✓</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {duplicateGroups.map((group) => (
+                    <div key={group.key} className="p-4 space-y-2">
+                      <div className="text-sm font-medium text-foreground">{group.links[0]?.campaign_name || "Unnamed"}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">{group.links[0]?.url}</div>
+                      <table className="w-full text-xs mt-2">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="p-2 text-left font-medium">Model</th>
+                            <th className="p-2 text-left font-medium">External ID</th>
+                            <th className="p-2 text-left font-medium">Created</th>
+                            <th className="p-2 text-left font-medium">Status</th>
+                            <th className="p-2 w-12"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.links.map((l: any, idx: number) => {
+                            const isOriginal = idx === 0;
+                            return (
+                              <tr key={l.id} className="border-t border-border hover:bg-muted/30">
+                                <td className="p-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} />
+                                    <span className="text-muted-foreground">@{l.accounts?.username || l.accounts?.display_name || "?"}</span>
+                                  </div>
+                                </td>
+                                <td className="p-2 font-mono text-muted-foreground">{l.external_tracking_link_id || "—"}</td>
+                                <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>
+                                <td className="p-2">
+                                  {isOriginal ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">Original</span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Duplicate</span>
+                                  )}
+                                </td>
+                                <td className="p-2">
+                                  {!isOriginal && <InlineDeleteBtn id={l.id} />}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
