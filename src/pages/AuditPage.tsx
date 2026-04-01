@@ -578,6 +578,66 @@ export default function AuditPage() {
               {renderTable(missingSpend, "spend", false, false)}
             </div>
           </TabsContent>
+
+          <TabsContent value="dupes">
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="p-3 border-b border-border">
+                <p className="text-xs text-muted-foreground italic">
+                  Same campaign name on different models is not flagged as a duplicate — only exact URL or tracking link ID matches are flagged.
+                </p>
+              </div>
+              {duplicateGroups.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No duplicates found ✓</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {duplicateGroups.map((group) => (
+                    <div key={group.key} className="p-4 space-y-2">
+                      <div className="text-sm font-medium text-foreground">{group.links[0]?.campaign_name || "Unnamed"}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">{group.links[0]?.url}</div>
+                      <table className="w-full text-xs mt-2">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="p-2 text-left font-medium">Model</th>
+                            <th className="p-2 text-left font-medium">External ID</th>
+                            <th className="p-2 text-left font-medium">Created</th>
+                            <th className="p-2 text-left font-medium">Status</th>
+                            <th className="p-2 w-12"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.links.map((l: any, idx: number) => {
+                            const isOriginal = idx === 0;
+                            return (
+                              <tr key={l.id} className="border-t border-border hover:bg-muted/30">
+                                <td className="p-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} />
+                                    <span className="text-muted-foreground">@{l.accounts?.username || l.accounts?.display_name || "?"}</span>
+                                  </div>
+                                </td>
+                                <td className="p-2 font-mono text-muted-foreground">{l.external_tracking_link_id || "—"}</td>
+                                <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>
+                                <td className="p-2">
+                                  {isOriginal ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">Original</span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Duplicate</span>
+                                  )}
+                                </td>
+                                <td className="p-2">
+                                  {!isOriginal && <InlineDeleteBtn id={l.id} />}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
