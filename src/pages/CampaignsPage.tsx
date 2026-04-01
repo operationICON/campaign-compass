@@ -153,9 +153,11 @@ export default function CampaignsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+    queryKey: ["campaigns_tracking_link_ltv"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      const { data, error } = await supabase
+        .from("tracking_link_ltv")
+        .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct");
       if (error) throw error;
       return data || [];
     },
@@ -224,7 +226,10 @@ export default function CampaignsPage() {
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
-      map[r.tracking_link_id] = r;
+      const trackingLinkId = String(r.tracking_link_id ?? "").trim();
+      if (!trackingLinkId) continue;
+      map[trackingLinkId] = r;
+      map[trackingLinkId.toLowerCase()] = r;
     }
     return map;
   }, [trackingLinkLtv]);
@@ -257,7 +262,8 @@ export default function CampaignsPage() {
       }
       const subs = l.subscribers || 0;
       // LTV from tracking_link_ltv table
-      const ltvRecord = ltvLookup[l.id] || null;
+      const linkId = String(l.id ?? "").trim();
+      const ltvRecord = ltvLookup[linkId] || ltvLookup[linkId.toLowerCase()] || null;
       const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
       const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
@@ -926,7 +932,7 @@ export default function CampaignsPage() {
                         const modelColor = getModelColor(link.accounts?.username);
                         const initials = username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?";
                         const costTotal = Number(link.cost_total || 0);
-                        const hasCost = link.cost_type && costTotal > 0;
+                        const hasCost = costTotal > 0;
                         const profit = link.computedProfit ?? 0;
                         const ltvBased = link.ltvBased;
                         const roi = link.computedRoi ?? 0;
