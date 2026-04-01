@@ -971,7 +971,18 @@ export default function CampaignsPage() {
                                 );
                                 case "source": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
-                                    <TagBadge tagName={link.source_tag} size="sm" />
+                                    <div className="flex items-center gap-1.5">
+                                      <TagBadge tagName={link.source_tag} size="sm" />
+                                      {link.traffic_category && (
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-none whitespace-nowrap ${
+                                          link.traffic_category === "OnlyTraffic"
+                                            ? "bg-[hsl(174_60%_51%/0.15)] text-[hsl(174_60%_40%)]"
+                                            : "bg-muted text-muted-foreground"
+                                        }`}>
+                                          {link.traffic_category}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                 );
                                 case "clicks": return (
