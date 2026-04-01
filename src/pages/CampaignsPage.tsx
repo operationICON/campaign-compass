@@ -88,6 +88,11 @@ const GROUP_MAP: Record<string, string[]> = {
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtP = (v: number) => `${v.toFixed(1)}%`;
 const fmtK = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : fmtC(v);
+const normalizeTrackingLinkId = (value: unknown) => String(value ?? "").trim().toLowerCase();
+const getTrafficCategoryLabel = (trafficCategory: string | null | undefined) => {
+  if (!trafficCategory) return null;
+  return trafficCategory === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
+};
 
 // ─── Info Tooltip ───
 function InfoDot({ title, desc }: { title: string; desc: string }) {
@@ -149,17 +154,32 @@ export default function CampaignsPage() {
 
   // ─── Data fetching ───
   const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+  const trackingLinkIds = useMemo(
+    () => links.map((link: any) => String(link.id ?? "").trim()).filter(Boolean),
+    [links]
+  );
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["campaigns_tracking_link_ltv"],
+    queryKey: ["campaigns_tracking_link_ltv", trackingLinkIds],
+    enabled: trackingLinkIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tracking_link_ltv")
-        .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated");
-      if (error) throw error;
-      return data || [];
+      const rows: any[] = [];
+      const chunkSize = 250;
+
+      for (let i = 0; i < trackingLinkIds.length; i += chunkSize) {
+        const idChunk = trackingLinkIds.slice(i, i + chunkSize);
+        const { data, error } = await supabase
+          .from("tracking_link_ltv")
+          .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated")
+          .in("tracking_link_id", idChunk);
+
+        if (error) throw error;
+        rows.push(...(data || []));
+      }
+
+      return rows;
     },
   });
   const { data: trafficSources = [] } = useQuery({
@@ -179,6 +199,7 @@ export default function CampaignsPage() {
       .channel('campaigns-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tracking_links' }, () => {
         queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+        queryClient.invalidateQueries({ queryKey: ["campaigns_tracking_link_ltv"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -194,6 +215,7 @@ export default function CampaignsPage() {
     onSuccess: (data) => {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns_tracking_link_ltv"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["daily_metrics"] });
@@ -226,10 +248,9 @@ export default function CampaignsPage() {
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
-      const trackingLinkId = String(r.tracking_link_id ?? "").trim();
+      const trackingLinkId = normalizeTrackingLinkId(r.tracking_link_id);
       if (!trackingLinkId) continue;
       map[trackingLinkId] = r;
-      map[trackingLinkId.toLowerCase()] = r;
     }
     return map;
   }, [trackingLinkLtv]);
@@ -262,8 +283,8 @@ export default function CampaignsPage() {
       }
       const subs = l.subscribers || 0;
       // LTV from tracking_link_ltv table
-      const linkId = String(l.id ?? "").trim();
-      const ltvRecord = ltvLookup[linkId] || ltvLookup[linkId.toLowerCase()] || null;
+      const linkId = normalizeTrackingLinkId(l.id);
+      const ltvRecord = ltvLookup[linkId] || null;
       const hasLtvRecord = ltvRecord !== null;
       const ltvFromTable = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
       const crossPollRevenue = hasLtvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
@@ -288,7 +309,10 @@ export default function CampaignsPage() {
         roiIsEstimate = re;
       }
       const profitPerSub = subs > 0 && computedProfit !== null ? computedProfit / subs : null;
-      const computedStatus = calcStatus(l);
+      let computedStatus = calcStatus(l);
+      if (computedStatus !== "TESTING" && computedStatus !== "INACTIVE") {
+        computedStatus = costTotalVal > 0 && computedRoi !== null ? calcStatusFromRoi(computedRoi) : "NO_SPEND";
+      }
       return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord };
     });
   }, [links, manualOverrides, dailyMetrics, ltvLookup]);
@@ -366,8 +390,8 @@ export default function CampaignsPage() {
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
         case "ltv": aVal = a.ltvFromTable ?? -1; bVal = b.ltvFromTable ?? -1; break;
-        case "profit": aVal = Number(a.profit ?? -Infinity); bVal = Number(b.profit ?? -Infinity); break;
-        case "roi": aVal = Number(a.roi ?? -Infinity); bVal = Number(b.roi ?? -Infinity); break;
+        case "profit": aVal = Number(a.computedProfit ?? -Infinity); bVal = Number(b.computedProfit ?? -Infinity); break;
+        case "roi": aVal = Number(a.computedRoi ?? -Infinity); bVal = Number(b.computedRoi ?? -Infinity); break;
         case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
         case "created_at": aVal = new Date(a.created_at).getTime(); bVal = new Date(b.created_at).getTime(); break;
         case "subs_day": aVal = a.subsDay ?? -Infinity; bVal = b.subsDay ?? -Infinity; break;
@@ -580,7 +604,7 @@ export default function CampaignsPage() {
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
             </button>
-            <RefreshButton queryKeys={["tracking_links", "ad_spend", "accounts"]} />
+            <RefreshButton queryKeys={["tracking_links", "campaigns_tracking_link_ltv", "ad_spend", "accounts"]} />
             <button
               onClick={() => { setEditingLink(null); setPanelOpen(true); }}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-colors"
@@ -973,13 +997,13 @@ export default function CampaignsPage() {
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     <div className="flex items-center gap-1.5">
                                       <TagBadge tagName={link.source_tag} size="sm" />
-                                      {link.traffic_category && (
+                                      {getTrafficCategoryLabel(link.traffic_category) && (
                                         <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-none whitespace-nowrap ${
-                                          link.traffic_category === "OnlyTraffic"
-                                            ? "bg-[hsl(174_60%_51%/0.15)] text-[hsl(174_60%_40%)]"
+                                          getTrafficCategoryLabel(link.traffic_category) === "OnlyTraffic"
+                                            ? "bg-primary/10 text-primary"
                                             : "bg-muted text-muted-foreground"
                                         }`}>
-                                          {link.traffic_category}
+                                          {getTrafficCategoryLabel(link.traffic_category)}
                                         </span>
                                       )}
                                     </div>
