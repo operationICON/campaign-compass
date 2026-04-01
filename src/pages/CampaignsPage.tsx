@@ -157,7 +157,7 @@ export default function CampaignsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_link_ltv")
-        .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct");
+        .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated");
       if (error) throw error;
       return data || [];
     },
@@ -264,8 +264,9 @@ export default function CampaignsPage() {
       // LTV from tracking_link_ltv table
       const linkId = String(l.id ?? "").trim();
       const ltvRecord = ltvLookup[linkId] || ltvLookup[linkId.toLowerCase()] || null;
-      const ltvFromTable = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
-      const crossPollRevenue = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
+      const hasLtvRecord = ltvRecord !== null;
+      const ltvFromTable = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+      const crossPollRevenue = hasLtvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
       // FIX 4/5: Profit = (total_ltv + cross_poll_revenue) - cost_total; ROI = profit / cost_total * 100
       const costTotalVal = Number(l.cost_total || 0);
@@ -288,7 +289,7 @@ export default function CampaignsPage() {
       }
       const profitPerSub = subs > 0 && computedProfit !== null ? computedProfit / subs : null;
       const computedStatus = calcStatus(l);
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord };
     });
   }, [links, manualOverrides, dailyMetrics, ltvLookup]);
 
@@ -970,7 +971,18 @@ export default function CampaignsPage() {
                                 );
                                 case "source": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
-                                    <TagBadge tagName={link.source_tag} size="sm" />
+                                    <div className="flex items-center gap-1.5">
+                                      <TagBadge tagName={link.source_tag} size="sm" />
+                                      {link.traffic_category && (
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-none whitespace-nowrap ${
+                                          link.traffic_category === "OnlyTraffic"
+                                            ? "bg-[hsl(174_60%_51%/0.15)] text-[hsl(174_60%_40%)]"
+                                            : "bg-muted text-muted-foreground"
+                                        }`}>
+                                          {link.traffic_category}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                 );
                                 case "clicks": return (
@@ -992,41 +1004,47 @@ export default function CampaignsPage() {
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="text-foreground">{fmtC(Number(link.revenue || 0))}</span>
+                                        <span className="text-foreground inline-flex items-center gap-1">
+                                          {fmtC(Number(link.revenue || 0))}
+                                          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">Est.</span>
+                                        </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>Total gross revenue from all subscribers</TooltipContent>
+                                      <TooltipContent>Estimated revenue · includes all subscribers (not just new)</TooltipContent>
                                     </Tooltip>
                                   </td>
                                 );
                                 case "ltv": {
                                   const ltvVal = link.ltvFromTable;
+                                  const hasRecord = link.hasLtvRecord;
                                   const hasLtv = ltvVal !== null && ltvVal > 0;
-                                  const isEstimated = ltvVal === null;
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <span className={hasLtv ? "text-[#0891b2] font-semibold" : "text-muted-foreground"}>
-                                            {hasLtv ? fmtC(ltvVal) : ltvVal === 0 ? "$0.00" : "—"}
-                                            {hasLtv && isEstimated && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)] leading-none">Est.</span>}
+                                          <span className={hasLtv ? "text-[hsl(var(--primary))] font-semibold" : "text-muted-foreground"}>
+                                            {hasRecord ? fmtC(ltvVal ?? 0) : "—"}
+                                            {hasRecord && link.ltvRecord?.is_estimated && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)] leading-none">Est.</span>}
                                           </span>
                                         </TooltipTrigger>
-                                        <TooltipContent>{hasLtv ? "LTV from tracking_link_ltv table" : "No LTV record — run fan sync"}</TooltipContent>
+                                        <TooltipContent>{hasRecord ? "True LTV from new subscribers" : "No LTV record — run fan sync"}</TooltipContent>
                                       </Tooltip>
                                     </td>
                                   );
                                 }
                                 case "cross_poll": {
                                   const cp = link.crossPollRevenue;
+                                  const hasRecord = link.hasLtvRecord;
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                      {cp !== null && cp > 0 ? (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="text-[#7c3aed] font-semibold">{fmtC(cp)}</span>
-                                          </TooltipTrigger>
-                                          <TooltipContent>Revenue from fans who crossed to other models</TooltipContent>
-                                        </Tooltip>
+                                      {hasRecord ? (
+                                        cp && cp > 0 ? (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="text-[#7c3aed] font-semibold">{fmtC(cp)}</span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Revenue from fans who crossed to other models</TooltipContent>
+                                          </Tooltip>
+                                        ) : <span className="text-muted-foreground">$0.00</span>
                                       ) : <span className="text-muted-foreground">—</span>}
                                     </td>
                                   );
@@ -1063,12 +1081,8 @@ export default function CampaignsPage() {
                                     {hasCost ? (
                                       <span className="text-muted-foreground">{fmtC(costTotal)}</span>
                                     ) : (
-                                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                        <Tooltip>
-                                          <TooltipTrigger asChild><span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0 cursor-help" /></TooltipTrigger>
-                                          <TooltipContent>No expenses set</TooltipContent>
-                                        </Tooltip>
-                                        —
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)]">
+                                        No Spend
                                       </span>
                                     )}
                                   </td>
