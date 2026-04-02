@@ -86,7 +86,6 @@ export default function AccountsPage() {
       if (error) throw error;
       return data || [];
     },
-    },
   });
 
   // LTV lookup map
