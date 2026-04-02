@@ -305,12 +305,20 @@ export default function CampaignsPage() {
         profitIsEstimate = fe;
         roiIsEstimate = re;
       }
-      const profitPerSub = subs > 0 && computedProfit !== null ? computedProfit / subs : null;
+      // Profit/Sub uses new_subs_total from tracking_link_ltv
+      const newSubsTotal = ltvRecord ? Number(ltvRecord.new_subs_total || 0) : 0;
+      const profitPerSub = newSubsTotal > 0 && computedProfit !== null ? computedProfit / newSubsTotal : null;
+      // LTV/Sub from tracking_link_ltv
+      const ltvPerSubFromRecord = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
       let computedStatus = calcStatus(l);
       if (computedStatus !== "TESTING" && computedStatus !== "INACTIVE") {
-        computedStatus = costTotalVal > 0 && computedRoi !== null ? calcStatusFromRoi(computedRoi) : "NO_SPEND";
+        if (costTotalVal > 0 && computedRoi !== null) {
+          computedStatus = calcStatusFromRoi(computedRoi);
+        } else if (costTotalVal <= 0 && (l.clicks > 0 || subs > 0)) {
+          computedStatus = "NO_SPEND";
+        }
       }
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord };
+      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord, newSubsTotal, ltvPerSubFromRecord };
     });
   }, [links, manualOverrides, dailyMetrics, ltvLookup]);
 
