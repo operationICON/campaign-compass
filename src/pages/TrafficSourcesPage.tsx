@@ -339,7 +339,7 @@ export default function TrafficSourcesPage() {
     // Group links by source
     const bySource: Record<string, any[]> = {};
     links.forEach((l: any) => {
-      const tag = l.source_tag || "Untagged";
+      const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = [];
       bySource[tag].push(l);
     });
