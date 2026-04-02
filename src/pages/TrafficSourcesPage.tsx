@@ -297,12 +297,11 @@ export default function TrafficSourcesPage() {
     queryClient.invalidateQueries({ queryKey: ["manual_notes_ts"] });
   };
 
-  // ── KPI calculations ──
+  // ── KPI calculations using tracking_link_ltv for profit/ROI ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
     const tagged = links.filter((l: any) => !!getEffectiveSource(l)).length;
     const untagged = links.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
-    const ag = calcAgencyTotals(links);
     const totalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const totalSubscribers = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const totalClicks = links.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
@@ -316,23 +315,50 @@ export default function TrafficSourcesPage() {
     });
     const activeSources = activeSourceIds.size;
 
+    // Total Spend = SUM(cost_total) WHERE cost_total > 0
+    const totalSpend = links
+      .filter((l: any) => Number(l.cost_total || 0) > 0)
+      .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
+    // Total Profit = SUM(total_ltv + cross_poll_revenue) - SUM(cost_total) for links with cost
+    const linksWithCost = links.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const ltvPlusCp = linksWithCost.reduce((s: number, l: any) => {
+      const rec = ltvLookup[String(l.id).toLowerCase()];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      const cp = rec ? Number(rec.cross_poll_revenue || 0) : 0;
+      return s + ltv + cp;
+    }, 0);
+    const totalCost = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const totalProfit = ltvPlusCp - totalCost;
+    const blendedRoi = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+
+    // Avg CPL = SUM(cost_total) / SUM(new_subs_total)
+    const paidNewSubs = linksWithCost.reduce((s: number, l: any) => {
+      const rec = ltvLookup[String(l.id).toLowerCase()];
+      return s + (rec ? Number(rec.new_subs_total || 0) : 0);
+    }, 0);
+    const avgCpl = paidNewSubs > 0 ? totalCost / paidNewSubs : 0;
+    const avgProfitSub = paidNewSubs > 0 ? totalProfit / paidNewSubs : 0;
+
     const revenueBySource: Record<string, number> = {};
     links.forEach((l: any) => {
       const es = getEffectiveSource(l);
       if (es) {
-        revenueBySource[es] = (revenueBySource[es] || 0) + Number(l.revenue || 0);
+        const rec = ltvLookup[String(l.id).toLowerCase()];
+        const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+        revenueBySource[es] = (revenueBySource[es] || 0) + ltv;
       }
     });
     const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0];
 
     return {
       totalSources, tagged, untagged,
-      totalSpend: ag.totalSpend, totalRevenue, blendedRoi: ag.roiPct ?? 0,
-      totalProfit: ag.totalProfit, avgCpl: ag.avgCpl ?? 0, totalSubscribers,
-      activeSources, totalClicks, avgProfitSub: ag.avgProfitPerSub ?? 0, topSource,
-      isEstimate: ag.isEstimate,
+      totalSpend, totalRevenue, blendedRoi,
+      totalProfit, avgCpl, totalSubscribers,
+      activeSources, totalClicks, avgProfitSub, topSource,
+      isEstimate: false,
     };
-  }, [sources, links]);
+  }, [sources, links, ltvLookup]);
 
   // ── Source Analysis calculations ──
   const sourceAnalysis = useMemo(() => {
@@ -1000,21 +1026,45 @@ export default function TrafficSourcesPage() {
               <tbody>
                 {paginated.map((link: any) => {
                   const username = link.accounts?.username || link.accounts?.display_name || "—";
-                  const cat = getCategory(link);
-                  const status = link.status || "NO_DATA";
-                  const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
                   const ltvRecord = ltvLookup[String(link.id).toLowerCase()];
                   const hasLtvRecord = ltvRecord !== undefined;
                   const ltv = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
                   const ltvPerSub = hasLtvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
+                  const crossPollRev = hasLtvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : 0;
                   const costTotal = Number(link.cost_total || 0);
-                  const profit = Number(link.profit || 0);
-                  const roi = Number(link.roi || 0);
+                  // Profit = (total_ltv + cross_poll_revenue) - cost_total
+                  const profit = costTotal > 0 && hasLtvRecord ? ((ltv || 0) + crossPollRev) - costTotal : null;
+                  // ROI = (profit / cost_total) × 100
+                  const roi = costTotal > 0 && profit !== null ? (profit / costTotal) * 100 : null;
                   const subs = link.subscribers || 0;
-                  const profitPerSub = subs > 0 ? profit / subs : 0;
+                  // Profit/Sub = Profit / new_subs_total
+                  const newSubsTotal = hasLtvRecord ? Number(ltvRecord.new_subs_total || 0) : 0;
+                  const profitPerSub = newSubsTotal > 0 && profit !== null ? profit / newSubsTotal : null;
                   const ageDays = getAgeDays(link.created_at);
                   const subsDay = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
                   const isExpanded = expandedRow === link.id;
+                  // Calculate status from ROI
+                  let computedStatus: string;
+                  const clicks = link.clicks || 0;
+                  if (clicks === 0 && subs === 0) {
+                    computedStatus = "TESTING";
+                  } else {
+                    const calcDate = link.calculated_at ? new Date(link.calculated_at) : null;
+                    const thirtyDaysAgoDate = new Date();
+                    thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
+                    if (calcDate && calcDate < thirtyDaysAgoDate) {
+                      computedStatus = "INACTIVE";
+                    } else if (costTotal > 0 && roi !== null) {
+                      if (roi > 150) computedStatus = "SCALE";
+                      else if (roi >= 50) computedStatus = "WATCH";
+                      else if (roi >= 0) computedStatus = "LOW";
+                      else computedStatus = "KILL";
+                    } else {
+                      computedStatus = "NO_SPEND";
+                    }
+                  }
+                  const status = computedStatus;
+                  const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
 
                   return (
                     <React.Fragment key={link.id}>
@@ -1046,7 +1096,9 @@ export default function TrafficSourcesPage() {
                               </div>
                             </td>
                           );
-                          case "category": return (
+                          case "category": {
+                            const cat = getCategory(link);
+                            return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               {cat ? (
                                 <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 600, borderRadius: "4px", background: cat === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe", color: cat === "OnlyTraffic" ? "#7c3aed" : "#0891b2" }}>{cat}</span>
@@ -1054,7 +1106,7 @@ export default function TrafficSourcesPage() {
                                 <span style={{ fontSize: "10px", color: "#94a3b8" }}>—</span>
                               )}
                             </td>
-                          );
+                          );}
                           case "clicks": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(link.clicks || 0)}</td>;
                           case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(subs)}</td>;
                           case "cvr": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "#0891b2" : "#1a2332" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>;
@@ -1062,13 +1114,13 @@ export default function TrafficSourcesPage() {
                           case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
                           case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
                           case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
-                          case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit > 0 ? "#16a34a" : profit < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(profit) : "—"}</td>;
-                          case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub > 0 ? "#16a34a" : profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 && subs > 0 ? fmtC(profitPerSub) : "—"}</td>;
-                          case "roi": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi > 0 ? "#16a34a" : roi < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtPct(roi) : "—"}</td>;
+                          case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit !== null && profit > 0 ? "#16a34a" : profit !== null && profit < 0 ? "#dc2626" : "#94a3b8" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
+                          case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub !== null && profitPerSub > 0 ? "#16a34a" : profitPerSub !== null && profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{profitPerSub !== null ? fmtC(profitPerSub) : "—"}</td>;
+                          case "roi": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi !== null && roi > 0 ? "#16a34a" : roi !== null && roi < 0 ? "#dc2626" : "#94a3b8" }}>{roi !== null ? fmtPct(roi) : "—"}</td>;
                           case "status": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 700, borderRadius: "4px", background: st.bg, color: st.text }}>
-                                {status === "NO_DATA" ? "NO SPEND" : status}
+                                {STATUS_LABELS[status] || "NO SPEND"}
                               </span>
                             </td>
                           );

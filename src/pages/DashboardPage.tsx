@@ -180,24 +180,52 @@ export default function DashboardPage() {
     return links.filter((l: any) => idSet.has(l.account_id));
   }, [links, agencyAccountIds]);
 
+  // Build LTV lookup for overview calculations
+  const overviewLtvLookup = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const r of trackingLinkLtv) {
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
+    }
+    return map;
+  }, [trackingLinkLtv]);
+
+  // Total Expenses = SUM(cost_total) WHERE cost_total > 0
   const totalSpend = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
     const cost = Number(l.cost_total || 0);
     return s + (cost > 0 ? cost : 0);
   }, 0), [filteredLinksForKpi]);
   const totalRevenue = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
-  // Total LTV from tracking_link_ltv table (is_estimated = false only)
+  // Total LTV from tracking_link_ltv table
   const totalLtv = useMemo(() => {
     const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
     return trackingLinkLtv
-      .filter((r: any) => r.is_estimated === false && (!accountIdSet || accountIdSet.has(r.account_id)))
+      .filter((r: any) => !accountIdSet || accountIdSet.has(r.account_id))
       .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
   }, [trackingLinkLtv, agencyAccountIds]);
-  const totalEffective = totalLtv > 0 ? totalLtv : totalRevenue;
-  const totalProfit = totalSpend > 0 ? totalEffective - totalSpend : null;
-  const paidSubscribers = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
-    return Number(l.cost_total || 0) > 0 ? s + (l.subscribers || 0) : s;
-  }, 0), [filteredLinksForKpi]);
-  const avgProfitPerSub = (totalProfit !== null && paidSubscribers > 0) ? totalProfit / paidSubscribers : null;
+  // Total Profit = SUM(total_ltv + cross_poll_revenue) for links with spend - SUM(cost_total)
+  const totalProfit = useMemo(() => {
+    if (totalSpend <= 0) return null;
+    const linksWithCost = filteredLinksForKpi.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const ltvPlusCp = linksWithCost.reduce((s: number, l: any) => {
+      const rec = overviewLtvLookup[String(l.id).toLowerCase()];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      const cp = rec ? Number(rec.cross_poll_revenue || 0) : 0;
+      return s + ltv + cp;
+    }, 0);
+    const totalCost = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    return ltvPlusCp - totalCost;
+  }, [filteredLinksForKpi, overviewLtvLookup, totalSpend]);
+  // Avg CPL = SUM(cost_total) / SUM(new_subs_total) for links with spend
+  const paidNewSubs = useMemo(() => {
+    const linksWithCost = filteredLinksForKpi.filter((l: any) => Number(l.cost_total || 0) > 0);
+    return linksWithCost.reduce((s: number, l: any) => {
+      const rec = overviewLtvLookup[String(l.id).toLowerCase()];
+      return s + (rec ? Number(rec.new_subs_total || 0) : 0);
+    }, 0);
+  }, [filteredLinksForKpi, overviewLtvLookup]);
+  const paidSubscribers = paidNewSubs;
+  const avgProfitPerSub = (totalProfit !== null && paidNewSubs > 0) ? totalProfit / paidNewSubs : null;
 
   const unattributedStats = useMemo(() => {
     let accts = [...accounts];
@@ -207,10 +235,9 @@ export default function DashboardPage() {
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
     const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
     const rawAttributed = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    // Attributed can exceed current subscribers_count (cumulative vs active), cap at total
     const attributedSubs = Math.min(rawAttributed, accountTotalSubs);
-    const unattributed = accountTotalSubs - attributedSubs;
-    const pct = accountTotalSubs > 0 ? (unattributed / accountTotalSubs) * 100 : 0;
+    const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
+    const pct = accountTotalSubs > 0 ? Math.max(0, (unattributed / accountTotalSubs) * 100) : 0;
     return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow: false };
   }, [accounts, links, modelParam, groupFilter]);
 
@@ -456,6 +483,7 @@ function KpiCards({
     return validValues.reduce((sum, value) => sum + value, 0);
   })();
 
+  // Avg CPL = SUM(cost_total) / SUM(new_subs_total)
   const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
 
   // Extra card computations
@@ -474,10 +502,12 @@ function KpiCards({
     return map;
   }, [trackingLinkLtv]);
 
+  // Total Profit = SUM(total_ltv + cross_poll_revenue) for links with spend - expenses
   const expEffective = withSpend.reduce((s: number, l: any) => {
     const ltvRecord = kpiLtvLookup[String(l.id).toLowerCase()];
     const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
-    return s + (ltvVal > 0 ? ltvVal : Number(l.revenue || 0));
+    const cpVal = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : 0;
+    return s + ltvVal + cpVal;
   }, 0);
   const cardTotalProfit = expenses > 0 ? expEffective - expenses : null;
   const blendedRoi = expenses > 0 && cardTotalProfit !== null ? (cardTotalProfit / expenses) * 100 : null;
@@ -640,7 +670,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Traffic with no tracking link · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Fans with no tracking link · {periodLabel}</p>
             {unattributedStats.accountTotalSubs > 0 && (
               <p className="text-[10px] text-muted-foreground italic mt-0.5">Requires fan sync for accuracy</p>
             )}
