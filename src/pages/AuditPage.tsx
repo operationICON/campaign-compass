@@ -396,9 +396,10 @@ export default function AuditPage() {
   const renderRow = (l: any, opts: { isDeleted?: boolean; showCheckbox?: boolean; showSourceDropdown?: boolean }) => {
     const ad = ageDays(l.created_at);
     const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
-    const ltvRecord = ltvLookup[l.id] || null;
-    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
-    const ltvPerSub = ltvRecord && l.subscribers > 0 ? Number(ltvRecord.ltv_per_sub || 0).toFixed(2) : "—";
+    const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
+    const hasLtvRecord = ltvRecord !== null;
+    const ltvVal = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+    const ltvPerSub = hasLtvRecord && l.subscribers > 0 ? Number(ltvRecord.ltv_per_sub || 0).toFixed(2) : "—";
     const spenderRate = ltvRecord ? `${Number(ltvRecord.spender_pct || 0).toFixed(1)}%` : (l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—");
     const costTotal = Number(l.cost_total || 0);
     const hasCost = costTotal > 0;
