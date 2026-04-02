@@ -86,8 +86,8 @@ export default function CrossPollPage() {
   // Campaign table with new columns
   const topCampaigns = useMemo(() => {
     return filteredLtv.slice(0, 50).map((r: any) => {
-      const link = linkLookup[r.tracking_link_id];
-      const acc = accountLookup[r.account_id];
+      const link = linkLookup[String(r.tracking_link_id ?? "").toLowerCase()];
+      const acc = accountLookup[String(r.account_id ?? "").toLowerCase()];
       const directLtv = Number(r.total_ltv || 0);
       const crossPollRev = Number(r.cross_poll_revenue || 0);
 
