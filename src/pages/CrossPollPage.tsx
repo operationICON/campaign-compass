@@ -54,7 +54,7 @@ export default function CrossPollPage() {
 
   const accountLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    accounts.forEach((a: any) => { map[a.id] = a; });
+    accounts.forEach((a: any) => { map[String(a.id).toLowerCase()] = a; });
     return map;
   }, [accounts]);
 
