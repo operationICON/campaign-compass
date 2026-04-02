@@ -86,9 +86,9 @@ export function InsightsSection({
       if (!es || es.toLowerCase() === "test" || l.spend <= 0) return;
       if (!map[es]) map[es] = { source: es, campaigns: 0, totalSpend: 0, totalProfit: 0, totalSubs: 0 };
       map[es].campaigns++;
-      map[l.source_tag].totalSpend += l.spend;
-      map[l.source_tag].totalProfit += l.profit ?? 0;
-      map[l.source_tag].totalSubs += l.subscribers || 0;
+      map[es].totalSpend += l.spend;
+      map[es].totalProfit += l.profit ?? 0;
+      map[es].totalSubs += l.subscribers || 0;
     });
     return Object.values(map)
       .map(s => ({ ...s, profitPerSub: s.totalSubs > 0 ? s.totalProfit / s.totalSubs : null }))
