@@ -297,12 +297,11 @@ export default function TrafficSourcesPage() {
     queryClient.invalidateQueries({ queryKey: ["manual_notes_ts"] });
   };
 
-  // ── KPI calculations ──
+  // ── KPI calculations using tracking_link_ltv for profit/ROI ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
     const tagged = links.filter((l: any) => !!getEffectiveSource(l)).length;
     const untagged = links.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
-    const ag = calcAgencyTotals(links);
     const totalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const totalSubscribers = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const totalClicks = links.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
@@ -316,23 +315,50 @@ export default function TrafficSourcesPage() {
     });
     const activeSources = activeSourceIds.size;
 
+    // Total Spend = SUM(cost_total) WHERE cost_total > 0
+    const totalSpend = links
+      .filter((l: any) => Number(l.cost_total || 0) > 0)
+      .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
+    // Total Profit = SUM(total_ltv + cross_poll_revenue) - SUM(cost_total) for links with cost
+    const linksWithCost = links.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const ltvPlusCp = linksWithCost.reduce((s: number, l: any) => {
+      const rec = ltvLookup[String(l.id).toLowerCase()];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      const cp = rec ? Number(rec.cross_poll_revenue || 0) : 0;
+      return s + ltv + cp;
+    }, 0);
+    const totalCost = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const totalProfit = ltvPlusCp - totalCost;
+    const blendedRoi = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+
+    // Avg CPL = SUM(cost_total) / SUM(new_subs_total)
+    const paidNewSubs = linksWithCost.reduce((s: number, l: any) => {
+      const rec = ltvLookup[String(l.id).toLowerCase()];
+      return s + (rec ? Number(rec.new_subs_total || 0) : 0);
+    }, 0);
+    const avgCpl = paidNewSubs > 0 ? totalCost / paidNewSubs : 0;
+    const avgProfitSub = paidNewSubs > 0 ? totalProfit / paidNewSubs : 0;
+
     const revenueBySource: Record<string, number> = {};
     links.forEach((l: any) => {
       const es = getEffectiveSource(l);
       if (es) {
-        revenueBySource[es] = (revenueBySource[es] || 0) + Number(l.revenue || 0);
+        const rec = ltvLookup[String(l.id).toLowerCase()];
+        const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+        revenueBySource[es] = (revenueBySource[es] || 0) + ltv;
       }
     });
     const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0];
 
     return {
       totalSources, tagged, untagged,
-      totalSpend: ag.totalSpend, totalRevenue, blendedRoi: ag.roiPct ?? 0,
-      totalProfit: ag.totalProfit, avgCpl: ag.avgCpl ?? 0, totalSubscribers,
-      activeSources, totalClicks, avgProfitSub: ag.avgProfitPerSub ?? 0, topSource,
-      isEstimate: ag.isEstimate,
+      totalSpend, totalRevenue, blendedRoi,
+      totalProfit, avgCpl, totalSubscribers,
+      activeSources, totalClicks, avgProfitSub, topSource,
+      isEstimate: false,
     };
-  }, [sources, links]);
+  }, [sources, links, ltvLookup]);
 
   // ── Source Analysis calculations ──
   const sourceAnalysis = useMemo(() => {
