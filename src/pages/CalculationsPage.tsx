@@ -153,7 +153,7 @@ export default function CalculationsPage() {
   // SECTION 2 — Spend
   const totalSpend = links.reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
   const otSpend = links.filter((l: any) => l.traffic_category === "OnlyTraffic").reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
-  const manualSpend = links.filter((l: any) => l.traffic_category === "Manual").reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
+  const manualSpend = links.filter((l: any) => l.traffic_category && l.traffic_category !== "OnlyTraffic").reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
 
   // SECTION 3 — Performance
   const totalNewSubs = ltvRows.reduce((s, r: any) => s + Number(r.new_subs_total || 0), 0);
