@@ -202,7 +202,7 @@ export default function CrossPollPage() {
                   <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
                 ) : topCampaigns.map((r: any) => {
                   // "Received By" = all other models (exclude source)
-                  const otherModels = accounts.filter((a: any) => a.id !== r.account_id);
+                  const otherModels = accounts.filter((a: any) => String(a.id).toLowerCase() !== String(r.account_id).toLowerCase());
                   return (
                     <TableRow key={r.id} className="border-border">
                       <TableCell className="font-medium text-foreground max-w-[200px] truncate">{r.campaignName}</TableCell>
