@@ -48,7 +48,7 @@ export default function CrossPollPage() {
 
   const linkLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    trackingLinks.forEach((l: any) => { map[l.id] = l; });
+    trackingLinks.forEach((l: any) => { map[String(l.id).toLowerCase()] = l; });
     return map;
   }, [trackingLinks]);
 
