@@ -451,22 +451,20 @@ export default function CampaignsPage() {
     const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
     const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
 
-    // FIX 6: Total Profit = SUM(total_ltv + cross_poll_revenue) - SUM(cost_total) for links with cost
+    // Total Profit = SUM(total_ltv + cross_poll_revenue) - SUM(cost_total) for links with cost
     const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const ltvPlusCrossPoll = linksWithCost.reduce((s: number, l: any) => {
-      const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
+      const ltv = l.ltvFromTable ?? 0;
       const cp = l.crossPollRevenue ?? 0;
       return s + ltv + cp;
     }, 0);
     const totalCostForProfit = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
     const totalProfitCalc = ltvPlusCrossPoll - totalCostForProfit;
 
-    // FIX 7: Total Expenses = SUM(cost_total) WHERE traffic_category = 'OnlyTraffic'
-    const onlyTrafficExpenses = scopedLinks
-      .filter((l: any) => l.traffic_category === "OnlyTraffic" && Number(l.cost_total || 0) > 0)
+    // Total Expenses = SUM(cost_total) WHERE cost_total > 0
+    const totalSpendAll = scopedLinks
+      .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    // Also keep total spend across all sources
-    const totalSpendAll = scopedLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
     // Source-based KPIs
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
@@ -474,11 +472,11 @@ export default function CampaignsPage() {
     withSpend.forEach((l: any) => {
       const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
+      const ltv = l.ltvFromTable ?? 0;
       const cp = l.crossPollRevenue ?? 0;
       bySource[tag].rev += ltv + cp;
       bySource[tag].spend += Number(l.cost_total || 0);
-      bySource[tag].subs += (l.subscribers || 0);
+      bySource[tag].subs += (l.newSubsTotal || 0);
       bySource[tag].profit += (ltv + cp) - Number(l.cost_total || 0);
       bySource[tag].count++;
     });
@@ -499,10 +497,10 @@ export default function CampaignsPage() {
     });
 
     const avgExpensesPerCampaign = withSpend.length > 0 ? totalSpendAll / withSpend.length : null;
-    // Profit/sub based on LTV
-    const paidSubs = linksWithCost.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const profitPerSubCalc = paidSubs > 0 ? totalProfitCalc / paidSubs : null;
-    const avgCplCalc = paidSubs > 0 ? totalCostForProfit / paidSubs : null;
+    // Profit/sub and Avg CPL based on new_subs_total from tracking_link_ltv
+    const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
+    const profitPerSubCalc = paidNewSubs > 0 ? totalProfitCalc / paidNewSubs : null;
+    const avgCplCalc = paidNewSubs > 0 ? totalCostForProfit / paidNewSubs : null;
     const blendedRoiCalc = totalCostForProfit > 0 ? (totalProfitCalc / totalCostForProfit) * 100 : null;
 
     return {

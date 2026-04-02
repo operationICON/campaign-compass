@@ -670,7 +670,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Traffic with no tracking link · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Fans with no tracking link · {periodLabel}</p>
             {unattributedStats.accountTotalSubs > 0 && (
               <p className="text-[10px] text-muted-foreground italic mt-0.5">Requires fan sync for accuracy</p>
             )}
