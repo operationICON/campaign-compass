@@ -165,13 +165,15 @@ export default function CalculationsPage() {
   // SECTION 5 — Coverage
   const totalCampaigns = ltvRows.length > 0 ? links.length : 0;
   const withLtv = links.filter((l: any) => {
-    const ltv = ltvMap[l.id];
+    const key = String(l.id ?? "").trim().toLowerCase();
+    const ltv = ltvMap[key];
     return ltv && Number(ltv.total_ltv) > 0;
   }).length;
   const withSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0).length;
-  const withSource = links.filter((l: any) => l.source_tag).length;
+  const withSource = links.filter((l: any) => l.source_tag || l.onlytraffic_marketer).length;
   const withCrossPoll = links.filter((l: any) => {
-    const ltv = ltvMap[l.id];
+    const key = String(l.id ?? "").trim().toLowerCase();
+    const ltv = ltvMap[key];
     return ltv && Number(ltv.cross_poll_revenue) > 0;
   }).length;
   const totalLinks = links.length;
