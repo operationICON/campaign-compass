@@ -156,7 +156,7 @@ function saveEnabledCards(storageKey: string, cards: string[]) {
   saveCtPrefs(prefs);
 }
 
-export function useKpiCardVisibility(storageKey: string = DEFAULT_STORAGE_KEY) {
+export function useKpiCardVisibility(storageKey: string = "dashboard_kpi_cards") {
   const variant = getVariantFromKey(storageKey);
   const { alwaysOn } = getCardConfig(variant);
   const [enabledCards, setEnabledCards] = useState<string[]>(() => loadEnabledCards(storageKey));
