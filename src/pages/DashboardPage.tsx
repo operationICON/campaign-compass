@@ -466,7 +466,10 @@ function KpiCards({
   // Build LTV lookup for KPI cards
   const kpiLtvLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    for (const r of trackingLinkLtv) {
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
+    }
     return map;
   }, [trackingLinkLtv]);
 
