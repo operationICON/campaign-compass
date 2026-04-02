@@ -112,12 +112,38 @@ const AUDIT_COLUMNS: ColumnDef[] = [
 export default function AuditPage() {
   const queryClient = useQueryClient();
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
-  const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
+  const { data: allLinks = [], isLoading } = useQuery({
+    queryKey: ["audit_all_links", dateFilter.from, dateFilter.to],
+    queryFn: async () => {
+      const allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        let query = supabase
+          .from("tracking_links")
+          .select("*, accounts(display_name, username, avatar_thumb_url)")
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
+    },
+  });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      let query = supabase.from("tracking_link_ltv").select("*");
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },

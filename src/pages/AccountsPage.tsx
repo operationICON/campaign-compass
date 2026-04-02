@@ -60,14 +60,32 @@ export default function AccountsPage() {
   const [editCatValue, setEditCatValue] = useState("");
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
-  const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
-  const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+  const { data: links = [] } = useQuery({
+    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      let query = supabase
+        .from("tracking_links")
+        .select("*, accounts(display_name, username, avatar_thumb_url)")
+        .is("deleted_at", null)
+        .order("revenue", { ascending: false });
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
+    },
+  });
+  const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
+  const { data: trackingLinkLtv = [] } = useQuery({
+    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
+    queryFn: async () => {
+      let query = supabase.from("tracking_link_ltv").select("*");
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
     },
   });
 

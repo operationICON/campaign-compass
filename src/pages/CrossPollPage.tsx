@@ -24,25 +24,31 @@ export default function CrossPollPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   const { data: ltvData = [], isLoading: ltvLoading } = useQuery({
-    queryKey: ["crosspoll_ltv"],
+    queryKey: ["crosspoll_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("tracking_link_ltv")
         .select("*")
         .gt("cross_poll_revenue", 0)
         .order("cross_poll_revenue", { ascending: false });
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: trackingLinks = [] } = useQuery({
-    queryKey: ["crosspoll_tracking_links"],
+    queryKey: ["crosspoll_tracking_links", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("tracking_links")
         .select("id, campaign_name, account_id")
         .is("deleted_at", null);
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
