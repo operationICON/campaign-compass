@@ -138,7 +138,10 @@ export default function CalculationsPage() {
 
   // Build LTV lookup by tracking_link_id (TEXT → match against UUID as string)
   const ltvMap: Record<string, any> = {};
-  ltvRows.forEach((r: any) => { ltvMap[r.tracking_link_id] = r; });
+  ltvRows.forEach((r: any) => { 
+    const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+    if (key) ltvMap[key] = r; 
+  });
 
   // SECTION 1 — Revenue
   const estRevenue = links.reduce((s, l: any) => s + Number(l.revenue || 0), 0);
