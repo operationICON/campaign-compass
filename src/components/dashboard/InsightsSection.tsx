@@ -230,10 +230,10 @@ export function InsightsSection({
                     </div>
                   </td>
                   <td className="py-1.5 pr-2">
-                    {l.source_tag ? (
+                    {getEffectiveSource(l) ? (
                       <span className="inline-flex items-center gap-1 text-[11px]">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorMap[l.source_tag] || "#94a3b8" }} />
-                        {l.source_tag}
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorMap[getEffectiveSource(l)!] || "#94a3b8" }} />
+                        {getEffectiveSource(l)}
                       </span>
                     ) : <span className="text-[11px] text-muted-foreground">—</span>}
                   </td>
