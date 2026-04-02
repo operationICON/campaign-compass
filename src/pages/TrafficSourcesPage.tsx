@@ -512,8 +512,8 @@ export default function TrafficSourcesPage() {
   const filtered = useMemo(() => {
     let result = links as any[];
     if (accountFilter !== "all") result = result.filter(l => l.account_id === accountFilter);
-    if (sourceFilter === "untagged") result = result.filter(l => !l.source_tag || l.source_tag === "Untagged");
-    else if (sourceFilter !== "all") result = result.filter(l => l.source_tag === sourceFilter);
+    if (sourceFilter === "untagged") result = result.filter(l => !getEffectiveSource(l));
+    else if (sourceFilter !== "all") result = result.filter(l => getEffectiveSource(l) === sourceFilter);
     if (categoryFilter !== "all") {
       const sourceIds = sources.filter((s: any) => s.category === categoryFilter).map((s: any) => s.id);
       result = result.filter(l => sourceIds.includes(l.traffic_source_id));

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts } from "@/lib/supabase-helpers";
