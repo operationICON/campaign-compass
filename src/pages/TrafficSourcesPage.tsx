@@ -538,7 +538,7 @@ export default function TrafficSourcesPage() {
         case "subscribers": aVal = a.subscribers || 0; bVal = b.subscribers || 0; break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
         case "cvr": aVal = Number(a.cvr || 0); bVal = Number(b.cvr || 0); break;
-        case "ltv": aVal = (ltvLookup[a.id] ? Number(ltvLookup[a.id].total_ltv || 0) : 0); bVal = (ltvLookup[b.id] ? Number(ltvLookup[b.id].total_ltv || 0) : 0); break;
+        case "ltv": aVal = (ltvLookup[String(a.id).toLowerCase()] ? Number(ltvLookup[String(a.id).toLowerCase()].total_ltv || 0) : 0); bVal = (ltvLookup[String(b.id).toLowerCase()] ? Number(ltvLookup[String(b.id).toLowerCase()].total_ltv || 0) : 0); break;
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "profit": aVal = Number(a.profit || 0); bVal = Number(b.profit || 0); break;
         case "roi": aVal = Number(a.roi || 0); bVal = Number(b.roi || 0); break;
