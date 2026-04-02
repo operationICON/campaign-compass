@@ -1096,7 +1096,9 @@ export default function TrafficSourcesPage() {
                               </div>
                             </td>
                           );
-                          case "category": return (
+                          case "category": {
+                            const cat = getCategory(link);
+                            return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               {cat ? (
                                 <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 600, borderRadius: "4px", background: cat === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe", color: cat === "OnlyTraffic" ? "#7c3aed" : "#0891b2" }}>{cat}</span>
@@ -1104,7 +1106,7 @@ export default function TrafficSourcesPage() {
                                 <span style={{ fontSize: "10px", color: "#94a3b8" }}>—</span>
                               )}
                             </td>
-                          );
+                          );}
                           case "clicks": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(link.clicks || 0)}</td>;
                           case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(subs)}</td>;
                           case "cvr": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "#0891b2" : "#1a2332" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>;
