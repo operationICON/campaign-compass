@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
