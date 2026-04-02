@@ -782,7 +782,7 @@ function KpiCards({
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">True LTV</span>
+              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">LTV</span>
             </div>
             {totalLtv > 0 ? (
               <p className="text-[22px] font-bold font-mono text-white">{fmtC(totalLtv)}</p>

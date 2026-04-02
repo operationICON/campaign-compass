@@ -63,7 +63,7 @@ export function InsightsSection({
   // ── TOP TRACKING LINKS (across ALL accounts, by total_ltv desc from tracking_link_ltv) ──
   const allEnriched = useMemo(() => links.map((l: any) => {
     const spend = Number(l.cost_total || 0);
-    const ltvRecord = ltvLookup[l.id];
+    const ltvRecord = ltvLookup[String(l.id).toLowerCase()];
     const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
     const revenue = ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     const profit = spend > 0 ? revenue - spend : null;

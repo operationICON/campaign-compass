@@ -71,7 +71,8 @@ export default function AccountsPage() {
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
-      map[r.tracking_link_id] = r;
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
     }
     return map;
   }, [trackingLinkLtv]);

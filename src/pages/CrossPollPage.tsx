@@ -175,7 +175,7 @@ export default function CrossPollPage() {
           </Card>
         </div>
 
-        {/* Top Campaigns Table — with Direct LTV, Total LTV, Received By */}
+        {/* Top Campaigns Table — with LTV, Total LTV, Received By */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-foreground">Top Campaigns by Cross-Poll Revenue</CardTitle>
@@ -187,7 +187,7 @@ export default function CrossPollPage() {
                   <TableHead className="text-muted-foreground">Campaign</TableHead>
                   <TableHead className="text-muted-foreground">Source Model</TableHead>
                   <TableHead className="text-muted-foreground text-right">New Fans</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Direct LTV</TableHead>
+                  <TableHead className="text-muted-foreground text-right">LTV</TableHead>
                   <TableHead className="text-muted-foreground text-right">Cross-Poll Revenue</TableHead>
                   <TableHead className="text-muted-foreground text-right">Total LTV</TableHead>
                   <TableHead className="text-muted-foreground text-right">Cross-Poll Fans</TableHead>
