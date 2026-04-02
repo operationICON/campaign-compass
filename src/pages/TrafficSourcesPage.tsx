@@ -1026,21 +1026,45 @@ export default function TrafficSourcesPage() {
               <tbody>
                 {paginated.map((link: any) => {
                   const username = link.accounts?.username || link.accounts?.display_name || "—";
-                  const cat = getCategory(link);
-                  const status = link.status || "NO_DATA";
-                  const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
                   const ltvRecord = ltvLookup[String(link.id).toLowerCase()];
                   const hasLtvRecord = ltvRecord !== undefined;
                   const ltv = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
                   const ltvPerSub = hasLtvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
+                  const crossPollRev = hasLtvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : 0;
                   const costTotal = Number(link.cost_total || 0);
-                  const profit = Number(link.profit || 0);
-                  const roi = Number(link.roi || 0);
+                  // Profit = (total_ltv + cross_poll_revenue) - cost_total
+                  const profit = costTotal > 0 && hasLtvRecord ? ((ltv || 0) + crossPollRev) - costTotal : null;
+                  // ROI = (profit / cost_total) × 100
+                  const roi = costTotal > 0 && profit !== null ? (profit / costTotal) * 100 : null;
                   const subs = link.subscribers || 0;
-                  const profitPerSub = subs > 0 ? profit / subs : 0;
+                  // Profit/Sub = Profit / new_subs_total
+                  const newSubsTotal = hasLtvRecord ? Number(ltvRecord.new_subs_total || 0) : 0;
+                  const profitPerSub = newSubsTotal > 0 && profit !== null ? profit / newSubsTotal : null;
                   const ageDays = getAgeDays(link.created_at);
                   const subsDay = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
                   const isExpanded = expandedRow === link.id;
+                  // Calculate status from ROI
+                  let computedStatus: string;
+                  const clicks = link.clicks || 0;
+                  if (clicks === 0 && subs === 0) {
+                    computedStatus = "TESTING";
+                  } else {
+                    const calcDate = link.calculated_at ? new Date(link.calculated_at) : null;
+                    const thirtyDaysAgoDate = new Date();
+                    thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
+                    if (calcDate && calcDate < thirtyDaysAgoDate) {
+                      computedStatus = "INACTIVE";
+                    } else if (costTotal > 0 && roi !== null) {
+                      if (roi > 150) computedStatus = "SCALE";
+                      else if (roi >= 50) computedStatus = "WATCH";
+                      else if (roi >= 0) computedStatus = "LOW";
+                      else computedStatus = "KILL";
+                    } else {
+                      computedStatus = "NO_SPEND";
+                    }
+                  }
+                  const status = computedStatus;
+                  const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
 
                   return (
                     <React.Fragment key={link.id}>
