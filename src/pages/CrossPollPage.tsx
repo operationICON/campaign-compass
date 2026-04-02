@@ -48,19 +48,19 @@ export default function CrossPollPage() {
 
   const linkLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    trackingLinks.forEach((l: any) => { map[l.id] = l; });
+    trackingLinks.forEach((l: any) => { map[String(l.id).toLowerCase()] = l; });
     return map;
   }, [trackingLinks]);
 
   const accountLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    accounts.forEach((a: any) => { map[a.id] = a; });
+    accounts.forEach((a: any) => { map[String(a.id).toLowerCase()] = a; });
     return map;
   }, [accounts]);
 
   const filteredLtv = useMemo(() => {
     if (modelFilter === "all") return ltvData;
-    return ltvData.filter((r: any) => r.account_id === modelFilter);
+    return ltvData.filter((r: any) => String(r.account_id).toLowerCase() === String(modelFilter).toLowerCase());
   }, [ltvData, modelFilter]);
 
   // Summary cards
@@ -77,7 +77,7 @@ export default function CrossPollPage() {
     let topVal = 0;
     let topAccId = "";
     Object.entries(byAccount).forEach(([accId, val]) => {
-      if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[accId]?.display_name || accId; }
+      if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[String(accId).toLowerCase()]?.display_name || accId; }
     });
 
     return { totalRevenue, totalFans, avgPerFan, topModel, topAccId };
@@ -86,8 +86,8 @@ export default function CrossPollPage() {
   // Campaign table with new columns
   const topCampaigns = useMemo(() => {
     return filteredLtv.slice(0, 50).map((r: any) => {
-      const link = linkLookup[r.tracking_link_id];
-      const acc = accountLookup[r.account_id];
+      const link = linkLookup[String(r.tracking_link_id ?? "").toLowerCase()];
+      const acc = accountLookup[String(r.account_id ?? "").toLowerCase()];
       const directLtv = Number(r.total_ltv || 0);
       const crossPollRev = Number(r.cross_poll_revenue || 0);
 
@@ -202,7 +202,7 @@ export default function CrossPollPage() {
                   <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
                 ) : topCampaigns.map((r: any) => {
                   // "Received By" = all other models (exclude source)
-                  const otherModels = accounts.filter((a: any) => a.id !== r.account_id);
+                  const otherModels = accounts.filter((a: any) => String(a.id).toLowerCase() !== String(r.account_id).toLowerCase());
                   return (
                     <TableRow key={r.id} className="border-border">
                       <TableCell className="font-medium text-foreground max-w-[200px] truncate">{r.campaignName}</TableCell>

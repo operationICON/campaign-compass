@@ -262,10 +262,13 @@ export default function TrafficSourcesPage() {
     },
   });
 
-  // LTV lookup map
+  // LTV lookup map — normalize keys for UUID↔TEXT matching
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    for (const r of trackingLinkLtv) {
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
+    }
     return map;
   }, [trackingLinkLtv]);
 
@@ -535,7 +538,7 @@ export default function TrafficSourcesPage() {
         case "subscribers": aVal = a.subscribers || 0; bVal = b.subscribers || 0; break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
         case "cvr": aVal = Number(a.cvr || 0); bVal = Number(b.cvr || 0); break;
-        case "ltv": aVal = (ltvLookup[a.id] ? Number(ltvLookup[a.id].total_ltv || 0) : 0); bVal = (ltvLookup[b.id] ? Number(ltvLookup[b.id].total_ltv || 0) : 0); break;
+        case "ltv": aVal = (ltvLookup[String(a.id).toLowerCase()] ? Number(ltvLookup[String(a.id).toLowerCase()].total_ltv || 0) : 0); bVal = (ltvLookup[String(b.id).toLowerCase()] ? Number(ltvLookup[String(b.id).toLowerCase()].total_ltv || 0) : 0); break;
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "profit": aVal = Number(a.profit || 0); bVal = Number(b.profit || 0); break;
         case "roi": aVal = Number(a.roi || 0); bVal = Number(b.roi || 0); break;
@@ -998,9 +1001,10 @@ export default function TrafficSourcesPage() {
                   const cat = getCategory(link);
                   const status = link.status || "NO_DATA";
                   const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
-                  const ltvRecord = ltvLookup[link.id];
-                  const ltv = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
-                  const ltvPerSub = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
+                  const ltvRecord = ltvLookup[String(link.id).toLowerCase()];
+                  const hasLtvRecord = ltvRecord !== undefined;
+                  const ltv = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+                  const ltvPerSub = hasLtvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
                   const costTotal = Number(link.cost_total || 0);
                   const profit = Number(link.profit || 0);
                   const roi = Number(link.roi || 0);
@@ -1038,8 +1042,8 @@ export default function TrafficSourcesPage() {
                           case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(subs)}</td>;
                           case "cvr": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "#0891b2" : "#1a2332" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>;
                           case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtC(Number(link.revenue || 0))}</td>;
-                          case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv > 0 ? "#0891b2" : "#94a3b8" }}>{ltv > 0 ? fmtC(ltv) : "—"}</td>;
-                          case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{ltvPerSub > 0 ? fmtC(ltvPerSub) : "—"}</td>;
+                          case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
+                          case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
                           case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
                           case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit > 0 ? "#16a34a" : profit < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(profit) : "—"}</td>;
                           case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub > 0 ? "#16a34a" : profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 && subs > 0 ? fmtC(profitPerSub) : "—"}</td>;
@@ -1080,7 +1084,7 @@ export default function TrafficSourcesPage() {
                       const el = link;
                       const subsEl = el.subscribers || 0;
                       const clicksEl = el.clicks || 0;
-                      const elLtvRecord = ltvLookup[el.id];
+                      const elLtvRecord = ltvLookup[String(el.id).toLowerCase()];
                       const revEl = (elLtvRecord && Number(elLtvRecord.total_ltv || 0) > 0) ? Number(elLtvRecord.total_ltv) : Number(el.revenue || 0);
                       const hasCostEl = Number(el.cost_total || 0) > 0;
                       const numVal = parseFloat(spendValue);
@@ -1165,9 +1169,10 @@ export default function TrafficSourcesPage() {
                         } catch { toast.error("Clear failed"); }
                         finally { setNoteLoading(false); }
                       };
-                      const detailLtvRecord = ltvLookup[el.id];
-                      const ltvVal = detailLtvRecord ? Number(detailLtvRecord.total_ltv || 0) : null;
-                      const ltvSubVal = detailLtvRecord ? Number(detailLtvRecord.ltv_per_sub || 0) : null;
+                      const detailLtvRecord = ltvLookup[String(el.id).toLowerCase()];
+                      const hasDetailLtv = detailLtvRecord !== undefined;
+                      const ltvVal = hasDetailLtv ? Number(detailLtvRecord.total_ltv || 0) : null;
+                      const ltvSubVal = hasDetailLtv ? Number(detailLtvRecord.ltv_per_sub || 0) : null;
                       const spenderRateVal = Number(el.spender_rate || 0);
                       const subsDayVal = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
                       const subsDayDisplay = subsDayVal > 0 ? { v: `${Math.round(subsDayVal)}/day`, c: "#0891b2" } : { v: "0/day", c: "#94a3b8" };
@@ -1186,9 +1191,9 @@ export default function TrafficSourcesPage() {
                                       { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
                                       { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "#1a2332" },
                                       { l: "Subs", v: subsEl.toLocaleString(), c: "#1a2332" },
-                                      { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "#0891b2" : "#94a3b8" },
+                                      { l: "LTV", v: hasDetailLtv ? fmtC(ltvVal ?? 0) : "—", c: ltvVal !== null && ltvVal > 0 ? "#0891b2" : "#94a3b8" },
                                       { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "#0891b2" : "#94a3b8" },
-                                      { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
+                                      { l: "LTV/Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
                                       { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
                                       { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
                                     ].map(r => (
