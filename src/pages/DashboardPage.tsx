@@ -528,12 +528,12 @@ function KpiCards({
     const tag = getEffectiveSource(l) || "Untagged";
     if (tag === "Untagged") return;
     if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
-    const ltvRecord = kpiLtvLookup[l.id];
+    const ltvRecord = kpiLtvLookup[String(l.id).toLowerCase()];
     const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
-    const effectiveRev = ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
-    bySource[tag].rev += effectiveRev;
+    const cpVal = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : 0;
+    bySource[tag].rev += ltvVal + cpVal;
     bySource[tag].spend += Number(l.cost_total || 0);
-    bySource[tag].profit += effectiveRev - Number(l.cost_total || 0);
+    bySource[tag].profit += (ltvVal + cpVal) - Number(l.cost_total || 0);
   });
   let bestSource: { name: string; roi: number } | null = null;
   Object.entries(bySource).forEach(([name, d]) => {

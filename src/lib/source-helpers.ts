@@ -22,5 +22,6 @@ export function getEffectiveSource(link: {
  */
 export function getTrafficCategoryLabel(trafficCategory: string | null | undefined): string | null {
   if (!trafficCategory) return null;
-  return trafficCategory === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
+  if (trafficCategory === "OnlyTraffic") return "OnlyTraffic";
+  return "Manual";
 }
