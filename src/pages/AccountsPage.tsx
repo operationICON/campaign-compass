@@ -405,7 +405,7 @@ export default function AccountsPage() {
                           {sortedLinks.map((l: any) => {
                             const status = getStatus(l);
                             const hasSpend = Number(l.cost_total || 0) > 0;
-                            const ltvRecord = ltvLookup[l.id] || null;
+                            const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
                             const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
                             const crossPoll = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
                             const hasLtv = ltvVal !== null && ltvVal > 0;
