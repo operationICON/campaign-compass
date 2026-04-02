@@ -1191,9 +1191,9 @@ export default function TrafficSourcesPage() {
                                       { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
                                       { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "#1a2332" },
                                       { l: "Subs", v: subsEl.toLocaleString(), c: "#1a2332" },
-                                      { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "#0891b2" : "#94a3b8" },
+                                      { l: "LTV", v: hasDetailLtv ? fmtC(ltvVal ?? 0) : "—", c: ltvVal !== null && ltvVal > 0 ? "#0891b2" : "#94a3b8" },
                                       { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "#0891b2" : "#94a3b8" },
-                                      { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
+                                      { l: "LTV/Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
                                       { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
                                       { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
                                     ].map(r => (
