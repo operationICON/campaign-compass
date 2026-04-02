@@ -466,12 +466,15 @@ function KpiCards({
   // Build LTV lookup for KPI cards
   const kpiLtvLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    for (const r of trackingLinkLtv) {
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
+    }
     return map;
   }, [trackingLinkLtv]);
 
   const expEffective = withSpend.reduce((s: number, l: any) => {
-    const ltvRecord = kpiLtvLookup[l.id];
+    const ltvRecord = kpiLtvLookup[String(l.id).toLowerCase()];
     const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
     return s + (ltvVal > 0 ? ltvVal : Number(l.revenue || 0));
   }, 0);
@@ -779,7 +782,7 @@ function KpiCards({
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">True LTV</span>
+              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">LTV</span>
             </div>
             {totalLtv > 0 ? (
               <p className="text-[22px] font-bold font-mono text-white">{fmtC(totalLtv)}</p>

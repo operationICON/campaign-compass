@@ -71,7 +71,8 @@ export default function AccountsPage() {
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
-      map[r.tracking_link_id] = r;
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
     }
     return map;
   }, [trackingLinkLtv]);
@@ -238,7 +239,7 @@ export default function AccountsPage() {
       if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
       groups[src].links++;
       groups[src].spend += Number(l.cost_total || 0);
-      const ltvRecord = ltvLookup[l.id];
+      const ltvRecord = ltvLookup[String(l.id).toLowerCase()];
       const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
       groups[src].ltv += ltvVal;
     }
@@ -404,7 +405,7 @@ export default function AccountsPage() {
                           {sortedLinks.map((l: any) => {
                             const status = getStatus(l);
                             const hasSpend = Number(l.cost_total || 0) > 0;
-                            const ltvRecord = ltvLookup[l.id] || null;
+                            const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
                             const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
                             const crossPoll = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
                             const hasLtv = ltvVal !== null && ltvVal > 0;
