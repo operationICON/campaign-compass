@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
 import { TagBadge } from "@/components/TagBadge";
+import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
