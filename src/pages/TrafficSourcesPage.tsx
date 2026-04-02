@@ -300,8 +300,8 @@ export default function TrafficSourcesPage() {
   // ── KPI calculations ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
-    const tagged = links.filter((l: any) => l.source_tag && l.source_tag !== "Untagged").length;
-    const untagged = links.filter((l: any) => (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)).length;
+    const tagged = links.filter((l: any) => !!getEffectiveSource(l)).length;
+    const untagged = links.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
     const ag = calcAgencyTotals(links);
     const totalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const totalSubscribers = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
