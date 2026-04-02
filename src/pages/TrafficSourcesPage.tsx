@@ -546,6 +546,7 @@ export default function TrafficSourcesPage() {
 
   const filtered = useMemo(() => {
     let result = links as any[];
+    if (pageModelFilter !== "all") result = result.filter(l => l.account_id === pageModelFilter);
     if (accountFilter !== "all") result = result.filter(l => l.account_id === accountFilter);
     if (sourceFilter === "untagged") result = result.filter(l => !getEffectiveSource(l));
     else if (sourceFilter !== "all") result = result.filter(l => getEffectiveSource(l) === sourceFilter);
@@ -562,7 +563,7 @@ export default function TrafficSourcesPage() {
       );
     }
     return result;
-  }, [links, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
+  }, [links, pageModelFilter, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
 
   // Sorting
   const sorted = useMemo(() => {
