@@ -474,7 +474,7 @@ function KpiCards({
   }, [trackingLinkLtv]);
 
   const expEffective = withSpend.reduce((s: number, l: any) => {
-    const ltvRecord = kpiLtvLookup[l.id];
+    const ltvRecord = kpiLtvLookup[String(l.id).toLowerCase()];
     const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
     return s + (ltvVal > 0 ? ltvVal : Number(l.revenue || 0));
   }, 0);
