@@ -78,12 +78,12 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
           if (i === j) continue;
           const src = entries[i];
           const dest = entries[j];
-          if (src.account_id === dest.account_id) continue;
+          if (String(src.account_id).toLowerCase() === String(dest.account_id).toLowerCase()) continue;
 
-          const srcLink = linkLookup[src.tracking_link_id];
-          const destLink = linkLookup[dest.tracking_link_id];
-          const srcAcc = accountLookup[src.account_id];
-          const destAcc = accountLookup[dest.account_id];
+          const srcLink = linkLookup[String(src.tracking_link_id ?? "").toLowerCase()];
+          const destLink = linkLookup[String(dest.tracking_link_id ?? "").toLowerCase()];
+          const srcAcc = accountLookup[String(src.account_id ?? "").toLowerCase()];
+          const destAcc = accountLookup[String(dest.account_id ?? "").toLowerCase()];
 
           rows.push({
             fanId: fanId,
