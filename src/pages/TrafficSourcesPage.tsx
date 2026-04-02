@@ -318,8 +318,9 @@ export default function TrafficSourcesPage() {
 
     const revenueBySource: Record<string, number> = {};
     links.forEach((l: any) => {
-      if (l.source_tag && l.source_tag !== "Untagged") {
-        revenueBySource[l.source_tag] = (revenueBySource[l.source_tag] || 0) + Number(l.revenue || 0);
+      const es = getEffectiveSource(l);
+      if (es) {
+        revenueBySource[es] = (revenueBySource[es] || 0) + Number(l.revenue || 0);
       }
     });
     const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0];
