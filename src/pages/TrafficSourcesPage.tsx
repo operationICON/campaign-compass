@@ -1030,7 +1030,22 @@ export default function TrafficSourcesPage() {
                       {columnOrder.visibleOrderedColumns.map(c => {
                         switch (c.id) {
                           case "model": return <td key={c.id} style={{ padding: "8px 12px" }}><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} /><span style={{ fontSize: "11px", color: "#64748b" }}>@{username}</span></div></td>;
-                          case "source": return <td key={c.id} style={{ padding: "8px 12px" }}><TagBadge tagName={link.source_tag} size="sm" /></td>;
+                          case "source": return (
+                            <td key={c.id} style={{ padding: "8px 12px" }}>
+                              <div className="flex items-center gap-1.5">
+                                <TagBadge tagName={getEffectiveSource(link)} size="sm" />
+                                {getTrafficCategoryLabel(link.traffic_category) && (
+                                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-none whitespace-nowrap ${
+                                    getTrafficCategoryLabel(link.traffic_category) === "OnlyTraffic"
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}>
+                                    {getTrafficCategoryLabel(link.traffic_category)}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          );
                           case "category": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               {cat ? (

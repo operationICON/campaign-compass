@@ -1008,7 +1008,7 @@ export default function CampaignsPage() {
                                 case "source": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     <div className="flex items-center gap-1.5">
-                                      <TagBadge tagName={link.source_tag} size="sm" />
+                                      <TagBadge tagName={getEffectiveSource(link)} size="sm" />
                                       {getTrafficCategoryLabel(link.traffic_category) && (
                                         <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-none whitespace-nowrap ${
                                           getTrafficCategoryLabel(link.traffic_category) === "OnlyTraffic"

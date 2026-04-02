@@ -429,7 +429,7 @@ export default function AuditPage() {
         {columnOrder.visibleOrderedColumns.map(c => {
           switch (c.id) {
             case "model": return <td key={c.id} className="p-2"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} /><span className="text-muted-foreground text-xs">@{modelName(l)}</span></div></td>;
-            case "source": return <td key={c.id} className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (l.source_tag || "—")}</td>;
+            case "source": return <td key={c.id} className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (getEffectiveSource(l) || "—")}</td>;
             case "clicks": return <td key={c.id} className="p-2 text-right font-mono">{(l.clicks || 0).toLocaleString()}</td>;
             case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
             case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
