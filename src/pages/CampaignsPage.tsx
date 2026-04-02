@@ -666,7 +666,17 @@ export default function CampaignsPage() {
           </div>
         </div>
 
-        {/* ═══ KPI CARDS — COLLAPSIBLE ═══ */}
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={pageModelFilter}
+          onModelFilterChange={setPageModelFilter}
+          accounts={accountOptions}
+        />
+
         <div
           className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer transition-all duration-200"
           onClick={() => setKpiCollapsed(!kpiCollapsed)}
