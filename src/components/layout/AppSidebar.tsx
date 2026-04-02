@@ -13,6 +13,7 @@ const mainNav = [
   { to: "/accounts", icon: Users, label: "Models" },
   { to: "/traffic-sources", icon: Tag, label: "Sources" },
   { to: "/audit", icon: ShieldCheck, label: "Audit" },
+  { to: "/calculations", icon: Calculator, label: "Calculations" },
   { to: "/charts", icon: BarChart3, label: "Charts" },
 ];
 
