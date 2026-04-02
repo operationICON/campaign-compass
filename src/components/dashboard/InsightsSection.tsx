@@ -118,10 +118,11 @@ export function InsightsSection({
   const roiBySource = useMemo(() => {
     const map: Record<string, { source: string; totalRev: number; totalSpend: number }> = {};
     enriched.forEach(l => {
-      if (!l.source_tag || l.source_tag === "Untagged" || l.source_tag.toLowerCase() === "test" || l.spend <= 0) return;
-      if (!map[l.source_tag]) map[l.source_tag] = { source: l.source_tag, totalRev: 0, totalSpend: 0 };
-      map[l.source_tag].totalRev += l.effectiveRevenue;
-      map[l.source_tag].totalSpend += l.spend;
+      const es = getEffectiveSource(l);
+      if (!es || es.toLowerCase() === "test" || l.spend <= 0) return;
+      if (!map[es]) map[es] = { source: es, totalRev: 0, totalSpend: 0 };
+      map[es].totalRev += l.effectiveRevenue;
+      map[es].totalSpend += l.spend;
     });
     return Object.values(map)
       .map(s => ({ ...s, roi: s.totalSpend > 0 ? ((s.totalRev - s.totalSpend) / s.totalSpend) * 100 : 0 }))
