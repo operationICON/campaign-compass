@@ -239,7 +239,7 @@ export default function AccountsPage() {
       if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, ltv: 0, profit: 0, roi: null };
       groups[src].links++;
       groups[src].spend += Number(l.cost_total || 0);
-      const ltvRecord = ltvLookup[l.id];
+      const ltvRecord = ltvLookup[String(l.id).toLowerCase()];
       const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
       groups[src].ltv += ltvVal;
     }
