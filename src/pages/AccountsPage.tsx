@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
