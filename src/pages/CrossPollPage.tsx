@@ -77,7 +77,7 @@ export default function CrossPollPage() {
     let topVal = 0;
     let topAccId = "";
     Object.entries(byAccount).forEach(([accId, val]) => {
-      if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[accId]?.display_name || accId; }
+      if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[String(accId).toLowerCase()]?.display_name || accId; }
     });
 
     return { totalRevenue, totalFans, avgPerFan, topModel, topAccId };
