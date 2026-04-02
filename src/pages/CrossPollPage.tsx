@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,30 +19,36 @@ const fmtP = (v: number | null) =>
   v == null ? "—" : v.toFixed(1) + "%";
 
 export default function CrossPollPage() {
-  const [modelFilter, setModelFilter] = useState("all");
+  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   const { data: ltvData = [], isLoading: ltvLoading } = useQuery({
-    queryKey: ["crosspoll_ltv"],
+    queryKey: ["crosspoll_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("tracking_link_ltv")
         .select("*")
         .gt("cross_poll_revenue", 0)
         .order("cross_poll_revenue", { ascending: false });
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: trackingLinks = [] } = useQuery({
-    queryKey: ["crosspoll_tracking_links"],
+    queryKey: ["crosspoll_tracking_links", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("tracking_links")
         .select("id, campaign_name, account_id")
         .is("deleted_at", null);
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -119,18 +127,18 @@ export default function CrossPollPage() {
               Revenue generated on other models from fans acquired by each campaign
             </p>
           </div>
-          <Select value={modelFilter} onValueChange={setModelFilter}>
-            <SelectTrigger className="w-[180px] bg-card border-border">
-              <SelectValue placeholder="All Models" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Models</SelectItem>
-              {accounts.map((a: any) => (
-                <SelectItem key={a.id} value={a.id}>{a.display_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
+
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={modelFilter}
+          onModelFilterChange={setModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +49,7 @@ type SortKey = "campaign_name" | "revenue" | "clicks" | "subscribers" | "profit"
 export default function AccountsPage() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
@@ -57,12 +60,29 @@ export default function AccountsPage() {
   const [editCatValue, setEditCatValue] = useState("");
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+  const { data: links = [] } = useQuery({
+    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
+    queryFn: async () => {
+      let query = supabase
+        .from("tracking_links")
+        .select("*, accounts(display_name, username, avatar_thumb_url)")
+        .is("deleted_at", null)
+        .order("revenue", { ascending: false });
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      let query = supabase.from("tracking_link_ltv").select("*");
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -548,6 +568,17 @@ export default function AccountsPage() {
           </div>
           <RefreshButton queryKeys={["accounts", "tracking_links", "daily_metrics"]} />
         </div>
+
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={pageModelFilter}
+          onModelFilterChange={setPageModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
 
         {/* Filter pills */}
         <div className="flex gap-2 flex-wrap">

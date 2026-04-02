@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
@@ -133,6 +135,7 @@ function KpiCard({ label, value, sub, icon, color }: { label: string; value: Rea
 
 export default function TrafficSourcesPage() {
   const queryClient = useQueryClient();
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
 
   // KPI visibility
   const [visibleKpis, setVisibleKpis] = useState<Set<KpiId>>(loadKpiVisibility);
@@ -210,18 +213,21 @@ export default function TrafficSourcesPage() {
   });
 
   const { data: links = [], isLoading } = useQuery({
-    queryKey: ["tracking_links_ts"],
+    queryKey: ["tracking_links_ts", dateFilter.from, dateFilter.to],
     queryFn: async () => {
       let allLinks: any[] = [];
       let from = 0;
       const batchSize = 1000;
       while (true) {
-        const { data } = await supabase
+        let query = supabase
           .from("tracking_links")
           .select("*, accounts(display_name, username, avatar_thumb_url)")
           .is("deleted_at", null)
           .order("revenue", { ascending: false })
           .range(from, from + batchSize - 1);
+        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+        const { data } = await query;
         if (!data || data.length === 0) break;
         allLinks = allLinks.concat(data);
         if (data.length < batchSize) break;
@@ -256,9 +262,12 @@ export default function TrafficSourcesPage() {
   });
 
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data } = await supabase.from("tracking_link_ltv").select("*");
+      let query = supabase.from("tracking_link_ltv").select("*");
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data } = await query;
       return data || [];
     },
   });
@@ -537,6 +546,7 @@ export default function TrafficSourcesPage() {
 
   const filtered = useMemo(() => {
     let result = links as any[];
+    if (pageModelFilter !== "all") result = result.filter(l => l.account_id === pageModelFilter);
     if (accountFilter !== "all") result = result.filter(l => l.account_id === accountFilter);
     if (sourceFilter === "untagged") result = result.filter(l => !getEffectiveSource(l));
     else if (sourceFilter !== "all") result = result.filter(l => getEffectiveSource(l) === sourceFilter);
@@ -553,7 +563,7 @@ export default function TrafficSourcesPage() {
       );
     }
     return result;
-  }, [links, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
+  }, [links, pageModelFilter, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -685,7 +695,18 @@ export default function TrafficSourcesPage() {
 
   return (
     <DashboardLayout>
-      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-0">
+      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-4">
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={pageModelFilter}
+          onModelFilterChange={setPageModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
+
         {/* TOP SECTION — KPIs left + Source Card right */}
         <div className="flex gap-4 items-start mb-4">
           {/* Left 60% — KPI Cards */}

@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
@@ -109,6 +111,7 @@ function InfoDot({ title, desc }: { title: string; desc: string }) {
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
 
   // ─── Column order + visibility ───
   const columnOrder = useColumnOrder("campaigns_columns", ALL_COLUMNS);
@@ -149,8 +152,32 @@ export default function CampaignsPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<any>(null);
 
-  // ─── Data fetching ───
-  const { data: links = [], isLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+  // ─── Data fetching (filtered by time period) ───
+  const { data: links = [], isLoading } = useQuery({
+    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
+    queryFn: async () => {
+      let query = supabase
+        .from("tracking_links")
+        .select("*, accounts(display_name, username, avatar_thumb_url)")
+        .is("deleted_at", null)
+        .order("revenue", { ascending: false });
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      // Batch fetch all rows
+      const allData: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await query.range(from, from + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      return allData;
+    },
+  });
   const trackingLinkIds = useMemo(
     () => links.map((link: any) => String(link.id ?? "").trim()).filter(Boolean),
     [links]
@@ -159,7 +186,7 @@ export default function CampaignsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["campaigns_tracking_link_ltv", trackingLinkIds],
+    queryKey: ["campaigns_tracking_link_ltv", trackingLinkIds, dateFilter.from, dateFilter.to],
     enabled: trackingLinkIds.length > 0,
     queryFn: async () => {
       const rows: any[] = [];
@@ -167,11 +194,14 @@ export default function CampaignsPage() {
 
       for (let i = 0; i < trackingLinkIds.length; i += chunkSize) {
         const idChunk = trackingLinkIds.slice(i, i + chunkSize);
-        const { data, error } = await supabase
+        let query = supabase
           .from("tracking_link_ltv")
-          .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated")
+          .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated, new_subs_total")
           .in("tracking_link_id", idChunk);
+        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
 
+        const { data, error } = await query;
         if (error) throw error;
         rows.push(...(data || []));
       }
@@ -353,6 +383,8 @@ export default function CampaignsPage() {
   // ─── Filtering ───
   const filtered = useMemo(() => {
     let result = baseLinks;
+    // Page-level model filter (from filter bar)
+    if (pageModelFilter !== "all") result = result.filter((l: any) => l.account_id === pageModelFilter);
     if (groupFilter !== "all") {
       const groupUsernames = GROUP_MAP[groupFilter] || [];
       const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
@@ -634,7 +666,17 @@ export default function CampaignsPage() {
           </div>
         </div>
 
-        {/* ═══ KPI CARDS — COLLAPSIBLE ═══ */}
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={pageModelFilter}
+          onModelFilterChange={setPageModelFilter}
+          accounts={accountOptions}
+        />
+
         <div
           className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer transition-all duration-200"
           onClick={() => setKpiCollapsed(!kpiCollapsed)}

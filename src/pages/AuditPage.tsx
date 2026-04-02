@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -109,12 +111,39 @@ const AUDIT_COLUMNS: ColumnDef[] = [
 
 export default function AuditPage() {
   const queryClient = useQueryClient();
-  const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+  const { data: allLinks = [], isLoading } = useQuery({
+    queryKey: ["audit_all_links", dateFilter.from, dateFilter.to],
+    queryFn: async () => {
+      const allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        let query = supabase
+          .from("tracking_links")
+          .select("*, accounts(display_name, username, avatar_thumb_url)")
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
+    },
+  });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
+    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
+      let query = supabase.from("tracking_link_ltv").select("*");
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -533,6 +562,17 @@ export default function AuditPage() {
             <Button variant="outline" size="sm" onClick={() => setImportAuditOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import Audit CSV</Button>
           </div>
         </div>
+
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={pageModelFilter}
+          onModelFilterChange={setPageModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
 
         {/* Stat cards */}
         <div className="grid grid-cols-5 gap-4">
