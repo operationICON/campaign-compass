@@ -60,7 +60,7 @@ export default function CrossPollPage() {
 
   const filteredLtv = useMemo(() => {
     if (modelFilter === "all") return ltvData;
-    return ltvData.filter((r: any) => r.account_id === modelFilter);
+    return ltvData.filter((r: any) => String(r.account_id).toLowerCase() === String(modelFilter).toLowerCase());
   }, [ltvData, modelFilter]);
 
   // Summary cards
