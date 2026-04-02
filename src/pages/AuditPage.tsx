@@ -147,7 +147,7 @@ export default function AuditPage() {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
   const distinctSources = useMemo(() => {
-    const s = [...new Set(activeLinks.map((l: any) => l.source_tag).filter(Boolean))].sort();
+    const s = [...new Set(activeLinks.map((l: any) => getEffectiveSource(l)).filter(Boolean))].sort() as string[];
     if (!s.includes("Untagged")) s.push("Untagged");
     return s;
   }, [activeLinks]);
