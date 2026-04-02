@@ -509,7 +509,7 @@ export default function CampaignsPage() {
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
       avgExpensesPerCampaign, blendedRoi: blendedRoiCalc, isEstimate: agTotals.isEstimate,
       totalSpend: totalSpendAll, totalProfit: totalProfitCalc,
-      onlyTrafficExpenses,
+      
     };
   }, [filtered]);
 
