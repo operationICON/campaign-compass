@@ -569,6 +569,17 @@ export default function AccountsPage() {
           <RefreshButton queryKeys={["accounts", "tracking_links", "daily_metrics"]} />
         </div>
 
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={pageModelFilter}
+          onModelFilterChange={setPageModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
+
         {/* Filter pills */}
         <div className="flex gap-2 flex-wrap">
           <button

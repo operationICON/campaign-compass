@@ -127,18 +127,18 @@ export default function CrossPollPage() {
               Revenue generated on other models from fans acquired by each campaign
             </p>
           </div>
-          <Select value={modelFilter} onValueChange={setModelFilter}>
-            <SelectTrigger className="w-[180px] bg-card border-border">
-              <SelectValue placeholder="All Models" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Models</SelectItem>
-              {accounts.map((a: any) => (
-                <SelectItem key={a.id} value={a.id}>{a.display_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
+
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={modelFilter}
+          onModelFilterChange={setModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
