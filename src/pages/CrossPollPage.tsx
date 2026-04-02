@@ -72,10 +72,12 @@ export default function CrossPollPage() {
   }, [ltvData, modelFilter]);
 
   // Summary cards
-  const summary = useMemo(() => {
+    const summary = useMemo(() => {
     const totalRevenue = filteredLtv.reduce((s: number, r: any) => s + Number(r.cross_poll_revenue || 0), 0);
     const totalFans = filteredLtv.reduce((s: number, r: any) => s + Number(r.cross_poll_fans || 0), 0);
     const avgPerFan = totalFans > 0 ? totalRevenue / totalFans : 0;
+    const totalNewFans = filteredLtv.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+    const conversionPct = totalNewFans > 0 ? (totalFans / totalNewFans) * 100 : 0;
 
     const byAccount: Record<string, number> = {};
     filteredLtv.forEach((r: any) => {
@@ -88,7 +90,7 @@ export default function CrossPollPage() {
       if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[String(accId).toLowerCase()]?.display_name || accId; }
     });
 
-    return { totalRevenue, totalFans, avgPerFan, topModel, topAccId };
+    return { totalRevenue, totalFans, avgPerFan, topModel, topAccId, conversionPct };
   }, [filteredLtv, accountLookup]);
 
   // Campaign table with new columns
