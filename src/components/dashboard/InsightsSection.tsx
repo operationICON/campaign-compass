@@ -82,9 +82,10 @@ export function InsightsSection({
   const sourcePerf = useMemo(() => {
     const map: Record<string, { source: string; campaigns: number; totalSpend: number; totalProfit: number; totalSubs: number }> = {};
     enriched.forEach(l => {
-      if (!l.source_tag || l.source_tag === "Untagged" || l.source_tag.toLowerCase() === "test" || l.spend <= 0) return;
-      if (!map[l.source_tag]) map[l.source_tag] = { source: l.source_tag, campaigns: 0, totalSpend: 0, totalProfit: 0, totalSubs: 0 };
-      map[l.source_tag].campaigns++;
+      const es = getEffectiveSource(l);
+      if (!es || es.toLowerCase() === "test" || l.spend <= 0) return;
+      if (!map[es]) map[es] = { source: es, campaigns: 0, totalSpend: 0, totalProfit: 0, totalSubs: 0 };
+      map[es].campaigns++;
       map[l.source_tag].totalSpend += l.spend;
       map[l.source_tag].totalProfit += l.profit ?? 0;
       map[l.source_tag].totalSubs += l.subscribers || 0;
