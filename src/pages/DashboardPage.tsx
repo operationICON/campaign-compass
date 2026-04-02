@@ -378,6 +378,9 @@ export default function DashboardPage() {
           fmtC={fmtC}
         />
 
+        {/* ═══ DAILY DECISION VIEW ═══ */}
+        <DailyDecisionView links={filteredLinksForKpi} ltvLookup={overviewLtvLookup} />
+
 
         {/* ═══ INSIGHTS SECTION ═══ */}
         <InsightsSection
