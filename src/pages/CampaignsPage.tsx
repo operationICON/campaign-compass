@@ -89,10 +89,7 @@ const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigit
 const fmtP = (v: number) => `${v.toFixed(1)}%`;
 const fmtK = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : fmtC(v);
 const normalizeTrackingLinkId = (value: unknown) => String(value ?? "").trim().toLowerCase();
-const getTrafficCategoryLabel = (trafficCategory: string | null | undefined) => {
-  if (!trafficCategory) return null;
-  return trafficCategory === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
-};
+import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 
 // ─── Info Tooltip ───
 function InfoDot({ title, desc }: { title: string; desc: string }) {
