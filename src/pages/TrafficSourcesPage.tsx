@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
 import { TagBadge } from "@/components/TagBadge";
+import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
@@ -299,8 +300,8 @@ export default function TrafficSourcesPage() {
   // ── KPI calculations ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
-    const tagged = links.filter((l: any) => l.source_tag && l.source_tag !== "Untagged").length;
-    const untagged = links.filter((l: any) => (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)).length;
+    const tagged = links.filter((l: any) => !!getEffectiveSource(l)).length;
+    const untagged = links.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
     const ag = calcAgencyTotals(links);
     const totalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const totalSubscribers = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
@@ -317,8 +318,9 @@ export default function TrafficSourcesPage() {
 
     const revenueBySource: Record<string, number> = {};
     links.forEach((l: any) => {
-      if (l.source_tag && l.source_tag !== "Untagged") {
-        revenueBySource[l.source_tag] = (revenueBySource[l.source_tag] || 0) + Number(l.revenue || 0);
+      const es = getEffectiveSource(l);
+      if (es) {
+        revenueBySource[es] = (revenueBySource[es] || 0) + Number(l.revenue || 0);
       }
     });
     const topSource = Object.entries(revenueBySource).sort((a, b) => b[1] - a[1])[0];
@@ -337,7 +339,7 @@ export default function TrafficSourcesPage() {
     // Group links by source
     const bySource: Record<string, any[]> = {};
     links.forEach((l: any) => {
-      const tag = l.source_tag || "Untagged";
+      const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = [];
       bySource[tag].push(l);
     });
@@ -503,15 +505,15 @@ export default function TrafficSourcesPage() {
 
   const sourceOptions = useMemo(() => {
     const tags = new Set<string>();
-    links.forEach((l: any) => { if (l.source_tag) tags.add(l.source_tag); });
+    links.forEach((l: any) => { const es = getEffectiveSource(l); if (es) tags.add(es); });
     return [...tags].sort();
   }, [links]);
 
   const filtered = useMemo(() => {
     let result = links as any[];
     if (accountFilter !== "all") result = result.filter(l => l.account_id === accountFilter);
-    if (sourceFilter === "untagged") result = result.filter(l => !l.source_tag || l.source_tag === "Untagged");
-    else if (sourceFilter !== "all") result = result.filter(l => l.source_tag === sourceFilter);
+    if (sourceFilter === "untagged") result = result.filter(l => !getEffectiveSource(l));
+    else if (sourceFilter !== "all") result = result.filter(l => getEffectiveSource(l) === sourceFilter);
     if (categoryFilter !== "all") {
       const sourceIds = sources.filter((s: any) => s.category === categoryFilter).map((s: any) => s.id);
       result = result.filter(l => sourceIds.includes(l.traffic_source_id));
@@ -1028,7 +1030,22 @@ export default function TrafficSourcesPage() {
                       {columnOrder.visibleOrderedColumns.map(c => {
                         switch (c.id) {
                           case "model": return <td key={c.id} style={{ padding: "8px 12px" }}><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} /><span style={{ fontSize: "11px", color: "#64748b" }}>@{username}</span></div></td>;
-                          case "source": return <td key={c.id} style={{ padding: "8px 12px" }}><TagBadge tagName={link.source_tag} size="sm" /></td>;
+                          case "source": return (
+                            <td key={c.id} style={{ padding: "8px 12px" }}>
+                              <div className="flex items-center gap-1.5">
+                                <TagBadge tagName={getEffectiveSource(link)} size="sm" />
+                                {getTrafficCategoryLabel(link.traffic_category) && (
+                                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-none whitespace-nowrap ${
+                                    getTrafficCategoryLabel(link.traffic_category) === "OnlyTraffic"
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}>
+                                    {getTrafficCategoryLabel(link.traffic_category)}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          );
                           case "category": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               {cat ? (

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -81,12 +82,13 @@ export function InsightsSection({
   const sourcePerf = useMemo(() => {
     const map: Record<string, { source: string; campaigns: number; totalSpend: number; totalProfit: number; totalSubs: number }> = {};
     enriched.forEach(l => {
-      if (!l.source_tag || l.source_tag === "Untagged" || l.source_tag.toLowerCase() === "test" || l.spend <= 0) return;
-      if (!map[l.source_tag]) map[l.source_tag] = { source: l.source_tag, campaigns: 0, totalSpend: 0, totalProfit: 0, totalSubs: 0 };
-      map[l.source_tag].campaigns++;
-      map[l.source_tag].totalSpend += l.spend;
-      map[l.source_tag].totalProfit += l.profit ?? 0;
-      map[l.source_tag].totalSubs += l.subscribers || 0;
+      const es = getEffectiveSource(l);
+      if (!es || es.toLowerCase() === "test" || l.spend <= 0) return;
+      if (!map[es]) map[es] = { source: es, campaigns: 0, totalSpend: 0, totalProfit: 0, totalSubs: 0 };
+      map[es].campaigns++;
+      map[es].totalSpend += l.spend;
+      map[es].totalProfit += l.profit ?? 0;
+      map[es].totalSubs += l.subscribers || 0;
     });
     return Object.values(map)
       .map(s => ({ ...s, profitPerSub: s.totalSubs > 0 ? s.totalProfit / s.totalSubs : null }))
@@ -116,10 +118,11 @@ export function InsightsSection({
   const roiBySource = useMemo(() => {
     const map: Record<string, { source: string; totalRev: number; totalSpend: number }> = {};
     enriched.forEach(l => {
-      if (!l.source_tag || l.source_tag === "Untagged" || l.source_tag.toLowerCase() === "test" || l.spend <= 0) return;
-      if (!map[l.source_tag]) map[l.source_tag] = { source: l.source_tag, totalRev: 0, totalSpend: 0 };
-      map[l.source_tag].totalRev += l.effectiveRevenue;
-      map[l.source_tag].totalSpend += l.spend;
+      const es = getEffectiveSource(l);
+      if (!es || es.toLowerCase() === "test" || l.spend <= 0) return;
+      if (!map[es]) map[es] = { source: es, totalRev: 0, totalSpend: 0 };
+      map[es].totalRev += l.effectiveRevenue;
+      map[es].totalSpend += l.spend;
     });
     return Object.values(map)
       .map(s => ({ ...s, roi: s.totalSpend > 0 ? ((s.totalRev - s.totalSpend) / s.totalSpend) * 100 : 0 }))
@@ -130,10 +133,11 @@ export function InsightsSection({
   const spendBySource = useMemo(() => {
     const map: Record<string, { source: string; totalSpend: number; campaigns: number }> = {};
     enriched.forEach(l => {
-      if (!l.source_tag || l.source_tag === "Untagged" || l.source_tag.toLowerCase() === "test" || l.spend <= 0) return;
-      if (!map[l.source_tag]) map[l.source_tag] = { source: l.source_tag, totalSpend: 0, campaigns: 0 };
-      map[l.source_tag].totalSpend += l.spend;
-      map[l.source_tag].campaigns++;
+      const es = getEffectiveSource(l);
+      if (!es || es.toLowerCase() === "test" || l.spend <= 0) return;
+      if (!map[es]) map[es] = { source: es, totalSpend: 0, campaigns: 0 };
+      map[es].totalSpend += l.spend;
+      map[es].campaigns++;
     });
     return Object.values(map).sort((a, b) => b.totalSpend - a.totalSpend);
   }, [enriched]);
@@ -142,10 +146,11 @@ export function InsightsSection({
   const cplBySource = useMemo(() => {
     const map: Record<string, { source: string; totalSpend: number; totalSubs: number }> = {};
     enriched.forEach(l => {
-      if (!l.source_tag || l.source_tag === "Untagged" || l.source_tag.toLowerCase() === "test" || l.spend <= 0) return;
-      if (!map[l.source_tag]) map[l.source_tag] = { source: l.source_tag, totalSpend: 0, totalSubs: 0 };
-      map[l.source_tag].totalSpend += l.spend;
-      map[l.source_tag].totalSubs += l.subscribers || 0;
+      const es = getEffectiveSource(l);
+      if (!es || es.toLowerCase() === "test" || l.spend <= 0) return;
+      if (!map[es]) map[es] = { source: es, totalSpend: 0, totalSubs: 0 };
+      map[es].totalSpend += l.spend;
+      map[es].totalSubs += l.subscribers || 0;
     });
     return Object.values(map)
       .map(s => ({ ...s, cpl: s.totalSubs > 0 ? s.totalSpend / s.totalSubs : null }))
@@ -225,10 +230,10 @@ export function InsightsSection({
                     </div>
                   </td>
                   <td className="py-1.5 pr-2">
-                    {l.source_tag ? (
+                    {getEffectiveSource(l) ? (
                       <span className="inline-flex items-center gap-1 text-[11px]">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorMap[l.source_tag] || "#94a3b8" }} />
-                        {l.source_tag}
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorMap[getEffectiveSource(l)!] || "#94a3b8" }} />
+                        {getEffectiveSource(l)}
                       </span>
                     ) : <span className="text-[11px] text-muted-foreground">—</span>}
                   </td>

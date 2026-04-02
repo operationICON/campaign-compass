@@ -1,0 +1,26 @@
+/**
+ * Resolves the effective source name for a tracking link.
+ * Priority:
+ * 1. source_tag (if not null/empty)
+ * 2. onlytraffic_marketer (if traffic_category === 'OnlyTraffic')
+ * 3. null (means "Untagged")
+ */
+export function getEffectiveSource(link: {
+  source_tag?: string | null;
+  traffic_category?: string | null;
+  onlytraffic_marketer?: string | null;
+}): string | null {
+  if (link.source_tag && link.source_tag.trim()) return link.source_tag;
+  if (link.traffic_category === "OnlyTraffic" && link.onlytraffic_marketer && link.onlytraffic_marketer.trim()) {
+    return link.onlytraffic_marketer;
+  }
+  return null;
+}
+
+/**
+ * Returns "OnlyTraffic" | "Manual" | null for the traffic category badge.
+ */
+export function getTrafficCategoryLabel(trafficCategory: string | null | undefined): string | null {
+  if (!trafficCategory) return null;
+  return trafficCategory === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
+}

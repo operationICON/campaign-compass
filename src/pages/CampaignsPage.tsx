@@ -89,10 +89,7 @@ const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigit
 const fmtP = (v: number) => `${v.toFixed(1)}%`;
 const fmtK = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : fmtC(v);
 const normalizeTrackingLinkId = (value: unknown) => String(value ?? "").trim().toLowerCase();
-const getTrafficCategoryLabel = (trafficCategory: string | null | undefined) => {
-  if (!trafficCategory) return null;
-  return trafficCategory === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
-};
+import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 
 // ─── Info Tooltip ───
 function InfoDot({ title, desc }: { title: string; desc: string }) {
@@ -320,7 +317,7 @@ export default function CampaignsPage() {
   // ─── Source filter options ───
   const sourceOptions = useMemo(() => {
     const tags = new Set<string>();
-    links.forEach((l: any) => { if (l.source_tag) tags.add(l.source_tag); });
+    links.forEach((l: any) => { const es = getEffectiveSource(l); if (es) tags.add(es); });
     return [...tags].sort();
   }, [links]);
 
@@ -354,8 +351,8 @@ export default function CampaignsPage() {
       result = result.filter((l: any) => groupAccountIds.includes(l.account_id));
     }
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
-    if (sourceFilter === "untagged") result = result.filter((l: any) => !l.source_tag);
-    else if (sourceFilter !== "all") result = result.filter((l: any) => l.source_tag === sourceFilter);
+    if (sourceFilter === "untagged") result = result.filter((l: any) => !getEffectiveSource(l));
+    else if (sourceFilter !== "all") result = result.filter((l: any) => getEffectiveSource(l) === sourceFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l: any) =>
@@ -386,7 +383,7 @@ export default function CampaignsPage() {
       let aVal: any, bVal: any;
       switch (sortKey) {
         case "campaign_name": aVal = (a.campaign_name || "").toLowerCase(); bVal = (b.campaign_name || "").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        case "source_tag": aVal = (a.source_tag || "zzz").toLowerCase(); bVal = (b.source_tag || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        case "source_tag": aVal = (getEffectiveSource(a) || "zzz").toLowerCase(); bVal = (getEffectiveSource(b) || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
         case "ltv": aVal = a.ltvFromTable ?? -1; bVal = b.ltvFromTable ?? -1; break;
@@ -439,7 +436,7 @@ export default function CampaignsPage() {
     const totalClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
     const avgCvr = totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
-    const untagged = scopedLinks.filter((l: any) => !l.source_tag).length;
+    const untagged = scopedLinks.filter((l: any) => !getEffectiveSource(l)).length;
     const totalCount = scopedLinks.length;
 
     const agTotals = calcAgencyTotals(scopedLinks);
@@ -467,7 +464,7 @@ export default function CampaignsPage() {
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const bySource: Record<string, { rev: number; spend: number; subs: number; profit: number; count: number }> = {};
     withSpend.forEach((l: any) => {
-      const tag = l.source_tag || "Untagged";
+      const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
       const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
       const cp = l.crossPollRevenue ?? 0;
@@ -1011,7 +1008,7 @@ export default function CampaignsPage() {
                                 case "source": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     <div className="flex items-center gap-1.5">
-                                      <TagBadge tagName={link.source_tag} size="sm" />
+                                      <TagBadge tagName={getEffectiveSource(link)} size="sm" />
                                       {getTrafficCategoryLabel(link.traffic_category) && (
                                         <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold leading-none whitespace-nowrap ${
                                           getTrafficCategoryLabel(link.traffic_category) === "OnlyTraffic"

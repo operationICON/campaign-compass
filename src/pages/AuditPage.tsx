@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts } from "@/lib/supabase-helpers";
@@ -146,7 +147,7 @@ export default function AuditPage() {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
   const distinctSources = useMemo(() => {
-    const s = [...new Set(activeLinks.map((l: any) => l.source_tag).filter(Boolean))].sort();
+    const s = [...new Set(activeLinks.map((l: any) => getEffectiveSource(l)).filter(Boolean))].sort() as string[];
     if (!s.includes("Untagged")) s.push("Untagged");
     return s;
   }, [activeLinks]);
@@ -157,8 +158,9 @@ export default function AuditPage() {
       const ad = differenceInDays(now, new Date(l.created_at));
       if (filters.model !== "all" && linkAccountId !== filters.model) return false;
       if (filters.source !== "all") {
-        if (filters.source === "Untagged") { if (l.source_tag && l.source_tag !== "Untagged") return false; }
-        else { if (l.source_tag !== filters.source) return false; }
+        const es = getEffectiveSource(l);
+        if (filters.source === "Untagged") { if (es) return false; }
+        else { if (es !== filters.source) return false; }
       }
       if (filters.status !== "all") { if (getStatus(l) !== filters.status) return false; }
       if (filters.activity !== "all") { if (getActivityStatus(l, thirtyDaysAgo) !== filters.activity) return false; }
@@ -179,7 +181,7 @@ export default function AuditPage() {
   ), [filteredLinks]);
 
   const missingSource = useMemo(() => filteredLinks.filter((l: any) =>
-    (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)
+    !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)
   ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
 
   const missingSpend = useMemo(() => filteredLinks.filter((l: any) =>
@@ -427,7 +429,7 @@ export default function AuditPage() {
         {columnOrder.visibleOrderedColumns.map(c => {
           switch (c.id) {
             case "model": return <td key={c.id} className="p-2"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} /><span className="text-muted-foreground text-xs">@{modelName(l)}</span></div></td>;
-            case "source": return <td key={c.id} className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (l.source_tag || "—")}</td>;
+            case "source": return <td key={c.id} className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (getEffectiveSource(l) || "—")}</td>;
             case "clicks": return <td key={c.id} className="p-2 text-right font-mono">{(l.clicks || 0).toLocaleString()}</td>;
             case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
             case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;

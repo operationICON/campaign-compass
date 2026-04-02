@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { getEffectiveSource } from "@/lib/source-helpers";
 import { subDays, startOfDay } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -490,7 +491,7 @@ function KpiCards({
   // Best source by ROI
   const bySource: Record<string, { rev: number; spend: number; profit: number }> = {};
   withSpend.forEach((l: any) => {
-    const tag = l.source_tag || "Untagged";
+    const tag = getEffectiveSource(l) || "Untagged";
     if (tag === "Untagged") return;
     if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
     const ltvRecord = kpiLtvLookup[l.id];
