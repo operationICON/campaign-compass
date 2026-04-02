@@ -158,8 +158,9 @@ export default function AuditPage() {
       const ad = differenceInDays(now, new Date(l.created_at));
       if (filters.model !== "all" && linkAccountId !== filters.model) return false;
       if (filters.source !== "all") {
-        if (filters.source === "Untagged") { if (l.source_tag && l.source_tag !== "Untagged") return false; }
-        else { if (l.source_tag !== filters.source) return false; }
+        const es = getEffectiveSource(l);
+        if (filters.source === "Untagged") { if (es) return false; }
+        else { if (es !== filters.source) return false; }
       }
       if (filters.status !== "all") { if (getStatus(l) !== filters.status) return false; }
       if (filters.activity !== "all") { if (getActivityStatus(l, thirtyDaysAgo) !== filters.activity) return false; }
