@@ -379,7 +379,7 @@ export default function DashboardPage() {
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
-        <DailyDecisionView links={filteredLinksForKpi} ltvLookup={overviewLtvLookup} />
+        <DailyDecisionView links={filteredLinksForKpi} ltvLookup={overviewLtvLookup} accounts={accounts} />
 
 
         {/* ═══ INSIGHTS SECTION ═══ */}
