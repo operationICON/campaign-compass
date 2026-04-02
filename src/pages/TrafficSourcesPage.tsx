@@ -505,7 +505,7 @@ export default function TrafficSourcesPage() {
 
   const sourceOptions = useMemo(() => {
     const tags = new Set<string>();
-    links.forEach((l: any) => { if (l.source_tag) tags.add(l.source_tag); });
+    links.forEach((l: any) => { const es = getEffectiveSource(l); if (es) tags.add(es); });
     return [...tags].sort();
   }, [links]);
 
