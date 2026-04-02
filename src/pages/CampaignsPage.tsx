@@ -436,7 +436,7 @@ export default function CampaignsPage() {
     const totalClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
     const avgCvr = totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
-    const untagged = scopedLinks.filter((l: any) => !l.source_tag).length;
+    const untagged = scopedLinks.filter((l: any) => !getEffectiveSource(l)).length;
     const totalCount = scopedLinks.length;
 
     const agTotals = calcAgencyTotals(scopedLinks);
