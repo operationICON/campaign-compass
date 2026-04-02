@@ -111,6 +111,7 @@ function InfoDot({ title, desc }: { title: string; desc: string }) {
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
 
   // ─── Column order + visibility ───
   const columnOrder = useColumnOrder("campaigns_columns", ALL_COLUMNS);
