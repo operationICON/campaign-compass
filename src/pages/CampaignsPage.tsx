@@ -464,7 +464,7 @@ export default function CampaignsPage() {
     const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const bySource: Record<string, { rev: number; spend: number; subs: number; profit: number; count: number }> = {};
     withSpend.forEach((l: any) => {
-      const tag = l.source_tag || "Untagged";
+      const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
       const ltv = l.ltvFromTable ?? Number(l.revenue || 0);
       const cp = l.crossPollRevenue ?? 0;
