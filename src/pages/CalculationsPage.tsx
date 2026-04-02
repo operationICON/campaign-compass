@@ -138,7 +138,10 @@ export default function CalculationsPage() {
 
   // Build LTV lookup by tracking_link_id (TEXT → match against UUID as string)
   const ltvMap: Record<string, any> = {};
-  ltvRows.forEach((r: any) => { ltvMap[r.tracking_link_id] = r; });
+  ltvRows.forEach((r: any) => { 
+    const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+    if (key) ltvMap[key] = r; 
+  });
 
   // SECTION 1 — Revenue
   const estRevenue = links.reduce((s, l: any) => s + Number(l.revenue || 0), 0);
@@ -150,7 +153,7 @@ export default function CalculationsPage() {
   // SECTION 2 — Spend
   const totalSpend = links.reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
   const otSpend = links.filter((l: any) => l.traffic_category === "OnlyTraffic").reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
-  const manualSpend = links.filter((l: any) => l.traffic_category === "Manual").reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
+  const manualSpend = links.filter((l: any) => l.traffic_category && l.traffic_category !== "OnlyTraffic").reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
 
   // SECTION 3 — Performance
   const totalNewSubs = ltvRows.reduce((s, r: any) => s + Number(r.new_subs_total || 0), 0);
@@ -162,13 +165,15 @@ export default function CalculationsPage() {
   // SECTION 5 — Coverage
   const totalCampaigns = ltvRows.length > 0 ? links.length : 0;
   const withLtv = links.filter((l: any) => {
-    const ltv = ltvMap[l.id];
+    const key = String(l.id ?? "").trim().toLowerCase();
+    const ltv = ltvMap[key];
     return ltv && Number(ltv.total_ltv) > 0;
   }).length;
   const withSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0).length;
-  const withSource = links.filter((l: any) => l.source_tag).length;
+  const withSource = links.filter((l: any) => l.source_tag || l.onlytraffic_marketer).length;
   const withCrossPoll = links.filter((l: any) => {
-    const ltv = ltvMap[l.id];
+    const key = String(l.id ?? "").trim().toLowerCase();
+    const ltv = ltvMap[key];
     return ltv && Number(ltv.cross_poll_revenue) > 0;
   }).length;
   const totalLinks = links.length;
