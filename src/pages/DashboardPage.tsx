@@ -18,6 +18,7 @@ import { InsightsSection } from "@/components/dashboard/InsightsSection";
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
+import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 
 type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
 
@@ -376,6 +377,9 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
         />
+
+        {/* ═══ DAILY DECISION VIEW ═══ */}
+        <DailyDecisionView links={filteredLinksForKpi} ltvLookup={overviewLtvLookup} accounts={accounts} />
 
 
         {/* ═══ INSIGHTS SECTION ═══ */}

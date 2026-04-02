@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
-import { GitBranch, Users, DollarSign, Award } from "lucide-react";
+import { GitBranch, Users, DollarSign, Award, Percent } from "lucide-react";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -72,10 +72,12 @@ export default function CrossPollPage() {
   }, [ltvData, modelFilter]);
 
   // Summary cards
-  const summary = useMemo(() => {
+    const summary = useMemo(() => {
     const totalRevenue = filteredLtv.reduce((s: number, r: any) => s + Number(r.cross_poll_revenue || 0), 0);
     const totalFans = filteredLtv.reduce((s: number, r: any) => s + Number(r.cross_poll_fans || 0), 0);
     const avgPerFan = totalFans > 0 ? totalRevenue / totalFans : 0;
+    const totalNewFans = filteredLtv.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+    const conversionPct = totalNewFans > 0 ? (totalFans / totalNewFans) * 100 : 0;
 
     const byAccount: Record<string, number> = {};
     filteredLtv.forEach((r: any) => {
@@ -88,7 +90,7 @@ export default function CrossPollPage() {
       if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[String(accId).toLowerCase()]?.display_name || accId; }
     });
 
-    return { totalRevenue, totalFans, avgPerFan, topModel, topAccId };
+    return { totalRevenue, totalFans, avgPerFan, topModel, topAccId, conversionPct };
   }, [filteredLtv, accountLookup]);
 
   // Campaign table with new columns
@@ -141,7 +143,7 @@ export default function CrossPollPage() {
         />
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Cross-Poll Revenue</CardTitle>
@@ -179,6 +181,16 @@ export default function CrossPollPage() {
                 <ModelAvatar avatarUrl={accountLookup[summary.topAccId]?.avatar_thumb_url} name={summary.topModel} size={32} />
                 <span className="text-2xl font-bold text-foreground truncate">{summary.topModel}</span>
               </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Conversion %</CardTitle>
+              <Percent className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{fmtP(summary.conversionPct)}</div>
+              <p className="text-xs text-muted-foreground mt-1">Fans who crossed / total new fans</p>
             </CardContent>
           </Card>
         </div>

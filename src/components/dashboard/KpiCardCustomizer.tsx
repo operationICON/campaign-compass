@@ -81,22 +81,22 @@ const DASHBOARD_CARDS: CardDef<DashboardKpiCardId>[] = [
   { id: "ltv_30d_per_model", label: "30d LTV per model", defaultOn: false },
 ];
 
-const CAMPAIGN_ALWAYS_ON: CampaignKpiCardId[] = ["profit_sub", "avg_cpl"];
+const CAMPAIGN_ALWAYS_ON: CampaignKpiCardId[] = ["total_expenses", "total_profit"];
 
 const CAMPAIGN_CARDS: CardDef<CampaignKpiCardId>[] = [
-  { id: "profit_sub", label: "Profit/Sub", alwaysOn: true },
-  { id: "avg_cpl", label: "Avg CPL", alwaysOn: true },
-  { id: "total_expenses", label: "Total Expenses", defaultOn: true },
-  { id: "total_profit", label: "Total Profit", defaultOn: true },
+  { id: "total_expenses", label: "Total Expenses", alwaysOn: true, defaultOn: true },
+  { id: "total_profit", label: "Total Profit", alwaysOn: true, defaultOn: true },
   { id: "active_campaigns", label: "Active Campaigns", defaultOn: true },
+  { id: "avg_cpl", label: "Avg CPL", defaultOn: true },
+  { id: "blended_roi", label: "ROI %", defaultOn: true },
   { id: "untagged", label: "Untagged", defaultOn: true },
+  { id: "profit_sub", label: "Profit/Sub", defaultOn: false },
   { id: "avg_cvr", label: "Avg CVR", defaultOn: false },
   { id: "best_source_roi", label: "Best Source by ROI", defaultOn: false },
   { id: "best_source_profit_sub", label: "Best Source by Profit/Sub", defaultOn: false },
   { id: "most_profitable_source", label: "Most Profitable Source", defaultOn: false },
   { id: "worst_source", label: "Lowest Profitable Source", defaultOn: false },
   { id: "avg_expenses_per_campaign", label: "Avg Expenses per Campaign", defaultOn: false },
-  { id: "blended_roi", label: "ROI %", defaultOn: false },
   { id: "ltv_30d_per_model", label: "30d LTV per model", defaultOn: false },
 ];
 
