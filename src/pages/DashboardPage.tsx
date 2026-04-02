@@ -502,10 +502,12 @@ function KpiCards({
     return map;
   }, [trackingLinkLtv]);
 
+  // Total Profit = SUM(total_ltv + cross_poll_revenue) for links with spend - expenses
   const expEffective = withSpend.reduce((s: number, l: any) => {
     const ltvRecord = kpiLtvLookup[String(l.id).toLowerCase()];
     const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
-    return s + (ltvVal > 0 ? ltvVal : Number(l.revenue || 0));
+    const cpVal = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : 0;
+    return s + ltvVal + cpVal;
   }, 0);
   const cardTotalProfit = expenses > 0 ? expEffective - expenses : null;
   const blendedRoi = expenses > 0 && cardTotalProfit !== null ? (cardTotalProfit / expenses) * 100 : null;
