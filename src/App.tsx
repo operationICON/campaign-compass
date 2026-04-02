@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
 import CampaignsPage from "./pages/CampaignsPage";
 import AuditPage from "./pages/AuditPage";
+import CalculationsPage from "./pages/CalculationsPage";
 import ChartsPage from "./pages/ChartsPage";
 import AlertsPage from "./pages/AlertsPage";
 import SettingsPage from "./pages/SettingsPage";
