@@ -183,6 +183,16 @@ export default function CrossPollPage() {
               </div>
             </CardContent>
           </Card>
+          <Card className="bg-card border-border">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Conversion %</CardTitle>
+              <Percent className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{fmtP(summary.conversionPct)}</div>
+              <p className="text-xs text-muted-foreground mt-1">Fans who crossed / total new fans</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Top Campaigns Table — with LTV, Total LTV, Received By */}
