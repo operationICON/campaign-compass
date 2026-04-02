@@ -57,32 +57,74 @@ const MODEL_COMP_COLS: ItemDef<ModelCompColId>[] = [
   { id: "subs_day", label: "Subs/Day", defaultOn: false },
 ];
 
-const STORAGE_KEY_KPI = "overview_kpi_cards";
-const STORAGE_KEY_INSIGHTS = "overview_insight_panels";
-const STORAGE_KEY_MODEL_COLS = "overview_model_comp_cols";
+const CT_PREFS_KEY = "ct_kpi_preferences";
 
-function loadItems<T extends string>(key: string, defs: ItemDef<T>[]): string[] {
-  const alwaysOn = defs.filter(d => d.alwaysOn).map(d => d.id);
+interface CtPrefs {
+  overview_kpi?: string[];
+  overview_insights?: string[];
+  overview_model_cols?: string[];
+  campaigns_kpi?: string[];
+}
+
+function loadCtPrefs(): CtPrefs {
   try {
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      const parsed = JSON.parse(saved) as string[];
-      const set = new Set(parsed);
-      alwaysOn.forEach(id => set.add(id));
-      return [...set];
+    const raw = localStorage.getItem(CT_PREFS_KEY);
+    if (raw) return JSON.parse(raw) as CtPrefs;
+  } catch {}
+  return {};
+}
+
+function saveCtPrefs(prefs: CtPrefs) {
+  try { localStorage.setItem(CT_PREFS_KEY, JSON.stringify(prefs)); } catch {}
+}
+
+function loadItems<T extends string>(prefsKey: keyof CtPrefs, defs: ItemDef<T>[]): string[] {
+  const alwaysOn = defs.filter(d => d.alwaysOn).map(d => d.id);
+  const prefs = loadCtPrefs();
+  const saved = prefs[prefsKey];
+  if (saved && Array.isArray(saved)) {
+    const set = new Set(saved);
+    alwaysOn.forEach(id => set.add(id));
+    return [...set];
+  }
+  // Migrate from old keys
+  const oldKeyMap: Record<string, string> = {
+    overview_kpi: "overview_kpi_cards",
+    overview_insights: "overview_insight_panels",
+    overview_model_cols: "overview_model_comp_cols",
+    campaigns_kpi: "campaigns_kpi_cards",
+  };
+  try {
+    const oldKey = oldKeyMap[prefsKey];
+    if (oldKey) {
+      const old = localStorage.getItem(oldKey);
+      if (old) {
+        const parsed = JSON.parse(old) as string[];
+        const set = new Set(parsed);
+        alwaysOn.forEach(id => set.add(id));
+        const result = [...set];
+        // Migrate to new key
+        const p = loadCtPrefs();
+        p[prefsKey] = result;
+        saveCtPrefs(p);
+        localStorage.removeItem(oldKey);
+        return result;
+      }
     }
   } catch {}
   return defs.filter(d => d.alwaysOn || d.defaultOn).map(d => d.id);
 }
 
-function saveItems(key: string, items: string[]) {
-  try { localStorage.setItem(key, JSON.stringify(items)); } catch {}
+function saveItems(prefsKey: keyof CtPrefs, items: string[]) {
+  const prefs = loadCtPrefs();
+  prefs[prefsKey] = items;
+  saveCtPrefs(prefs);
 }
 
 export function useOverviewCustomizer() {
-  const [kpiCards, setKpiCards] = useState(() => loadItems(STORAGE_KEY_KPI, KPI_CARDS));
-  const [insightPanels, setInsightPanels] = useState(() => loadItems(STORAGE_KEY_INSIGHTS, INSIGHT_PANELS));
-  const [modelCompCols, setModelCompCols] = useState(() => loadItems(STORAGE_KEY_MODEL_COLS, MODEL_COMP_COLS));
+  const [kpiCards, setKpiCards] = useState(() => loadItems("overview_kpi", KPI_CARDS));
+  const [insightPanels, setInsightPanels] = useState(() => loadItems("overview_insights", INSIGHT_PANELS));
+  const [modelCompCols, setModelCompCols] = useState(() => loadItems("overview_model_cols", MODEL_COMP_COLS));
 
   const kpiAlwaysOn = KPI_CARDS.filter(d => d.alwaysOn).map(d => d.id);
   const insightAlwaysOn = INSIGHT_PANELS.filter(d => d.alwaysOn).map(d => d.id);
@@ -91,7 +133,7 @@ export function useOverviewCustomizer() {
     if (kpiAlwaysOn.includes(id as any)) return;
     setKpiCards(prev => {
       const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
-      saveItems(STORAGE_KEY_KPI, next);
+      saveItems("overview_kpi", next);
       return next;
     });
   };
@@ -100,7 +142,7 @@ export function useOverviewCustomizer() {
     if (insightAlwaysOn.includes(id as any)) return;
     setInsightPanels(prev => {
       const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
-      saveItems(STORAGE_KEY_INSIGHTS, next);
+      saveItems("overview_insights", next);
       return next;
     });
   };
@@ -108,7 +150,7 @@ export function useOverviewCustomizer() {
   const toggleModelCol = (id: string) => {
     setModelCompCols(prev => {
       const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
-      saveItems(STORAGE_KEY_MODEL_COLS, next);
+      saveItems("overview_model_cols", next);
       return next;
     });
   };

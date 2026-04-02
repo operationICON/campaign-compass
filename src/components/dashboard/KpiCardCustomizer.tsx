@@ -34,7 +34,27 @@ export type CampaignKpiCardId =
 
 export type AnyKpiCardId = DashboardKpiCardId | CampaignKpiCardId;
 
-const DEFAULT_STORAGE_KEY = "dashboard_kpi_cards";
+const CT_PREFS_KEY = "ct_kpi_preferences";
+
+interface CtPrefs {
+  overview_kpi?: string[];
+  overview_insights?: string[];
+  overview_model_cols?: string[];
+  campaigns_kpi?: string[];
+  [key: string]: string[] | undefined;
+}
+
+function loadCtPrefs(): CtPrefs {
+  try {
+    const raw = localStorage.getItem(CT_PREFS_KEY);
+    if (raw) return JSON.parse(raw) as CtPrefs;
+  } catch {}
+  return {};
+}
+
+function saveCtPrefs(prefs: CtPrefs) {
+  try { localStorage.setItem(CT_PREFS_KEY, JSON.stringify(prefs)); } catch {}
+}
 
 interface CardDef<T extends string = string> {
   id: T;
@@ -92,6 +112,10 @@ function getDefaults(variant: CardVariant): string[] {
   return cards.filter(c => c.alwaysOn || c.defaultOn).map(c => c.id);
 }
 
+function getPrefsKey(storageKey: string): string {
+  return storageKey === "campaigns_kpi_cards" ? "campaigns_kpi" : "dashboard_kpi";
+}
+
 function getVariantFromKey(storageKey: string): CardVariant {
   return storageKey === "campaigns_kpi_cards" ? "campaigns" : "dashboard";
 }
@@ -99,23 +123,40 @@ function getVariantFromKey(storageKey: string): CardVariant {
 function loadEnabledCards(storageKey: string): string[] {
   const variant = getVariantFromKey(storageKey);
   const { alwaysOn } = getCardConfig(variant);
+  const prefsKey = getPrefsKey(storageKey);
+  const prefs = loadCtPrefs();
+  const saved = prefs[prefsKey];
+  if (saved && Array.isArray(saved)) {
+    const set = new Set(saved);
+    alwaysOn.forEach(id => set.add(id));
+    return [...set];
+  }
+  // Migrate from old key
   try {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      const parsed = JSON.parse(saved) as string[];
+    const old = localStorage.getItem(storageKey);
+    if (old) {
+      const parsed = JSON.parse(old) as string[];
       const set = new Set(parsed);
       alwaysOn.forEach(id => set.add(id));
-      return [...set];
+      const result = [...set];
+      const p = loadCtPrefs();
+      p[prefsKey] = result;
+      saveCtPrefs(p);
+      localStorage.removeItem(storageKey);
+      return result;
     }
   } catch {}
   return getDefaults(variant);
 }
 
 function saveEnabledCards(storageKey: string, cards: string[]) {
-  try { localStorage.setItem(storageKey, JSON.stringify(cards)); } catch {}
+  const prefsKey = getPrefsKey(storageKey);
+  const prefs = loadCtPrefs();
+  prefs[prefsKey] = cards;
+  saveCtPrefs(prefs);
 }
 
-export function useKpiCardVisibility(storageKey: string = DEFAULT_STORAGE_KEY) {
+export function useKpiCardVisibility(storageKey: string = "dashboard_kpi_cards") {
   const variant = getVariantFromKey(storageKey);
   const { alwaysOn } = getCardConfig(variant);
   const [enabledCards, setEnabledCards] = useState<string[]>(() => loadEnabledCards(storageKey));
