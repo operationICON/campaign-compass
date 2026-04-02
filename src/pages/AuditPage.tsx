@@ -181,7 +181,7 @@ export default function AuditPage() {
   ), [filteredLinks]);
 
   const missingSource = useMemo(() => filteredLinks.filter((l: any) =>
-    (!l.source_tag || l.source_tag === "Untagged") && (l.clicks > 0 || l.subscribers > 0)
+    !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)
   ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
 
   const missingSpend = useMemo(() => filteredLinks.filter((l: any) =>
