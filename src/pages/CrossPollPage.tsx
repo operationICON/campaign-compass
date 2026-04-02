@@ -19,7 +19,7 @@ const fmtP = (v: number | null) =>
   v == null ? "—" : v.toFixed(1) + "%";
 
 export default function CrossPollPage() {
-  const [modelFilter, setModelFilter] = useState("all");
+  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 

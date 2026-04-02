@@ -135,6 +135,7 @@ function KpiCard({ label, value, sub, icon, color }: { label: string; value: Rea
 
 export default function TrafficSourcesPage() {
   const queryClient = useQueryClient();
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
 
   // KPI visibility
   const [visibleKpis, setVisibleKpis] = useState<Set<KpiId>>(loadKpiVisibility);

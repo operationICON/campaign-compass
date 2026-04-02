@@ -49,6 +49,7 @@ type SortKey = "campaign_name" | "revenue" | "clicks" | "subscribers" | "profit"
 export default function AccountsPage() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");

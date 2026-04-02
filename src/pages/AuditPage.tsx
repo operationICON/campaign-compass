@@ -111,6 +111,7 @@ const AUDIT_COLUMNS: ColumnDef[] = [
 
 export default function AuditPage() {
   const queryClient = useQueryClient();
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
   const { data: allLinks = [], isLoading } = useQuery({ queryKey: ["audit_all_links"], queryFn: fetchAllTrackingLinks });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: trackingLinkLtv = [] } = useQuery({
