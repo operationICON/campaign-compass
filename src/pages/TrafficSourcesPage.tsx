@@ -1001,9 +1001,10 @@ export default function TrafficSourcesPage() {
                   const cat = getCategory(link);
                   const status = link.status || "NO_DATA";
                   const st = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
-                  const ltvRecord = ltvLookup[link.id];
-                  const ltv = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
-                  const ltvPerSub = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
+                  const ltvRecord = ltvLookup[String(link.id).toLowerCase()];
+                  const hasLtvRecord = ltvRecord !== undefined;
+                  const ltv = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
+                  const ltvPerSub = hasLtvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
                   const costTotal = Number(link.cost_total || 0);
                   const profit = Number(link.profit || 0);
                   const roi = Number(link.roi || 0);
