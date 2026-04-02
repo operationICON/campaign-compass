@@ -483,6 +483,7 @@ function KpiCards({
     return validValues.reduce((sum, value) => sum + value, 0);
   })();
 
+  // Avg CPL = SUM(cost_total) / SUM(new_subs_total)
   const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
 
   // Extra card computations
