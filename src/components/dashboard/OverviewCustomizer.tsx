@@ -122,9 +122,9 @@ function saveItems(prefsKey: keyof CtPrefs, items: string[]) {
 }
 
 export function useOverviewCustomizer() {
-  const [kpiCards, setKpiCards] = useState(() => loadItems(STORAGE_KEY_KPI, KPI_CARDS));
-  const [insightPanels, setInsightPanels] = useState(() => loadItems(STORAGE_KEY_INSIGHTS, INSIGHT_PANELS));
-  const [modelCompCols, setModelCompCols] = useState(() => loadItems(STORAGE_KEY_MODEL_COLS, MODEL_COMP_COLS));
+  const [kpiCards, setKpiCards] = useState(() => loadItems("overview_kpi", KPI_CARDS));
+  const [insightPanels, setInsightPanels] = useState(() => loadItems("overview_insights", INSIGHT_PANELS));
+  const [modelCompCols, setModelCompCols] = useState(() => loadItems("overview_model_cols", MODEL_COMP_COLS));
 
   const kpiAlwaysOn = KPI_CARDS.filter(d => d.alwaysOn).map(d => d.id);
   const insightAlwaysOn = INSIGHT_PANELS.filter(d => d.alwaysOn).map(d => d.id);
@@ -133,7 +133,7 @@ export function useOverviewCustomizer() {
     if (kpiAlwaysOn.includes(id as any)) return;
     setKpiCards(prev => {
       const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
-      saveItems(STORAGE_KEY_KPI, next);
+      saveItems("overview_kpi", next);
       return next;
     });
   };
@@ -142,7 +142,7 @@ export function useOverviewCustomizer() {
     if (insightAlwaysOn.includes(id as any)) return;
     setInsightPanels(prev => {
       const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
-      saveItems(STORAGE_KEY_INSIGHTS, next);
+      saveItems("overview_insights", next);
       return next;
     });
   };
@@ -150,7 +150,7 @@ export function useOverviewCustomizer() {
   const toggleModelCol = (id: string) => {
     setModelCompCols(prev => {
       const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
-      saveItems(STORAGE_KEY_MODEL_COLS, next);
+      saveItems("overview_model_cols", next);
       return next;
     });
   };
