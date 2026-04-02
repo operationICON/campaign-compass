@@ -664,7 +664,7 @@ export default function AccountsPage() {
                   {/* KPI grid */}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Subs (API)</span>
+                      <span className="text-muted-foreground">Total Subs</span>
                       <span className="font-mono font-semibold text-foreground">{fmtNum(stats.apiSubs || 0)}</span>
                     </div>
                     <div className="flex justify-between">
@@ -672,22 +672,22 @@ export default function AccountsPage() {
                       <span className="font-mono font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">LTV (All)</span>
-                      <span className="font-mono font-semibold text-primary">{stats.totalLtv > 0 ? fmtCurrency(stats.totalLtv) : "—"}</span>
+                      <span className="text-muted-foreground">Untracked %</span>
+                      <span className={`font-mono font-semibold ${(stats.unattributedPct || 0) > 50 ? "text-[hsl(var(--warning))]" : "text-foreground"}`}>
+                        {fmtPct(stats.unattributedPct || 0)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">LTV (30d)</span>
-                      <span className="font-mono font-semibold text-primary">{stats.ltv30d != null ? fmtCurrency(stats.ltv30d) : "—"}</span>
+                      <span className="text-muted-foreground">LTV/Sub</span>
+                      <span className="font-mono font-semibold text-primary">
+                        {stats.trackedSubs > 0 && stats.totalLtv > 0 ? fmtCurrency(stats.totalLtv / stats.trackedSubs) : "—"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Spend</span>
                       <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpend || 0)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Revenue</span>
-                      <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalRevenue || 0)}</span>
-                    </div>
-                    <div className="flex justify-between col-span-2">
                       <span className="text-muted-foreground">Profit/Sub</span>
                       <span className={`font-mono font-semibold ${stats.profitPerSub != null ? (stats.profitPerSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
                         {stats.profitPerSub != null ? fmtCurrency(stats.profitPerSub) : "—"}
@@ -696,9 +696,9 @@ export default function AccountsPage() {
                   </div>
 
                   <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
-                    <span>{stats.totalCampaigns || 0} tracking links</span>
+                    <span>{stats.activeCampaigns || 0} active links</span>
                     <span className="text-border">·</span>
-                    <span>{stats.activeCampaigns || 0} active</span>
+                    <span>{stats.totalCampaigns || 0} total</span>
                     <span className="text-border">·</span>
                     <span>{stats.avgSubsDay} subs/day</span>
                   </div>

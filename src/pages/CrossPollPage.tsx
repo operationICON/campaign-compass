@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
-import { GitBranch, Users, DollarSign, Award } from "lucide-react";
+import { GitBranch, Users, DollarSign, Award, Percent } from "lucide-react";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
