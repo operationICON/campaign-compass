@@ -1114,13 +1114,13 @@ export default function TrafficSourcesPage() {
                           case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
                           case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
                           case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
-                          case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit > 0 ? "#16a34a" : profit < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(profit) : "—"}</td>;
-                          case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub > 0 ? "#16a34a" : profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 && subs > 0 ? fmtC(profitPerSub) : "—"}</td>;
-                          case "roi": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi > 0 ? "#16a34a" : roi < 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtPct(roi) : "—"}</td>;
+                          case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit !== null && profit > 0 ? "#16a34a" : profit !== null && profit < 0 ? "#dc2626" : "#94a3b8" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
+                          case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub !== null && profitPerSub > 0 ? "#16a34a" : profitPerSub !== null && profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{profitPerSub !== null ? fmtC(profitPerSub) : "—"}</td>;
+                          case "roi": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi !== null && roi > 0 ? "#16a34a" : roi !== null && roi < 0 ? "#dc2626" : "#94a3b8" }}>{roi !== null ? fmtPct(roi) : "—"}</td>;
                           case "status": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 700, borderRadius: "4px", background: st.bg, color: st.text }}>
-                                {status === "NO_DATA" ? "NO SPEND" : status}
+                                {STATUS_LABELS[status] || "NO SPEND"}
                               </span>
                             </td>
                           );
