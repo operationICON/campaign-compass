@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, LayoutGrid, Users, BarChart3,
-  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch
+  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 
@@ -13,6 +13,7 @@ const mainNav = [
   { to: "/accounts", icon: Users, label: "Models" },
   { to: "/traffic-sources", icon: Tag, label: "Sources" },
   { to: "/audit", icon: ShieldCheck, label: "Audit" },
+  { to: "/calculations", icon: Calculator, label: "Calculations" },
   { to: "/charts", icon: BarChart3, label: "Charts" },
 ];
 
