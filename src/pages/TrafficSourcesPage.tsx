@@ -262,10 +262,13 @@ export default function TrafficSourcesPage() {
     },
   });
 
-  // LTV lookup map
+  // LTV lookup map — normalize keys for UUID↔TEXT matching
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    for (const r of trackingLinkLtv) {
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
+    }
     return map;
   }, [trackingLinkLtv]);
 

@@ -120,7 +120,10 @@ export default function AuditPage() {
   });
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
-    for (const r of trackingLinkLtv) { map[r.tracking_link_id] = r; }
+    for (const r of trackingLinkLtv) {
+      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      if (key) map[key] = r;
+    }
     return map;
   }, [trackingLinkLtv]);
   const [importAuditOpen, setImportAuditOpen] = useState(false);
