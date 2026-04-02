@@ -695,7 +695,18 @@ export default function TrafficSourcesPage() {
 
   return (
     <DashboardLayout>
-      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-0">
+      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-4">
+        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={pageModelFilter}
+          onModelFilterChange={setPageModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
+
         {/* TOP SECTION — KPIs left + Source Card right */}
         <div className="flex gap-4 items-start mb-4">
           {/* Left 60% — KPI Cards */}
