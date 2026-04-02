@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
