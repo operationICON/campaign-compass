@@ -405,15 +405,6 @@ export default function CampaignsPage() {
     else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
     else if (["SCALE", "WATCH", "KILL", "TESTING", "INACTIVE"].includes(campaignFilter)) result = result.filter((l: any) => l.computedStatus === campaignFilter);
 
-    if (ageFilter !== "all") {
-      result = result.filter((l: any) => {
-        const days = differenceInDays(new Date(), new Date(l.created_at));
-        if (ageFilter === "new") return days <= 30;
-        if (ageFilter === "active") return days > 30 && days <= 90;
-        if (ageFilter === "mature") return days > 90 && days <= 180;
-        return days > 180;
-      });
-    }
     return result;
   }, [baseLinks, searchQuery, campaignFilter, sourceFilter, ageFilter, groupFilter, accountFilter, accounts]);
 
