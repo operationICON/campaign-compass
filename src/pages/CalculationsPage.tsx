@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -7,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CheckCircle2, Calculator, DollarSign, TrendingUp, Database, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchAccounts as fetchAccountsHelper } from "@/lib/supabase-helpers";
 
 const fmtC = (v: number | null | undefined) =>
   v == null ? "—" : `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
