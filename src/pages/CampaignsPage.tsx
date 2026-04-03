@@ -128,7 +128,7 @@ export default function CampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
+  
   const [groupFilter, setGroupFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
   
@@ -405,17 +405,8 @@ export default function CampaignsPage() {
     else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
     else if (["SCALE", "WATCH", "KILL", "TESTING", "INACTIVE"].includes(campaignFilter)) result = result.filter((l: any) => l.computedStatus === campaignFilter);
 
-    if (ageFilter !== "all") {
-      result = result.filter((l: any) => {
-        const days = differenceInDays(new Date(), new Date(l.created_at));
-        if (ageFilter === "new") return days <= 30;
-        if (ageFilter === "active") return days > 30 && days <= 90;
-        if (ageFilter === "mature") return days > 90 && days <= 180;
-        return days > 180;
-      });
-    }
     return result;
-  }, [baseLinks, searchQuery, campaignFilter, sourceFilter, ageFilter, groupFilter, accountFilter, accounts]);
+  }, [baseLinks, searchQuery, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
@@ -458,7 +449,7 @@ export default function CampaignsPage() {
     if (selectedRows.size === paginated.length) setSelectedRows(new Set());
     else setSelectedRows(new Set(paginated.map((l: any) => l.id)));
   };
-  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSourceFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setAgeFilter("all"); setPage(1); };
+  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSourceFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setPage(1); };
   const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, campaignFilter !== "all" ? 1 : 0, sourceFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
 
   // ─── KPI Calculations ───
@@ -882,26 +873,6 @@ export default function CampaignsPage() {
           )}
         </div>
 
-        {/* Age pills */}
-        <div className="flex items-center gap-1 bg-card border border-border rounded-lg overflow-hidden w-fit">
-          {(["all", "new", "active", "mature", "old"] as const).map((f) => {
-            const count = f === "all" ? baseLinks.length : baseLinks.filter((l: any) => {
-              const days = differenceInDays(new Date(), new Date(l.created_at));
-              if (f === "new") return days <= 30;
-              if (f === "active") return days > 30 && days <= 90;
-              if (f === "mature") return days > 90 && days <= 180;
-              return days > 180;
-            }).length;
-            return (
-              <button key={f} onClick={() => { setAgeFilter(f); setPage(1); }}
-                className={`text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                style={{ padding: "4px 10px" }}>
-                {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
-                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
 
         {/* ═══ NEW/EDIT TRACKING LINK PANEL (inline) ═══ */}
         {panelOpen && (
@@ -922,7 +893,7 @@ export default function CampaignsPage() {
               <div className="bg-card border border-border rounded-2xl p-16 text-center">
                 <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-foreground font-medium mb-1">No tracking links found</p>
-                <p className="text-sm text-muted-foreground">{searchQuery || campaignFilter !== "all" || ageFilter !== "all" || accountFilter !== "all" || sourceFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
+                <p className="text-sm text-muted-foreground">{searchQuery || campaignFilter !== "all" || accountFilter !== "all" || sourceFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
