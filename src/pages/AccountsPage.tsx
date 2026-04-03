@@ -601,8 +601,8 @@ export default function AccountsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredAccounts.map((acc: any) => {
             const stats = accountStats[acc.id] || {};
-            const category = getCategory(acc);
-            const isEditing = editingCatFor === acc.id;
+            const category = getGender(acc);
+            const isEditing = editingGenderFor === acc.id;
             return (
               <div
                 key={acc.id}
@@ -613,29 +613,40 @@ export default function AccountsPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
                     <p className="text-[13px] text-muted-foreground">@{acc.username || "—"}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex items-center gap-2 mt-1.5 relative">
                       {isEditing ? (
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            autoFocus
-                            value={editCatValue}
-                            onChange={(e) => setEditCatValue(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter" && editCatValue.trim()) handleSaveCategory(acc.username, editCatValue.trim()); if (e.key === "Escape") setEditingCatFor(null); }}
-                            className="w-24 px-2 py-0.5 rounded text-[11px] bg-secondary border border-border text-foreground outline-none"
-                            placeholder="e.g. Female"
-                          />
-                          <button onClick={() => editCatValue.trim() && handleSaveCategory(acc.username, editCatValue.trim())} className="text-primary hover:text-primary/80"><Check className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => setEditingCatFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>
+                            {category}
+                          </span>
+                          <button onClick={() => setEditingGenderFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                          <div className="flex flex-col bg-card border border-border rounded-lg shadow-lg overflow-hidden absolute top-6 left-0 z-10 min-w-[120px]">
+                            {GENDER_OPTIONS.map((g) => (
+                              <button
+                                key={g}
+                                onClick={() => handleSaveGender(acc.id, g)}
+                                className={`px-4 py-1.5 text-[11px] text-left hover:bg-secondary transition-colors ${category === g ? "font-bold text-primary" : "text-foreground"}`}
+                              >
+                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${g === "Female" ? "bg-pink-400" : g === "Trans" ? "bg-purple-400" : g === "Male" ? "bg-blue-400" : "bg-yellow-400"}`} />
+                                {g}
+                              </button>
+                            ))}
+                            {category !== "Uncategorized" && (
+                              <button
+                                onClick={() => handleSaveGender(acc.id, null)}
+                                className="px-4 py-1.5 text-[11px] text-left text-destructive hover:bg-secondary transition-colors border-t border-border"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : category === "Uncategorized" ? "bg-muted text-muted-foreground" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>
                             {category}
                           </span>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingCatFor(acc.id); setEditCatValue(category === "Uncategorized" ? "" : category); }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-3 w-3" /></button>
-                          {category !== "Uncategorized" && (
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(acc.username); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
-                          )}
+                          <button onClick={(e) => { e.stopPropagation(); setEditingGenderFor(acc.id); }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-3 w-3" /></button>
                         </>
                       )}
                       {acc.performer_top != null && (
