@@ -873,26 +873,6 @@ export default function CampaignsPage() {
           )}
         </div>
 
-        {/* Age pills */}
-        <div className="flex items-center gap-1 bg-card border border-border rounded-lg overflow-hidden w-fit">
-          {(["all", "new", "active", "mature", "old"] as const).map((f) => {
-            const count = f === "all" ? baseLinks.length : baseLinks.filter((l: any) => {
-              const days = differenceInDays(new Date(), new Date(l.created_at));
-              if (f === "new") return days <= 30;
-              if (f === "active") return days > 30 && days <= 90;
-              if (f === "mature") return days > 90 && days <= 180;
-              return days > 180;
-            }).length;
-            return (
-              <button key={f} onClick={() => { setAgeFilter(f); setPage(1); }}
-                className={`text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${ageFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                style={{ padding: "4px 10px" }}>
-                {f === "all" ? "All Ages" : f === "new" ? "🟢 New" : f === "active" ? "🔵 Active" : f === "mature" ? "🟡 Mature" : "⚪ Old"}
-                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${ageFilter === f ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
 
         {/* ═══ NEW/EDIT TRACKING LINK PANEL (inline) ═══ */}
         {panelOpen && (
