@@ -275,7 +275,7 @@ export default function AccountsPage() {
     const acc = selectedAccount;
     const stats = accountStats[acc.id] || {};
     const accLinks = selectedAccLinks;
-    const category = getCategory(acc);
+    const category = getGender(acc);
 
     const sortedLinks = [...accLinks].sort((a: any, b: any) => {
       const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
