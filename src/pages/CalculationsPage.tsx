@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { usePageFilters } from "@/hooks/usePageFilters";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -7,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CheckCircle2, Calculator, DollarSign, TrendingUp, Database, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchAccounts as fetchAccountsHelper } from "@/lib/supabase-helpers";
 
 const fmtC = (v: number | null | undefined) =>
   v == null ? "—" : `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -15,16 +19,19 @@ const fmtP = (v: number | null | undefined) =>
 const fmtN = (v: number | null | undefined) =>
   v == null ? "—" : Number(v).toLocaleString("en-US");
 
-async function fetchAllTrackingLinks() {
+async function fetchAllTrackingLinks(dateFilter?: { from: string | null; to: string | null }) {
   const all: any[] = [];
   let from = 0;
   const size = 1000;
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("tracking_links")
-      .select("id, revenue, cost_total, traffic_category, source_tag, subscribers")
+      .select("id, revenue, cost_total, traffic_category, source_tag, subscribers, onlytraffic_marketer")
       .is("deleted_at", null)
       .range(from, from + size - 1);
+    if (dateFilter?.from) query = query.gte("updated_at", dateFilter.from);
+    if (dateFilter?.to) query = query.lte("updated_at", dateFilter.to);
+    const { data, error } = await query;
     if (error) throw error;
     if (!data || data.length === 0) break;
     all.push(...data);
@@ -34,15 +41,18 @@ async function fetchAllTrackingLinks() {
   return all;
 }
 
-async function fetchAllLtv() {
+async function fetchAllLtv(dateFilter?: { from: string | null; to: string | null }) {
   const all: any[] = [];
   let from = 0;
   const size = 1000;
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("tracking_link_ltv")
       .select("tracking_link_id, total_ltv, cross_poll_revenue, new_subs_total, is_estimated")
       .range(from, from + size - 1);
+    if (dateFilter?.from) query = query.gte("updated_at", dateFilter.from);
+    if (dateFilter?.to) query = query.lte("updated_at", dateFilter.to);
+    const { data, error } = await query;
     if (error) throw error;
     if (!data || data.length === 0) break;
     all.push(...data);
@@ -109,15 +119,19 @@ function LoadingRow() {
 }
 
 export default function CalculationsPage() {
-  const { data: links = [], isLoading: linksLoading } = useQuery({
-    queryKey: ["calc_tracking_links"],
-    queryFn: fetchAllTrackingLinks,
+  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+
+  const { data: allAccounts = [] } = useQuery({ queryKey: ["calc_accounts_list"], queryFn: fetchAccountsHelper });
+
+  const { data: links = [] as any[], isLoading: linksLoading } = useQuery({
+    queryKey: ["calc_tracking_links", dateFilter.from, dateFilter.to],
+    queryFn: () => fetchAllTrackingLinks(dateFilter),
   });
-  const { data: ltvRows = [], isLoading: ltvLoading } = useQuery({
-    queryKey: ["calc_ltv"],
-    queryFn: fetchAllLtv,
+  const { data: ltvRows = [] as any[], isLoading: ltvLoading } = useQuery({
+    queryKey: ["calc_ltv", dateFilter.from, dateFilter.to],
+    queryFn: () => fetchAllLtv(dateFilter),
   });
-  const { data: accounts = [] } = useQuery({
+  const { data: accounts = [] as any[] } = useQuery({
     queryKey: ["calc_accounts"],
     queryFn: fetchAccounts,
   });
@@ -256,15 +270,27 @@ export default function CalculationsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-8 max-w-5xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Calculator className="h-6 w-6 text-primary" />
-            Calculations
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Live reconciliation and formula reference — all numbers pulled from the database in real-time.
-          </p>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Calculator className="h-6 w-6 text-primary" />
+              Calculations
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Live reconciliation and formula reference — all numbers pulled from the database in real-time.
+            </p>
+          </div>
         </div>
+
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={modelFilter}
+          onModelFilterChange={setModelFilter}
+          accounts={allAccounts.map((a: any) => ({ id: a.id, username: a.username || "", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
 
         {/* SECTION 1 — Revenue Reconciliation */}
         <Card>

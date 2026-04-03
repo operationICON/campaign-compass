@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { getEffectiveSource } from "@/lib/source-helpers";
-import { subDays, startOfDay } from "date-fns";
+import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
@@ -42,6 +42,23 @@ export default function DashboardPage() {
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
   // Compute date filter bounds from time period
+  const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
+  useEffect(() => {
+    if (timePeriod !== "since_sync") return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("tracking_link_ltv")
+        .select("updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (!cancelled && data && data.length > 0) {
+        setLastSyncDate(startOfDay(new Date(data[0].updated_at)).toISOString());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [timePeriod]);
+
   const dateFilter = useMemo(() => {
     if (customRange) {
       return { from: startOfDay(customRange.from).toISOString(), to: startOfDay(customRange.to).toISOString() };
@@ -51,11 +68,14 @@ export default function DashboardPage() {
       case "day": return { from: subDays(now, 1).toISOString(), to: null };
       case "week": return { from: subDays(now, 7).toISOString(), to: null };
       case "month": return { from: subDays(now, 30).toISOString(), to: null };
-      case "prev_month": return { from: subDays(now, 60).toISOString(), to: subDays(now, 30).toISOString() };
-      case "since_sync": return { from: null, to: null, sincSync: true };
+      case "prev_month": {
+        const pm = subMonths(now, 1);
+        return { from: startOfMonth(pm).toISOString(), to: endOfMonth(pm).toISOString() };
+      }
+      case "since_sync": return { from: lastSyncDate, to: null };
       case "all": default: return { from: null, to: null };
     }
-  }, [timePeriod, customRange]);
+  }, [timePeriod, customRange, lastSyncDate]);
 
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
@@ -72,8 +92,8 @@ export default function DashboardPage() {
         .select("*, accounts(display_name, username, avatar_thumb_url)")
         .is("deleted_at", null)
         .order("revenue", { ascending: false });
-      if (dateFilter.from) query = query.gte("created_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("created_at", dateFilter.to);
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
       const { data, error } = await query;
       if (error) throw error;
       return data || [];

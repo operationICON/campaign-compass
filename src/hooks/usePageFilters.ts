@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month" | "since_sync";
 
@@ -15,13 +16,31 @@ export const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
 export interface DateFilter {
   from: string | null;
   to: string | null;
-  sinceSync?: boolean;
 }
 
 export function usePageFilters() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const [modelFilter, setModelFilter] = useState("all");
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
+
+  // Fetch MAX(updated_at) from tracking_link_ltv for "since_sync"
+  useEffect(() => {
+    if (timePeriod !== "since_sync") return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("tracking_link_ltv")
+        .select("updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (!cancelled && !error && data && data.length > 0) {
+        // Use the start of that day as the "since last sync" boundary
+        setLastSyncDate(startOfDay(new Date(data[0].updated_at)).toISOString());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [timePeriod]);
 
   const dateFilter: DateFilter = useMemo(() => {
     if (customRange) {
@@ -46,12 +65,12 @@ export function usePageFilters() {
         };
       }
       case "since_sync":
-        return { from: null, to: null, sinceSync: true };
+        return { from: lastSyncDate, to: null };
       case "all":
       default:
         return { from: null, to: null };
     }
-  }, [timePeriod, customRange]);
+  }, [timePeriod, customRange, lastSyncDate]);
 
   return {
     timePeriod,
