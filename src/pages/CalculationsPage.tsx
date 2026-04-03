@@ -19,16 +19,19 @@ const fmtP = (v: number | null | undefined) =>
 const fmtN = (v: number | null | undefined) =>
   v == null ? "—" : Number(v).toLocaleString("en-US");
 
-async function fetchAllTrackingLinks() {
+async function fetchAllTrackingLinks(dateFilter?: { from: string | null; to: string | null }) {
   const all: any[] = [];
   let from = 0;
   const size = 1000;
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("tracking_links")
-      .select("id, revenue, cost_total, traffic_category, source_tag, subscribers")
+      .select("id, revenue, cost_total, traffic_category, source_tag, subscribers, onlytraffic_marketer")
       .is("deleted_at", null)
       .range(from, from + size - 1);
+    if (dateFilter?.from) query = query.gte("updated_at", dateFilter.from);
+    if (dateFilter?.to) query = query.lte("updated_at", dateFilter.to);
+    const { data, error } = await query;
     if (error) throw error;
     if (!data || data.length === 0) break;
     all.push(...data);
@@ -38,15 +41,18 @@ async function fetchAllTrackingLinks() {
   return all;
 }
 
-async function fetchAllLtv() {
+async function fetchAllLtv(dateFilter?: { from: string | null; to: string | null }) {
   const all: any[] = [];
   let from = 0;
   const size = 1000;
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("tracking_link_ltv")
       .select("tracking_link_id, total_ltv, cross_poll_revenue, new_subs_total, is_estimated")
       .range(from, from + size - 1);
+    if (dateFilter?.from) query = query.gte("updated_at", dateFilter.from);
+    if (dateFilter?.to) query = query.lte("updated_at", dateFilter.to);
+    const { data, error } = await query;
     if (error) throw error;
     if (!data || data.length === 0) break;
     all.push(...data);
