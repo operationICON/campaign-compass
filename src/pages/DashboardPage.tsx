@@ -69,7 +69,6 @@ export default function DashboardPage() {
       case "week": return { from: subDays(now, 7).toISOString(), to: null };
       case "month": return { from: subDays(now, 30).toISOString(), to: null };
       case "prev_month": {
-        const { startOfMonth, endOfMonth, subMonths } = require("date-fns");
         const pm = subMonths(now, 1);
         return { from: startOfMonth(pm).toISOString(), to: endOfMonth(pm).toISOString() };
       }
