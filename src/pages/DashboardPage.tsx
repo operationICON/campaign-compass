@@ -92,8 +92,8 @@ export default function DashboardPage() {
         .select("*, accounts(display_name, username, avatar_thumb_url)")
         .is("deleted_at", null)
         .order("revenue", { ascending: false });
-      if (dateFilter.from) query = query.gte("created_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("created_at", dateFilter.to);
+      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
