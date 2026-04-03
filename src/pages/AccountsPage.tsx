@@ -580,7 +580,7 @@ export default function AccountsPage() {
             All <span className="ml-1.5 text-xs opacity-70">{accounts.length}</span>
           </button>
           {allCategories.map((cat) => {
-            const count = accounts.filter((a: any) => getCategory(a) === cat).length;
+            const count = accounts.filter((a: any) => getGender(a) === cat).length;
             return (
               <button
                 key={cat}
