@@ -128,7 +128,7 @@ export default function CampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [ageFilter, setAgeFilter] = useState<"all" | "new" | "active" | "mature" | "old">("all");
+  
   const [groupFilter, setGroupFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
   
