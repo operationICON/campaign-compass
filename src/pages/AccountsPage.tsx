@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource } from "@/lib/source-helpers";
@@ -15,25 +15,16 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
 
-const DEFAULT_CATEGORIES: Record<string, string> = {
-  "jessie_ca_xo": "Female",
-  "zoey.skyy": "Female",
-  "miakitty.ts": "Trans",
-  "ella_cherryy": "Female",
-  "aylin_bigts": "Trans",
+const GENDER_OPTIONS = ["Female", "Trans", "Male", "Non-binary"] as const;
+type GenderIdentity = typeof GENDER_OPTIONS[number];
+
+const GENDER_BADGE_STYLES: Record<string, string> = {
+  Female: "bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-400",
+  Trans: "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400",
+  Male: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400",
+  "Non-binary": "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-400",
+  Uncategorized: "bg-muted text-muted-foreground",
 };
-
-function loadModelCategories(): Record<string, string> {
-  try {
-    const saved = localStorage.getItem("ct_model_categories");
-    if (saved) return { ...DEFAULT_CATEGORIES, ...JSON.parse(saved) };
-  } catch {}
-  return { ...DEFAULT_CATEGORIES };
-}
-
-function saveModelCategories(cats: Record<string, string>) {
-  localStorage.setItem("ct_model_categories", JSON.stringify(cats));
-}
 
 const AVATAR_COLORS = [
   "from-teal-400 to-cyan-500",
@@ -55,9 +46,7 @@ export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
-  const [modelCategories, setModelCategories] = useState<Record<string, string>>(loadModelCategories);
-  const [editingCatFor, setEditingCatFor] = useState<string | null>(null);
-  const [editCatValue, setEditCatValue] = useState("");
+  const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [] } = useQuery({
@@ -111,30 +100,28 @@ export default function AccountsPage() {
   const fmtNum = (v: number) => v.toLocaleString();
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
-  const getCategory = (account: any) => modelCategories[account.username] || "Uncategorized";
+  const getGender = (account: any): string => account.gender_identity || "Uncategorized";
+  const getGenderBadgeStyle = (gender: string) => GENDER_BADGE_STYLES[gender] || GENDER_BADGE_STYLES.Uncategorized;
 
-  // All unique categories
+  // All unique genders for filter tabs
   const allCategories = useMemo(() => {
     const cats = new Set<string>();
-    accounts.forEach((a: any) => cats.add(getCategory(a)));
+    accounts.forEach((a: any) => cats.add(getGender(a)));
     return Array.from(cats).sort();
-  }, [accounts, modelCategories]);
+  }, [accounts]);
 
-  const handleSaveCategory = (username: string, category: string) => {
-    const updated = { ...modelCategories, [username]: category };
-    setModelCategories(updated);
-    saveModelCategories(updated);
-    setEditingCatFor(null);
-    toast.success(`Category set to "${category}"`);
-  };
-
-  const handleDeleteCategory = (username: string) => {
-    const updated = { ...modelCategories };
-    delete updated[username];
-    setModelCategories(updated);
-    saveModelCategories(updated);
-    setEditingCatFor(null);
-    toast.success("Category removed");
+  const handleSaveGender = async (accountId: string, gender: string | null) => {
+    const { error } = await supabase
+      .from("accounts")
+      .update({ gender_identity: gender } as any)
+      .eq("id", accountId);
+    if (error) {
+      toast.error("Failed to save gender");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    setEditingGenderFor(null);
+    toast.success(gender ? `Set to "${gender}"` : "Gender removed");
   };
 
   // Agency benchmark CVR
@@ -208,8 +195,8 @@ export default function AccountsPage() {
 
   const filteredAccounts = useMemo(() => {
     if (categoryFilter === "all") return accounts;
-    return accounts.filter((a: any) => getCategory(a) === categoryFilter);
-  }, [accounts, categoryFilter, modelCategories]);
+    return accounts.filter((a: any) => getGender(a) === categoryFilter);
+  }, [accounts, categoryFilter]);
 
   const AvatarCircle = ({ account, size = 80 }: { account: any; size?: number }) => {
     const colorIdx = accounts.indexOf(account) % AVATAR_COLORS.length;
@@ -288,7 +275,7 @@ export default function AccountsPage() {
     const acc = selectedAccount;
     const stats = accountStats[acc.id] || {};
     const accLinks = selectedAccLinks;
-    const category = getCategory(acc);
+    const category = getGender(acc);
 
     const sortedLinks = [...accLinks].sort((a: any, b: any) => {
       const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
@@ -314,7 +301,7 @@ export default function AccountsPage() {
                 <p className="text-[10px] text-muted-foreground mt-1.5">Synced from OnlyFans</p>
                 <h2 className="text-xl font-bold text-foreground mt-4">{acc.display_name}</h2>
                 <p className="text-sm text-primary font-medium">@{acc.username || "—"}</p>
-                <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
+                <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${getGenderBadgeStyle(category)}`}>
                   {category}
                 </span>
                 {acc.performer_top != null && (
@@ -324,7 +311,7 @@ export default function AccountsPage() {
                 )}
 
                 <div className="w-full border-t border-border mt-5 pt-4 space-y-3 text-left text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Category</span><span className="text-foreground font-medium">{category}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Gender</span><span className="text-foreground font-medium">{category}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={`font-medium ${acc.is_active ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>{acc.is_active ? "Active" : "Inactive"}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Date added</span><span className="text-foreground">{format(new Date(acc.created_at), "MMM d, yyyy")}</span></div>
                   {acc.subscribe_price != null && acc.subscribe_price > 0 && (
@@ -593,7 +580,7 @@ export default function AccountsPage() {
             All <span className="ml-1.5 text-xs opacity-70">{accounts.length}</span>
           </button>
           {allCategories.map((cat) => {
-            const count = accounts.filter((a: any) => getCategory(a) === cat).length;
+            const count = accounts.filter((a: any) => getGender(a) === cat).length;
             return (
               <button
                 key={cat}
@@ -614,8 +601,8 @@ export default function AccountsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredAccounts.map((acc: any) => {
             const stats = accountStats[acc.id] || {};
-            const category = getCategory(acc);
-            const isEditing = editingCatFor === acc.id;
+            const category = getGender(acc);
+            const isEditing = editingGenderFor === acc.id;
             return (
               <div
                 key={acc.id}
@@ -626,29 +613,40 @@ export default function AccountsPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
                     <p className="text-[13px] text-muted-foreground">@{acc.username || "—"}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex items-center gap-2 mt-1.5 relative">
                       {isEditing ? (
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            autoFocus
-                            value={editCatValue}
-                            onChange={(e) => setEditCatValue(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter" && editCatValue.trim()) handleSaveCategory(acc.username, editCatValue.trim()); if (e.key === "Escape") setEditingCatFor(null); }}
-                            className="w-24 px-2 py-0.5 rounded text-[11px] bg-secondary border border-border text-foreground outline-none"
-                            placeholder="e.g. Female"
-                          />
-                          <button onClick={() => editCatValue.trim() && handleSaveCategory(acc.username, editCatValue.trim())} className="text-primary hover:text-primary/80"><Check className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => setEditingCatFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>
+                            {category}
+                          </span>
+                          <button onClick={() => setEditingGenderFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                          <div className="flex flex-col bg-card border border-border rounded-lg shadow-lg overflow-hidden absolute top-6 left-0 z-10 min-w-[120px]">
+                            {GENDER_OPTIONS.map((g) => (
+                              <button
+                                key={g}
+                                onClick={() => handleSaveGender(acc.id, g)}
+                                className={`px-4 py-1.5 text-[11px] text-left hover:bg-secondary transition-colors ${category === g ? "font-bold text-primary" : "text-foreground"}`}
+                              >
+                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${g === "Female" ? "bg-pink-400" : g === "Trans" ? "bg-purple-400" : g === "Male" ? "bg-blue-400" : "bg-yellow-400"}`} />
+                                {g}
+                              </button>
+                            ))}
+                            {category !== "Uncategorized" && (
+                              <button
+                                onClick={() => handleSaveGender(acc.id, null)}
+                                className="px-4 py-1.5 text-[11px] text-left text-destructive hover:bg-secondary transition-colors border-t border-border"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : category === "Uncategorized" ? "bg-muted text-muted-foreground" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>
                             {category}
                           </span>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingCatFor(acc.id); setEditCatValue(category === "Uncategorized" ? "" : category); }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-3 w-3" /></button>
-                          {category !== "Uncategorized" && (
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(acc.username); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
-                          )}
+                          <button onClick={(e) => { e.stopPropagation(); setEditingGenderFor(acc.id); }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-3 w-3" /></button>
                         </>
                       )}
                       {acc.performer_top != null && (
