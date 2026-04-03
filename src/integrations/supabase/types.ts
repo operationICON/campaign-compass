@@ -20,6 +20,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string
+          gender_identity: string | null
           header_url: string | null
           id: string
           is_active: boolean
@@ -47,6 +48,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name: string
+          gender_identity?: string | null
           header_url?: string | null
           id?: string
           is_active?: boolean
@@ -74,6 +76,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string
+          gender_identity?: string | null
           header_url?: string | null
           id?: string
           is_active?: boolean

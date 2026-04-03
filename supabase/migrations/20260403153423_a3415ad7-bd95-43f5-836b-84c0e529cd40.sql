@@ -1,0 +1,1 @@
+ALTER TABLE public.accounts ADD COLUMN gender_identity text DEFAULT NULL;
