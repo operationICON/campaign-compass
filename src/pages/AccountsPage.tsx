@@ -301,7 +301,7 @@ export default function AccountsPage() {
                 <p className="text-[10px] text-muted-foreground mt-1.5">Synced from OnlyFans</p>
                 <h2 className="text-xl font-bold text-foreground mt-4">{acc.display_name}</h2>
                 <p className="text-sm text-primary font-medium">@{acc.username || "—"}</p>
-                <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${category === "Trans" ? "bg-[#ede9fe] text-[#7c3aed] dark:bg-purple-500/15 dark:text-purple-400" : "bg-[#dbeafe] text-[#1d4ed8] dark:bg-blue-500/15 dark:text-blue-400"}`}>
+                <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${getGenderBadgeStyle(category)}`}>
                   {category}
                 </span>
                 {acc.performer_top != null && (
