@@ -178,35 +178,30 @@ export default function CampaignsPage() {
       return allData;
     },
   });
-  const trackingLinkIds = useMemo(
-    () => links.map((link: any) => String(link.id ?? "").trim()).filter(Boolean),
-    [links]
-  );
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["campaigns_tracking_link_ltv", trackingLinkIds, dateFilter.from, dateFilter.to],
-    enabled: trackingLinkIds.length > 0,
+    queryKey: ["campaigns_tracking_link_ltv", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const rows: any[] = [];
-      const chunkSize = 250;
-
-      for (let i = 0; i < trackingLinkIds.length; i += chunkSize) {
-        const idChunk = trackingLinkIds.slice(i, i + chunkSize);
+      const allRows: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
         let query = supabase
           .from("tracking_link_ltv")
           .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated, new_subs_total")
-          .in("tracking_link_id", idChunk);
+          .range(from, from + batchSize - 1);
         if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
         if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-
         const { data, error } = await query;
         if (error) throw error;
-        rows.push(...(data || []));
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
       }
-
-      return rows;
+      return allRows;
     },
   });
   const { data: trafficSources = [] } = useQuery({
