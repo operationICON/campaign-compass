@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource } from "@/lib/source-helpers";
@@ -15,25 +15,16 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
 
-const DEFAULT_CATEGORIES: Record<string, string> = {
-  "jessie_ca_xo": "Female",
-  "zoey.skyy": "Female",
-  "miakitty.ts": "Trans",
-  "ella_cherryy": "Female",
-  "aylin_bigts": "Trans",
+const GENDER_OPTIONS = ["Female", "Trans", "Male", "Non-binary"] as const;
+type GenderIdentity = typeof GENDER_OPTIONS[number];
+
+const GENDER_BADGE_STYLES: Record<string, string> = {
+  Female: "bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-400",
+  Trans: "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400",
+  Male: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400",
+  "Non-binary": "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-400",
+  Uncategorized: "bg-muted text-muted-foreground",
 };
-
-function loadModelCategories(): Record<string, string> {
-  try {
-    const saved = localStorage.getItem("ct_model_categories");
-    if (saved) return { ...DEFAULT_CATEGORIES, ...JSON.parse(saved) };
-  } catch {}
-  return { ...DEFAULT_CATEGORIES };
-}
-
-function saveModelCategories(cats: Record<string, string>) {
-  localStorage.setItem("ct_model_categories", JSON.stringify(cats));
-}
 
 const AVATAR_COLORS = [
   "from-teal-400 to-cyan-500",
@@ -55,9 +46,7 @@ export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
-  const [modelCategories, setModelCategories] = useState<Record<string, string>>(loadModelCategories);
-  const [editingCatFor, setEditingCatFor] = useState<string | null>(null);
-  const [editCatValue, setEditCatValue] = useState("");
+  const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: links = [] } = useQuery({
