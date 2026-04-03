@@ -406,7 +406,7 @@ export default function CampaignsPage() {
     else if (["SCALE", "WATCH", "KILL", "TESTING", "INACTIVE"].includes(campaignFilter)) result = result.filter((l: any) => l.computedStatus === campaignFilter);
 
     return result;
-  }, [baseLinks, searchQuery, campaignFilter, sourceFilter, ageFilter, groupFilter, accountFilter, accounts]);
+  }, [baseLinks, searchQuery, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
