@@ -119,15 +119,19 @@ function LoadingRow() {
 }
 
 export default function CalculationsPage() {
-  const { data: links = [], isLoading: linksLoading } = useQuery({
-    queryKey: ["calc_tracking_links"],
-    queryFn: fetchAllTrackingLinks,
+  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+
+  const { data: allAccounts = [] } = useQuery({ queryKey: ["calc_accounts_list"], queryFn: fetchAccountsHelper });
+
+  const { data: links = [] as any[], isLoading: linksLoading } = useQuery({
+    queryKey: ["calc_tracking_links", dateFilter.from, dateFilter.to],
+    queryFn: () => fetchAllTrackingLinks(dateFilter),
   });
-  const { data: ltvRows = [], isLoading: ltvLoading } = useQuery({
-    queryKey: ["calc_ltv"],
-    queryFn: fetchAllLtv,
+  const { data: ltvRows = [] as any[], isLoading: ltvLoading } = useQuery({
+    queryKey: ["calc_ltv", dateFilter.from, dateFilter.to],
+    queryFn: () => fetchAllLtv(dateFilter),
   });
-  const { data: accounts = [] } = useQuery({
+  const { data: accounts = [] as any[] } = useQuery({
     queryKey: ["calc_accounts"],
     queryFn: fetchAccounts,
   });
