@@ -270,15 +270,27 @@ export default function CalculationsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-8 max-w-5xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Calculator className="h-6 w-6 text-primary" />
-            Calculations
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Live reconciliation and formula reference — all numbers pulled from the database in real-time.
-          </p>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Calculator className="h-6 w-6 text-primary" />
+              Calculations
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Live reconciliation and formula reference — all numbers pulled from the database in real-time.
+            </p>
+          </div>
         </div>
+
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={modelFilter}
+          onModelFilterChange={setModelFilter}
+          accounts={allAccounts.map((a: any) => ({ id: a.id, username: a.username || "", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
 
         {/* SECTION 1 — Revenue Reconciliation */}
         <Card>
