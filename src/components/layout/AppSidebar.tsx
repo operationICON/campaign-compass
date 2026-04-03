@@ -17,8 +17,8 @@ const mainNav = [
 ];
 
 const systemNav = [
-  { to: "/alerts", icon: Bell, label: "Alerts", hasBadge: true },
   { to: "/calculations", icon: Calculator, label: "Calculations" },
+  { to: "/alerts", icon: Bell, label: "Alerts", hasBadge: true },
   { to: "/logs", icon: Activity, label: "Sync Logs" },
   { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/debug", icon: Code2, label: "API Debug" },
