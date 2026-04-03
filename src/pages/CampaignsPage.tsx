@@ -156,19 +156,19 @@ export default function CampaignsPage() {
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      let query = supabase
-        .from("tracking_links")
-        .select("*, accounts(display_name, username, avatar_thumb_url)")
-        .is("deleted_at", null)
-        .order("revenue", { ascending: false });
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      // Batch fetch all rows
       const allData: any[] = [];
       let from = 0;
       const batchSize = 1000;
       while (true) {
-        const { data, error } = await query.range(from, from + batchSize - 1);
+        let query = supabase
+          .from("tracking_links")
+          .select("*, accounts(display_name, username, avatar_thumb_url)")
+          .is("deleted_at", null)
+          .order("revenue", { ascending: false })
+          .range(from, from + batchSize - 1);
+        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
+        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
+        const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) break;
         allData.push(...data);
