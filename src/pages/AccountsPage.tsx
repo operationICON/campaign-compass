@@ -100,30 +100,28 @@ export default function AccountsPage() {
   const fmtNum = (v: number) => v.toLocaleString();
   const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
-  const getCategory = (account: any) => modelCategories[account.username] || "Uncategorized";
+  const getGender = (account: any): string => account.gender_identity || "Uncategorized";
+  const getGenderBadgeStyle = (gender: string) => GENDER_BADGE_STYLES[gender] || GENDER_BADGE_STYLES.Uncategorized;
 
-  // All unique categories
+  // All unique genders for filter tabs
   const allCategories = useMemo(() => {
     const cats = new Set<string>();
-    accounts.forEach((a: any) => cats.add(getCategory(a)));
+    accounts.forEach((a: any) => cats.add(getGender(a)));
     return Array.from(cats).sort();
-  }, [accounts, modelCategories]);
+  }, [accounts]);
 
-  const handleSaveCategory = (username: string, category: string) => {
-    const updated = { ...modelCategories, [username]: category };
-    setModelCategories(updated);
-    saveModelCategories(updated);
-    setEditingCatFor(null);
-    toast.success(`Category set to "${category}"`);
-  };
-
-  const handleDeleteCategory = (username: string) => {
-    const updated = { ...modelCategories };
-    delete updated[username];
-    setModelCategories(updated);
-    saveModelCategories(updated);
-    setEditingCatFor(null);
-    toast.success("Category removed");
+  const handleSaveGender = async (accountId: string, gender: string | null) => {
+    const { error } = await supabase
+      .from("accounts")
+      .update({ gender_identity: gender } as any)
+      .eq("id", accountId);
+    if (error) {
+      toast.error("Failed to save gender");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    setEditingGenderFor(null);
+    toast.success(gender ? `Set to "${gender}"` : "Gender removed");
   };
 
   // Agency benchmark CVR
