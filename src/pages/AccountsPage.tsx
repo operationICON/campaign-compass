@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams } from "react-router-dom";
