@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { getEffectiveSource } from "@/lib/source-helpers";
-import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths, format, differenceInDays } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
@@ -8,7 +8,6 @@ import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, differenceInDays } from "date-fns";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
   RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X,
@@ -21,18 +20,6 @@ import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } fro
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import type { TimePeriod } from "@/hooks/usePageFilters";
-import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
-import {
-  RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X,
-  DollarSign, Activity, Award, Percent
-} from "lucide-react";
-import { InsightsSection } from "@/components/dashboard/InsightsSection";
-import { RefreshButton } from "@/components/RefreshButton";
-import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
-import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
-
-// TimePeriod imported from usePageFilters
 
 const PERIOD_MAP: Record<TimePeriod, string> = {
   all: "all_time",
