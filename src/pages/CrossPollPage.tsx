@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
 import { GitBranch, Users, DollarSign, Award, Percent } from "lucide-react";
-import { useSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
+import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,8 +24,11 @@ export default function CrossPollPage() {
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
-  // Cross-poll data doesn't use snapshots — LTV is cumulative. Keep fetching all.
-  const { data: ltvData = [], isLoading: ltvLoading } = useQuery({
+  // Snapshot-based time filtering
+  const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
+
+  // Cross-poll LTV data (cumulative)
+  const { data: allLtvData = [], isLoading: ltvLoading } = useQuery({
     queryKey: ["crosspoll_ltv"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -62,10 +65,22 @@ export default function CrossPollPage() {
     return map;
   }, [accounts]);
 
-  const filteredLtv = useMemo(() => {
-    if (modelFilter === "all") return ltvData;
-    return ltvData.filter((r: any) => String(r.account_id).toLowerCase() === String(modelFilter).toLowerCase());
-  }, [ltvData, modelFilter]);
+  // Filter LTV data: for non-All-Time, only show LTV records whose tracking_link had snapshot activity
+  const ltvData = useMemo(() => {
+    let data = allLtvData;
+    if (!isAllTime && snapshotLookup) {
+      data = data.filter((r: any) => {
+        const tlId = String(r.tracking_link_id ?? "").trim().toLowerCase();
+        return snapshotLookup[tlId] !== undefined;
+      });
+    }
+    if (modelFilter !== "all") {
+      data = data.filter((r: any) => String(r.account_id).toLowerCase() === String(modelFilter).toLowerCase());
+    }
+    return data;
+  }, [allLtvData, modelFilter, isAllTime, snapshotLookup]);
+
+  const filteredLtv = ltvData;
 
   // Summary cards
     const summary = useMemo(() => {
