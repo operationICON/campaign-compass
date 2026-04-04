@@ -40,41 +40,11 @@ export default function DashboardPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
-  // Compute date filter bounds from time period
-  const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
-  useEffect(() => {
-    if (timePeriod !== "since_sync") return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("tracking_link_ltv")
-        .select("updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      if (!cancelled && data && data.length > 0) {
-        setLastSyncDate(startOfDay(new Date(data[0].updated_at)).toISOString());
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [timePeriod]);
+  // Snapshot-based time filtering (replaces old dateFilter logic)
+  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod as any, customRange);
 
-  const dateFilter = useMemo(() => {
-    if (customRange) {
-      return { from: startOfDay(customRange.from).toISOString(), to: startOfDay(customRange.to).toISOString() };
-    }
-    const now = new Date();
-    switch (timePeriod) {
-      case "day": return { from: subDays(now, 1).toISOString(), to: null };
-      case "week": return { from: subDays(now, 7).toISOString(), to: null };
-      case "month": return { from: subDays(now, 30).toISOString(), to: null };
-      case "prev_month": {
-        const pm = subMonths(now, 1);
-        return { from: startOfMonth(pm).toISOString(), to: endOfMonth(pm).toISOString() };
-      }
-      case "since_sync": return { from: lastSyncDate, to: null };
-      case "all": default: return { from: null, to: null };
-    }
-  }, [timePeriod, customRange, lastSyncDate]);
+  // dateFilter kept for RPC call compatibility
+  const dateFilter = useMemo(() => ({ from: null as string | null, to: null as string | null }), []);
 
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
