@@ -41,13 +41,12 @@ export default function CrossPollPage() {
   const { data: trackingLinks = [] } = useQuery({
     queryKey: ["crosspoll_tracking_links"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: tlData, error: tlError } = await supabase
         .from("tracking_links")
         .select("id, campaign_name, account_id")
         .is("deleted_at", null);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      if (tlError) throw tlError;
+      return tlData;
     },
   });
 
