@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { TagBadge, useTagColors } from "@/components/TagBadge";
@@ -152,23 +153,23 @@ export default function CampaignsPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<any>(null);
 
-  // ─── Data fetching (filtered by time period) ───
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
+  // ─── Snapshot-based time filtering ───
+  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+
+  // ─── Data fetching (always fetch all — snapshot handles period filtering) ───
+  const { data: allLinks = [], isLoading: linksLoading } = useQuery({
+    queryKey: ["tracking_links"],
     queryFn: async () => {
       const allData: any[] = [];
       let from = 0;
       const batchSize = 1000;
       while (true) {
-        let query = supabase
+        const { data, error } = await supabase
           .from("tracking_links")
           .select("*, accounts(display_name, username, avatar_thumb_url)")
           .is("deleted_at", null)
           .order("revenue", { ascending: false })
           .range(from, from + batchSize - 1);
-        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-        const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) break;
         allData.push(...data);
@@ -178,23 +179,24 @@ export default function CampaignsPage() {
       return allData;
     },
   });
+  const isLoading = linksLoading || snapshotLoading;
+  // Apply snapshot metrics to links
+  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
+
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["campaigns_tracking_link_ltv", dateFilter.from, dateFilter.to],
+    queryKey: ["campaigns_tracking_link_ltv"],
     queryFn: async () => {
       const allRows: any[] = [];
       let from = 0;
       const batchSize = 1000;
       while (true) {
-        let query = supabase
+        const { data, error } = await supabase
           .from("tracking_link_ltv")
           .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated, new_subs_total")
           .range(from, from + batchSize - 1);
-        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-        const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) break;
         allRows.push(...data);

@@ -381,6 +381,60 @@ export type Database = {
           },
         ]
       }
+      daily_snapshots: {
+        Row: {
+          account_id: string | null
+          clicks: number | null
+          created_at: string | null
+          external_tracking_link_id: string | null
+          id: string
+          revenue: number | null
+          snapshot_date: string | null
+          subscribers: number | null
+          synced_at: string | null
+          tracking_link_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          clicks?: number | null
+          created_at?: string | null
+          external_tracking_link_id?: string | null
+          id?: string
+          revenue?: number | null
+          snapshot_date?: string | null
+          subscribers?: number | null
+          synced_at?: string | null
+          tracking_link_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          clicks?: number | null
+          created_at?: string | null
+          external_tracking_link_id?: string | null
+          id?: string
+          revenue?: number | null
+          snapshot_date?: string | null
+          subscribers?: number | null
+          synced_at?: string | null
+          tracking_link_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_snapshots_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_snapshots_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fan_attributions: {
         Row: {
           account_id: string | null

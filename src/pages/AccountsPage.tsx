@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams } from "react-router-dom";
@@ -49,29 +50,29 @@ export default function AccountsPage() {
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: links = [] } = useQuery({
-    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
+
+  // Snapshot-based time filtering
+  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+
+  const { data: allLinks = [] } = useQuery({
+    queryKey: ["tracking_links"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("tracking_links")
         .select("*, accounts(display_name, username, avatar_thumb_url)")
         .is("deleted_at", null)
         .order("revenue", { ascending: false });
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
   });
+  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
+
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
+    queryKey: ["tracking_link_ltv"],
     queryFn: async () => {
-      let query = supabase.from("tracking_link_ltv").select("*");
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
       if (error) throw error;
       return data || [];
     },

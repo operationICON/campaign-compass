@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { getEffectiveSource } from "@/lib/source-helpers";
-import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths, format, differenceInDays } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
@@ -8,7 +8,6 @@ import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, differenceInDays } from "date-fns";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
   RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X,
@@ -19,8 +18,8 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
-
-type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import type { TimePeriod } from "@/hooks/usePageFilters";
 
 const PERIOD_MAP: Record<TimePeriod, string> = {
   all: "all_time",
@@ -41,41 +40,8 @@ export default function DashboardPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
-  // Compute date filter bounds from time period
-  const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
-  useEffect(() => {
-    if (timePeriod !== "since_sync") return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("tracking_link_ltv")
-        .select("updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      if (!cancelled && data && data.length > 0) {
-        setLastSyncDate(startOfDay(new Date(data[0].updated_at)).toISOString());
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [timePeriod]);
-
-  const dateFilter = useMemo(() => {
-    if (customRange) {
-      return { from: startOfDay(customRange.from).toISOString(), to: startOfDay(customRange.to).toISOString() };
-    }
-    const now = new Date();
-    switch (timePeriod) {
-      case "day": return { from: subDays(now, 1).toISOString(), to: null };
-      case "week": return { from: subDays(now, 7).toISOString(), to: null };
-      case "month": return { from: subDays(now, 30).toISOString(), to: null };
-      case "prev_month": {
-        const pm = subMonths(now, 1);
-        return { from: startOfMonth(pm).toISOString(), to: endOfMonth(pm).toISOString() };
-      }
-      case "since_sync": return { from: lastSyncDate, to: null };
-      case "all": default: return { from: null, to: null };
-    }
-  }, [timePeriod, customRange, lastSyncDate]);
+  // dateFilter kept for RPC call compatibility
+  const dateFilter = useMemo(() => ({ from: null as string | null, to: null as string | null }), []);
 
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
@@ -84,17 +50,14 @@ export default function DashboardPage() {
   } = useOverviewCustomizer();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
+  const { data: allLinks = [], isLoading: linksLoading } = useQuery({
+    queryKey: ["tracking_links"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("tracking_links")
         .select("*, accounts(display_name, username, avatar_thumb_url)")
         .is("deleted_at", null)
         .order("revenue", { ascending: false });
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -102,16 +65,18 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
+    queryKey: ["tracking_link_ltv"],
     queryFn: async () => {
-      let query = supabase.from("tracking_link_ltv").select("*");
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
       if (error) throw error;
       return data || [];
     },
   });
+
+  // Snapshot-based time filtering
+  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod as any, customRange);
+  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
+  const isLoading = linksLoading || snapshotLoading;
 
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
