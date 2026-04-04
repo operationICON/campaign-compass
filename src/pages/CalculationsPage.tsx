@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
