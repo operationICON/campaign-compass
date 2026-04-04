@@ -118,10 +118,16 @@ export default function CalculationsPage() {
 
   const { data: allAccounts = [] } = useQuery({ queryKey: ["calc_accounts_list"], queryFn: fetchAccountsHelper });
 
-  const { data: links = [] as any[], isLoading: linksLoading } = useQuery({
+  // Snapshot-based time filtering
+  const { snapshotLookup, isAllTime, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+
+  const { data: allLinks = [] as any[], isLoading: linksLoading } = useQuery({
     queryKey: ["calc_tracking_links"],
     queryFn: () => fetchAllTrackingLinks(),
   });
+  // Apply snapshot metrics to links (replaces clicks/subscribers/revenue for non-All-Time)
+  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
+
   const { data: ltvRows = [] as any[], isLoading: ltvLoading } = useQuery({
     queryKey: ["calc_ltv"],
     queryFn: () => fetchAllLtv(),
@@ -143,7 +149,7 @@ export default function CalculationsPage() {
     queryFn: fetchExampleCampaigns,
   });
 
-  const isLoading = linksLoading || ltvLoading;
+  const isLoading = linksLoading || ltvLoading || snapshotLoading;
 
   // Build LTV lookup by tracking_link_id (TEXT → match against UUID as string)
   const ltvMap: Record<string, any> = {};
@@ -152,7 +158,7 @@ export default function CalculationsPage() {
     if (key) ltvMap[key] = r; 
   });
 
-  // SECTION 1 — Revenue
+  // SECTION 1 — Revenue (uses snapshot-filtered revenue)
   const estRevenue = links.reduce((s, l: any) => s + Number(l.revenue || 0), 0);
   const totalLtvSum = ltvRows.reduce((s, r: any) => s + Number(r.total_ltv || 0), 0);
   const crossPollSum = ltvRows.reduce((s, r: any) => s + Number(r.cross_poll_revenue || 0), 0);
