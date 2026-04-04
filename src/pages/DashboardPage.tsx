@@ -32,7 +32,7 @@ import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 
-type TimePeriod = "all" | "day" | "week" | "since_sync" | "month" | "prev_month";
+// TimePeriod imported from usePageFilters
 
 const PERIOD_MAP: Record<TimePeriod, string> = {
   all: "all_time",
