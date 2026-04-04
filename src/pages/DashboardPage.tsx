@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { getEffectiveSource } from "@/lib/source-helpers";
-import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths, format, differenceInDays } from "date-fns";
+import { subDays, format, differenceInDays } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
@@ -18,17 +18,52 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
-import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { applySnapshotToLinks, type SnapshotMetrics } from "@/hooks/useSnapshotMetrics";
 import type { TimePeriod } from "@/hooks/usePageFilters";
 
-const PERIOD_MAP: Record<TimePeriod, string> = {
-  all: "all_time",
-  day: "last_day",
-  week: "last_week",
-  since_sync: "since_last_sync",
-  month: "last_month",
-  prev_month: "prev_month",
-};
+interface OverviewSnapshotRange {
+  from: string;
+  to: string;
+  dayCount: number;
+}
+
+function getOverviewSnapshotRange(
+  timePeriod: TimePeriod,
+  customRange: { from: Date; to: Date } | null
+): OverviewSnapshotRange | null {
+  if (customRange) {
+    return {
+      from: format(customRange.from, "yyyy-MM-dd"),
+      to: format(customRange.to, "yyyy-MM-dd"),
+      dayCount: Math.max(1, differenceInDays(customRange.to, customRange.from) + 1),
+    };
+  }
+
+  const now = new Date();
+  const today = format(now, "yyyy-MM-dd");
+
+  switch (timePeriod) {
+    case "day": {
+      const yesterday = format(subDays(now, 1), "yyyy-MM-dd");
+      return { from: yesterday, to: yesterday, dayCount: 1 };
+    }
+    case "week":
+      return { from: format(subDays(now, 7), "yyyy-MM-dd"), to: today, dayCount: 7 };
+    case "month":
+      return { from: format(subDays(now, 30), "yyyy-MM-dd"), to: today, dayCount: 30 };
+    case "prev_month":
+      return {
+        from: format(subDays(now, 60), "yyyy-MM-dd"),
+        to: format(subDays(now, 31), "yyyy-MM-dd"),
+        dayCount: 30,
+      };
+    case "since_sync":
+      return { from: "__latest__", to: "__latest__", dayCount: 1 };
+    case "all":
+    default:
+      return null;
+  }
+}
 
 
 export default function DashboardPage() {
@@ -39,9 +74,6 @@ export default function DashboardPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
-
-  // dateFilter kept for RPC call compatibility
-  const dateFilter = useMemo(() => ({ from: null as string | null, to: null as string | null }), []);
 
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
@@ -73,11 +105,6 @@ export default function DashboardPage() {
     },
   });
 
-  // Snapshot-based time filtering
-  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod as any, customRange);
-  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
-  const isLoading = linksLoading || snapshotLoading;
-
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
     "jessie_ca_xo": "Female", "zoey.skyy": "Female", "ella_cherryy": "Female",
@@ -98,23 +125,116 @@ export default function DashboardPage() {
   // Active filter count (excluding time period)
   const activeFilterCount = (groupFilter !== "all" ? 1 : 0) + (selectedModel !== "all" ? 1 : 0);
 
-  const periodParam = PERIOD_MAP[timePeriod];
   const modelParam = selectedModel !== "all" ? selectedModel : null;
+  const agencyAccountIds = useMemo(() => {
+    if (modelParam) return [modelParam];
+    if (groupFilter !== "all") return groupFilteredAccounts.map((a: any) => a.id);
+    return null;
+  }, [modelParam, groupFilter, groupFilteredAccounts]);
 
+  const overviewSnapshotRange = useMemo(
+    () => getOverviewSnapshotRange(timePeriod, customRange),
+    [timePeriod, customRange]
+  );
 
-
-  // RPC: get_ltv_by_period (still used for period subs data)
-  const { data: periodData, isLoading: isPeriodLoading } = useQuery({
-    queryKey: ["ltv_by_period", periodParam, modelParam],
+  const {
+    data: overviewSnapshotRows = [],
+    isLoading: overviewSnapshotsLoading,
+    isFetching: overviewSnapshotsFetching,
+  } = useQuery({
+    queryKey: [
+      "daily_snapshots",
+      "overview",
+      overviewSnapshotRange?.from ?? "all",
+      overviewSnapshotRange?.to ?? "all",
+      agencyAccountIds?.join(",") ?? "all",
+    ],
+    enabled: !!overviewSnapshotRange,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_ltv_by_period", {
-        p_period: periodParam,
-        p_account_id: modelParam,
-      });
-      if (error) throw error;
-      return data as { period: string; total_ltv: number; total_new_subs: number; ltv_per_sub: number; data_available: boolean };
+      if (!overviewSnapshotRange) return [];
+      if (agencyAccountIds && agencyAccountIds.length === 0) return [];
+
+      let fromDate = overviewSnapshotRange.from;
+      let toDate = overviewSnapshotRange.to;
+
+      if (fromDate === "__latest__") {
+        let latestQuery = supabase
+          .from("daily_snapshots")
+          .select("snapshot_date")
+          .order("snapshot_date", { ascending: false })
+          .limit(1);
+
+        if (agencyAccountIds?.length) {
+          latestQuery = latestQuery.in("account_id", agencyAccountIds);
+        }
+
+        const { data: latest, error: latestError } = await latestQuery;
+        if (latestError) throw latestError;
+
+        const latestDate = latest?.[0]?.snapshot_date;
+        if (!latestDate) return [];
+
+        fromDate = latestDate;
+        toDate = latestDate;
+      }
+
+      const rows: Array<{
+        tracking_link_id: string | null;
+        clicks: number | null;
+        subscribers: number | null;
+        revenue: number | null;
+      }> = [];
+      let rangeFrom = 0;
+      const batchSize = 1000;
+
+      while (true) {
+        let query = supabase
+          .from("daily_snapshots")
+          .select("tracking_link_id, clicks, subscribers, revenue")
+          .gte("snapshot_date", fromDate)
+          .lte("snapshot_date", toDate)
+          .range(rangeFrom, rangeFrom + batchSize - 1);
+
+        if (agencyAccountIds?.length) {
+          query = query.in("account_id", agencyAccountIds);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data?.length) break;
+
+        rows.push(...data);
+
+        if (data.length < batchSize) break;
+        rangeFrom += batchSize;
+      }
+
+      return rows;
     },
   });
+
+  const overviewSnapshotLookup = useMemo<Record<string, SnapshotMetrics> | null>(() => {
+    if (!overviewSnapshotRange) return null;
+
+    const map: Record<string, SnapshotMetrics> = {};
+    for (const row of overviewSnapshotRows) {
+      const id = String(row.tracking_link_id ?? "").toLowerCase();
+      if (!id) continue;
+
+      if (!map[id]) {
+        map[id] = { clicks: 0, subscribers: 0, revenue: 0 };
+      }
+
+      map[id].clicks += Number(row.clicks || 0);
+      map[id].subscribers += Number(row.subscribers || 0);
+      map[id].revenue += Number(row.revenue || 0);
+    }
+
+    return map;
+  }, [overviewSnapshotRange, overviewSnapshotRows]);
+
+  const links = useMemo(() => applySnapshotToLinks(allLinks, overviewSnapshotLookup), [allLinks, overviewSnapshotLookup]);
+  const isLoading = linksLoading || overviewSnapshotsLoading || overviewSnapshotsFetching;
 
   const syncFrequency = useMemo(() => {
     const s = syncSettings.find((s: any) => s.key === "sync_frequency_days");
@@ -125,7 +245,7 @@ export default function DashboardPage() {
     mutationFn: () => triggerSync(undefined, true, (msg) => toast.info(msg, { id: 'sync-progress' })),
     onSuccess: (data) => {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
-      ["tracking_links", "accounts", "daily_metrics", "sync_logs", "transaction_totals"].forEach(k =>
+      ["tracking_links", "accounts", "daily_metrics", "daily_snapshots", "sync_logs", "transaction_totals"].forEach(k =>
         queryClient.invalidateQueries({ queryKey: [k] })
       );
     },
@@ -153,13 +273,6 @@ export default function DashboardPage() {
     return Math.max(0, differenceInDays(nextDate, new Date()));
   }, [lastSynced, syncFrequency]);
 
-  // KPI calculations
-  const agencyAccountIds = useMemo(() => {
-    if (modelParam) return [modelParam];
-    if (groupFilter !== "all") return groupFilteredAccounts.map((a: any) => a.id);
-    return null;
-  }, [modelParam, groupFilter, groupFilteredAccounts]);
-
   const filteredLinksForKpi = useMemo(() => {
     if (!agencyAccountIds) return links;
     const idSet = new Set(agencyAccountIds);
@@ -176,56 +289,55 @@ export default function DashboardPage() {
     return map;
   }, [trackingLinkLtv]);
 
-  // Total Expenses = SUM(cost_total) WHERE cost_total > 0
+  const overviewPeriodTotals = useMemo(() => {
+    return filteredLinksForKpi.reduce(
+      (totals: { clicks: number; subscribers: number; revenue: number; activeLinks: number }, l: any) => {
+        const clicks = Number(l.clicks || 0);
+        const subscribers = Number(l.subscribers || 0);
+        const revenue = Number(l.revenue || 0);
+
+        return {
+          clicks: totals.clicks + clicks,
+          subscribers: totals.subscribers + subscribers,
+          revenue: totals.revenue + revenue,
+          activeLinks: totals.activeLinks + (clicks > 0 || subscribers > 0 ? 1 : 0),
+        };
+      },
+      { clicks: 0, subscribers: 0, revenue: 0, activeLinks: 0 }
+    );
+  }, [filteredLinksForKpi]);
+
+  const periodSubscribers = overviewPeriodTotals.subscribers;
+  const periodDayCount = overviewSnapshotRange?.dayCount ?? null;
+  const activeLinkCount = overviewPeriodTotals.activeLinks;
+
+  // Total Expenses = cumulative SUM(cost_total) WHERE cost_total > 0
   const totalSpend = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
     const cost = Number(l.cost_total || 0);
     return s + (cost > 0 ? cost : 0);
   }, 0), [filteredLinksForKpi]);
-  const totalRevenue = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0), [filteredLinksForKpi]);
-  // Total LTV from tracking_link_ltv table
+  const totalRevenue = overviewPeriodTotals.revenue;
+
+  // Total LTV from tracking_link_ltv table (cumulative)
   const totalLtv = useMemo(() => {
     const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
     return trackingLinkLtv
       .filter((r: any) => !accountIdSet || accountIdSet.has(r.account_id))
       .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
   }, [trackingLinkLtv, agencyAccountIds]);
-  // Total Profit = SUM(total_ltv + cross_poll_revenue) for links with spend - SUM(cost_total)
-  const totalProfit = useMemo(() => {
-    if (totalSpend <= 0) return null;
-    const linksWithCost = filteredLinksForKpi.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const ltvPlusCp = linksWithCost.reduce((s: number, l: any) => {
-      const rec = overviewLtvLookup[String(l.id).toLowerCase()];
-      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
-      const cp = rec ? Number(rec.cross_poll_revenue || 0) : 0;
-      return s + ltv + cp;
-    }, 0);
-    const totalCost = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    return ltvPlusCp - totalCost;
-  }, [filteredLinksForKpi, overviewLtvLookup, totalSpend]);
-  // Avg CPL = SUM(cost_total) / SUM(new_subs_total) for links with spend
-  const paidNewSubs = useMemo(() => {
-    const linksWithCost = filteredLinksForKpi.filter((l: any) => Number(l.cost_total || 0) > 0);
-    return linksWithCost.reduce((s: number, l: any) => {
-      const rec = overviewLtvLookup[String(l.id).toLowerCase()];
-      return s + (rec ? Number(rec.new_subs_total || 0) : 0);
-    }, 0);
-  }, [filteredLinksForKpi, overviewLtvLookup]);
-  const paidSubscribers = paidNewSubs;
-  const avgProfitPerSub = (totalProfit !== null && paidNewSubs > 0) ? totalProfit / paidNewSubs : null;
+  const totalProfit = totalLtv - totalSpend;
+  const avgProfitPerSub = periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
     let accts = [...accounts];
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
-    const acctIds = new Set(accts.map((a: any) => a.id));
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    const fLinks = links.filter((l: any) => acctIds.has(l.account_id));
-    const rawAttributed = fLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const attributedSubs = Math.min(rawAttributed, accountTotalSubs);
+    const attributedSubs = Math.min(periodSubscribers, accountTotalSubs);
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
     const pct = accountTotalSubs > 0 ? Math.max(0, (unattributed / accountTotalSubs) * 100) : 0;
     return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow: false };
-  }, [accounts, links, modelParam, groupFilter]);
+  }, [accounts, modelParam, groupFilter, periodSubscribers]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -265,7 +377,7 @@ export default function DashboardPage() {
               kpiCards={enabledCards} insightPanels={insightPanels} modelCompCols={modelCompCols}
               toggleKpi={toggleCard} toggleInsight={toggleInsight} toggleModelCol={toggleModelCol}
             />
-            <RefreshButton queryKeys={["tracking_links", "accounts", "daily_metrics", "sync_settings"]} />
+            <RefreshButton queryKeys={["tracking_links", "accounts", "daily_metrics", "daily_snapshots", "sync_settings"]} />
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
@@ -337,18 +449,18 @@ export default function DashboardPage() {
 
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
-          isLoading={isLoading || isPeriodLoading}
+          isLoading={isLoading}
           isVisible={isVisible}
           enabledCards={enabledCards}
           accounts={accounts}
           links={filteredLinksForKpi}
-          dailyMetrics={dailyMetrics}
-          trackingLinkLtv={trackingLinkLtv}
           totalSpend={totalSpend}
           totalRevenue={totalRevenue}
           totalLtv={totalLtv}
           totalProfit={totalProfit}
-          paidSubscribers={paidSubscribers}
+          periodSubscribers={periodSubscribers}
+          periodDayCount={periodDayCount}
+          activeLinkCount={activeLinkCount}
           avgProfitPerSub={avgProfitPerSub}
           unattributedStats={unattributedStats}
           timePeriod={timePeriod}
@@ -410,8 +522,8 @@ export default function DashboardPage() {
 // ═══ KPI Cards component ═══
 function KpiCards({
   isLoading, isVisible, enabledCards,
-  accounts, links, dailyMetrics, trackingLinkLtv,
-  totalSpend, totalRevenue, totalLtv, totalProfit, paidSubscribers, avgProfitPerSub,
+  accounts, links,
+  totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC,
 }: {
@@ -420,13 +532,13 @@ function KpiCards({
   enabledCards: string[];
   accounts: any[];
   links: any[];
-  dailyMetrics: any[];
-  trackingLinkLtv: any[];
   totalSpend: number;
   totalRevenue: number;
   totalLtv: number;
-  totalProfit: number | null;
-  paidSubscribers: number;
+  totalProfit: number;
+  periodSubscribers: number;
+  periodDayCount: number | null;
+  activeLinkCount: number;
   avgProfitPerSub: number | null;
   unattributedStats: any;
   timePeriod: string;
@@ -441,71 +553,23 @@ function KpiCards({
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
     : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
 
-  // Subs/Day from daily_metrics (sum of per-model deltas)
-  const subsPerDayCalc = (() => {
-    const scopedAccounts = modelParam
-      ? accounts.filter((a: any) => a.id === modelParam)
-      : groupFilter !== "all"
-        ? accounts.filter((a: any) => getAccountCategory(a) === groupFilter)
-        : accounts;
+  const subsPerDayCalc = periodDayCount ? periodSubscribers / periodDayCount : null;
 
-    const perModelValues = scopedAccounts.map((acc: any) => {
-      const accMetrics = dailyMetrics.filter((m: any) => m.account_id === acc.id);
-      const distinctDates = [...new Set(accMetrics.map((m: any) => m.date))].sort().reverse();
-      if (distinctDates.length < 2) return null;
-
-      const latestDate = distinctDates[0];
-      const previousDate = distinctDates[1];
-      const latestSubs = accMetrics
-        .filter((m: any) => m.date === latestDate)
-        .reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-      const previousSubs = accMetrics
-        .filter((m: any) => m.date === previousDate)
-        .reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-
-      const daysBetween = Math.max(1, differenceInDays(new Date(latestDate), new Date(previousDate)));
-      return Math.max(0, latestSubs - previousSubs) / daysBetween;
-    });
-
-    const validValues = perModelValues.filter((v): v is number => v !== null);
-    if (validValues.length === 0) return null;
-    return validValues.reduce((sum, value) => sum + value, 0);
-  })();
-
-  // Avg CPL = SUM(cost_total) / SUM(new_subs_total)
-  const avgCpl = paidSubscribers > 0 ? totalSpend / paidSubscribers : null;
+  // Avg CPL = Expenses / tracked subscribers for the selected period
+  const avgCpl = periodSubscribers > 0 ? totalSpend / periodSubscribers : null;
 
   // Extra card computations
-  const withSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0);
-  const expenses = withSpend.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+  const linksInPeriod = timePeriod === "all" && !customRange
+    ? links
+    : links.filter((l: any) => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0 || Number(l.revenue || 0) > 0);
+  const withSpend = linksInPeriod.filter((l: any) => Number(l.cost_total || 0) > 0);
+  const expenses = totalSpend;
   const withSpendCount = withSpend.length;
   const avgExpenses = withSpendCount > 0 ? expenses / withSpendCount : null;
 
-  // Build LTV lookup for KPI cards
-  const kpiLtvLookup = useMemo(() => {
-    const map: Record<string, any> = {};
-    for (const r of trackingLinkLtv) {
-      const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
-      if (key) map[key] = r;
-    }
-    return map;
-  }, [trackingLinkLtv]);
-
-  // Total Profit = SUM(total_ltv + cross_poll_revenue) for links with spend - expenses
-  const expEffective = withSpend.reduce((s: number, l: any) => {
-    const ltvRecord = kpiLtvLookup[String(l.id).toLowerCase()];
-    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
-    const cpVal = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : 0;
-    return s + ltvVal + cpVal;
-  }, 0);
-  const cardTotalProfit = expenses > 0 ? expEffective - expenses : null;
-  const blendedRoi = expenses > 0 && cardTotalProfit !== null ? (cardTotalProfit / expenses) * 100 : null;
-
-  const activeCampaigns = links.filter((l: any) => {
-    if (l.clicks <= 0) return false;
-    const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
-    return calcDate ? differenceInDays(new Date(), calcDate) <= 30 : false;
-  }).length;
+  const cardTotalProfit = totalProfit;
+  const blendedRoi = expenses > 0 ? (cardTotalProfit / expenses) * 100 : null;
+  const activeCampaigns = activeLinkCount;
 
   // Best source by ROI
   const bySource: Record<string, { rev: number; spend: number; profit: number }> = {};
@@ -513,12 +577,10 @@ function KpiCards({
     const tag = getEffectiveSource(l) || "Untagged";
     if (tag === "Untagged") return;
     if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
-    const ltvRecord = kpiLtvLookup[String(l.id).toLowerCase()];
-    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : 0;
-    const cpVal = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : 0;
-    bySource[tag].rev += ltvVal + cpVal;
+    const revenue = Number(l.revenue || 0);
+    bySource[tag].rev += revenue;
     bySource[tag].spend += Number(l.cost_total || 0);
-    bySource[tag].profit += (ltvVal + cpVal) - Number(l.cost_total || 0);
+    bySource[tag].profit += revenue - Number(l.cost_total || 0);
   });
   let bestSource: { name: string; roi: number } | null = null;
   Object.entries(bySource).forEach(([name, d]) => {
@@ -526,18 +588,7 @@ function KpiCards({
     if (!bestSource || roi > bestSource.roi) bestSource = { name, roi };
   });
 
-  // LTV/Sub from tracking_link_ltv table (is_estimated = false)
-  const ltvPerSubCalc = useMemo(() => {
-    const accountIdSet = modelParam ? new Set([modelParam]) : 
-      groupFilter !== "all" ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id)) : null;
-    const filtered = trackingLinkLtv.filter((r: any) => 
-      r.is_estimated === false && (!accountIdSet || accountIdSet.has(r.account_id))
-    );
-    const sumLtv = filtered.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
-    const sumSubs = filtered.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
-    return sumSubs > 0 ? sumLtv / sumSubs : null;
-  }, [trackingLinkLtv, modelParam, groupFilter, accounts, getAccountCategory]);
-  const ltvPerSub = ltvPerSubCalc;
+  const ltvPerSub = periodSubscribers > 0 ? totalLtv / periodSubscribers : null;
 
   if (isLoading) {
     return (
@@ -560,9 +611,6 @@ function KpiCards({
   const renderCard = (id: OverviewKpiCardId) => {
     switch (id) {
       case "profit_sub": {
-        const campaignsWithSpend = links.filter((l: any) => Number(l.cost_total || 0) > 0 && (l.subscribers || 0) > 0).length;
-        const campaignsNeedingSpend = links.filter((l: any) => Number(l.cost_total || 0) <= 0 && (l.subscribers || 0) > 0).length;
-        const showProfitSub = campaignsWithSpend >= 10 && avgProfitPerSub !== null;
         return (
           <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "#0F172A", border: "1px solid #1E293B" }}>
             <div className="flex items-center gap-2 mb-2">
@@ -571,16 +619,12 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-white/70 font-medium uppercase tracking-wider">Profit/Sub</span>
             </div>
-            {showProfitSub ? (
-              <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub!)}</p>
+            {avgProfitPerSub !== null ? (
+              <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub)}</p>
             ) : (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">
-              {showProfitSub
-                ? `Per acquired subscriber · ${periodLabel}`
-                : `Add spend to ${campaignsNeedingSpend} links`}
-            </p>
+            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">Total profit / tracked subs · {periodLabel}</p>
           </div>
         );
       }
@@ -599,7 +643,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">All subscribers · {periodLabel}</p>
+            <p className="text-[11px] text-white/60 mt-1">Cumulative LTV / tracked subs · {periodLabel}</p>
           </div>
         );
 
@@ -617,7 +661,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Cost per subscriber · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Expenses / tracked subs · {periodLabel}</p>
           </div>
         );
 
@@ -631,11 +675,11 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
             </div>
             {subsPerDayCalc !== null ? (
-              <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
+              <p className="text-[22px] font-bold font-mono text-primary">{subsPerDayCalc > 0 ? "+" : ""}{Math.round(subsPerDayCalc)}/day</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground" title="Needs 2+ syncs to calculate">---</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">---</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Agency-wide daily growth · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Tracked subs / day · {periodLabel}</p>
           </div>
         );
 
@@ -686,7 +730,7 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${expenses === 0 ? "text-destructive" : "text-foreground"}`}>
               {fmtC(expenses)}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">Total spend set</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Cumulative spend across tracked links</p>
           </div>
         );
 
@@ -704,7 +748,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Per tracking link with spend</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Per active link with spend · {periodLabel}</p>
           </div>
         );
 
@@ -717,15 +761,11 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
             </div>
-            {cardTotalProfit !== null ? (
-              <div className="flex items-center gap-2">
-                <p className={`text-[22px] font-bold font-mono ${cardTotalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(cardTotalProfit)}</p>
-                <span className={`w-2 h-2 rounded-full shrink-0 ${totalLtv > 0 ? "bg-[#0891b2]" : "bg-muted-foreground"}`} title={totalLtv > 0 ? "From LTV (accurate)" : "From Revenue (estimate)"} />
-              </div>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            )}
-            <p className="text-[11px] text-muted-foreground mt-1">{totalLtv > 0 ? "LTV minus spend" : "Revenue minus spend (estimate)"}</p>
+            <div className="flex items-center gap-2">
+              <p className={`text-[22px] font-bold font-mono ${cardTotalProfit >= 0 ? "text-primary" : "text-destructive"}`}>{fmtC(cardTotalProfit)}</p>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${totalLtv > 0 ? "bg-[#0891b2]" : "bg-muted-foreground"}`} title="Calculated from cumulative LTV minus cumulative spend" />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">Cumulative LTV minus cumulative spend</p>
           </div>
         );
 
@@ -743,7 +783,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Profit / Expenses × 100</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Total profit / expenses × 100</p>
           </div>
         );
 
@@ -757,7 +797,7 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Active Links</span>
             </div>
             <p className="text-[22px] font-bold font-mono text-foreground">{activeCampaigns}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Clicks in last 30 days</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Links with clicks or subs · {periodLabel}</p>
           </div>
         );
 
@@ -776,7 +816,7 @@ function KpiCards({
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">
-              {bestSource ? `${bestSource.roi.toFixed(0)}% ROI` : "No data"}
+              {bestSource ? `${bestSource.roi.toFixed(0)}% ROI · ${periodLabel}` : "No data"}
             </p>
           </div>
         );
@@ -791,7 +831,7 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Est. Revenue</span>
             </div>
             <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalRevenue)} <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none align-middle">Est.</span></p>
-            <p className="text-[11px] text-muted-foreground mt-1">Gross revenue · includes all subscribers</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Snapshot revenue · {periodLabel}</p>
           </div>
         );
 
@@ -809,7 +849,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">From new subscribers only</p>
+            <p className="text-[11px] text-white/60 mt-1">Cumulative LTV</p>
           </div>
         );
 
