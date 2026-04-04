@@ -118,12 +118,12 @@ export default function CalculationsPage() {
   const { data: allAccounts = [] } = useQuery({ queryKey: ["calc_accounts_list"], queryFn: fetchAccountsHelper });
 
   const { data: links = [] as any[], isLoading: linksLoading } = useQuery({
-    queryKey: ["calc_tracking_links", dateFilter.from, dateFilter.to],
-    queryFn: () => fetchAllTrackingLinks(dateFilter),
+    queryKey: ["calc_tracking_links"],
+    queryFn: () => fetchAllTrackingLinks(),
   });
   const { data: ltvRows = [] as any[], isLoading: ltvLoading } = useQuery({
-    queryKey: ["calc_ltv", dateFilter.from, dateFilter.to],
-    queryFn: () => fetchAllLtv(dateFilter),
+    queryKey: ["calc_ltv"],
+    queryFn: () => fetchAllLtv(),
   });
   const { data: accounts = [] as any[] } = useQuery({
     queryKey: ["calc_accounts"],
