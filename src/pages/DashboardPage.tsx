@@ -40,9 +40,6 @@ export default function DashboardPage() {
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
-  // Snapshot-based time filtering (replaces old dateFilter logic)
-  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod as any, customRange);
-
   // dateFilter kept for RPC call compatibility
   const dateFilter = useMemo(() => ({ from: null as string | null, to: null as string | null }), []);
 
@@ -53,7 +50,7 @@ export default function DashboardPage() {
   } = useOverviewCustomizer();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: allLinks = [], isLoading } = useQuery({
+  const { data: allLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -77,8 +74,9 @@ export default function DashboardPage() {
   });
 
   // Snapshot-based time filtering
-  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod as any, customRange);
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
+  const isLoading = linksLoading || snapshotLoading;
 
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
