@@ -96,17 +96,14 @@ export default function DashboardPage() {
   } = useOverviewCustomizer();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["tracking_links", dateFilter.from, dateFilter.to],
+  const { data: allLinks = [], isLoading } = useQuery({
+    queryKey: ["tracking_links"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("tracking_links")
         .select("*, accounts(display_name, username, avatar_thumb_url)")
         .is("deleted_at", null)
         .order("revenue", { ascending: false });
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -114,16 +111,17 @@ export default function DashboardPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
+    queryKey: ["tracking_link_ltv"],
     queryFn: async () => {
-      let query = supabase.from("tracking_link_ltv").select("*");
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
+      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
       if (error) throw error;
       return data || [];
     },
   });
+
+  // Snapshot-based time filtering
+  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
