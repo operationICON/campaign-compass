@@ -130,7 +130,6 @@ export function getSnapshotMetrics(
   snapshotLookup: Record<string, SnapshotMetrics> | null
 ): SnapshotMetrics {
   if (!snapshotLookup) {
-    // All Time — use link totals
     return {
       clicks: Number(link.clicks || 0),
       subscribers: Number(link.subscribers || 0),
@@ -139,4 +138,19 @@ export function getSnapshotMetrics(
   }
   const id = String(link.id ?? "").toLowerCase();
   return snapshotLookup[id] || { clicks: 0, subscribers: 0, revenue: 0 };
+}
+
+/**
+ * Returns a new array of links with clicks/subscribers/revenue
+ * replaced by snapshot-period values. For "All Time" returns links unchanged.
+ */
+export function applySnapshotToLinks(
+  links: any[],
+  snapshotLookup: Record<string, SnapshotMetrics> | null
+): any[] {
+  if (!snapshotLookup) return links; // All Time — use originals
+  return links.map(l => {
+    const m = getSnapshotMetrics(l, snapshotLookup);
+    return { ...l, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue };
+  });
 }
