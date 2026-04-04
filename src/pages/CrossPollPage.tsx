@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
 import { GitBranch, Users, DollarSign, Award, Percent } from "lucide-react";
-import { useSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
+import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
