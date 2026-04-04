@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
 import { GitBranch, Users, DollarSign, Award, Percent } from "lucide-react";
+import { useSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -23,31 +24,27 @@ export default function CrossPollPage() {
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
+  // Cross-poll data doesn't use snapshots — LTV is cumulative. Keep fetching all.
   const { data: ltvData = [], isLoading: ltvLoading } = useQuery({
-    queryKey: ["crosspoll_ltv", dateFilter.from, dateFilter.to],
+    queryKey: ["crosspoll_ltv"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("tracking_link_ltv")
         .select("*")
         .gt("cross_poll_revenue", 0)
         .order("cross_poll_revenue", { ascending: false });
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: trackingLinks = [] } = useQuery({
-    queryKey: ["crosspoll_tracking_links", dateFilter.from, dateFilter.to],
+    queryKey: ["crosspoll_tracking_links"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("tracking_links")
         .select("id, campaign_name, account_id")
         .is("deleted_at", null);
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
       const { data, error } = await query;
       if (error) throw error;
       return data;

@@ -213,22 +213,22 @@ export default function TrafficSourcesPage() {
     },
   });
 
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["tracking_links_ts", dateFilter.from, dateFilter.to],
+  // Snapshot-based time filtering
+  const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+
+  const { data: allLinks = [], isLoading: linksLoading } = useQuery({
+    queryKey: ["tracking_links_ts"],
     queryFn: async () => {
       let allLinks: any[] = [];
       let from = 0;
       const batchSize = 1000;
       while (true) {
-        let query = supabase
+        const { data } = await supabase
           .from("tracking_links")
           .select("*, accounts(display_name, username, avatar_thumb_url)")
           .is("deleted_at", null)
           .order("revenue", { ascending: false })
           .range(from, from + batchSize - 1);
-        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-        const { data } = await query;
         if (!data || data.length === 0) break;
         allLinks = allLinks.concat(data);
         if (data.length < batchSize) break;
@@ -237,6 +237,8 @@ export default function TrafficSourcesPage() {
       return allLinks;
     },
   });
+  const isLoading = linksLoading || snapshotLoading;
+  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
@@ -263,12 +265,9 @@ export default function TrafficSourcesPage() {
   });
 
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
+    queryKey: ["tracking_link_ltv"],
     queryFn: async () => {
-      let query = supabase.from("tracking_link_ltv").select("*");
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data } = await query;
+      const { data } = await supabase.from("tracking_link_ltv").select("*");
       return data || [];
     },
   });
