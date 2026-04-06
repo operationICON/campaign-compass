@@ -662,9 +662,9 @@ function KpiCards({
             {ltvPerSub !== null ? (
               <p className="text-[22px] font-bold font-mono text-white">{fmtC(ltvPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">{noDataForPeriod ? "$0.00" : "—"}</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">Cumulative LTV / tracked subs · {periodLabel}</p>
+            <p className="text-[11px] text-white/60 mt-1">{noDataForPeriod ? "No data for this period" : `LTV / tracked subs · ${periodLabel}`}</p>
           </div>
         );
 
