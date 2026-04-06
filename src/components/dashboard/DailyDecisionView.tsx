@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle, BarChart3, Users, Zap, Activity, AlertTriangle, Trophy } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle, BarChart3, Users, Zap, Link2, AlertTriangle, Trophy, DollarSign } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
 interface DailyDecisionViewProps {
