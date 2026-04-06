@@ -318,13 +318,15 @@ export default function DashboardPage() {
   }, 0), [filteredLinksForKpi]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
-  // Total LTV from tracking_link_ltv table (cumulative)
-  const totalLtv = useMemo(() => {
+  // Total LTV: for time-filtered periods use snapshot revenue; for All Time use tracking_link_ltv
+  const cumulativeLtv = useMemo(() => {
     const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
     return trackingLinkLtv
       .filter((r: any) => !accountIdSet || accountIdSet.has(r.account_id))
       .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
   }, [trackingLinkLtv, agencyAccountIds]);
+  const isAllTime = timePeriod === "all" && !customRange;
+  const totalLtv = isAllTime ? cumulativeLtv : overviewPeriodTotals.revenue;
   const totalProfit = totalLtv - totalSpend;
   const avgProfitPerSub = periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
