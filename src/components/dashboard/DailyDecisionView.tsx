@@ -30,7 +30,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
     return rec ? Number(rec.new_subs_total || 0) : 0;
   };
 
-  const sevenDaysAgo = useMemo(() => subDays(new Date(), 7).toISOString(), []);
+  
 
   const linksWithSpend = useMemo(() => links.filter(l => Number(l.cost_total || 0) > 0), [links]);
   const noSpendCount = useMemo(() => links.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [links]);
