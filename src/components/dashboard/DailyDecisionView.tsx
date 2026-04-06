@@ -32,8 +32,18 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
 
   
 
-  const linksWithSpend = useMemo(() => links.filter(l => Number(l.cost_total || 0) > 0), [links]);
-  const noSpendCount = useMemo(() => links.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [links]);
+  // Only consider links with activity in the selected period
+  const activeInPeriod = useMemo(() => {
+    if (isAllTime || !snapshotLookup) return links;
+    return links.filter(l => {
+      const id = String(l.id ?? "").toLowerCase();
+      const snap = snapshotLookup[id];
+      return snap && (snap.clicks > 0 || snap.subscribers > 0);
+    });
+  }, [links, isAllTime, snapshotLookup]);
+
+  const linksWithSpend = useMemo(() => activeInPeriod.filter(l => Number(l.cost_total || 0) > 0), [activeInPeriod]);
+  const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
 
   // Agency summary stats — only count spend from links with activity in the period
   const agencyToday = useMemo(() => {
