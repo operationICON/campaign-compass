@@ -851,7 +851,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">Cumulative LTV</p>
+            <p className="text-[11px] text-white/60 mt-1">{timePeriod === "all" && !customRange ? "Cumulative LTV" : `Snapshot revenue · ${periodLabel}`}</p>
           </div>
         );
 
