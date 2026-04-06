@@ -140,6 +140,11 @@ export default function LogsPage() {
     setRunning(r => ({ ...r, snapshot: true }));
     setProgress(p => ({ ...p, snapshot: "Saving snapshots..." }));
     try {
+      // Log this as a snapshot sync
+      await supabase.from("sync_logs").insert({
+        status: "running", triggered_by: "snapshot_sync", message: "Snapshot sync started",
+        records_processed: 0,
+      });
       const res = await supabase.functions.invoke("sync-account", {
         body: { snapshot_only: true },
       });
