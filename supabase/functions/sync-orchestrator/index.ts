@@ -20,12 +20,12 @@ Deno.serve(async (req) => {
   const triggeredBy = body.triggered_by ?? 'manual'
 
   try {
-    // Mark stuck syncs (running > 8 min) as failed — increased from 3 min for large accounts
-    const threeMinutesAgo = new Date(Date.now() - 8 * 60 * 1000).toISOString()
+    // Mark stuck syncs (running > 10 min) as failed
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
     const { data: stuck } = await db.from('sync_logs')
       .select('id')
       .eq('status', 'running')
-      .lt('started_at', threeMinutesAgo)
+      .lt('started_at', tenMinutesAgo)
 
     if (stuck && stuck.length > 0) {
       const now = new Date().toISOString()
@@ -33,8 +33,8 @@ Deno.serve(async (req) => {
         await db.from('sync_logs').update({
           status: 'error', success: false,
           finished_at: now, completed_at: now,
-          error_message: 'Sync timed out — exceeded 8 minute limit',
-          message: 'Sync timed out — exceeded 8 minute limit',
+          error_message: 'Sync timed out — exceeded 10 minute limit',
+          message: 'Sync timed out — exceeded 10 minute limit',
         }).eq('id', row.id)
       }
       console.log(`Marked ${stuck.length} stuck syncs as failed`)
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       started_at: startedAt,
       status: 'running',
       success: false,
-      message: 'Orchestrator started — syncing accounts sequentially',
+      message: 'Orchestrator started — syncing accounts in parallel batches of 3',
       records_processed: 0,
       triggered_by: triggeredBy,
       accounts_synced: 0,
@@ -67,12 +67,11 @@ Deno.serve(async (req) => {
     let totalLinksSynced = 0
     const errors: string[] = []
 
-    // Call sync-account sequentially for each account
+    // Filter out disabled accounts
+    const enabledAccounts: typeof accountList = []
     for (const account of accountList) {
-      // Check sync_enabled flag
       if (account.sync_enabled === false) {
-        console.log(`Skipped ${account.display_name} (@${account.username}) — sync disabled in settings`)
-        // Log skipped account
+        console.log(`Skipped ${account.display_name} (@${account.username}) — sync disabled`)
         await db.from('sync_logs').insert({
           account_id: account.id,
           started_at: new Date().toISOString(),
@@ -86,40 +85,85 @@ Deno.serve(async (req) => {
         })
         continue
       }
+      enabledAccounts.push(account)
+    }
 
-      try {
-        console.log(`Syncing account: ${account.display_name}`)
-        const res = await fetch(`${supabaseUrl}/functions/v1/sync-account`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${anonKey}`,
-          },
-          body: JSON.stringify({
-            account_id: account.id,
-            onlyfans_account_id: account.onlyfans_account_id,
-            display_name: account.display_name,
-          }),
-        })
+    // Helper: sync one account with retry
+    async function syncAccountWithRetry(account: typeof accountList[0]) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const label = attempt === 0 ? '' : ' (retry)'
+          console.log(`Syncing account${label}: ${account.display_name}`)
 
-        if (res.ok) {
-          const result = await res.json()
-          accountsSynced++
-          totalLinksSynced += (result.links ?? 0)
-          console.log(`✓ ${account.display_name}: ${result.links} links, ${result.transactions} tx`)
-        } else {
-          const errText = await res.text()
-          console.error(`✗ ${account.display_name}: ${res.status} ${errText}`)
-          errors.push(`${account.display_name}: ${errText}`)
+          // Update orchestrator log with current progress
+          if (orchLogId) {
+            await db.from('sync_logs').update({
+              message: `Syncing ${account.display_name}${label} — ${accountsSynced}/${enabledAccounts.length} done`,
+            }).eq('id', orchLogId)
+          }
+
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000) // 10 min
+
+          const res = await fetch(`${supabaseUrl}/functions/v1/sync-account`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              account_id: account.id,
+              onlyfans_account_id: account.onlyfans_account_id,
+              display_name: account.display_name,
+            }),
+            signal: controller.signal,
+          })
+
+          clearTimeout(timeout)
+
+          if (res.ok) {
+            const result = await res.json()
+            accountsSynced++
+            totalLinksSynced += (result.links ?? 0)
+            console.log(`✓ ${account.display_name}: ${result.links} links, ${result.transactions} tx`)
+            return // success, exit retry loop
+          } else {
+            const errText = await res.text()
+            if (attempt === 0) {
+              console.warn(`✗ ${account.display_name} attempt 1 failed (${res.status}), retrying...`)
+              continue
+            }
+            console.error(`✗ ${account.display_name}: ${res.status} ${errText}`)
+            errors.push(`${account.display_name}: ${errText}`)
+          }
+        } catch (err: any) {
+          if (attempt === 0) {
+            console.warn(`✗ ${account.display_name} attempt 1 error: ${err.message}, retrying...`)
+            continue
+          }
+          console.error(`✗ ${account.display_name} failed after retry: ${err.message}`)
+          errors.push(`${account.display_name}: ${err.message}`)
         }
-      } catch (err: any) {
-        console.error(`✗ ${account.display_name} call failed: ${err.message}`)
-        errors.push(`${account.display_name}: ${err.message}`)
-        // Continue to next account
       }
     }
 
-    // Auto-tag removed — source tags are manual only
+    // Process accounts in parallel batches of 3
+    const BATCH_SIZE = 3
+    for (let i = 0; i < enabledAccounts.length; i += BATCH_SIZE) {
+      const batch = enabledAccounts.slice(i, i + BATCH_SIZE)
+      const batchNames = batch.map(a => a.display_name).join(', ')
+      console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batchNames}`)
+
+      if (orchLogId) {
+        await db.from('sync_logs').update({
+          message: `Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(enabledAccounts.length / BATCH_SIZE)}: syncing ${batchNames}`,
+          accounts_synced: accountsSynced,
+          tracking_links_synced: totalLinksSynced,
+        }).eq('id', orchLogId)
+      }
+
+      await Promise.all(batch.map(account => syncAccountWithRetry(account)))
+    }
 
     // Update orchestrator log
     const now = new Date().toISOString()
@@ -133,13 +177,13 @@ Deno.serve(async (req) => {
         accounts_synced: accountsSynced,
         tracking_links_synced: totalLinksSynced,
         records_processed: totalLinksSynced,
-        message: `Synced ${accountsSynced}/${accountList.length} accounts, ${totalLinksSynced} links${hasErrors ? ` (${errors.length} errors)` : ''}`,
+        message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts, ${totalLinksSynced} links${hasErrors ? ` (${errors.length} errors)` : ''}`,
         error_message: hasErrors ? errors.join('; ') : null,
       }).eq('id', orchLogId)
     }
 
     return new Response(JSON.stringify({
-      message: `Synced ${accountsSynced}/${accountList.length} accounts`,
+      message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts`,
       accounts_synced: accountsSynced,
       tracking_links_synced: totalLinksSynced,
       errors: errors.length > 0 ? errors : undefined,

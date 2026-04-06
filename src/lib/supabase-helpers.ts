@@ -192,28 +192,45 @@ export async function triggerSync(
   const accounts = orchestratorRes.data?.accounts ?? [];
   onProgress?.(`Accounts synced (${accounts.length}). Starting link sync...`);
 
-  // Step 2: Sync tracking links per account sequentially
+  // Step 2: Sync tracking links per account in parallel batches of 3
   const results: any[] = [];
   const accountsToSync = accountId
     ? accounts.filter((a: any) => a.id === accountId)
     : accounts;
 
-  for (let i = 0; i < accountsToSync.length; i++) {
-    const acc = accountsToSync[i];
-    onProgress?.(`Syncing ${acc.display_name} (${i + 1}/${accountsToSync.length})${testLinkId ? ` [test link ${testLinkId}]` : ''}...`);
-    try {
-      const res = await supabase.functions.invoke("sync-tracking", {
-        body: {
-          account_id: acc.id,
-          onlyfans_account_id: acc.onlyfans_account_id,
-          display_name: acc.display_name,
-          ...(testLinkId ? { test_link_id: testLinkId } : {}),
-        },
-      });
-      results.push({ account: acc.display_name, status: 'success', data: res.data });
-    } catch (err: any) {
-      results.push({ account: acc.display_name, status: 'error', error: err.message });
+  const BATCH_SIZE = 3;
+
+  async function syncOneAccount(acc: any, index: number) {
+    const label = `${acc.display_name} (${index + 1}/${accountsToSync.length})`;
+    onProgress?.(`Syncing ${label}${testLinkId ? ` [test link]` : ''}...`);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await supabase.functions.invoke("sync-tracking", {
+          body: {
+            account_id: acc.id,
+            onlyfans_account_id: acc.onlyfans_account_id,
+            display_name: acc.display_name,
+            ...(testLinkId ? { test_link_id: testLinkId } : {}),
+          },
+        });
+        results.push({ account: acc.display_name, status: 'success', data: res.data });
+        return;
+      } catch (err: any) {
+        if (attempt === 0) {
+          onProgress?.(`Retrying ${acc.display_name}...`);
+          continue;
+        }
+        results.push({ account: acc.display_name, status: 'error', error: err.message });
+      }
     }
+  }
+
+  for (let i = 0; i < accountsToSync.length; i += BATCH_SIZE) {
+    const batch = accountsToSync.slice(i, i + BATCH_SIZE);
+    const names = batch.map((a: any) => a.display_name).join(', ');
+    onProgress?.(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${names}`);
+    await Promise.all(batch.map((acc: any, j: number) => syncOneAccount(acc, i + j)));
   }
 
   onProgress?.('Sync complete!');
