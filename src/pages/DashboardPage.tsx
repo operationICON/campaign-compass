@@ -680,9 +680,9 @@ function KpiCards({
             {avgCpl !== null ? (
               <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgCpl)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">{noDataForPeriod ? "$0.00" : "—"}</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Expenses / tracked subs · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{noDataForPeriod ? "No data for this period" : `Expenses / tracked subs · ${periodLabel}`}</p>
           </div>
         );
 
