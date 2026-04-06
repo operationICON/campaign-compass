@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, TrendingUp, Eye, XCircle, BarChart3, Users, DollarSign, Zap } from "lucide-react";
-import { subDays } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
 interface DailyDecisionViewProps {
