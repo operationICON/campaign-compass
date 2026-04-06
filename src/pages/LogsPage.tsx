@@ -45,9 +45,9 @@ function classifySyncType(log: any): SyncType {
   const msg = (log.message || "").toLowerCase();
   const details = JSON.stringify(log.details || {}).toLowerCase();
   const triggered = (log.triggered_by || "").toLowerCase();
-  if (triggered.includes("ltv") || msg.includes("ltv") || msg.includes("fan sync") || details.includes("ltv")) return "ltv";
+  if (triggered.includes("ltv") || triggered.includes("fan_sync") || msg.includes("ltv") || msg.includes("fan sync") || details.includes("ltv")) return "ltv";
   if (triggered.includes("snapshot") || msg.includes("snapshot") || details.includes("snapshot")) return "snapshot";
-  if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || details.includes("onlytraffic")) return "onlytraffic";
+  if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || msg.includes("auto-tag") || details.includes("onlytraffic")) return "onlytraffic";
   return "dashboard";
 }
 
@@ -140,6 +140,11 @@ export default function LogsPage() {
     setRunning(r => ({ ...r, snapshot: true }));
     setProgress(p => ({ ...p, snapshot: "Saving snapshots..." }));
     try {
+      // Log this as a snapshot sync
+      await supabase.from("sync_logs").insert({
+        status: "running", triggered_by: "snapshot_sync", message: "Snapshot sync started",
+        records_processed: 0,
+      });
       const res = await supabase.functions.invoke("sync-account", {
         body: { snapshot_only: true },
       });
@@ -163,6 +168,11 @@ export default function LogsPage() {
     setRunning(r => ({ ...r, onlytraffic: true }));
     setProgress(p => ({ ...p, onlytraffic: "Syncing OnlyTraffic..." }));
     try {
+      // Log this as an onlytraffic sync
+      await supabase.from("sync_logs").insert({
+        status: "running", triggered_by: "onlytraffic_sync", message: "OnlyTraffic sync started",
+        records_processed: 0,
+      });
       const res = await supabase.functions.invoke("auto-tag-campaigns", {
         body: {},
       });
