@@ -574,6 +574,7 @@ function KpiCards({
     : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
 
   const subsPerDayCalc = periodDayCount ? periodSubscribers / periodDayCount : null;
+  const noDataForPeriod = !hasSnapshotData && timePeriod !== "all";
 
   // Avg CPL = Expenses / tracked subscribers for the selected period
   const avgCpl = periodSubscribers > 0 ? totalSpend / periodSubscribers : null;
