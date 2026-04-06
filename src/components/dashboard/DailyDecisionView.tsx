@@ -247,24 +247,50 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
       </button>
       {open && (
         <div className="border-t border-border">
-          {/* Section 1 — Today's Summary */}
+          {/* Section 1 — Key Metrics */}
           <div className="grid grid-cols-4 gap-0 border-b border-border">
-            {[
-              { label: "Synced Today", value: syncedToday.toLocaleString(), icon: <Activity className="h-3.5 w-3.5" /> },
-              { label: "New Subs Today", value: newSubsToday.toLocaleString(), icon: <Users className="h-3.5 w-3.5" /> },
-              { label: "Top Campaign", value: topCampaignToday?.name ?? "—", icon: <Trophy className="h-3.5 w-3.5" />, isText: true },
-              { label: "Needs Attention", value: needsAttentionCount.toLocaleString(), icon: <AlertTriangle className="h-3.5 w-3.5" />, color: needsAttentionCount > 0 ? false : true },
-            ].map((item, i) => (
-              <div key={i} className={`px-4 py-3 ${i < 3 ? "border-r border-border" : ""}`}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-muted-foreground">{item.icon}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{item.label}</span>
-                </div>
-                <p className={`${(item as any).isText ? "text-sm truncate" : "text-lg font-mono"} font-bold ${item.color !== undefined ? (item.color ? "text-primary" : "text-destructive") : "text-foreground"}`}>
-                  {item.value}
-                </p>
+            <div className="px-4 py-3 border-r border-border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Active Links</span>
               </div>
-            ))}
+              <p className="text-lg font-mono font-bold text-foreground">{activeLinksCount.toLocaleString()}</p>
+            </div>
+            <div className="px-4 py-3 border-r border-border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Best ROI</span>
+              </div>
+              {bestRoi ? (
+                <>
+                  <p className="text-sm font-bold text-primary truncate">{bestRoi.roi.toFixed(0)}%</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{bestRoi.name}</p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-muted-foreground">—</p>
+              )}
+            </div>
+            <div className="px-4 py-3 border-r border-border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Needs Attention</span>
+              </div>
+              <p className={`text-lg font-mono font-bold ${needsAttentionCount > 0 ? "text-destructive" : "text-primary"}`}>{needsAttentionCount.toLocaleString()}</p>
+            </div>
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Top Earner</span>
+              </div>
+              {topEarner ? (
+                <>
+                  <p className="text-sm font-bold text-foreground truncate">{fmtC(topEarner.ltv)}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{topEarner.name}</p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-muted-foreground">—</p>
+              )}
+            </div>
           </div>
 
           {/* Section 2 — Needs Action */}
