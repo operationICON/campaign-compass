@@ -45,9 +45,9 @@ function classifySyncType(log: any): SyncType {
   const msg = (log.message || "").toLowerCase();
   const details = JSON.stringify(log.details || {}).toLowerCase();
   const triggered = (log.triggered_by || "").toLowerCase();
-  if (triggered.includes("ltv") || msg.includes("ltv") || msg.includes("fan sync") || details.includes("ltv")) return "ltv";
+  if (triggered.includes("ltv") || triggered.includes("fan_sync") || msg.includes("ltv") || msg.includes("fan sync") || details.includes("ltv")) return "ltv";
   if (triggered.includes("snapshot") || msg.includes("snapshot") || details.includes("snapshot")) return "snapshot";
-  if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || details.includes("onlytraffic")) return "onlytraffic";
+  if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || msg.includes("auto-tag") || details.includes("onlytraffic")) return "onlytraffic";
   return "dashboard";
 }
 
