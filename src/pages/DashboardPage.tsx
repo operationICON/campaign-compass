@@ -311,6 +311,8 @@ export default function DashboardPage() {
   const periodDayCount = overviewSnapshotRange?.dayCount ?? null;
   const activeLinkCount = overviewPeriodTotals.activeLinks;
 
+  const isAllTime = timePeriod === "all" && !customRange;
+
   // Total Expenses: for time-filtered periods, only count links with snapshot activity
   const totalSpend = useMemo(() => {
     if (isAllTime) {
