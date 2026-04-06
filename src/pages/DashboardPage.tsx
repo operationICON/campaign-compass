@@ -491,6 +491,7 @@ export default function DashboardPage() {
             return CATEGORY_MAP[username] || "Female";
           }}
           fmtC={fmtC}
+          hasSnapshotData={hasSnapshotData}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
