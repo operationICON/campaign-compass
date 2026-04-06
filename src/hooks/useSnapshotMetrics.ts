@@ -132,7 +132,7 @@ export function useSnapshotMetrics(
       let fromDate = dateRange.from;
       let toDate = dateRange.to;
 
-      // Resolve "since_sync" to the most recent snapshot_date
+      // Resolve "__latest__" to the most recent snapshot_date
       if (fromDate === "__latest__") {
         const { data: latest } = await supabase
           .from("daily_snapshots")
@@ -145,6 +145,24 @@ export function useSnapshotMetrics(
         toDate = latestDate;
       }
 
+      // For single-day queries (fromDate === toDate), we need the PREVIOUS
+      // day's snapshot too so we can compute the delta (cumulative values).
+      // Find the most recent snapshot_date BEFORE fromDate to use as baseline.
+      let effectiveFrom = fromDate;
+      if (fromDate === toDate) {
+        const { data: prevRows } = await supabase
+          .from("daily_snapshots")
+          .select("snapshot_date")
+          .lt("snapshot_date", fromDate)
+          .order("snapshot_date", { ascending: false })
+          .limit(1);
+        if (prevRows && prevRows.length > 0) {
+          effectiveFrom = prevRows[0].snapshot_date;
+        }
+        // If no previous day exists, effectiveFrom stays = fromDate,
+        // and MAX-MIN will be 0 (first ever snapshot, no prior baseline).
+      }
+
       // Fetch all matching rows (batched)
       const allRows: any[] = [];
       let rangeFrom = 0;
@@ -153,7 +171,7 @@ export function useSnapshotMetrics(
         const { data, error } = await supabase
           .from("daily_snapshots")
           .select("tracking_link_id, clicks, subscribers, revenue")
-          .gte("snapshot_date", fromDate)
+          .gte("snapshot_date", effectiveFrom)
           .lte("snapshot_date", toDate)
           .range(rangeFrom, rangeFrom + batchSize - 1);
         if (error) throw error;
