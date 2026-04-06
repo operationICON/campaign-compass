@@ -363,6 +363,31 @@ Deno.serve(async (req) => {
         console.log(`Upserted ${metricsToInsert.length} daily_metrics with deltas`)
       }
 
+      // ── Upsert daily_snapshots (cumulative totals per link per day) ──
+      const snapshotPayloads = dailyMetricsPayloads
+        .filter(m => idMap[m._ext_id])
+        .map(m => ({
+          tracking_link_id: idMap[m._ext_id],
+          account_id: accountId,
+          snapshot_date: today,
+          clicks: m.clicks,
+          subscribers: m.subscribers,
+          revenue: m.revenue,
+          external_tracking_link_id: m._ext_id,
+          synced_at: new Date().toISOString(),
+        }))
+
+      if (snapshotPayloads.length > 0) {
+        for (let i = 0; i < snapshotPayloads.length; i += 100) {
+          const batch = snapshotPayloads.slice(i, i + 100)
+          await db.from('daily_snapshots').upsert(batch, {
+            onConflict: 'tracking_link_id,snapshot_date',
+            ignoreDuplicates: false,
+          })
+        }
+        console.log(`Upserted ${snapshotPayloads.length} daily_snapshots for ${displayName}`)
+      }
+
     } catch (err: any) {
       console.error(`Tracking links error for ${displayName}: ${err.message}`)
     }
