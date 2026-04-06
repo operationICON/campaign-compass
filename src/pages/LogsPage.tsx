@@ -1,77 +1,81 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { fetchSyncLogs, fetchAccounts, fetchTestLogs, insertTestLog, clearTestLogs } from "@/lib/supabase-helpers";
+import { fetchSyncLogs, fetchAccounts, triggerSync } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
 import {
-  CheckCircle, XCircle, Clock, FlaskConical, X, Loader2,
-  ChevronDown, ChevronRight, Search, Filter, ChevronLeft, ChevronRight as ChevronRightIcon, Trash2, Users,
+  CheckCircle, XCircle, Clock, Loader2,
+  ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
+  BarChart3, Camera, Users, Truck, Play,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { FanSyncModal } from "@/components/dashboard/FanSyncModal";
 import { toast } from "sonner";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-const STUCK_THRESHOLD_MS = 3 * 60 * 1000;
 const PAGE_SIZE = 25;
+
+type SyncType = "dashboard" | "snapshot" | "ltv" | "onlytraffic";
+
+const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; badge: string }> = {
+  dashboard:   { bg: "bg-blue-500/10",   text: "text-blue-600 dark:text-blue-400",     border: "border-blue-500/30",  badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
+  snapshot:    { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/30", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
+  ltv:         { bg: "bg-purple-500/10",  text: "text-purple-600 dark:text-purple-400",  border: "border-purple-500/30", badge: "bg-purple-500/15 text-purple-700 dark:text-purple-300" },
+  onlytraffic: { bg: "bg-orange-500/10",  text: "text-orange-600 dark:text-orange-400",  border: "border-orange-500/30", badge: "bg-orange-500/15 text-orange-700 dark:text-orange-300" },
+};
+
+const SYNC_LABELS: Record<SyncType, string> = {
+  dashboard: "Dashboard",
+  snapshot: "Snapshots",
+  ltv: "LTV",
+  onlytraffic: "OnlyTraffic",
+};
+
+const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
+  dashboard: BarChart3,
+  snapshot: Camera,
+  ltv: Users,
+  onlytraffic: Truck,
+};
+
+function classifySyncType(log: any): SyncType {
+  const msg = (log.message || "").toLowerCase();
+  const details = JSON.stringify(log.details || {}).toLowerCase();
+  const triggered = (log.triggered_by || "").toLowerCase();
+  if (triggered.includes("ltv") || msg.includes("ltv") || msg.includes("fan sync") || details.includes("ltv")) return "ltv";
+  if (triggered.includes("snapshot") || msg.includes("snapshot") || details.includes("snapshot")) return "snapshot";
+  if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || details.includes("onlytraffic")) return "onlytraffic";
+  return "dashboard";
+}
 
 function getEffectiveStatus(log: any) {
   if (log.status === "running" || log.status === "pending") {
     const elapsed = Date.now() - new Date(log.started_at).getTime();
-    if (elapsed > STUCK_THRESHOLD_MS) return "error";
+    if (elapsed > 10 * 60 * 1000) return "error";
   }
   return log.status;
 }
 
-function getEffectiveMessage(log: any, effectiveStatus: string) {
-  if (effectiveStatus === "error" && (log.status === "running" || log.status === "pending")) {
-    return "Sync timed out — exceeded 3 minute limit";
-  }
-  return log.error_message || log.message;
-}
-
-type TestResult = {
-  name: string;
-  status: "pass" | "warn" | "fail" | "running";
-  detail: string;
-  responseTimeMs?: number;
-  accountUsername?: string;
-};
-
 type StatusFilter = "all" | "success" | "error" | "running";
-type TestFilter = "all" | "pass" | "fail" | "warn";
+type TypeFilter = "all" | SyncType;
 
 export default function LogsPage() {
   const queryClient = useQueryClient();
   const { data: logs = [], isLoading } = useQuery({ queryKey: ["sync_logs"], queryFn: fetchSyncLogs });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: testHistory = [] } = useQuery({ queryKey: ["test_logs"], queryFn: fetchTestLogs });
 
-  // Sync logs state
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [syncPage, setSyncPage] = useState(1);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-
-  // Test state
-  const [showTest, setShowTest] = useState(false);
-  const [testRunning, setTestRunning] = useState(false);
-  const [testResults, setTestResults] = useState<TestResult[]>([]);
-  const [testTimestamp, setTestTimestamp] = useState<Date | null>(null);
-  const [testPage, setTestPage] = useState(1);
-  const [testFilter, setTestFilter] = useState<TestFilter>("all");
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [fanSyncOpen, setFanSyncOpen] = useState(false);
 
-  const clearMutation = useMutation({
-    mutationFn: clearTestLogs,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["test_logs"] });
-      toast.success("Test history cleared");
-      setShowClearConfirm(false);
-    },
-  });
+  // Running state per sync type
+  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false });
+  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "" });
 
   useEffect(() => {
     const channel = supabase
@@ -83,517 +87,432 @@ export default function LogsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  // Filter sync logs
+  // Classify all logs
+  const classifiedLogs = useMemo(() => logs.map((log: any) => ({
+    ...log,
+    syncType: classifySyncType(log),
+    effectiveStatus: getEffectiveStatus(log),
+  })), [logs]);
+
+  // Build status cards from last log per type
+  const statusCards = useMemo(() => {
+    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, ltv: null, onlytraffic: null };
+    for (const log of classifiedLogs) {
+      const t = log.syncType as SyncType;
+      if (!cards[t]) cards[t] = log;
+    }
+    return cards;
+  }, [classifiedLogs]);
+
+  // Filter logs
   const filteredLogs = useMemo(() => {
-    return logs.filter((log: any) => {
-      const eff = getEffectiveStatus(log);
-      if (statusFilter !== "all" && eff !== statusFilter) return false;
-      if (dateFrom && new Date(log.started_at) < new Date(dateFrom)) return false;
-      if (dateTo) {
-        const to = new Date(dateTo);
-        to.setHours(23, 59, 59, 999);
-        if (new Date(log.started_at) > to) return false;
-      }
+    return classifiedLogs.filter((log: any) => {
+      if (statusFilter !== "all" && log.effectiveStatus !== statusFilter) return false;
+      if (typeFilter !== "all" && log.syncType !== typeFilter) return false;
       return true;
     });
-  }, [logs, statusFilter, dateFrom, dateTo]);
+  }, [classifiedLogs, statusFilter, typeFilter]);
 
   const syncTotalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
   const syncPageLogs = filteredLogs.slice((syncPage - 1) * PAGE_SIZE, syncPage * PAGE_SIZE);
 
-  // Reset page when filters change
-  useEffect(() => { setSyncPage(1); }, [statusFilter, dateFrom, dateTo]);
+  useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter]);
 
-  // Filter test history
-  const filteredTestHistory = useMemo(() => {
-    if (testFilter === "all") return testHistory;
-    return testHistory.filter((t: any) => t.status === testFilter);
-  }, [testHistory, testFilter]);
-
-  const testTotalPages = Math.max(1, Math.ceil(filteredTestHistory.length / PAGE_SIZE));
-  const testPageItems = filteredTestHistory.slice((testPage - 1) * PAGE_SIZE, testPage * PAGE_SIZE);
-
-  const hasFilters = statusFilter !== "all" || dateFrom || dateTo;
-
-  const runTests = async () => {
-    setTestRunning(true);
-    const runAt = new Date();
-    setTestTimestamp(runAt);
-    const runAtIso = runAt.toISOString();
-    const results: TestResult[] = [
-      { name: "API Connectivity", status: "running", detail: "Checking accounts..." },
-      { name: "Database Connection", status: "running", detail: "Querying tables..." },
-      { name: "Last Sync Recency", status: "running", detail: "Checking sync logs..." },
-      { name: "Spend Data Coverage", status: "running", detail: "Counting spend entries..." },
-      { name: "Source Tag Coverage", status: "running", detail: "Counting tagged campaigns..." },
-    ];
-    setTestResults([...results]);
-
-    const saveResult = async (r: TestResult) => {
-      try {
-        await insertTestLog({
-          run_at: runAtIso,
-          test_name: r.name,
-          status: r.status,
-          message: r.detail,
-          response_time_ms: r.responseTimeMs,
-          account_username: r.accountUsername,
-        });
-      } catch { /* ignore save errors */ }
-    };
-
-    // Test 1 — API connectivity
-    let t0 = performance.now();
+  // Sync handlers
+  const runDashboardSync = useCallback(async () => {
+    setRunning(r => ({ ...r, dashboard: true }));
+    setProgress(p => ({ ...p, dashboard: "Starting..." }));
     try {
-      const accountDetails = accounts.map((a: any) => `@${a.username || "unknown"}`);
-      results[0] = {
-        name: "API Connectivity",
-        status: accounts.length > 0 ? "pass" : "fail",
-        detail: accounts.length > 0 ? accountDetails.join(" · ") : "No accounts found",
-        responseTimeMs: Math.round(performance.now() - t0),
-        accountUsername: accounts.map((a: any) => a.username).filter(Boolean).join(", "),
-      };
-    } catch {
-      results[0] = { name: "API Connectivity", status: "fail", detail: "Failed to check accounts", responseTimeMs: Math.round(performance.now() - t0) };
+      await triggerSync(undefined, true, (msg) => setProgress(p => ({ ...p, dashboard: msg })));
+      toast.success("Dashboard sync complete");
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    } catch (err: any) {
+      toast.error(`Dashboard sync failed: ${err.message}`);
+    } finally {
+      setRunning(r => ({ ...r, dashboard: false }));
+      setProgress(p => ({ ...p, dashboard: "" }));
     }
-    setTestResults([...results]);
-    await saveResult(results[0]);
+  }, [queryClient]);
 
-    // Test 2 — Database connection
-    t0 = performance.now();
+  const runSnapshotSync = useCallback(async () => {
+    setRunning(r => ({ ...r, snapshot: true }));
+    setProgress(p => ({ ...p, snapshot: "Saving snapshots..." }));
     try {
-      const { count: tlCount } = await supabase.from("tracking_links").select("*", { count: "exact", head: true });
-      const { count: accCount } = await supabase.from("accounts").select("*", { count: "exact", head: true });
-      results[1] = {
-        name: "Database Connection",
-        status: (tlCount ?? 0) > 0 && (accCount ?? 0) > 0 ? "pass" : "warn",
-        detail: `tracking_links — ${tlCount ?? 0} rows · accounts — ${accCount ?? 0} rows`,
-        responseTimeMs: Math.round(performance.now() - t0),
-      };
-    } catch {
-      results[1] = { name: "Database Connection", status: "fail", detail: "Database query failed", responseTimeMs: Math.round(performance.now() - t0) };
+      const res = await supabase.functions.invoke("sync-account", {
+        body: { snapshot_only: true },
+      });
+      if (res.error) throw res.error;
+      toast.success(`Snapshot sync complete — ${res.data?.snapshots_saved ?? 0} snapshots saved`);
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
+    } catch (err: any) {
+      toast.error(`Snapshot sync failed: ${err.message}`);
+    } finally {
+      setRunning(r => ({ ...r, snapshot: false }));
+      setProgress(p => ({ ...p, snapshot: "" }));
     }
-    setTestResults([...results]);
-    await saveResult(results[1]);
+  }, [queryClient]);
 
-    // Test 3 — Last sync recency
-    t0 = performance.now();
+  const runLtvSync = useCallback(() => {
+    setFanSyncOpen(true);
+  }, []);
+
+  const runOnlyTrafficSync = useCallback(async () => {
+    setRunning(r => ({ ...r, onlytraffic: true }));
+    setProgress(p => ({ ...p, onlytraffic: "Syncing OnlyTraffic..." }));
     try {
-      const { data: recentLogs } = await supabase.from("sync_logs").select("finished_at, completed_at").not("finished_at", "is", null).order("finished_at", { ascending: false }).limit(1);
-      const lastFinished = recentLogs?.[0]?.finished_at || recentLogs?.[0]?.completed_at;
-      if (lastFinished) {
-        const daysAgo = Math.floor((Date.now() - new Date(lastFinished).getTime()) / 86400000);
-        const status = daysAgo <= 7 ? "pass" : daysAgo <= 14 ? "warn" : "fail";
-        results[2] = {
-          name: "Last Sync Recency", status,
-          detail: `Last sync: ${format(new Date(lastFinished), "MMM d, HH:mm")} — ${formatDistanceToNow(new Date(lastFinished), { addSuffix: true })}`,
-          responseTimeMs: Math.round(performance.now() - t0),
-        };
-      } else {
-        results[2] = { name: "Last Sync Recency", status: "fail", detail: "No completed syncs found", responseTimeMs: Math.round(performance.now() - t0) };
-      }
-    } catch {
-      results[2] = { name: "Last Sync Recency", status: "fail", detail: "Failed to check sync logs", responseTimeMs: Math.round(performance.now() - t0) };
+      const res = await supabase.functions.invoke("auto-tag-campaigns", {
+        body: {},
+      });
+      if (res.error) throw res.error;
+      toast.success(`OnlyTraffic sync complete — ${res.data?.tagged ?? 0} campaigns tagged`);
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+    } catch (err: any) {
+      toast.error(`OnlyTraffic sync failed: ${err.message}`);
+    } finally {
+      setRunning(r => ({ ...r, onlytraffic: false }));
+      setProgress(p => ({ ...p, onlytraffic: "" }));
     }
-    setTestResults([...results]);
-    await saveResult(results[2]);
+  }, [queryClient]);
 
-    // Test 4 — Spend data check
-    t0 = performance.now();
-    try {
-      const { count: totalCount } = await supabase.from("tracking_links").select("*", { count: "exact", head: true });
-      const { count: spendCount } = await supabase.from("tracking_links").select("*", { count: "exact", head: true }).gt("cost_total", 0);
-      const pct = (totalCount ?? 0) > 0 ? ((spendCount ?? 0) / (totalCount ?? 1)) * 100 : 0;
-      results[3] = {
-        name: "Spend Data Coverage",
-        status: pct >= 10 ? "pass" : "warn",
-        detail: `${spendCount ?? 0} of ${(totalCount ?? 0).toLocaleString()} campaigns have spend set (${pct.toFixed(1)}%)`,
-        responseTimeMs: Math.round(performance.now() - t0),
-      };
-    } catch {
-      results[3] = { name: "Spend Data Coverage", status: "fail", detail: "Failed to check spend data", responseTimeMs: Math.round(performance.now() - t0) };
-    }
-    setTestResults([...results]);
-    await saveResult(results[3]);
-
-    // Test 5 — Source tag coverage
-    t0 = performance.now();
-    try {
-      const { count: totalCount } = await supabase.from("tracking_links").select("*", { count: "exact", head: true });
-      const { count: taggedCount } = await supabase.from("tracking_links").select("*", { count: "exact", head: true }).not("source_tag", "is", null);
-      const pct = (totalCount ?? 0) > 0 ? ((taggedCount ?? 0) / (totalCount ?? 1)) * 100 : 0;
-      results[4] = {
-        name: "Source Tag Coverage",
-        status: pct >= 50 ? "pass" : "warn",
-        detail: `${taggedCount ?? 0} of ${(totalCount ?? 0).toLocaleString()} campaigns are tagged (${pct.toFixed(1)}%)`,
-        responseTimeMs: Math.round(performance.now() - t0),
-      };
-    } catch {
-      results[4] = { name: "Source Tag Coverage", status: "fail", detail: "Failed to check tags", responseTimeMs: Math.round(performance.now() - t0) };
-    }
-    setTestResults([...results]);
-    await saveResult(results[4]);
-
-    setTestRunning(false);
-    queryClient.invalidateQueries({ queryKey: ["test_logs"] });
+  const syncHandlers: Record<SyncType, () => void> = {
+    dashboard: runDashboardSync,
+    snapshot: runSnapshotSync,
+    ltv: runLtvSync,
+    onlytraffic: runOnlyTrafficSync,
   };
 
-  const passCount = testResults.filter(r => r.status === "pass").length;
-  const failCount = testResults.filter(r => r.status === "fail").length;
-  const warnCount = testResults.filter(r => r.status === "warn").length;
+  const hasFilters = statusFilter !== "all" || typeFilter !== "all";
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* ═══ Header ═══ */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Sync Logs</h1>
+            <h1 className="text-xl font-bold text-foreground">Sync Center</h1>
             <p className="text-sm text-muted-foreground">{logs.length.toLocaleString()} sync runs recorded</p>
           </div>
-          <div className="flex items-center gap-2">
-            <RefreshButton queryKeys={["sync_logs", "accounts", "test_logs"]} />
-            <button
-              onClick={() => setFanSyncOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
-            >
-              <Users className="h-4 w-4" />
-              Sync Fan LTV
-            </button>
-            <button
-              onClick={() => { setShowTest(true); runTests(); }}
-              disabled={testRunning}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors disabled:opacity-50"
-            >
-              <FlaskConical className="h-4 w-4" />
-              Run Test
-            </button>
-          </div>
+          <RefreshButton queryKeys={["sync_logs", "accounts"]} />
         </div>
 
-        {/* ═══ Test Results Panel ═══ */}
-        {showTest && (
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-5">
-            {/* Section 1: Current Run */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-sm font-bold text-foreground">Current Test Run</h2>
-                  {testTimestamp && (
-                    <p className="text-[11px] text-muted-foreground">{format(testTimestamp, "MMM d, yyyy HH:mm:ss")}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={runTests}
-                    disabled={testRunning}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50"
-                  >
-                    {testRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
-                    Run Test Again
-                  </button>
-                  <button onClick={() => setShowTest(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+        {/* ═══ SYNC BUTTONS ═══ */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {(["dashboard", "snapshot", "ltv", "onlytraffic"] as SyncType[]).map((type) => {
+            const Icon = SYNC_ICONS[type];
+            const colors = SYNC_COLORS[type];
+            const isRunning = running[type];
+            return (
+              <Button
+                key={type}
+                variant="outline"
+                onClick={syncHandlers[type]}
+                disabled={isRunning}
+                className={`h-auto py-4 px-4 flex flex-col items-center gap-2 ${colors.border} hover:${colors.bg} transition-all`}
+              >
+                {isRunning ? (
+                  <Loader2 className={`h-5 w-5 animate-spin ${colors.text}`} />
+                ) : (
+                  <Icon className={`h-5 w-5 ${colors.text}`} />
+                )}
+                <span className="text-sm font-semibold text-foreground">
+                  Sync {SYNC_LABELS[type]}
+                </span>
+                {isRunning && progress[type] && (
+                  <span className="text-[10px] text-muted-foreground text-center truncate max-w-full">
+                    {progress[type]}
+                  </span>
+                )}
+              </Button>
+            );
+          })}
+        </div>
 
-              <div className="space-y-2">
-                {testResults.map((test, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-secondary/30">
-                    {test.status === "running" ? (
-                      <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
-                    ) : test.status === "pass" ? (
-                      <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-                    ) : test.status === "warn" ? (
-                      <Clock className="h-4 w-4 text-[hsl(var(--warning))] shrink-0" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-destructive shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground">{test.name}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{test.detail}</p>
+        {/* ═══ SYNC STATUS CARDS ═══ */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {(["dashboard", "snapshot", "ltv", "onlytraffic"] as SyncType[]).map((type) => {
+            const colors = SYNC_COLORS[type];
+            const Icon = SYNC_ICONS[type];
+            const last = statusCards[type];
+            const endTime = last?.completed_at || last?.finished_at;
+            const duration = last && endTime
+              ? Math.round((new Date(endTime).getTime() - new Date(last.started_at).getTime()) / 1000)
+              : null;
+            const status = last ? last.effectiveStatus : null;
+
+            return (
+              <Card key={type} className={`border ${colors.border} overflow-hidden`}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-md ${colors.bg}`}>
+                        <Icon className={`h-3.5 w-3.5 ${colors.text}`} />
+                      </div>
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        {SYNC_LABELS[type]}
+                      </span>
                     </div>
-                    {test.responseTimeMs !== undefined && test.status !== "running" && (
-                      <span className="text-[11px] font-mono text-muted-foreground shrink-0">{test.responseTimeMs}ms</span>
+                    {status && (
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        status === "success" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+                        status === "error" ? "bg-destructive/15 text-destructive" :
+                        "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                      }`}>
+                        {status === "success" ? <CheckCircle className="h-2.5 w-2.5" /> :
+                         status === "error" ? <XCircle className="h-2.5 w-2.5" /> :
+                         <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                        {status === "error" ? "Failed" : status === "success" ? "Success" : "Running"}
+                      </span>
                     )}
                   </div>
-                ))}
-              </div>
 
-              {!testRunning && testResults.length > 0 && (
-                <div className={`text-sm font-semibold px-3 py-2 rounded-lg mt-3 ${
-                  failCount > 0 ? "bg-destructive/10 text-destructive" :
-                  warnCount > 0 ? "bg-[hsl(var(--warning))]/10 text-[hsl(var(--warning))]" :
-                  "bg-primary/10 text-primary"
-                }`}>
-                  {passCount} of {testResults.length} tests passed
-                  {warnCount > 0 && ` · ${warnCount} warning${warnCount > 1 ? "s" : ""}`}
-                  {failCount > 0 && ` · ${failCount} failed`}
-                </div>
-              )}
-            </div>
-
-            {/* Section 2: Test History */}
-            <div className="border-t border-border pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-foreground">Test History</h2>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={testFilter}
-                    onChange={e => { setTestFilter(e.target.value as TestFilter); setTestPage(1); }}
-                    className="text-xs bg-secondary border border-border rounded-md px-2 py-1 text-foreground"
-                  >
-                    <option value="all">All</option>
-                    <option value="pass">Pass</option>
-                    <option value="fail">Fail</option>
-                    <option value="warn">Warning</option>
-                  </select>
-                  {showClearConfirm ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-destructive">Delete all?</span>
-                      <button onClick={() => clearMutation.mutate()} className="text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes</button>
-                      <button onClick={() => setShowClearConfirm(false)} className="text-xs px-2 py-1 rounded bg-secondary text-foreground hover:bg-secondary/80">No</button>
+                  {last ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Last run</span>
+                        <span className="font-mono text-foreground">
+                          {format(new Date(last.started_at), "MMM d, HH:mm")}
+                        </span>
+                      </div>
+                      {duration !== null && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Duration</span>
+                          <span className="font-mono text-foreground">{duration}s</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Records</span>
+                        <span className="font-mono text-foreground">{last.records_processed ?? 0}</span>
+                      </div>
+                      {(last.tracking_links_synced ?? 0) > 0 && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Links synced</span>
+                          <span className="font-mono text-foreground">{last.tracking_links_synced}</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <button onClick={() => setShowClearConfirm(true)} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3 w-3" /> Clear history
-                    </button>
+                    <p className="text-xs text-muted-foreground text-center py-2">Never run</p>
                   )}
-                </div>
-              </div>
-
-              {filteredTestHistory.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">No test history yet</p>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left py-2 px-3 font-semibold text-muted-foreground" style={{ fontSize: 11 }}>Date</th>
-                          <th className="text-left py-2 px-3 font-semibold text-muted-foreground" style={{ fontSize: 11 }}>Test Name</th>
-                          <th className="text-left py-2 px-3 font-semibold text-muted-foreground" style={{ fontSize: 11 }}>Status</th>
-                          <th className="text-left py-2 px-3 font-semibold text-muted-foreground" style={{ fontSize: 11 }}>Message</th>
-                          <th className="text-right py-2 px-3 font-semibold text-muted-foreground" style={{ fontSize: 11 }}>Response Time</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {testPageItems.map((t: any) => (
-                          <tr
-                            key={t.id}
-                            className={`border-b border-border/50 ${
-                              t.status === "pass" ? "bg-primary/5" :
-                              t.status === "fail" ? "bg-destructive/5" :
-                              t.status === "warn" ? "bg-[hsl(var(--warning))]/5" : ""
-                            }`}
-                          >
-                            <td className="py-2 px-3 text-muted-foreground font-mono whitespace-nowrap">{format(new Date(t.run_at), "MMM d, HH:mm")}</td>
-                            <td className="py-2 px-3 text-foreground font-medium">{t.test_name}</td>
-                            <td className="py-2 px-3">
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                t.status === "pass" ? "bg-primary/15 text-primary" :
-                                t.status === "fail" ? "bg-destructive/15 text-destructive" :
-                                "bg-[hsl(var(--warning))]/15 text-[hsl(var(--warning))]"
-                              }`}>
-                                {t.status}
-                              </span>
-                            </td>
-                            <td className="py-2 px-3 text-muted-foreground max-w-[300px] truncate">{t.message}</td>
-                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">{t.response_time_ms != null ? `${t.response_time_ms}ms` : "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {testTotalPages > 1 && (
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs text-muted-foreground">Page {testPage} of {testTotalPages}</span>
-                      <div className="flex gap-1">
-                        <button onClick={() => setTestPage(p => Math.max(1, p - 1))} disabled={testPage <= 1} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => setTestPage(p => Math.min(testTotalPages, p + 1))} disabled={testPage >= testTotalPages} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
-                          <ChevronRightIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══ Filters ═══ */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-              className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 text-foreground"
-            >
-              <option value="all">All Statuses</option>
-              <option value="success">Success</option>
-              <option value="error">Failed</option>
-              <option value="running">Running</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 text-foreground"
-              placeholder="From"
-            />
-            <span className="text-xs text-muted-foreground">to</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
-              className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 text-foreground"
-              placeholder="To"
-            />
-          </div>
-          {hasFilters && (
-            <button
-              onClick={() => { setStatusFilter("all"); setDateFrom(""); setDateTo(""); }}
-              className="text-xs text-primary hover:underline"
-            >
-              Clear filters
-            </button>
-          )}
-          <span className="text-xs text-muted-foreground ml-auto">
-            {filteredLogs.length} result{filteredLogs.length !== 1 ? "s" : ""}
-          </span>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {/* ═══ Sync Logs List ═══ */}
-        {isLoading ? (
-          <div className="space-y-3">
-            {[...Array(5)].map((_, i) => <div key={i} className="skeleton-shimmer h-16 rounded-lg" />)}
+        {/* ═══ SYNC HISTORY TABLE ═══ */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-foreground">Sync History</h2>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={typeFilter}
+                  onChange={e => setTypeFilter(e.target.value as TypeFilter)}
+                  className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 text-foreground"
+                >
+                  <option value="all">All Types</option>
+                  <option value="dashboard">Dashboard</option>
+                  <option value="snapshot">Snapshots</option>
+                  <option value="ltv">LTV</option>
+                  <option value="onlytraffic">OnlyTraffic</option>
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+                  className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 text-foreground"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="success">Success</option>
+                  <option value="error">Failed</option>
+                  <option value="running">Running</option>
+                </select>
+              </div>
+              {hasFilters && (
+                <button
+                  onClick={() => { setStatusFilter("all"); setTypeFilter("all"); }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {filteredLogs.length} result{filteredLogs.length !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
-        ) : !filteredLogs.length ? (
-          <div className="bg-card border border-border rounded-lg p-16 text-center text-muted-foreground">
-            {hasFilters ? "No logs match your filters" : "No sync logs yet"}
-          </div>
-        ) : (
-          <>
-            <div className="relative">
-              <div className="absolute left-[19px] top-0 bottom-0 w-px bg-border" />
-              <div className="space-y-3">
-                {syncPageLogs.map((log: any) => {
-                  const effectiveStatus = getEffectiveStatus(log);
-                  const endTime = log.completed_at || log.finished_at;
-                  const duration = endTime
-                    ? Math.round((new Date(endTime).getTime() - new Date(log.started_at).getTime()) / 1000)
-                    : effectiveStatus === "error"
-                      ? Math.round(Math.min(Date.now() - new Date(log.started_at).getTime(), STUCK_THRESHOLD_MS) / 1000)
-                      : null;
-                  const isSuccess = effectiveStatus === "success";
-                  const isError = effectiveStatus === "error";
-                  const isRunning = effectiveStatus === "running" || effectiveStatus === "pending";
-                  const displayMessage = getEffectiveMessage(log, effectiveStatus);
-                  const isExpanded = expandedLogId === log.id;
+
+          {isLoading ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => <div key={i} className="skeleton-shimmer h-12 rounded-lg" />)}
+            </div>
+          ) : !filteredLogs.length ? (
+            <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground text-sm">
+              {hasFilters ? "No logs match your filters" : "No sync logs yet — run a sync to get started"}
+            </div>
+          ) : (
+            <>
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary/30">
+                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Date & Time</th>
+                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Type</th>
+                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Account</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Records</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Duration</th>
+                        <th className="text-center py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Status</th>
+                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Message</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {syncPageLogs.map((log: any) => {
+                        const syncType = log.syncType as SyncType;
+                        const colors = SYNC_COLORS[syncType];
+                        const status = log.effectiveStatus;
+                        const endTime = log.completed_at || log.finished_at;
+                        const duration = endTime
+                          ? Math.round((new Date(endTime).getTime() - new Date(log.started_at).getTime()) / 1000)
+                          : status === "error"
+                            ? Math.round(Math.min(Date.now() - new Date(log.started_at).getTime(), 10 * 60 * 1000) / 1000)
+                            : null;
+                        const isExpanded = expandedLogId === log.id;
+                        const displayMessage = log.error_message || log.message || "";
+
+                        return (
+                          <tr
+                            key={log.id}
+                            className={`border-b border-border/50 cursor-pointer transition-colors hover:bg-secondary/20 ${isExpanded ? "bg-secondary/30" : ""}`}
+                            onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                          >
+                            <td className="py-2.5 px-4 font-mono text-muted-foreground whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                {isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                                {format(new Date(log.started_at), "MMM d, HH:mm")}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${colors.badge}`}>
+                                {SYNC_LABELS[syncType]}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-foreground">
+                              {log.accounts?.display_name || "—"}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono text-foreground">
+                              {log.records_processed ?? 0}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono text-muted-foreground">
+                              {duration !== null ? `${duration}s` : "—"}
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                status === "success" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+                                status === "error" ? "bg-destructive/15 text-destructive" :
+                                "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                              }`}>
+                                {status === "success" ? <CheckCircle className="h-2.5 w-2.5" /> :
+                                 status === "error" ? <XCircle className="h-2.5 w-2.5" /> :
+                                 <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                                {status === "error" ? "Failed" : status === "success" ? "Success" : "Running"}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-muted-foreground max-w-[250px] truncate">
+                              {status === "error" ? (
+                                <span className="text-destructive">{displayMessage || "Unknown error"}</span>
+                              ) : (
+                                displayMessage || "—"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Expanded detail row rendered below table */}
+                {expandedLogId && (() => {
+                  const log = syncPageLogs.find((l: any) => l.id === expandedLogId);
+                  if (!log) return null;
                   const details = log.details;
-
                   return (
-                    <div key={log.id} className="flex gap-4 relative">
-                      <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${
-                        isSuccess ? "border-primary bg-primary/15" : isError ? "border-destructive bg-destructive/15" : "border-warning bg-warning/15"
-                      }`}>
-                        {isSuccess ? <CheckCircle className="h-4 w-4 text-primary" /> :
-                         isError ? <XCircle className="h-4 w-4 text-destructive" /> :
-                         isRunning ? <Loader2 className="h-4 w-4 text-warning animate-spin" /> :
-                         <Clock className="h-4 w-4 text-warning" />}
-                      </div>
-
-                      <div
-                        className="bg-card border border-border rounded-lg p-4 flex-1 card-hover cursor-pointer"
-                        onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                            <span className={`text-xs font-bold uppercase tracking-wider ${
-                              isSuccess ? "text-primary" : isError ? "text-destructive" : "text-warning"
-                            }`}>{isError ? "FAILED" : isRunning ? "RUNNING" : effectiveStatus.toUpperCase()}</span>
-                            <span className="text-xs text-muted-foreground font-mono">{format(new Date(log.started_at), "MMM d, yyyy HH:mm")}</span>
+                    <div className="border-t border-border bg-secondary/20 p-4 space-y-2">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        {log.accounts_synced != null && (
+                          <div>
+                            <p className="text-muted-foreground">Accounts synced</p>
+                            <p className="font-mono font-bold text-foreground">{log.accounts_synced}</p>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {duration !== null && <span className="font-mono">{duration}s</span>}
-                            <span>{log.records_processed} records</span>
+                        )}
+                        {log.tracking_links_synced != null && (
+                          <div>
+                            <p className="text-muted-foreground">Links synced</p>
+                            <p className="font-mono font-bold text-foreground">{log.tracking_links_synced}</p>
                           </div>
+                        )}
+                        <div>
+                          <p className="text-muted-foreground">Started</p>
+                          <p className="font-mono text-foreground">{format(new Date(log.started_at), "HH:mm:ss")}</p>
                         </div>
-                        {log.accounts?.display_name && (
-                          <p className="text-sm text-foreground mb-1 ml-5">{log.accounts.display_name}</p>
-                        )}
-                        {isError && displayMessage && !isExpanded && (
-                          <p className="text-xs text-destructive mt-1 ml-5 truncate">{displayMessage}</p>
-                        )}
-
-                        {/* Expanded details */}
-                        {isExpanded && (
-                          <div className="mt-3 ml-5 space-y-2 border-t border-border/50 pt-3">
-                            {displayMessage && (
-                              <div>
-                                <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">
-                                  {isError ? "Error Message" : "Message"}
-                                </p>
-                                <p className={`text-xs ${isError ? "text-destructive" : "text-foreground"}`}>{displayMessage}</p>
-                              </div>
-                            )}
-                            {log.accounts_synced != null && (
-                              <p className="text-xs text-muted-foreground">Accounts synced: {log.accounts_synced}</p>
-                            )}
-                            {log.tracking_links_synced != null && (
-                              <p className="text-xs text-muted-foreground">Tracking links synced: {log.tracking_links_synced}</p>
-                            )}
-                            {details && typeof details === "object" && (
-                              <div>
-                                <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Details</p>
-                                <pre className="text-[11px] text-muted-foreground bg-secondary/50 p-2 rounded overflow-x-auto max-h-40">
-                                  {JSON.stringify(details, null, 2)}
-                                </pre>
-                              </div>
-                            )}
+                        {(log.completed_at || log.finished_at) && (
+                          <div>
+                            <p className="text-muted-foreground">Finished</p>
+                            <p className="font-mono text-foreground">{format(new Date(log.completed_at || log.finished_at), "HH:mm:ss")}</p>
                           </div>
                         )}
                       </div>
+                      {log.error_message && (
+                        <div>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Error</p>
+                          <p className="text-xs text-destructive">{log.error_message}</p>
+                        </div>
+                      )}
+                      {details && typeof details === "object" && (
+                        <div>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Details</p>
+                          <pre className="text-[11px] text-muted-foreground bg-secondary/50 p-2 rounded overflow-x-auto max-h-40">
+                            {JSON.stringify(details, null, 2)}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   );
-                })}
+                })()}
               </div>
-            </div>
 
-            {/* Pagination */}
-            {syncTotalPages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-xs text-muted-foreground">
-                  Page {syncPage} of {syncTotalPages} · {filteredLogs.length} total
-                </span>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setSyncPage(p => Math.max(1, p - 1))}
-                    disabled={syncPage <= 1}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-secondary hover:bg-secondary/80 disabled:opacity-30"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                  </button>
-                  <button
-                    onClick={() => setSyncPage(p => Math.min(syncTotalPages, p + 1))}
-                    disabled={syncPage >= syncTotalPages}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-secondary hover:bg-secondary/80 disabled:opacity-30"
-                  >
-                    Next <ChevronRightIcon className="h-3.5 w-3.5" />
-                  </button>
+              {/* Pagination */}
+              {syncTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-muted-foreground">
+                    Page {syncPage} of {syncTotalPages} · {filteredLogs.length} total
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setSyncPage(p => Math.max(1, p - 1))}
+                      disabled={syncPage <= 1}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-secondary hover:bg-secondary/80 disabled:opacity-30"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                    </button>
+                    <button
+                      onClick={() => setSyncPage(p => Math.min(syncTotalPages, p + 1))}
+                      disabled={syncPage >= syncTotalPages}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-secondary hover:bg-secondary/80 disabled:opacity-30"
+                    >
+                      Next <ChevronRightIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
       <FanSyncModal open={fanSyncOpen} onOpenChange={setFanSyncOpen} />
     </DashboardLayout>
