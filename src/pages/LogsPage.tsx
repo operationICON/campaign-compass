@@ -168,6 +168,11 @@ export default function LogsPage() {
     setRunning(r => ({ ...r, onlytraffic: true }));
     setProgress(p => ({ ...p, onlytraffic: "Syncing OnlyTraffic..." }));
     try {
+      // Log this as an onlytraffic sync
+      await supabase.from("sync_logs").insert({
+        status: "running", triggered_by: "onlytraffic_sync", message: "OnlyTraffic sync started",
+        records_processed: 0,
+      });
       const res = await supabase.functions.invoke("auto-tag-campaigns", {
         body: {},
       });

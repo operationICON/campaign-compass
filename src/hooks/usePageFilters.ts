@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,11 +18,62 @@ export interface DateFilter {
   to: string | null;
 }
 
+const STORAGE_KEY_TIME = "global_time_period";
+const STORAGE_KEY_MODEL = "global_model_filter";
+const STORAGE_KEY_CUSTOM = "global_custom_range";
+
+function loadTimePeriod(): TimePeriod {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_TIME);
+    if (v && TIME_PERIODS.some(tp => tp.key === v)) return v as TimePeriod;
+  } catch {}
+  return "all";
+}
+
+function loadModelFilter(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_MODEL) || "all";
+  } catch {}
+  return "all";
+}
+
+function loadCustomRange(): { from: Date; to: Date } | null {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_CUSTOM);
+    if (v) {
+      const parsed = JSON.parse(v);
+      return { from: new Date(parsed.from), to: new Date(parsed.to) };
+    }
+  } catch {}
+  return null;
+}
+
 export function usePageFilters() {
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
-  const [modelFilter, setModelFilter] = useState("all");
-  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [timePeriod, setTimePeriodRaw] = useState<TimePeriod>(loadTimePeriod);
+  const [modelFilter, setModelFilterRaw] = useState(loadModelFilter);
+  const [customRange, setCustomRangeRaw] = useState<{ from: Date; to: Date } | null>(loadCustomRange);
   const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
+
+  const setTimePeriod = useCallback((tp: TimePeriod) => {
+    setTimePeriodRaw(tp);
+    try { localStorage.setItem(STORAGE_KEY_TIME, tp); } catch {}
+  }, []);
+
+  const setModelFilter = useCallback((v: string) => {
+    setModelFilterRaw(v);
+    try { localStorage.setItem(STORAGE_KEY_MODEL, v); } catch {}
+  }, []);
+
+  const setCustomRange = useCallback((range: { from: Date; to: Date } | null) => {
+    setCustomRangeRaw(range);
+    try {
+      if (range) {
+        localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify({ from: range.from.toISOString(), to: range.to.toISOString() }));
+      } else {
+        localStorage.removeItem(STORAGE_KEY_CUSTOM);
+      }
+    } catch {}
+  }, []);
 
   // Fetch MAX(updated_at) from tracking_link_ltv for "since_sync"
   useEffect(() => {
@@ -35,7 +86,6 @@ export function usePageFilters() {
         .order("updated_at", { ascending: false })
         .limit(1);
       if (!cancelled && !error && data && data.length > 0) {
-        // Use the start of that day as the "since last sync" boundary
         setLastSyncDate(startOfDay(new Date(data[0].updated_at)).toISOString());
       }
     })();
