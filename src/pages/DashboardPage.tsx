@@ -18,7 +18,7 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
-import { applySnapshotToLinks, type SnapshotMetrics } from "@/hooks/useSnapshotMetrics";
+import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import type { TimePeriod } from "@/hooks/usePageFilters";
 
 interface OverviewSnapshotRange {
@@ -213,24 +213,10 @@ export default function DashboardPage() {
     },
   });
 
-  const overviewSnapshotLookup = useMemo<Record<string, SnapshotMetrics> | null>(() => {
+  const overviewSnapshotLookup = useMemo(() => {
     if (!overviewSnapshotRange) return null;
 
-    const map: Record<string, SnapshotMetrics> = {};
-    for (const row of overviewSnapshotRows) {
-      const id = String(row.tracking_link_id ?? "").toLowerCase();
-      if (!id) continue;
-
-      if (!map[id]) {
-        map[id] = { clicks: 0, subscribers: 0, revenue: 0 };
-      }
-
-      map[id].clicks += Number(row.clicks || 0);
-      map[id].subscribers += Number(row.subscribers || 0);
-      map[id].revenue += Number(row.revenue || 0);
-    }
-
-    return map;
+    return buildSnapshotLookup(overviewSnapshotRows);
   }, [overviewSnapshotRange, overviewSnapshotRows]);
 
   const links = useMemo(() => applySnapshotToLinks(allLinks, overviewSnapshotLookup), [allLinks, overviewSnapshotLookup]);
