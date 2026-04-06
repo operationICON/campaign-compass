@@ -311,11 +311,24 @@ export default function DashboardPage() {
   const periodDayCount = overviewSnapshotRange?.dayCount ?? null;
   const activeLinkCount = overviewPeriodTotals.activeLinks;
 
-  // Total Expenses = cumulative SUM(cost_total) WHERE cost_total > 0
-  const totalSpend = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
-    const cost = Number(l.cost_total || 0);
-    return s + (cost > 0 ? cost : 0);
-  }, 0), [filteredLinksForKpi]);
+  // Total Expenses: for time-filtered periods, only count links with snapshot activity
+  const totalSpend = useMemo(() => {
+    if (isAllTime) {
+      return filteredLinksForKpi.reduce((s: number, l: any) => {
+        const cost = Number(l.cost_total || 0);
+        return s + (cost > 0 ? cost : 0);
+      }, 0);
+    }
+    // Only count spend from links that had activity in the snapshot period
+    if (!overviewSnapshotLookup) return 0;
+    return filteredLinksForKpi.reduce((s: number, l: any) => {
+      const id = String(l.id ?? "").toLowerCase();
+      const snap = overviewSnapshotLookup[id];
+      if (!snap || (snap.clicks === 0 && snap.subscribers === 0)) return s;
+      const cost = Number(l.cost_total || 0);
+      return s + (cost > 0 ? cost : 0);
+    }, 0);
+  }, [filteredLinksForKpi, isAllTime, overviewSnapshotLookup]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
   // Total LTV: for time-filtered periods use snapshot revenue; for All Time use tracking_link_ltv
@@ -325,9 +338,10 @@ export default function DashboardPage() {
       .filter((r: any) => !accountIdSet || accountIdSet.has(r.account_id))
       .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
   }, [trackingLinkLtv, agencyAccountIds]);
-  const isAllTime = timePeriod === "all" && !customRange;
   const totalLtv = isAllTime ? cumulativeLtv : overviewPeriodTotals.revenue;
   const totalProfit = totalLtv - totalSpend;
+  // hasSnapshotData: true if any snapshot rows were returned for this period
+  const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
   const avgProfitPerSub = periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
