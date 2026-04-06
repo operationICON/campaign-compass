@@ -169,7 +169,16 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
     [enrichedWithSpend]
   );
 
-  const needsAttentionCount = stopLinks.length;
+  const needsAttentionCount = useMemo(() => {
+    return links.filter(l => {
+      const cost = Number(l.cost_total || 0);
+      if (cost <= 0) return false;
+      const key = String(l.id ?? "").trim().toLowerCase();
+      const rec = ltvLookup[key];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      return ltv < cost;
+    }).length;
+  }, [links, ltvLookup]);
 
   // Top 5 by Profit/Sub
   const topProfitPerSub = useMemo(() =>
