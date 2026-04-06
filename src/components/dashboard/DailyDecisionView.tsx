@@ -1,15 +1,16 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, TrendingUp, Eye, XCircle, BarChart3, Users, DollarSign, Zap } from "lucide-react";
-import { subDays } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
 interface DailyDecisionViewProps {
   links: any[];
   ltvLookup?: Record<string, any>;
   accounts?: any[];
+  snapshotLookup?: Record<string, { clicks: number; subscribers: number; revenue: number }> | null;
+  isAllTime?: boolean;
 }
 
-export function DailyDecisionView({ links, ltvLookup = {}, accounts = [] }: DailyDecisionViewProps) {
+export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapshotLookup = null, isAllTime = true }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -29,59 +30,58 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [] }: Dail
     return rec ? Number(rec.new_subs_total || 0) : 0;
   };
 
-  const sevenDaysAgo = useMemo(() => subDays(new Date(), 7).toISOString(), []);
+  
 
   const linksWithSpend = useMemo(() => links.filter(l => Number(l.cost_total || 0) > 0), [links]);
   const noSpendCount = useMemo(() => links.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [links]);
 
-  // Agency today stats
+  // Agency summary stats — use snapshot-overlaid link data (clicks/subs/revenue already reflect period)
   const agencyToday = useMemo(() => {
-    const todayLinks = links.filter(l => l.calculated_at && new Date(l.calculated_at) >= subDays(new Date(), 1));
-    const newSubsToday = todayLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const spendToday = todayLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const ltvToday = todayLinks.reduce((s: number, l: any) => s + getLtv(l), 0);
+    const newSubsToday = links.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+    const spendToday = links.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const ltvToday = isAllTime
+      ? links.reduce((s: number, l: any) => s + getLtv(l), 0)
+      : links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const profitToday = ltvToday - spendToday;
     return { newSubsToday, spendToday, ltvToday, profitToday };
-  }, [links, ltvLookup]);
+  }, [links, ltvLookup, isAllTime]);
 
   // Compute profit and ROI for links with spend
   const enrichedWithSpend = useMemo(() => {
     return linksWithSpend.map(l => {
-      const ltv = getLtv(l);
-      const cp = getCrossPoll(l);
+      const rev = isAllTime ? getLtv(l) : Number(l.revenue || 0);
+      const cp = isAllTime ? getCrossPoll(l) : 0;
       const cost = Number(l.cost_total || 0);
-      const profit = (ltv + cp) - cost;
+      const profit = (rev + cp) - cost;
       const roi = cost > 0 ? (profit / cost) * 100 : 0;
-      const newSubs = getNewSubs(l);
+      const newSubs = isAllTime ? getNewSubs(l) : Number(l.subscribers || 0);
       const profitPerSub = newSubs > 0 ? profit / newSubs : null;
-      return { ...l, profit, roi, profitPerSub, ltv, newSubs };
+      return { ...l, profit, roi, profitPerSub, ltv: rev, newSubs };
     });
-  }, [linksWithSpend, ltvLookup]);
-
-  const recentActive = useMemo(() => enrichedWithSpend.filter(l => l.calculated_at && l.calculated_at >= sevenDaysAgo), [enrichedWithSpend, sevenDaysAgo]);
+  }, [linksWithSpend, ltvLookup, isAllTime]);
 
   const scaleLinks = useMemo(() =>
-    recentActive
+    enrichedWithSpend
       .filter(l => l.roi > 150 && l.profit > 0)
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 5),
-    [recentActive]
+    [enrichedWithSpend]
   );
 
   const watchLinks = useMemo(() =>
-    recentActive
+    enrichedWithSpend
       .filter(l => l.roi >= 50 && l.roi <= 150)
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 5),
-    [recentActive]
+    [enrichedWithSpend]
   );
 
   const stopLinks = useMemo(() =>
-    recentActive
+    enrichedWithSpend
       .filter(l => l.roi < 0)
       .sort((a, b) => a.roi - b.roi)
       .slice(0, 5),
-    [recentActive]
+    [enrichedWithSpend]
   );
 
   // Top 5 by Profit/Sub
@@ -98,15 +98,19 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [] }: Dail
     if (!accounts.length) return [];
     return accounts.map((acc: any) => {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
-      const subsToday = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const subsToday = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
       const spendToday = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-      const totalLtv = accLinks.reduce((s: number, l: any) => s + getLtv(l), 0);
-      const newSubs = accLinks.reduce((s: number, l: any) => s + getNewSubs(l), 0);
-      const profit = totalLtv - spendToday;
+      const totalLtvVal = isAllTime
+        ? accLinks.reduce((s: number, l: any) => s + getLtv(l), 0)
+        : accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      const newSubs = isAllTime
+        ? accLinks.reduce((s: number, l: any) => s + getNewSubs(l), 0)
+        : subsToday;
+      const profit = totalLtvVal - spendToday;
       const profitPerSub = newSubs > 0 ? profit / newSubs : null;
       return { ...acc, subsToday, spendToday, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-  }, [accounts, links, ltvLookup]);
+  }, [accounts, links, ltvLookup, isAllTime]);
 
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">

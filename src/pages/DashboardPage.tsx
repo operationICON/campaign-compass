@@ -318,13 +318,15 @@ export default function DashboardPage() {
   }, 0), [filteredLinksForKpi]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
-  // Total LTV from tracking_link_ltv table (cumulative)
-  const totalLtv = useMemo(() => {
+  // Total LTV: for time-filtered periods use snapshot revenue; for All Time use tracking_link_ltv
+  const cumulativeLtv = useMemo(() => {
     const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
     return trackingLinkLtv
       .filter((r: any) => !accountIdSet || accountIdSet.has(r.account_id))
       .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
   }, [trackingLinkLtv, agencyAccountIds]);
+  const isAllTime = timePeriod === "all" && !customRange;
+  const totalLtv = isAllTime ? cumulativeLtv : overviewPeriodTotals.revenue;
   const totalProfit = totalLtv - totalSpend;
   const avgProfitPerSub = periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
@@ -476,7 +478,7 @@ export default function DashboardPage() {
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
-        <DailyDecisionView links={filteredLinksForKpi} ltvLookup={overviewLtvLookup} accounts={accounts} />
+        <DailyDecisionView links={filteredLinksForKpi} ltvLookup={overviewLtvLookup} accounts={accounts} snapshotLookup={overviewSnapshotLookup} isAllTime={isAllTime} />
 
 
         {/* ═══ INSIGHTS SECTION ═══ */}
@@ -849,7 +851,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">Cumulative LTV</p>
+            <p className="text-[11px] text-white/60 mt-1">{timePeriod === "all" && !customRange ? "Cumulative LTV" : `Snapshot revenue · ${periodLabel}`}</p>
           </div>
         );
 
