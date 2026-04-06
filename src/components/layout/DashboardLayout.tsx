@@ -20,9 +20,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               aria-label="Toggle theme"
             >
               {theme === "dark" ? (
-                <Sun className="h-4 w-4 text-muted-foreground" />
-              ) : (
                 <Moon className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Sun className="h-4 w-4 text-muted-foreground" />
               )}
             </button>
             <NotificationBell />
