@@ -363,19 +363,47 @@ Deno.serve(async (req) => {
         console.log(`Upserted ${metricsToInsert.length} daily_metrics with deltas`)
       }
 
-      // ── Upsert daily_snapshots (cumulative totals per link per day) ──
+      // ── Upsert daily_snapshots with INCREMENTAL values ──
+      // Fetch the most recent previous snapshot per link (before today)
+      const snapshotLinkIds = Object.values(idMap)
+      const { data: prevSnapshotRows } = await db.from('daily_snapshots')
+        .select('tracking_link_id, clicks, subscribers, revenue, snapshot_date')
+        .in('tracking_link_id', snapshotLinkIds)
+        .lt('snapshot_date', today)
+        .order('snapshot_date', { ascending: false })
+
+      // Build map: tracking_link_id -> most recent previous snapshot
+      const prevSnapshotMap: Record<string, { clicks: number; subscribers: number; revenue: number }> = {}
+      for (const row of prevSnapshotRows ?? []) {
+        if (!prevSnapshotMap[row.tracking_link_id]) {
+          prevSnapshotMap[row.tracking_link_id] = {
+            clicks: Number(row.clicks ?? 0),
+            subscribers: Number(row.subscribers ?? 0),
+            revenue: Number(row.revenue ?? 0),
+          }
+        }
+      }
+
       const snapshotPayloads = dailyMetricsPayloads
         .filter(m => idMap[m._ext_id])
-        .map(m => ({
-          tracking_link_id: idMap[m._ext_id],
-          account_id: accountId,
-          snapshot_date: today,
-          clicks: m.clicks,
-          subscribers: m.subscribers,
-          revenue: m.revenue,
-          external_tracking_link_id: m._ext_id,
-          synced_at: new Date().toISOString(),
-        }))
+        .map(m => {
+          const tlId = idMap[m._ext_id]
+          const prev = prevSnapshotMap[tlId]
+          // Calculate incremental values (floor at 0)
+          const incrClicks = prev ? Math.max(0, m.clicks - prev.clicks) : m.clicks
+          const incrSubs = prev ? Math.max(0, m.subscribers - prev.subscribers) : m.subscribers
+          const incrRev = prev ? Math.max(0, m.revenue - prev.revenue) : m.revenue
+          return {
+            tracking_link_id: tlId,
+            account_id: accountId,
+            snapshot_date: today,
+            clicks: incrClicks,
+            subscribers: incrSubs,
+            revenue: incrRev,
+            external_tracking_link_id: m._ext_id,
+            synced_at: new Date().toISOString(),
+          }
+        })
 
       if (snapshotPayloads.length > 0) {
         for (let i = 0; i < snapshotPayloads.length; i += 100) {
@@ -385,7 +413,7 @@ Deno.serve(async (req) => {
             ignoreDuplicates: false,
           })
         }
-        console.log(`Upserted ${snapshotPayloads.length} daily_snapshots for ${displayName}`)
+        console.log(`Upserted ${snapshotPayloads.length} incremental daily_snapshots for ${displayName}`)
       }
 
     } catch (err: any) {
