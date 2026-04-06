@@ -61,30 +61,28 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
     });
   }, [linksWithSpend, ltvLookup, isAllTime]);
 
-  const recentActive = useMemo(() => enrichedWithSpend.filter(l => l.calculated_at && l.calculated_at >= sevenDaysAgo), [enrichedWithSpend, sevenDaysAgo]);
-
   const scaleLinks = useMemo(() =>
-    recentActive
+    enrichedWithSpend
       .filter(l => l.roi > 150 && l.profit > 0)
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 5),
-    [recentActive]
+    [enrichedWithSpend]
   );
 
   const watchLinks = useMemo(() =>
-    recentActive
+    enrichedWithSpend
       .filter(l => l.roi >= 50 && l.roi <= 150)
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 5),
-    [recentActive]
+    [enrichedWithSpend]
   );
 
   const stopLinks = useMemo(() =>
-    recentActive
+    enrichedWithSpend
       .filter(l => l.roi < 0)
       .sort((a, b) => a.roi - b.roi)
       .slice(0, 5),
-    [recentActive]
+    [enrichedWithSpend]
   );
 
   // Top 5 by Profit/Sub
