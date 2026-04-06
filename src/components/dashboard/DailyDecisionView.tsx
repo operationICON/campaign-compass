@@ -7,9 +7,11 @@ interface DailyDecisionViewProps {
   links: any[];
   ltvLookup?: Record<string, any>;
   accounts?: any[];
+  snapshotLookup?: Record<string, { clicks: number; subscribers: number; revenue: number }> | null;
+  isAllTime?: boolean;
 }
 
-export function DailyDecisionView({ links, ltvLookup = {}, accounts = [] }: DailyDecisionViewProps) {
+export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapshotLookup = null, isAllTime = true }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
