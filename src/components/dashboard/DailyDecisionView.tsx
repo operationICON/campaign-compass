@@ -98,15 +98,19 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
     if (!accounts.length) return [];
     return accounts.map((acc: any) => {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
-      const subsToday = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const subsToday = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
       const spendToday = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-      const totalLtv = accLinks.reduce((s: number, l: any) => s + getLtv(l), 0);
-      const newSubs = accLinks.reduce((s: number, l: any) => s + getNewSubs(l), 0);
-      const profit = totalLtv - spendToday;
+      const totalLtvVal = isAllTime
+        ? accLinks.reduce((s: number, l: any) => s + getLtv(l), 0)
+        : accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      const newSubs = isAllTime
+        ? accLinks.reduce((s: number, l: any) => s + getNewSubs(l), 0)
+        : subsToday;
+      const profit = totalLtvVal - spendToday;
       const profitPerSub = newSubs > 0 ? profit / newSubs : null;
       return { ...acc, subsToday, spendToday, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-  }, [accounts, links, ltvLookup]);
+  }, [accounts, links, ltvLookup, isAllTime]);
 
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
