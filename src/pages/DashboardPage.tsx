@@ -643,9 +643,9 @@ function KpiCards({
             {avgProfitPerSub !== null ? (
               <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">{noDataForPeriod ? "$0.00" : "—"}</p>
             )}
-            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">Total profit / tracked subs · {periodLabel}</p>
+            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">{noDataForPeriod ? "No data for this period" : `Total profit / tracked subs · ${periodLabel}`}</p>
           </div>
         );
       }
