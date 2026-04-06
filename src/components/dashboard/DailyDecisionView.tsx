@@ -36,29 +36,30 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
   const linksWithSpend = useMemo(() => links.filter(l => Number(l.cost_total || 0) > 0), [links]);
   const noSpendCount = useMemo(() => links.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [links]);
 
-  // Agency today stats
+  // Agency summary stats — use snapshot-overlaid link data (clicks/subs/revenue already reflect period)
   const agencyToday = useMemo(() => {
-    const todayLinks = links.filter(l => l.calculated_at && new Date(l.calculated_at) >= subDays(new Date(), 1));
-    const newSubsToday = todayLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const spendToday = todayLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const ltvToday = todayLinks.reduce((s: number, l: any) => s + getLtv(l), 0);
+    const newSubsToday = links.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+    const spendToday = links.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const ltvToday = isAllTime
+      ? links.reduce((s: number, l: any) => s + getLtv(l), 0)
+      : links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const profitToday = ltvToday - spendToday;
     return { newSubsToday, spendToday, ltvToday, profitToday };
-  }, [links, ltvLookup]);
+  }, [links, ltvLookup, isAllTime]);
 
   // Compute profit and ROI for links with spend
   const enrichedWithSpend = useMemo(() => {
     return linksWithSpend.map(l => {
-      const ltv = getLtv(l);
-      const cp = getCrossPoll(l);
+      const rev = isAllTime ? getLtv(l) : Number(l.revenue || 0);
+      const cp = isAllTime ? getCrossPoll(l) : 0;
       const cost = Number(l.cost_total || 0);
-      const profit = (ltv + cp) - cost;
+      const profit = (rev + cp) - cost;
       const roi = cost > 0 ? (profit / cost) * 100 : 0;
-      const newSubs = getNewSubs(l);
+      const newSubs = isAllTime ? getNewSubs(l) : Number(l.subscribers || 0);
       const profitPerSub = newSubs > 0 ? profit / newSubs : null;
-      return { ...l, profit, roi, profitPerSub, ltv, newSubs };
+      return { ...l, profit, roi, profitPerSub, ltv: rev, newSubs };
     });
-  }, [linksWithSpend, ltvLookup]);
+  }, [linksWithSpend, ltvLookup, isAllTime]);
 
   const recentActive = useMemo(() => enrichedWithSpend.filter(l => l.calculated_at && l.calculated_at >= sevenDaysAgo), [enrichedWithSpend, sevenDaysAgo]);
 
