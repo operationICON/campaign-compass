@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, TrendingUp, Eye, XCircle, BarChart3, Users, DollarSign, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle, BarChart3, Users, Zap, Activity, AlertTriangle, Trophy } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
 interface DailyDecisionViewProps {
@@ -8,9 +8,11 @@ interface DailyDecisionViewProps {
   accounts?: any[];
   snapshotLookup?: Record<string, { clicks: number; subscribers: number; revenue: number }> | null;
   isAllTime?: boolean;
+  todaySnapshots?: any[];
+  lastWeekSnapshots?: any[];
 }
 
-export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapshotLookup = null, isAllTime = true }: DailyDecisionViewProps) {
+export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapshotLookup = null, isAllTime = true, todaySnapshots = [], lastWeekSnapshots = [] }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -30,7 +32,40 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
     return rec ? Number(rec.new_subs_total || 0) : 0;
   };
 
-  
+  // Build today's snapshot lookup by tracking_link_id
+  const todayLookup = useMemo(() => {
+    const map: Record<string, { subscribers: number; revenue: number; clicks: number }> = {};
+    for (const s of todaySnapshots) {
+      const id = String(s.tracking_link_id ?? "").toLowerCase();
+      if (!id) continue;
+      map[id] = {
+        subscribers: Number(s.subscribers || 0),
+        revenue: Number(s.revenue || 0),
+        clicks: Number(s.clicks || 0),
+      };
+    }
+    return map;
+  }, [todaySnapshots]);
+
+  // Build last week lookup for trend comparison
+  const lastWeekLookup = useMemo(() => {
+    const map: Record<string, { subscribers: number; revenue: number }> = {};
+    for (const s of lastWeekSnapshots) {
+      const id = String(s.tracking_link_id ?? "").toLowerCase();
+      if (!id) continue;
+      const existing = map[id];
+      if (existing) {
+        if (Number(s.subscribers || 0) > existing.subscribers) existing.subscribers = Number(s.subscribers || 0);
+        if (Number(s.revenue || 0) > existing.revenue) existing.revenue = Number(s.revenue || 0);
+      } else {
+        map[id] = {
+          subscribers: Number(s.subscribers || 0),
+          revenue: Number(s.revenue || 0),
+        };
+      }
+    }
+    return map;
+  }, [lastWeekSnapshots]);
 
   // Only consider links with activity in the selected period
   const activeInPeriod = useMemo(() => {
@@ -45,27 +80,38 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
   const linksWithSpend = useMemo(() => activeInPeriod.filter(l => Number(l.cost_total || 0) > 0), [activeInPeriod]);
   const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
 
-  // Agency summary stats — only count spend from links with activity in the period
-  const agencyToday = useMemo(() => {
-    // Filter to links that had activity (snapshot data) in the selected period
-    const activeLinks = !isAllTime && snapshotLookup
-      ? links.filter(l => {
-          const id = String(l.id ?? "").toLowerCase();
-          const snap = snapshotLookup[id];
-          return snap && (snap.clicks > 0 || snap.subscribers > 0);
-        })
-      : links;
-    const newSubsToday = activeLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-    const spendToday = activeLinks.reduce((s: number, l: any) => {
-      const cost = Number(l.cost_total || 0);
-      return s + (cost > 0 ? cost : 0);
-    }, 0);
-    const ltvToday = isAllTime
-      ? activeLinks.reduce((s: number, l: any) => s + getLtv(l), 0)
-      : activeLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const profitToday = ltvToday - spendToday;
-    return { newSubsToday, spendToday, ltvToday, profitToday };
-  }, [links, ltvLookup, isAllTime, snapshotLookup]);
+  // === NEW SUMMARY METRICS ===
+  const syncedToday = todaySnapshots.length > 0
+    ? new Set(todaySnapshots.map((s: any) => s.tracking_link_id)).size
+    : 0;
+
+  const newSubsToday = useMemo(() => {
+    // Sum today's incremental subscribers (snapshot value for today)
+    let total = 0;
+    for (const s of todaySnapshots) {
+      total += Number(s.subscribers || 0);
+    }
+    return total;
+  }, [todaySnapshots]);
+
+  const topCampaignToday = useMemo(() => {
+    if (todaySnapshots.length === 0) return null;
+    // Group by tracking_link_id, find highest revenue
+    const byLink: Record<string, { revenue: number; name: string }> = {};
+    for (const s of todaySnapshots) {
+      const id = String(s.tracking_link_id ?? "");
+      const rev = Number(s.revenue || 0);
+      if (!byLink[id] || rev > byLink[id].revenue) {
+        const link = links.find((l: any) => String(l.id) === id);
+        byLink[id] = { revenue: rev, name: link?.campaign_name || "Unknown" };
+      }
+    }
+    let best: { revenue: number; name: string } | null = null;
+    for (const v of Object.values(byLink)) {
+      if (!best || v.revenue > best.revenue) best = v;
+    }
+    return best;
+  }, [todaySnapshots, links]);
 
   // Compute profit and ROI for links with spend
   const enrichedWithSpend = useMemo(() => {
@@ -77,9 +123,25 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
       const roi = cost > 0 ? (profit / cost) * 100 : 0;
       const newSubs = isAllTime ? getNewSubs(l) : Number(l.subscribers || 0);
       const profitPerSub = newSubs > 0 ? profit / newSubs : null;
-      return { ...l, profit, roi, profitPerSub, ltv: rev, newSubs };
+
+      // Today's snapshot data
+      const id = String(l.id ?? "").toLowerCase();
+      const todaySnap = todayLookup[id];
+      const lastWeekSnap = lastWeekLookup[id];
+      const todaySubs = todaySnap?.subscribers ?? 0;
+      const todayRev = todaySnap?.revenue ?? 0;
+      const lastWeekRev = lastWeekSnap?.revenue ?? 0;
+      const trend = todayRev > 0 && lastWeekRev > 0
+        ? ((todayRev - lastWeekRev) / lastWeekRev) * 100
+        : null;
+
+      // Find account name
+      const account = accounts.find((a: any) => a.id === l.account_id);
+      const modelName = account?.display_name || l.accounts?.display_name || "";
+
+      return { ...l, profit, roi, profitPerSub, ltv: rev, newSubs, todaySubs, todayRev, trend, modelName };
     });
-  }, [linksWithSpend, ltvLookup, isAllTime]);
+  }, [linksWithSpend, ltvLookup, isAllTime, todayLookup, lastWeekLookup, accounts]);
 
   const scaleLinks = useMemo(() =>
     enrichedWithSpend
@@ -104,6 +166,8 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
       .slice(0, 5),
     [enrichedWithSpend]
   );
+
+  const needsAttentionCount = stopLinks.length;
 
   // Top 5 by Profit/Sub
   const topProfitPerSub = useMemo(() =>
@@ -133,6 +197,36 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
   }, [accounts, links, ltvLookup, isAllTime]);
 
+  function TrendBadge({ trend }: { trend: number | null }) {
+    if (trend === null) return <span className="text-[9px] text-muted-foreground">—</span>;
+    const up = trend >= 0;
+    return (
+      <span className={`inline-flex items-center gap-0.5 text-[9px] font-mono font-bold ${up ? "text-primary" : "text-destructive"}`}>
+        {up ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+        {Math.abs(trend).toFixed(0)}%
+      </span>
+    );
+  }
+
+  function CampaignCard({ l, borderClass }: { l: any; borderClass: string }) {
+    return (
+      <div className={`${borderClass} rounded-lg px-3 py-2`}>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-foreground truncate flex-1">{l.campaign_name}</p>
+          <TrendBadge trend={l.trend} />
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[10px] text-muted-foreground">{l.modelName}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground">{l.todaySubs} subs</span>
+            <span className="text-[10px] font-mono text-muted-foreground">{fmtC(l.todayRev)}</span>
+            <span className={`font-mono text-[10px] font-bold ${l.roi >= 0 ? "text-primary" : "text-destructive"}`}>{l.roi.toFixed(0)}%</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       <button
@@ -151,20 +245,20 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
       </button>
       {open && (
         <div className="border-t border-border">
-          {/* Section 1 — Agency Today */}
+          {/* Section 1 — Today's Summary */}
           <div className="grid grid-cols-4 gap-0 border-b border-border">
             {[
-              { label: "New Subs", value: agencyToday.newSubsToday.toLocaleString(), icon: <Users className="h-3.5 w-3.5" /> },
-              { label: "Spend", value: fmtC(agencyToday.spendToday), icon: <DollarSign className="h-3.5 w-3.5" /> },
-              { label: "LTV", value: fmtC(agencyToday.ltvToday), icon: <TrendingUp className="h-3.5 w-3.5" /> },
-              { label: "Profit", value: fmtC(agencyToday.profitToday), icon: <Zap className="h-3.5 w-3.5" />, color: agencyToday.profitToday >= 0 },
+              { label: "Synced Today", value: syncedToday.toLocaleString(), icon: <Activity className="h-3.5 w-3.5" /> },
+              { label: "New Subs Today", value: newSubsToday.toLocaleString(), icon: <Users className="h-3.5 w-3.5" /> },
+              { label: "Top Campaign", value: topCampaignToday?.name ?? "—", icon: <Trophy className="h-3.5 w-3.5" />, isText: true },
+              { label: "Needs Attention", value: needsAttentionCount.toLocaleString(), icon: <AlertTriangle className="h-3.5 w-3.5" />, color: needsAttentionCount > 0 ? false : true },
             ].map((item, i) => (
               <div key={i} className={`px-4 py-3 ${i < 3 ? "border-r border-border" : ""}`}>
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className="text-muted-foreground">{item.icon}</span>
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{item.label}</span>
                 </div>
-                <p className={`text-lg font-bold font-mono ${item.color !== undefined ? (item.color ? "text-primary" : "text-destructive") : "text-foreground"}`}>
+                <p className={`${(item as any).isText ? "text-sm truncate" : "text-lg font-mono"} font-bold ${item.color !== undefined ? (item.color ? "text-primary" : "text-destructive") : "text-foreground"}`}>
                   {item.value}
                 </p>
               </div>
@@ -183,18 +277,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
               ) : (
                 <div className="space-y-2">
                   {scaleLinks.map((l) => (
-                    <div key={l.id} className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                      <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-mono font-bold ${l.profit >= 0 ? "text-primary" : "text-destructive"}`}>
-                            P {fmtC(l.profit)}
-                          </span>
-                          <span className="font-mono text-[10px] font-bold text-primary">{l.roi.toFixed(0)}%</span>
-                        </div>
-                      </div>
-                    </div>
+                    <CampaignCard key={l.id} l={l} borderClass="bg-primary/5 border border-primary/20" />
                   ))}
                 </div>
               )}
@@ -210,18 +293,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
               ) : (
                 <div className="space-y-2">
                   {watchLinks.map((l) => (
-                    <div key={l.id} className="bg-[hsl(var(--warning)/0.05)] border border-[hsl(var(--warning)/0.2)] rounded-lg px-3 py-2">
-                      <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-mono font-bold ${l.profit >= 0 ? "text-primary" : "text-destructive"}`}>
-                            P {fmtC(l.profit)}
-                          </span>
-                          <span className="font-mono text-[10px] font-bold text-[hsl(var(--warning))]">{l.roi.toFixed(0)}%</span>
-                        </div>
-                      </div>
-                    </div>
+                    <CampaignCard key={l.id} l={l} borderClass="bg-[hsl(var(--warning)/0.05)] border border-[hsl(var(--warning)/0.2)]" />
                   ))}
                 </div>
               )}
@@ -237,18 +309,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
               ) : (
                 <div className="space-y-2">
                   {stopLinks.map((l) => (
-                    <div key={l.id} className="bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
-                      <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono font-bold text-destructive">
-                            P {fmtC(l.profit)}
-                          </span>
-                          <span className="font-mono text-[10px] font-bold text-destructive">{l.roi.toFixed(0)}%</span>
-                        </div>
-                      </div>
-                    </div>
+                    <CampaignCard key={l.id} l={l} borderClass="bg-destructive/5 border border-destructive/20" />
                   ))}
                 </div>
               )}
@@ -268,7 +329,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
                   <div key={l.id} className="bg-secondary/50 border border-border rounded-lg px-3 py-2">
                     <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[10px] text-muted-foreground">{l.accounts?.display_name}</span>
+                      <span className="text-[10px] text-muted-foreground">{l.modelName}</span>
                       <span className="text-[10px] font-mono font-bold text-primary">{fmtC(l.profitPerSub!)}/sub</span>
                     </div>
                   </div>
