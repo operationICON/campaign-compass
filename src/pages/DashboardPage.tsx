@@ -220,6 +220,37 @@ export default function DashboardPage() {
   }, [overviewSnapshotRange, overviewSnapshotRows]);
 
   const links = useMemo(() => applySnapshotToLinks(allLinks, overviewSnapshotLookup), [allLinks, overviewSnapshotLookup]);
+
+  // Fetch today's snapshots for Daily Decision View
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const lastWeekStr = format(subDays(new Date(), 7), "yyyy-MM-dd");
+
+  const { data: todaySnapshots = [] } = useQuery({
+    queryKey: ["daily_snapshots", "today", todayStr, agencyAccountIds?.join(",") ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("daily_snapshots")
+        .select("tracking_link_id, clicks, subscribers, revenue")
+        .eq("snapshot_date", todayStr);
+      if (agencyAccountIds?.length) q = q.in("account_id", agencyAccountIds);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: lastWeekSnapshots = [] } = useQuery({
+    queryKey: ["daily_snapshots", "lastweek", lastWeekStr, agencyAccountIds?.join(",") ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("daily_snapshots")
+        .select("tracking_link_id, clicks, subscribers, revenue")
+        .eq("snapshot_date", lastWeekStr);
+      if (agencyAccountIds?.length) q = q.in("account_id", agencyAccountIds);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const isLoading = linksLoading || overviewSnapshotsLoading || overviewSnapshotsFetching;
 
   const syncFrequency = useMemo(() => {
