@@ -44,8 +44,8 @@ function getOverviewSnapshotRange(
 
   switch (timePeriod) {
     case "day": {
-      const yesterday = format(subDays(now, 1), "yyyy-MM-dd");
-      return { from: yesterday, to: yesterday, dayCount: 1 };
+      // Use __latest__ sentinel — query will resolve to MAX(snapshot_date)
+      return { from: "__latest__", to: "__latest__", dayCount: 1 };
     }
     case "week":
       return { from: format(subDays(now, 7), "yyyy-MM-dd"), to: today, dayCount: 7 };
