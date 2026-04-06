@@ -80,38 +80,40 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
   const linksWithSpend = useMemo(() => activeInPeriod.filter(l => Number(l.cost_total || 0) > 0), [activeInPeriod]);
   const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
 
-  // === NEW SUMMARY METRICS ===
-  const syncedToday = todaySnapshots.length > 0
-    ? new Set(todaySnapshots.map((s: any) => s.tracking_link_id)).size
-    : 0;
+  // === SUMMARY METRICS (from tracking_links + tracking_link_ltv, always available) ===
+  const activeLinksCount = useMemo(() => {
+    return links.filter(l => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0).length;
+  }, [links]);
 
-  const newSubsToday = useMemo(() => {
-    // Sum today's incremental subscribers (snapshot value for today)
-    let total = 0;
-    for (const s of todaySnapshots) {
-      total += Number(s.subscribers || 0);
-    }
-    return total;
-  }, [todaySnapshots]);
-
-  const topCampaignToday = useMemo(() => {
-    if (todaySnapshots.length === 0) return null;
-    // Group by tracking_link_id, find highest revenue
-    const byLink: Record<string, { revenue: number; name: string }> = {};
-    for (const s of todaySnapshots) {
-      const id = String(s.tracking_link_id ?? "");
-      const rev = Number(s.revenue || 0);
-      if (!byLink[id] || rev > byLink[id].revenue) {
-        const link = links.find((l: any) => String(l.id) === id);
-        byLink[id] = { revenue: rev, name: link?.campaign_name || "Unknown" };
+  const bestRoi = useMemo(() => {
+    let best: { name: string; roi: number } | null = null;
+    for (const l of links) {
+      const cost = Number(l.cost_total || 0);
+      if (cost <= 0) continue;
+      const key = String(l.id ?? "").trim().toLowerCase();
+      const rec = ltvLookup[key];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      if (ltv <= 0) continue;
+      const roi = ((ltv - cost) / cost) * 100;
+      if (!best || roi > best.roi) {
+        best = { name: l.campaign_name || "Unknown", roi };
       }
     }
-    let best: { revenue: number; name: string } | null = null;
-    for (const v of Object.values(byLink)) {
-      if (!best || v.revenue > best.revenue) best = v;
+    return best;
+  }, [links, ltvLookup]);
+
+  const topEarner = useMemo(() => {
+    let best: { name: string; ltv: number } | null = null;
+    for (const l of links) {
+      const key = String(l.id ?? "").trim().toLowerCase();
+      const rec = ltvLookup[key];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      if (ltv > 0 && (!best || ltv > best.ltv)) {
+        best = { name: l.campaign_name || "Unknown", ltv };
+      }
     }
     return best;
-  }, [todaySnapshots, links]);
+  }, [links, ltvLookup]);
 
   // Compute profit and ROI for links with spend
   const enrichedWithSpend = useMemo(() => {
