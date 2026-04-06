@@ -10,9 +10,76 @@ export interface SnapshotMetrics {
   revenue: number;
 }
 
+interface SnapshotRow {
+  tracking_link_id: string | null;
+  clicks: number | null;
+  subscribers: number | null;
+  revenue: number | null;
+}
+
+function toMetricValue(value: number | null | undefined) {
+  return Number(value || 0);
+}
+
+export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string, SnapshotMetrics> {
+  const accumulators: Record<
+    string,
+    {
+      minClicks: number;
+      maxClicks: number;
+      minSubscribers: number;
+      maxSubscribers: number;
+      minRevenue: number;
+      maxRevenue: number;
+    }
+  > = {};
+
+  for (const row of snapshotRows) {
+    const id = String(row.tracking_link_id ?? "").toLowerCase();
+    if (!id) continue;
+
+    const clicks = toMetricValue(row.clicks);
+    const subscribers = toMetricValue(row.subscribers);
+    const revenue = toMetricValue(row.revenue);
+
+    if (!accumulators[id]) {
+      accumulators[id] = {
+        minClicks: clicks,
+        maxClicks: clicks,
+        minSubscribers: subscribers,
+        maxSubscribers: subscribers,
+        minRevenue: revenue,
+        maxRevenue: revenue,
+      };
+      continue;
+    }
+
+    const current = accumulators[id];
+    current.minClicks = Math.min(current.minClicks, clicks);
+    current.maxClicks = Math.max(current.maxClicks, clicks);
+    current.minSubscribers = Math.min(current.minSubscribers, subscribers);
+    current.maxSubscribers = Math.max(current.maxSubscribers, subscribers);
+    current.minRevenue = Math.min(current.minRevenue, revenue);
+    current.maxRevenue = Math.max(current.maxRevenue, revenue);
+  }
+
+  const lookup: Record<string, SnapshotMetrics> = {};
+
+  for (const [id, current] of Object.entries(accumulators)) {
+    lookup[id] = {
+      clicks: Math.max(0, current.maxClicks - current.minClicks),
+      subscribers: Math.max(0, current.maxSubscribers - current.minSubscribers),
+      revenue: Math.max(0, current.maxRevenue - current.minRevenue),
+    };
+  }
+
+  return lookup;
+}
+
 /**
  * Fetches daily_snapshots for the selected time period and returns
- * a lookup map of tracking_link_id → aggregated {clicks, subscribers, revenue}.
+ * a lookup map of tracking_link_id → per-period {clicks, subscribers, revenue}
+ * derived from cumulative snapshots using MAX - MIN within the selected range.
  *
  * For "All Time" returns null lookup (callers should use tracking_links totals).
  */
@@ -101,21 +168,10 @@ export function useSnapshotMetrics(
     enabled: !isAllTime,
   });
 
-  // Build lookup: tracking_link_id (UUID) → aggregated metrics
+  // Build lookup: tracking_link_id (UUID) → period delta metrics
   const snapshotLookup = useMemo<Record<string, SnapshotMetrics> | null>(() => {
     if (isAllTime) return null; // Signal to callers: use tracking_links totals
-    const map: Record<string, SnapshotMetrics> = {};
-    for (const row of snapshotRows) {
-      const id = String(row.tracking_link_id ?? "").toLowerCase();
-      if (!id) continue;
-      if (!map[id]) {
-        map[id] = { clicks: 0, subscribers: 0, revenue: 0 };
-      }
-      map[id].clicks += Number(row.clicks || 0);
-      map[id].subscribers += Number(row.subscribers || 0);
-      map[id].revenue += Number(row.revenue || 0);
-    }
-    return map;
+    return buildSnapshotLookup(snapshotRows);
   }, [snapshotRows, isAllTime]);
 
   return { snapshotLookup, isAllTime, isLoading };
@@ -142,7 +198,7 @@ export function getSnapshotMetrics(
 
 /**
  * Returns a new array of links with clicks/subscribers/revenue
- * replaced by snapshot-period values. For "All Time" returns links unchanged.
+ * replaced by snapshot-period delta values. For "All Time" returns links unchanged.
  */
 export function applySnapshotToLinks(
   links: any[],
