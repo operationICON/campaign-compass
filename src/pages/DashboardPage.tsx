@@ -330,14 +330,42 @@ export default function DashboardPage() {
 
   const isAllTime = timePeriod === "all" && !customRange;
 
+  // ═══ All Time totals from tracking_link_ltv + tracking_links ═══
+  const allTimeTotals = useMemo(() => {
+    if (!isAllTime) return null;
+    const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+
+    // LTV + Cross-Poll from tracking_link_ltv
+    let ltv = 0;
+    let crossPoll = 0;
+    for (const r of trackingLinkLtv) {
+      if (accountIdSet && !accountIdSet.has(r.account_id)) continue;
+      ltv += Number(r.total_ltv || 0);
+      crossPoll += Number(r.cross_poll_revenue || 0);
+    }
+    const totalLtv = ltv + crossPoll;
+
+    // Expenses, subs, clicks from tracking_links
+    let expenses = 0;
+    let subs = 0;
+    let clicks = 0;
+    for (const l of filteredLinksForKpi) {
+      expenses += Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0;
+      subs += Number(l.subscribers || 0);
+      clicks += Number(l.clicks || 0);
+    }
+
+    const totalProfit = totalLtv - expenses;
+    const ltvPerSub = subs > 0 ? totalLtv / subs : null;
+    const avgCpl = subs > 0 ? expenses / subs : null;
+    const roi = expenses > 0 ? (totalProfit / expenses) * 100 : null;
+
+    return { ltv, crossPoll, totalLtv, expenses, subs, clicks, totalProfit, ltvPerSub, avgCpl, roi };
+  }, [isAllTime, trackingLinkLtv, filteredLinksForKpi, agencyAccountIds]);
+
   // Total Expenses: for time-filtered periods, only count links with snapshot activity
   const totalSpend = useMemo(() => {
-    if (isAllTime) {
-      return filteredLinksForKpi.reduce((s: number, l: any) => {
-        const cost = Number(l.cost_total || 0);
-        return s + (cost > 0 ? cost : 0);
-      }, 0);
-    }
+    if (isAllTime && allTimeTotals) return allTimeTotals.expenses;
     // Only count spend from links that had activity in the snapshot period
     if (!overviewSnapshotLookup) return 0;
     return filteredLinksForKpi.reduce((s: number, l: any) => {
@@ -347,21 +375,17 @@ export default function DashboardPage() {
       const cost = Number(l.cost_total || 0);
       return s + (cost > 0 ? cost : 0);
     }, 0);
-  }, [filteredLinksForKpi, isAllTime, overviewSnapshotLookup]);
+  }, [filteredLinksForKpi, isAllTime, allTimeTotals, overviewSnapshotLookup]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
-  // Total LTV: for time-filtered periods use snapshot revenue; for All Time use tracking_link_ltv
-  const cumulativeLtv = useMemo(() => {
-    const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
-    return trackingLinkLtv
-      .filter((r: any) => !accountIdSet || accountIdSet.has(r.account_id))
-      .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
-  }, [trackingLinkLtv, agencyAccountIds]);
-  const totalLtv = isAllTime ? cumulativeLtv : overviewPeriodTotals.revenue;
-  const totalProfit = totalLtv - totalSpend;
+  // Total LTV
+  const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : overviewPeriodTotals.revenue;
+  const totalProfit = isAllTime && allTimeTotals ? allTimeTotals.totalProfit : totalLtv - totalSpend;
   // hasSnapshotData: true if any snapshot rows were returned for this period
   const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
-  const avgProfitPerSub = periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
+  const avgProfitPerSub = isAllTime && allTimeTotals
+    ? allTimeTotals.totalProfit / (allTimeTotals.subs || 1)
+    : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
     let accts = [...accounts];
