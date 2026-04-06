@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle, BarChart3, Users, Zap, Activity, AlertTriangle, Trophy } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle, BarChart3, Users, Zap, Link2, AlertTriangle, Trophy, DollarSign } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
 interface DailyDecisionViewProps {
@@ -80,38 +80,40 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
   const linksWithSpend = useMemo(() => activeInPeriod.filter(l => Number(l.cost_total || 0) > 0), [activeInPeriod]);
   const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
 
-  // === NEW SUMMARY METRICS ===
-  const syncedToday = todaySnapshots.length > 0
-    ? new Set(todaySnapshots.map((s: any) => s.tracking_link_id)).size
-    : 0;
+  // === SUMMARY METRICS (from tracking_links + tracking_link_ltv, always available) ===
+  const activeLinksCount = useMemo(() => {
+    return links.filter(l => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0).length;
+  }, [links]);
 
-  const newSubsToday = useMemo(() => {
-    // Sum today's incremental subscribers (snapshot value for today)
-    let total = 0;
-    for (const s of todaySnapshots) {
-      total += Number(s.subscribers || 0);
-    }
-    return total;
-  }, [todaySnapshots]);
-
-  const topCampaignToday = useMemo(() => {
-    if (todaySnapshots.length === 0) return null;
-    // Group by tracking_link_id, find highest revenue
-    const byLink: Record<string, { revenue: number; name: string }> = {};
-    for (const s of todaySnapshots) {
-      const id = String(s.tracking_link_id ?? "");
-      const rev = Number(s.revenue || 0);
-      if (!byLink[id] || rev > byLink[id].revenue) {
-        const link = links.find((l: any) => String(l.id) === id);
-        byLink[id] = { revenue: rev, name: link?.campaign_name || "Unknown" };
+  const bestRoi = useMemo(() => {
+    let best: { name: string; roi: number } | null = null;
+    for (const l of links) {
+      const cost = Number(l.cost_total || 0);
+      if (cost <= 0) continue;
+      const key = String(l.id ?? "").trim().toLowerCase();
+      const rec = ltvLookup[key];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      if (ltv <= 0) continue;
+      const roi = ((ltv - cost) / cost) * 100;
+      if (!best || roi > best.roi) {
+        best = { name: l.campaign_name || "Unknown", roi };
       }
     }
-    let best: { revenue: number; name: string } | null = null;
-    for (const v of Object.values(byLink)) {
-      if (!best || v.revenue > best.revenue) best = v;
+    return best;
+  }, [links, ltvLookup]);
+
+  const topEarner = useMemo(() => {
+    let best: { name: string; ltv: number } | null = null;
+    for (const l of links) {
+      const key = String(l.id ?? "").trim().toLowerCase();
+      const rec = ltvLookup[key];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      if (ltv > 0 && (!best || ltv > best.ltv)) {
+        best = { name: l.campaign_name || "Unknown", ltv };
+      }
     }
     return best;
-  }, [todaySnapshots, links]);
+  }, [links, ltvLookup]);
 
   // Compute profit and ROI for links with spend
   const enrichedWithSpend = useMemo(() => {
@@ -167,7 +169,16 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
     [enrichedWithSpend]
   );
 
-  const needsAttentionCount = stopLinks.length;
+  const needsAttentionCount = useMemo(() => {
+    return links.filter(l => {
+      const cost = Number(l.cost_total || 0);
+      if (cost <= 0) return false;
+      const key = String(l.id ?? "").trim().toLowerCase();
+      const rec = ltvLookup[key];
+      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      return ltv < cost;
+    }).length;
+  }, [links, ltvLookup]);
 
   // Top 5 by Profit/Sub
   const topProfitPerSub = useMemo(() =>
@@ -245,24 +256,50 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
       </button>
       {open && (
         <div className="border-t border-border">
-          {/* Section 1 — Today's Summary */}
+          {/* Section 1 — Key Metrics */}
           <div className="grid grid-cols-4 gap-0 border-b border-border">
-            {[
-              { label: "Synced Today", value: syncedToday.toLocaleString(), icon: <Activity className="h-3.5 w-3.5" /> },
-              { label: "New Subs Today", value: newSubsToday.toLocaleString(), icon: <Users className="h-3.5 w-3.5" /> },
-              { label: "Top Campaign", value: topCampaignToday?.name ?? "—", icon: <Trophy className="h-3.5 w-3.5" />, isText: true },
-              { label: "Needs Attention", value: needsAttentionCount.toLocaleString(), icon: <AlertTriangle className="h-3.5 w-3.5" />, color: needsAttentionCount > 0 ? false : true },
-            ].map((item, i) => (
-              <div key={i} className={`px-4 py-3 ${i < 3 ? "border-r border-border" : ""}`}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-muted-foreground">{item.icon}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{item.label}</span>
-                </div>
-                <p className={`${(item as any).isText ? "text-sm truncate" : "text-lg font-mono"} font-bold ${item.color !== undefined ? (item.color ? "text-primary" : "text-destructive") : "text-foreground"}`}>
-                  {item.value}
-                </p>
+            <div className="px-4 py-3 border-r border-border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Active Links</span>
               </div>
-            ))}
+              <p className="text-lg font-mono font-bold text-foreground">{activeLinksCount.toLocaleString()}</p>
+            </div>
+            <div className="px-4 py-3 border-r border-border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Best ROI</span>
+              </div>
+              {bestRoi ? (
+                <>
+                  <p className="text-sm font-bold text-primary truncate">{bestRoi.roi.toFixed(0)}%</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{bestRoi.name}</p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-muted-foreground">—</p>
+              )}
+            </div>
+            <div className="px-4 py-3 border-r border-border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Needs Attention</span>
+              </div>
+              <p className={`text-lg font-mono font-bold ${needsAttentionCount > 0 ? "text-destructive" : "text-primary"}`}>{needsAttentionCount.toLocaleString()}</p>
+            </div>
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Top Earner</span>
+              </div>
+              {topEarner ? (
+                <>
+                  <p className="text-sm font-bold text-foreground truncate">{fmtC(topEarner.ltv)}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{topEarner.name}</p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-muted-foreground">—</p>
+              )}
+            </div>
           </div>
 
           {/* Section 2 — Needs Action */}
