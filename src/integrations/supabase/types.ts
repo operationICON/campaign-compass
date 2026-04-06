@@ -388,6 +388,9 @@ export type Database = {
           created_at: string | null
           external_tracking_link_id: string | null
           id: string
+          raw_clicks: number | null
+          raw_revenue: number | null
+          raw_subscribers: number | null
           revenue: number | null
           snapshot_date: string | null
           subscribers: number | null
@@ -400,6 +403,9 @@ export type Database = {
           created_at?: string | null
           external_tracking_link_id?: string | null
           id?: string
+          raw_clicks?: number | null
+          raw_revenue?: number | null
+          raw_subscribers?: number | null
           revenue?: number | null
           snapshot_date?: string | null
           subscribers?: number | null
@@ -412,6 +418,9 @@ export type Database = {
           created_at?: string | null
           external_tracking_link_id?: string | null
           id?: string
+          raw_clicks?: number | null
+          raw_revenue?: number | null
+          raw_subscribers?: number | null
           revenue?: number | null
           snapshot_date?: string | null
           subscribers?: number | null
