@@ -101,9 +101,8 @@ export function useSnapshotMetrics(
     const today = format(now, "yyyy-MM-dd");
     switch (timePeriod) {
       case "day": {
-        // Yesterday's snapshot
-        const yesterday = format(subDays(now, 1), "yyyy-MM-dd");
-        return { from: yesterday, to: yesterday };
+        // Use server's most recent snapshot date (avoids client/server timezone mismatch)
+        return { from: "__latest__", to: "__latest__" };
       }
       case "week":
         return { from: format(subDays(now, 7), "yyyy-MM-dd"), to: today };
