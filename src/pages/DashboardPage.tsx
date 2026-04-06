@@ -695,12 +695,12 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
             </div>
-            {subsPerDayCalc !== null ? (
-              <p className="text-[22px] font-bold font-mono text-primary">{subsPerDayCalc > 0 ? "+" : ""}{Math.round(subsPerDayCalc)}/day</p>
+            {subsPerDayCalc !== null && subsPerDayCalc > 0 ? (
+              <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">---</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">{noDataForPeriod ? "0/day" : "---"}</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Tracked subs / day · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{noDataForPeriod ? "No data for this period" : `Tracked subs / day · ${periodLabel}`}</p>
           </div>
         );
 
