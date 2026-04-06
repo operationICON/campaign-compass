@@ -32,19 +32,40 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
 
   
 
-  const linksWithSpend = useMemo(() => links.filter(l => Number(l.cost_total || 0) > 0), [links]);
-  const noSpendCount = useMemo(() => links.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [links]);
+  // Only consider links with activity in the selected period
+  const activeInPeriod = useMemo(() => {
+    if (isAllTime || !snapshotLookup) return links;
+    return links.filter(l => {
+      const id = String(l.id ?? "").toLowerCase();
+      const snap = snapshotLookup[id];
+      return snap && (snap.clicks > 0 || snap.subscribers > 0);
+    });
+  }, [links, isAllTime, snapshotLookup]);
 
-  // Agency summary stats — use snapshot-overlaid link data (clicks/subs/revenue already reflect period)
+  const linksWithSpend = useMemo(() => activeInPeriod.filter(l => Number(l.cost_total || 0) > 0), [activeInPeriod]);
+  const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
+
+  // Agency summary stats — only count spend from links with activity in the period
   const agencyToday = useMemo(() => {
-    const newSubsToday = links.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-    const spendToday = links.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    // Filter to links that had activity (snapshot data) in the selected period
+    const activeLinks = !isAllTime && snapshotLookup
+      ? links.filter(l => {
+          const id = String(l.id ?? "").toLowerCase();
+          const snap = snapshotLookup[id];
+          return snap && (snap.clicks > 0 || snap.subscribers > 0);
+        })
+      : links;
+    const newSubsToday = activeLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+    const spendToday = activeLinks.reduce((s: number, l: any) => {
+      const cost = Number(l.cost_total || 0);
+      return s + (cost > 0 ? cost : 0);
+    }, 0);
     const ltvToday = isAllTime
-      ? links.reduce((s: number, l: any) => s + getLtv(l), 0)
-      : links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      ? activeLinks.reduce((s: number, l: any) => s + getLtv(l), 0)
+      : activeLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const profitToday = ltvToday - spendToday;
     return { newSubsToday, spendToday, ltvToday, profitToday };
-  }, [links, ltvLookup, isAllTime]);
+  }, [links, ltvLookup, isAllTime, snapshotLookup]);
 
   // Compute profit and ROI for links with spend
   const enrichedWithSpend = useMemo(() => {

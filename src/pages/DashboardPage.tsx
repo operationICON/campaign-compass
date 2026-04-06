@@ -44,8 +44,8 @@ function getOverviewSnapshotRange(
 
   switch (timePeriod) {
     case "day": {
-      const yesterday = format(subDays(now, 1), "yyyy-MM-dd");
-      return { from: yesterday, to: yesterday, dayCount: 1 };
+      // Use __latest__ sentinel — query will resolve to MAX(snapshot_date)
+      return { from: "__latest__", to: "__latest__", dayCount: 1 };
     }
     case "week":
       return { from: format(subDays(now, 7), "yyyy-MM-dd"), to: today, dayCount: 7 };
@@ -311,11 +311,26 @@ export default function DashboardPage() {
   const periodDayCount = overviewSnapshotRange?.dayCount ?? null;
   const activeLinkCount = overviewPeriodTotals.activeLinks;
 
-  // Total Expenses = cumulative SUM(cost_total) WHERE cost_total > 0
-  const totalSpend = useMemo(() => filteredLinksForKpi.reduce((s: number, l: any) => {
-    const cost = Number(l.cost_total || 0);
-    return s + (cost > 0 ? cost : 0);
-  }, 0), [filteredLinksForKpi]);
+  const isAllTime = timePeriod === "all" && !customRange;
+
+  // Total Expenses: for time-filtered periods, only count links with snapshot activity
+  const totalSpend = useMemo(() => {
+    if (isAllTime) {
+      return filteredLinksForKpi.reduce((s: number, l: any) => {
+        const cost = Number(l.cost_total || 0);
+        return s + (cost > 0 ? cost : 0);
+      }, 0);
+    }
+    // Only count spend from links that had activity in the snapshot period
+    if (!overviewSnapshotLookup) return 0;
+    return filteredLinksForKpi.reduce((s: number, l: any) => {
+      const id = String(l.id ?? "").toLowerCase();
+      const snap = overviewSnapshotLookup[id];
+      if (!snap || (snap.clicks === 0 && snap.subscribers === 0)) return s;
+      const cost = Number(l.cost_total || 0);
+      return s + (cost > 0 ? cost : 0);
+    }, 0);
+  }, [filteredLinksForKpi, isAllTime, overviewSnapshotLookup]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
   // Total LTV: for time-filtered periods use snapshot revenue; for All Time use tracking_link_ltv
@@ -325,9 +340,10 @@ export default function DashboardPage() {
       .filter((r: any) => !accountIdSet || accountIdSet.has(r.account_id))
       .reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
   }, [trackingLinkLtv, agencyAccountIds]);
-  const isAllTime = timePeriod === "all" && !customRange;
   const totalLtv = isAllTime ? cumulativeLtv : overviewPeriodTotals.revenue;
   const totalProfit = totalLtv - totalSpend;
+  // hasSnapshotData: true if any snapshot rows were returned for this period
+  const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
   const avgProfitPerSub = periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
@@ -475,6 +491,7 @@ export default function DashboardPage() {
             return CATEGORY_MAP[username] || "Female";
           }}
           fmtC={fmtC}
+          hasSnapshotData={hasSnapshotData}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
@@ -527,7 +544,7 @@ function KpiCards({
   accounts, links,
   totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
-  modelParam, groupFilter, getAccountCategory, fmtC,
+  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
@@ -550,12 +567,14 @@ function KpiCards({
   groupFilter: string;
   getAccountCategory: (a: any) => string;
   fmtC: (v: number) => string;
+  hasSnapshotData: boolean;
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
     : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
 
   const subsPerDayCalc = periodDayCount ? periodSubscribers / periodDayCount : null;
+  const noDataForPeriod = !hasSnapshotData && timePeriod !== "all";
 
   // Avg CPL = Expenses / tracked subscribers for the selected period
   const avgCpl = periodSubscribers > 0 ? totalSpend / periodSubscribers : null;
@@ -624,9 +643,9 @@ function KpiCards({
             {avgProfitPerSub !== null ? (
               <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">{noDataForPeriod ? "$0.00" : "—"}</p>
             )}
-            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">Total profit / tracked subs · {periodLabel}</p>
+            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">{noDataForPeriod ? "No data for this period" : `Total profit / tracked subs · ${periodLabel}`}</p>
           </div>
         );
       }
@@ -643,9 +662,9 @@ function KpiCards({
             {ltvPerSub !== null ? (
               <p className="text-[22px] font-bold font-mono text-white">{fmtC(ltvPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">{noDataForPeriod ? "$0.00" : "—"}</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">Cumulative LTV / tracked subs · {periodLabel}</p>
+            <p className="text-[11px] text-white/60 mt-1">{noDataForPeriod ? "No data for this period" : `LTV / tracked subs · ${periodLabel}`}</p>
           </div>
         );
 
@@ -661,9 +680,9 @@ function KpiCards({
             {avgCpl !== null ? (
               <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgCpl)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">{noDataForPeriod ? "$0.00" : "—"}</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Expenses / tracked subs · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{noDataForPeriod ? "No data for this period" : `Expenses / tracked subs · ${periodLabel}`}</p>
           </div>
         );
 
@@ -676,12 +695,12 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
             </div>
-            {subsPerDayCalc !== null ? (
-              <p className="text-[22px] font-bold font-mono text-primary">{subsPerDayCalc > 0 ? "+" : ""}{Math.round(subsPerDayCalc)}/day</p>
+            {subsPerDayCalc !== null && subsPerDayCalc > 0 ? (
+              <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">---</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">{noDataForPeriod ? "0/day" : "---"}</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Tracked subs / day · {periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{noDataForPeriod ? "No data for this period" : `Tracked subs / day · ${periodLabel}`}</p>
           </div>
         );
 
