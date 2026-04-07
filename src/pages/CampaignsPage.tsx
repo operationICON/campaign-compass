@@ -1381,7 +1381,7 @@ export default function CampaignsPage() {
                                       {/* Spend */}
                                       <div>
                                         <div className="flex items-center gap-1.5 mb-2">
-                                          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", fontWeight: 600 }}>Spend</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Spend</p>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <Info className="h-3 w-3 cursor-help" style={{ color: "#94a3b8" }} />
