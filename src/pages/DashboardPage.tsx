@@ -845,20 +845,23 @@ function KpiCards({
         );
 
       case "subs_day":
+        const isAllTimeSubsCard = timePeriod === "all" && !customRange;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <BarChart3 className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{isAllTimeSubsCard ? "Total Subs" : "Subs/Day"}</span>
             </div>
-            {subsPerDayCalc !== null && subsPerDayCalc > 0 ? (
+            {isAllTimeSubsCard ? (
+              <p className="text-[22px] font-bold font-mono text-primary">{periodSubscribers.toLocaleString()}</p>
+            ) : subsPerDayCalc !== null && subsPerDayCalc > 0 ? (
               <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">{noDataForPeriod ? "0/day" : "---"}</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">{noDataForPeriod ? "No data for this period" : `Tracked subs / day · ${periodLabel}`}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{isAllTimeSubsCard ? "Total subscribers across all campaigns" : noDataForPeriod ? "No data for this period" : `Tracked subs / day · ${periodLabel}`}</p>
           </div>
         );
 
