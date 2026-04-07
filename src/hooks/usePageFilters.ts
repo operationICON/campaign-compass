@@ -74,22 +74,7 @@ export function usePageFilters() {
     } catch {}
   }, []);
 
-  // Fetch MAX(updated_at) from tracking_link_ltv for "since_sync"
-  useEffect(() => {
-    if (timePeriod !== "since_sync") return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("tracking_link_ltv")
-        .select("updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      if (!cancelled && !error && data && data.length > 0) {
-        setLastSyncDate(startOfDay(new Date(data[0].updated_at)).toISOString());
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [timePeriod]);
+
 
   const dateFilter: DateFilter = useMemo(() => {
     if (customRange) {
