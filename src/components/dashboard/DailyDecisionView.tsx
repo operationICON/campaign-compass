@@ -11,6 +11,7 @@ interface DailyDecisionViewProps {
   todaySnapshots?: any[];
   lastWeekSnapshots?: any[];
   activeLinkCount?: number;
+  snapshotRows?: any[];
 }
 
 export function DailyDecisionView({
