@@ -1392,8 +1392,8 @@ export default function CampaignsPage() {
                                               <p><strong>FIXED</strong> = Fixed amount (pin, promo, deal)</p>
                                             </TooltipContent>
                                           </Tooltip>
-                                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
-                                          <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
+                                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "hsl(var(--primary))" : "hsl(var(--warning))" }} />
+                                          <span className="text-muted-foreground" style={{ fontSize: "10px" }}>{hasCostEl ? "Set" : "Not set"}</span>
                                         </div>
                                         <div className="flex gap-1 mb-2">
                                           {(["CPL", "CPC", "FIXED"] as const).map(t => (
