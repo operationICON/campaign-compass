@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
-export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month" | "since_sync";
+export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month";
 
 export const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
   { key: "day", label: "Last Day" },
