@@ -385,6 +385,30 @@ Deno.serve(async (req) => {
           )
         }
         console.log(`[${displayName}] Inserted ${metricsPayloads.length} daily_metrics snapshots`)
+
+        // ── Daily snapshots (cumulative totals for time-range filters) ──
+        const snapshotPayloads = dbLinks.map((l: any) => ({
+          tracking_link_id: l.id,
+          external_tracking_link_id: l.external_tracking_link_id,
+          account_id: l.account_id,
+          snapshot_date: today,
+          clicks: l.clicks,
+          subscribers: l.subscribers,
+          revenue: l.revenue,
+          raw_clicks: l.clicks,
+          raw_subscribers: l.subscribers,
+          raw_revenue: l.revenue,
+          synced_at: new Date().toISOString(),
+        }))
+        for (let i = 0; i < snapshotPayloads.length; i += 50) {
+          const batch = snapshotPayloads.slice(i, i + 50)
+          const { error: snapErr } = await db.from('daily_snapshots').upsert(batch, {
+            onConflict: 'tracking_link_id,snapshot_date',
+            ignoreDuplicates: false,
+          })
+          if (snapErr) console.error(`[${displayName}] daily_snapshots upsert error: ${snapErr.message}`)
+        }
+        console.log(`[${displayName}] Saved ${snapshotPayloads.length} daily_snapshots for ${today}`)
       }
 
       // ── LTV Sync — ONLY for test_link_id (single link test mode) ──
