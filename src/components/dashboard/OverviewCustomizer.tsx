@@ -6,7 +6,8 @@ export type OverviewKpiCardId =
   | "profit_sub" | "ltv_sub" | "avg_cpl" | "subs_day"
   | "unattributed" | "expenses" | "avg_expenses"
   | "total_profit" | "blended_roi" | "active_campaigns"
-  | "best_source" | "est_revenue" | "total_ltv" | "ltv_30d_per_model";
+  | "best_source" | "est_revenue" | "total_ltv" | "ltv_30d_per_model"
+  | "organic_revenue";
 
 // ── Insight Panel IDs ──
 export type InsightPanelId =
@@ -39,6 +40,7 @@ const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "est_revenue", label: "Est. Revenue", defaultOn: true },
   { id: "total_ltv", label: "LTV", defaultOn: true },
   { id: "ltv_30d_per_model", label: "30D LTV Per Model", defaultOn: false },
+  { id: "organic_revenue", label: "Organic Revenue", defaultOn: true },
 ];
 
 const INSIGHT_PANELS: ItemDef<InsightPanelId>[] = [

@@ -529,6 +529,7 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
           hasSnapshotData={hasSnapshotData}
+          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : totalLtv}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
@@ -581,7 +582,7 @@ function KpiCards({
   accounts, links,
   totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
-  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData,
+  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, ltvOnly,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
@@ -605,6 +606,7 @@ function KpiCards({
   getAccountCategory: (a: any) => string;
   fmtC: (v: number) => string;
   hasSnapshotData: boolean;
+  ltvOnly: number;
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
@@ -910,6 +912,26 @@ function KpiCards({
             <p className="text-[11px] text-white/60 mt-1">{timePeriod === "all" && !customRange ? "Cumulative LTV" : `Snapshot revenue · ${periodLabel}`}</p>
           </div>
         );
+
+      case "organic_revenue": {
+        const organicRev = totalRevenue - ltvOnly;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Organic Revenue</span>
+            </div>
+            {totalRevenue > 0 ? (
+              <p className={`text-[22px] font-bold font-mono ${organicRev >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtC(organicRev)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Revenue outside tracked campaigns</p>
+          </div>
+        );
+      }
 
       case "ltv_30d_per_model": {
         const sortedModels = [...accounts]
