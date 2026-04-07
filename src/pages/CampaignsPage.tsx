@@ -930,9 +930,9 @@ export default function CampaignsPage() {
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12px]">
-                    <thead className="sticky top-0 z-10" style={{ background: "#f8fafc" }}>
+                    <thead className="sticky top-0 z-10 bg-card">
                       <tr className="border-b border-border">
-                        <th className="w-8" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
+                        <th className="w-8 bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Tracking Link" sortKeyName="campaign_name" width="200px" />
                         {columnOrder.visibleOrderedColumns.map(c => {
                           const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, color: "#1a2332", textTransform: "uppercase" as const, letterSpacing: "0.04em", background: "#f8fafc" };
