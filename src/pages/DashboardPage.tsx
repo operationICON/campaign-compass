@@ -484,7 +484,7 @@ export default function DashboardPage() {
   // hasSnapshotData: true if any snapshot rows were returned for this period
   const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
   const avgProfitPerSub = isAllTime && allTimeTotals
-    ? allTimeTotals.totalProfit / (allTimeTotals.subs || 1)
+    ? (allTimeTotals.ltvSubs > 0 ? allTimeTotals.totalProfit / allTimeTotals.ltvSubs : null)
     : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
