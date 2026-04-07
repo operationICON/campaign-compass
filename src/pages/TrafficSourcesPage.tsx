@@ -913,7 +913,7 @@ export default function TrafficSourcesPage() {
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                          <span style={{ fontSize: "12px", , fontWeight: 500 }}>{s.name}</span>
+                          <span style={{ fontSize: "12px", fontWeight: 500 }}>{s.name}</span>
                         </div>
                         <span className="font-mono font-bold" style={{ fontSize: "12px",  }}>{s.pct}%</span>
                       </div>
