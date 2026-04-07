@@ -1117,7 +1117,7 @@ export default function TrafficSourcesPage() {
                             return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               {cat ? (
-                                <span className="inline-block px-2 py-0.5" className="">{cat}</span>
+                                <span className="inline-block px-2 py-0.5">{cat}</span>
                               ) : (
                                 <span style={{ fontSize: "10px", color: "#94a3b8" }}>—</span>
                               )}
