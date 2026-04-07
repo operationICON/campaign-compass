@@ -1318,9 +1318,9 @@ export default function TrafficSourcesPage() {
                                     </div>
                                     {/* CPC warning */}
                                     {spendType === "CPC" && (
-                                      <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" className="bg-warning/10 border border-warning/30 rounded-md">
-                                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" className="text-warning" />
-                                        <span style={{ fontSize: "10px", , lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
+                                      <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5 bg-warning/10 border border-warning/30 rounded-md">
+                                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-warning" />
+                                        <span style={{ fontSize: "10px", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
                                       </div>
                                     )}
                                     <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
