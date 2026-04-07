@@ -394,13 +394,26 @@ export default function DashboardPage() {
     });
   }, [overviewSnapshotLookup, isAllTime]);
 
-  // Query SUM(cost_total) from DB for links active in the snapshot period
+  // Determine period days for estimated spend calculation
+  const periodDays = useMemo(() => {
+    if (isAllTime) return null;
+    if (customRange) return Math.max(1, differenceInDays(customRange.to, customRange.from) + 1);
+    switch (timePeriod) {
+      case "day": case "since_sync": return 1;
+      case "week": return 7;
+      case "month": return 30;
+      case "prev_month": return 30;
+      default: return null;
+    }
+  }, [isAllTime, timePeriod, customRange]);
+
+  // Query estimated period spend: daily_spend = cost_total / days_since_created, then × periodDays
   const { data: periodExpensesFromDb } = useQuery({
-    queryKey: ["period_expenses", periodActiveLinkIds?.join(",") ?? "none"],
-    enabled: !!periodActiveLinkIds && periodActiveLinkIds.length > 0,
+    queryKey: ["period_expenses", periodActiveLinkIds?.join(",") ?? "none", periodDays],
+    enabled: !!periodActiveLinkIds && periodActiveLinkIds.length > 0 && !!periodDays,
     queryFn: async () => {
-      if (!periodActiveLinkIds || periodActiveLinkIds.length === 0) return 0;
-      // Batch query in groups of 500 IDs, paginate results within each batch
+      if (!periodActiveLinkIds || periodActiveLinkIds.length === 0 || !periodDays) return 0;
+      const today = new Date();
       let total = 0;
       const idBatchSize = 500;
       const rowBatchSize = 1000;
@@ -410,14 +423,18 @@ export default function DashboardPage() {
         while (true) {
           const { data, error } = await supabase
             .from("tracking_links")
-            .select("cost_total")
+            .select("cost_total, created_at")
             .in("id", idBatch)
             .gt("cost_total", 0)
             .range(rangeFrom, rangeFrom + rowBatchSize - 1);
           if (error) throw error;
           if (!data?.length) break;
           for (const row of data) {
-            total += Number(row.cost_total || 0);
+            const costTotal = Number(row.cost_total || 0);
+            const createdAt = new Date(row.created_at);
+            const daysSinceCreated = Math.max(1, differenceInDays(today, createdAt));
+            const dailySpend = costTotal / daysSinceCreated;
+            total += dailySpend * periodDays;
           }
           if (data.length < rowBatchSize) break;
           rangeFrom += rowBatchSize;
@@ -863,7 +880,9 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${expenses === 0 ? "text-destructive" : "text-foreground"}`}>
               {fmtC(expenses)}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">Cumulative spend across tracked links</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {timePeriod === "all" && !customRange ? "Cumulative spend across tracked links" : "Est. spend · cost ÷ campaign age × period days"}
+            </p>
           </div>
         );
 
