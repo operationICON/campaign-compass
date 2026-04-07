@@ -1398,8 +1398,7 @@ export default function CampaignsPage() {
                                         <div className="flex gap-1 mb-2">
                                           {(["CPL", "CPC", "FIXED"] as const).map(t => (
                                             <button key={t} onClick={(e) => { e.stopPropagation(); setSpendType(t); }}
-                                              className="px-2 py-1 text-[10px] font-bold transition-colors"
-                                              style={{ borderRadius: "4px", background: spendType === t ? "#0891b2" : "#f1f5f9", color: spendType === t ? "white" : "#64748b" }}>{t}</button>
+                                              className={`px-2 py-1 text-[10px] font-bold transition-colors rounded ${spendType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>{t}</button>
                                           ))}
                                         </div>
                                         {spendType === "CPC" && (
