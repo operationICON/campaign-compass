@@ -43,9 +43,6 @@ function getOverviewSnapshotRange(
     case "day":
       // Resolved to MAX(snapshot_date) at query time
       return { from: "__latest__", to: "__latest__", dayCount: 1 };
-    case "since_sync":
-      // Same as Last Day — MAX(snapshot_date)
-      return { from: "__latest__", to: "__latest__", dayCount: 1 };
     case "week":
       // Resolved server-side: CURRENT_DATE - 7
       return { from: "__server_week__", to: "__server_latest__", dayCount: 7 };
@@ -415,7 +412,7 @@ export default function DashboardPage() {
     if (isAllTime) return null;
     if (customRange) return Math.max(1, differenceInDays(customRange.to, customRange.from) + 1);
     switch (timePeriod) {
-      case "day": case "since_sync": return 1;
+      case "day": return 1;
       case "week": return 7;
       case "month": return 30;
       case "prev_month": return 30;
@@ -503,7 +500,6 @@ export default function DashboardPage() {
   const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
     { key: "day", label: "Last Day" },
     { key: "week", label: "Last Week" },
-    { key: "since_sync", label: "Since Last Sync" },
     { key: "month", label: "Last Month" },
     { key: "prev_month", label: "Prev Month" },
     { key: "all", label: "All Time" },

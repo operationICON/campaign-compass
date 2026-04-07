@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
-export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month" | "since_sync";
+export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month";
 
 export const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
   { key: "day", label: "Last Day" },
@@ -74,22 +74,7 @@ export function usePageFilters() {
     } catch {}
   }, []);
 
-  // Fetch MAX(updated_at) from tracking_link_ltv for "since_sync"
-  useEffect(() => {
-    if (timePeriod !== "since_sync") return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("tracking_link_ltv")
-        .select("updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      if (!cancelled && !error && data && data.length > 0) {
-        setLastSyncDate(startOfDay(new Date(data[0].updated_at)).toISOString());
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [timePeriod]);
+
 
   const dateFilter: DateFilter = useMemo(() => {
     if (customRange) {
@@ -112,8 +97,6 @@ export function usePageFilters() {
           from: subDays(now, 60).toISOString(),
           to: subDays(now, 31).toISOString(),
         };
-      case "since_sync":
-        return { from: lastSyncDate, to: null };
       case "all":
       default:
         return { from: null, to: null };
