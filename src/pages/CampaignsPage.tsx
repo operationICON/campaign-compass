@@ -1202,7 +1202,7 @@ export default function CampaignsPage() {
                                   return (
                                     <td key={c.id} style={{ padding: "8px 12px" }}>
                                       <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
-                                      <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                                      <span className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 ${pill.cls}`}>{pill.label}</span>
                                     </td>
                                   );
                                 }
