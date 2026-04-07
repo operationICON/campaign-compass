@@ -633,7 +633,45 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
           hasSnapshotData={hasSnapshotData}
-          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : snapshotRevenue}
+          organicRevenue={(() => {
+            // Filter accounts by agency/model selection
+            let accts = [...accounts];
+            if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
+            else if (groupFilter !== "all") accts = accts.filter((a: any) => {
+              const username = (a.username || "").replace("@", "");
+              return (CATEGORY_MAP[username] || "Female") === groupFilter;
+            });
+
+            if (isAllTime) {
+              // All Time: accounts.ltv_total - (tracking_link_ltv.total_ltv + cross_poll_revenue)
+              const accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+              const accountIdSet = new Set(accts.map((a: any) => a.id));
+              let campaignLtv = 0;
+              for (const r of trackingLinkLtv) {
+                if (!accountIdSet.has(r.account_id)) continue;
+                campaignLtv += Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0);
+              }
+              return accountRev - campaignLtv;
+            }
+
+            // Period filters: use accounts.ltv_last_* - SUM(snapshot revenue)
+            let accountRev = 0;
+            const tp = timePeriod as string;
+            if (tp === "day") {
+              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
+            } else if (tp === "week") {
+              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
+            } else if (tp === "month") {
+              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
+            } else {
+              // prev_month or custom: fall back to snapshot revenue diff
+              accountRev = totalRevenue;
+            }
+
+            // Campaign revenue from snapshots
+            const campaignRev = snapshotRevenue;
+            return accountRev - campaignRev;
+          })()}
           trackingLinkLtv={trackingLinkLtv}
         />
 
