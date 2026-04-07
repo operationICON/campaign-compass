@@ -880,7 +880,9 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${expenses === 0 ? "text-destructive" : "text-foreground"}`}>
               {fmtC(expenses)}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">Cumulative spend across tracked links</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {timePeriod === "all" && !customRange ? "Cumulative spend across tracked links" : "Est. spend · cost ÷ campaign age × period days"}
+            </p>
           </div>
         );
 
