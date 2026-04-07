@@ -400,19 +400,27 @@ export default function DashboardPage() {
     enabled: !!periodActiveLinkIds && periodActiveLinkIds.length > 0,
     queryFn: async () => {
       if (!periodActiveLinkIds || periodActiveLinkIds.length === 0) return 0;
-      // Batch query in groups of 500 to avoid URL length issues
+      // Batch query in groups of 500 IDs, paginate results within each batch
       let total = 0;
-      const batchSize = 500;
-      for (let i = 0; i < periodActiveLinkIds.length; i += batchSize) {
-        const batch = periodActiveLinkIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
-          .from("tracking_links")
-          .select("cost_total")
-          .in("id", batch)
-          .gt("cost_total", 0);
-        if (error) throw error;
-        for (const row of data || []) {
-          total += Number(row.cost_total || 0);
+      const idBatchSize = 500;
+      const rowBatchSize = 1000;
+      for (let i = 0; i < periodActiveLinkIds.length; i += idBatchSize) {
+        const idBatch = periodActiveLinkIds.slice(i, i + idBatchSize);
+        let rangeFrom = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from("tracking_links")
+            .select("cost_total")
+            .in("id", idBatch)
+            .gt("cost_total", 0)
+            .range(rangeFrom, rangeFrom + rowBatchSize - 1);
+          if (error) throw error;
+          if (!data?.length) break;
+          for (const row of data) {
+            total += Number(row.cost_total || 0);
+          }
+          if (data.length < rowBatchSize) break;
+          rangeFrom += rowBatchSize;
         }
       }
       return total;
