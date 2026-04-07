@@ -342,7 +342,13 @@ export default function DashboardPage() {
 
   const periodSubscribers = overviewPeriodTotals.subscribers;
   const periodDayCount = overviewSnapshotRange?.dayCount ?? null;
-  const activeLinkCount = overviewPeriodTotals.activeLinks;
+
+  // Active link count from DB to avoid 1000-row limit
+  const { data: dbActiveLinkCount } = useQuery({
+    queryKey: ["active_link_count", agencyAccountIds?.join(",") ?? "all"],
+    queryFn: () => fetchActiveLinkCount(agencyAccountIds ?? undefined),
+  });
+  const activeLinkCount = dbActiveLinkCount ?? overviewPeriodTotals.activeLinks;
 
   const isAllTime = timePeriod === "all" && !customRange;
 
