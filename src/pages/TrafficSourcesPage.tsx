@@ -11,7 +11,7 @@ import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { clearTrackingLinkSpend, setTrackingLinkSourceTag } from "@/lib/supabase-helpers";
+import { clearTrackingLinkSpend, setTrackingLinkSourceTag, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
 import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
@@ -266,10 +266,7 @@ export default function TrafficSourcesPage() {
 
   const { data: trackingLinkLtv = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
-    queryFn: async () => {
-      const { data } = await supabase.from("tracking_link_ltv").select("*");
-      return data || [];
-    },
+    queryFn: fetchTrackingLinkLtv,
   });
 
   // LTV lookup map — normalize keys for UUID↔TEXT matching
