@@ -972,6 +972,7 @@ export default function CampaignsPage() {
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
                             case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
+                            case "org_pct": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "65px" }}>Org %</th>;
                             default: return null;
                           }
                         })}
