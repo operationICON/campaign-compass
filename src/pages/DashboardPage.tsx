@@ -936,7 +936,37 @@ function KpiCards({
         );
       }
 
-      case "ltv_30d_per_model": {
+      case "organic_fans_pct": {
+        // SUM(new_subs_total) from tracking_link_ltv / SUM(subscribers) from tracking_links * 100
+        const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+        let totalNewSubs = 0;
+        for (const r of trackingLinkLtv) {
+          if (accountIdSet && !accountIdSet.has(r.account_id)) continue;
+          totalNewSubs += Number(r.new_subs_total || 0);
+        }
+        const totalSubs = periodSubscribers;
+        const organicPct = totalSubs > 0 ? (totalNewSubs / totalSubs) * 100 : null;
+        const pctColor = organicPct === null ? "text-muted-foreground"
+          : organicPct > 20 ? "text-primary"
+          : organicPct >= 10 ? "text-[hsl(38_92%_50%)]"
+          : "text-destructive";
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Percent className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Organic Fans %</span>
+            </div>
+            <p className={`text-[22px] font-bold font-mono ${pctColor}`}>
+              {organicPct !== null ? `${organicPct.toFixed(1)}%` : "—"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">New fans from campaigns</p>
+          </div>
+        );
+      }
+
+
         const sortedModels = [...accounts]
           .sort((a, b) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
         return (
