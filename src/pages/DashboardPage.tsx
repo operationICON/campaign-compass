@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -342,7 +342,13 @@ export default function DashboardPage() {
 
   const periodSubscribers = overviewPeriodTotals.subscribers;
   const periodDayCount = overviewSnapshotRange?.dayCount ?? null;
-  const activeLinkCount = overviewPeriodTotals.activeLinks;
+
+  // Active link count from DB to avoid 1000-row limit
+  const { data: dbActiveLinkCount } = useQuery({
+    queryKey: ["active_link_count", agencyAccountIds?.join(",") ?? "all"],
+    queryFn: () => fetchActiveLinkCount(agencyAccountIds ?? undefined),
+  });
+  const activeLinkCount = dbActiveLinkCount ?? overviewPeriodTotals.activeLinks;
 
   const isAllTime = timePeriod === "all" && !customRange;
 
@@ -957,15 +963,26 @@ function KpiCards({
       }
 
       case "organic_fans_pct": {
-        // SUM(new_subs_total) from tracking_link_ltv / SUM(subscribers) from tracking_links * 100
-        const linkIdSet = new Set(links.map((l: any) => String(l.id ?? "").trim().toLowerCase()));
-        let totalNewSubs = 0;
+        // Always use All Time data — LTV sync is not date-based
+        // new_subs_total from tracking_link_ltv, subscribers from accounts table
+        const modelIdSet = modelParam ? new Set([modelParam]) : null;
+        const groupAccIds = groupFilter !== "all"
+          ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id))
+          : null;
+        const filterSet = modelIdSet || groupAccIds;
+
+        let allTimeNewSubs = 0;
         for (const r of trackingLinkLtv) {
-          const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
-          if (linkIdSet.has(key)) totalNewSubs += Number(r.new_subs_total || 0);
+          if (filterSet && !filterSet.has(r.account_id)) continue;
+          allTimeNewSubs += Number(r.new_subs_total || 0);
         }
-        const totalSubs = periodSubscribers;
-        const organicPct = totalSubs > 0 ? (totalNewSubs / totalSubs) * 100 : null;
+        // Use subscribers_count from accounts (not affected by 1000-row limit)
+        let allTimeSubs = 0;
+        for (const a of accounts) {
+          if (filterSet && !filterSet.has(a.id)) continue;
+          allTimeSubs += Number(a.subscribers_count || 0);
+        }
+        const organicPct = allTimeSubs > 0 ? (allTimeNewSubs / allTimeSubs) * 100 : null;
         const pctColor = organicPct === null ? "text-muted-foreground"
           : organicPct > 20 ? "text-primary"
           : organicPct >= 10 ? "text-[hsl(38_92%_50%)]"
@@ -981,7 +998,7 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${pctColor}`}>
               {organicPct !== null ? `${organicPct.toFixed(1)}%` : "—"}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">New fans from campaigns</p>
+            <p className="text-[11px] text-muted-foreground mt-1">New fans from campaigns (All Time)</p>
           </div>
         );
       }
