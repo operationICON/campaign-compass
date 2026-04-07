@@ -23,6 +23,7 @@ export function DailyDecisionView({
   todaySnapshots = [],
   lastWeekSnapshots = [],
   activeLinkCount,
+  snapshotRows = [],
 }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
