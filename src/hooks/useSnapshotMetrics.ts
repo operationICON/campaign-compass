@@ -20,18 +20,13 @@ function toMetricValue(value: number | null | undefined) {
   return Number(value || 0);
 }
 
+/**
+ * Builds a lookup map by SUMming incremental daily_snapshot values
+ * across the selected date range. Snapshots now store daily deltas,
+ * so we simply accumulate them.
+ */
 export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string, SnapshotMetrics> {
-  const accumulators: Record<
-    string,
-    {
-      minClicks: number;
-      maxClicks: number;
-      minSubscribers: number;
-      maxSubscribers: number;
-      minRevenue: number;
-      maxRevenue: number;
-    }
-  > = {};
+  const lookup: Record<string, SnapshotMetrics> = {};
 
   for (const row of snapshotRows) {
     const id = String(row.tracking_link_id ?? "").toLowerCase();
@@ -41,35 +36,13 @@ export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string,
     const subscribers = toMetricValue(row.subscribers);
     const revenue = toMetricValue(row.revenue);
 
-    if (!accumulators[id]) {
-      accumulators[id] = {
-        minClicks: clicks,
-        maxClicks: clicks,
-        minSubscribers: subscribers,
-        maxSubscribers: subscribers,
-        minRevenue: revenue,
-        maxRevenue: revenue,
-      };
-      continue;
+    if (!lookup[id]) {
+      lookup[id] = { clicks: 0, subscribers: 0, revenue: 0 };
     }
 
-    const current = accumulators[id];
-    current.minClicks = Math.min(current.minClicks, clicks);
-    current.maxClicks = Math.max(current.maxClicks, clicks);
-    current.minSubscribers = Math.min(current.minSubscribers, subscribers);
-    current.maxSubscribers = Math.max(current.maxSubscribers, subscribers);
-    current.minRevenue = Math.min(current.minRevenue, revenue);
-    current.maxRevenue = Math.max(current.maxRevenue, revenue);
-  }
-
-  const lookup: Record<string, SnapshotMetrics> = {};
-
-  for (const [id, current] of Object.entries(accumulators)) {
-    lookup[id] = {
-      clicks: Math.max(0, current.maxClicks - current.minClicks),
-      subscribers: Math.max(0, current.maxSubscribers - current.minSubscribers),
-      revenue: Math.max(0, current.maxRevenue - current.minRevenue),
-    };
+    lookup[id].clicks += clicks;
+    lookup[id].subscribers += subscribers;
+    lookup[id].revenue += revenue;
   }
 
   return lookup;

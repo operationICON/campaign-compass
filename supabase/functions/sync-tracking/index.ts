@@ -386,20 +386,50 @@ Deno.serve(async (req) => {
         }
         console.log(`[${displayName}] Inserted ${metricsPayloads.length} daily_metrics snapshots`)
 
-        // ── Daily snapshots (cumulative totals for time-range filters) ──
-        const snapshotPayloads = dbLinks.map((l: any) => ({
-          tracking_link_id: l.id,
-          external_tracking_link_id: l.external_tracking_link_id,
-          account_id: l.account_id,
-          snapshot_date: today,
-          clicks: l.clicks,
-          subscribers: l.subscribers,
-          revenue: l.revenue,
-          raw_clicks: l.clicks,
-          raw_subscribers: l.subscribers,
-          raw_revenue: l.revenue,
-          synced_at: new Date().toISOString(),
-        }))
+        // ── Daily snapshots (incremental deltas for time-range filters) ──
+        // Fetch previous snapshots to calculate deltas
+        const linkIds = dbLinks.map((l: any) => l.id)
+        const prevSnapMap: Record<string, { clicks: number; subscribers: number; revenue: number }> = {}
+        
+        for (let i = 0; i < linkIds.length; i += 200) {
+          const batch = linkIds.slice(i, i + 200)
+          const { data: prevSnaps } = await db.from('daily_snapshots')
+            .select('tracking_link_id, clicks, subscribers, revenue, snapshot_date')
+            .in('tracking_link_id', batch)
+            .lt('snapshot_date', today)
+            .order('snapshot_date', { ascending: false })
+          // Keep only the most recent previous snapshot per link
+          for (const snap of prevSnaps ?? []) {
+            if (!prevSnapMap[snap.tracking_link_id]) {
+              prevSnapMap[snap.tracking_link_id] = {
+                clicks: Number(snap.clicks ?? 0),
+                subscribers: Number(snap.subscribers ?? 0),
+                revenue: Number(snap.revenue ?? 0),
+              }
+            }
+          }
+        }
+
+        const snapshotPayloads = dbLinks.map((l: any) => {
+          const prev = prevSnapMap[l.id]
+          // If no previous snapshot, save 0 (we can't know the delta)
+          const deltaClicks = prev ? Math.max(0, Number(l.clicks ?? 0) - prev.clicks) : 0
+          const deltaSubs = prev ? Math.max(0, Number(l.subscribers ?? 0) - prev.subscribers) : 0
+          const deltaRevenue = prev ? Math.max(0, Number(l.revenue ?? 0) - prev.revenue) : 0
+          return {
+            tracking_link_id: l.id,
+            external_tracking_link_id: l.external_tracking_link_id,
+            account_id: l.account_id,
+            snapshot_date: today,
+            clicks: deltaClicks,
+            subscribers: deltaSubs,
+            revenue: deltaRevenue,
+            raw_clicks: Number(l.clicks ?? 0),
+            raw_subscribers: Number(l.subscribers ?? 0),
+            raw_revenue: Number(l.revenue ?? 0),
+            synced_at: new Date().toISOString(),
+          }
+        })
         for (let i = 0; i < snapshotPayloads.length; i += 50) {
           const batch = snapshotPayloads.slice(i, i + 50)
           const { error: snapErr } = await db.from('daily_snapshots').upsert(batch, {
@@ -408,7 +438,7 @@ Deno.serve(async (req) => {
           })
           if (snapErr) console.error(`[${displayName}] daily_snapshots upsert error: ${snapErr.message}`)
         }
-        console.log(`[${displayName}] Saved ${snapshotPayloads.length} daily_snapshots for ${today}`)
+        console.log(`[${displayName}] Saved ${snapshotPayloads.length} incremental daily_snapshots for ${today}`)
       }
 
       // ── LTV Sync — ONLY for test_link_id (single link test mode) ──
