@@ -149,7 +149,11 @@ export default function DashboardPage() {
       let fromDate = overviewSnapshotRange.from;
       let toDate = overviewSnapshotRange.to;
 
-      if (fromDate === "__latest__") {
+      // Resolve server date for all sentinel values
+      const needsServerDate = fromDate.startsWith("__");
+      let serverMaxDate: string | null = null;
+
+      if (needsServerDate) {
         let latestQuery = supabase
           .from("daily_snapshots")
           .select("snapshot_date")
@@ -163,11 +167,31 @@ export default function DashboardPage() {
         const { data: latest, error: latestError } = await latestQuery;
         if (latestError) throw latestError;
 
-        const latestDate = latest?.[0]?.snapshot_date;
-        if (!latestDate) return [];
+        serverMaxDate = latest?.[0]?.snapshot_date;
+        if (!serverMaxDate) return [];
 
-        fromDate = latestDate;
-        toDate = latestDate;
+        // Resolve sentinels using server date
+        if (fromDate === "__latest__") {
+          fromDate = serverMaxDate;
+          toDate = serverMaxDate;
+        } else if (fromDate === "__server_week__") {
+          const d = new Date(serverMaxDate + "T00:00:00Z");
+          d.setUTCDate(d.getUTCDate() - 7);
+          fromDate = d.toISOString().slice(0, 10);
+          toDate = serverMaxDate;
+        } else if (fromDate === "__server_month__") {
+          const d = new Date(serverMaxDate + "T00:00:00Z");
+          d.setUTCDate(d.getUTCDate() - 30);
+          fromDate = d.toISOString().slice(0, 10);
+          toDate = serverMaxDate;
+        } else if (fromDate === "__server_prev_from__") {
+          const dFrom = new Date(serverMaxDate + "T00:00:00Z");
+          dFrom.setUTCDate(dFrom.getUTCDate() - 60);
+          const dTo = new Date(serverMaxDate + "T00:00:00Z");
+          dTo.setUTCDate(dTo.getUTCDate() - 31);
+          fromDate = dFrom.toISOString().slice(0, 10);
+          toDate = dTo.toISOString().slice(0, 10);
+        }
       }
 
       const rows: Array<{
