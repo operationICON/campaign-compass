@@ -1472,11 +1472,10 @@ export default function CampaignsPage() {
                                       </div>
                                       {/* Notes */}
                                       <div>
-                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Notes</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px", fontWeight: 600 }}>Notes</p>
                                         <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
                                           placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full h-16 px-2.5 py-1.5 bg-white border text-[11px] outline-none resize-none mb-1.5"
-                                          style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332" }} />
+                                          className="w-full h-16 px-2.5 py-1.5 bg-background border border-border text-[11px] outline-none resize-none mb-1.5 rounded-md text-foreground" />
                                         <div className="flex gap-1.5">
                                           <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
                                             className="flex-1 py-1.5 text-[11px] font-semibold"
