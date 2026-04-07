@@ -1219,6 +1219,21 @@ export default function CampaignsPage() {
                                     {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
                                   </td>
                                 );
+                                case "org_pct": {
+                                  const newSubsT = link.ltvRecord ? Number(link.ltvRecord.new_subs_total || 0) : 0;
+                                  const subsT = Number(link.subscribers || 0);
+                                  const hasData = link.hasLtvRecord && subsT > 0;
+                                  const orgPct = hasData ? (newSubsT / subsT) * 100 : null;
+                                  const color = orgPct === null ? "text-muted-foreground"
+                                    : orgPct > 20 ? "text-primary"
+                                    : orgPct >= 10 ? "text-[hsl(38_92%_50%)]"
+                                    : "text-destructive";
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      <span className={color}>{orgPct !== null ? `${orgPct.toFixed(1)}%` : "—"}</span>
+                                    </td>
+                                  );
+                                }
                                 default: return null;
                               }
                             })}
