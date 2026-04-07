@@ -81,13 +81,23 @@ export default function DashboardPage() {
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tracking_links")
-        .select("*, accounts(display_name, username, avatar_thumb_url)")
-        .is("deleted_at", null)
-        .order("revenue", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const allRows: any[] = [];
+      let rangeFrom = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("tracking_links")
+          .select("*, accounts(display_name, username, avatar_thumb_url)")
+          .is("deleted_at", null)
+          .order("revenue", { ascending: false })
+          .range(rangeFrom, rangeFrom + batchSize - 1);
+        if (error) throw error;
+        if (!data?.length) break;
+        allRows.push(...data);
+        if (data.length < batchSize) break;
+        rangeFrom += batchSize;
+      }
+      return allRows;
     },
   });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
@@ -194,6 +204,8 @@ export default function DashboardPage() {
         }
       }
 
+      console.log("[OverviewSnapshots] date range:", { fromDate, toDate, serverMaxDate, originalFrom: overviewSnapshotRange.from });
+
       const rows: Array<{
         tracking_link_id: string | null;
         clicks: number | null;
@@ -224,6 +236,10 @@ export default function DashboardPage() {
         if (data.length < batchSize) break;
         rangeFrom += batchSize;
       }
+
+      const totalRev = rows.reduce((s, r) => s + Number(r.revenue || 0), 0);
+      const totalSubs = rows.reduce((s, r) => s + Number(r.subscribers || 0), 0);
+      console.log("[OverviewSnapshots] result:", { rowCount: rows.length, totalRevenue: totalRev.toFixed(2), totalSubscribers: totalSubs });
 
       return rows;
     },
