@@ -938,11 +938,11 @@ function KpiCards({
 
       case "organic_fans_pct": {
         // SUM(new_subs_total) from tracking_link_ltv / SUM(subscribers) from tracking_links * 100
-        const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+        const linkIdSet = new Set(links.map((l: any) => String(l.id ?? "").trim().toLowerCase()));
         let totalNewSubs = 0;
         for (const r of trackingLinkLtv) {
-          if (accountIdSet && !accountIdSet.has(r.account_id)) continue;
-          totalNewSubs += Number(r.new_subs_total || 0);
+          const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
+          if (linkIdSet.has(key)) totalNewSubs += Number(r.new_subs_total || 0);
         }
         const totalSubs = periodSubscribers;
         const organicPct = totalSubs > 0 ? (totalNewSubs / totalSubs) * 100 : null;
