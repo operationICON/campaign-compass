@@ -1328,11 +1328,11 @@ export default function TrafficSourcesPage() {
                                       className="w-full px-2.5 py-1.5 bg-background border border-border text-foreground text-sm font-mono outline-none mb-2"
                                       style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
                                     {validVal && (
-                                      <div className="text-[11px] font-mono mb-2 space-y-0.5 text-muted-foreground bg-card rounded-md" style={{ , padding: "6px 8px", borderRadius: "6px" }}>
+                                      <div className="text-[11px] font-mono mb-2 space-y-0.5 text-muted-foreground bg-card rounded-md" style={{ padding: "6px 8px", borderRadius: "6px" }}>
                                         <div className="flex justify-between"><span>Cost/Sub</span><span className="text-foreground">{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
                                         <div className="flex justify-between"><span>Total Spend</span><span className="text-destructive font-semibold">{fmtC(previewCost)}</span></div>
-                                        <div className="flex justify-between"><span>Profit</span><span className={}>{fmtC(previewProfit)}</span></div>
-                                        <div className="flex justify-between"><span>ROI</span><span className={}>{fmtPct(previewRoi)}</span></div>
+                                        <div className="flex justify-between"><span>Profit</span><span className={previewProfit >= 0 ? "text-success" : "text-destructive"}>{fmtC(previewProfit)}</span></div>
+                                        <div className="flex justify-between"><span>ROI</span><span className={previewRoi >= 0 ? "text-success" : "text-destructive"}>{fmtPct(previewRoi)}</span></div>
                                         <div className="flex justify-between"><span>Profit/Sub</span><span className={previewProfit >= 0 ? "text-success" : "text-destructive"}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
                                       </div>
                                     )}
