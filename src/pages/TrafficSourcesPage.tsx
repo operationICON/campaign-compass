@@ -1157,7 +1157,7 @@ export default function TrafficSourcesPage() {
                           }
                           case "notes": {
                             const n = notes.find((nt: any) => nt.campaign_id === link.campaign_id && nt.account_id === link.account_id);
-                            return <td key={c.id} style={{ padding: "8px 12px", fontSize: "11px", , maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;
+                            return <td key={c.id} style={{ padding: "8px 12px", fontSize: "11px", maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;
                           }
                           default: return null;
                         }
