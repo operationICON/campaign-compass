@@ -957,15 +957,22 @@ function KpiCards({
       }
 
       case "organic_fans_pct": {
-        // SUM(new_subs_total) from tracking_link_ltv / SUM(subscribers) from tracking_links * 100
-        const linkIdSet = new Set(links.map((l: any) => String(l.id ?? "").trim().toLowerCase()));
-        let totalNewSubs = 0;
+        // Always use All Time data — LTV sync is not date-based
+        // new_subs_total = campaign-attributed subs, subscribers = all subs
+        // Organic % = (subscribers - new_subs_total) / subscribers * 100
+        const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+        let allTimeNewSubs = 0;
         for (const r of trackingLinkLtv) {
-          const key = String(r.tracking_link_id ?? "").trim().toLowerCase();
-          if (linkIdSet.has(key)) totalNewSubs += Number(r.new_subs_total || 0);
+          if (accountIdSet && !accountIdSet.has(r.account_id)) continue;
+          allTimeNewSubs += Number(r.new_subs_total || 0);
         }
-        const totalSubs = periodSubscribers;
-        const organicPct = totalSubs > 0 ? (totalNewSubs / totalSubs) * 100 : null;
+        // Use All Time subscribers from tracking_links (unfiltered by snapshot)
+        let allTimeSubs = 0;
+        for (const l of (allLinks ?? links)) {
+          if (accountIdSet && !accountIdSet.has(l.account_id)) continue;
+          allTimeSubs += Number(l.subscribers || 0);
+        }
+        const organicPct = allTimeSubs > 0 ? (allTimeNewSubs / allTimeSubs) * 100 : null;
         const pctColor = organicPct === null ? "text-muted-foreground"
           : organicPct > 20 ? "text-primary"
           : organicPct >= 10 ? "text-[hsl(38_92%_50%)]"
@@ -981,7 +988,7 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${pctColor}`}>
               {organicPct !== null ? `${organicPct.toFixed(1)}%` : "—"}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">New fans from campaigns</p>
+            <p className="text-[11px] text-muted-foreground mt-1">New fans from campaigns (All Time)</p>
           </div>
         );
       }

@@ -406,3 +406,19 @@ export async function fetchTransactionTotals(filters?: {
   const totalRevenue = (data || []).reduce((sum, tx) => sum + Number(tx.revenue || 0), 0);
   return { totalRevenue, count: (data || []).length };
 }
+
+export async function fetchActiveLinkCount(accountIds?: string[]) {
+  let query = supabase
+    .from("tracking_links")
+    .select("*", { count: "exact", head: true })
+    .is("deleted_at", null)
+    .or("clicks.gt.0,subscribers.gt.0");
+
+  if (accountIds && accountIds.length > 0) {
+    query = query.in("account_id", accountIds);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
