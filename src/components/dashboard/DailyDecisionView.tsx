@@ -10,9 +10,19 @@ interface DailyDecisionViewProps {
   isAllTime?: boolean;
   todaySnapshots?: any[];
   lastWeekSnapshots?: any[];
+  activeLinkCount?: number;
 }
 
-export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapshotLookup = null, isAllTime = true, todaySnapshots = [], lastWeekSnapshots = [] }: DailyDecisionViewProps) {
+export function DailyDecisionView({
+  links,
+  ltvLookup = {},
+  accounts = [],
+  snapshotLookup = null,
+  isAllTime = true,
+  todaySnapshots = [],
+  lastWeekSnapshots = [],
+  activeLinkCount,
+}: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -81,9 +91,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
   const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
 
   // === SUMMARY METRICS (from tracking_links + tracking_link_ltv, always available) ===
-  const activeLinksCount = useMemo(() => {
-    return links.filter(l => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0).length;
-  }, [links]);
+  const resolvedActiveLinksCount = activeLinkCount ?? links.filter(l => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0).length;
 
   const bestRoi = useMemo(() => {
     let best: { name: string; roi: number } | null = null;
@@ -263,7 +271,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
                 <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Active Links</span>
               </div>
-              <p className="text-lg font-mono font-bold text-foreground">{activeLinksCount.toLocaleString()}</p>
+              <p className="text-lg font-mono font-bold text-foreground">{resolvedActiveLinksCount.toLocaleString()}</p>
             </div>
             <div className="px-4 py-3 border-r border-border">
               <div className="flex items-center gap-1.5 mb-1">
