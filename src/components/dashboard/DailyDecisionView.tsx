@@ -204,19 +204,27 @@ export function DailyDecisionView({
     if (!accounts.length) return [];
     return accounts.map((acc: any) => {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
-      const subsToday = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+      // Compute subs/day from snapshot rows: SUM(subscribers) / COUNT(DISTINCT snapshot_date)
+      const accSnapshots = snapshotRows.filter((r: any) => {
+        const linkIds = new Set(accLinks.map((l: any) => String(l.id).toLowerCase()));
+        return linkIds.has(String(r.tracking_link_id ?? "").toLowerCase());
+      });
+      const totalSnapshotSubs = accSnapshots.reduce((s: number, r: any) => s + Number(r.subscribers || 0), 0);
+      const distinctDates = new Set(accSnapshots.map((r: any) => r.snapshot_date));
+      const subsToday = distinctDates.size > 0 ? Math.round(totalSnapshotSubs / distinctDates.size) : 0;
+
       const spendToday = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
       const totalLtvVal = isAllTime
         ? accLinks.reduce((s: number, l: any) => s + getLtv(l), 0)
         : accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
       const newSubs = isAllTime
         ? accLinks.reduce((s: number, l: any) => s + getNewSubs(l), 0)
-        : subsToday;
+        : totalSnapshotSubs;
       const profit = totalLtvVal - spendToday;
       const profitPerSub = newSubs > 0 ? profit / newSubs : null;
       return { ...acc, subsToday, spendToday, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-  }, [accounts, links, ltvLookup, isAllTime]);
+  }, [accounts, links, ltvLookup, isAllTime, snapshotRows]);
 
   function TrendBadge({ trend }: { trend: number | null }) {
     if (trend === null) return <span className="text-[9px] text-muted-foreground">—</span>;

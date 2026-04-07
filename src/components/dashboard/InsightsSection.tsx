@@ -17,6 +17,8 @@ interface InsightsSectionProps {
   getAccountCategory: (account: any) => string;
   isInsightVisible: (id: string) => boolean;
   isModelColVisible: (id: string) => boolean;
+  snapshotRows?: any[];
+  isAllTime?: boolean;
 }
 
 const MODEL_COLORS: Record<string, string> = {
