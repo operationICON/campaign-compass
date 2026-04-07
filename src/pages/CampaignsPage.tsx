@@ -1450,8 +1450,7 @@ export default function CampaignsPage() {
                                           />
                                           <div className="flex gap-1.5 mt-2">
                                             <button onClick={(e) => { e.stopPropagation(); const inp = (e.currentTarget.parentElement?.parentElement?.querySelector('input[type="text"]') as HTMLInputElement); if (inp) { inp.focus(); inp.click(); } }}
-                                              className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                              style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#1a2332", background: "white" }}>✏ Edit</button>
+                                              className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-foreground bg-card rounded-md">✏ Edit</button>
                                             {el.source_tag && (
                                               <button onClick={async (e) => {
                                                 e.stopPropagation();
