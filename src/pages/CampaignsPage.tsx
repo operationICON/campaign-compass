@@ -724,15 +724,15 @@ export default function CampaignsPage() {
                 const g1 = [
                   campaignKpi.isVisible("total_expenses") && (
                     <KPICard key="total_expenses" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                      label="Total Expenses" value={<span className="text-foreground">{fmtC(totalExpenses)}</span>} sub="All paid campaigns"
-                      tooltip={{ title: "Total Expenses", desc: "Sum of all ad spend across campaigns with costs set." }} />
+                      label={isAllTime ? "Total Expenses" : "Est. Expenses"} value={<span className="text-foreground">{fmtC(totalExpenses)}</span>} sub={isAllTime ? "All paid campaigns" : `Estimated for period (${periodDays}d)`}
+                      tooltip={{ title: isAllTime ? "Total Expenses" : "Est. Expenses", desc: isAllTime ? "Sum of all ad spend across campaigns with costs set." : "Prorated: cost_total ÷ days_active × period_days" }} />
                   ),
                   campaignKpi.isVisible("total_profit") && (
                     <KPICard key="total_profit" borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
                       label="Total Profit" value={hasAnyExpenses
                         ? <span className={totalProfitAll >= 0 ? "text-primary" : "text-destructive"}>{fmtC(totalProfitAll)}</span>
-                        : <span className="text-muted-foreground">—</span>} sub="Revenue minus spend"
-                      tooltip={{ title: "Total Profit", desc: "Total revenue minus total expenses across paid campaigns." }} />
+                        : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "LTV minus spend" : "Period revenue minus est. expenses"}
+                      tooltip={{ title: "Total Profit", desc: isAllTime ? "Total LTV minus total expenses across paid campaigns." : "Period revenue (from snapshots) minus estimated expenses for this period." }} />
                   ),
                   campaignKpi.isVisible("active_campaigns") && (
                     <KPICard key="active_campaigns" borderColor="hsl(var(--primary))" icon={<Activity className="h-4 w-4 text-primary" />}
