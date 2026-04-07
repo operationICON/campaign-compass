@@ -348,7 +348,7 @@ export default function DashboardPage() {
     queryKey: ["active_link_count", agencyAccountIds?.join(",") ?? "all"],
     queryFn: () => fetchActiveLinkCount(agencyAccountIds ?? undefined),
   });
-  const activeLinkCount = dbActiveLinkCount ?? overviewPeriodTotals.activeLinks;
+  const activeLinkCount = dbActiveLinkCount ?? 0;
 
   const isAllTime = timePeriod === "all" && !customRange;
 
