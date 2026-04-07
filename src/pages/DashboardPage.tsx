@@ -206,6 +206,7 @@ export default function DashboardPage() {
 
       console.log("[OverviewSnapshots] date range:", { fromDate, toDate, serverMaxDate, originalFrom: overviewSnapshotRange.from });
 
+      const rows: Array<{
         tracking_link_id: string | null;
         clicks: number | null;
         subscribers: number | null;
