@@ -1195,10 +1195,10 @@ export default function CampaignsPage() {
                                 case "created": {
                                   const days = link.daysSinceCreated;
                                   const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
-                                  const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
-                                    : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
-                                    : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
-                                    : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                                  const pill = days <= 30 ? { label: `${days}d New`, cls: "bg-success/15 text-success" }
+                                    : days <= 90 ? { label: `${days}d Active`, cls: "bg-primary/15 text-primary" }
+                                    : days <= 180 ? { label: `${days}d Mature`, cls: "bg-warning/15 text-warning" }
+                                    : { label: `${days}d Old`, cls: "bg-muted text-muted-foreground" };
                                   return (
                                     <td key={c.id} style={{ padding: "8px 12px" }}>
                                       <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
