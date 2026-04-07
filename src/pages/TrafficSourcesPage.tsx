@@ -917,7 +917,7 @@ export default function TrafficSourcesPage() {
                         </div>
                         <span className="font-mono font-bold" style={{ fontSize: "12px" }}>{s.pct}%</span>
                       </div>
-                      <div className="w-full h-1.5 rounded-full" className="bg-secondary">
+                      <div className="w-full h-1.5 rounded-full bg-secondary">
                         <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(s.pct, 100)}%`, background: s.color }} />
                       </div>
                     </div>
