@@ -1354,11 +1354,11 @@ export default function CampaignsPage() {
                             return (
                               <tr>
                                 <td colSpan={99} className="p-0">
-                                  <div style={{ background: "#e8eef4", borderLeft: "3px solid #0891b2", padding: "14px 20px" }}>
+                                  <div className="bg-secondary border-l-[3px] border-l-primary" style={{ padding: "14px 20px" }}>
                                     <div className="flex gap-5">
                                       {/* Performance */}
                                       <div style={{ width: "280px", flexShrink: 0 }}>
-                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                                           {[
                                             { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
