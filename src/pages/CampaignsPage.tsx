@@ -1432,8 +1432,8 @@ export default function CampaignsPage() {
                                         <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px", fontWeight: 600 }}>Source</p>
                                         <div onClick={(e) => e.stopPropagation()}>
                                           <div className="flex items-center gap-2 mb-2">
-                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
-                                            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
+                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "hsl(var(--muted-foreground))" }} />
+                                            <span className="text-foreground font-semibold" style={{ fontSize: "12px" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
                                           </div>
                                           <TrafficSourceDropdown
                                             value={el.source_tag}
