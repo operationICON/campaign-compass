@@ -1405,8 +1405,7 @@ export default function TrafficSourcesPage() {
                                         className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
                                         style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>{noteLoading ? "..." : "Save note"}</button>
                                       <button onClick={(e) => { e.stopPropagation(); setNoteText(""); }} disabled={noteLoading}
-                                        className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50"
-                                        className="border-border text-muted-foreground rounded-md">Clear</button>
+                                        className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50 border-border text-muted-foreground rounded-md">Clear</button>
                                     </div>
                                   </div>
                                 </div>
