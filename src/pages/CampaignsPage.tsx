@@ -953,7 +953,7 @@ export default function CampaignsPage() {
                               </th>
                             );
                             case "cross_poll": return (
-                              <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "85px" }}>
+                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "85px" }}>
                                 <div className="flex items-center justify-end gap-1">
                                   Cross-Poll
                                   <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Revenue those fans generated on other models after their entry date</TooltipContent></Tooltip>
