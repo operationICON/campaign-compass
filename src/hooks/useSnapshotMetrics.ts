@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { subDays, startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import type { TimePeriod } from "./usePageFilters";
 
 export interface SnapshotMetrics {
@@ -77,9 +76,30 @@ export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string,
 }
 
 /**
+ * Helper: fetch the server's CURRENT_DATE via a lightweight RPC-style query.
+ * Returns YYYY-MM-DD string.
+ */
+async function fetchServerDate(): Promise<string> {
+  const { data, error } = await supabase
+    .from("daily_snapshots")
+    .select("snapshot_date")
+    .order("snapshot_date", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  // If no snapshots at all, fall back to JS date (unlikely in production)
+  if (!data || data.length === 0) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  return data[0].snapshot_date;
+}
+
+/**
  * Fetches daily_snapshots for the selected time period and returns
  * a lookup map of tracking_link_id → per-period {clicks, subscribers, revenue}
  * derived from cumulative snapshots using MAX - MIN within the selected range.
+ *
+ * Date ranges are resolved using the DATABASE server date (MAX snapshot_date
+ * or CURRENT_DATE offsets), not the browser clock.
  *
  * For "All Time" returns null lookup (callers should use tracking_links totals).
  */
@@ -89,65 +109,66 @@ export function useSnapshotMetrics(
 ) {
   const isAllTime = timePeriod === "all" && !customRange;
 
-  // Compute the snapshot_date range as YYYY-MM-DD strings
-  const dateRange = useMemo(() => {
-    if (customRange) {
-      return {
-        from: format(customRange.from, "yyyy-MM-dd"),
-        to: format(customRange.to, "yyyy-MM-dd"),
-      };
-    }
-    const now = new Date();
-    const today = format(now, "yyyy-MM-dd");
-    switch (timePeriod) {
-      case "day": {
-        // Use server's most recent snapshot date (avoids client/server timezone mismatch)
-        return { from: "__latest__", to: "__latest__" };
-      }
-      case "week":
-        return { from: format(subDays(now, 7), "yyyy-MM-dd"), to: today };
-      case "month":
-        return { from: format(subDays(now, 30), "yyyy-MM-dd"), to: today };
-      case "prev_month": {
-        const pm = subMonths(now, 1);
-        return {
-          from: format(startOfMonth(pm), "yyyy-MM-dd"),
-          to: format(endOfMonth(pm), "yyyy-MM-dd"),
-        };
-      }
-      case "since_sync":
-        // Will be resolved in the query
-        return { from: "__latest__", to: "__latest__" };
-      case "all":
-      default:
-        return null;
-    }
-  }, [timePeriod, customRange]);
+  // Use a sentinel so the query key reflects the period type, not a JS-computed date
+  const periodKey = customRange
+    ? `custom_${customRange.from.toISOString()}_${customRange.to.toISOString()}`
+    : timePeriod;
 
   const { data: snapshotRows = [], isLoading } = useQuery({
-    queryKey: ["daily_snapshots", timePeriod, dateRange?.from, dateRange?.to],
+    queryKey: ["daily_snapshots", periodKey],
     queryFn: async () => {
-      if (!dateRange) return []; // All Time — skip
+      if (isAllTime) return [];
 
-      let fromDate = dateRange.from;
-      let toDate = dateRange.to;
+      let fromDate: string;
+      let toDate: string;
 
-      // Resolve "__latest__" to the most recent snapshot_date
-      if (fromDate === "__latest__") {
-        const { data: latest } = await supabase
-          .from("daily_snapshots")
-          .select("snapshot_date")
-          .order("snapshot_date", { ascending: false })
-          .limit(1);
-        if (!latest || latest.length === 0) return [];
-        const latestDate = latest[0].snapshot_date;
-        fromDate = latestDate;
-        toDate = latestDate;
+      if (customRange) {
+        fromDate = customRange.from.toISOString().slice(0, 10);
+        toDate = customRange.to.toISOString().slice(0, 10);
+      } else {
+        // Resolve dates from the server, not the browser
+        const serverMaxDate = await fetchServerDate();
+
+        switch (timePeriod) {
+          case "day":
+          case "since_sync":
+            // Both use MAX(snapshot_date)
+            fromDate = serverMaxDate;
+            toDate = serverMaxDate;
+            break;
+          case "week": {
+            // CURRENT_DATE - 7 — use server max date as reference
+            const d = new Date(serverMaxDate + "T00:00:00Z");
+            d.setUTCDate(d.getUTCDate() - 7);
+            fromDate = d.toISOString().slice(0, 10);
+            toDate = serverMaxDate;
+            break;
+          }
+          case "month": {
+            // CURRENT_DATE - 30
+            const d = new Date(serverMaxDate + "T00:00:00Z");
+            d.setUTCDate(d.getUTCDate() - 30);
+            fromDate = d.toISOString().slice(0, 10);
+            toDate = serverMaxDate;
+            break;
+          }
+          case "prev_month": {
+            // CURRENT_DATE - 60 to CURRENT_DATE - 31
+            const dFrom = new Date(serverMaxDate + "T00:00:00Z");
+            dFrom.setUTCDate(dFrom.getUTCDate() - 60);
+            const dTo = new Date(serverMaxDate + "T00:00:00Z");
+            dTo.setUTCDate(dTo.getUTCDate() - 31);
+            fromDate = dFrom.toISOString().slice(0, 10);
+            toDate = dTo.toISOString().slice(0, 10);
+            break;
+          }
+          default:
+            return [];
+        }
       }
 
-      // For single-day queries (fromDate === toDate), we need the PREVIOUS
-      // day's snapshot too so we can compute the delta (cumulative values).
-      // Find the most recent snapshot_date BEFORE fromDate to use as baseline.
+      // For single-day queries (fromDate === toDate), fetch the PREVIOUS
+      // snapshot date too so we can compute the delta (cumulative values).
       let effectiveFrom = fromDate;
       if (fromDate === toDate) {
         const { data: prevRows } = await supabase
@@ -159,8 +180,6 @@ export function useSnapshotMetrics(
         if (prevRows && prevRows.length > 0) {
           effectiveFrom = prevRows[0].snapshot_date;
         }
-        // If no previous day exists, effectiveFrom stays = fromDate,
-        // and MAX-MIN will be 0 (first ever snapshot, no prior baseline).
       }
 
       // Fetch all matching rows (batched)
