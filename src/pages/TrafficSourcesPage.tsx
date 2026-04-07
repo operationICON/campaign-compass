@@ -936,7 +936,7 @@ export default function TrafficSourcesPage() {
                     <div key={s.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                        <span style={{ fontSize: "12px", , fontWeight: 500 }}>{s.name}</span>
+                        <span style={{ fontSize: "12px", fontWeight: 500 }}>{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span style={{ fontSize: "12px", color: s.change > 0 ? "hsl(var(--success))" : s.change < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))", fontWeight: 700 }}>
