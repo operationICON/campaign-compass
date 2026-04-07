@@ -371,6 +371,24 @@ export async function bulkSetSourceTag(linkIds: string[], sourceTag: string) {
 }
 
 
+export async function fetchTrackingLinkLtv() {
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from("tracking_link_ltv")
+      .select("*")
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
+}
+
 export async function fetchTransactionTotals(filters?: {
   account_id?: string;
   date_from?: string;

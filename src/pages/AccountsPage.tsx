@@ -71,11 +71,7 @@ export default function AccountsPage() {
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: fetchTrackingLinkLtv,
   });
 
   // LTV lookup map

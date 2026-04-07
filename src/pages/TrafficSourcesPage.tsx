@@ -266,10 +266,7 @@ export default function TrafficSourcesPage() {
 
   const { data: trackingLinkLtv = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
-    queryFn: async () => {
-      const { data } = await supabase.from("tracking_link_ltv").select("*");
-      return data || [];
-    },
+    queryFn: fetchTrackingLinkLtv,
   });
 
   // LTV lookup map — normalize keys for UUID↔TEXT matching

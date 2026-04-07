@@ -138,15 +138,8 @@ export default function AuditPage() {
   });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv", dateFilter.from, dateFilter.to],
-    queryFn: async () => {
-      let query = supabase.from("tracking_link_ltv").select("*");
-      if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-      if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    },
+    queryKey: ["tracking_link_ltv"],
+    queryFn: fetchTrackingLinkLtv,
   });
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};

@@ -98,11 +98,7 @@ export default function DashboardPage() {
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const { data: trackingLinkLtv = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("tracking_link_ltv").select("*");
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: fetchTrackingLinkLtv,
   });
 
   // Category mapping for group filter
