@@ -1163,7 +1163,7 @@ export default function TrafficSourcesPage() {
                         }
                       })}
                       <td className="w-7 text-center" style={{ padding: "8px 4px" }}>
-                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} className={isExpanded ? "text-primary" : "text-muted-foreground"} />
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180 text-primary" : "text-muted-foreground"}`} />
                       </td>
                     </tr>
                     {/* Expanded detail row */}
