@@ -412,7 +412,7 @@ export default function DashboardPage() {
     if (isAllTime) return null;
     if (customRange) return Math.max(1, differenceInDays(customRange.to, customRange.from) + 1);
     switch (timePeriod) {
-      case "day": case "since_sync": return 1;
+      case "day": return 1;
       case "week": return 7;
       case "month": return 30;
       case "prev_month": return 30;
