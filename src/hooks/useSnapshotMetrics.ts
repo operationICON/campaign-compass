@@ -148,7 +148,7 @@ export function useSnapshotMetrics(
         const { data, error } = await supabase
           .from("daily_snapshots")
           .select("tracking_link_id, clicks, subscribers, revenue")
-          .gte("snapshot_date", effectiveFrom)
+          .gte("snapshot_date", fromDate)
           .lte("snapshot_date", toDate)
           .range(rangeFrom, rangeFrom + batchSize - 1);
         if (error) throw error;
