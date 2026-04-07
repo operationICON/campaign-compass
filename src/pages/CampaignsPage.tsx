@@ -1422,11 +1422,9 @@ export default function CampaignsPage() {
                                         )}
                                         <div className="flex gap-1.5">
                                           <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
-                                            className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
-                                            style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                            className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50 rounded-md bg-primary text-primary-foreground">Save</button>
                                           <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
-                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                            style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-muted-foreground rounded-md">Clear</button>
                                         </div>
                                       </div>
                                       {/* Source */}
