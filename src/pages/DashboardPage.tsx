@@ -958,19 +958,23 @@ function KpiCards({
 
       case "organic_fans_pct": {
         // Always use All Time data — LTV sync is not date-based
-        // new_subs_total = campaign-attributed subs, subscribers = all subs
-        // Organic % = (subscribers - new_subs_total) / subscribers * 100
-        const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+        // new_subs_total from tracking_link_ltv, subscribers from accounts table
+        const modelIdSet = modelParam ? new Set([modelParam]) : null;
+        const groupAccIds = groupFilter !== "all"
+          ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id))
+          : null;
+        const filterSet = modelIdSet || groupAccIds;
+
         let allTimeNewSubs = 0;
         for (const r of trackingLinkLtv) {
-          if (accountIdSet && !accountIdSet.has(r.account_id)) continue;
+          if (filterSet && !filterSet.has(r.account_id)) continue;
           allTimeNewSubs += Number(r.new_subs_total || 0);
         }
-        // Use All Time subscribers from tracking_links (unfiltered by snapshot)
+        // Use subscribers_count from accounts (not affected by 1000-row limit)
         let allTimeSubs = 0;
-        for (const l of (allLinks ?? links)) {
-          if (accountIdSet && !accountIdSet.has(l.account_id)) continue;
-          allTimeSubs += Number(l.subscribers || 0);
+        for (const a of accounts) {
+          if (filterSet && !filterSet.has(a.id)) continue;
+          allTimeSubs += Number(a.subscribers_count || 0);
         }
         const organicPct = allTimeSubs > 0 ? (allTimeNewSubs / allTimeSubs) * 100 : null;
         const pctColor = organicPct === null ? "text-muted-foreground"
