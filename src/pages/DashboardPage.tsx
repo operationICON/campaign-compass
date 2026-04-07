@@ -1043,19 +1043,24 @@ function KpiCards({
           </div>
         );
 
-      case "est_revenue":
+      case "est_revenue": {
+        const isAllTimeRev = timePeriod === "all" && !customRange;
+        const estRevValue = isAllTimeRev
+          ? accounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0)
+          : totalRevenue;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-foreground" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Est. Revenue</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{isAllTimeRev ? "Total Revenue" : "Est. Revenue"}</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(totalRevenue)} <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none align-middle">Est.</span></p>
-            <p className="text-[11px] text-muted-foreground mt-1">Snapshot revenue · {periodLabel}</p>
+            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(estRevValue)} {!isAllTimeRev && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none align-middle">Est.</span>}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{isAllTimeRev ? "Total account revenue · All Time" : `Snapshot revenue · ${periodLabel}`}</p>
           </div>
         );
+      }
 
       case "total_ltv":
         return (
