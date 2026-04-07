@@ -123,13 +123,13 @@ function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new
 // ── KPI Card ──
 function KpiCard({ label, value, sub, icon, color }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }) {
   return (
-    <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px", borderLeft: `3px solid ${color}` }}>
+    <div className="bg-card border border-border px-4 py-3 rounded-xl" style={{ borderLeft: `3px solid ${color}` }}>
       <div className="flex items-center gap-2 mb-1">
         <span style={{ color }}>{icon}</span>
-        <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
+        <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
       </div>
-      <p className="font-mono font-bold" style={{ fontSize: "20px", color: "#1a2332", lineHeight: 1.2 }}>{value}</p>
-      {sub && <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>{sub}</p>}
+      <p className="font-mono font-bold text-foreground" style={{ fontSize: "20px", lineHeight: 1.2 }}>{value}</p>
+      {sub && <p className="text-muted-foreground" style={{ fontSize: "11px", marginTop: "2px" }}>{sub}</p>}
     </div>
   );
 }
