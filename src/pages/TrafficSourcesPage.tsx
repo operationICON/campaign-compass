@@ -625,7 +625,7 @@ export default function TrafficSourcesPage() {
     >
       <span className="inline-flex items-center gap-0.5">
         {label}
-        {sortKey === k ? (sortAsc ? <ChevronUp className="h-3 w-3" className="text-primary" /> : <ChevronDown className="h-3 w-3" className="text-primary" />) : <ChevronDown className="h-3 w-3 opacity-20" />}
+        {sortKey === k ? (sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />) : <ChevronDown className="h-3 w-3 opacity-20" />}
       </span>
     </th>
   );
@@ -710,7 +710,7 @@ export default function TrafficSourcesPage() {
           <div style={{ flex: "0 0 60%" }}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h1 className="text-xl font-bold" className="text-foreground">Traffic Sources</h1>
+                <h1 className="text-xl font-bold text-foreground">Traffic Sources</h1>
                 <p className="text-muted-foreground" style={{ fontSize: "13px" }}>Manage sources and view tracking link performance by source</p>
               </div>
               <div className="flex items-center gap-2">
@@ -726,20 +726,20 @@ export default function TrafficSourcesPage() {
                         <p className="text-muted-foreground px-3 py-1" style={{ fontSize: "10px",  textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
                         {KPI_CARDS.map(k => (
                           <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-secondary cursor-pointer" style={{ fontSize: "12px" }}>
-                            <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
+                            <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer accent-primary" />
                             <span className="text-foreground">{k.label}</span>
                           </label>
                         ))}
-                        <div className="border-t mx-2 my-1" className="border-border" />
+                        <div className="border-t mx-2 my-1 border-border" />
                         <p className="text-muted-foreground px-3 py-1 mt-1" style={{ fontSize: "10px",  textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Source Analysis</p>
                         {SOURCE_ANALYSIS_CARDS.map(k => (
                           <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-secondary cursor-pointer" style={{ fontSize: "12px" }}>
-                            <input type="checkbox" checked={visibleAnalysis.has(k.id)} onChange={() => toggleAnalysis(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
+                            <input type="checkbox" checked={visibleAnalysis.has(k.id)} onChange={() => toggleAnalysis(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer accent-primary" />
                             <span className="text-foreground">{k.label}</span>
                           </label>
                         ))}
-                        <div className="border-t mx-2 my-1" className="border-border" />
-                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); const aDef = new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleAnalysis(aDef); localStorage.removeItem(SOURCE_ANALYSIS_KEY); }} className="w-full px-3 py-1.5 text-left" className="text-primary" style={{ fontSize: "11px" }}>
+                        <div className="border-t mx-2 my-1 border-border" />
+                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); const aDef = new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleAnalysis(aDef); localStorage.removeItem(SOURCE_ANALYSIS_KEY); }} className="w-full px-3 py-1.5 text-left text-primary" style={{ fontSize: "11px" }}>
                           Reset to defaults
                         </button>
                       </div>
@@ -761,7 +761,7 @@ export default function TrafficSourcesPage() {
           {/* Right 40% — Source Card */}
           <div style={{ flex: "0 0 38%" }}>
             <div className="bg-card border border-border px-5 py-4 space-y-4" style={{ borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-              <p style={{ fontSize: "13px", fontWeight: 700,  }}>Traffic Source</p>
+              <p style={{ fontSize: "13px", fontWeight: 700 }}>Traffic Source</p>
 
               {/* SOURCE LIST */}
               <div>
@@ -774,7 +774,7 @@ export default function TrafficSourcesPage() {
                     onFocus={() => setSourceSearchOpen(true)}
                     placeholder="Select source..."
                     className="w-full px-3 py-2 bg-background border border-border text-sm outline-none"
-                    style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground"
+                    style={{ borderRadius: "8px", fontSize: "13px" }}
                   />
                   {sourceSearchOpen && (
                     <div className="absolute left-0 top-full mt-1 z-50 w-full bg-popover border border-border shadow-lg py-1 max-h-52 overflow-y-auto" style={{ borderRadius: "12px" }}>
@@ -782,17 +782,16 @@ export default function TrafficSourcesPage() {
                         <button key={s.id} onClick={() => selectSourceForEdit(s)}
                           className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-secondary transition-colors" style={{ fontSize: "13px" }}>
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || "#0891b2" }} />
-                          <span className="flex-1 font-medium" className="text-foreground">{s.name}</span>
+                          <span className="flex-1 font-medium text-foreground">{s.name}</span>
                           <span className="px-1.5 py-0.5 text-[10px] font-semibold" style={{
                             borderRadius: "4px",
                             background: s.category === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe",
-                            color: s.category === "OnlyTraffic" ? "#7c3aed" : "#0891b2",
-                          }}>{s.category}</span>
+                            color: s.category === "OnlyTraffic" ? "#7c3aed" : "#0891b2" }}>{s.category}</span>
                           <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{getSourceCampaignCount(s.id)}</span>
                         </button>
                       ))}
                       {filteredSources.length === 0 && (
-                        <p className="px-3 py-2" className="text-muted-foreground" style={{ fontSize: "12px" }}>No sources found</p>
+                        <p className="px-3 py-2 text-muted-foreground" style={{ fontSize: "12px" }}>No sources found</p>
                       )}
                     </div>
                   )}
@@ -806,15 +805,14 @@ export default function TrafficSourcesPage() {
                     <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Source Name</label>
                     <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border text-sm outline-none mt-1"
-                      style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground" />
+                      style={{ borderRadius: "8px", fontSize: "13px" }} />
                   </div>
                   <div>
                     <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
                     <div className="flex gap-2 mt-1">
                       {(["OnlyTraffic", "Manual"] as const).map(cat => (
                         <button key={cat} onClick={() => setFormCategory(cat)}
-                          className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors"
-                          className2="" style={{ borderRadius: "8px" }}>
+                          className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors" style={{ borderRadius: "8px" }}>
                           {cat}
                         </button>
                       ))}
@@ -822,13 +820,13 @@ export default function TrafficSourcesPage() {
                   </div>
 
                   {confirmDelete ? (
-                    <div className="px-3 py-2" className="bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <div className="px-3 py-2 bg-destructive/10 border border-destructive/30 rounded-lg">
                       <p className="text-destructive font-semibold" style={{ fontSize: "12px" }}>
                         Delete {(selectedSource as any)?.name}? {getSourceCampaignCount(editSourceId)} campaigns will be untagged.
                       </p>
                       <div className="flex gap-2 mt-2">
-                        <button onClick={handleDelete} disabled={saving} className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50" className="bg-destructive rounded-md">Confirm Delete</button>
-                        <button onClick={() => setConfirmDelete(false)} className="text-xs" className="text-muted-foreground">Cancel</button>
+                        <button onClick={handleDelete} disabled={saving} className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50 bg-destructive rounded-md">Confirm Delete</button>
+                        <button onClick={() => setConfirmDelete(false)} className="text-xs text-muted-foreground">Cancel</button>
                       </div>
                     </div>
                   ) : (
@@ -836,13 +834,13 @@ export default function TrafficSourcesPage() {
                       <button onClick={handleSaveChanges} disabled={!formName.trim() || saving} className="w-full py-2 text-sm font-bold text-primary-foreground disabled:opacity-50 bg-primary rounded-lg">
                         {saving ? "Saving..." : "Save Changes"}
                       </button>
-                      <button onClick={() => setConfirmDelete(true)} className="w-full py-2 text-sm font-medium border" className="border-destructive/30 text-destructive rounded-lg">
+                      <button onClick={() => setConfirmDelete(true)} className="w-full py-2 text-sm font-medium border border-destructive/30 text-destructive rounded-lg">
                         Delete
                       </button>
                     </div>
                   )}
 
-                  <button onClick={clearSourceEdit} className="text-xs" className="text-muted-foreground">Clear selection</button>
+                  <button onClick={clearSourceEdit} className="text-xs text-muted-foreground">Clear selection</button>
                 </div>
               )}
 
@@ -855,7 +853,7 @@ export default function TrafficSourcesPage() {
                 <div>
                   <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Source name..."
                     className="w-full px-3 py-2 bg-background border border-border text-sm outline-none"
-                    style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground" />
+                    style={{ borderRadius: "8px", fontSize: "13px" }} />
                   {newNameWarning && (
                     <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: "11px", color: "#d97706" }}>
                       <AlertTriangle className="h-3 w-3" />
@@ -966,9 +964,9 @@ export default function TrafficSourcesPage() {
         {/* Filter bar */}
         <div className="bg-card border border-border flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderRadius: "16px 16px 0 0", borderBottom: "none" }}>
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" className="text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 py-1.5 bg-background border border-border text-foreground text-sm outline-none" style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground" />
+              className="w-full pl-9 pr-3 py-1.5 bg-background border border-border text-foreground text-sm outline-none" style={{ borderRadius: "8px", fontSize: "13px" }} />
           </div>
 
           <AccountFilterDropdown value={accountFilter} onChange={(v) => { setAccountFilter(v); setPage(1); }} accounts={accountOptions} />
@@ -1028,7 +1026,7 @@ export default function TrafficSourcesPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th style={{ padding: "10px 12px", width: "36px" }}>
-                    <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
+                    <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded cursor-pointer accent-primary" />
                   </th>
                   <SortHeader label="Tracking Link" k="campaign_name" />
                   {columnOrder.visibleOrderedColumns.map(c => {
@@ -1086,10 +1084,10 @@ export default function TrafficSourcesPage() {
 
                   return (
                     <React.Fragment key={link.id}>
-                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" className="border-b border-border" style={{ height: "44px" }}
+                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer border-b border-border" style={{ height: "44px" }}
                       >
                       <td style={{ padding: "8px 12px" }} onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
+                        <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded cursor-pointer accent-primary" />
                       </td>
                       <td style={{ padding: "8px 12px", maxWidth: "220px" }}>
                         <p style={{ fontSize: "12px", fontWeight: 700 }} className="truncate text-foreground">{link.campaign_name || "—"}</p>
@@ -1097,7 +1095,7 @@ export default function TrafficSourcesPage() {
                       </td>
                       {columnOrder.visibleOrderedColumns.map(c => {
                         switch (c.id) {
-                          case "model": return <td key={c.id} style={{ padding: "8px 12px" }}><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} /><span style={{ fontSize: "11px" }} className2="text-muted-foreground">@{username}</span></div></td>;
+                          case "model": return <td key={c.id} style={{ padding: "8px 12px" }}><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} /><span style={{ fontSize: "11px" }}>@{username}</span></div></td>;
                           case "source": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               <div className="flex items-center gap-1.5">
@@ -1119,16 +1117,16 @@ export default function TrafficSourcesPage() {
                             return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               {cat ? (
-                                <span className="inline-block px-2 py-0.5" className={}>{cat}</span>
+                                <span className="inline-block px-2 py-0.5" className="">{cat}</span>
                               ) : (
                                 <span style={{ fontSize: "10px", color: "#94a3b8" }}>—</span>
                               )}
                             </td>
                           );}
-                          case "clicks": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{fmtN(link.clicks || 0)}</td>;
-                          case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{fmtN(subs)}</td>;
+                          case "clicks": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>{fmtN(link.clicks || 0)}</td>;
+                          case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>{fmtN(subs)}</td>;
                           case "cvr": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "hsl(var(--primary))" : "hsl(var(--foreground))" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>;
-                          case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{fmtC(Number(link.revenue || 0))}</td>;
+                          case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>{fmtC(Number(link.revenue || 0))}</td>;
                           case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
                           case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
                           case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
@@ -1142,7 +1140,7 @@ export default function TrafficSourcesPage() {
                               </span>
                             </td>
                           );
-                          case "subs_day": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>;
+                          case "subs_day": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>;
                           case "created": {
                             const pill = ageDays <= 30 ? { label: `${ageDays}d New`, cls: "bg-success/15 text-success" }
                               : ageDays <= 90 ? { label: `${ageDays}d Active`, cls: "bg-primary/15 text-primary" }
@@ -1298,7 +1296,7 @@ export default function TrafficSourcesPage() {
                                       <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em",  fontWeight: 600 }}>Spend</p>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Info className="h-3 w-3 cursor-help" className="text-muted-foreground" />
+                                          <Info className="h-3 w-3 cursor-help text-muted-foreground" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top" className="max-w-[220px] text-xs">
                                           <p><strong>CPL</strong> = I pay per subscriber gained</p>
@@ -1338,11 +1336,9 @@ export default function TrafficSourcesPage() {
                                     )}
                                     <div className="flex gap-1.5">
                                       <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
-                                        className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
-                                        className="bg-primary text-primary-foreground rounded-md">Save</button>
+                                        className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50 bg-primary text-primary-foreground rounded-md">Save</button>
                                       <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
-                                        className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                        className="border-border text-muted-foreground rounded-md">Clear</button>
+                                        className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-muted-foreground rounded-md">Clear</button>
                                     </div>
                                   </div>
                                   {/* Source */}
@@ -1352,7 +1348,7 @@ export default function TrafficSourcesPage() {
                                       {/* Current source display */}
                                       <div className="flex items-center gap-2 mb-2">
                                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "hsl(var(--muted-foreground))" }} />
-                                        <span style={{ fontSize: "12px", fontWeight: 600,  }}>{currentSource?.name || "Untagged"}</span>
+                                        <span style={{ fontSize: "12px", fontWeight: 600 }}>{currentSource?.name || "Untagged"}</span>
                                       </div>
                                       <TrafficSourceDropdown
                                         value={el.source_tag}
@@ -1369,8 +1365,7 @@ export default function TrafficSourcesPage() {
                                       />
                                       <div className="flex gap-1.5 mt-2">
                                         <button onClick={(e) => { e.stopPropagation(); const inp = (e.currentTarget.parentElement?.parentElement?.querySelector('input[type="text"]') as HTMLInputElement); if (inp) { inp.focus(); inp.click(); } }}
-                                          className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                          className="border-border text-foreground bg-card rounded-md">✏ Edit</button>
+                                          className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-foreground bg-card rounded-md">✏ Edit</button>
                                         {el.source_tag && (
                                           <button onClick={async (e) => {
                                             e.stopPropagation();
@@ -1380,16 +1375,14 @@ export default function TrafficSourcesPage() {
                                               toast.success("Source removed");
                                             } catch { toast.error("Failed"); }
                                           }}
-                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                            className="border-destructive/30 text-destructive rounded-md">🗑 Delete</button>
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border border-destructive/30 text-destructive rounded-md">🗑 Delete</button>
                                         )}
                                         <button onClick={async (e) => {
                                           e.stopPropagation();
                                           // Save triggers via the dropdown's onSave, this is a visual confirmation
                                           toast.info("Use the dropdown to select a source — it saves automatically", { duration: 2000 });
                                         }}
-                                          className="px-2.5 py-1.5 text-[11px] font-semibold"
-                                          className="bg-primary text-primary-foreground rounded-md">Save</button>
+                                          className="px-2.5 py-1.5 text-[11px] font-semibold bg-primary text-primary-foreground rounded-md">Save</button>
                                       </div>
                                     </div>
                                   </div>
