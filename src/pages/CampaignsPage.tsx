@@ -1361,18 +1361,18 @@ export default function CampaignsPage() {
                                         <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                                           {[
-                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
-                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "#1a2332" },
-                                            { l: "Subs", v: subsEl.toLocaleString(), c: "#1a2332" },
-                                            { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "#0891b2" : "#94a3b8" },
-                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "#0891b2" : "#94a3b8" },
-                                            { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
-                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "#0891b2" : "#94a3b8" },
-                                            { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
+                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
+                                            { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-primary" : "text-muted-foreground" },
+                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "text-primary" : "text-muted-foreground" },
+                                            { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
+                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "text-primary" : "text-muted-foreground" },
+                                            { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "text-success" : spenderRateVal >= 5 ? "text-warning" : spenderRateVal > 0 ? "text-destructive" : "text-muted-foreground" },
                                           ].map(r => (
                                             <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "26px", padding: "0 8px" }}>
-                                              <span style={{ fontSize: "13px", color: "#1a2332", fontWeight: 700 }}>{r.l}</span>
-                                              <span style={{ fontSize: "12px", fontWeight: 500, color: r.c, fontFamily: "monospace" }}>{r.v}</span>
+                                              <span className="text-foreground font-bold" style={{ fontSize: "13px" }}>{r.l}</span>
+                                              <span className={`font-mono ${r.c}`} style={{ fontSize: "12px", fontWeight: 500 }}>{r.v}</span>
                                             </div>
                                           ))}
                                         </div>
