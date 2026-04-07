@@ -28,7 +28,7 @@ const MODEL_COLORS: Record<string, string> = {
 
 export function InsightsSection({
   links, accounts, dailyMetrics, trackingLinkLtv = [], groupFilter, selectedModel, getAccountCategory,
-  isInsightVisible, isModelColVisible,
+  isInsightVisible, isModelColVisible, snapshotRows = [], isAllTime = true,
 }: InsightsSectionProps) {
   const colorMap = useTagColors();
   const fmtC = (v: number | null | undefined) => `$${(v ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
