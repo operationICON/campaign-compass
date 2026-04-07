@@ -1452,7 +1452,7 @@ export default function TrafficSourcesPage() {
                 </button>
                 {pageNumbers.map((p, i) =>
                   p === "..." ? (
-                    <span key={`e${i}`} className="px-1" className="text-muted-foreground" style={{ fontSize: "12px" }}>…</span>
+                    <span key={`e${i}`} className="px-1 text-muted-foreground" style={{ fontSize: "12px" }}>…</span>
                   ) : (
                     <button key={p} onClick={() => setPage(p as number)}
                       className="w-7 h-7 flex items-center justify-center text-xs font-medium transition-colors"
