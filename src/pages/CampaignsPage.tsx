@@ -1429,7 +1429,7 @@ export default function CampaignsPage() {
                                       </div>
                                       {/* Source */}
                                       <div>
-                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Source</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px", fontWeight: 600 }}>Source</p>
                                         <div onClick={(e) => e.stopPropagation()}>
                                           <div className="flex items-center gap-2 mb-2">
                                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
