@@ -914,7 +914,7 @@ function KpiCards({
         );
 
       case "organic_revenue": {
-        const organicRev = totalRevenue - totalLtv;
+        const organicRev = totalRevenue - ltvOnly;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
