@@ -123,13 +123,13 @@ function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new
 // ── KPI Card ──
 function KpiCard({ label, value, sub, icon, color }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }) {
   return (
-    <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px", borderLeft: `3px solid ${color}` }}>
+    <div className="bg-card border border-border px-4 py-3 rounded-xl" style={{ borderLeft: `3px solid ${color}` }}>
       <div className="flex items-center gap-2 mb-1">
         <span style={{ color }}>{icon}</span>
-        <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
+        <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
       </div>
-      <p className="font-mono font-bold" style={{ fontSize: "20px", color: "#1a2332", lineHeight: 1.2 }}>{value}</p>
-      {sub && <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>{sub}</p>}
+      <p className="font-mono font-bold text-foreground" style={{ fontSize: "20px", lineHeight: 1.2 }}>{value}</p>
+      {sub && <p className="text-muted-foreground" style={{ fontSize: "11px", marginTop: "2px" }}>{sub}</p>}
     </div>
   );
 }
@@ -619,13 +619,13 @@ export default function TrafficSourcesPage() {
 
   const SortHeader = ({ label, k, align }: { label: string; k: SortKey; align?: string }) => (
     <th
-      className="cursor-pointer select-none hover:text-[#1a2332] transition-colors whitespace-nowrap"
-      style={{ fontSize: "11px", fontWeight: 600, color: "#64748b", letterSpacing: "0.04em", padding: "10px 12px", textTransform: "uppercase", textAlign: (align || "left") as any }}
+      className="cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
+      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.04em", padding: "10px 12px", textTransform: "uppercase", textAlign: (align || "left") as any }}
       onClick={() => handleSort(k)}
     >
       <span className="inline-flex items-center gap-0.5">
         {label}
-        {sortKey === k ? (sortAsc ? <ChevronUp className="h-3 w-3" style={{ color: "#0891b2" }} /> : <ChevronDown className="h-3 w-3" style={{ color: "#0891b2" }} />) : <ChevronDown className="h-3 w-3 opacity-20" />}
+        {sortKey === k ? (sortAsc ? <ChevronUp className="h-3 w-3" className="text-primary" /> : <ChevronDown className="h-3 w-3" className="text-primary" />) : <ChevronDown className="h-3 w-3 opacity-20" />}
       </span>
     </th>
   );
@@ -710,8 +710,8 @@ export default function TrafficSourcesPage() {
           <div style={{ flex: "0 0 60%" }}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h1 className="text-xl font-bold" style={{ color: "#1a2332" }}>Traffic Sources</h1>
-                <p style={{ color: "#64748b", fontSize: "13px" }}>Manage sources and view tracking link performance by source</p>
+                <h1 className="text-xl font-bold" className="text-foreground">Traffic Sources</h1>
+                <p className="text-muted-foreground" style={{ fontSize: "13px" }}>Manage sources and view tracking link performance by source</p>
               </div>
               <div className="flex items-center gap-2">
                 <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
@@ -722,24 +722,24 @@ export default function TrafficSourcesPage() {
                   {kpiDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setKpiDropdownOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border shadow-lg py-1.5 max-h-80 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                        <p className="px-3 py-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
+                      <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-popover border border-border shadow-lg py-1.5 max-h-80 overflow-y-auto" style={{ borderRadius: "12px" }}>
+                        <p className="text-muted-foreground px-3 py-1" style={{ fontSize: "10px",  textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>KPI Cards</p>
                         {KPI_CARDS.map(k => (
-                          <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
-                            <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
-                            <span style={{ color: "#1a2332" }}>{k.label}</span>
+                          <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-secondary cursor-pointer" style={{ fontSize: "12px" }}>
+                            <input type="checkbox" checked={visibleKpis.has(k.id)} onChange={() => toggleKpi(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
+                            <span className="text-foreground">{k.label}</span>
                           </label>
                         ))}
-                        <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
-                        <p className="px-3 py-1 mt-1" style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Source Analysis</p>
+                        <div className="border-t mx-2 my-1" className="border-border" />
+                        <p className="text-muted-foreground px-3 py-1 mt-1" style={{ fontSize: "10px",  textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Source Analysis</p>
                         {SOURCE_ANALYSIS_CARDS.map(k => (
-                          <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer" style={{ fontSize: "12px" }}>
-                            <input type="checkbox" checked={visibleAnalysis.has(k.id)} onChange={() => toggleAnalysis(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
-                            <span style={{ color: "#1a2332" }}>{k.label}</span>
+                          <label key={k.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-secondary cursor-pointer" style={{ fontSize: "12px" }}>
+                            <input type="checkbox" checked={visibleAnalysis.has(k.id)} onChange={() => toggleAnalysis(k.id)} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
+                            <span className="text-foreground">{k.label}</span>
                           </label>
                         ))}
-                        <div className="border-t mx-2 my-1" style={{ borderColor: "#e8edf2" }} />
-                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); const aDef = new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleAnalysis(aDef); localStorage.removeItem(SOURCE_ANALYSIS_KEY); }} className="w-full px-3 py-1.5 text-left" style={{ fontSize: "11px", color: "#0891b2" }}>
+                        <div className="border-t mx-2 my-1" className="border-border" />
+                        <button onClick={() => { const def = new Set(KPI_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleKpis(def); localStorage.removeItem(KPI_KEY); const aDef = new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id)); setVisibleAnalysis(aDef); localStorage.removeItem(SOURCE_ANALYSIS_KEY); }} className="w-full px-3 py-1.5 text-left" className="text-primary" style={{ fontSize: "11px" }}>
                           Reset to defaults
                         </button>
                       </div>
@@ -760,12 +760,12 @@ export default function TrafficSourcesPage() {
 
           {/* Right 40% — Source Card */}
           <div style={{ flex: "0 0 38%" }}>
-            <div className="bg-white border px-5 py-4 space-y-4" style={{ borderColor: "#e8edf2", borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "#1a2332" }}>Traffic Source</p>
+            <div className="bg-card border border-border px-5 py-4 space-y-4" style={{ borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+              <p style={{ fontSize: "13px", fontWeight: 700,  }}>Traffic Source</p>
 
               {/* SOURCE LIST */}
               <div>
-                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Source List</label>
+                <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Source List</label>
                 <div className="relative mt-1" ref={sourceSearchRef}>
                   <input
                     type="text"
@@ -773,26 +773,26 @@ export default function TrafficSourcesPage() {
                     onChange={(e) => { setSourceSearchQuery(e.target.value); setSourceSearchOpen(true); }}
                     onFocus={() => setSourceSearchOpen(true)}
                     placeholder="Select source..."
-                    className="w-full px-3 py-2 bg-white border text-sm outline-none"
-                    style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }}
+                    className="w-full px-3 py-2 bg-background border border-border text-sm outline-none"
+                    style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground"
                   />
                   {sourceSearchOpen && (
-                    <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white border shadow-lg py-1 max-h-52 overflow-y-auto" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
+                    <div className="absolute left-0 top-full mt-1 z-50 w-full bg-popover border border-border shadow-lg py-1 max-h-52 overflow-y-auto" style={{ borderRadius: "12px" }}>
                       {filteredSources.map((s: any) => (
                         <button key={s.id} onClick={() => selectSourceForEdit(s)}
-                          className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 transition-colors" style={{ fontSize: "13px" }}>
+                          className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-secondary transition-colors" style={{ fontSize: "13px" }}>
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || "#0891b2" }} />
-                          <span className="flex-1 font-medium" style={{ color: "#1a2332" }}>{s.name}</span>
+                          <span className="flex-1 font-medium" className="text-foreground">{s.name}</span>
                           <span className="px-1.5 py-0.5 text-[10px] font-semibold" style={{
                             borderRadius: "4px",
                             background: s.category === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe",
                             color: s.category === "OnlyTraffic" ? "#7c3aed" : "#0891b2",
                           }}>{s.category}</span>
-                          <span style={{ fontSize: "11px", color: "#94a3b8" }}>{getSourceCampaignCount(s.id)}</span>
+                          <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{getSourceCampaignCount(s.id)}</span>
                         </button>
                       ))}
                       {filteredSources.length === 0 && (
-                        <p className="px-3 py-2" style={{ fontSize: "12px", color: "#94a3b8" }}>No sources found</p>
+                        <p className="px-3 py-2" className="text-muted-foreground" style={{ fontSize: "12px" }}>No sources found</p>
                       )}
                     </div>
                   )}
@@ -803,18 +803,18 @@ export default function TrafficSourcesPage() {
               {editSourceId && selectedSource && (
                 <div className="space-y-3 pt-1">
                   <div>
-                    <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Source Name</label>
+                    <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Source Name</label>
                     <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border text-sm outline-none mt-1"
-                      style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
+                      className="w-full px-3 py-2 bg-background border border-border text-sm outline-none mt-1"
+                      style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground" />
                   </div>
                   <div>
-                    <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
+                    <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
                     <div className="flex gap-2 mt-1">
                       {(["OnlyTraffic", "Manual"] as const).map(cat => (
                         <button key={cat} onClick={() => setFormCategory(cat)}
                           className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors"
-                          style={{ borderRadius: "8px", background: formCategory === cat ? "#0891b2" : "#f1f5f9", color: formCategory === cat ? "white" : "#64748b" }}>
+                          className2="" style={{ borderRadius: "8px" }}>
                           {cat}
                         </button>
                       ))}
@@ -822,40 +822,40 @@ export default function TrafficSourcesPage() {
                   </div>
 
                   {confirmDelete ? (
-                    <div className="px-3 py-2" style={{ background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
-                      <p style={{ fontSize: "12px", color: "#dc2626", fontWeight: 600 }}>
+                    <div className="px-3 py-2" className="bg-destructive/10 border border-destructive/30 rounded-lg">
+                      <p className="text-destructive font-semibold" style={{ fontSize: "12px" }}>
                         Delete {(selectedSource as any)?.name}? {getSourceCampaignCount(editSourceId)} campaigns will be untagged.
                       </p>
                       <div className="flex gap-2 mt-2">
-                        <button onClick={handleDelete} disabled={saving} className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50" style={{ background: "#dc2626", borderRadius: "6px" }}>Confirm Delete</button>
-                        <button onClick={() => setConfirmDelete(false)} className="text-xs" style={{ color: "#64748b" }}>Cancel</button>
+                        <button onClick={handleDelete} disabled={saving} className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50" className="bg-destructive rounded-md">Confirm Delete</button>
+                        <button onClick={() => setConfirmDelete(false)} className="text-xs" className="text-muted-foreground">Cancel</button>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <button onClick={handleSaveChanges} disabled={!formName.trim() || saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
+                      <button onClick={handleSaveChanges} disabled={!formName.trim() || saving} className="w-full py-2 text-sm font-bold text-primary-foreground disabled:opacity-50 bg-primary rounded-lg">
                         {saving ? "Saving..." : "Save Changes"}
                       </button>
-                      <button onClick={() => setConfirmDelete(true)} className="w-full py-2 text-sm font-medium border" style={{ borderColor: "#fecaca", borderRadius: "8px", color: "#dc2626" }}>
+                      <button onClick={() => setConfirmDelete(true)} className="w-full py-2 text-sm font-medium border" className="border-destructive/30 text-destructive rounded-lg">
                         Delete
                       </button>
                     </div>
                   )}
 
-                  <button onClick={clearSourceEdit} className="text-xs" style={{ color: "#94a3b8" }}>Clear selection</button>
+                  <button onClick={clearSourceEdit} className="text-xs" className="text-muted-foreground">Clear selection</button>
                 </div>
               )}
 
               {/* Divider */}
-              <div style={{ borderTop: "1px solid #e8edf2" }} />
+              <div className="border-t border-border" />
 
               {/* ADD NEW SOURCE */}
               <div className="space-y-3">
-                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Add New Source</label>
+                <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Add New Source</label>
                 <div>
                   <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Source name..."
-                    className="w-full px-3 py-2 bg-white border text-sm outline-none"
-                    style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
+                    className="w-full px-3 py-2 bg-background border border-border text-sm outline-none"
+                    style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground" />
                   {newNameWarning && (
                     <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: "11px", color: "#d97706" }}>
                       <AlertTriangle className="h-3 w-3" />
@@ -864,12 +864,12 @@ export default function TrafficSourcesPage() {
                   )}
                 </div>
                 <div>
-                  <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
+                  <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
                   <div className="flex gap-2 mt-1">
                     {(["OnlyTraffic", "Manual"] as const).map(cat => (
                       <button key={cat} onClick={() => setNewCategory(cat)}
                         className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors"
-                        style={{ borderRadius: "8px", background: newCategory === cat ? "#0891b2" : "#f1f5f9", color: newCategory === cat ? "white" : "#64748b" }}>
+                        style={{ borderRadius: "8px" }}>
                         {cat}
                       </button>
                     ))}
@@ -887,76 +887,76 @@ export default function TrafficSourcesPage() {
         {(visibleAnalysis.has("subs_day_source") || visibleAnalysis.has("distribution") || visibleAnalysis.has("growth_trend") || visibleAnalysis.has("contribution")) && (
           <div className="grid grid-cols-4 gap-3 mb-4">
             {visibleAnalysis.has("subs_day_source") && (
-              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Subs/Day per Source</p>
+              <div className="bg-card border border-border px-4 py-3 rounded-xl">
+                <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Subs/Day per Source</p>
                 <div className="space-y-2">
                   {sourceAnalysis.subsPerDay.slice(0, 6).map(s => (
                     <div key={s.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                        <span style={{ fontSize: "12px", color: "#1a2332", fontWeight: 500 }}>{s.name}</span>
+                        <span style={{ fontSize: "12px", , fontWeight: 500 }}>{s.name}</span>
                       </div>
-                      <span className="font-mono font-bold" style={{ fontSize: "13px", color: "#1a2332" }}>{s.value}</span>
+                      <span className="font-mono font-bold" style={{ fontSize: "13px",  }}>{s.value}</span>
                     </div>
                   ))}
-                  {sourceAnalysis.subsPerDay.length === 0 && <p style={{ fontSize: "12px", color: "#94a3b8" }}>No data</p>}
+                  {sourceAnalysis.subsPerDay.length === 0 && <p className="text-muted-foreground" style={{ fontSize: "12px" }}>No data</p>}
                 </div>
               </div>
             )}
 
             {visibleAnalysis.has("distribution") && (
-              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Distribution %</p>
+              <div className="bg-card border border-border px-4 py-3 rounded-xl">
+                <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Distribution %</p>
                 <div className="space-y-2">
                   {sourceAnalysis.distribution.slice(0, 6).map(s => (
                     <div key={s.name}>
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                          <span style={{ fontSize: "12px", color: "#1a2332", fontWeight: 500 }}>{s.name}</span>
+                          <span style={{ fontSize: "12px", , fontWeight: 500 }}>{s.name}</span>
                         </div>
-                        <span className="font-mono font-bold" style={{ fontSize: "12px", color: "#1a2332" }}>{s.pct}%</span>
+                        <span className="font-mono font-bold" style={{ fontSize: "12px",  }}>{s.pct}%</span>
                       </div>
-                      <div className="w-full h-1.5 rounded-full" style={{ background: "#f1f5f9" }}>
+                      <div className="w-full h-1.5 rounded-full" className="bg-secondary">
                         <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(s.pct, 100)}%`, background: s.color }} />
                       </div>
                     </div>
                   ))}
-                  {sourceAnalysis.distribution.length === 0 && <p style={{ fontSize: "12px", color: "#94a3b8" }}>No data</p>}
+                  {sourceAnalysis.distribution.length === 0 && <p className="text-muted-foreground" style={{ fontSize: "12px" }}>No data</p>}
                 </div>
               </div>
             )}
 
             {visibleAnalysis.has("growth_trend") && (
-              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" }}>Growth Trend</p>
+              <div className="bg-card border border-border px-4 py-3 rounded-xl">
+                <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" }}>Growth Trend</p>
                 <p style={{ fontSize: "10px", color: "#94a3b8", marginBottom: "8px" }}>Last 30d vs previous 30d</p>
                 <div className="space-y-2">
                   {sourceAnalysis.growthTrend.slice(0, 6).map(s => (
                     <div key={s.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                        <span style={{ fontSize: "12px", color: "#1a2332", fontWeight: 500 }}>{s.name}</span>
+                        <span style={{ fontSize: "12px", , fontWeight: 500 }}>{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span style={{ fontSize: "12px", color: s.change > 0 ? "#16a34a" : s.change < 0 ? "#dc2626" : "#94a3b8", fontWeight: 700 }}>
+                        <span style={{ fontSize: "12px", color: s.change > 0 ? "hsl(var(--success))" : s.change < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))", fontWeight: 700 }}>
                           {s.change > 0 ? "↑" : s.change < 0 ? "↓" : "–"} {Math.abs(s.change)}%
                         </span>
                       </div>
                     </div>
                   ))}
-                  {sourceAnalysis.growthTrend.length === 0 && <p style={{ fontSize: "12px", color: "#94a3b8" }}>No data</p>}
+                  {sourceAnalysis.growthTrend.length === 0 && <p className="text-muted-foreground" style={{ fontSize: "12px" }}>No data</p>}
                 </div>
               </div>
             )}
 
             {visibleAnalysis.has("contribution") && (
-              <div className="bg-white border px-4 py-3" style={{ borderColor: "#e8edf2", borderRadius: "12px" }}>
-                <p style={{ fontSize: "11px", color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Source Contribution</p>
+              <div className="bg-card border border-border px-4 py-3 rounded-xl">
+                <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Source Contribution</p>
                 <div className="flex flex-col items-center justify-center" style={{ minHeight: "80px" }}>
-                  <p className="font-bold" style={{ fontSize: "22px", color: "#1a2332" }}>{sourceAnalysis.topContrib.name}</p>
-                  <p className="font-mono" style={{ fontSize: "28px", color: "#0891b2", fontWeight: 800, lineHeight: 1.1 }}>{sourceAnalysis.topContrib.pct}%</p>
-                  <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px" }}>of total subscribers</p>
+                  <p className="font-bold" style={{ fontSize: "22px",  }}>{sourceAnalysis.topContrib.name}</p>
+                  <p className="font-mono" style={{ fontSize: "28px", , fontWeight: 800, lineHeight: 1.1 }}>{sourceAnalysis.topContrib.pct}%</p>
+                  <p style={{ fontSize: "11px", marginTop: "4px" }}>of total subscribers</p>
                 </div>
               </div>
             )}
@@ -964,18 +964,18 @@ export default function TrafficSourcesPage() {
         )}
 
         {/* Filter bar */}
-        <div className="bg-white border flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderColor: "#e8edf2", borderRadius: "16px 16px 0 0", borderBottom: "none" }}>
+        <div className="bg-card border border-border flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderRadius: "16px 16px 0 0", borderBottom: "none" }}>
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#94a3b8" }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" className="text-muted-foreground" />
             <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 py-1.5 bg-white border text-sm outline-none" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px" }} />
+              className="w-full pl-9 pr-3 py-1.5 bg-background border border-border text-foreground text-sm outline-none" style={{ borderRadius: "8px", fontSize: "13px" }} className2="text-foreground" />
           </div>
 
           <AccountFilterDropdown value={accountFilter} onChange={(v) => { setAccountFilter(v); setPage(1); }} accounts={accountOptions} />
 
           <div className="relative">
             <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-              className="px-3 py-1.5 border text-sm outline-none appearance-none pr-7 cursor-pointer" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px", background: "white" }}>
+              className="px-3 py-1.5 border border-border bg-background text-foreground text-sm outline-none appearance-none pr-7 cursor-pointer" style={{ borderRadius: "8px", fontSize: "13px" }}>
               <option value="all">All Sources</option>
               <option value="untagged">Untagged</option>
               {sourceOptions.map(s => <option key={s} value={s}>{s}</option>)}
@@ -983,7 +983,7 @@ export default function TrafficSourcesPage() {
           </div>
 
           <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value as any); setPage(1); }}
-            className="px-3 py-1.5 border text-sm outline-none appearance-none pr-7 cursor-pointer" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#1a2332", fontSize: "13px", background: "white" }}>
+            className="px-3 py-1.5 border border-border bg-background text-foreground text-sm outline-none appearance-none pr-7 cursor-pointer" style={{ borderRadius: "8px", fontSize: "13px" }}>
             <option value="all">All Categories</option>
             <option value="OnlyTraffic">OnlyTraffic</option>
             <option value="Manual">Manual</option>
@@ -1009,11 +1009,11 @@ export default function TrafficSourcesPage() {
             </DropdownMenu>
           </div>
 
-          <span style={{ fontSize: "12px", color: "#64748b" }}>{filtered.length} campaigns</span>
+          <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{filtered.length} campaigns</span>
         </div>
 
         {/* Campaign list */}
-        <div className="bg-white border overflow-hidden" style={{ borderColor: "#e8edf2", borderRadius: "0 0 16px 16px" }}>
+        <div className="bg-card border border-border overflow-hidden" style={{ borderRadius: "0 0 16px 16px" }}>
           <BulkActionToolbar
             selectedIds={selectedRows}
             onClear={() => setSelectedRows(new Set())}
@@ -1026,9 +1026,9 @@ export default function TrafficSourcesPage() {
           <div className="overflow-x-auto">
             <table className="w-full" style={{ fontSize: "12px" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #e8edf2" }}>
+                <tr className="border-b border-border">
                   <th style={{ padding: "10px 12px", width: "36px" }}>
-                    <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
+                    <input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
                   </th>
                   <SortHeader label="Tracking Link" k="campaign_name" />
                   {columnOrder.visibleOrderedColumns.map(c => {
@@ -1036,7 +1036,7 @@ export default function TrafficSourcesPage() {
                     const sortMap: Record<string, SortKey> = { clicks: "clicks", subscribers: "subscribers", cvr: "cvr", revenue: "revenue", ltv: "ltv", expenses: "cost_total", profit: "profit", roi: "roi", source: "source_tag", created: "created_at" };
                     const sk = sortMap[c.id];
                     if (sk) return <SortHeader key={c.id} label={c.label} k={sk} align={rightAligned ? "right" : undefined} />;
-                    return <th key={c.id} style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: rightAligned ? "right" : undefined }}>{c.label}</th>;
+                    return <th key={c.id} style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", textAlign: rightAligned ? "right" : undefined }}>{c.label}</th>;
                   })}
                   <th style={{ width: "28px" }} />
                 </tr>
@@ -1086,18 +1086,18 @@ export default function TrafficSourcesPage() {
 
                   return (
                     <React.Fragment key={link.id}>
-                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid #e8edf2", height: "44px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd" }}
-                      onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}>
+                    <tr onClick={() => handleRowClick(link)} className="transition-colors cursor-pointer" className="border-b border-border" style={{ height: "44px" }}
+                      >
                       <td style={{ padding: "8px 12px" }} onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: "#0891b2" }} />
+                        <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded cursor-pointer" className="accent-primary" />
                       </td>
                       <td style={{ padding: "8px 12px", maxWidth: "220px" }}>
-                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#1a2332" }} className="truncate">{link.campaign_name || "—"}</p>
-                        <p style={{ fontSize: "10px", color: "#94a3b8" }} className="truncate">{link.url}</p>
+                        <p style={{ fontSize: "12px", fontWeight: 700 }} className="truncate text-foreground">{link.campaign_name || "—"}</p>
+                        <p style={{ fontSize: "10px" }} className="truncate text-muted-foreground">{link.url}</p>
                       </td>
                       {columnOrder.visibleOrderedColumns.map(c => {
                         switch (c.id) {
-                          case "model": return <td key={c.id} style={{ padding: "8px 12px" }}><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} /><span style={{ fontSize: "11px", color: "#64748b" }}>@{username}</span></div></td>;
+                          case "model": return <td key={c.id} style={{ padding: "8px 12px" }}><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} /><span style={{ fontSize: "11px" }} className2="text-muted-foreground">@{username}</span></div></td>;
                           case "source": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               <div className="flex items-center gap-1.5">
@@ -1119,22 +1119,22 @@ export default function TrafficSourcesPage() {
                             return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               {cat ? (
-                                <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 600, borderRadius: "4px", background: cat === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe", color: cat === "OnlyTraffic" ? "#7c3aed" : "#0891b2" }}>{cat}</span>
+                                <span className="inline-block px-2 py-0.5" className={}>{cat}</span>
                               ) : (
                                 <span style={{ fontSize: "10px", color: "#94a3b8" }}>—</span>
                               )}
                             </td>
                           );}
-                          case "clicks": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(link.clicks || 0)}</td>;
-                          case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtN(subs)}</td>;
-                          case "cvr": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "#0891b2" : "#1a2332" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>;
-                          case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#1a2332" }}>{fmtC(Number(link.revenue || 0))}</td>;
-                          case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
-                          case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "#0891b2" : "#94a3b8" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
-                          case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "#dc2626" : "#94a3b8" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
-                          case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit !== null && profit > 0 ? "#16a34a" : profit !== null && profit < 0 ? "#dc2626" : "#94a3b8" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
-                          case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub !== null && profitPerSub > 0 ? "#16a34a" : profitPerSub !== null && profitPerSub < 0 ? "#dc2626" : "#94a3b8" }}>{profitPerSub !== null ? fmtC(profitPerSub) : "—"}</td>;
-                          case "roi": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi !== null && roi > 0 ? "#16a34a" : roi !== null && roi < 0 ? "#dc2626" : "#94a3b8" }}>{roi !== null ? fmtPct(roi) : "—"}</td>;
+                          case "clicks": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{fmtN(link.clicks || 0)}</td>;
+                          case "subscribers": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{fmtN(subs)}</td>;
+                          case "cvr": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: Number(link.cvr || 0) > 15 ? "hsl(var(--primary))" : "hsl(var(--foreground))" }}>{Number(link.cvr || 0) > 0 ? fmtPct(Number(link.cvr)) : "—"}</td>;
+                          case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{fmtC(Number(link.revenue || 0))}</td>;
+                          case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
+                          case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
+                          case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
+                          case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit !== null && profit > 0 ? "hsl(var(--success))" : profit !== null && profit < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
+                          case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub !== null && profitPerSub > 0 ? "hsl(var(--success))" : profitPerSub !== null && profitPerSub < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{profitPerSub !== null ? fmtC(profitPerSub) : "—"}</td>;
+                          case "roi": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: roi !== null && roi > 0 ? "hsl(var(--success))" : roi !== null && roi < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{roi !== null ? fmtPct(roi) : "—"}</td>;
                           case "status": return (
                             <td key={c.id} style={{ padding: "8px 12px" }}>
                               <span className="inline-block px-2 py-0.5" style={{ fontSize: "10px", fontWeight: 700, borderRadius: "4px", background: st.bg, color: st.text }}>
@@ -1142,28 +1142,28 @@ export default function TrafficSourcesPage() {
                               </span>
                             </td>
                           );
-                          case "subs_day": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>;
+                          case "subs_day": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px",  }}>{ageDays > 1 ? `${subsDay.toFixed(0)}/day` : "—"}</td>;
                           case "created": {
-                            const pill = ageDays <= 30 ? { label: `${ageDays}d New`, bg: "#dcfce7", text: "#16a34a" }
-                              : ageDays <= 90 ? { label: `${ageDays}d Active`, bg: "#dbeafe", text: "#2563eb" }
-                              : ageDays <= 180 ? { label: `${ageDays}d Mature`, bg: "#fef9c3", text: "#854d0e" }
-                              : { label: `${ageDays}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                            const pill = ageDays <= 30 ? { label: `${ageDays}d New`, cls: "bg-success/15 text-success" }
+                              : ageDays <= 90 ? { label: `${ageDays}d Active`, cls: "bg-primary/15 text-primary" }
+                              : ageDays <= 180 ? { label: `${ageDays}d Mature`, cls: "bg-warning/15 text-warning" }
+                              : { label: `${ageDays}d Old`, cls: "bg-muted text-muted-foreground" };
                             return (
                               <td key={c.id} style={{ padding: "8px 12px" }}>
                                 <p className="text-foreground" style={{ fontSize: "12px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
-                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" >{pill.label}</span>
                               </td>
                             );
                           }
                           case "notes": {
                             const n = notes.find((nt: any) => nt.campaign_id === link.campaign_id && nt.account_id === link.account_id);
-                            return <td key={c.id} style={{ padding: "8px 12px", fontSize: "11px", color: n?.note ? "#1a2332" : "#94a3b8", maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;
+                            return <td key={c.id} style={{ padding: "8px 12px", fontSize: "11px", , maxWidth: "120px" }} className="truncate">{n?.note || "—"}</td>;
                           }
                           default: return null;
                         }
                       })}
                       <td className="w-7 text-center" style={{ padding: "8px 4px" }}>
-                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} style={{ color: isExpanded ? "#0891b2" : "#94a3b8" }} />
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} className={isExpanded ? "text-primary" : "text-muted-foreground"} />
                       </td>
                     </tr>
                     {/* Expanded detail row */}
@@ -1262,30 +1262,30 @@ export default function TrafficSourcesPage() {
                       const ltvSubVal = hasDetailLtv ? Number(detailLtvRecord.ltv_per_sub || 0) : null;
                       const spenderRateVal = Number(el.spender_rate || 0);
                       const subsDayVal = ageDays > 0 ? Math.max(0, subs / ageDays) : 0;
-                      const subsDayDisplay = subsDayVal > 0 ? { v: `${Math.round(subsDayVal)}/day`, c: "#0891b2" } : { v: "0/day", c: "#94a3b8" };
+                      const subsDayDisplay = subsDayVal > 0 ? { v: `${Math.round(subsDayVal)}/day`, c: "hsl(var(--primary))" } : { v: "0/day", c: "hsl(var(--muted-foreground))" };
                       const currentSource = sources.find((s: any) => s.id === el.traffic_source_id || s.name === el.source_tag);
 
                       return (
                         <tr>
                           <td colSpan={99} className="p-0">
-                            <div style={{ background: "#e8eef4", borderLeft: "3px solid #0891b2", padding: "14px 20px" }}>
+                            <div className="bg-secondary border-l-[3px] border-l-primary" style={{ padding: "14px 20px" }}>
                               <div className="flex gap-5">
                                 {/* Performance */}
                                 <div style={{ width: "280px", flexShrink: 0 }}>
-                                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
+                                  <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em",  marginBottom: "10px", fontWeight: 600 }}>Performance</p>
                                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                                     {[
-                                      { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
-                                      { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "#1a2332" },
-                                      { l: "Subs", v: subsEl.toLocaleString(), c: "#1a2332" },
-                                      { l: "LTV", v: hasDetailLtv ? fmtC(ltvVal ?? 0) : "—", c: ltvVal !== null && ltvVal > 0 ? "#0891b2" : "#94a3b8" },
-                                      { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "#0891b2" : "#94a3b8" },
-                                      { l: "LTV/Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
+                                      { l: "Clicks", v: clicksEl.toLocaleString(), c: "" },
+                                      { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "" },
+                                      { l: "Subs", v: subsEl.toLocaleString(), c: "" },
+                                      { l: "LTV", v: hasDetailLtv ? fmtC(ltvVal ?? 0) : "—", c: ltvVal !== null && ltvVal > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" },
+                                      { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" },
+                                      { l: "LTV/Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "" : "hsl(var(--muted-foreground))" },
                                       { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
-                                      { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
+                                      { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "hsl(var(--success))" : spenderRateVal >= 5 ? "hsl(var(--warning))" : spenderRateVal > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" },
                                     ].map(r => (
                                       <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "26px", padding: "0 8px" }}>
-                                        <span style={{ fontSize: "13px", color: "#1a2332", fontWeight: 700 }}>{r.l}</span>
+                                        <span style={{ fontSize: "13px", fontWeight: 700 }}>{r.l}</span>
                                         <span style={{ fontSize: "12px", fontWeight: 500, color: r.c, fontFamily: "monospace" }}>{r.v}</span>
                                       </div>
                                     ))}
@@ -1295,10 +1295,10 @@ export default function TrafficSourcesPage() {
                                 {/* Spend */}
                                   <div>
                                     <div className="flex items-center gap-1.5 mb-2">
-                                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", fontWeight: 600 }}>Spend</p>
+                                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em",  fontWeight: 600 }}>Spend</p>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Info className="h-3 w-3 cursor-help" style={{ color: "#94a3b8" }} />
+                                          <Info className="h-3 w-3 cursor-help" className="text-muted-foreground" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top" className="max-w-[220px] text-xs">
                                           <p><strong>CPL</strong> = I pay per subscriber gained</p>
@@ -1306,53 +1306,53 @@ export default function TrafficSourcesPage() {
                                           <p><strong>FIXED</strong> = Fixed amount (pin, promo, deal)</p>
                                         </TooltipContent>
                                       </Tooltip>
-                                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
-                                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
+                                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "hsl(var(--primary))" : "hsl(var(--warning))" }} />
+                                      <span className="text-muted-foreground" style={{ fontSize: "10px" }}>{hasCostEl ? "Set" : "Not set"}</span>
                                     </div>
                                     <div className="flex gap-1 mb-2">
                                       {(["CPL", "CPC", "FIXED"] as const).map(t => (
                                         <button key={t} onClick={(e) => { e.stopPropagation(); setSpendType(t); }}
                                           className="px-2 py-1 text-[10px] font-bold transition-colors"
-                                          style={{ borderRadius: "4px", background: spendType === t ? "#0891b2" : "#f1f5f9", color: spendType === t ? "white" : "#64748b" }}>{t}</button>
+                                          >{t}</button>
                                       ))}
                                     </div>
                                     {/* CPC warning */}
                                     {spendType === "CPC" && (
-                                      <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" style={{ background: "#fffbeb", borderRadius: "6px", border: "1px solid #fde68a" }}>
-                                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" style={{ color: "#d97706" }} />
-                                        <span style={{ fontSize: "10px", color: "#92400e", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
+                                      <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" className="bg-warning/10 border border-warning/30 rounded-md">
+                                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" className="text-warning" />
+                                        <span style={{ fontSize: "10px", , lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
                                       </div>
                                     )}
                                     <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
                                       placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
-                                      className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
+                                      className="w-full px-2.5 py-1.5 bg-background border border-border text-foreground text-sm font-mono outline-none mb-2"
                                       style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
                                     {validVal && (
-                                      <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
-                                        <div className="flex justify-between"><span>Cost/Sub</span><span style={{ color: "#1a2332" }}>{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
-                                        <div className="flex justify-between"><span>Total Spend</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
-                                        <div className="flex justify-between"><span>Profit</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtC(previewProfit)}</span></div>
-                                        <div className="flex justify-between"><span>ROI</span><span style={{ color: previewRoi >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtPct(previewRoi)}</span></div>
-                                        <div className="flex justify-between"><span>Profit/Sub</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626" }}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
+                                      <div className="text-[11px] font-mono mb-2 space-y-0.5 text-muted-foreground bg-card rounded-md" style={{ , padding: "6px 8px", borderRadius: "6px" }}>
+                                        <div className="flex justify-between"><span>Cost/Sub</span><span className="text-foreground">{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
+                                        <div className="flex justify-between"><span>Total Spend</span><span className="text-destructive font-semibold">{fmtC(previewCost)}</span></div>
+                                        <div className="flex justify-between"><span>Profit</span><span className={}>{fmtC(previewProfit)}</span></div>
+                                        <div className="flex justify-between"><span>ROI</span><span className={}>{fmtPct(previewRoi)}</span></div>
+                                        <div className="flex justify-between"><span>Profit/Sub</span><span className={previewProfit >= 0 ? "text-success" : "text-destructive"}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
                                       </div>
                                     )}
                                     <div className="flex gap-1.5">
                                       <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
                                         className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
-                                        style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                        className="bg-primary text-primary-foreground rounded-md">Save</button>
                                       <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
                                         className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                        style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
+                                        className="border-border text-muted-foreground rounded-md">Clear</button>
                                     </div>
                                   </div>
                                   {/* Source */}
                                   <div>
-                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Source</p>
+                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em",  marginBottom: "6px", fontWeight: 600 }}>Source</p>
                                     <div onClick={(e) => e.stopPropagation()}>
                                       {/* Current source display */}
                                       <div className="flex items-center gap-2 mb-2">
-                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
-                                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || "Untagged"}</span>
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "hsl(var(--muted-foreground))" }} />
+                                        <span style={{ fontSize: "12px", fontWeight: 600,  }}>{currentSource?.name || "Untagged"}</span>
                                       </div>
                                       <TrafficSourceDropdown
                                         value={el.source_tag}
@@ -1370,7 +1370,7 @@ export default function TrafficSourcesPage() {
                                       <div className="flex gap-1.5 mt-2">
                                         <button onClick={(e) => { e.stopPropagation(); const inp = (e.currentTarget.parentElement?.parentElement?.querySelector('input[type="text"]') as HTMLInputElement); if (inp) { inp.focus(); inp.click(); } }}
                                           className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                          style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#1a2332", background: "white" }}>✏ Edit</button>
+                                          className="border-border text-foreground bg-card rounded-md">✏ Edit</button>
                                         {el.source_tag && (
                                           <button onClick={async (e) => {
                                             e.stopPropagation();
@@ -1381,7 +1381,7 @@ export default function TrafficSourcesPage() {
                                             } catch { toast.error("Failed"); }
                                           }}
                                             className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                            style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>🗑 Delete</button>
+                                            className="border-destructive/30 text-destructive rounded-md">🗑 Delete</button>
                                         )}
                                         <button onClick={async (e) => {
                                           e.stopPropagation();
@@ -1389,16 +1389,16 @@ export default function TrafficSourcesPage() {
                                           toast.info("Use the dropdown to select a source — it saves automatically", { duration: 2000 });
                                         }}
                                           className="px-2.5 py-1.5 text-[11px] font-semibold"
-                                          style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                          className="bg-primary text-primary-foreground rounded-md">Save</button>
                                       </div>
                                     </div>
                                   </div>
                                   {/* Notes */}
                                   <div>
-                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Notes</p>
+                                    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em",  marginBottom: "6px", fontWeight: 600 }}>Notes</p>
                                     <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
                                       placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
-                                      className="w-full h-16 px-2.5 py-1.5 bg-white border text-[11px] outline-none resize-none mb-1.5"
+                                      className="w-full h-16 px-2.5 py-1.5 bg-background border border-border text-foreground text-[11px] outline-none resize-none mb-1.5"
                                       style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332" }} />
                                     <div className="flex gap-1.5">
                                       <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }} disabled={noteLoading}
@@ -1406,7 +1406,7 @@ export default function TrafficSourcesPage() {
                                         style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>{noteLoading ? "..." : "Save note"}</button>
                                       <button onClick={(e) => { e.stopPropagation(); setNoteText(""); }} disabled={noteLoading}
                                         className="px-2.5 py-1.5 text-[11px] font-medium border disabled:opacity-50"
-                                        style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
+                                        className="border-border text-muted-foreground rounded-md">Clear</button>
                                     </div>
                                   </div>
                                 </div>
@@ -1431,39 +1431,39 @@ export default function TrafficSourcesPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid #e8edf2" }}>
+          <div className="flex items-center justify-between px-4 py-3" className="border-t border-border">
             <span style={{ fontSize: "12px", color: "#64748b" }}>
               Showing {showFrom}-{showTo} of {sorted.length}
             </span>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Rows:</span>
+                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>Rows:</span>
                 {[10, 25, 50, 100].map(n => (
                   <button key={n} onClick={() => { setPerPage(n); setPage(1); }}
                     className="px-2 py-0.5 text-xs font-medium transition-colors"
-                    style={{ borderRadius: "4px", background: perPage === n ? "#0891b2" : "transparent", color: perPage === n ? "white" : "#64748b" }}>
+                    >
                     {n}
                   </button>
                 ))}
               </div>
 
               <div className="flex items-center gap-0.5">
-                <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1 rounded hover:bg-gray-100 disabled:opacity-30">
-                  <ChevronLeft className="h-4 w-4" style={{ color: "#64748b" }} />
+                <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
+                  <ChevronLeft className="h-4 w-4" className="text-muted-foreground" />
                 </button>
                 {pageNumbers.map((p, i) =>
                   p === "..." ? (
-                    <span key={`e${i}`} className="px-1" style={{ fontSize: "12px", color: "#94a3b8" }}>…</span>
+                    <span key={`e${i}`} className="px-1" className="text-muted-foreground" style={{ fontSize: "12px" }}>…</span>
                   ) : (
                     <button key={p} onClick={() => setPage(p as number)}
                       className="w-7 h-7 flex items-center justify-center text-xs font-medium transition-colors"
-                      style={{ borderRadius: "6px", background: safePage === p ? "#0891b2" : "transparent", color: safePage === p ? "white" : "#64748b" }}>
+                      >
                       {p}
                     </button>
                   )
                 )}
-                <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1 rounded hover:bg-gray-100 disabled:opacity-30">
-                  <ChevronRight className="h-4 w-4" style={{ color: "#64748b" }} />
+                <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
+                  <ChevronRight className="h-4 w-4" className="text-muted-foreground" />
                 </button>
               </div>
             </div>

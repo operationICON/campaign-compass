@@ -544,8 +544,8 @@ export default function CampaignsPage() {
   // ─── Sort Header Component ───
   const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
     <th
-      className={`h-[44px] text-left uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap`}
-      style={{ fontSize: "11px", fontWeight: 600, color: "#1a2332", letterSpacing: "0.04em", padding: "8px 12px", background: "#f8fafc", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
+      className={`h-[44px] text-left uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap bg-card text-muted-foreground`}
+      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.04em", padding: "8px 12px", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
       onClick={() => handleSort(sortKeyName)}
     >
       <span className="flex flex-col">
@@ -631,8 +631,7 @@ export default function CampaignsPage() {
             <RefreshButton queryKeys={["tracking_links", "campaigns_tracking_link_ltv", "ad_spend", "accounts"]} />
             <button
               onClick={() => { setEditingLink(null); setPanelOpen(true); }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-colors"
-              style={{ background: "#0891b2" }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold text-primary-foreground hover:opacity-90 transition-colors bg-primary"
             >
               <Plus className="h-4 w-4" /> New
             </button>
@@ -931,21 +930,21 @@ export default function CampaignsPage() {
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12px]">
-                    <thead className="sticky top-0 z-10" style={{ background: "#f8fafc" }}>
+                    <thead className="sticky top-0 z-10 bg-card">
                       <tr className="border-b border-border">
-                        <th className="w-8" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
+                        <th className="w-8 bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
                         <SortHeader label="Tracking Link" sortKeyName="campaign_name" width="200px" />
                         {columnOrder.visibleOrderedColumns.map(c => {
-                          const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, color: "#1a2332", textTransform: "uppercase" as const, letterSpacing: "0.04em", background: "#f8fafc" };
+                          const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, textTransform: "uppercase" as const, letterSpacing: "0.04em" };
                           switch (c.id) {
-                            case "model": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "100px" }}>Model</th>;
+                            case "model": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "100px" }}>Model</th>;
                             case "source": return <SortHeader key={c.id} label="Source" sortKeyName="source_tag" width="100px" />;
                             case "clicks": return <SortHeader key={c.id} label="Clicks" sortKeyName="clicks" width="70px" />;
                             case "subscribers": return <SortHeader key={c.id} label="Subs" sortKeyName="subscribers" width="70px" />;
                             case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
                             case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
                             case "ltv": return (
-                              <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "80px", cursor: "pointer" }} onClick={() => handleSort("ltv")}>
+                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "80px", cursor: "pointer" }} onClick={() => handleSort("ltv")}>
                                 <div className="flex items-center justify-end gap-1">
                                   LTV
                                   <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[200px]">Revenue generated by fans this campaign acquired</TooltipContent></Tooltip>
@@ -954,31 +953,31 @@ export default function CampaignsPage() {
                               </th>
                             );
                             case "cross_poll": return (
-                              <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "85px" }}>
+                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "85px" }}>
                                 <div className="flex items-center justify-end gap-1">
                                   Cross-Poll
                                   <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Revenue those fans generated on other models after their entry date</TooltipContent></Tooltip>
                                 </div>
                               </th>
                             );
-                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
-                            case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
+                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
+                            case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
-                            case "status": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "80px" }}>Status</th>;
+                            case "status": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "80px" }}>Status</th>;
                             case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
-                            case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
-                            case "org_pct": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "65px" }}>Org %</th>;
+                            case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
+                            case "org_pct": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "65px" }}>Org %</th>;
                             default: return null;
                           }
                         })}
-                        <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }} title="Fan sync status">👥</th>
-                        <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 4px", width: "28px", background: "#f8fafc" }}></th>
-                        <th className="text-center whitespace-nowrap" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, color: "#1a2332", textTransform: "uppercase", letterSpacing: "0.04em", background: "#f8fafc" }}></th>
+                        <th className="text-center whitespace-nowrap bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }} title="Fan sync status">👥</th>
+                        <th className="text-center whitespace-nowrap bg-card" style={{ height: "44px", padding: "8px 4px", width: "28px" }}></th>
+                        <th className="text-center whitespace-nowrap bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1002,16 +1001,14 @@ export default function CampaignsPage() {
                           <tr
                             onClick={() => handleRowClick(link)}
                             className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
-                            style={{ height: "46px", background: isExpanded ? "rgba(8,145,178,0.06)" : "#fafbfd", opacity: isInactive ? 0.6 : 1 }}
-                            onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "#f1f5f9"; }}
-                            onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "#fafbfd"; }}
+                            style={{ height: "46px", opacity: isInactive ? 0.6 : 1 }}
                           >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                             </td>
                             <td style={{ padding: "8px 12px", maxWidth: "200px" }}>
                               <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
-                              <p className="truncate" style={{ fontSize: "11px", color: "#94a3b8" }} title={link.url}>{link.url}</p>
+                              <p className="truncate text-muted-foreground" style={{ fontSize: "11px" }} title={link.url}>{link.url}</p>
                             </td>
                             {columnOrder.visibleOrderedColumns.map(c => {
                               switch (c.id) {
@@ -1019,7 +1016,7 @@ export default function CampaignsPage() {
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     <div className="flex items-center gap-1.5">
                                       <ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} />
-                                      <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
+                                      <span className="truncate text-muted-foreground" style={{ fontSize: "12px" }}>@{username}</span>
                                     </div>
                                   </td>
                                 );
@@ -1198,14 +1195,14 @@ export default function CampaignsPage() {
                                 case "created": {
                                   const days = link.daysSinceCreated;
                                   const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
-                                  const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
-                                    : days <= 90 ? { label: `${days}d Active`, bg: "#dbeafe", text: "#2563eb" }
-                                    : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
-                                    : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
+                                  const pill = days <= 30 ? { label: `${days}d New`, cls: "bg-success/15 text-success" }
+                                    : days <= 90 ? { label: `${days}d Active`, cls: "bg-primary/15 text-primary" }
+                                    : days <= 180 ? { label: `${days}d Mature`, cls: "bg-warning/15 text-warning" }
+                                    : { label: `${days}d Old`, cls: "bg-muted text-muted-foreground" };
                                   return (
                                     <td key={c.id} style={{ padding: "8px 12px" }}>
                                       <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
-                                      <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                                      <span className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 ${pill.cls}`}>{pill.label}</span>
                                     </td>
                                   );
                                 }
@@ -1357,25 +1354,25 @@ export default function CampaignsPage() {
                             return (
                               <tr>
                                 <td colSpan={99} className="p-0">
-                                  <div style={{ background: "#e8eef4", borderLeft: "3px solid #0891b2", padding: "14px 20px" }}>
+                                  <div className="bg-secondary border-l-[3px] border-l-primary" style={{ padding: "14px 20px" }}>
                                     <div className="flex gap-5">
                                       {/* Performance */}
                                       <div style={{ width: "280px", flexShrink: 0 }}>
-                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px", fontWeight: 600 }}>Performance</p>
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                                           {[
-                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "#1a2332" },
-                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "#1a2332" },
-                                            { l: "Subs", v: subsEl.toLocaleString(), c: "#1a2332" },
-                                            { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "#0891b2" : "#94a3b8" },
-                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "#0891b2" : "#94a3b8" },
-                                            { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "#1a2332" : "#94a3b8" },
-                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "#0891b2" : "#94a3b8" },
-                                            { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "#16a34a" : spenderRateVal >= 5 ? "#d97706" : spenderRateVal > 0 ? "#dc2626" : "#94a3b8" },
+                                            { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
+                                            { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
+                                            { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-primary" : "text-muted-foreground" },
+                                            { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "text-primary" : "text-muted-foreground" },
+                                            { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
+                                            { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "text-primary" : "text-muted-foreground" },
+                                            { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "text-success" : spenderRateVal >= 5 ? "text-warning" : spenderRateVal > 0 ? "text-destructive" : "text-muted-foreground" },
                                           ].map(r => (
                                             <div key={r.l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "26px", padding: "0 8px" }}>
-                                              <span style={{ fontSize: "13px", color: "#1a2332", fontWeight: 700 }}>{r.l}</span>
-                                              <span style={{ fontSize: "12px", fontWeight: 500, color: r.c, fontFamily: "monospace" }}>{r.v}</span>
+                                              <span className="text-foreground font-bold" style={{ fontSize: "13px" }}>{r.l}</span>
+                                              <span className={`font-mono ${r.c}`} style={{ fontSize: "12px", fontWeight: 500 }}>{r.v}</span>
                                             </div>
                                           ))}
                                         </div>
@@ -1384,10 +1381,10 @@ export default function CampaignsPage() {
                                       {/* Spend */}
                                       <div>
                                         <div className="flex items-center gap-1.5 mb-2">
-                                          <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", fontWeight: 600 }}>Spend</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Spend</p>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
-                                              <Info className="h-3 w-3 cursor-help" style={{ color: "#94a3b8" }} />
+                                              <Info className="h-3 w-3 cursor-help text-muted-foreground" />
                                             </TooltipTrigger>
                                             <TooltipContent side="top" className="max-w-[220px] text-xs">
                                               <p><strong>CPL</strong> = I pay per subscriber gained</p>
@@ -1395,51 +1392,48 @@ export default function CampaignsPage() {
                                               <p><strong>FIXED</strong> = Fixed amount (pin, promo, deal)</p>
                                             </TooltipContent>
                                           </Tooltip>
-                                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "#0891b2" : "#d97706" }} />
-                                          <span style={{ fontSize: "10px", color: "#94a3b8" }}>{hasCostEl ? "Set" : "Not set"}</span>
+                                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCostEl ? "hsl(var(--primary))" : "hsl(var(--warning))" }} />
+                                          <span className="text-muted-foreground" style={{ fontSize: "10px" }}>{hasCostEl ? "Set" : "Not set"}</span>
                                         </div>
                                         <div className="flex gap-1 mb-2">
                                           {(["CPL", "CPC", "FIXED"] as const).map(t => (
                                             <button key={t} onClick={(e) => { e.stopPropagation(); setSpendType(t); }}
-                                              className="px-2 py-1 text-[10px] font-bold transition-colors"
-                                              style={{ borderRadius: "4px", background: spendType === t ? "#0891b2" : "#f1f5f9", color: spendType === t ? "white" : "#64748b" }}>{t}</button>
+                                              className={`px-2 py-1 text-[10px] font-bold transition-colors rounded ${spendType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>{t}</button>
                                           ))}
                                         </div>
                                         {spendType === "CPC" && (
-                                          <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" style={{ background: "#fffbeb", borderRadius: "6px", border: "1px solid #fde68a" }}>
-                                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" style={{ color: "#d97706" }} />
-                                            <span style={{ fontSize: "10px", color: "#92400e", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
+                                          <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5 rounded-md border bg-warning/10 border-warning/30">
+                                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-warning" />
+                                            <span className="text-warning" style={{ fontSize: "10px", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
                                           </div>
                                         )}
                                         <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
                                           placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
-                                          style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
+                                          className="w-full px-2.5 py-1.5 bg-background border border-border text-sm font-mono outline-none mb-2 rounded-md text-foreground"
+                                          style={{ fontSize: "12px" }} />
                                         {validVal && (
-                                          <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
-                                            <div className="flex justify-between"><span>Cost/Sub</span><span style={{ color: "#1a2332" }}>{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
-                                            <div className="flex justify-between"><span>Total Spend</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
-                                            <div className="flex justify-between"><span>Profit</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtC(previewProfit)}</span></div>
-                                            <div className="flex justify-between"><span>ROI</span><span style={{ color: previewRoi >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{previewRoi.toFixed(1)}%</span></div>
-                                            <div className="flex justify-between"><span>Profit/Sub</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626" }}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
+                                          <div className="text-[11px] font-mono mb-2 space-y-0.5 bg-card text-muted-foreground rounded-md" style={{ padding: "6px 8px" }}>
+                                            <div className="flex justify-between"><span>Cost/Sub</span><span className="text-foreground">{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
+                                            <div className="flex justify-between"><span>Total Spend</span><span className="text-destructive font-semibold">{fmtC(previewCost)}</span></div>
+                                            <div className="flex justify-between"><span>Profit</span><span className={`font-semibold ${previewProfit >= 0 ? "text-success" : "text-destructive"}`}>{fmtC(previewProfit)}</span></div>
+                                            <div className="flex justify-between"><span>ROI</span><span className={`font-semibold ${previewRoi >= 0 ? "text-success" : "text-destructive"}`}>{previewRoi.toFixed(1)}%</span></div>
+                                            <div className="flex justify-between"><span>Profit/Sub</span><span className={previewProfit >= 0 ? "text-success" : "text-destructive"}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
                                           </div>
                                         )}
                                         <div className="flex gap-1.5">
                                           <button onClick={(e) => { e.stopPropagation(); saveSpendInline(); }} disabled={!validVal}
-                                            className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50"
-                                            style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                            className="flex-1 py-1.5 text-[11px] font-semibold disabled:opacity-50 rounded-md bg-primary text-primary-foreground">Save</button>
                                           <button onClick={(e) => { e.stopPropagation(); clearSpendInline(); }}
-                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                            style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-muted-foreground rounded-md">Clear</button>
                                         </div>
                                       </div>
                                       {/* Source */}
                                       <div>
-                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Source</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px", fontWeight: 600 }}>Source</p>
                                         <div onClick={(e) => e.stopPropagation()}>
                                           <div className="flex items-center gap-2 mb-2">
-                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "#94a3b8" }} />
-                                            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1a2332" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
+                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "hsl(var(--muted-foreground))" }} />
+                                            <span className="text-foreground font-semibold" style={{ fontSize: "12px" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
                                           </div>
                                           <TrafficSourceDropdown
                                             value={el.source_tag}
@@ -1456,8 +1450,7 @@ export default function CampaignsPage() {
                                           />
                                           <div className="flex gap-1.5 mt-2">
                                             <button onClick={(e) => { e.stopPropagation(); const inp = (e.currentTarget.parentElement?.parentElement?.querySelector('input[type="text"]') as HTMLInputElement); if (inp) { inp.focus(); inp.click(); } }}
-                                              className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                              style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#1a2332", background: "white" }}>✏ Edit</button>
+                                              className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-foreground bg-card rounded-md">✏ Edit</button>
                                             {el.source_tag && (
                                               <button onClick={async (e) => {
                                                 e.stopPropagation();
@@ -1467,32 +1460,27 @@ export default function CampaignsPage() {
                                                   toast.success("Source removed");
                                                 } catch { toast.error("Failed"); }
                                               }}
-                                                className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                                style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>🗑 Delete</button>
+                                                className="px-2.5 py-1.5 text-[11px] font-medium border border-destructive/30 text-destructive rounded-md">🗑 Delete</button>
                                             )}
                                             <button onClick={async (e) => {
                                               e.stopPropagation();
                                               toast.info("Use the dropdown to select a source — it saves automatically", { duration: 2000 });
                                             }}
-                                              className="px-2.5 py-1.5 text-[11px] font-semibold"
-                                              style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                              className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground">Save</button>
                                           </div>
                                         </div>
                                       </div>
                                       {/* Notes */}
                                       <div>
-                                        <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>Notes</p>
+                                        <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px", fontWeight: 600 }}>Notes</p>
                                         <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
                                           placeholder="Add a note..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full h-16 px-2.5 py-1.5 bg-white border text-[11px] outline-none resize-none mb-1.5"
-                                          style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332" }} />
+                                          className="w-full h-16 px-2.5 py-1.5 bg-background border border-border text-[11px] outline-none resize-none mb-1.5 rounded-md text-foreground" />
                                         <div className="flex gap-1.5">
                                           <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
-                                            className="flex-1 py-1.5 text-[11px] font-semibold"
-                                            style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save note</button>
+                                            className="flex-1 py-1.5 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground">Save note</button>
                                           <button onClick={(e) => { e.stopPropagation(); setNoteText(""); }}
-                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                            style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-muted-foreground rounded-md">Clear</button>
                                         </div>
                                       </div>
                                      </div>
