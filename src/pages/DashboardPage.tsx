@@ -385,19 +385,46 @@ export default function DashboardPage() {
     return { ltv, crossPoll, totalLtv, expenses, subs, clicks, totalProfit, ltvPerSub, avgCpl, roi };
   }, [isAllTime, trackingLinkLtv, filteredLinksForKpi, agencyAccountIds]);
 
-  // Total Expenses: for time-filtered periods, only count links with snapshot activity
+  // Get distinct active link IDs from snapshot rows for period expense query
+  const periodActiveLinkIds = useMemo(() => {
+    if (isAllTime || !overviewSnapshotLookup) return null;
+    return Object.keys(overviewSnapshotLookup).filter(id => {
+      const snap = overviewSnapshotLookup[id];
+      return snap && (snap.clicks > 0 || snap.subscribers > 0 || snap.revenue > 0);
+    });
+  }, [overviewSnapshotLookup, isAllTime]);
+
+  // Query SUM(cost_total) from DB for links active in the snapshot period
+  const { data: periodExpensesFromDb } = useQuery({
+    queryKey: ["period_expenses", periodActiveLinkIds?.join(",") ?? "none"],
+    enabled: !!periodActiveLinkIds && periodActiveLinkIds.length > 0,
+    queryFn: async () => {
+      if (!periodActiveLinkIds || periodActiveLinkIds.length === 0) return 0;
+      // Batch query in groups of 500 to avoid URL length issues
+      let total = 0;
+      const batchSize = 500;
+      for (let i = 0; i < periodActiveLinkIds.length; i += batchSize) {
+        const batch = periodActiveLinkIds.slice(i, i + batchSize);
+        const { data, error } = await supabase
+          .from("tracking_links")
+          .select("cost_total")
+          .in("id", batch)
+          .gt("cost_total", 0);
+        if (error) throw error;
+        for (const row of data || []) {
+          total += Number(row.cost_total || 0);
+        }
+      }
+      return total;
+    },
+  });
+
+  // Total Expenses: All Time uses allTimeTotals, periods use DB query
   const totalSpend = useMemo(() => {
     if (isAllTime && allTimeTotals) return allTimeTotals.expenses;
-    // Only count spend from links that had activity in the snapshot period
-    if (!overviewSnapshotLookup) return 0;
-    return filteredLinksForKpi.reduce((s: number, l: any) => {
-      const id = String(l.id ?? "").toLowerCase();
-      const snap = overviewSnapshotLookup[id];
-      if (!snap || (snap.clicks === 0 && snap.subscribers === 0)) return s;
-      const cost = Number(l.cost_total || 0);
-      return s + (cost > 0 ? cost : 0);
-    }, 0);
-  }, [filteredLinksForKpi, isAllTime, allTimeTotals, overviewSnapshotLookup]);
+    if (periodActiveLinkIds && periodActiveLinkIds.length > 0) return periodExpensesFromDb ?? 0;
+    return 0;
+  }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
   // Total LTV
