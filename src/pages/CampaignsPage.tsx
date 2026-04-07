@@ -1409,8 +1409,8 @@ export default function CampaignsPage() {
                                         )}
                                         <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
                                           placeholder="Cost value..." onClick={(e) => e.stopPropagation()}
-                                          className="w-full px-2.5 py-1.5 bg-white border text-sm font-mono outline-none mb-2"
-                                          style={{ borderColor: "#e8edf2", borderRadius: "6px", color: "#1a2332", fontSize: "12px" }} />
+                                          className="w-full px-2.5 py-1.5 bg-background border border-border text-sm font-mono outline-none mb-2 rounded-md text-foreground"
+                                          style={{ fontSize: "12px" }} />
                                         {validVal && (
                                           <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
                                             <div className="flex justify-between"><span>Cost/Sub</span><span style={{ color: "#1a2332" }}>{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
