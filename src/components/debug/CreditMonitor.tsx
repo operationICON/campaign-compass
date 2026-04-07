@@ -21,7 +21,7 @@ export function CreditMonitor({ balance, sessionUsed }: CreditMonitorProps) {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Session:</span>
-          <span className="text-sm font-bold font-mono text-[#0891b2]">
+          <span className="text-sm font-bold font-mono text-primary">
             {sessionUsed.toLocaleString()} used
           </span>
         </div>
