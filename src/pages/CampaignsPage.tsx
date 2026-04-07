@@ -1384,7 +1384,7 @@ export default function CampaignsPage() {
                                         <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Spend</p>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
-                                              <Info className="h-3 w-3 cursor-help" style={{ color: "#94a3b8" }} />
+                                              <Info className="h-3 w-3 cursor-help text-muted-foreground" />
                                             </TooltipTrigger>
                                             <TooltipContent side="top" className="max-w-[220px] text-xs">
                                               <p><strong>CPL</strong> = I pay per subscriber gained</p>
