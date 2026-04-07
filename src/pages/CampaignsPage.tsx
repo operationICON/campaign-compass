@@ -1460,8 +1460,7 @@ export default function CampaignsPage() {
                                                   toast.success("Source removed");
                                                 } catch { toast.error("Failed"); }
                                               }}
-                                                className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                                style={{ borderRadius: "6px", borderColor: "#fecaca", color: "#dc2626" }}>🗑 Delete</button>
+                                                className="px-2.5 py-1.5 text-[11px] font-medium border border-destructive/30 text-destructive rounded-md">🗑 Delete</button>
                                             )}
                                             <button onClick={async (e) => {
                                               e.stopPropagation();
