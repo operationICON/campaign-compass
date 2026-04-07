@@ -43,9 +43,6 @@ function getOverviewSnapshotRange(
     case "day":
       // Resolved to MAX(snapshot_date) at query time
       return { from: "__latest__", to: "__latest__", dayCount: 1 };
-    case "since_sync":
-      // Same as Last Day — MAX(snapshot_date)
-      return { from: "__latest__", to: "__latest__", dayCount: 1 };
     case "week":
       // Resolved server-side: CURRENT_DATE - 7
       return { from: "__server_week__", to: "__server_latest__", dayCount: 7 };
