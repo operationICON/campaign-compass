@@ -237,6 +237,10 @@ export default function DashboardPage() {
         rangeFrom += batchSize;
       }
 
+      const totalRev = rows.reduce((s, r) => s + Number(r.revenue || 0), 0);
+      const totalSubs = rows.reduce((s, r) => s + Number(r.subscribers || 0), 0);
+      console.log("[OverviewSnapshots] result:", { rowCount: rows.length, totalRevenue: totalRev.toFixed(2), totalSubscribers: totalSubs });
+
       return rows;
     },
   });
