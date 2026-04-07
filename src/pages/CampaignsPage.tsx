@@ -544,8 +544,8 @@ export default function CampaignsPage() {
   // ─── Sort Header Component ───
   const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
     <th
-      className={`h-[44px] text-left uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap`}
-      style={{ fontSize: "11px", fontWeight: 600, color: "#1a2332", letterSpacing: "0.04em", padding: "8px 12px", background: "#f8fafc", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
+      className={`h-[44px] text-left uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap bg-card text-muted-foreground`}
+      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.04em", padding: "8px 12px", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
       onClick={() => handleSort(sortKeyName)}
     >
       <span className="flex flex-col">
