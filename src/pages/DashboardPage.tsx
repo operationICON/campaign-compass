@@ -1076,7 +1076,6 @@ function KpiCards({
         );
 
       case "organic_revenue": {
-        const organicRev = totalRevenue - ltvOnly;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1085,11 +1084,7 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Organic Revenue</span>
             </div>
-            {totalRevenue > 0 ? (
-              <p className={`text-[22px] font-bold font-mono ${organicRev >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtC(organicRev)}</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            )}
+            <p className={`text-[22px] font-bold font-mono ${organicRevenue >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtC(organicRevenue)}</p>
             <p className="text-[11px] text-muted-foreground mt-1">Revenue outside tracked campaigns</p>
           </div>
         );
