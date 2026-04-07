@@ -911,6 +911,26 @@ function KpiCards({
           </div>
         );
 
+      case "organic_revenue": {
+        const organicRev = totalRevenue - totalLtv;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Organic Revenue</span>
+            </div>
+            {totalRevenue > 0 ? (
+              <p className={`text-[22px] font-bold font-mono ${organicRev >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtC(organicRev)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Revenue outside tracked campaigns</p>
+          </div>
+        );
+      }
+
       case "ltv_30d_per_model": {
         const sortedModels = [...accounts]
           .sort((a, b) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
