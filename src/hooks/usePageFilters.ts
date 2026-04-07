@@ -102,18 +102,17 @@ export function usePageFilters() {
     const now = new Date();
     switch (timePeriod) {
       case "day":
+        // Resolved server-side via snapshots
         return { from: subDays(now, 1).toISOString(), to: null };
       case "week":
         return { from: subDays(now, 7).toISOString(), to: null };
       case "month":
         return { from: subDays(now, 30).toISOString(), to: null };
-      case "prev_month": {
-        const pm = subMonths(now, 1);
+      case "prev_month":
         return {
-          from: startOfMonth(pm).toISOString(),
-          to: endOfMonth(pm).toISOString(),
+          from: subDays(now, 60).toISOString(),
+          to: subDays(now, 31).toISOString(),
         };
-      }
       case "since_sync":
         return { from: lastSyncDate, to: null };
       case "all":
