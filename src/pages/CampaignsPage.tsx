@@ -1478,11 +1478,9 @@ export default function CampaignsPage() {
                                           className="w-full h-16 px-2.5 py-1.5 bg-background border border-border text-[11px] outline-none resize-none mb-1.5 rounded-md text-foreground" />
                                         <div className="flex gap-1.5">
                                           <button onClick={(e) => { e.stopPropagation(); saveNoteInline(); }}
-                                            className="flex-1 py-1.5 text-[11px] font-semibold"
-                                            style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save note</button>
+                                            className="flex-1 py-1.5 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground">Save note</button>
                                           <button onClick={(e) => { e.stopPropagation(); setNoteText(""); }}
-                                            className="px-2.5 py-1.5 text-[11px] font-medium border"
-                                            style={{ borderRadius: "6px", borderColor: "#e8edf2", color: "#64748b" }}>Clear</button>
+                                            className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-muted-foreground rounded-md">Clear</button>
                                         </div>
                                       </div>
                                      </div>
