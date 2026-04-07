@@ -398,7 +398,7 @@ export default function DashboardPage() {
     const avgCpl = subs > 0 ? expenses / subs : null;
     const roi = expenses > 0 ? (totalProfit / expenses) * 100 : null;
 
-    return { ltv, crossPoll, totalLtv, expenses, subs, clicks, totalProfit, ltvPerSub, avgCpl, roi };
+    return { ltv, crossPoll, totalLtv, expenses, subs, ltvSubs, clicks, totalProfit, ltvPerSub, avgCpl, roi };
   }, [isAllTime, trackingLinkLtv, filteredLinksForKpi, agencyAccountIds]);
 
   // Get distinct active link IDs from snapshot rows for period expense query
