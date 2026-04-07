@@ -529,6 +529,7 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
           hasSnapshotData={hasSnapshotData}
+          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : totalLtv}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
