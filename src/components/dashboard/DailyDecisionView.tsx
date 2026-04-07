@@ -404,7 +404,7 @@ export function DailyDecisionView({
                   <div key={m.id} className="flex items-center gap-3 text-xs">
                     <ModelAvatar avatarUrl={m.avatar_thumb_url} name={m.display_name} size={24} />
                     <span className="text-foreground font-medium w-24 truncate">{m.display_name}</span>
-                    <span className="text-muted-foreground font-mono">{m.subsToday.toLocaleString()} subs</span>
+                    <span className="text-muted-foreground font-mono">{m.subsToday.toLocaleString()} subs/day</span>
                     <span className="text-muted-foreground font-mono">{fmtC(m.spendToday)} spend</span>
                     <span className={`font-mono font-bold ${m.profitPerSub != null ? (m.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
                       {m.profitPerSub != null ? `${fmtC(m.profitPerSub)}/sub` : "—"}
