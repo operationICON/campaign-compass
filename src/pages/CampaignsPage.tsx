@@ -1017,7 +1017,7 @@ export default function CampaignsPage() {
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     <div className="flex items-center gap-1.5">
                                       <ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} />
-                                      <span className="truncate" style={{ fontSize: "12px", color: "#94a3b8" }}>@{username}</span>
+                                      <span className="truncate text-muted-foreground" style={{ fontSize: "12px" }}>@{username}</span>
                                     </div>
                                   </td>
                                 );
