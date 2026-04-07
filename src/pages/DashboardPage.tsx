@@ -452,8 +452,18 @@ export default function DashboardPage() {
   }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
-  // Total LTV
-  const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : overviewPeriodTotals.revenue;
+  // Total LTV — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
+  const snapshotRevenue = useMemo(() => {
+    if (isAllTime) return 0;
+    let sum = 0;
+    const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
+    for (const row of overviewSnapshotRows) {
+      // If filtering by account, the query already filters, but double-check
+      sum += Number(row.revenue || 0);
+    }
+    return sum;
+  }, [isAllTime, overviewSnapshotRows, agencyAccountIds]);
+  const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : snapshotRevenue;
   const totalProfit = isAllTime && allTimeTotals ? allTimeTotals.totalProfit : totalLtv - totalSpend;
   // hasSnapshotData: true if any snapshot rows were returned for this period
   const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
@@ -607,7 +617,7 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
           hasSnapshotData={hasSnapshotData}
-          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : totalLtv}
+          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : snapshotRevenue}
           trackingLinkLtv={trackingLinkLtv}
         />
 
