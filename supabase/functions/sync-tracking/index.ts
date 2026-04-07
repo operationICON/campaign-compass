@@ -394,7 +394,7 @@ Deno.serve(async (req) => {
         for (let i = 0; i < linkIds.length; i += 200) {
           const batch = linkIds.slice(i, i + 200)
           const { data: prevSnaps } = await db.from('daily_snapshots')
-            .select('tracking_link_id, clicks, subscribers, revenue, snapshot_date')
+            .select('tracking_link_id, raw_clicks, raw_subscribers, raw_revenue, snapshot_date')
             .in('tracking_link_id', batch)
             .lt('snapshot_date', today)
             .order('snapshot_date', { ascending: false })
@@ -402,9 +402,9 @@ Deno.serve(async (req) => {
           for (const snap of prevSnaps ?? []) {
             if (!prevSnapMap[snap.tracking_link_id]) {
               prevSnapMap[snap.tracking_link_id] = {
-                clicks: Number(snap.clicks ?? 0),
-                subscribers: Number(snap.subscribers ?? 0),
-                revenue: Number(snap.revenue ?? 0),
+                raw_clicks: Number(snap.raw_clicks ?? 0),
+                raw_subscribers: Number(snap.raw_subscribers ?? 0),
+                raw_revenue: Number(snap.raw_revenue ?? 0),
               }
             }
           }
@@ -413,9 +413,9 @@ Deno.serve(async (req) => {
         const snapshotPayloads = dbLinks.map((l: any) => {
           const prev = prevSnapMap[l.id]
           // If no previous snapshot, save 0 (we can't know the delta)
-          const deltaClicks = prev ? Math.max(0, Number(l.clicks ?? 0) - prev.clicks) : 0
-          const deltaSubs = prev ? Math.max(0, Number(l.subscribers ?? 0) - prev.subscribers) : 0
-          const deltaRevenue = prev ? Math.max(0, Number(l.revenue ?? 0) - prev.revenue) : 0
+          const deltaClicks = prev ? Math.max(0, Number(l.clicks ?? 0) - prev.raw_clicks) : 0
+          const deltaSubs = prev ? Math.max(0, Number(l.subscribers ?? 0) - prev.raw_subscribers) : 0
+          const deltaRevenue = prev ? Math.max(0, Number(l.revenue ?? 0) - prev.raw_revenue) : 0
           return {
             tracking_link_id: l.id,
             external_tracking_link_id: l.external_tracking_link_id,
