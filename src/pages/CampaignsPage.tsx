@@ -61,6 +61,7 @@ const ALL_COLUMNS = [
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
+  { id: "org_pct", label: "Org %", defaultOn: false },
 ];
 
 // ─── Constants ───
