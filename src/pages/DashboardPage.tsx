@@ -737,7 +737,7 @@ function KpiCards({
   accounts, links,
   totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
-  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, ltvOnly,
+  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
   trackingLinkLtv,
 }: {
   isLoading: boolean;
