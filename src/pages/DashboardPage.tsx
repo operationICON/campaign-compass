@@ -966,7 +966,7 @@ function KpiCards({
         );
       }
 
-
+      case "ltv_30d_per_model": {
         const sortedModels = [...accounts]
           .sort((a, b) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
         return (
