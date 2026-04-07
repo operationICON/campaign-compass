@@ -1466,8 +1466,7 @@ export default function CampaignsPage() {
                                               e.stopPropagation();
                                               toast.info("Use the dropdown to select a source — it saves automatically", { duration: 2000 });
                                             }}
-                                              className="px-2.5 py-1.5 text-[11px] font-semibold"
-                                              style={{ borderRadius: "6px", background: "#0891b2", color: "white" }}>Save</button>
+                                              className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground">Save</button>
                                           </div>
                                         </div>
                                       </div>
