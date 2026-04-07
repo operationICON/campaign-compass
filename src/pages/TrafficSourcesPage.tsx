@@ -1462,7 +1462,7 @@ export default function TrafficSourcesPage() {
                   )
                 )}
                 <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
-                  <ChevronRight className="h-4 w-4" className="text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
             </div>
