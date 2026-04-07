@@ -61,6 +61,7 @@ const ALL_COLUMNS = [
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
+  { id: "org_pct", label: "Org %", defaultOn: false },
 ];
 
 // ─── Constants ───
@@ -971,6 +972,7 @@ export default function CampaignsPage() {
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
                             case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
+                            case "org_pct": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "65px" }}>Org %</th>;
                             default: return null;
                           }
                         })}
@@ -1217,6 +1219,21 @@ export default function CampaignsPage() {
                                     {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
                                   </td>
                                 );
+                                case "org_pct": {
+                                  const newSubsT = link.ltvRecord ? Number(link.ltvRecord.new_subs_total || 0) : 0;
+                                  const subsT = Number(link.subscribers || 0);
+                                  const hasData = link.hasLtvRecord && subsT > 0;
+                                  const orgPct = hasData ? (newSubsT / subsT) * 100 : null;
+                                  const color = orgPct === null ? "text-muted-foreground"
+                                    : orgPct > 20 ? "text-primary"
+                                    : orgPct >= 10 ? "text-[hsl(38_92%_50%)]"
+                                    : "text-destructive";
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      <span className={color}>{orgPct !== null ? `${orgPct.toFixed(1)}%` : "—"}</span>
+                                    </td>
+                                  );
+                                }
                                 default: return null;
                               }
                             })}
