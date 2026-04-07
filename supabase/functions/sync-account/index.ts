@@ -363,19 +363,50 @@ Deno.serve(async (req) => {
         console.log(`Upserted ${metricsToInsert.length} daily_metrics with deltas`)
       }
 
-      // ── Upsert daily_snapshots with CUMULATIVE API totals ──
+      // ── Upsert daily_snapshots with INCREMENTAL deltas ──
+      const snapshotLinkIds = dailyMetricsPayloads
+        .filter(m => idMap[m._ext_id])
+        .map(m => idMap[m._ext_id])
+      
+      // Fetch previous snapshots for delta calculation
+      const prevSnapMap: Record<string, { clicks: number; subscribers: number; revenue: number }> = {}
+      for (let i = 0; i < snapshotLinkIds.length; i += 200) {
+        const batch = snapshotLinkIds.slice(i, i + 200)
+        const { data: prevSnaps } = await db.from('daily_snapshots')
+          .select('tracking_link_id, clicks, subscribers, revenue')
+          .in('tracking_link_id', batch)
+          .lt('snapshot_date', today)
+          .order('snapshot_date', { ascending: false })
+        for (const snap of prevSnaps ?? []) {
+          if (!prevSnapMap[snap.tracking_link_id]) {
+            prevSnapMap[snap.tracking_link_id] = {
+              clicks: Number(snap.clicks ?? 0),
+              subscribers: Number(snap.subscribers ?? 0),
+              revenue: Number(snap.revenue ?? 0),
+            }
+          }
+        }
+      }
+
       const snapshotPayloads = dailyMetricsPayloads
         .filter(m => idMap[m._ext_id])
-        .map(m => ({
-          tracking_link_id: idMap[m._ext_id],
-          account_id: accountId,
-          snapshot_date: today,
-          clicks: m.clicks,
-          subscribers: m.subscribers,
-          revenue: m.revenue,
-          external_tracking_link_id: m._ext_id,
-          synced_at: new Date().toISOString(),
-        }))
+        .map(m => {
+          const tlId = idMap[m._ext_id]
+          const prev = prevSnapMap[tlId]
+          return {
+            tracking_link_id: tlId,
+            account_id: accountId,
+            snapshot_date: today,
+            clicks: prev ? Math.max(0, m.clicks - prev.clicks) : 0,
+            subscribers: prev ? Math.max(0, m.subscribers - prev.subscribers) : 0,
+            revenue: prev ? Math.max(0, m.revenue - prev.revenue) : 0,
+            raw_clicks: m.clicks,
+            raw_subscribers: m.subscribers,
+            raw_revenue: m.revenue,
+            external_tracking_link_id: m._ext_id,
+            synced_at: new Date().toISOString(),
+          }
+        })
 
       if (snapshotPayloads.length > 0) {
         for (let i = 0; i < snapshotPayloads.length; i += 100) {
@@ -385,7 +416,7 @@ Deno.serve(async (req) => {
             ignoreDuplicates: false,
           })
         }
-        console.log(`Upserted ${snapshotPayloads.length} daily_snapshots (cumulative) for ${displayName}`)
+        console.log(`Upserted ${snapshotPayloads.length} incremental daily_snapshots for ${displayName}`)
       }
 
     } catch (err: any) {
