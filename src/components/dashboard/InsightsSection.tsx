@@ -17,6 +17,8 @@ interface InsightsSectionProps {
   getAccountCategory: (account: any) => string;
   isInsightVisible: (id: string) => boolean;
   isModelColVisible: (id: string) => boolean;
+  snapshotRows?: any[];
+  isAllTime?: boolean;
 }
 
 const MODEL_COLORS: Record<string, string> = {
@@ -26,7 +28,7 @@ const MODEL_COLORS: Record<string, string> = {
 
 export function InsightsSection({
   links, accounts, dailyMetrics, trackingLinkLtv = [], groupFilter, selectedModel, getAccountCategory,
-  isInsightVisible, isModelColVisible,
+  isInsightVisible, isModelColVisible, snapshotRows = [], isAllTime = true,
 }: InsightsSectionProps) {
   const colorMap = useTagColors();
   const fmtC = (v: number | null | undefined) => `$${(v ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -95,23 +97,34 @@ export function InsightsSection({
       .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity)).slice(0, 5);
   }, [enriched]);
 
-  // ── SUBS/DAY PER MODEL ──
+  // ── SUBS/DAY PER MODEL — from daily_snapshots: SUM(subscribers) / COUNT(DISTINCT snapshot_date) ──
   const subsPerDay = useMemo(() => {
     const enabledAccts = accounts.filter((a: any) => filteredAccountIds.has(a.id));
-    return enabledAccts.map((acc: any) => {
-      const accMetrics = dailyMetrics
-        .filter((m: any) => m.account_id === acc.id);
-      const distinctDates = [...new Set(accMetrics.map((m: any) => m.date))].sort().reverse();
-      if (distinctDates.length < 2) return { name: acc.display_name, username: acc.username, value: null };
-      const latestDate = distinctDates[0];
-      const prevDate = distinctDates[1];
-      const latestSubs = accMetrics.filter((m: any) => m.date === latestDate).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-      const prevSubs = accMetrics.filter((m: any) => m.date === prevDate).reduce((s: number, m: any) => s + (m.subscribers || 0), 0);
-      const days = Math.max(1, differenceInDays(new Date(latestDate), new Date(prevDate)));
-      const delta = Math.max(0, latestSubs - prevSubs);
-      return { name: acc.display_name, username: acc.username, value: delta / days };
+    // Build a set of link IDs per account for joining snapshots
+    const linksByAccount: Record<string, Set<string>> = {};
+    enabledAccts.forEach((a: any) => {
+      linksByAccount[a.id] = new Set(
+        filteredLinks.filter((l: any) => l.account_id === a.id).map((l: any) => String(l.id).toLowerCase())
+      );
     });
-  }, [accounts, dailyMetrics, filteredAccountIds]);
+
+    return enabledAccts.map((acc: any) => {
+      const accLinkIds = linksByAccount[acc.id];
+      if (!accLinkIds || accLinkIds.size === 0) return { name: acc.display_name, username: acc.username, value: null };
+
+      // Filter snapshot rows for this account's links
+      const accSnapshots = snapshotRows.filter((r: any) =>
+        accLinkIds.has(String(r.tracking_link_id ?? "").toLowerCase())
+      );
+      if (accSnapshots.length === 0) return { name: acc.display_name, username: acc.username, value: null };
+
+      const totalSubs = accSnapshots.reduce((s: number, r: any) => s + Number(r.subscribers || 0), 0);
+      const distinctDates = new Set(accSnapshots.map((r: any) => r.snapshot_date));
+      const dayCount = distinctDates.size || 1;
+
+      return { name: acc.display_name, username: acc.username, value: totalSubs / dayCount };
+    });
+  }, [accounts, filteredAccountIds, filteredLinks, snapshotRows]);
   const maxSubsDay = Math.max(1, ...subsPerDay.map(s => Math.abs(s.value ?? 0)));
 
   // ── ROI BY SOURCE ──

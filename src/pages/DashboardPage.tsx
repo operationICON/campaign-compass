@@ -218,7 +218,7 @@ export default function DashboardPage() {
       while (true) {
         let query = supabase
           .from("daily_snapshots")
-          .select("tracking_link_id, clicks, subscribers, revenue")
+          .select("tracking_link_id, clicks, subscribers, revenue, account_id, snapshot_date")
           .gte("snapshot_date", fromDate)
           .lte("snapshot_date", toDate)
           .range(rangeFrom, rangeFrom + batchSize - 1);
@@ -647,6 +647,7 @@ export default function DashboardPage() {
           todaySnapshots={todaySnapshots}
           lastWeekSnapshots={lastWeekSnapshots}
           activeLinkCount={activeLinkCount}
+          snapshotRows={overviewSnapshotRows}
         />
 
 
@@ -661,6 +662,8 @@ export default function DashboardPage() {
           getAccountCategory={getAccountCategory}
           isInsightVisible={isInsightVisible}
           isModelColVisible={isModelColVisible}
+          snapshotRows={overviewSnapshotRows}
+          isAllTime={isAllTime}
         />
 
       </div>

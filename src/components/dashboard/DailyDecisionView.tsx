@@ -11,6 +11,7 @@ interface DailyDecisionViewProps {
   todaySnapshots?: any[];
   lastWeekSnapshots?: any[];
   activeLinkCount?: number;
+  snapshotRows?: any[];
 }
 
 export function DailyDecisionView({
@@ -22,6 +23,7 @@ export function DailyDecisionView({
   todaySnapshots = [],
   lastWeekSnapshots = [],
   activeLinkCount,
+  snapshotRows = [],
 }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
@@ -202,19 +204,27 @@ export function DailyDecisionView({
     if (!accounts.length) return [];
     return accounts.map((acc: any) => {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
-      const subsToday = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+      // Compute subs/day from snapshot rows: SUM(subscribers) / COUNT(DISTINCT snapshot_date)
+      const accSnapshots = snapshotRows.filter((r: any) => {
+        const linkIds = new Set(accLinks.map((l: any) => String(l.id).toLowerCase()));
+        return linkIds.has(String(r.tracking_link_id ?? "").toLowerCase());
+      });
+      const totalSnapshotSubs = accSnapshots.reduce((s: number, r: any) => s + Number(r.subscribers || 0), 0);
+      const distinctDates = new Set(accSnapshots.map((r: any) => r.snapshot_date));
+      const subsToday = distinctDates.size > 0 ? Math.round(totalSnapshotSubs / distinctDates.size) : 0;
+
       const spendToday = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
       const totalLtvVal = isAllTime
         ? accLinks.reduce((s: number, l: any) => s + getLtv(l), 0)
         : accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
       const newSubs = isAllTime
         ? accLinks.reduce((s: number, l: any) => s + getNewSubs(l), 0)
-        : subsToday;
+        : totalSnapshotSubs;
       const profit = totalLtvVal - spendToday;
       const profitPerSub = newSubs > 0 ? profit / newSubs : null;
       return { ...acc, subsToday, spendToday, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-  }, [accounts, links, ltvLookup, isAllTime]);
+  }, [accounts, links, ltvLookup, isAllTime, snapshotRows]);
 
   function TrendBadge({ trend }: { trend: number | null }) {
     if (trend === null) return <span className="text-[9px] text-muted-foreground">—</span>;
@@ -394,7 +404,7 @@ export function DailyDecisionView({
                   <div key={m.id} className="flex items-center gap-3 text-xs">
                     <ModelAvatar avatarUrl={m.avatar_thumb_url} name={m.display_name} size={24} />
                     <span className="text-foreground font-medium w-24 truncate">{m.display_name}</span>
-                    <span className="text-muted-foreground font-mono">{m.subsToday.toLocaleString()} subs</span>
+                    <span className="text-muted-foreground font-mono">{m.subsToday.toLocaleString()} subs/day</span>
                     <span className="text-muted-foreground font-mono">{fmtC(m.spendToday)} spend</span>
                     <span className={`font-mono font-bold ${m.profitPerSub != null ? (m.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
                       {m.profitPerSub != null ? `${fmtC(m.profitPerSub)}/sub` : "—"}
