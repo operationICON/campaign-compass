@@ -633,7 +633,45 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
           hasSnapshotData={hasSnapshotData}
-          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : snapshotRevenue}
+          organicRevenue={(() => {
+            // Filter accounts by agency/model selection
+            let accts = [...accounts];
+            if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
+            else if (groupFilter !== "all") accts = accts.filter((a: any) => {
+              const username = (a.username || "").replace("@", "");
+              return (CATEGORY_MAP[username] || "Female") === groupFilter;
+            });
+
+            if (isAllTime) {
+              // All Time: accounts.ltv_total - (tracking_link_ltv.total_ltv + cross_poll_revenue)
+              const accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+              const accountIdSet = new Set(accts.map((a: any) => a.id));
+              let campaignLtv = 0;
+              for (const r of trackingLinkLtv) {
+                if (!accountIdSet.has(r.account_id)) continue;
+                campaignLtv += Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0);
+              }
+              return accountRev - campaignLtv;
+            }
+
+            // Period filters: use accounts.ltv_last_* - SUM(snapshot revenue)
+            let accountRev = 0;
+            const tp = timePeriod as string;
+            if (tp === "day") {
+              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
+            } else if (tp === "week") {
+              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
+            } else if (tp === "month") {
+              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
+            } else {
+              // prev_month or custom: fall back to snapshot revenue diff
+              accountRev = totalRevenue;
+            }
+
+            // Campaign revenue from snapshots
+            const campaignRev = snapshotRevenue;
+            return accountRev - campaignRev;
+          })()}
           trackingLinkLtv={trackingLinkLtv}
         />
 
@@ -699,7 +737,7 @@ function KpiCards({
   accounts, links,
   totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
-  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, ltvOnly,
+  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
   trackingLinkLtv,
 }: {
   isLoading: boolean;
@@ -724,7 +762,7 @@ function KpiCards({
   getAccountCategory: (a: any) => string;
   fmtC: (v: number) => string;
   hasSnapshotData: boolean;
-  ltvOnly: number;
+  organicRevenue: number;
   trackingLinkLtv: any[];
 }) {
   const periodLabel = customRange
@@ -1038,7 +1076,6 @@ function KpiCards({
         );
 
       case "organic_revenue": {
-        const organicRev = totalRevenue - ltvOnly;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1047,11 +1084,7 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Organic Revenue</span>
             </div>
-            {totalRevenue > 0 ? (
-              <p className={`text-[22px] font-bold font-mono ${organicRev >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtC(organicRev)}</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            )}
+            <p className={`text-[22px] font-bold font-mono ${organicRevenue >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtC(organicRevenue)}</p>
             <p className="text-[11px] text-muted-foreground mt-1">Revenue outside tracked campaigns</p>
           </div>
         );
