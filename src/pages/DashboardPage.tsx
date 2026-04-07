@@ -762,7 +762,7 @@ function KpiCards({
   getAccountCategory: (a: any) => string;
   fmtC: (v: number) => string;
   hasSnapshotData: boolean;
-  ltvOnly: number;
+  organicRevenue: number;
   trackingLinkLtv: any[];
 }) {
   const periodLabel = customRange
