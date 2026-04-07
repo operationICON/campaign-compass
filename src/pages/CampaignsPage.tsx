@@ -1009,7 +1009,7 @@ export default function CampaignsPage() {
                             </td>
                             <td style={{ padding: "8px 12px", maxWidth: "200px" }}>
                               <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
-                              <p className="truncate" style={{ fontSize: "11px", color: "#94a3b8" }} title={link.url}>{link.url}</p>
+                              <p className="truncate text-muted-foreground" style={{ fontSize: "11px" }} title={link.url}>{link.url}</p>
                             </td>
                             {columnOrder.visibleOrderedColumns.map(c => {
                               switch (c.id) {
