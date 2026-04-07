@@ -954,8 +954,8 @@ export default function TrafficSourcesPage() {
               <div className="bg-card border border-border px-4 py-3 rounded-xl">
                 <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>Source Contribution</p>
                 <div className="flex flex-col items-center justify-center" style={{ minHeight: "80px" }}>
-                  <p className="font-bold" style={{ fontSize: "22px",  }}>{sourceAnalysis.topContrib.name}</p>
-                  <p className="font-mono" style={{ fontSize: "28px", , fontWeight: 800, lineHeight: 1.1 }}>{sourceAnalysis.topContrib.pct}%</p>
+                  <p className="font-bold" style={{ fontSize: "22px" }}>{sourceAnalysis.topContrib.name}</p>
+                  <p className="font-mono" style={{ fontSize: "28px", fontWeight: 800, lineHeight: 1.1 }}>{sourceAnalysis.topContrib.pct}%</p>
                   <p style={{ fontSize: "11px", marginTop: "4px" }}>of total subscribers</p>
                 </div>
               </div>
