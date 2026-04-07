@@ -1412,12 +1412,12 @@ export default function CampaignsPage() {
                                           className="w-full px-2.5 py-1.5 bg-background border border-border text-sm font-mono outline-none mb-2 rounded-md text-foreground"
                                           style={{ fontSize: "12px" }} />
                                         {validVal && (
-                                          <div className="text-[11px] font-mono mb-2 space-y-0.5" style={{ color: "#64748b", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
-                                            <div className="flex justify-between"><span>Cost/Sub</span><span style={{ color: "#1a2332" }}>{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
-                                            <div className="flex justify-between"><span>Total Spend</span><span style={{ color: "#dc2626", fontWeight: 600 }}>{fmtC(previewCost)}</span></div>
-                                            <div className="flex justify-between"><span>Profit</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{fmtC(previewProfit)}</span></div>
-                                            <div className="flex justify-between"><span>ROI</span><span style={{ color: previewRoi >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>{previewRoi.toFixed(1)}%</span></div>
-                                            <div className="flex justify-between"><span>Profit/Sub</span><span style={{ color: previewProfit >= 0 ? "#16a34a" : "#dc2626" }}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
+                                          <div className="text-[11px] font-mono mb-2 space-y-0.5 bg-card text-muted-foreground rounded-md" style={{ padding: "6px 8px" }}>
+                                            <div className="flex justify-between"><span>Cost/Sub</span><span className="text-foreground">{subsEl > 0 ? fmtC(previewCost / subsEl) : "—"}</span></div>
+                                            <div className="flex justify-between"><span>Total Spend</span><span className="text-destructive font-semibold">{fmtC(previewCost)}</span></div>
+                                            <div className="flex justify-between"><span>Profit</span><span className={`font-semibold ${previewProfit >= 0 ? "text-success" : "text-destructive"}`}>{fmtC(previewProfit)}</span></div>
+                                            <div className="flex justify-between"><span>ROI</span><span className={`font-semibold ${previewRoi >= 0 ? "text-success" : "text-destructive"}`}>{previewRoi.toFixed(1)}%</span></div>
+                                            <div className="flex justify-between"><span>Profit/Sub</span><span className={previewProfit >= 0 ? "text-success" : "text-destructive"}>{subsEl > 0 ? fmtC(previewProfit / subsEl) : "—"}</span></div>
                                           </div>
                                         )}
                                         <div className="flex gap-1.5">
