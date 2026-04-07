@@ -104,8 +104,7 @@ export function useSnapshotMetrics(
 
         switch (timePeriod) {
           case "day":
-          case "since_sync":
-            // Both use MAX(snapshot_date)
+            // Use MAX(snapshot_date)
             fromDate = serverMaxDate;
             toDate = serverMaxDate;
             break;

@@ -97,8 +97,6 @@ export function usePageFilters() {
           from: subDays(now, 60).toISOString(),
           to: subDays(now, 31).toISOString(),
         };
-      case "since_sync":
-        return { from: lastSyncDate, to: null };
       case "all":
       default:
         return { from: null, to: null };
