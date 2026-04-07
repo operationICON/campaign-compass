@@ -41,6 +41,7 @@ const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "total_ltv", label: "LTV", defaultOn: true },
   { id: "ltv_30d_per_model", label: "30D LTV Per Model", defaultOn: false },
   { id: "organic_revenue", label: "Organic Revenue", defaultOn: true },
+  { id: "organic_fans_pct", label: "Organic Fans %", defaultOn: true },
 ];
 
 const INSIGHT_PANELS: ItemDef<InsightPanelId>[] = [
