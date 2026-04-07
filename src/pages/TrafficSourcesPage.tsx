@@ -894,9 +894,9 @@ export default function TrafficSourcesPage() {
                     <div key={s.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                        <span style={{ fontSize: "12px", , fontWeight: 500 }}>{s.name}</span>
+                        <span style={{ fontSize: "12px", fontWeight: 500 }}>{s.name}</span>
                       </div>
-                      <span className="font-mono font-bold" style={{ fontSize: "13px",  }}>{s.value}</span>
+                      <span className="font-mono font-bold" style={{ fontSize: "13px" }}>{s.value}</span>
                     </div>
                   ))}
                   {sourceAnalysis.subsPerDay.length === 0 && <p className="text-muted-foreground" style={{ fontSize: "12px" }}>No data</p>}
