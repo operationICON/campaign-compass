@@ -500,7 +500,6 @@ export default function DashboardPage() {
   const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
     { key: "day", label: "Last Day" },
     { key: "week", label: "Last Week" },
-    { key: "since_sync", label: "Since Last Sync" },
     { key: "month", label: "Last Month" },
     { key: "prev_month", label: "Prev Month" },
     { key: "all", label: "All Time" },
