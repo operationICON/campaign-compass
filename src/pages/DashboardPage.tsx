@@ -662,6 +662,8 @@ export default function DashboardPage() {
           getAccountCategory={getAccountCategory}
           isInsightVisible={isInsightVisible}
           isModelColVisible={isModelColVisible}
+          snapshotRows={overviewSnapshotRows}
+          isAllTime={isAllTime}
         />
 
       </div>
