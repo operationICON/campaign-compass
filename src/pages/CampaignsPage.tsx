@@ -937,7 +937,7 @@ export default function CampaignsPage() {
                         {columnOrder.visibleOrderedColumns.map(c => {
                           const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, textTransform: "uppercase" as const, letterSpacing: "0.04em" };
                           switch (c.id) {
-                            case "model": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "100px" }}>Model</th>;
+                            case "model": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "100px" }}>Model</th>;
                             case "source": return <SortHeader key={c.id} label="Source" sortKeyName="source_tag" width="100px" />;
                             case "clicks": return <SortHeader key={c.id} label="Clicks" sortKeyName="clicks" width="70px" />;
                             case "subscribers": return <SortHeader key={c.id} label="Subs" sortKeyName="subscribers" width="70px" />;
