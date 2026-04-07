@@ -7,7 +7,7 @@ export type OverviewKpiCardId =
   | "unattributed" | "expenses" | "avg_expenses"
   | "total_profit" | "blended_roi" | "active_campaigns"
   | "best_source" | "est_revenue" | "total_ltv" | "ltv_30d_per_model"
-  | "organic_revenue";
+  | "organic_revenue" | "organic_fans_pct";
 
 // ── Insight Panel IDs ──
 export type InsightPanelId =
