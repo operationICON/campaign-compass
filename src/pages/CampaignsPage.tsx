@@ -1003,7 +1003,6 @@ export default function CampaignsPage() {
                             className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
                             style={{ height: "46px", opacity: isInactive ? 0.6 : 1 }}
                           >
-                          >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                             </td>
