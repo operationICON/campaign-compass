@@ -10,9 +10,19 @@ interface DailyDecisionViewProps {
   isAllTime?: boolean;
   todaySnapshots?: any[];
   lastWeekSnapshots?: any[];
+  activeLinkCount?: number;
 }
 
-export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapshotLookup = null, isAllTime = true, todaySnapshots = [], lastWeekSnapshots = [] }: DailyDecisionViewProps) {
+export function DailyDecisionView({
+  links,
+  ltvLookup = {},
+  accounts = [],
+  snapshotLookup = null,
+  isAllTime = true,
+  todaySnapshots = [],
+  lastWeekSnapshots = [],
+  activeLinkCount,
+}: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -81,9 +91,7 @@ export function DailyDecisionView({ links, ltvLookup = {}, accounts = [], snapsh
   const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
 
   // === SUMMARY METRICS (from tracking_links + tracking_link_ltv, always available) ===
-  const activeLinksCount = useMemo(() => {
-    return links.filter(l => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0).length;
-  }, [links]);
+  const resolvedActiveLinksCount = activeLinkCount ?? links.filter(l => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0).length;
 
   const bestRoi = useMemo(() => {
     let best: { name: string; roi: number } | null = null;

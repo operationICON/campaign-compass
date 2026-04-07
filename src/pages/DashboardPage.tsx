@@ -595,7 +595,16 @@ export default function DashboardPage() {
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
-        <DailyDecisionView links={filteredLinksForKpi} ltvLookup={overviewLtvLookup} accounts={accounts} snapshotLookup={overviewSnapshotLookup} isAllTime={isAllTime} todaySnapshots={todaySnapshots} lastWeekSnapshots={lastWeekSnapshots} />
+        <DailyDecisionView
+          links={filteredLinksForKpi}
+          ltvLookup={overviewLtvLookup}
+          accounts={accounts}
+          snapshotLookup={overviewSnapshotLookup}
+          isAllTime={isAllTime}
+          todaySnapshots={todaySnapshots}
+          lastWeekSnapshots={lastWeekSnapshots}
+          activeLinkCount={activeLinkCount}
+        />
 
 
         {/* ═══ INSIGHTS SECTION ═══ */}
