@@ -140,21 +140,6 @@ export function useSnapshotMetrics(
         }
       }
 
-      // For single-day queries (fromDate === toDate), fetch the PREVIOUS
-      // snapshot date too so we can compute the delta (cumulative values).
-      let effectiveFrom = fromDate;
-      if (fromDate === toDate) {
-        const { data: prevRows } = await supabase
-          .from("daily_snapshots")
-          .select("snapshot_date")
-          .lt("snapshot_date", fromDate)
-          .order("snapshot_date", { ascending: false })
-          .limit(1);
-        if (prevRows && prevRows.length > 0) {
-          effectiveFrom = prevRows[0].snapshot_date;
-        }
-      }
-
       // Fetch all matching rows (batched)
       const allRows: any[] = [];
       let rangeFrom = 0;
