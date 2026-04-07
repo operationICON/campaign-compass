@@ -133,7 +133,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
                 onClick={() => handleDayClick(day)}
                 onMouseEnter={() => setHover(day)}
                 className={`h-8 text-[12px] relative transition-colors rounded-none
-                  ${inRange ? "bg-[#e0f2fe]" : "hover:bg-secondary"}
+                  ${inRange ? "bg-primary/15" : "hover:bg-secondary"}
                   ${start || end ? "!bg-primary text-primary-foreground font-bold rounded-full z-10" : ""}
                   ${!start && !end && inRange ? "text-foreground" : "text-foreground"}
                 `}
