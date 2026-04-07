@@ -960,18 +960,18 @@ export default function CampaignsPage() {
                                 </div>
                               </th>
                             );
-                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
-                            case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
+                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
+                            case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
-                            case "status": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "80px" }}>Status</th>;
+                            case "status": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "80px" }}>Status</th>;
                             case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
-                            case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
-                            case "org_pct": return <th key={c.id} className="text-right whitespace-nowrap" style={{ ...thStyle, width: "65px" }}>Org %</th>;
+                            case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
+                            case "org_pct": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "65px" }}>Org %</th>;
                             default: return null;
                           }
                         })}
