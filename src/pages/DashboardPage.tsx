@@ -370,17 +370,19 @@ export default function DashboardPage() {
     if (!isAllTime) return null;
     const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
 
-    // LTV + Cross-Poll from tracking_link_ltv
+    // LTV + Cross-Poll + new_subs_total from tracking_link_ltv
     let ltv = 0;
     let crossPoll = 0;
+    let ltvSubs = 0; // fans who actually generated LTV
     for (const r of trackingLinkLtv) {
       if (accountIdSet && !accountIdSet.has(r.account_id)) continue;
       ltv += Number(r.total_ltv || 0);
       crossPoll += Number(r.cross_poll_revenue || 0);
+      ltvSubs += Number(r.new_subs_total || 0);
     }
     const totalLtv = ltv + crossPoll;
 
-    // Expenses, subs, clicks from tracking_links
+    // Expenses, subs (all tracked), clicks from tracking_links
     let expenses = 0;
     let subs = 0;
     let clicks = 0;
@@ -391,11 +393,12 @@ export default function DashboardPage() {
     }
 
     const totalProfit = totalLtv - expenses;
-    const ltvPerSub = subs > 0 ? totalLtv / subs : null;
+    // Use ltvSubs (new_subs_total) for per-sub metrics — these are the fans who generated LTV
+    const ltvPerSub = ltvSubs > 0 ? totalLtv / ltvSubs : null;
     const avgCpl = subs > 0 ? expenses / subs : null;
     const roi = expenses > 0 ? (totalProfit / expenses) * 100 : null;
 
-    return { ltv, crossPoll, totalLtv, expenses, subs, clicks, totalProfit, ltvPerSub, avgCpl, roi };
+    return { ltv, crossPoll, totalLtv, expenses, subs, ltvSubs, clicks, totalProfit, ltvPerSub, avgCpl, roi };
   }, [isAllTime, trackingLinkLtv, filteredLinksForKpi, agencyAccountIds]);
 
   // Get distinct active link IDs from snapshot rows for period expense query
@@ -481,7 +484,7 @@ export default function DashboardPage() {
   // hasSnapshotData: true if any snapshot rows were returned for this period
   const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
   const avgProfitPerSub = isAllTime && allTimeTotals
-    ? allTimeTotals.totalProfit / (allTimeTotals.subs || 1)
+    ? (allTimeTotals.ltvSubs > 0 ? allTimeTotals.totalProfit / allTimeTotals.ltvSubs : null)
     : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
@@ -801,7 +804,16 @@ function KpiCards({
     if (!bestSource || roi > bestSource.roi) bestSource = { name, roi };
   });
 
-  const ltvPerSub = periodSubscribers > 0 ? totalLtv / periodSubscribers : null;
+  const isAllTime = timePeriod === "all" && !customRange;
+  // For All Time, use new_subs_total (fans who generated LTV) as denominator
+  const ltvPerSub = (() => {
+    if (isAllTime) {
+      let ltvSubs = 0;
+      for (const r of trackingLinkLtv) ltvSubs += Number(r.new_subs_total || 0);
+      return ltvSubs > 0 ? totalLtv / ltvSubs : null;
+    }
+    return periodSubscribers > 0 ? totalLtv / periodSubscribers : null;
+  })();
 
   if (isLoading) {
     return (
