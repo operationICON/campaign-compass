@@ -647,6 +647,7 @@ export default function DashboardPage() {
           todaySnapshots={todaySnapshots}
           lastWeekSnapshots={lastWeekSnapshots}
           activeLinkCount={activeLinkCount}
+          snapshotRows={overviewSnapshotRows}
         />
 
 
