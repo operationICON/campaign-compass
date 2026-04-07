@@ -1448,7 +1448,7 @@ export default function TrafficSourcesPage() {
 
               <div className="flex items-center gap-0.5">
                 <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
-                  <ChevronLeft className="h-4 w-4" className="text-muted-foreground" />
+                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                 </button>
                 {pageNumbers.map((p, i) =>
                   p === "..." ? (
