@@ -1402,9 +1402,9 @@ export default function CampaignsPage() {
                                           ))}
                                         </div>
                                         {spendType === "CPC" && (
-                                          <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5" style={{ background: "#fffbeb", borderRadius: "6px", border: "1px solid #fde68a" }}>
-                                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" style={{ color: "#d97706" }} />
-                                            <span style={{ fontSize: "10px", color: "#92400e", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
+                                          <div className="flex items-start gap-1.5 mb-2 px-2 py-1.5 rounded-md border bg-warning/10 border-warning/30">
+                                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-warning" />
+                                            <span className="text-warning" style={{ fontSize: "10px", lineHeight: "1.3" }}>Per Click may be unreliable — bot traffic can inflate click counts</span>
                                           </div>
                                         )}
                                         <input type="number" step="0.01" value={spendValue} onChange={(e) => setSpendValue(e.target.value)}
