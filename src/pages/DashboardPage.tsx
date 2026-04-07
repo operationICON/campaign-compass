@@ -1105,11 +1105,11 @@ function KpiCards({
           if (filterSet && !filterSet.has(r.account_id)) continue;
           allTimeNewSubs += Number(r.new_subs_total || 0);
         }
-        // Use subscribers_count from accounts (not affected by 1000-row limit)
+        // Use SUM(subscribers) from tracking_links (total tracked subs, not account-wide)
         let allTimeSubs = 0;
-        for (const a of accounts) {
-          if (filterSet && !filterSet.has(a.id)) continue;
-          allTimeSubs += Number(a.subscribers_count || 0);
+        for (const l of links) {
+          if (filterSet && !filterSet.has(l.account_id)) continue;
+          allTimeSubs += Number(l.subscribers || 0);
         }
         const organicPct = allTimeSubs > 0 ? (allTimeNewSubs / allTimeSubs) * 100 : null;
         const pctColor = organicPct === null ? "text-muted-foreground"
@@ -1127,7 +1127,7 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${pctColor}`}>
               {organicPct !== null ? `${organicPct.toFixed(1)}%` : "—"}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">New fans from campaigns (All Time)</p>
+            <p className="text-[11px] text-muted-foreground mt-1">First-time OF fans from campaigns (All Time)</p>
           </div>
         );
       }
