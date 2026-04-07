@@ -617,7 +617,7 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
           hasSnapshotData={hasSnapshotData}
-          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : totalLtv}
+          ltvOnly={isAllTime && allTimeTotals ? allTimeTotals.ltv : snapshotRevenue}
           trackingLinkLtv={trackingLinkLtv}
         />
 
