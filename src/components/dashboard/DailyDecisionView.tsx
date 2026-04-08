@@ -297,18 +297,7 @@ export function DailyDecisionView({
     );
   }
 
-  // === Drawer ===
-  const drawerCampaign = selectedCampaign;
-  const drawerProfit = drawerCampaign ? (drawerCampaign.totalLtv + drawerCampaign.crossPoll - drawerCampaign.cost) : 0;
-  const drawerProfitPerSub = drawerCampaign && drawerCampaign.newSubs > 0
-    ? drawerProfit / drawerCampaign.newSubs : 0;
-  const drawerCvr = drawerCampaign && Number(drawerCampaign.clicks || 0) > 0
-    ? (Number(drawerCampaign.subscribers || 0) / Number(drawerCampaign.clicks || 0)) * 100 : 0;
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
-  };
+  // Drawer is handled by shared CampaignDetailDrawer
 
   return (
     <>
