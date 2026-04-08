@@ -401,7 +401,7 @@ function DrawerBodyInner({
             <div className="p-0">
               <DataRow label="Period Subs" value={hasPeriodData ? periodSubs.toLocaleString() : "—"} />
               <DataRow label="Period Revenue" value={hasPeriodData && periodRev > 0 ? fmtC2(periodRev) : "—"} tone={hasPeriodData && periodRev > 0 ? "positive" : "neutral"} />
-              <DataRow label="Period Clicks" value={hasPeriodData ? periodClicks.toLocaleString() : "—"} />
+              <DataRow label="Period Clicks" value={periodClicks.toLocaleString()} />
               <DataRow label="Avg Subs/Day" value={avgSubsDay ?? "—"} />
             </div>
           </div>
