@@ -1,21 +1,29 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { RefreshButton } from "@/components/RefreshButton";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserPlus, DollarSign, MessageCircle, Bell, RefreshCw, X, Info } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { UserPlus, DollarSign, MessageCircle, Bell, RefreshCw, X, Info, Flag, Check, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-/* ─── helpers ─── */
-function timeAgo(dateStr: string | null) {
-  if (!dateStr) return "—";
-  try {
-    return formatDistanceToNow(new Date(dateStr), { addSuffix: false }) + " ago";
-  } catch { return "—"; }
+/* ─── localStorage helpers ─── */
+const LS_KEY_WELCOMED = "fans_welcomed";
+const LS_KEY_NOTES = "fans_notes";
+const LS_KEY_DONE = "chats_done";
+const LS_KEY_FLAGGED = "chats_flagged";
+const LS_KEY_CHAT_NOTES = "chats_notes";
+
+function lsGet(key: string): Record<string, any> {
+  try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
 }
+function lsSet(key: string, val: Record<string, any>) {
+  localStorage.setItem(key, JSON.stringify(val));
+}
+
+/* ─── helpers ─── */
 function shortTimeAgo(dateStr: string | null) {
   if (!dateStr) return "—";
   try {
@@ -35,6 +43,8 @@ const TIME_PILLS = [
 ] as const;
 type TimePill = typeof TIME_PILLS[number]["key"];
 
+type ChatFilter = "all" | "unread" | "flagged" | "done";
+
 /* ─── page ─── */
 export default function FansPage() {
   const queryClient = useQueryClient();
@@ -43,6 +53,20 @@ export default function FansPage() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Drawer state
+  const [fanDrawerAccountId, setFanDrawerAccountId] = useState<string | null>(null);
+  const [chatDrawerAccountId, setChatDrawerAccountId] = useState<string | null>(null);
+  const [chatDrawerFilter, setChatDrawerFilter] = useState<ChatFilter>("all");
+
+  // localStorage state
+  const [welcomed, setWelcomed] = useState<Record<string, boolean>>(lsGet(LS_KEY_WELCOMED));
+  const [fanNotes, setFanNotes] = useState<Record<string, string>>(lsGet(LS_KEY_NOTES));
+  const [chatDone, setChatDone] = useState<Record<string, boolean>>(lsGet(LS_KEY_DONE));
+  const [chatFlagged, setChatFlagged] = useState<Record<string, boolean>>(lsGet(LS_KEY_FLAGGED));
+  const [chatNotes, setChatNotes] = useState<Record<string, string>>(lsGet(LS_KEY_CHAT_NOTES));
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteInput, setNoteInput] = useState("");
 
   /* ─── queries ─── */
   const { data: accounts = [] } = useQuery({
@@ -91,7 +115,7 @@ export default function FansPage() {
     return Date.now() - new Date(lastUpdated).getTime() > 2 * 3600_000;
   }, [lastUpdated]);
 
-  // KPI filters: account dropdown + time pill
+  // KPI: filtered by account dropdown
   const kpiFans = useMemo(() => {
     let f = newFans;
     if (accountFilter !== "all") f = f.filter(x => x.account_id === accountFilter);
@@ -110,12 +134,7 @@ export default function FansPage() {
   const activeChats = kpiChats.length;
   const unreadChats = kpiChats.filter(c => c.is_unread).length;
 
-  // Fan lists: filtered by model pill (not account dropdown)
-  const activeAccounts = useMemo(() => {
-    if (selectedModelId) return accounts.filter(a => a.id === selectedModelId);
-    return accounts;
-  }, [accounts, selectedModelId]);
-
+  // Fan/chat data grouped by account
   const fansByAccount = useMemo(() => {
     const map: Record<string, typeof newFans> = {};
     for (const a of accounts) map[a.id] = [];
@@ -151,12 +170,72 @@ export default function FansPage() {
     avatar_thumb_url: a.avatar_thumb_url,
   }));
 
-  const GENDER_BADGE: Record<string, string> = {
-    Female: "bg-pink-500/15 text-pink-400",
-    Trans: "bg-purple-500/15 text-purple-400",
-    Male: "bg-blue-500/15 text-blue-400",
-    Uncategorized: "bg-muted text-muted-foreground",
-  };
+  // localStorage actions
+  const toggleWelcomed = useCallback((fanId: string) => {
+    setWelcomed(prev => {
+      const next = { ...prev, [fanId]: !prev[fanId] };
+      lsSet(LS_KEY_WELCOMED, next);
+      return next;
+    });
+  }, []);
+
+  const saveFanNote = useCallback((fanId: string, note: string) => {
+    setFanNotes(prev => {
+      const next = { ...prev, [fanId]: note };
+      lsSet(LS_KEY_NOTES, next);
+      return next;
+    });
+    setEditingNoteId(null);
+    setNoteInput("");
+  }, []);
+
+  const toggleChatDone = useCallback((chatId: string) => {
+    setChatDone(prev => {
+      const next = { ...prev, [chatId]: !prev[chatId] };
+      lsSet(LS_KEY_DONE, next);
+      return next;
+    });
+  }, []);
+
+  const toggleChatFlagged = useCallback((chatId: string) => {
+    setChatFlagged(prev => {
+      const next = { ...prev, [chatId]: !prev[chatId] };
+      lsSet(LS_KEY_FLAGGED, next);
+      return next;
+    });
+  }, []);
+
+  const saveChatNote = useCallback((chatId: string, note: string) => {
+    setChatNotes(prev => {
+      const next = { ...prev, [chatId]: note };
+      lsSet(LS_KEY_CHAT_NOTES, next);
+      return next;
+    });
+    setEditingNoteId(null);
+    setNoteInput("");
+  }, []);
+
+  // Drawer helpers
+  const drawerAccount = fanDrawerAccountId
+    ? accounts.find(a => a.id === fanDrawerAccountId)
+    : chatDrawerAccountId
+    ? accounts.find(a => a.id === chatDrawerAccountId)
+    : null;
+
+  const drawerFans = fanDrawerAccountId ? (fansByAccount[fanDrawerAccountId] || []) : [];
+  const drawerChats = chatDrawerAccountId ? (chatsByAccount[chatDrawerAccountId] || []) : [];
+
+  const filteredDrawerChats = useMemo(() => {
+    if (chatDrawerFilter === "unread") return drawerChats.filter(c => c.is_unread);
+    if (chatDrawerFilter === "flagged") return drawerChats.filter(c => chatFlagged[c.id]);
+    if (chatDrawerFilter === "done") return drawerChats.filter(c => chatDone[c.id]);
+    return drawerChats;
+  }, [drawerChats, chatDrawerFilter, chatFlagged, chatDone]);
+
+  const drawerFlaggedCount = drawerChats.filter(c => chatFlagged[c.id]).length;
+  const drawerUnreadCount = drawerChats.filter(c => c.is_unread).length;
+
+  const selectedAccount = selectedModelId ? accounts.find(a => a.id === selectedModelId) : null;
 
   return (
     <DashboardLayout>
@@ -170,10 +249,7 @@ export default function FansPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-            <span>
-              Last updated:{" "}
-              {lastUpdated ? shortTimeAgo(lastUpdated) : "—"}
-            </span>
+            <span>Last updated: {lastUpdated ? shortTimeAgo(lastUpdated) : "—"}</span>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -191,7 +267,6 @@ export default function FansPage() {
             <Info className="h-4 w-4 shrink-0 text-blue-400" />
             <span className="flex-1">
               Fan data is cached and updated manually. Click refresh to reload from the database.
-              Run the sync script to fetch fresh data from OnlyFans.
             </span>
             <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-blue-500/20 rounded">
               <X className="h-3.5 w-3.5" />
@@ -225,185 +300,385 @@ export default function FansPage() {
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-4 gap-4">
-          <KpiCard
-            icon={UserPlus}
-            label="Total New Fans"
-            value={totalNewFans}
-            subtitle="Last 24 hours"
-            color="text-primary"
-            iconBg="bg-primary/10"
-          />
-          <KpiCard
-            icon={DollarSign}
-            label="Paid Fans"
-            value={paidFans}
-            subtitle={`${paidPct}% of new fans`}
-            color="text-emerald-400"
-            iconBg="bg-emerald-500/10"
-          />
-          <KpiCard
-            icon={MessageCircle}
-            label="Active Chats"
-            value={activeChats}
-            subtitle="Last 24 hours"
-            color="text-blue-400"
-            iconBg="bg-blue-500/10"
-          />
-          <KpiCard
-            icon={Bell}
-            label="Unread"
-            value={unreadChats}
+          <KpiCard icon={UserPlus} label="Total New Fans" value={totalNewFans}
+            subtitle="Last 24 hours" color="text-primary" iconBg="bg-primary/10" />
+          <KpiCard icon={DollarSign} label="Paid Fans" value={paidFans}
+            subtitle={`${paidPct}% of new fans`} color="text-emerald-400" iconBg="bg-emerald-500/10" />
+          <KpiCard icon={MessageCircle} label="Active Chats" value={activeChats}
+            subtitle="Last 24 hours" color="text-blue-400" iconBg="bg-blue-500/10" />
+          <KpiCard icon={Bell} label="Unread" value={unreadChats}
             subtitle="Need reply"
             color={unreadChats > 0 ? "text-amber-400" : "text-muted-foreground"}
-            iconBg={unreadChats > 0 ? "bg-amber-500/10" : "bg-muted/50"}
-          />
+            iconBg={unreadChats > 0 ? "bg-amber-500/10" : "bg-muted/50"} />
         </div>
 
-        {/* MODEL PILLS */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+        {/* MODEL PILLS — avatar + name vertical */}
+        <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-thin">
           {accounts.map(a => {
             const isActive = selectedModelId === a.id;
+            const firstName = (a.display_name || "").split(" ")[0];
             return (
               <button
                 key={a.id}
                 onClick={() => setSelectedModelId(isActive ? null : a.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors shrink-0 ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card border border-border text-muted-foreground hover:text-foreground"
-                }`}
+                className="flex flex-col items-center gap-1.5 shrink-0 transition-all"
               >
-                <ModelAvatar
-                  avatarUrl={a.avatar_thumb_url}
-                  name={a.display_name}
-                  size={28}
-                />
-                <span>{(a.display_name || "").split(" ")[0]}</span>
+                <span className={`rounded-full p-[3px] transition-all ${
+                  isActive ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "opacity-70 hover:opacity-100"
+                }`}>
+                  <ModelAvatar avatarUrl={a.avatar_thumb_url} name={a.display_name} size={40} />
+                </span>
+                <span className={`text-[11px] font-medium transition-colors ${
+                  isActive ? "text-primary" : "text-muted-foreground"
+                }`}>
+                  {firstName}
+                </span>
               </button>
             );
           })}
         </div>
 
-        {/* FAN LISTS */}
-        {activeAccounts.map(acc => {
-          const accFans = fansByAccount[acc.id] || [];
-          const accChats = chatsByAccount[acc.id] || [];
-          const showHeader = !selectedModelId;
-
-          return (
-            <div key={acc.id} className="space-y-3">
-              {showHeader && (
-                <div className="flex items-center gap-3">
-                  <ModelAvatar avatarUrl={acc.avatar_thumb_url} name={acc.display_name} size={36} />
-                  <span className="text-[14px] font-bold text-foreground">{acc.display_name}</span>
-                  {acc.username && (
-                    <span className="text-[12px] text-muted-foreground">@{(acc.username || "").replace("@", "")}</span>
-                  )}
-                  {acc.gender_identity && (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${GENDER_BADGE[acc.gender_identity] || GENDER_BADGE.Uncategorized}`}>
-                      {acc.gender_identity}
-                    </span>
-                  )}
-                  <span className="ml-auto flex items-center gap-2">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">
-                      {accFans.length} new
-                    </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">
-                      {accChats.length} chats
-                    </span>
-                  </span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* NEW FANS PANEL */}
-                <FanPanel
-                  title="🟢 New Fans"
-                  subtitle="Subscribed in the last 24 hours"
-                  count={accFans.length}
-                  badgeColor="bg-emerald-500/15 text-emerald-400"
-                  borderColor="border-l-emerald-500"
-                  loading={fansLoading}
-                  empty="No new fans in the last 24 hours"
-                >
-                  {accFans.map(fan => (
-                    <FanRow key={fan.id}>
-                      <FanAvatar url={fan.fan_avatar} name={fan.fan_name} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold text-foreground truncate">
-                          {fan.fan_name || "Unknown"}
-                        </div>
-                        {fan.fan_username && (
-                          <div className="text-[11px] text-muted-foreground truncate">
-                            @{(fan.fan_username || "").replace("@", "")}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <TimeAgoBadge dateStr={fan.subscribed_at} />
-                        <div className="mt-0.5">
-                          {fan.subscription_type === "Paid" ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">
-                              Paid{fan.subscribe_price ? ` $${Number(fan.subscribe_price).toFixed(2)}` : ""}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                              Free
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </FanRow>
-                  ))}
-                </FanPanel>
-
-                {/* CHATS PANEL */}
-                <FanPanel
-                  title="💬 Chatted"
-                  subtitle="Active chats in the last 24 hours"
-                  count={accChats.length}
-                  badgeColor="bg-blue-500/15 text-blue-400"
-                  borderColor="border-l-blue-500"
-                  loading={chatsLoading}
-                  empty="No chat activity in the last 24 hours"
-                  emptyNote="Chat data syncs when script runs manually"
-                >
-                  {accChats.map(chat => (
-                    <FanRow key={chat.id}>
-                      <div className="relative shrink-0">
-                        {chat.is_unread && (
-                          <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-400" />
-                        )}
-                        <FanAvatar url={chat.fan_avatar} name={chat.fan_name} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold text-foreground truncate">
-                          {chat.fan_name || "Unknown"}
-                        </div>
-                        {chat.fan_username && (
-                          <div className="text-[11px] text-muted-foreground truncate">
-                            @{(chat.fan_username || "").replace("@", "")}
-                          </div>
-                        )}
-                        {chat.last_message_preview && (
-                          <div className="text-[11px] text-muted-foreground italic truncate max-w-[250px]">
-                            {(chat.last_message_preview || "").slice(0, 50)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[11px] text-muted-foreground">
-                          {shortTimeAgo(chat.last_message_at)}
+        {/* CONTENT: no model selected → overview grid */}
+        {!selectedModelId ? (
+          <div className="space-y-4">
+            <p className="text-center text-[13px] text-muted-foreground py-2">
+              Select a model above to view their fan lists
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {accounts.map(a => {
+                const fCount = (fansByAccount[a.id] || []).length;
+                const cCount = (chatsByAccount[a.id] || []).length;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => setSelectedModelId(a.id)}
+                    className="bg-card border border-border rounded-xl p-4 flex flex-col items-center gap-2 hover:border-primary/40 hover:-translate-y-0.5 transition-all cursor-pointer text-center"
+                  >
+                    <ModelAvatar avatarUrl={a.avatar_thumb_url} name={a.display_name} size={48} />
+                    <span className="text-[13px] font-semibold text-foreground">{a.display_name}</span>
+                    <div className="flex items-center gap-2">
+                      {fCount > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">
+                          {fCount} new
                         </span>
-                      </div>
-                    </FanRow>
-                  ))}
-                </FanPanel>
-              </div>
+                      )}
+                      {cCount > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">
+                          {cCount} chats
+                        </span>
+                      )}
+                      {fCount === 0 && cCount === 0 && (
+                        <span className="text-[10px] text-muted-foreground">No activity</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ) : (
+          /* MODEL SELECTED → 2 col grid panels */
+          <div className="grid grid-cols-2 gap-4">
+            {/* NEW FANS GRID */}
+            <GridPanel
+              title="🟢 New Fans"
+              count={(fansByAccount[selectedModelId] || []).length}
+              badgeColor="bg-emerald-500/15 text-emerald-400"
+              borderColor="border-l-emerald-500"
+              loading={fansLoading}
+              empty="No new fans in the last 24 hours"
+              onViewAll={() => { setFanDrawerAccountId(selectedModelId); }}
+            >
+              {(fansByAccount[selectedModelId] || []).slice(0, 6).map(fan => (
+                <FanCard key={fan.id}>
+                  <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={44} />
+                  <div className="text-[12px] font-semibold text-foreground truncate mt-1.5">
+                    {fan.fan_name || "Unknown"}
+                  </div>
+                  {fan.fan_username && (
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      @{(fan.fan_username || "").replace("@", "")}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between w-full mt-1.5">
+                    {fan.subscription_type === "Paid" ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">
+                        Paid{fan.subscribe_price ? ` $${Number(fan.subscribe_price).toFixed(0)}` : ""}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                        Free
+                      </span>
+                    )}
+                    <TimeAgoBadge dateStr={fan.subscribed_at} />
+                  </div>
+                </FanCard>
+              ))}
+            </GridPanel>
+
+            {/* CHATS GRID */}
+            <GridPanel
+              title="💬 Chatted"
+              count={(chatsByAccount[selectedModelId] || []).length}
+              badgeColor="bg-blue-500/15 text-blue-400"
+              borderColor="border-l-blue-500"
+              loading={chatsLoading}
+              empty="No chat activity in the last 24 hours"
+              onViewAll={() => { setChatDrawerAccountId(selectedModelId); setChatDrawerFilter("all"); }}
+            >
+              {(chatsByAccount[selectedModelId] || []).slice(0, 6).map(chat => (
+                <FanCard key={chat.id}>
+                  <div className="relative">
+                    <FanAvatar url={chat.fan_avatar} name={chat.fan_name} size={44} />
+                    {chat.is_unread && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-card" />
+                    )}
+                  </div>
+                  <div className="text-[12px] font-semibold text-foreground truncate mt-1.5">
+                    {chat.fan_name || "Unknown"}
+                  </div>
+                  {chat.fan_username && (
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      @{(chat.fan_username || "").replace("@", "")}
+                    </div>
+                  )}
+                  {chat.last_message_preview && (
+                    <div className="text-[10px] text-muted-foreground italic truncate w-full mt-0.5">
+                      {(chat.last_message_preview || "").slice(0, 30)}
+                    </div>
+                  )}
+                  <div className="mt-1">
+                    <span className="text-[10px] text-muted-foreground">{shortTimeAgo(chat.last_message_at)}</span>
+                  </div>
+                </FanCard>
+              ))}
+            </GridPanel>
+          </div>
+        )}
       </div>
+
+      {/* ─── NEW FANS DRAWER ─── */}
+      <Sheet open={!!fanDrawerAccountId} onOpenChange={(o) => { if (!o) setFanDrawerAccountId(null); }}>
+        <SheetContent side="right" className="w-[480px] sm:max-w-[480px] p-0 flex flex-col">
+          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              {drawerAccount && <ModelAvatar avatarUrl={drawerAccount.avatar_thumb_url} name={drawerAccount.display_name} size={36} />}
+              <SheetTitle className="text-[16px]">
+                {drawerAccount?.display_name} — New Fans (last 24h)
+              </SheetTitle>
+            </div>
+            {/* summary stats */}
+            <div className="flex items-center gap-4 mt-2">
+              <span className="text-[12px] text-foreground font-medium">{drawerFans.length} total</span>
+              <span className="text-[12px] text-emerald-400">{drawerFans.filter(f => f.subscription_type === "Paid").length} paid</span>
+              <span className="text-[12px] text-muted-foreground">{drawerFans.filter(f => f.subscription_type !== "Paid").length} free</span>
+            </div>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            {drawerFans.map(fan => (
+              <div key={fan.id}
+                className={`flex items-center gap-3 px-5 py-3 border-b border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)] transition-colors ${
+                  welcomed[fan.id] ? "opacity-60" : ""
+                }`}
+              >
+                <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={36} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-foreground truncate">
+                    {fan.fan_name || "Unknown"}
+                    {welcomed[fan.id] && <span className="ml-2 text-[10px] text-emerald-400">✓ Welcomed</span>}
+                  </div>
+                  {fan.fan_username && (
+                    <div className="text-[11px] text-muted-foreground truncate">@{(fan.fan_username || "").replace("@", "")}</div>
+                  )}
+                  {fanNotes[fan.id] && (
+                    <div className="text-[10px] text-amber-400 mt-0.5 truncate">📝 {fanNotes[fan.id]}</div>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <TimeAgoBadge dateStr={fan.subscribed_at} />
+                  {fan.subscription_type === "Paid" ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">
+                      Paid{fan.subscribe_price ? ` $${Number(fan.subscribe_price).toFixed(0)}` : ""}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">Free</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-1">
+                  <button
+                    onClick={() => toggleWelcomed(fan.id)}
+                    className={`h-7 px-2 text-[10px] rounded border transition-colors ${
+                      welcomed[fan.id]
+                        ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
+                    }`}
+                  >
+                    👋
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (editingNoteId === fan.id) { setEditingNoteId(null); setNoteInput(""); }
+                      else { setEditingNoteId(fan.id); setNoteInput(fanNotes[fan.id] || ""); }
+                    }}
+                    className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+                  >
+                    📝
+                  </button>
+                </div>
+              </div>
+            ))}
+            {/* Inline note editor */}
+            {editingNoteId && fanDrawerAccountId && (
+              <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={noteInput}
+                  onChange={e => setNoteInput(e.target.value)}
+                  placeholder="Add note..."
+                  className="flex-1 h-8 px-3 text-[12px] rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
+                  onKeyDown={e => { if (e.key === "Enter") saveFanNote(editingNoteId, noteInput); }}
+                />
+                <button
+                  onClick={() => saveFanNote(editingNoteId, noteInput)}
+                  className="h-8 px-3 text-[11px] rounded-lg bg-primary text-primary-foreground font-medium"
+                >
+                  Save
+                </button>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ─── CHATS DRAWER ─── */}
+      <Sheet open={!!chatDrawerAccountId} onOpenChange={(o) => { if (!o) setChatDrawerAccountId(null); }}>
+        <SheetContent side="right" className="w-[480px] sm:max-w-[480px] p-0 flex flex-col">
+          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              {drawerAccount && <ModelAvatar avatarUrl={drawerAccount.avatar_thumb_url} name={drawerAccount.display_name} size={36} />}
+              <SheetTitle className="text-[16px]">
+                {drawerAccount?.display_name} — Active Chats (last 24h)
+              </SheetTitle>
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="text-[12px] text-foreground font-medium">{drawerChats.length} total</span>
+              <span className="text-[12px] text-amber-400">{drawerUnreadCount} unread</span>
+              <span className="text-[12px] text-orange-400">{drawerFlaggedCount} flagged</span>
+            </div>
+            {/* Filter pills */}
+            <div className="flex items-center gap-1 mt-2">
+              {(["all", "unread", "flagged", "done"] as ChatFilter[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setChatDrawerFilter(f)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-lg transition-colors capitalize ${
+                    chatDrawerFilter === f
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {f} {f === "unread" ? `(${drawerUnreadCount})` : f === "flagged" ? `(${drawerFlaggedCount})` : ""}
+                </button>
+              ))}
+            </div>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            {filteredDrawerChats.map(chat => {
+              const isDone = chatDone[chat.id];
+              const isFlagged = chatFlagged[chat.id];
+              return (
+                <div key={chat.id}
+                  className={`flex items-center gap-3 px-5 py-3 border-b border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)] transition-colors ${
+                    isDone ? "opacity-50" : ""
+                  } ${isFlagged ? "border-l-2 border-l-amber-400" : ""}`}
+                >
+                  {chat.is_unread && !isDone && (
+                    <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                  )}
+                  <FanAvatar url={chat.fan_avatar} name={chat.fan_name} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[13px] font-semibold text-foreground truncate ${isDone ? "line-through" : ""}`}>
+                      {chat.fan_name || "Unknown"}
+                    </div>
+                    {chat.fan_username && (
+                      <div className="text-[11px] text-muted-foreground truncate">@{(chat.fan_username || "").replace("@", "")}</div>
+                    )}
+                    {chatNotes[chat.id] && (
+                      <div className="text-[10px] text-amber-400 mt-0.5 truncate">📝 {chatNotes[chat.id]}</div>
+                    )}
+                    {chat.last_message_preview && (
+                      <div className="text-[11px] text-muted-foreground italic truncate mt-0.5">
+                        {(chat.last_message_preview || "").slice(0, 50)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-[11px] text-muted-foreground">{shortTimeAgo(chat.last_message_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                    <button
+                      onClick={() => toggleChatDone(chat.id)}
+                      className={`h-7 px-2 text-[10px] rounded border transition-colors ${
+                        isDone
+                          ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                          : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
+                      }`}
+                      title="Mark done"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (editingNoteId === chat.id) { setEditingNoteId(null); setNoteInput(""); }
+                        else { setEditingNoteId(chat.id); setNoteInput(chatNotes[chat.id] || ""); }
+                      }}
+                      className="h-7 px-2 text-[10px] rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+                      title="Add note"
+                    >
+                      📝
+                    </button>
+                    <button
+                      onClick={() => toggleChatFlagged(chat.id)}
+                      className={`h-7 px-2 text-[10px] rounded border transition-colors ${
+                        isFlagged
+                          ? "border-amber-500/30 text-amber-400 bg-amber-500/10"
+                          : "border-border text-muted-foreground hover:text-foreground hover:border-amber-500/30"
+                      }`}
+                      title="Flag for follow up"
+                    >
+                      ⚑
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {filteredDrawerChats.length === 0 && (
+              <div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
+                No chats match this filter
+              </div>
+            )}
+            {/* Inline note editor */}
+            {editingNoteId && chatDrawerAccountId && (
+              <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={noteInput}
+                  onChange={e => setNoteInput(e.target.value)}
+                  placeholder="Add note..."
+                  className="flex-1 h-8 px-3 text-[12px] rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
+                  onKeyDown={e => { if (e.key === "Enter" && editingNoteId) saveChatNote(editingNoteId, noteInput); }}
+                />
+                <button
+                  onClick={() => { if (editingNoteId) saveChatNote(editingNoteId, noteInput); }}
+                  className="h-8 px-3 text-[11px] rounded-lg bg-primary text-primary-foreground font-medium"
+                >
+                  Save
+                </button>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </DashboardLayout>
   );
 }
@@ -427,81 +702,92 @@ function KpiCard({ icon: Icon, label, value, subtitle, color, iconBg }: {
   );
 }
 
-function FanPanel({ title, subtitle, count, badgeColor, borderColor, loading, empty, emptyNote, children }: {
-  title: string; subtitle: string; count: number; badgeColor: string; borderColor: string;
-  loading: boolean; empty: string; emptyNote?: string; children: React.ReactNode;
+function GridPanel({ title, count, badgeColor, borderColor, loading, empty, onViewAll, children }: {
+  title: string; count: number; badgeColor: string; borderColor: string;
+  loading: boolean; empty: string; onViewAll: () => void; children: React.ReactNode;
 }) {
   return (
     <div className={`bg-card border border-border rounded-2xl border-l-[3px] ${borderColor} overflow-hidden`}>
-      <div className="px-4 pt-4 pb-3">
+      <div className="px-4 pt-4 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[14px] font-bold text-foreground">{title}</span>
-          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>
-            {count}
-          </span>
+          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>{count}</span>
         </div>
-        <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>
       </div>
-      <div className="max-h-[500px] overflow-y-auto">
-        {loading ? (
-          <div className="px-4 pb-4 space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center gap-3">
-                <Skeleton className="h-9 w-9 rounded-full" />
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-2.5 w-16" />
-                </div>
-              </div>
-            ))}
+      {loading ? (
+        <div className="px-4 pb-4 grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="flex flex-col items-center gap-2 p-3">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-2.5 w-12" />
+            </div>
+          ))}
+        </div>
+      ) : count === 0 ? (
+        <div className="px-4 pb-6 pt-4 text-center">
+          <p className="text-[12px] text-muted-foreground">{empty}</p>
+        </div>
+      ) : (
+        <>
+          <div className="px-4 pb-3 grid grid-cols-2 gap-2.5">
+            {children}
           </div>
-        ) : count === 0 ? (
-          <div className="px-4 pb-6 pt-4 text-center">
-            <p className="text-[12px] text-muted-foreground">{empty}</p>
-            {emptyNote && <p className="text-[11px] text-muted-foreground/60 mt-1">{emptyNote}</p>}
-          </div>
-        ) : (
-          children
-        )}
-      </div>
+          {count > 6 && (
+            <button
+              onClick={onViewAll}
+              className="w-full py-2.5 text-[12px] font-medium text-primary hover:bg-primary/5 transition-colors border-t border-border"
+            >
+              View all {count} →
+            </button>
+          )}
+          {count <= 6 && count > 0 && (
+            <button
+              onClick={onViewAll}
+              className="w-full py-2.5 text-[12px] font-medium text-primary hover:bg-primary/5 transition-colors border-t border-border"
+            >
+              View all →
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function FanRow({ children }: { children: React.ReactNode }) {
+function FanCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-[rgba(255,255,255,0.04)] transition-colors border-t border-[rgba(255,255,255,0.06)] first:border-t-0"
-      style={{ minHeight: 56 }}
-    >
+    <div className="flex flex-col items-center p-3 rounded-xl border border-border bg-background/50 hover:-translate-y-0.5 hover:border-primary/20 transition-all text-center">
       {children}
     </div>
   );
 }
 
-function FanAvatar({ url, name }: { url?: string | null; name?: string | null }) {
+function FanAvatar({ url, name, size = 36 }: { url?: string | null; name?: string | null; size?: number }) {
   const initial = ((name || "?")[0] || "?").toUpperCase();
   if (url) {
     return (
-      <img src={url} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+      <img src={url} alt="" className="rounded-full object-cover shrink-0"
+        style={{ width: size, height: size }} />
     );
   }
   return (
-    <span className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-[13px] font-bold shrink-0">
+    <span className="rounded-full bg-muted flex items-center justify-center text-muted-foreground font-bold shrink-0"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}>
       {initial}
     </span>
   );
 }
 
 function TimeAgoBadge({ dateStr }: { dateStr: string | null }) {
-  if (!dateStr) return <span className="text-[11px] text-muted-foreground">—</span>;
+  if (!dateStr) return <span className="text-[10px] text-muted-foreground">—</span>;
   const ms = Date.now() - new Date(dateStr).getTime();
   const isRecent = ms < 6 * 3600_000;
-  const text = shortTimeAgo(dateStr);
   return (
-    <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${
-      isRecent ? "bg-emerald-500/15 text-emerald-400" : "text-muted-foreground"
+    <span className={`text-[10px] font-medium ${
+      isRecent ? "text-emerald-400" : "text-muted-foreground"
     }`}>
-      {text}
+      {shortTimeAgo(dateStr)}
     </span>
   );
 }
