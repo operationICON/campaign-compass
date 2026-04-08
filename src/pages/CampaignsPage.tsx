@@ -17,7 +17,7 @@ import {
 import {
   fetchTrackingLinks, fetchAdSpend, deleteAdSpend, triggerSync,
   clearTrackingLinkSpend, fetchAccounts, fetchDailyMetrics,
-  setTrackingLinkSourceTag,
+  setTrackingLinkSourceTag, fetchTrackingLinkLtv,
 } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -190,24 +190,8 @@ export default function CampaignsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["campaigns_tracking_link_ltv"],
-    queryFn: async () => {
-      const allRows: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("tracking_link_ltv")
-          .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated, new_subs_total")
-          .range(from, from + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        from += batchSize;
-      }
-      return allRows;
-    },
+    queryKey: ["tracking_link_ltv"],
+    queryFn: fetchTrackingLinkLtv,
   });
   const { data: trafficSources = [] } = useQuery({
     queryKey: ["traffic_sources"],
@@ -226,7 +210,7 @@ export default function CampaignsPage() {
       .channel('campaigns-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tracking_links' }, () => {
         queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-        queryClient.invalidateQueries({ queryKey: ["campaigns_tracking_link_ltv"] });
+        queryClient.invalidateQueries({ queryKey: ["tracking_link_ltv"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -242,7 +226,7 @@ export default function CampaignsPage() {
     onSuccess: (data) => {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns_tracking_link_ltv"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking_link_ltv"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["daily_metrics"] });
