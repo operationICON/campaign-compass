@@ -618,7 +618,7 @@ function DrawerBody({
     <div className="overflow-y-auto flex-1">
       {/* HEADER */}
       <div className="px-6 pt-3 pb-2 border-b border-border flex items-center gap-4">
-        <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={44} />
+        <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={64} />
         <div className="flex-1 min-w-0">
           <DrawerHeader className="p-0">
             <DrawerTitle className="truncate text-lg font-bold leading-tight text-foreground">
