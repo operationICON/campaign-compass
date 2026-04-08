@@ -29,7 +29,8 @@ export const STATUS_LABELS: Record<string, string> = {
   KILL: "KILL",
   NO_SPEND: "NO SPEND",
   "NO SPEND": "NO SPEND",
-  NO_DATA: "NO SPEND",
+  NO_DATA: "NO DATA",
+  DEAD: "DEAD",
 };
 
 // ─── Effective Revenue ───
