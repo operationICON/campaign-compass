@@ -220,6 +220,16 @@ export function DailyDecisionView({
       const subsPerDay = distinctDates.size > 0 ? Math.round(totalSnapshotSubs / distinctDates.size) : 0;
       const spendTotal = accLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
 
+      // Est. Daily Spend = total spend / days since first campaign
+      const oldestCreated = accLinks.reduce((oldest: string | null, l: any) => {
+        if (!l.created_at) return oldest;
+        return !oldest || l.created_at < oldest ? l.created_at : oldest;
+      }, null as string | null);
+      const daysSinceFirst = oldestCreated
+        ? Math.max(1, Math.round((Date.now() - new Date(oldestCreated).getTime()) / 86400000))
+        : 1;
+      const estDailySpend = spendTotal / daysSinceFirst;
+
       let accLtv = 0, accNewSubs = 0;
       for (const l of accLinks) {
         const key = String(l.id ?? "").trim().toLowerCase();
@@ -232,7 +242,7 @@ export function DailyDecisionView({
       const ltvPerSub = accNewSubs > 0 ? accLtv / accNewSubs : null;
       const profitPerSub = accNewSubs > 0 ? (accLtv - spendTotal) / accNewSubs : null;
 
-      return { ...acc, subsPerDay, spendTotal, ltvPerSub, profitPerSub };
+      return { ...acc, subsPerDay, spendTotal, estDailySpend, ltvPerSub, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
   }, [accounts, links, ltvLookup, snapshotRows]);
 
