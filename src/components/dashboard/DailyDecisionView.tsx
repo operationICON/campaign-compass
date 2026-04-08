@@ -483,7 +483,7 @@ export function DailyDecisionView({
                           <span className="truncate font-medium text-foreground">{m.display_name}</span>
                         </div>
                         <span className="font-mono text-muted-foreground">{m.subsPerDay.toLocaleString()} subs/day</span>
-                        <span className="font-mono text-muted-foreground">{fmtC(m.spendTotal)} spend</span>
+                        <span className="font-mono text-muted-foreground">{fmtC2(m.estDailySpend)}/day</span>
                         <span className={`font-mono font-semibold ${getValueColor(m.ltvPerSub != null && m.ltvPerSub > 0 ? "positive" : "neutral")}`}>
                           {m.ltvPerSub != null ? `${fmtC2(m.ltvPerSub)}/sub` : "—"}
                         </span>
