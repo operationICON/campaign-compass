@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, LayoutGrid, Users, BarChart3,
-  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator
+  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator, Heart
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 
