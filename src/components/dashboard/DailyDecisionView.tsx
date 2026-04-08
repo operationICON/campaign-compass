@@ -472,7 +472,7 @@ export function DailyDecisionView({
                     <div className="grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr] gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       <span>Model</span>
                       <span>Subs/Day</span>
-                      <span>Spend</span>
+                      <span>Est. Daily Spend</span>
                       <span>LTV/Sub</span>
                       <span>Profit/Sub</span>
                     </div>
