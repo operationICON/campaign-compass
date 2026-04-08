@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
-} from "@/components/ui/drawer";
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -488,9 +488,9 @@ export function DailyDecisionView({
         )}
       </div>
 
-      {/* Campaign Detail Drawer */}
-      <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
-        <DrawerContent className="max-h-[90vh] bg-background border-border">
+      {/* Campaign Detail Sheet — anchored right */}
+      <Sheet open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
+        <SheetContent side="right" className="max-w-[680px] w-full p-0 overflow-y-auto bg-background border-border">
           {drawerCampaign && <DrawerBody
             campaign={drawerCampaign}
             profit={drawerProfit}
@@ -509,8 +509,8 @@ export function DailyDecisionView({
             navigate={navigate}
             setSelectedCampaign={setSelectedCampaign}
           />}
-        </DrawerContent>
-      </Drawer>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
@@ -540,11 +540,11 @@ function DrawerBody({
   const daysRunning = d.created_at
     ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
     : null;
-  const spenderRate = Number(d.subscribers || 0) > 0
-    ? (Number(d.spenders || 0) / Number(d.subscribers || 0)) * 100 : 0;
+  const spenderRate = Math.min(100, Number(d.subscribers || 0) > 0
+    ? (Number(d.spenders || 0) / Number(d.subscribers || 0)) * 100 : 0);
   const existingFans = Math.max(0, Number(d.subscribers || 0) - d.newSubs);
-  const orgPct = Number(d.subscribers || 0) > 0
-    ? (d.newSubs / Number(d.subscribers || 0)) * 100 : 0;
+  const orgPct = Math.min(100, Number(d.subscribers || 0) > 0
+    ? (d.newSubs / Number(d.subscribers || 0)) * 100 : 0);
   const cpl = Number(d.subscribers || 0) > 0 ? d.cost / Number(d.subscribers || 0) : 0;
 
   const calcCostTotal = () => {
@@ -619,13 +619,13 @@ function DrawerBody({
         <div className="flex items-center gap-4">
           <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={64} />
           <div className="flex-1 min-w-0">
-            <DrawerHeader className="p-0">
-              <DrawerTitle className="truncate text-[22px] font-bold leading-tight text-foreground">
+            <SheetHeader className="p-0">
+              <SheetTitle className="truncate text-[22px] font-bold leading-tight text-foreground">
                 {d.campaign_name || "Unknown"}
-              </DrawerTitle>
+              </SheetTitle>
               <p className="text-[15px] font-medium text-primary truncate">{d.modelName}</p>
-            </DrawerHeader>
-            <DrawerDescription asChild>
+            </SheetHeader>
+            <SheetDescription asChild>
               <div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-muted-foreground">
                   {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
@@ -656,7 +656,7 @@ function DrawerBody({
                   </div>
                 )}
               </div>
-            </DrawerDescription>
+            </SheetDescription>
           </div>
         </div>
       </div>
@@ -768,7 +768,7 @@ function DrawerBody({
           {/* PERIOD PERFORMANCE */}
           <div className="rounded-lg border border-border overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: "hsl(var(--primary))", background: "hsl(200 25% 14%)" }}>
             <div className="px-3 py-2.5 border-b border-border">
-              <h4 className="text-sm font-bold text-foreground">📅 PERIOD</h4>
+              <h4 className="text-sm font-bold text-foreground">📅 PERFORMANCE</h4>
             </div>
             <DataRow label="Period Subs" value={d.periodSubs.toLocaleString()} />
             <DataRow label="Period Revenue" value={fmtC(d.periodRev)} tone={d.periodRev > 0 ? "positive" : "neutral"} />
@@ -781,8 +781,8 @@ function DrawerBody({
             <div className="px-3 py-2.5 border-b border-border">
               <h4 className="text-sm font-bold text-foreground">⭐ ALL TIME</h4>
             </div>
-            <DataRow label="Total LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
-            <DataRow label="Cross-Poll" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
+            <DataRow label="Campaign LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
+            <DataRow label="Cross-Poll LTV" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
             <DataRow label="New Fans" value={d.newSubs.toLocaleString()} />
             <DataRow label="Existing Fans" value={existingFans.toLocaleString()} />
             <DataRow label="LTV/Sub" value={fmtC2(d.ltvPerSub)} tone={d.ltvPerSub > 0 ? "positive" : "neutral"} />
