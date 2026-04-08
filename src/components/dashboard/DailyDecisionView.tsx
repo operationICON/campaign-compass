@@ -777,7 +777,7 @@ function DrawerBody({
             <DataRow label="LTV/Sub" value={fmtC2(d.ltvPerSub)} tone={d.ltvPerSub > 0 ? "positive" : "neutral"} />
             <DataRow label="Org %" value={`${orgPct.toFixed(1)}%`} />
             <DataRow label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
-            <DataRow label="Total Subs" value={Number(d.subscribers || 0).toLocaleString()} />
+            <DataRow label="Total Subs" value={atSubs.toLocaleString()} />
           </div>
         </div>
       </div>
