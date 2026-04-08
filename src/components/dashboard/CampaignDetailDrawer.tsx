@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Copy, ExternalLink, XCircle, Coins, Activity, Trash2,
-  ArrowUpRight, Loader2, DollarSign,
+  ArrowUpRight, Loader2, DollarSign, Calculator,
 } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
@@ -84,21 +84,30 @@ function DrawerBodyInner({
   const totalLtv = Number(d.totalLtv || d.ltvFromTable || 0);
   const crossPoll = Number(d.crossPoll || d.crossPollRevenue || 0);
   const newSubs = Number(d.newSubs || d.newSubsTotal || 0);
-  const ltvPerSub = newSubs > 0 ? totalLtv / newSubs : 0;
 
+  // FIX: Total Subs = tracking_links.subscribers (all time cumulative)
+  const atSubs = Number(d.allTimeSubs || d.subscribers || 0);
+  const atSpenders = Number(d.allTimeSpenders || d.spenders || 0);
+  const totalClicks = Number(d.clicks || 0);
+
+  // FIX: Existing Fans = tracking_links.subscribers - new_subs_total, floor at 0
+  const existingFans = Math.max(0, atSubs - newSubs);
+
+  // FIX: Org % = new_subs_total / tracking_links.subscribers * 100, cap 100
+  const orgPct = Math.min(100, atSubs > 0 ? (newSubs / atSubs) * 100 : 0);
+
+  // FIX: Spender Rate = tracking_links.spenders / tracking_links.subscribers * 100, cap 100
+  const spenderRate = Math.min(100, atSubs > 0 ? (atSpenders / atSubs) * 100 : 0);
+
+  // Calculations
+  const ltvPerSub = newSubs > 0 ? totalLtv / newSubs : 0;
   const profit = totalLtv + crossPoll - cost;
   const profitPerSub = newSubs > 0 ? profit / newSubs : 0;
   const roi = cost > 0 ? ((totalLtv + crossPoll - cost) / cost) * 100 : 0;
-
-  const atSubs = Number(d.allTimeSubs || d.subscribers || 0);
-  const atSpenders = Number(d.allTimeSpenders || d.spenders || 0);
-  const spenderRate = Math.min(100, atSubs > 0 ? (atSpenders / atSubs) * 100 : 0);
-  const existingFans = Math.max(0, atSubs - newSubs);
-  const orgPct = Math.min(100, atSubs > 0 ? (newSubs / atSubs) * 100 : 0);
+  const cvr = totalClicks > 0 ? (atSubs / totalClicks) * 100 : 0;
   const cpl = atSubs > 0 ? cost / atSubs : 0;
-
-  const cvr = Number(d.clicks || 0) > 0
-    ? (atSubs / Number(d.clicks || 0)) * 100 : 0;
+  const estDailySpend = daysRunning && daysRunning > 0 ? cost / daysRunning : 0;
+  const breakEvenLtv = newSubs > 0 ? cost / newSubs : 0;
 
   const periodSubs = Number(d.periodSubs || 0);
   const periodRev = Number(d.periodRev || 0);
@@ -106,7 +115,7 @@ function DrawerBodyInner({
 
   const calcCostTotal = () => {
     const v = Number(costValue) || 0;
-    if (costType === "CPC") return v * Number(d.clicks || 0);
+    if (costType === "CPC") return v * totalClicks;
     if (costType === "CPL") return v * atSubs;
     return v;
   };
@@ -178,7 +187,7 @@ function DrawerBodyInner({
     <div className="overflow-y-auto flex-1">
       {/* HEADER */}
       <div className="px-6 pt-3 pb-2 border-b border-border flex items-center gap-4">
-        <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url} name={d.modelName || d.accounts?.display_name || ""} size={64} />
+        <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url} name={d.modelName || d.accounts?.display_name || ""} size={80} />
         <div className="flex-1 min-w-0">
           <DrawerHeader className="p-0">
             <DrawerTitle className="truncate text-lg font-bold leading-tight text-foreground">
@@ -353,7 +362,7 @@ function DrawerBodyInner({
             <DataRow label="Profit/Sub" value={newSubs > 0 ? fmtC2(profitPerSub) : "—"} tone={newSubs > 0 ? (profitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
             <DataRow label="ROI" value={cost > 0 ? fmtPct(roi) : "No spend"} tone={cost > 0 ? (roi >= 0 ? "positive" : "negative") : "neutral"} />
             <DataRow label="CVR %" value={cvr > 0 ? `${cvr.toFixed(2)}%` : "—"} tone={cvr > 0 ? "positive" : "neutral"} />
-            <DataRow label="Total Clicks" value={Number(d.clicks || 0).toLocaleString()} />
+            <DataRow label="Total Clicks" value={totalClicks.toLocaleString()} />
             <DataRow label="Spenders" value={atSpenders.toLocaleString()} />
           </div>
         </div>
@@ -385,6 +394,30 @@ function DrawerBodyInner({
             <DataRow label="Org %" value={`${orgPct.toFixed(1)}%`} />
             <DataRow label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
             <DataRow label="Total Subs" value={atSubs.toLocaleString()} />
+          </div>
+        </div>
+      </div>
+
+      {/* CALCULATIONS SECTION */}
+      <div className="px-6 pb-4">
+        <div className="rounded-lg border border-border overflow-hidden" style={{ borderTopWidth: 3, borderTopColor: "hsl(45 93% 47%)" }}>
+          <div className="px-4 py-2 border-b border-border">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">🧮 Calculations</h4>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-border">
+            <div className="p-0">
+              <DataRow label="LTV/Sub" value={newSubs > 0 ? fmtC2(totalLtv / newSubs) : "—"} tone={newSubs > 0 && totalLtv / newSubs > 0 ? "positive" : "neutral"} />
+              <DataRow label="Profit/Sub" value={newSubs > 0 ? fmtC2((totalLtv - cost) / newSubs) : "—"} tone={newSubs > 0 ? ((totalLtv - cost) / newSubs >= 0 ? "positive" : "negative") : "neutral"} />
+              <DataRow label="ROI" value={cost > 0 ? `${(((totalLtv - cost) / cost) * 100).toFixed(0)}%` : "No spend"} tone={cost > 0 ? ((totalLtv - cost) / cost >= 0 ? "positive" : "negative") : "neutral"} />
+              <DataRow label="CVR %" value={totalClicks > 0 ? `${((atSubs / totalClicks) * 100).toFixed(2)}%` : "—"} tone={totalClicks > 0 ? "positive" : "neutral"} />
+              <DataRow label="Break Even LTV" value={newSubs > 0 && cost > 0 ? `Need ${fmtC2(breakEvenLtv)}/sub` : "—"} tone="neutral" />
+            </div>
+            <div className="p-0">
+              <DataRow label="Spender %" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
+              <DataRow label="Org %" value={`${orgPct.toFixed(1)}%`} tone={orgPct > 0 ? "positive" : "neutral"} />
+              <DataRow label="Avg Expenses" value={atSubs > 0 ? fmtC2(cost / atSubs) : "—"} tone="neutral" />
+              <DataRow label="Est Daily Spend" value={estDailySpend > 0 ? fmtC2(estDailySpend) : "—"} tone="neutral" />
+            </div>
           </div>
         </div>
       </div>

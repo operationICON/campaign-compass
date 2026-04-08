@@ -7,10 +7,12 @@ export interface SnapshotMetrics {
   clicks: number;
   subscribers: number;
   revenue: number;
+  days: number; // COUNT(DISTINCT snapshot_date) for this link
 }
 
 interface SnapshotRow {
   tracking_link_id: string | null;
+  snapshot_date: string | null;
   clicks: number | null;
   subscribers: number | null;
   revenue: number | null;
@@ -27,6 +29,7 @@ function toMetricValue(value: number | null | undefined) {
  */
 export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string, SnapshotMetrics> {
   const lookup: Record<string, SnapshotMetrics> = {};
+  const datesPerLink: Record<string, Set<string>> = {};
 
   for (const row of snapshotRows) {
     const id = String(row.tracking_link_id ?? "").toLowerCase();
@@ -37,12 +40,19 @@ export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string,
     const revenue = toMetricValue(row.revenue);
 
     if (!lookup[id]) {
-      lookup[id] = { clicks: 0, subscribers: 0, revenue: 0 };
+      lookup[id] = { clicks: 0, subscribers: 0, revenue: 0, days: 0 };
+      datesPerLink[id] = new Set();
     }
 
     lookup[id].clicks += clicks;
     lookup[id].subscribers += subscribers;
     lookup[id].revenue += revenue;
+    if (row.snapshot_date) datesPerLink[id].add(row.snapshot_date);
+  }
+
+  // Set days count from distinct dates
+  for (const id of Object.keys(lookup)) {
+    lookup[id].days = datesPerLink[id]?.size || 0;
   }
 
   return lookup;
@@ -59,7 +69,6 @@ async function fetchServerDate(): Promise<string> {
     .order("snapshot_date", { ascending: false })
     .limit(1);
   if (error) throw error;
-  // If no snapshots at all, fall back to JS date (unlikely in production)
   if (!data || data.length === 0) {
     return new Date().toISOString().slice(0, 10);
   }
@@ -68,13 +77,7 @@ async function fetchServerDate(): Promise<string> {
 
 /**
  * Fetches daily_snapshots for the selected time period and returns
- * a lookup map of tracking_link_id → per-period {clicks, subscribers, revenue}
- * derived from cumulative snapshots using MAX - MIN within the selected range.
- *
- * Date ranges are resolved using the DATABASE server date (MAX snapshot_date
- * or CURRENT_DATE offsets), not the browser clock.
- *
- * For "All Time" returns null lookup (callers should use tracking_links totals).
+ * a lookup map of tracking_link_id → per-period {clicks, subscribers, revenue, days}
  */
 export function useSnapshotMetrics(
   timePeriod: TimePeriod,
@@ -82,7 +85,6 @@ export function useSnapshotMetrics(
 ) {
   const isAllTime = timePeriod === "all" && !customRange;
 
-  // Use a sentinel so the query key reflects the period type, not a JS-computed date
   const periodKey = customRange
     ? `custom_${customRange.from.toISOString()}_${customRange.to.toISOString()}`
     : timePeriod;
@@ -99,17 +101,14 @@ export function useSnapshotMetrics(
         fromDate = customRange.from.toISOString().slice(0, 10);
         toDate = customRange.to.toISOString().slice(0, 10);
       } else {
-        // Resolve dates from the server, not the browser
         const serverMaxDate = await fetchServerDate();
 
         switch (timePeriod) {
           case "day":
-            // Use MAX(snapshot_date)
             fromDate = serverMaxDate;
             toDate = serverMaxDate;
             break;
           case "week": {
-            // CURRENT_DATE - 7 — use server max date as reference
             const d = new Date(serverMaxDate + "T00:00:00Z");
             d.setUTCDate(d.getUTCDate() - 7);
             fromDate = d.toISOString().slice(0, 10);
@@ -117,7 +116,6 @@ export function useSnapshotMetrics(
             break;
           }
           case "month": {
-            // CURRENT_DATE - 30
             const d = new Date(serverMaxDate + "T00:00:00Z");
             d.setUTCDate(d.getUTCDate() - 30);
             fromDate = d.toISOString().slice(0, 10);
@@ -125,7 +123,6 @@ export function useSnapshotMetrics(
             break;
           }
           case "prev_month": {
-            // CURRENT_DATE - 60 to CURRENT_DATE - 31
             const dFrom = new Date(serverMaxDate + "T00:00:00Z");
             dFrom.setUTCDate(dFrom.getUTCDate() - 60);
             const dTo = new Date(serverMaxDate + "T00:00:00Z");
@@ -139,14 +136,13 @@ export function useSnapshotMetrics(
         }
       }
 
-      // Fetch all matching rows (batched)
       const allRows: any[] = [];
       let rangeFrom = 0;
       const batchSize = 1000;
       while (true) {
         const { data, error } = await supabase
           .from("daily_snapshots")
-          .select("tracking_link_id, clicks, subscribers, revenue")
+          .select("tracking_link_id, snapshot_date, clicks, subscribers, revenue")
           .gte("snapshot_date", fromDate)
           .lte("snapshot_date", toDate)
           .range(rangeFrom, rangeFrom + batchSize - 1);
@@ -161,9 +157,8 @@ export function useSnapshotMetrics(
     enabled: !isAllTime,
   });
 
-  // Build lookup: tracking_link_id (UUID) → period delta metrics
   const snapshotLookup = useMemo<Record<string, SnapshotMetrics> | null>(() => {
-    if (isAllTime) return null; // Signal to callers: use tracking_links totals
+    if (isAllTime) return null;
     return buildSnapshotLookup(snapshotRows);
   }, [snapshotRows, isAllTime]);
 
@@ -183,10 +178,11 @@ export function getSnapshotMetrics(
       clicks: Number(link.clicks || 0),
       subscribers: Number(link.subscribers || 0),
       revenue: Number(link.revenue || 0),
+      days: 0,
     };
   }
   const id = String(link.id ?? "").toLowerCase();
-  return snapshotLookup[id] || { clicks: 0, subscribers: 0, revenue: 0 };
+  return snapshotLookup[id] || { clicks: 0, subscribers: 0, revenue: 0, days: 0 };
 }
 
 /**
@@ -200,6 +196,6 @@ export function applySnapshotToLinks(
   if (!snapshotLookup) return links; // All Time — use originals
   return links.map(l => {
     const m = getSnapshotMetrics(l, snapshotLookup);
-    return { ...l, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue };
+    return { ...l, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue, snapshotDays: m.days };
   });
 }

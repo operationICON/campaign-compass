@@ -205,6 +205,7 @@ export default function DashboardPage() {
 
       const rows: Array<{
         tracking_link_id: string | null;
+        snapshot_date: string | null;
         clicks: number | null;
         subscribers: number | null;
         revenue: number | null;
