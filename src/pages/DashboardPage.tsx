@@ -13,7 +13,7 @@ import {
   RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X,
   DollarSign, Activity, Award, Percent
 } from "lucide-react";
-import { InsightsSection } from "@/components/dashboard/InsightsSection";
+
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
@@ -695,20 +695,6 @@ export default function DashboardPage() {
         />
 
 
-        {/* ═══ INSIGHTS SECTION ═══ */}
-        <InsightsSection
-          links={links}
-          accounts={accounts}
-          dailyMetrics={dailyMetrics}
-          trackingLinkLtv={trackingLinkLtv}
-          groupFilter={groupFilter}
-          selectedModel={selectedModel}
-          getAccountCategory={getAccountCategory}
-          isInsightVisible={isInsightVisible}
-          isModelColVisible={isModelColVisible}
-          snapshotRows={overviewSnapshotRows}
-          isAllTime={isAllTime}
-        />
 
       </div>
 
