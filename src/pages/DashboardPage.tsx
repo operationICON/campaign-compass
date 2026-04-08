@@ -806,10 +806,19 @@ function KpiCards({
 
   const isAllTime = timePeriod === "all" && !customRange;
   // For All Time, use new_subs_total (fans who generated LTV) as denominator
+  // Filter by model/group selection
   const ltvPerSub = (() => {
     if (isAllTime) {
+      const modelIdSet = modelParam ? new Set([modelParam]) : null;
+      const groupAccIds = groupFilter !== "all"
+        ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id))
+        : null;
+      const filterSet = modelIdSet || groupAccIds;
       let ltvSubs = 0;
-      for (const r of trackingLinkLtv) ltvSubs += Number(r.new_subs_total || 0);
+      for (const r of trackingLinkLtv) {
+        if (filterSet && !filterSet.has(r.account_id)) continue;
+        ltvSubs += Number(r.new_subs_total || 0);
+      }
       return ltvSubs > 0 ? totalLtv / ltvSubs : null;
     }
     return periodSubscribers > 0 ? totalLtv / periodSubscribers : null;
