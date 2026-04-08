@@ -552,13 +552,13 @@ export default function CampaignsPage() {
     const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
     const profitPerSubCalc = paidNewSubs > 0 ? totalProfitCalc / paidNewSubs : null;
     const avgCplCalc = paidNewSubs > 0 ? totalCostForProfit / paidNewSubs : null;
-    const blendedRoiCalc = totalSpendAll > 0 ? (totalProfitCalc / totalSpendAll) * 100 : null;
+    const avgCostPerSubCalc = paidNewSubs > 0 ? totalCostForProfit / paidNewSubs : null;
 
     return {
       totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
       profitPerSub: profitPerSubCalc, avgCpl: avgCplCalc, trackedCount, trackedPct,
       bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
-      avgExpensesPerCampaign, blendedRoi: blendedRoiCalc, isEstimate: agTotals.isEstimate,
+      avgExpensesPerCampaign, avgCostPerSub: avgCostPerSubCalc, isEstimate: agTotals.isEstimate,
       totalSpend: totalSpendAll, totalProfit: totalProfitCalc,
     };
   }, [filtered, isAllTime, periodDays]);
