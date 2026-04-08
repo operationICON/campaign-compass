@@ -449,57 +449,6 @@ export function DailyDecisionView({
               </div>
             </div>
 
-            {/* Performance by Source */}
-            {(() => {
-              const srcMap: Record<string, { source: string; links: number; spend: number; profit: number; subs: number; ltv: number }> = {};
-              enriched.forEach(l => {
-                const es = getEffectiveSource(l);
-                if (!es || es.toLowerCase() === "test") return;
-                if (!srcMap[es]) srcMap[es] = { source: es, links: 0, spend: 0, profit: 0, subs: 0, ltv: 0 };
-                srcMap[es].links++;
-                srcMap[es].spend += l.cost;
-                srcMap[es].profit += (l.totalLtv + l.crossPoll - l.cost);
-                srcMap[es].subs += l.newSubs;
-                srcMap[es].ltv += l.totalLtv;
-              });
-              const sourcePerf = Object.values(srcMap)
-                .map(s => ({ ...s, profitPerSub: s.subs > 0 ? s.profit / s.subs : null }))
-                .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-              if (sourcePerf.length === 0) return null;
-              return (
-                <div className="p-4 border-b border-border">
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                    <Tag className="h-3.5 w-3.5 text-primary" /> Performance by Source
-                  </h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border">
-                          <th className="text-left py-2 pr-4">Source</th>
-                          <th className="text-right py-2 px-3">Links</th>
-                          <th className="text-right py-2 px-3">Spend</th>
-                          <th className="text-right py-2 px-3">Profit/Sub</th>
-                          <th className="text-right py-2 pl-3">LTV</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sourcePerf.map(s => (
-                          <tr key={s.source} className="border-b border-border/50">
-                            <td className="py-2 pr-4 font-medium text-foreground">{s.source}</td>
-                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">{s.links}</td>
-                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">{fmtC(s.spend)}</td>
-                            <td className={`py-2 px-3 text-right font-mono font-semibold ${s.profitPerSub != null ? (s.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                              {s.profitPerSub != null ? fmtC2(s.profitPerSub) : "—"}
-                            </td>
-                            <td className="py-2 pl-3 text-right font-mono text-primary">{fmtC(s.ltv)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Top 5 by LTV/Sub */}
             <div className="p-4 border-b border-border">
