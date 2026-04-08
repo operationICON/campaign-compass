@@ -741,10 +741,10 @@ export default function CampaignsPage() {
                       label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.untagged}</span>} sub="No source tag set"
                       tooltip={{ title: "Untagged", desc: "Campaigns without a source tag assigned." }} />
                   ),
-                  campaignKpi.isVisible("blended_roi") && (
-                    <KPICard key="blended_roi" borderColor="hsl(var(--primary))" icon={<BarChart3 className="h-4 w-4 text-primary" />}
-                      label="ROI %" value={kpis.blendedRoi !== null ? `${kpis.blendedRoi.toFixed(0)}%` : "—"} sub="Revenue vs spend"
-                      tooltip={{ title: "ROI %", desc: "Overall return on investment across all paid campaigns." }} />
+                  campaignKpi.isVisible("avg_cost_sub") && (
+                    <KPICard key="avg_cost_sub" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
+                      label="Avg Cost/Sub" value={kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub="Cost per acquired subscriber"
+                      tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber. Only includes campaigns with spend set." }} />
                   ),
                   campaignKpi.isVisible("avg_expenses_per_campaign") && (
                     <KPICard key="avg_expenses_per_campaign" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
