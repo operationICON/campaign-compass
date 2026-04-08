@@ -366,13 +366,82 @@ function DrawerBodyInner({
         )}
       </div>
 
-      {/* THREE COLUMN DATA GRID */}
-      <div className="grid grid-cols-3 gap-3 px-6 py-4">
-        {/* COLUMN 1 — FINANCIALS */}
-        <div className="rounded-lg border border-border overflow-hidden" style={{ borderTopWidth: 3, borderTopColor: "hsl(var(--destructive))" }}>
-          <div className="px-4 py-2 border-b border-border">
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">💰 Financials</h4>
+      {/* FOUR COLUMN DATA GRID */}
+      <div className="px-6 py-4 overflow-x-auto">
+        <div className="flex min-w-[960px]" style={{ gap: 0 }}>
+          {/* COLUMN 1 — FINANCIALS */}
+          <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(var(--destructive))" }}>
+            <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">🔥 Financials</h4>
+            </div>
+            <div className="p-0">
+              <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
+              <DataRow label="Cost Type" value={d.cost_type || "—"} />
+              <DataRow label="Cost Per Lead" value={costInputValue > 0 ? fmtC2(costInputValue) : "—"} />
+              <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
+              <DataRow label="Profit/Sub" value={profitPerSub != null && cost > 0 ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null && cost > 0 ? profitTone(profitPerSub) : "neutral"} />
+              <DataRow label="ROI" value={showRoi(roi)} tone={roi != null ? profitTone(roi) : "neutral"} />
+              <DataRow label="CVR %" value={cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
+              <DataRow label="Total Clicks" value={totalClicks > 0 ? totalClicks.toLocaleString() : "—"} />
+              <DataRow label="Spenders" value={tlSpenders > 0 ? tlSpenders.toLocaleString() : "—"} />
+            </div>
           </div>
+
+          <div className="w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+          {/* COLUMN 2 — PERFORMANCE */}
+          <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(var(--primary))" }}>
+            <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">📊 Performance</h4>
+            </div>
+            <div className="p-0">
+              <DataRow label="Period Subs" value={hasPeriodData ? periodSubs.toLocaleString() : "—"} />
+              <DataRow label="Period Revenue" value={hasPeriodData && periodRev > 0 ? fmtC2(periodRev) : "—"} tone={hasPeriodData && periodRev > 0 ? "positive" : "neutral"} />
+              <DataRow label="Period Clicks" value={hasPeriodData ? periodClicks.toLocaleString() : "—"} />
+              <DataRow label="Avg Subs/Day" value={avgSubsDay ?? "—"} />
+            </div>
+          </div>
+
+          <div className="w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+          {/* COLUMN 3 — ALL TIME */}
+          <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(45 93% 47%)" }}>
+            <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">⭐ All Time</h4>
+            </div>
+            <div className="p-0">
+              <DataRow label="Campaign LTV" value={totalLtv > 0 ? fmtC2(totalLtv) : "—"} tone={totalLtv > 0 ? "positive" : "neutral"} />
+              <DataRow label="Cross-Poll LTV" value={crossPoll > 0 ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
+              <DataRow label="New Fans" value={newSubs > 0 ? newSubs.toLocaleString() : "—"} />
+              <DataRow label="Existing Fans" value={existingFans > 0 ? existingFans.toLocaleString() : "—"} />
+              <DataRow label="LTV/Sub" value={showCurrency(ltvPerSub)} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+              <DataRow label="Org %" value={showPct(orgPct)} />
+              <DataRow label="Spender Rate" value={showPct(spenderRate)} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
+              <DataRow label="Total Subs" value={tlSubscribers > 0 ? tlSubscribers.toLocaleString() : "—"} />
+            </div>
+          </div>
+
+          <div className="w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+          {/* COLUMN 4 — CALCULATIONS */}
+          <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(142 55% 49%)" }}>
+            <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">🧮 Calculations</h4>
+            </div>
+            <div className="p-0">
+              <DataRow label="LTV/Sub" value={showCurrency(ltvPerSub)} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+              <DataRow label="Profit/Sub" value={profitPerSub != null && cost > 0 ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
+              <DataRow label="ROI" value={showRoi(roi)} tone={roi != null ? profitTone(roi) : "neutral"} />
+              <DataRow label="CVR %" value={cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
+              <DataRow label="Break Even LTV" value={breakEvenLtv != null ? `Need ${fmtC2(breakEvenLtv)}/sub` : "—"} tone="neutral" />
+              <DataRow label="Spender %" value={showPct(spenderRate)} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
+              <DataRow label="Org %" value={showPct(orgPct)} tone={orgPct != null && orgPct > 0 ? "positive" : "neutral"} />
+              <DataRow label="Avg Expenses" value={avgExpenses != null ? fmtC2(avgExpenses) : "—"} tone="neutral" />
+              <DataRow label="Est Daily Spend" value={estDailySpend != null ? fmtC2(estDailySpend) : "—"} tone="neutral" />
+            </div>
+          </div>
+        </div>
+      </div>
           <div className="p-0">
             <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
             <DataRow label="Cost Type" value={d.cost_type || "—"} />
