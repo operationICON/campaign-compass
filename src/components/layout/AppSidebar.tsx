@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, LayoutGrid, Users, BarChart3,
-  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator
+  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator, Heart
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 
@@ -11,6 +11,7 @@ const mainNav = [
   { to: "/campaigns", icon: LayoutGrid, label: "Tracking Links" },
   { to: "/cross-poll", icon: GitBranch, label: "Cross-Poll" },
   { to: "/accounts", icon: Users, label: "Models" },
+  { to: "/fans", icon: Heart, label: "Fans" },
   { to: "/traffic-sources", icon: Tag, label: "Sources" },
   { to: "/audit", icon: ShieldCheck, label: "Audit" },
   { to: "/charts", icon: BarChart3, label: "Charts" },

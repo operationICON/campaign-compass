@@ -15,6 +15,7 @@ import LogsPage from "./pages/LogsPage";
 import DebugPage from "./pages/DebugPage";
 import TrafficSourcesPage from "./pages/TrafficSourcesPage";
 import CrossPollPage from "./pages/CrossPollPage";
+import FansPage from "./pages/FansPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/debug" element={<DebugPage />} />
           <Route path="/traffic-sources" element={<TrafficSourcesPage />} />
           <Route path="/cross-poll" element={<CrossPollPage />} />
+          <Route path="/fans" element={<FansPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
