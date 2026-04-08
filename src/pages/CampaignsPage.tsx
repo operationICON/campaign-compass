@@ -948,19 +948,20 @@ export default function CampaignsPage() {
                                     {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                                   </td>
                                 );
-                                case "revenue": return (
+                                case "revenue": {
+                                  const revVal = Number(link.revenue || 0);
+                                  const hasSnapshotRev = !isAllTime && link.snapshotDays !== undefined && link.snapshotDays > 0;
+                                  return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="text-foreground inline-flex items-center gap-1">
-                                          {fmtC(Number(link.revenue || 0))}
-                                          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">Est.</span>
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Estimated revenue · includes all subscribers (not just new)</TooltipContent>
-                                    </Tooltip>
+                                    <span className="text-foreground inline-flex items-center gap-1">
+                                      {fmtC(revVal)}
+                                      {!hasSnapshotRev && revVal > 0 && (
+                                        <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">Est.</span>
+                                      )}
+                                    </span>
                                   </td>
-                                );
+                                  );
+                                }
                                 case "ltv": {
                                   // All Time: use tracking_link_ltv.total_ltv + cross_poll_revenue
                                   // Period: use snapshot revenue (already applied to link.revenue)
