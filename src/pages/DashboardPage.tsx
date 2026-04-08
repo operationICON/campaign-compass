@@ -1054,19 +1054,23 @@ function KpiCards({
       case "est_revenue": {
         const isAllTimeRev = timePeriod === "all" && !customRange;
         const tp = timePeriod as string;
+        // Filter accounts by model/group selection
+        let filtAccts = [...accounts];
+        if (modelParam) filtAccts = filtAccts.filter((a: any) => a.id === modelParam);
+        else if (groupFilter !== "all") filtAccts = filtAccts.filter((a: any) => getAccountCategory(a) === groupFilter);
         let estRevValue: number;
         let estRevSubtitle: string;
         if (isAllTimeRev) {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
           estRevSubtitle = "Total account revenue · All Time";
         } else if (tp === "day") {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
           estRevSubtitle = "Total account revenue · Last Day";
         } else if (tp === "week") {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
           estRevSubtitle = "Total account revenue · Last Week";
         } else if (tp === "month") {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
           estRevSubtitle = "Total account revenue · Last Month";
         } else {
           estRevValue = totalRevenue;
