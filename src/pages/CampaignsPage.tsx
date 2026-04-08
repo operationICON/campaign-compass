@@ -22,6 +22,29 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
+import type { TimePeriod } from "@/hooks/usePageFilters";
+
+// ─── Snapshot range helper (copied from Overview) ───
+interface CampaignsSnapshotRange { from: string; to: string; dayCount: number; }
+function getCampaignsSnapshotRange(
+  timePeriod: TimePeriod,
+  customRange: { from: Date; to: Date } | null
+): CampaignsSnapshotRange | null {
+  if (customRange) {
+    return {
+      from: format(customRange.from, "yyyy-MM-dd"),
+      to: format(customRange.to, "yyyy-MM-dd"),
+      dayCount: Math.max(1, differenceInDays(customRange.to, customRange.from) + 1),
+    };
+  }
+  switch (timePeriod) {
+    case "day": return { from: "__latest__", to: "__latest__", dayCount: 1 };
+    case "week": return { from: "__server_week__", to: "__server_latest__", dayCount: 7 };
+    case "month": return { from: "__server_month__", to: "__server_latest__", dayCount: 30 };
+    case "prev_month": return { from: "__server_prev_from__", to: "__server_prev_to__", dayCount: 30 };
+    case "all": default: return null;
+  }
+}
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, X, Tag,
