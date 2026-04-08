@@ -794,29 +794,33 @@ export default function CampaignsPage() {
             </div>
           </div>
 
-          {!kpiCollapsed && (
+          {!kpiCollapsed && (() => {
+            const periodLabel = customRange ? "Custom range" : timePeriod === "day" ? "Last 24 hours" : timePeriod === "week" ? "Last 7 days" : timePeriod === "month" ? "Last 30 days" : timePeriod === "prev_month" ? "Previous month" : "All time across all links";
+            const spendLabel = isAllTime ? "All paid campaigns" : `${periodLabel} est.`;
+            const showDash = !isAllTime && !kpis.hasSnapshotData;
+            return (
             <div className="px-3.5 pb-3" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr", gap: "10px", alignItems: "stretch" }}>
                 {/* Card 1 — Total LTV (hero) */}
                 <div className="rounded-xl p-4 flex flex-col justify-center" style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
                   <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total LTV</p>
-                  <p className="text-[22px] font-bold text-white font-mono mt-1">{fmtC(kpis.totalLtv)}</p>
-                  <p className="text-[10px] text-white/60 mt-0.5">All time across all links</p>
+                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv)}</p>
+                  <p className="text-[10px] text-white/60 mt-0.5">{periodLabel}</p>
                 </div>
                 {/* Card 2 — Total Spend */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Total Spend" value={<span className="text-foreground">{hasAnyExpenses ? fmtC(totalExpenses) : "—"}</span>} sub="All paid campaigns"
-                  tooltip={{ title: "Total Spend", desc: "Sum of cost_total across campaigns with spend set." }} />
+                  label="Total Spend" value={showDash ? <span className="text-muted-foreground">—</span> : <span className="text-foreground">{kpis.totalSpend > 0 ? fmtC(kpis.totalSpend) : "—"}</span>} sub={spendLabel}
+                  tooltip={{ title: "Total Spend", desc: isAllTime ? "Sum of cost_total across campaigns with spend set." : "Proportional daily spend estimate for the selected period." }} />
                 {/* Card 3 — Total Profit */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
-                  label="Total Profit" value={hasAnyExpenses
-                    ? <span className={totalProfitAll >= 0 ? "text-primary" : "text-destructive"}>{fmtC(totalProfitAll)}</span>
-                    : <span className="text-muted-foreground">—</span>} sub="LTV minus spend"
-                  tooltip={{ title: "Total Profit", desc: "Total LTV minus total spend across paid campaigns." }} />
+                  label="Total Profit" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.totalSpend > 0
+                    ? <span className={kpis.totalProfit >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalProfit)}</span>
+                    : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "LTV minus spend" : `${periodLabel}`}
+                  tooltip={{ title: "Total Profit", desc: "LTV minus spend for the same time scope." }} />
                 {/* Card 4 — Avg Cost/Sub */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Avg Cost/Sub" value={kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub="Cost per acquired subscriber"
-                  tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber. Only includes campaigns with spend set." }} />
+                  label="Avg Cost/Sub" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "Cost per acquired subscriber" : spendLabel}
+                  tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber for the selected period." }} />
                 {/* Card 5 — Untagged */}
                 <div className="cursor-pointer" onClick={() => { setSourceFilter(sourceFilter === "untagged" ? "all" : "untagged"); setPage(1); }}>
                   <KPICard borderColor={kpis.untagged > 0 ? "hsl(var(--warning))" : "hsl(var(--primary))"} icon={<Tag className={`h-4 w-4 ${kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}`} />}
@@ -825,7 +829,8 @@ export default function CampaignsPage() {
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* ═══ FILTER BAR ═══ */}
