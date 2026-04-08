@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
+} from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -488,9 +488,9 @@ export function DailyDecisionView({
         )}
       </div>
 
-      {/* Campaign Detail Sheet — anchored right */}
-      <Sheet open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
-        <SheetContent side="right" className="max-w-[680px] w-full p-0 overflow-y-auto bg-background border-border">
+      {/* Campaign Detail Bottom Drawer */}
+      <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
+        <DrawerContent className="h-[65vh] max-h-[65vh] p-0 overflow-hidden border-t border-border" style={{ background: "#161B22" }}>
           {drawerCampaign && <DrawerBody
             campaign={drawerCampaign}
             profit={drawerProfit}
@@ -509,8 +509,8 @@ export function DailyDecisionView({
             navigate={navigate}
             setSelectedCampaign={setSelectedCampaign}
           />}
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }
@@ -613,52 +613,36 @@ function DrawerBody({
   const statuses = ["SCALE", "WATCH", "KILL", "HOLD", "TEST"];
 
   return (
-    <div className="overflow-y-auto max-w-[680px] mx-auto w-full">
+    <div className="overflow-y-auto flex-1">
       {/* HEADER */}
-      <div className="px-6 pt-4 pb-3 border-b border-border">
-        <div className="flex items-center gap-4">
-          <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={64} />
-          <div className="flex-1 min-w-0">
-            <SheetHeader className="p-0">
-              <SheetTitle className="truncate text-[22px] font-bold leading-tight text-foreground">
-                {d.campaign_name || "Unknown"}
-              </SheetTitle>
-              <p className="text-[15px] font-medium text-primary truncate">{d.modelName}</p>
-            </SheetHeader>
-            <SheetDescription asChild>
-              <div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-muted-foreground">
-                  {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
-                  {daysRunning && (
-                    <>
-                      <span>·</span>
-                      <span className="font-semibold text-foreground">{daysRunning}d running</span>
-                    </>
-                  )}
-                  {d.status && (
-                    <>
-                      <span>·</span>
-                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span>
-                    </>
-                  )}
-                  {d.traffic_category && (
-                    <>
-                      <span>·</span>
-                      <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-[11px]">{d.traffic_category}</span>
-                    </>
-                  )}
-                </div>
-                {d.url && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <p className="truncate font-mono text-xs text-muted-foreground flex-1">{d.url}</p>
-                    <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-1 transition-colors"><Copy className="h-3.5 w-3.5" /></button>
-                    <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1 transition-colors"><ExternalLink className="h-3.5 w-3.5" /></a>
-                  </div>
-                )}
-              </div>
-            </SheetDescription>
-          </div>
+      <div className="px-6 pt-3 pb-2 border-b border-border flex items-center gap-4">
+        <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={44} />
+        <div className="flex-1 min-w-0">
+          <DrawerHeader className="p-0">
+            <DrawerTitle className="truncate text-lg font-bold leading-tight text-foreground">
+              {d.campaign_name || "Unknown"}
+            </DrawerTitle>
+            <span className="text-[13px] font-medium text-primary">{d.modelName}</span>
+          </DrawerHeader>
+          <DrawerDescription asChild>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-xs text-muted-foreground">
+              {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
+              {daysRunning && <><span>·</span><span className="font-semibold text-foreground">{daysRunning}d running</span></>}
+              {d.status && <><span>·</span><span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span></>}
+              {d.traffic_category && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{d.traffic_category}</span></>}
+            </div>
+          </DrawerDescription>
         </div>
+        {d.url && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <p className="truncate font-mono text-[11px] text-muted-foreground max-w-[200px]">{d.url}</p>
+            <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-1 transition-colors"><Copy className="h-3.5 w-3.5" /></button>
+            <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1 transition-colors"><ExternalLink className="h-3.5 w-3.5" /></a>
+          </div>
+        )}
+        <button onClick={() => setSelectedCampaign(null)} className="text-muted-foreground hover:text-foreground p-1 transition-colors shrink-0">
+          <XCircle className="h-5 w-5" />
+        </button>
       </div>
 
       {/* ACTION BUTTONS */}
@@ -675,7 +659,7 @@ function DrawerBody({
               key={btn.key}
               variant={activeAction === btn.key ? "default" : "outline"}
               size="sm"
-              className="flex-1 h-10 text-[13px] gap-1.5"
+              className="flex-1 h-9 text-[13px] gap-1.5"
               onClick={() => {
                 if (btn.key === "details") {
                   navigate(`/campaigns?link=${d.id}`);
@@ -745,42 +729,45 @@ function DrawerBody({
         )}
       </div>
 
-      {/* TWO COLUMN LAYOUT */}
-      <div className="flex gap-3 px-6 py-4">
-        {/* LEFT — FINANCIALS */}
-        <div className="flex-1 rounded-lg border border-border overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: "hsl(var(--destructive))", background: "hsl(230 25% 14%)" }}>
-          <div className="px-3 py-2.5 border-b border-border">
-            <h4 className="text-sm font-bold text-foreground">💰 FINANCIALS</h4>
+      {/* THREE COLUMN DATA GRID */}
+      <div className="grid grid-cols-3 gap-3 px-6 py-4">
+        {/* COLUMN 1 — FINANCIALS */}
+        <div className="rounded-lg border border-border overflow-hidden" style={{ borderTopWidth: 3, borderTopColor: "hsl(var(--destructive))" }}>
+          <div className="px-4 py-2 border-b border-border">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">💰 Financials</h4>
           </div>
-          <DataRow label="Total Spend" value={fmtC2(d.cost)} />
-          <DataRow label="Cost Type" value={d.cost_type || "—"} />
-          <DataRow label="Cost Per Lead" value={cpl > 0 ? fmtC2(cpl) : "—"} />
-          <DataRow label="Profit" value={fmtC2(profit)} tone={profit >= 0 ? "positive" : "negative"} />
-          <DataRow label="Profit/Sub" value={d.newSubs > 0 ? fmtC2(profitPerSub) : "—"} tone={d.newSubs > 0 ? (profitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
-          <DataRow label="ROI" value={d.cost > 0 ? fmtPct(d.roi) : "No spend"} tone={d.cost > 0 ? (d.roi >= 0 ? "positive" : "negative") : "neutral"} />
-          <DataRow label="CVR %" value={cvr > 0 ? `${cvr.toFixed(2)}%` : "—"} tone={cvr > 0 ? "positive" : "neutral"} />
-          <DataRow label="Total Clicks" value={Number(d.clicks || 0).toLocaleString()} />
-          <DataRow label="Spenders" value={Number(d.spenders || 0).toLocaleString()} />
+          <div className="p-0">
+            <DataRow label="Total Spend" value={fmtC2(d.cost)} />
+            <DataRow label="Cost Type" value={d.cost_type || "—"} />
+            <DataRow label="Cost Per Lead" value={cpl > 0 ? fmtC2(cpl) : "—"} />
+            <DataRow label="Profit" value={fmtC2(profit)} tone={profit >= 0 ? "positive" : "negative"} />
+            <DataRow label="Profit/Sub" value={d.newSubs > 0 ? fmtC2(profitPerSub) : "—"} tone={d.newSubs > 0 ? (profitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
+            <DataRow label="ROI" value={d.cost > 0 ? fmtPct(d.roi) : "No spend"} tone={d.cost > 0 ? (d.roi >= 0 ? "positive" : "negative") : "neutral"} />
+            <DataRow label="CVR %" value={cvr > 0 ? `${cvr.toFixed(2)}%` : "—"} tone={cvr > 0 ? "positive" : "neutral"} />
+            <DataRow label="Total Clicks" value={Number(d.clicks || 0).toLocaleString()} />
+            <DataRow label="Spenders" value={Number(d.spenders || 0).toLocaleString()} />
+          </div>
         </div>
 
-        {/* RIGHT — PERIOD + ALL TIME stacked */}
-        <div className="flex-1 flex flex-col gap-3">
-          {/* PERIOD PERFORMANCE */}
-          <div className="rounded-lg border border-border overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: "hsl(var(--primary))", background: "hsl(200 25% 14%)" }}>
-            <div className="px-3 py-2.5 border-b border-border">
-              <h4 className="text-sm font-bold text-foreground">📅 PERFORMANCE</h4>
-            </div>
+        {/* COLUMN 2 — PERFORMANCE */}
+        <div className="rounded-lg border border-border overflow-hidden" style={{ borderTopWidth: 3, borderTopColor: "hsl(var(--primary))" }}>
+          <div className="px-4 py-2 border-b border-border">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">📅 Performance</h4>
+          </div>
+          <div className="p-0">
             <DataRow label="Period Subs" value={d.periodSubs.toLocaleString()} />
             <DataRow label="Period Revenue" value={fmtC(d.periodRev)} tone={d.periodRev > 0 ? "positive" : "neutral"} />
             <DataRow label="Period Clicks" value={d.periodClicks.toLocaleString()} />
             <DataRow label="Avg Subs/Day" value={daysRunning ? (d.periodSubs / Math.max(1, daysRunning)).toFixed(1) : "—"} />
           </div>
+        </div>
 
-          {/* ALL TIME */}
-          <div className="rounded-lg border border-border overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: "hsl(142 55% 49%)", background: "hsl(135 20% 12%)" }}>
-            <div className="px-3 py-2.5 border-b border-border">
-              <h4 className="text-sm font-bold text-foreground">⭐ ALL TIME</h4>
-            </div>
+        {/* COLUMN 3 — ALL TIME */}
+        <div className="rounded-lg border border-border overflow-hidden" style={{ borderTopWidth: 3, borderTopColor: "hsl(142 55% 49%)" }}>
+          <div className="px-4 py-2 border-b border-border">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">⭐ All Time</h4>
+          </div>
+          <div className="p-0">
             <DataRow label="Campaign LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
             <DataRow label="Cross-Poll LTV" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
             <DataRow label="New Fans" value={d.newSubs.toLocaleString()} />
