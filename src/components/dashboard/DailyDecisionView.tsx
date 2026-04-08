@@ -488,9 +488,9 @@ export function DailyDecisionView({
         )}
       </div>
 
-      {/* Campaign Detail Drawer */}
-      <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
-        <DrawerContent className="max-h-[90vh] bg-background border-border">
+      {/* Campaign Detail Sheet — anchored right */}
+      <Sheet open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
+        <SheetContent side="right" className="max-w-[680px] w-full p-0 overflow-y-auto bg-background border-border">
           {drawerCampaign && <DrawerBody
             campaign={drawerCampaign}
             profit={drawerProfit}
@@ -509,8 +509,8 @@ export function DailyDecisionView({
             navigate={navigate}
             setSelectedCampaign={setSelectedCampaign}
           />}
-        </DrawerContent>
-      </Drawer>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
