@@ -138,6 +138,8 @@ export function DailyDecisionView({
         totalLtv, crossPoll, newSubs, ltvPerSub, cost, roi,
         modelName, avatarUrl,
         hasPeriodSubs: periodSubs > 0,
+        allTimeSubs: Number(l.subscribers || 0),
+        allTimeSpenders: Number(l.spenders || 0),
       };
     });
   }, [links, periodSnapshotByLink, allTimeSnapshotByLink, ltvLookup, accounts]);
@@ -540,12 +542,12 @@ function DrawerBody({
   const daysRunning = d.created_at
     ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
     : null;
-  const spenderRate = Math.min(100, Number(d.subscribers || 0) > 0
-    ? (Number(d.spenders || 0) / Number(d.subscribers || 0)) * 100 : 0);
-  const existingFans = Math.max(0, Number(d.subscribers || 0) - d.newSubs);
-  const orgPct = Math.min(100, Number(d.subscribers || 0) > 0
-    ? (d.newSubs / Number(d.subscribers || 0)) * 100 : 0);
-  const cpl = Number(d.subscribers || 0) > 0 ? d.cost / Number(d.subscribers || 0) : 0;
+  const atSubs = Number(d.allTimeSubs || d.subscribers || 0);
+  const atSpenders = Number(d.allTimeSpenders || d.spenders || 0);
+  const spenderRate = Math.min(100, atSubs > 0 ? (atSpenders / atSubs) * 100 : 0);
+  const existingFans = Math.max(0, atSubs - d.newSubs);
+  const orgPct = Math.min(100, atSubs > 0 ? (d.newSubs / atSubs) * 100 : 0);
+  const cpl = atSubs > 0 ? d.cost / atSubs : 0;
 
   const calcCostTotal = () => {
     const v = Number(costValue) || 0;
@@ -635,7 +637,7 @@ function DrawerBody({
         </div>
         {d.url && (
           <div className="flex items-center gap-1.5 shrink-0">
-            <p className="truncate font-mono text-[11px] text-muted-foreground max-w-[200px]">{d.url}</p>
+            <p className="font-mono text-[13px] text-muted-foreground max-w-[340px] break-all">{d.url}</p>
             <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-1 transition-colors"><Copy className="h-3.5 w-3.5" /></button>
             <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1 transition-colors"><ExternalLink className="h-3.5 w-3.5" /></a>
           </div>
@@ -775,20 +777,11 @@ function DrawerBody({
             <DataRow label="LTV/Sub" value={fmtC2(d.ltvPerSub)} tone={d.ltvPerSub > 0 ? "positive" : "neutral"} />
             <DataRow label="Org %" value={`${orgPct.toFixed(1)}%`} />
             <DataRow label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
-            <DataRow label="Total Subs" value={Number(d.subscribers || 0).toLocaleString()} />
+            <DataRow label="Total Subs" value={atSubs.toLocaleString()} />
           </div>
         </div>
       </div>
 
-      {/* TRACKING LINK */}
-      {d.url && (
-        <div className="mx-6 mb-4 rounded-lg border border-border bg-card px-4 py-3 flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
-          <p className="truncate font-mono text-xs text-muted-foreground flex-1">{d.url}</p>
-          <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-1 transition-colors"><Copy className="h-4 w-4" /></button>
-          <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1 transition-colors"><ExternalLink className="h-4 w-4" /></a>
-        </div>
-      )}
     </div>
   );
 }
