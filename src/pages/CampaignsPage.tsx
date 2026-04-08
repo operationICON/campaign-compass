@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
-import { PageFilterBar } from "@/components/PageFilterBar";
+import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
