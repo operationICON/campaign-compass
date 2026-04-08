@@ -1099,8 +1099,6 @@ export default function CampaignsPage() {
                                   </td>
                                 );
                                 case "subs_day": {
-                                  // Period: SUM(subscribers) / COUNT(DISTINCT snapshot_date)
-                                  // All Time: use dailyMetrics delta-based subsDay
                                   let subsPerDay: number | null = null;
                                   let subsDayLbl: string | null = null;
                                   if (!isAllTime && link.snapshotDays !== undefined) {
@@ -1109,8 +1107,14 @@ export default function CampaignsPage() {
                                     subsPerDay = pDays > 0 ? pSubs / pDays : (pSubs > 0 ? pSubs : null);
                                     if (pSubs === 0 && pDays === 0) subsDayLbl = "—";
                                   } else {
-                                    subsPerDay = link.subsDay;
-                                    subsDayLbl = link.subsDayLabel;
+                                    // All Time: subscribers / days since created
+                                    const totalSubs = Number(link.subscribers || 0);
+                                    const daysSince = Math.max(1, link.daysSinceCreated || 1);
+                                    if (totalSubs > 0 && daysSince > 0) {
+                                      subsPerDay = totalSubs / daysSince;
+                                    } else if (totalSubs === 0) {
+                                      subsDayLbl = "—";
+                                    }
                                   }
                                   return (
                                   <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
