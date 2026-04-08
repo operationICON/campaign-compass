@@ -6,15 +6,10 @@ import {
 } from "lucide-react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { ModelAvatar } from "@/components/ModelAvatar";
-import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
-} from "@/components/ui/drawer";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 interface DailyDecisionViewProps {
   links: any[];
   ltvLookup?: Record<string, any>;
