@@ -1169,7 +1169,7 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${pctColor}`}>
               {organicPct !== null ? `${organicPct.toFixed(1)}%` : "—"}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">First-time OF fans from campaigns (All Time)</p>
+            <p className="text-[11px] text-muted-foreground mt-1">First-time OF fans from campaigns</p>
           </div>
         );
       }
