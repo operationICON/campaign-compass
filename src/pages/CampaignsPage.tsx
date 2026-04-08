@@ -462,9 +462,37 @@ export default function CampaignsPage() {
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
-    // For period filters, link.revenue is already snapshot-applied (period delta)
-    const totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
+
+    // Total Spend — ALWAYS all time, never changes with period
+    const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const totalSpendAllTime = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
+    // Total LTV — switches based on period
+    let totalLtv: number;
+    if (isAllTime) {
+      // All Time: SUM(tracking_link_ltv.total_ltv + cross_poll_revenue)
+      totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
+    } else {
+      // Period: SUM(daily_snapshots.revenue) — already applied to link.revenue by applySnapshotToLinks
+      totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    }
+
+    // Total Profit
+    let totalProfitCalc: number;
+    if (isAllTime) {
+      // All Time: Total LTV (all time) - Total Spend (all time)
+      const ltvWithSpend = linksWithCost.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
+      totalProfitCalc = ltvWithSpend - totalSpendAllTime;
+    } else {
+      // Period: Period LTV - Total Spend (all time)
+      // But don't show misleading negative — period LTV is partial
+      totalProfitCalc = totalLtv - totalSpendAllTime;
+    }
+
+    // Avg Cost/Sub — ALWAYS all time
+    const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
+    const avgCostPerSubCalc = paidNewSubs > 0 ? totalSpendAllTime / paidNewSubs : null;
+
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
@@ -477,83 +505,17 @@ export default function CampaignsPage() {
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
     const untagged = scopedLinks.filter((l: any) => !getEffectiveSource(l)).length;
     const totalCount = scopedLinks.length;
+    const trackedCount = linksWithCost.length;
 
-    const agTotals = calcAgencyTotals(scopedLinks);
-    const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
-    const trackedPct = totalCount > 0 ? (trackedCount / totalCount) * 100 : 0;
-
-    // --- Expenses & Profit ---
-    const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-
-    let totalSpendAll: number;
-    let totalProfitCalc: number;
-
-    if (isAllTime || periodDays === 0) {
-      // All Time: use full cost_total and LTV-based profit
-      totalSpendAll = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-      const ltvPlusCrossPoll = linksWithCost.reduce((s: number, l: any) => {
-        const ltv = l.ltvFromTable ?? 0;
-        const cp = l.crossPollRevenue ?? 0;
-        return s + ltv + cp;
-      }, 0);
-      totalProfitCalc = ltvPlusCrossPoll - totalSpendAll;
-    } else {
-      // Period filter: Est Expenses = cost_total / days_since_created × period_days
-      totalSpendAll = linksWithCost.reduce((s: number, l: any) => {
-        const costTotal = Number(l.cost_total || 0);
-        const daysSinceCreated = Math.max(1, l.daysSinceCreated || 1);
-        return s + (costTotal / daysSinceCreated) * periodDays;
-      }, 0);
-      // Period revenue is already snapshot-applied on link.revenue
-      totalProfitCalc = totalRevenue - totalSpendAll;
-    }
-
-    // Source-based KPIs
-    const withSpend = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const bySource: Record<string, { rev: number; spend: number; subs: number; profit: number; count: number }> = {};
-    withSpend.forEach((l: any) => {
-      const tag = getEffectiveSource(l) || "Untagged";
-      if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, subs: 0, profit: 0, count: 0 };
-      const ltv = l.ltvFromTable ?? 0;
-      const cp = l.crossPollRevenue ?? 0;
-      bySource[tag].rev += ltv + cp;
-      bySource[tag].spend += Number(l.cost_total || 0);
-      bySource[tag].subs += (l.newSubsTotal || 0);
-      bySource[tag].profit += (ltv + cp) - Number(l.cost_total || 0);
-      bySource[tag].count++;
-    });
-
-    let bestSourceRoi: { name: string; roi: number } | null = null;
-    let bestSourceProfitSub: { name: string; profitSub: number } | null = null;
-    let mostProfitable: { name: string; profit: number } | null = null;
-    let worstSource: { name: string; roi: number } | null = null;
-
-    Object.entries(bySource).forEach(([name, d]) => {
-      if (name === "Untagged") return;
-      const roi = d.spend > 0 ? ((d.profit / d.spend) * 100) : 0;
-      const ps = d.subs > 0 ? d.profit / d.subs : 0;
-      if (!bestSourceRoi || roi > bestSourceRoi.roi) bestSourceRoi = { name, roi };
-      if (!bestSourceProfitSub || ps > bestSourceProfitSub.profitSub) bestSourceProfitSub = { name, profitSub: ps };
-      if (!mostProfitable || d.profit > mostProfitable.profit) mostProfitable = { name, profit: d.profit };
-      if (!worstSource || roi < worstSource.roi) worstSource = { name, roi };
-    });
-
-    const avgExpensesPerCampaign = withSpend.length > 0 ? totalSpendAll / withSpend.length : null;
-    // Profit/sub and Avg CPL based on new_subs_total from tracking_link_ltv
-    const totalCostForProfit = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
     const profitPerSubCalc = paidNewSubs > 0 ? totalProfitCalc / paidNewSubs : null;
-    const avgCplCalc = paidNewSubs > 0 ? totalCostForProfit / paidNewSubs : null;
-    const avgCostPerSubCalc = paidNewSubs > 0 ? totalCostForProfit / paidNewSubs : null;
 
     return {
-      totalRevenue, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
-      profitPerSub: profitPerSubCalc, avgCpl: avgCplCalc, trackedCount, trackedPct,
-      bestSourceRoi, bestSourceProfitSub, mostProfitable, worstSource,
-      avgExpensesPerCampaign, avgCostPerSub: avgCostPerSubCalc, isEstimate: agTotals.isEstimate,
-      totalSpend: totalSpendAll, totalProfit: totalProfitCalc,
+      totalRevenue: totalLtv, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
+      profitPerSub: profitPerSubCalc, avgCpl: avgCostPerSubCalc, trackedCount,
+      avgCostPerSub: avgCostPerSubCalc, isEstimate: false,
+      totalSpend: totalSpendAllTime, totalProfit: totalProfitCalc,
     };
-  }, [filtered, isAllTime, periodDays]);
+  }, [filtered, isAllTime]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
