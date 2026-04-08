@@ -210,7 +210,7 @@ export default function CampaignsPage() {
       .channel('campaigns-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tracking_links' }, () => {
         queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-        queryClient.invalidateQueries({ queryKey: ["campaigns_tracking_link_ltv"] });
+        queryClient.invalidateQueries({ queryKey: ["tracking_link_ltv"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
