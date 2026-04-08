@@ -446,18 +446,6 @@ export default function CampaignsPage() {
 
   // ─── Determine period days for Est Expenses ───
   const isAllTime = timePeriod === "all" && !customRange;
-  const periodDays = useMemo(() => {
-    if (customRange) {
-      return Math.max(1, differenceInDays(customRange.to, customRange.from) + 1);
-    }
-    switch (timePeriod) {
-      case "day": return 1;
-      case "week": return 7;
-      case "month": return 30;
-      case "prev_month": return 30;
-      default: return 0; // all time
-    }
-  }, [timePeriod, customRange]);
 
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
