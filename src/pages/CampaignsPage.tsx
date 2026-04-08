@@ -632,7 +632,7 @@ export default function CampaignsPage() {
           <div>
             <h1 className="text-[20px] font-bold text-foreground">Tracking Links</h1>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {sorted.length.toLocaleString()} tracking links · {modelCount} models
+              {allLinks.length.toLocaleString()} tracking links · {modelCount} models
               {lastSynced && ` · Last synced ${format(lastSynced, "MMM d, HH:mm")}`}
             </p>
           </div>
