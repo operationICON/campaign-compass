@@ -182,7 +182,9 @@ export default function CampaignsPage() {
       return allData;
     },
   });
-  const isLoading = linksLoading || snapshotLoading;
+  const linksLoaded = !linksLoading;
+  // Snapshot loading should NOT block table — rows always show, snapshot just affects period columns
+  const isLoading = linksLoading;
   // Apply snapshot metrics to links
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
