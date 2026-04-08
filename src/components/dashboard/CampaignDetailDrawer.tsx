@@ -482,6 +482,7 @@ function DrawerBodyInner({
               <div className="border-t border-border" />
 
               {/* PART 2 — Revenue Reconciliation */}
+              {hasLtvData && (
               <div className="py-3 space-y-1.5">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Where does the money come from?</p>
                 {[
@@ -506,6 +507,7 @@ function DrawerBodyInner({
                   Total LTV = <span className="text-primary">{fmtC2(totalLtv)}</span> + <span className="text-primary">{fmtC2(crossPoll)}</span> cross-poll
                 </p>
               </div>
+              )}
 
               {/* PART 3 — Cost Breakdown */}
               {cost > 0 && (
