@@ -710,148 +710,35 @@ export default function CampaignsPage() {
           </div>
 
           {!kpiCollapsed && (
-            <div className="px-3.5 pb-3 space-y-[8px]" onClick={(e) => e.stopPropagation()}>
-              {/* Group 1 — Overview (teal border) */}
-              {(() => {
-                const g1 = [
-                  campaignKpi.isVisible("total_expenses") && (
-                    <KPICard key="total_expenses" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                      label={isAllTime ? "Total Expenses" : "Est. Expenses"} value={<span className="text-foreground">{fmtC(totalExpenses)}</span>} sub={isAllTime ? "All paid campaigns" : `Estimated for period (${periodDays}d)`}
-                      tooltip={{ title: isAllTime ? "Total Expenses" : "Est. Expenses", desc: isAllTime ? "Sum of all ad spend across campaigns with costs set." : "Prorated: cost_total ÷ days_active × period_days" }} />
-                  ),
-                  campaignKpi.isVisible("total_profit") && (
-                    <KPICard key="total_profit" borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
-                      label="Total Profit" value={hasAnyExpenses
-                        ? <span className={totalProfitAll >= 0 ? "text-primary" : "text-destructive"}>{fmtC(totalProfitAll)}</span>
-                        : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "LTV minus spend" : "Period revenue minus est. expenses"}
-                      tooltip={{ title: "Total Profit", desc: isAllTime ? "Total LTV minus total expenses across paid campaigns." : "Period revenue (from snapshots) minus estimated expenses for this period." }} />
-                  ),
-                  campaignKpi.isVisible("active_campaigns") && (
-                    <KPICard key="active_campaigns" borderColor="hsl(var(--primary))" icon={<Activity className="h-4 w-4 text-primary" />}
-                      label="Active Campaigns" value={kpis.activeCampaigns.toLocaleString()} sub="Clicks in last 30 days"
-                      tooltip={{ title: "Active Campaigns", desc: "Campaigns with at least 1 click in the last 30 days." }} />
-                  ),
-                  campaignKpi.isVisible("avg_cvr") && (
-                    <KPICard key="avg_cvr" borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
-                      label="Avg CVR" value={kpis.avgCvr !== null ? `${kpis.avgCvr.toFixed(1)}%` : "—"} sub={<span className="text-primary">Agency benchmark</span>}
-                      tooltip={{ title: "Avg CVR", desc: "Conversion rate across links with 100+ clicks." }} />
-                  ),
-                  campaignKpi.isVisible("untagged") && (
-                    <KPICard key="untagged" borderColor="hsl(var(--primary))" icon={<Tag className="h-4 w-4 text-[hsl(var(--warning))]" />}
-                      label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : ""}>{kpis.untagged}</span>} sub="No source tag set"
-                      tooltip={{ title: "Untagged", desc: "Campaigns without a source tag assigned." }} />
-                  ),
-                  campaignKpi.isVisible("avg_cost_sub") && (
-                    <KPICard key="avg_cost_sub" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                      label="Avg Cost/Sub" value={kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub="Cost per acquired subscriber"
-                      tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber. Only includes campaigns with spend set." }} />
-                  ),
-                  campaignKpi.isVisible("avg_expenses_per_campaign") && (
-                    <KPICard key="avg_expenses_per_campaign" borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                      label="Avg Expenses/Campaign" value={kpis.avgExpensesPerCampaign !== null ? fmtC(kpis.avgExpensesPerCampaign) : "—"} sub="Per tracked campaign"
-                      tooltip={{ title: "Avg Expenses per Campaign", desc: "Average spend per campaign that has costs set." }} />
-                  ),
-                ].filter(Boolean);
-                return g1.length > 0 ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px", alignItems: "stretch" }}>{g1}</div>
-                ) : null;
-              })()}
-
-              {/* Group 2 — Expenses (green border) — always-on + toggleable */}
-              {(() => {
-                const g2 = [
-                  campaignKpi.isVisible("profit_sub") && (
-                    <KPICard key="profit_sub" borderColor="hsl(142 71% 45%)" icon={<TrendingUp className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-                      label="Profit/Sub" value={kpis.profitPerSub !== null
-                        ? <span className={`text-[16px] ${kpis.profitPerSub >= 0 ? "text-[hsl(142_71%_45%)]" : "text-destructive"}`}>{fmtC(kpis.profitPerSub)}</span>
-                        : "—"} sub="Per acquired subscriber"
-                      tooltip={{ title: "Profit/Sub", desc: "Profit generated per acquired subscriber across paid campaigns." }} />
-                  ),
-                  campaignKpi.isVisible("avg_cpl") && (
-                    <KPICard key="avg_cpl" borderColor="hsl(142 71% 45%)" icon={<Tag className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-                      label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} sub="Cost per subscriber"
-                      tooltip={{ title: "Avg CPL", desc: "Average cost to acquire one subscriber." }} />
-                  ),
-                  campaignKpi.isVisible("best_source_roi") && (
-                    <KPICard key="best_source_roi" borderColor="hsl(142 71% 45%)" icon={<Award className="h-4 w-4 text-[hsl(142_71%_45%)]" />}
-                      label="Best Source by ROI" value={kpis.bestSourceRoi ? <span className="text-[hsl(142_71%_45%)]">{kpis.bestSourceRoi.name}</span> : "—"}
-                      sub={kpis.bestSourceRoi ? `${kpis.bestSourceRoi.roi.toFixed(0)}% ROI` : "No data"}
-                      tooltip={{ title: "Best Source by ROI", desc: "Source tag with the highest ROI across paid campaigns." }} />
-                  ),
-                ].filter(Boolean);
-                return g2.length > 0 ? (
-                  <>
-                    <div className="h-px bg-border mx-0" style={{ margin: "8px 0" }} />
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>{g2}</div>
-                  </>
-                ) : null;
-              })()}
-
-              {/* Group 3 — Source Analysis (purple border) */}
-              {(() => {
-                const g3 = [
-                  campaignKpi.isVisible("best_source_profit_sub") && (
-                    <KPICard key="best_source_profit_sub" borderColor="hsl(263 70% 50%)" icon={<Star className="h-4 w-4 text-[hsl(263_70%_50%)]" />}
-                      label="Best Source by Profit/Sub" value={kpis.bestSourceProfitSub ? <span className="text-[hsl(263_70%_50%)]">{kpis.bestSourceProfitSub.name}</span> : "—"}
-                      sub={kpis.bestSourceProfitSub ? `${fmtC(kpis.bestSourceProfitSub.profitSub)}/sub` : "No data"}
-                      tooltip={{ title: "Best Source by Profit/Sub", desc: "Source tag with highest profit per subscriber." }} />
-                  ),
-                  campaignKpi.isVisible("most_profitable_source") && (
-                    <KPICard key="most_profitable_source" borderColor="hsl(263 70% 50%)" icon={<DollarSign className="h-4 w-4 text-[hsl(263_70%_50%)]" />}
-                      label="Most Profitable Source" value={kpis.mostProfitable ? <span className="text-[hsl(263_70%_50%)]">{kpis.mostProfitable.name}</span> : "—"}
-                      sub={kpis.mostProfitable ? `${fmtC(kpis.mostProfitable.profit)} profit` : "No data"}
-                      tooltip={{ title: "Most Profitable Source", desc: "Source tag with the highest total profit." }} />
-                  ),
-                  campaignKpi.isVisible("worst_source") && (
-                    <KPICard key="worst_source" borderColor="hsl(263 70% 50%)" icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-                      label="Lowest Profitable Source" value={kpis.worstSource ? <span className="text-destructive">{kpis.worstSource.name}</span> : "—"}
-                      sub={kpis.worstSource ? `${kpis.worstSource.roi.toFixed(0)}% ROI` : "No data"}
-                      tooltip={{ title: "Lowest Profitable Source", desc: "Source tag with the lowest ROI. Consider pausing or optimizing." }} />
-                  ),
-                ].filter(Boolean);
-                return g3.length > 0 ? (
-                  <>
-                    <div className="h-px bg-border mx-0" style={{ margin: "8px 0" }} />
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", alignItems: "stretch" }}>{g3}</div>
-                  </>
-                ) : null;
-              })()}
-
-              {/* 30d LTV per model */}
-              {campaignKpi.isVisible("ltv_30d_per_model") && (() => {
-                const sortedModels = [...accounts].sort((a: any, b: any) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
-                return (
-                  <>
-                    <div className="h-px bg-border mx-0" style={{ margin: "8px 0" }} />
-                    <div className="bg-card border border-border shadow-sm" style={{ borderLeftWidth: "3px", borderLeftColor: "hsl(var(--primary))", padding: "12px 14px", borderRadius: "0 12px 12px 0" }}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                          <Users className="h-4 w-4 text-primary" />
-                        </div>
-                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">30d LTV per model</span>
-                      </div>
-                      <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
-                        {sortedModels.map((acc: any) => (
-                          <div key={acc.id} className="flex items-center gap-2 text-[12px]">
-                            <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
-                              {acc.avatar_thumb_url ? (
-                                <img src={acc.avatar_thumb_url} alt="" className="w-full h-full object-cover rounded-full" />
-                              ) : (
-                                <span className="text-[10px] font-bold text-muted-foreground">{(acc.display_name || "?")[0].toUpperCase()}</span>
-                              )}
-                            </div>
-                            <span className="text-muted-foreground truncate">@{acc.username || acc.display_name}</span>
-                            <span className="ml-auto font-mono font-semibold text-foreground shrink-0">
-                              {acc.ltv_last_30d != null ? fmtC(acc.ltv_last_30d) : "—"}
-                            </span>
-                          </div>
-                        ))}
-                        {sortedModels.length === 0 && <p className="text-[11px] text-muted-foreground">No models</p>}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
+            <div className="px-3.5 pb-3" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr", gap: "10px", alignItems: "stretch" }}>
+                {/* Card 1 — Total LTV (hero) */}
+                <div className="rounded-xl p-4 flex flex-col justify-center" style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
+                  <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total LTV</p>
+                  <p className="text-[22px] font-bold text-white font-mono mt-1">{fmtC(kpis.totalLtv)}</p>
+                  <p className="text-[10px] text-white/60 mt-0.5">All time across all links</p>
+                </div>
+                {/* Card 2 — Total Spend */}
+                <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
+                  label="Total Spend" value={<span className="text-foreground">{hasAnyExpenses ? fmtC(totalExpenses) : "—"}</span>} sub="All paid campaigns"
+                  tooltip={{ title: "Total Spend", desc: "Sum of cost_total across campaigns with spend set." }} />
+                {/* Card 3 — Total Profit */}
+                <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
+                  label="Total Profit" value={hasAnyExpenses
+                    ? <span className={totalProfitAll >= 0 ? "text-primary" : "text-destructive"}>{fmtC(totalProfitAll)}</span>
+                    : <span className="text-muted-foreground">—</span>} sub="LTV minus spend"
+                  tooltip={{ title: "Total Profit", desc: "Total LTV minus total spend across paid campaigns." }} />
+                {/* Card 4 — Avg Cost/Sub */}
+                <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
+                  label="Avg Cost/Sub" value={kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub="Cost per acquired subscriber"
+                  tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber. Only includes campaigns with spend set." }} />
+                {/* Card 5 — Untagged */}
+                <div className="cursor-pointer" onClick={() => { setSourceFilter(sourceFilter === "untagged" ? "all" : "untagged"); setPage(1); }}>
+                  <KPICard borderColor={kpis.untagged > 0 ? "hsl(var(--warning))" : "hsl(var(--primary))"} icon={<Tag className={`h-4 w-4 ${kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}`} />}
+                    label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}>{kpis.untagged}</span>} sub="No source tag set"
+                    tooltip={{ title: "Untagged", desc: "Campaigns without a source tag. Click to filter." }} />
+                </div>
+              </div>
             </div>
           )}
         </div>

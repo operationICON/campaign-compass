@@ -84,10 +84,14 @@ function DrawerBodyInner({
   const tlSubscribers = Number(d.subscribers ?? d.allTimeSubs ?? 0); // tracking_links.subscribers
   const tlSpenders = Number(d.spenders ?? d.allTimeSpenders ?? 0);   // tracking_links.spenders
 
-  // From tracking_link_ltv table
-  const totalLtv = Number(d.totalLtv ?? d.ltvFromTable ?? 0);       // tracking_link_ltv.total_ltv
-  const crossPoll = Number(d.crossPoll ?? d.crossPollRevenue ?? 0);  // tracking_link_ltv.cross_poll_revenue
-  const newSubs = Number(d.newSubs ?? d.newSubsTotal ?? 0);          // tracking_link_ltv.new_subs_total
+  // From tracking_link_ltv table — detect if LTV row exists at all
+  const rawLtv = d.totalLtv ?? d.ltvFromTable;
+  const rawCrossPoll = d.crossPoll ?? d.crossPollRevenue;
+  const rawNewSubs = d.newSubs ?? d.newSubsTotal;
+  const hasLtvData = rawLtv != null && rawLtv !== 0 || rawCrossPoll != null && rawCrossPoll !== 0 || rawNewSubs != null && rawNewSubs !== 0;
+  const totalLtv = Number(rawLtv ?? 0);
+  const crossPoll = Number(rawCrossPoll ?? 0);
+  const newSubs = Number(rawNewSubs ?? 0);
 
   // Period values (from daily_snapshots for selected date filter)
   const periodSubs = Number(d.periodSubs ?? 0);
