@@ -154,6 +154,7 @@ export default function CampaignsPage() {
   const [syncLabel, setSyncLabel] = useState("Sync Now");
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<any>(null);
+  const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
 
   // ─── Snapshot-based time filtering ───
   const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
