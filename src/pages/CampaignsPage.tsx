@@ -480,8 +480,7 @@ export default function CampaignsPage() {
   // ─── Filtering ───
   const filtered = useMemo(() => {
     let result = baseLinks;
-    // Page-level model filter (from filter bar)
-    if (pageModelFilter !== "all") result = result.filter((l: any) => l.account_id === pageModelFilter);
+    // Account filter (from top bar)
     if (groupFilter !== "all") {
       const groupUsernames = GROUP_MAP[groupFilter] || [];
       const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
