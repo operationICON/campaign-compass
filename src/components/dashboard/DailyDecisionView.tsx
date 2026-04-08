@@ -540,11 +540,11 @@ function DrawerBody({
   const daysRunning = d.created_at
     ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
     : null;
-  const spenderRate = Number(d.subscribers || 0) > 0
-    ? (Number(d.spenders || 0) / Number(d.subscribers || 0)) * 100 : 0;
+  const spenderRate = Math.min(100, Number(d.subscribers || 0) > 0
+    ? (Number(d.spenders || 0) / Number(d.subscribers || 0)) * 100 : 0);
   const existingFans = Math.max(0, Number(d.subscribers || 0) - d.newSubs);
-  const orgPct = Number(d.subscribers || 0) > 0
-    ? (d.newSubs / Number(d.subscribers || 0)) * 100 : 0;
+  const orgPct = Math.min(100, Number(d.subscribers || 0) > 0
+    ? (d.newSubs / Number(d.subscribers || 0)) * 100 : 0);
   const cpl = Number(d.subscribers || 0) > 0 ? d.cost / Number(d.subscribers || 0) : 0;
 
   const calcCostTotal = () => {
