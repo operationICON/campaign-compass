@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose,
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 
@@ -210,9 +210,7 @@ export function DailyDecisionView({
         }
       }
       const ltvPerSub = accNewSubs > 0 ? accLtv / accNewSubs : null;
-      const totalSubs = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-      const costPerSub = totalSubs > 0 ? spendTotal / totalSubs : 0;
-      const profitPerSub = ltvPerSub != null ? ltvPerSub - costPerSub : null;
+      const profitPerSub = accNewSubs > 0 ? (accLtv - spendTotal) / accNewSubs : null;
 
       return { ...acc, subsPerDay, spendTotal, ltvPerSub, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
@@ -259,11 +257,27 @@ export function DailyDecisionView({
   }
 
   // === Drawer detail row helper ===
-  function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
+  function getValueToneClasses(tone: "positive" | "negative" | "neutral" = "neutral") {
+    if (tone === "positive") return "border-primary/20 bg-primary/10 text-primary";
+    if (tone === "negative") return "border-destructive/20 bg-destructive/10 text-destructive";
+    return "border-border bg-secondary/50 text-foreground";
+  }
+
+  function DetailRow({
+    label,
+    value,
+    tone = "neutral",
+  }: {
+    label: string;
+    value: string;
+    tone?: "positive" | "negative" | "neutral";
+  }) {
     return (
-      <div className="flex items-center justify-between py-1.5 border-b border-border last:border-b-0">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className={`text-xs font-mono font-semibold ${color || "text-foreground"}`}>{value}</span>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/70 py-1 last:border-b-0">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className={`min-w-[112px] rounded-md border px-2.5 py-1 text-right text-sm font-semibold leading-none ${getValueToneClasses(tone)}`}>
+          {value}
+        </span>
       </div>
     );
   }
