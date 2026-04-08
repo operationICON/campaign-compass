@@ -499,50 +499,13 @@ export function DailyDecisionView({
       </div>
 
       {/* Campaign Detail Bottom Drawer */}
-      <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
-        <DrawerContent className="h-[65vh] max-h-[65vh] p-0 overflow-hidden border-t border-border" style={{ background: "#161B22" }}>
-          {drawerCampaign && <DrawerBody
-            campaign={drawerCampaign}
-            profit={drawerProfit}
-            profitPerSub={drawerProfitPerSub}
-            cvr={drawerCvr}
-            fmtC={fmtC}
-            fmtC2={fmtC2}
-            fmtPct={fmtPct}
-            handleCopy={handleCopy}
-            activeAction={activeAction}
-            setActiveAction={setActiveAction}
-            actionSaving={actionSaving}
-            setActionSaving={setActionSaving}
-            sourceTags={sourceTags}
-            queryClient={queryClient}
-            navigate={navigate}
-            setSelectedCampaign={setSelectedCampaign}
-          />}
-        </DrawerContent>
-      </Drawer>
+      <CampaignDetailDrawer
+        campaign={selectedCampaign}
+        onClose={() => setSelectedCampaign(null)}
+      />
     </>
   );
 }
-
-/* ─── Data Row helper ─── */
-function DataRow({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "positive" | "negative" | "neutral" }) {
-  const colorClass = tone === "positive" ? "text-primary" : tone === "negative" ? "text-destructive" : "text-foreground";
-  return (
-    <div className="flex items-center justify-between h-9 px-3 border-b border-border">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`text-sm font-mono font-bold ${colorClass}`}>{value}</span>
-    </div>
-  );
-}
-
-/* ─── Drawer Body (extracted for hooks) ─── */
-function DrawerBody({
-  campaign: d, profit, profitPerSub, cvr,
-  fmtC, fmtC2, fmtPct, handleCopy,
-  activeAction, setActiveAction, actionSaving, setActionSaving,
-  sourceTags, queryClient, navigate, setSelectedCampaign,
-}: any) {
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
