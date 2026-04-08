@@ -39,6 +39,19 @@ export function DailyDecisionView({
 }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [actionSaving, setActionSaving] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  // Source tags for edit source panel
+  const { data: sourceTags = [] } = useQuery({
+    queryKey: ["distinct_source_tags"],
+    queryFn: async () => {
+      const { data } = await supabase.from("source_tag_rules").select("tag_name, color").order("tag_name");
+      return data || [];
+    },
+  });
 
   const fmtC = (v: number) =>
     `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
