@@ -398,37 +398,52 @@ export function DailyDecisionView({
             <div className="grid grid-cols-3 gap-0 border-b border-border">
               <div className="p-4 border-r border-border">
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <TrendingUp className="h-3.5 w-3.5" /> Scale Now ({scaleLinks.length})
+                  <TrendingUp className="h-3.5 w-3.5" /> Scale Now ({allScaleLinks.length})
                 </h4>
                 {scaleLinks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No campaigns qualify</p>
                 ) : (
                   <div className="space-y-2">
-                    {scaleLinks.map(l => <CampaignCard key={l.id} l={l} accentClass="bg-primary/5 border border-primary/20" />)}
+                    {(showAllScale ? allScaleLinks : scaleLinks).map(l => <CampaignCard key={l.id} l={l} accentClass="bg-primary/5 border border-primary/20" />)}
+                    {allScaleLinks.length > 5 && (
+                      <button onClick={() => setShowAllScale(!showAllScale)} className="w-full text-center text-xs text-primary font-medium py-1.5 hover:underline">
+                        {showAllScale ? "Show Less" : `View All (${allScaleLinks.length})`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
               <div className="p-4 border-r border-border">
                 <h4 className="text-xs font-bold text-[hsl(var(--warning))] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Eye className="h-3.5 w-3.5" /> Watch ({watchLinks.length})
+                  <Eye className="h-3.5 w-3.5" /> Watch ({allWatchLinks.length})
                 </h4>
                 {watchLinks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No campaigns qualify</p>
                 ) : (
                   <div className="space-y-2">
-                    {watchLinks.map(l => <CampaignCard key={l.id} l={l} accentClass="bg-[hsl(var(--warning)/0.05)] border border-[hsl(var(--warning)/0.2)]" />)}
+                    {(showAllWatch ? allWatchLinks : watchLinks).map(l => <CampaignCard key={l.id} l={l} accentClass="bg-[hsl(var(--warning)/0.05)] border border-[hsl(var(--warning)/0.2)]" />)}
+                    {allWatchLinks.length > 5 && (
+                      <button onClick={() => setShowAllWatch(!showAllWatch)} className="w-full text-center text-xs text-[hsl(var(--warning))] font-medium py-1.5 hover:underline">
+                        {showAllWatch ? "Show Less" : `View All (${allWatchLinks.length})`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
               <div className="p-4">
                 <h4 className="text-xs font-bold text-destructive uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <XCircle className="h-3.5 w-3.5" /> Stop / Fix ({stopLinks.length})
+                  <XCircle className="h-3.5 w-3.5" /> Stop / Fix ({allStopLinks.length})
                 </h4>
                 {stopLinks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No campaigns qualify</p>
                 ) : (
                   <div className="space-y-2">
-                    {stopLinks.map(l => <CampaignCard key={l.id} l={l} accentClass="bg-destructive/5 border border-destructive/20" />)}
+                    {(showAllStop ? allStopLinks : stopLinks).map(l => <CampaignCard key={l.id} l={l} accentClass="bg-destructive/5 border border-destructive/20" />)}
+                    {allStopLinks.length > 5 && (
+                      <button onClick={() => setShowAllStop(!showAllStop)} className="w-full text-center text-xs text-destructive font-medium py-1.5 hover:underline">
+                        {showAllStop ? "Show Less" : `View All (${allStopLinks.length})`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
