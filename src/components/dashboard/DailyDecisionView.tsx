@@ -619,12 +619,12 @@ function DrawerBody({
         <div className="flex items-center gap-4">
           <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={64} />
           <div className="flex-1 min-w-0">
-            <DrawerHeader className="p-0">
-              <DrawerTitle className="truncate text-[22px] font-bold leading-tight text-foreground">
+            <SheetHeader className="p-0">
+              <SheetTitle className="truncate text-[22px] font-bold leading-tight text-foreground">
                 {d.campaign_name || "Unknown"}
-              </DrawerTitle>
+              </SheetTitle>
               <p className="text-[15px] font-medium text-primary truncate">{d.modelName}</p>
-            </DrawerHeader>
+            </SheetHeader>
             <DrawerDescription asChild>
               <div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-muted-foreground">
