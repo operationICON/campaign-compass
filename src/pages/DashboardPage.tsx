@@ -806,10 +806,19 @@ function KpiCards({
 
   const isAllTime = timePeriod === "all" && !customRange;
   // For All Time, use new_subs_total (fans who generated LTV) as denominator
+  // Filter by model/group selection
   const ltvPerSub = (() => {
     if (isAllTime) {
+      const modelIdSet = modelParam ? new Set([modelParam]) : null;
+      const groupAccIds = groupFilter !== "all"
+        ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id))
+        : null;
+      const filterSet = modelIdSet || groupAccIds;
       let ltvSubs = 0;
-      for (const r of trackingLinkLtv) ltvSubs += Number(r.new_subs_total || 0);
+      for (const r of trackingLinkLtv) {
+        if (filterSet && !filterSet.has(r.account_id)) continue;
+        ltvSubs += Number(r.new_subs_total || 0);
+      }
       return ltvSubs > 0 ? totalLtv / ltvSubs : null;
     }
     return periodSubscribers > 0 ? totalLtv / periodSubscribers : null;
@@ -1054,19 +1063,23 @@ function KpiCards({
       case "est_revenue": {
         const isAllTimeRev = timePeriod === "all" && !customRange;
         const tp = timePeriod as string;
+        // Filter accounts by model/group selection
+        let filtAccts = [...accounts];
+        if (modelParam) filtAccts = filtAccts.filter((a: any) => a.id === modelParam);
+        else if (groupFilter !== "all") filtAccts = filtAccts.filter((a: any) => getAccountCategory(a) === groupFilter);
         let estRevValue: number;
         let estRevSubtitle: string;
         if (isAllTimeRev) {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
           estRevSubtitle = "Total account revenue · All Time";
         } else if (tp === "day") {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
           estRevSubtitle = "Total account revenue · Last Day";
         } else if (tp === "week") {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
           estRevSubtitle = "Total account revenue · Last Week";
         } else if (tp === "month") {
-          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
+          estRevValue = filtAccts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
           estRevSubtitle = "Total account revenue · Last Month";
         } else {
           estRevValue = totalRevenue;
@@ -1156,7 +1169,7 @@ function KpiCards({
             <p className={`text-[22px] font-bold font-mono ${pctColor}`}>
               {organicPct !== null ? `${organicPct.toFixed(1)}%` : "—"}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">First-time OF fans from campaigns (All Time)</p>
+            <p className="text-[11px] text-muted-foreground mt-1">First-time OF fans from campaigns</p>
           </div>
         );
       }
