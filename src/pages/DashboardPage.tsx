@@ -695,20 +695,6 @@ export default function DashboardPage() {
         />
 
 
-        {/* ═══ INSIGHTS SECTION ═══ */}
-        <InsightsSection
-          links={links}
-          accounts={accounts}
-          dailyMetrics={dailyMetrics}
-          trackingLinkLtv={trackingLinkLtv}
-          groupFilter={groupFilter}
-          selectedModel={selectedModel}
-          getAccountCategory={getAccountCategory}
-          isInsightVisible={isInsightVisible}
-          isModelColVisible={isModelColVisible}
-          snapshotRows={overviewSnapshotRows}
-          isAllTime={isAllTime}
-        />
 
       </div>
 
