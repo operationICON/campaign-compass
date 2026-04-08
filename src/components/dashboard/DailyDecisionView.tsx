@@ -275,13 +275,13 @@ export function DailyDecisionView({
   }
 
   // === Drawer detail row helper ===
-  function getValueToneClasses(tone: "positive" | "negative" | "neutral" = "neutral") {
-    if (tone === "positive") return "border-primary/20 bg-primary/10 text-primary";
-    if (tone === "negative") return "border-destructive/20 bg-destructive/10 text-destructive";
-    return "border-border bg-secondary/50 text-foreground";
+  function getValueColor(tone: "positive" | "negative" | "neutral" = "neutral") {
+    if (tone === "positive") return "text-primary";
+    if (tone === "negative") return "text-destructive";
+    return "text-foreground";
   }
 
-  function GridCell({
+  function DataCard({
     label,
     value,
     tone = "neutral",
@@ -291,9 +291,9 @@ export function DailyDecisionView({
     tone?: "positive" | "negative" | "neutral";
   }) {
     return (
-      <div className={`rounded border px-2 py-1 ${getValueToneClasses(tone)}`}>
-        <p className="text-[11px] text-muted-foreground leading-none mb-px">{label}</p>
-        <p className="text-[13px] font-mono font-bold leading-tight">{value}</p>
+      <div className="rounded-lg border border-border bg-card px-3 py-2">
+        <p className="text-[11px] text-muted-foreground leading-none mb-1">{label}</p>
+        <p className={`text-[15px] font-mono font-bold leading-tight ${getValueColor(tone)}`}>{value}</p>
       </div>
     );
   }
@@ -308,6 +308,7 @@ export function DailyDecisionView({
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
   };
 
   return (
@@ -465,10 +466,10 @@ export function DailyDecisionView({
                         </div>
                         <span className="font-mono text-muted-foreground">{m.subsPerDay.toLocaleString()} subs/day</span>
                         <span className="font-mono text-muted-foreground">{fmtC(m.spendTotal)} spend</span>
-                        <span className={`rounded-md border px-2 py-1 text-center font-mono font-semibold ${getValueToneClasses(m.ltvPerSub != null && m.ltvPerSub > 0 ? "positive" : "neutral")}`}>
+                        <span className={`font-mono font-semibold ${getValueColor(m.ltvPerSub != null && m.ltvPerSub > 0 ? "positive" : "neutral")}`}>
                           {m.ltvPerSub != null ? `${fmtC2(m.ltvPerSub)}/sub` : "—"}
                         </span>
-                        <span className={`rounded-md border px-2 py-1 text-center font-mono font-semibold ${getValueToneClasses(m.profitPerSub != null ? (m.profitPerSub >= 0 ? "positive" : "negative") : "neutral")}`}>
+                        <span className={`font-mono font-semibold ${getValueColor(m.profitPerSub != null ? (m.profitPerSub >= 0 ? "positive" : "negative") : "neutral")}`}>
                           {m.profitPerSub != null ? `${fmtC2(m.profitPerSub)}/sub` : "—"}
                         </span>
                       </div>
@@ -489,7 +490,7 @@ export function DailyDecisionView({
 
       {/* Campaign Detail Drawer */}
       <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85vh] bg-background border-border">
           {drawerCampaign && <DrawerBody
             campaign={drawerCampaign}
             profit={drawerProfit}
@@ -507,7 +508,8 @@ export function DailyDecisionView({
             queryClient={queryClient}
             navigate={navigate}
             setSelectedCampaign={setSelectedCampaign}
-            GridCell={GridCell}
+            DataCard={DataCard}
+            getValueColor={getValueColor}
           />}
         </DrawerContent>
       </Drawer>
@@ -520,7 +522,7 @@ function DrawerBody({
   campaign: d, profit, profitPerSub, cvr,
   fmtC, fmtC2, fmtPct, handleCopy,
   activeAction, setActiveAction, actionSaving, setActionSaving,
-  sourceTags, queryClient, navigate, setSelectedCampaign, GridCell,
+  sourceTags, queryClient, navigate, setSelectedCampaign, DataCard, getValueColor,
 }: any) {
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
   const [costType, setCostType] = useState(d.cost_type || "CPL");
@@ -601,173 +603,184 @@ function DrawerBody({
   const statuses = ["SCALE", "WATCH", "KILL", "HOLD", "TEST"];
 
   return (
-    <div className="overflow-y-auto px-4 pb-4 max-w-[480px] mx-auto">
-      {/* HEADER */}
-      <DrawerHeader className="px-0 pb-1 pt-0">
-        <div className="flex items-center gap-2.5">
-          <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={40} />
-          <div className="flex-1 min-w-0">
-            <DrawerTitle className="truncate text-lg font-bold leading-tight">
-              {d.campaign_name || "Unknown"}
-            </DrawerTitle>
-            <p className="text-[13px] font-medium text-primary truncate">{d.modelName}</p>
+    <div className="overflow-y-auto px-4 pb-4 max-w-[460px] mx-auto">
+      {/* HEADER CARD */}
+      <div className="rounded-lg border border-border bg-card p-3 mb-2 mt-1">
+        <DrawerHeader className="p-0">
+          <div className="flex items-center gap-3">
+            <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={44} />
+            <div className="flex-1 min-w-0">
+              <DrawerTitle className="truncate text-[16px] font-bold leading-tight text-foreground">
+                {d.campaign_name || "Unknown"}
+              </DrawerTitle>
+              <p className="text-[13px] font-medium text-primary truncate">{d.modelName}</p>
+            </div>
           </div>
-        </div>
-        <DrawerDescription asChild>
-          <div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
-              {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
-              {d.created_at && <span>·</span>}
-              {daysRunning && <span className="font-semibold text-foreground">{daysRunning}d running</span>}
-              {d.status && (
-                <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px font-semibold text-primary">{d.status}</span>
-              )}
-              {d.traffic_category && (
-                <span className="rounded-full border border-border bg-secondary/60 px-1.5 py-px">{d.traffic_category}</span>
+          <DrawerDescription asChild>
+            <div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-[11px] text-muted-foreground">
+                {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
+                {daysRunning && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="font-semibold text-foreground">{daysRunning}d running</span>
+                  </>
+                )}
+                {d.status && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-px font-semibold text-primary text-[10px]">{d.status}</span>
+                  </>
+                )}
+                {d.traffic_category && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="rounded-full border border-border bg-secondary px-2 py-px text-[10px]">{d.traffic_category}</span>
+                  </>
+                )}
+              </div>
+              {d.url && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <p className="truncate font-mono text-[11px] text-muted-foreground flex-1">{d.url}</p>
+                  <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-0.5 transition-colors"><Copy className="h-3.5 w-3.5" /></button>
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-0.5 transition-colors"><ExternalLink className="h-3.5 w-3.5" /></a>
+                </div>
               )}
             </div>
-            {/* Tracking link inline */}
-            {d.url && (
-              <div className="flex items-center gap-1 mt-1">
-                <p className="truncate font-mono text-[11px] text-muted-foreground flex-1">{d.url}</p>
-                <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-0.5"><Copy className="h-3 w-3" /></button>
-                <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-0.5"><ExternalLink className="h-3 w-3" /></a>
-              </div>
-            )}
-          </div>
-        </DrawerDescription>
-      </DrawerHeader>
-
-      {/* ACTION BUTTONS */}
-      <div className="flex gap-1 mb-2">
-        {[
-          { key: "source", icon: <Pencil className="h-3 w-3" />, label: "Source" },
-          { key: "spend", icon: <Coins className="h-3 w-3" />, label: "Spend" },
-          { key: "status", icon: <Activity className="h-3 w-3" />, label: "Status" },
-          { key: "delete", icon: <Trash2 className="h-3 w-3" />, label: "Delete" },
-          { key: "details", icon: <ArrowUpRight className="h-3 w-3" />, label: "Details" },
-        ].map(btn => (
-          <Button
-            key={btn.key}
-            variant={activeAction === btn.key ? "default" : "outline"}
-            size="sm"
-            className="flex-1 h-7 text-[10px] px-1 gap-1"
-            onClick={() => {
-              if (btn.key === "details") {
-                navigate(`/campaigns?link=${d.id}`);
-                return;
-              }
-              setActiveAction(activeAction === btn.key ? null : btn.key);
-            }}
-          >
-            {btn.icon}{btn.label}
-          </Button>
-        ))}
+          </DrawerDescription>
+        </DrawerHeader>
       </div>
 
-      {/* ACTION PANELS */}
-      {activeAction === "source" && (
-        <div className="rounded-lg border border-border bg-secondary/30 p-2.5 mb-2 space-y-2">
-          <select
-            value={sourceVal}
-            onChange={e => setSourceVal(e.target.value)}
-            className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
-          >
-            <option value="">— None —</option>
-            {sourceTags.map((t: any) => <option key={t.tag_name} value={t.tag_name}>{t.tag_name}</option>)}
-          </select>
-          <div className="flex gap-1.5">
-            <Button size="sm" className="h-7 text-[11px] flex-1" onClick={saveSource} disabled={actionSaving}>
-              {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+      {/* ACTION BUTTONS CARD */}
+      <div className="rounded-lg border border-border bg-card p-2 mb-2">
+        <div className="flex gap-1">
+          {[
+            { key: "source", icon: <Pencil className="h-3 w-3" />, label: "Source" },
+            { key: "spend", icon: <Coins className="h-3 w-3" />, label: "Spend" },
+            { key: "status", icon: <Activity className="h-3 w-3" />, label: "Status" },
+            { key: "delete", icon: <Trash2 className="h-3 w-3" />, label: "Delete" },
+            { key: "details", icon: <ArrowUpRight className="h-3 w-3" />, label: "Details" },
+          ].map(btn => (
+            <Button
+              key={btn.key}
+              variant={activeAction === btn.key ? "default" : "outline"}
+              size="sm"
+              className="flex-1 h-8 text-[11px] px-1 gap-1"
+              onClick={() => {
+                if (btn.key === "details") {
+                  navigate(`/campaigns?link=${d.id}`);
+                  return;
+                }
+                setActiveAction(activeAction === btn.key ? null : btn.key);
+              }}
+            >
+              {btn.icon}{btn.label}
             </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
-          </div>
+          ))}
         </div>
-      )}
 
-      {activeAction === "spend" && (
-        <div className="rounded-lg border border-border bg-secondary/30 p-2.5 mb-2 space-y-2">
-          <div className="flex gap-2">
-            <select value={costType} onChange={e => setCostType(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs w-24">
-              <option value="CPL">CPL</option>
-              <option value="CPC">CPC</option>
-              <option value="FIXED">Fixed</option>
+        {/* ACTION PANELS — inside the card */}
+        {activeAction === "source" && (
+          <div className="border-t border-border mt-2 pt-2 space-y-2">
+            <select
+              value={sourceVal}
+              onChange={e => setSourceVal(e.target.value)}
+              className="w-full h-8 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
+            >
+              <option value="">— None —</option>
+              {sourceTags.map((t: any) => <option key={t.tag_name} value={t.tag_name}>{t.tag_name}</option>)}
             </select>
-            <Input type="number" value={costValue} onChange={e => setCostValue(e.target.value)} placeholder="Value" className="h-8 text-xs flex-1" />
-          </div>
-          <p className="text-[11px] text-muted-foreground">Total: <span className="font-mono font-semibold text-foreground">{fmtC2(calcCostTotal())}</span></p>
-          <div className="flex gap-1.5">
-            <Button size="sm" className="h-7 text-[11px] flex-1" onClick={saveSpend} disabled={actionSaving}>
-              {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
-          </div>
-        </div>
-      )}
-
-      {activeAction === "status" && (
-        <div className="rounded-lg border border-border bg-secondary/30 p-2.5 mb-2">
-          <div className="flex gap-1.5">
-            {statuses.map(s => (
-              <Button
-                key={s}
-                size="sm"
-                variant={d.status === s ? "default" : "outline"}
-                className="flex-1 h-7 text-[10px]"
-                disabled={actionSaving}
-                onClick={() => saveStatus(s)}
-              >
-                {actionSaving && d.status === s ? <Loader2 className="h-3 w-3 animate-spin" /> : s}
+            <div className="flex gap-1.5">
+              <Button size="sm" className="h-7 text-[11px] flex-1" onClick={saveSource} disabled={actionSaving}>
+                {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
               </Button>
-            ))}
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {activeAction === "delete" && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 mb-2">
-          <p className="text-xs text-destructive font-medium mb-2">Delete "{d.campaign_name}"? Cannot be undone.</p>
-          <div className="flex gap-1.5">
-            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
-            <Button size="sm" variant="destructive" className="h-7 text-[11px] flex-1" onClick={confirmDelete} disabled={actionSaving}>
-              {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm Delete"}
-            </Button>
+        {activeAction === "spend" && (
+          <div className="border-t border-border mt-2 pt-2 space-y-2">
+            <div className="flex gap-2">
+              <select value={costType} onChange={e => setCostType(e.target.value)} className="h-8 rounded-md border border-border bg-secondary px-2 text-xs text-foreground w-24">
+                <option value="CPL">CPL</option>
+                <option value="CPC">CPC</option>
+                <option value="FIXED">Fixed</option>
+              </select>
+              <Input type="number" value={costValue} onChange={e => setCostValue(e.target.value)} placeholder="Value" className="h-8 text-xs flex-1" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Total: <span className="font-mono font-semibold text-foreground">{fmtC2(calcCostTotal())}</span></p>
+            <div className="flex gap-1.5">
+              <Button size="sm" className="h-7 text-[11px] flex-1" onClick={saveSpend} disabled={actionSaving}>
+                {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* DATA GRID */}
-      <div className="grid grid-cols-2 gap-1 mb-1">
-        <GridCell label="Period Subs" value={d.periodSubs.toLocaleString()} />
-        <GridCell label="Period Revenue" value={fmtC(d.periodRev)} tone={d.periodRev > 0 ? "positive" : "neutral"} />
-        <GridCell label="Period Clicks" value={d.periodClicks.toLocaleString()} />
-        <GridCell label="Avg Subs/Day" value={daysRunning ? (d.periodSubs / Math.max(1, daysRunning)).toFixed(1) : "—"} />
+        {activeAction === "status" && (
+          <div className="border-t border-border mt-2 pt-2">
+            <div className="flex gap-1.5">
+              {statuses.map(s => (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant={d.status === s ? "default" : "outline"}
+                  className="flex-1 h-7 text-[10px]"
+                  disabled={actionSaving}
+                  onClick={() => saveStatus(s)}
+                >
+                  {actionSaving && d.status === s ? <Loader2 className="h-3 w-3 animate-spin" /> : s}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeAction === "delete" && (
+          <div className="border-t border-destructive/20 mt-2 pt-2">
+            <p className="text-xs text-destructive font-medium mb-2">Delete "{d.campaign_name}"? Cannot be undone.</p>
+            <div className="flex gap-1.5">
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
+              <Button size="sm" variant="destructive" className="h-7 text-[11px] flex-1" onClick={confirmDelete} disabled={actionSaving}>
+                {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm Delete"}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="border-t border-border my-1.5" />
-
-      <div className="grid grid-cols-2 gap-1 mb-1">
-        <GridCell label="Total LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
-        <GridCell label="Cross-Poll" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
-        <GridCell label="New Fans" value={d.newSubs.toLocaleString()} />
-        <GridCell label="Existing Fans" value={existingFans.toLocaleString()} />
-        <GridCell label="LTV/Sub" value={fmtC2(d.ltvPerSub)} tone={d.ltvPerSub > 0 ? "positive" : "neutral"} />
-        <GridCell label="Org %" value={`${orgPct.toFixed(1)}%`} />
-        <GridCell label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
-        <GridCell label="Total Subs" value={Number(d.subscribers || 0).toLocaleString()} />
+      {/* DATA CARDS — Period Performance */}
+      <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+        <DataCard label="Period Subs" value={d.periodSubs.toLocaleString()} />
+        <DataCard label="Period Revenue" value={fmtC(d.periodRev)} tone={d.periodRev > 0 ? "positive" : "neutral"} />
+        <DataCard label="Period Clicks" value={d.periodClicks.toLocaleString()} />
+        <DataCard label="Avg Subs/Day" value={daysRunning ? (d.periodSubs / Math.max(1, daysRunning)).toFixed(1) : "—"} />
       </div>
 
-      <div className="border-t border-border my-1.5" />
+      {/* LTV & Attribution */}
+      <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+        <DataCard label="Total LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
+        <DataCard label="Cross-Poll" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
+        <DataCard label="New Fans" value={d.newSubs.toLocaleString()} />
+        <DataCard label="Existing Fans" value={existingFans.toLocaleString()} />
+        <DataCard label="LTV/Sub" value={fmtC2(d.ltvPerSub)} tone={d.ltvPerSub > 0 ? "positive" : "neutral"} />
+        <DataCard label="Org %" value={`${orgPct.toFixed(1)}%`} />
+        <DataCard label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
+        <DataCard label="Total Subs" value={Number(d.subscribers || 0).toLocaleString()} />
+      </div>
 
-      <div className="grid grid-cols-2 gap-1 mb-1">
-        <GridCell label="Total Spend" value={fmtC2(d.cost)} />
-        <GridCell label="Cost Type" value={d.cost_type || "—"} />
-        <GridCell label="Profit" value={fmtC2(profit)} tone={profit >= 0 ? "positive" : "negative"} />
-        <GridCell label="Profit/Sub" value={d.newSubs > 0 ? fmtC2(profitPerSub) : "—"} tone={d.newSubs > 0 ? (profitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
-        <GridCell label="ROI" value={d.cost > 0 ? fmtPct(d.roi) : "No spend"} tone={d.cost > 0 ? (d.roi >= 0 ? "positive" : "negative") : "neutral"} />
-        <GridCell label="CVR %" value={cvr > 0 ? `${cvr.toFixed(2)}%` : "—"} tone={cvr > 0 ? "positive" : "neutral"} />
-        <GridCell label="Total Clicks" value={Number(d.clicks || 0).toLocaleString()} />
-        <GridCell label="Spenders" value={Number(d.spenders || 0).toLocaleString()} />
+      {/* Financials */}
+      <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+        <DataCard label="Total Spend" value={fmtC2(d.cost)} />
+        <DataCard label="Cost Type" value={d.cost_type || "—"} />
+        <DataCard label="Profit" value={fmtC2(profit)} tone={profit >= 0 ? "positive" : "negative"} />
+        <DataCard label="Profit/Sub" value={d.newSubs > 0 ? fmtC2(profitPerSub) : "—"} tone={d.newSubs > 0 ? (profitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
+        <DataCard label="ROI" value={d.cost > 0 ? fmtPct(d.roi) : "No spend"} tone={d.cost > 0 ? (d.roi >= 0 ? "positive" : "negative") : "neutral"} />
+        <DataCard label="CVR %" value={cvr > 0 ? `${cvr.toFixed(2)}%` : "—"} tone={cvr > 0 ? "positive" : "neutral"} />
+        <DataCard label="Total Clicks" value={Number(d.clicks || 0).toLocaleString()} />
+        <DataCard label="Spenders" value={Number(d.spenders || 0).toLocaleString()} />
       </div>
     </div>
   );
