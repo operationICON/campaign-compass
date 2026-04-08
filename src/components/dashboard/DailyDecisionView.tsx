@@ -506,8 +506,6 @@ export function DailyDecisionView({
     </>
   );
 }
-
-  const daysRunning = d.created_at
     ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
     : null;
   const atSubs = Number(d.allTimeSubs || d.subscribers || 0);
