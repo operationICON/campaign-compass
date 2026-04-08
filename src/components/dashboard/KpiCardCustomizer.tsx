@@ -29,7 +29,7 @@ export type CampaignKpiCardId =
   | "most_profitable_source"
   | "worst_source"
   | "avg_expenses_per_campaign"
-  | "blended_roi"
+  | "avg_cost_sub"
   | "ltv_30d_per_model";
 
 export type AnyKpiCardId = DashboardKpiCardId | CampaignKpiCardId;
