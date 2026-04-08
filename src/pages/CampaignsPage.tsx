@@ -226,7 +226,7 @@ export default function CampaignsPage() {
     onSuccess: (data) => {
       toast.success(`Sync complete — ${data?.accounts_synced ?? 0} accounts synced`, { id: 'sync-progress' });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns_tracking_link_ltv"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking_link_ltv"] });
       queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["daily_metrics"] });
