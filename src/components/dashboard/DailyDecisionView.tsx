@@ -145,25 +145,25 @@ export function DailyDecisionView({
     });
   }, [links, periodSnapshotByLink, allTimeSnapshotByLink, ltvLookup, accounts]);
 
-  // === SCALE NOW ===
-  const scaleLinks = useMemo(() =>
+  // === SCALE NOW (sorted by highest LTV/sub) ===
+  const allScaleLinks = useMemo(() =>
     enriched
       .filter(l => l.hasPeriodSubs && l.ltvPerSub > 20 && (l.cost === 0 || l.roi > 150))
-      .sort((a, b) => b.totalLtv - a.totalLtv)
-      .slice(0, 8),
+      .sort((a, b) => b.ltvPerSub - a.ltvPerSub),
   [enriched]);
+  const scaleLinks = allScaleLinks.slice(0, 5);
 
-  // === WATCH ===
-  const watchLinks = useMemo(() =>
+  // === WATCH (sorted by highest LTV/sub) ===
+  const allWatchLinks = useMemo(() =>
     enriched
       .filter(l => l.hasPeriodSubs && ((l.ltvPerSub >= 5 && l.ltvPerSub <= 20) || (l.roi >= 50 && l.roi <= 150)))
-      .filter(l => !scaleLinks.some(s => s.id === l.id))
-      .sort((a, b) => b.totalLtv - a.totalLtv)
-      .slice(0, 8),
-  [enriched, scaleLinks]);
+      .filter(l => !allScaleLinks.some(s => s.id === l.id))
+      .sort((a, b) => b.ltvPerSub - a.ltvPerSub),
+  [enriched, allScaleLinks]);
+  const watchLinks = allWatchLinks.slice(0, 5);
 
-  // === STOP/FIX ===
-  const stopLinks = useMemo(() =>
+  // === STOP/FIX (sorted by highest spend first) ===
+  const allStopLinks = useMemo(() =>
     enriched
       .filter(l => {
         if (l.cost <= 0) return false;
@@ -171,10 +171,14 @@ export function DailyDecisionView({
         const negRoi = l.roi < 0;
         return zeroSubs || negRoi;
       })
-      .filter(l => !scaleLinks.some(s => s.id === l.id) && !watchLinks.some(w => w.id === l.id))
-      .sort((a, b) => a.roi - b.roi)
-      .slice(0, 8),
-  [enriched, scaleLinks, watchLinks]);
+      .filter(l => !allScaleLinks.some(s => s.id === l.id) && !allWatchLinks.some(w => w.id === l.id))
+      .sort((a, b) => b.cost - a.cost),
+  [enriched, allScaleLinks, allWatchLinks]);
+  const stopLinks = allStopLinks.slice(0, 5);
+
+  const [showAllScale, setShowAllScale] = useState(false);
+  const [showAllWatch, setShowAllWatch] = useState(false);
+  const [showAllStop, setShowAllStop] = useState(false);
 
   // === Summary metrics ===
   const activeLinksCount = campaignsWithSubs.length;
@@ -394,93 +398,57 @@ export function DailyDecisionView({
             <div className="grid grid-cols-3 gap-0 border-b border-border">
               <div className="p-4 border-r border-border">
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <TrendingUp className="h-3.5 w-3.5" /> Scale Now ({scaleLinks.length})
+                  <TrendingUp className="h-3.5 w-3.5" /> Scale Now ({allScaleLinks.length})
                 </h4>
                 {scaleLinks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No campaigns qualify</p>
                 ) : (
                   <div className="space-y-2">
-                    {scaleLinks.map(l => <CampaignCard key={l.id} l={l} accentClass="bg-primary/5 border border-primary/20" />)}
+                    {(showAllScale ? allScaleLinks : scaleLinks).map(l => <CampaignCard key={l.id} l={l} accentClass="bg-primary/5 border border-primary/20" />)}
+                    {allScaleLinks.length > 5 && (
+                      <button onClick={() => setShowAllScale(!showAllScale)} className="w-full text-center text-xs text-primary font-medium py-1.5 hover:underline">
+                        {showAllScale ? "Show Less" : `View All (${allScaleLinks.length})`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
               <div className="p-4 border-r border-border">
                 <h4 className="text-xs font-bold text-[hsl(var(--warning))] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Eye className="h-3.5 w-3.5" /> Watch ({watchLinks.length})
+                  <Eye className="h-3.5 w-3.5" /> Watch ({allWatchLinks.length})
                 </h4>
                 {watchLinks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No campaigns qualify</p>
                 ) : (
                   <div className="space-y-2">
-                    {watchLinks.map(l => <CampaignCard key={l.id} l={l} accentClass="bg-[hsl(var(--warning)/0.05)] border border-[hsl(var(--warning)/0.2)]" />)}
+                    {(showAllWatch ? allWatchLinks : watchLinks).map(l => <CampaignCard key={l.id} l={l} accentClass="bg-[hsl(var(--warning)/0.05)] border border-[hsl(var(--warning)/0.2)]" />)}
+                    {allWatchLinks.length > 5 && (
+                      <button onClick={() => setShowAllWatch(!showAllWatch)} className="w-full text-center text-xs text-[hsl(var(--warning))] font-medium py-1.5 hover:underline">
+                        {showAllWatch ? "Show Less" : `View All (${allWatchLinks.length})`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
               <div className="p-4">
                 <h4 className="text-xs font-bold text-destructive uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <XCircle className="h-3.5 w-3.5" /> Stop / Fix ({stopLinks.length})
+                  <XCircle className="h-3.5 w-3.5" /> Stop / Fix ({allStopLinks.length})
                 </h4>
                 {stopLinks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No campaigns qualify</p>
                 ) : (
                   <div className="space-y-2">
-                    {stopLinks.map(l => <CampaignCard key={l.id} l={l} accentClass="bg-destructive/5 border border-destructive/20" />)}
+                    {(showAllStop ? allStopLinks : stopLinks).map(l => <CampaignCard key={l.id} l={l} accentClass="bg-destructive/5 border border-destructive/20" />)}
+                    {allStopLinks.length > 5 && (
+                      <button onClick={() => setShowAllStop(!showAllStop)} className="w-full text-center text-xs text-destructive font-medium py-1.5 hover:underline">
+                        {showAllStop ? "Show Less" : `View All (${allStopLinks.length})`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Performance by Source */}
-            {(() => {
-              const srcMap: Record<string, { source: string; links: number; spend: number; profit: number; subs: number; ltv: number }> = {};
-              enriched.forEach(l => {
-                const es = getEffectiveSource(l);
-                if (!es || es.toLowerCase() === "test") return;
-                if (!srcMap[es]) srcMap[es] = { source: es, links: 0, spend: 0, profit: 0, subs: 0, ltv: 0 };
-                srcMap[es].links++;
-                srcMap[es].spend += l.cost;
-                srcMap[es].profit += (l.totalLtv + l.crossPoll - l.cost);
-                srcMap[es].subs += l.newSubs;
-                srcMap[es].ltv += l.totalLtv;
-              });
-              const sourcePerf = Object.values(srcMap)
-                .map(s => ({ ...s, profitPerSub: s.subs > 0 ? s.profit / s.subs : null }))
-                .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-              if (sourcePerf.length === 0) return null;
-              return (
-                <div className="p-4 border-b border-border">
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                    <Tag className="h-3.5 w-3.5 text-primary" /> Performance by Source
-                  </h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border">
-                          <th className="text-left py-2 pr-4">Source</th>
-                          <th className="text-right py-2 px-3">Links</th>
-                          <th className="text-right py-2 px-3">Spend</th>
-                          <th className="text-right py-2 px-3">Profit/Sub</th>
-                          <th className="text-right py-2 pl-3">LTV</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sourcePerf.map(s => (
-                          <tr key={s.source} className="border-b border-border/50">
-                            <td className="py-2 pr-4 font-medium text-foreground">{s.source}</td>
-                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">{s.links}</td>
-                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">{fmtC(s.spend)}</td>
-                            <td className={`py-2 px-3 text-right font-mono font-semibold ${s.profitPerSub != null ? (s.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                              {s.profitPerSub != null ? fmtC2(s.profitPerSub) : "—"}
-                            </td>
-                            <td className="py-2 pl-3 text-right font-mono text-primary">{fmtC(s.ltv)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Top 5 by LTV/Sub */}
             <div className="p-4 border-b border-border">
