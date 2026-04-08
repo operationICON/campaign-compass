@@ -713,15 +713,41 @@ export default function CampaignsPage() {
         </div>
 
         {/* ═══ TIME + MODEL FILTER BAR ═══ */}
-        <PageFilterBar
-          timePeriod={timePeriod}
-          onTimePeriodChange={setTimePeriod}
-          customRange={customRange}
-          onCustomRangeChange={setCustomRange}
-          modelFilter={pageModelFilter}
-          onModelFilterChange={setPageModelFilter}
-          accounts={accountOptions}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <AccountFilterDropdown
+            value={accountFilter}
+            onChange={(v) => { setAccountFilter(v); setPage(1); }}
+            accounts={filteredAccountOptions}
+          />
+          <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+            {([
+              { key: "day" as TimePeriod, label: "Last Day" },
+              { key: "week" as TimePeriod, label: "Last Week" },
+              { key: "month" as TimePeriod, label: "Last Month" },
+              { key: "prev_month" as TimePeriod, label: "Prev Month" },
+              { key: "all" as TimePeriod, label: "All Time" },
+            ]).map((tp) => (
+              <button
+                key={tp.key}
+                onClick={() => {
+                  setTimePeriod(tp.key);
+                  setCustomRange(null);
+                }}
+                className={`px-4 py-2 text-xs font-medium transition-colors ${
+                  timePeriod === tp.key && !customRange
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tp.label}
+              </button>
+            ))}
+          </div>
+          <DateRangePicker
+            value={customRange}
+            onChange={(range) => setCustomRange(range)}
+          />
+        </div>
 
         <div
           className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer transition-all duration-200"
