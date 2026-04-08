@@ -15,6 +15,7 @@ import LogsPage from "./pages/LogsPage";
 import DebugPage from "./pages/DebugPage";
 import TrafficSourcesPage from "./pages/TrafficSourcesPage";
 import CrossPollPage from "./pages/CrossPollPage";
+import FansPage from "./pages/FansPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
