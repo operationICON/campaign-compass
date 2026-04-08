@@ -492,11 +492,16 @@ export default function DashboardPage() {
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    const attributedSubs = Math.min(periodSubscribers, accountTotalSubs);
+    // Attributed = new_subs_total from tracking_link_ltv for filtered accounts
+    const acctIds = new Set(accts.map((a: any) => a.id));
+    const attributedSubs = (trackingLinkLtv || [])
+      .filter((r: any) => acctIds.has(r.account_id))
+      .reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+    const attributedPct = accountTotalSubs > 0 ? (attributedSubs / accountTotalSubs) * 100 : 0;
+    const pct = Math.max(0, 100 - attributedPct);
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
-    const pct = accountTotalSubs > 0 ? Math.max(0, (unattributed / accountTotalSubs) * 100) : 0;
     return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow: false };
-  }, [accounts, modelParam, groupFilter, periodSubscribers]);
+  }, [accounts, modelParam, groupFilter, trackingLinkLtv]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
