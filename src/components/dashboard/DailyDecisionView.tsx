@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import {
   ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle,
   BarChart3, Users, Zap, Link2, AlertTriangle, DollarSign, Copy, ExternalLink,
-  Pencil, Coins, Activity, Trash2, ArrowUpRight, Loader2,
+  Pencil, Coins, Activity, Trash2, ArrowUpRight, Loader2, Tag,
 } from "lucide-react";
+import { getEffectiveSource } from "@/lib/source-helpers";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
