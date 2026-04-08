@@ -432,13 +432,19 @@ export function DailyDecisionView({
                     <button
                       key={l.id}
                       onClick={() => setSelectedCampaign(l)}
-                      className="bg-secondary/50 border border-border rounded-lg px-3 py-2 text-left hover:bg-secondary/80 transition-colors cursor-pointer"
+                      className="bg-secondary/50 border border-border rounded-lg px-3 py-2.5 text-left hover:bg-secondary/80 transition-colors cursor-pointer"
                     >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <ModelAvatar avatarUrl={l.avatarUrl} name={l.modelName} size={16} />
-                        <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <ModelAvatar avatarUrl={l.avatarUrl} name={l.modelName} size={20} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{l.modelName}</p>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-primary">{fmtC2(l.ltvPerSub)}/sub</span>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm font-mono font-bold text-primary">{fmtC2(l.ltvPerSub)}/sub</span>
+                        <span className="text-[10px] text-muted-foreground">{l.newSubs} fans</span>
+                      </div>
                     </button>
                   ))}
                 </div>
