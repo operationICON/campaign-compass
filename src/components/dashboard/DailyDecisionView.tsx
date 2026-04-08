@@ -198,10 +198,10 @@ export function DailyDecisionView({
     return best;
   }, [enriched]);
 
-  // === TOP 5 by LTV/Sub ===
+  // === TOP 5 by LTV/Sub (min 5 new fans) ===
   const topLtvPerSub = useMemo(() =>
     enriched
-      .filter(l => l.newSubs > 0 && l.ltvPerSub > 0)
+      .filter(l => l.newSubs >= 5 && l.ltvPerSub > 0)
       .sort((a, b) => b.ltvPerSub - a.ltvPerSub)
       .slice(0, 5),
   [enriched]);
