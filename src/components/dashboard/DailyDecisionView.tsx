@@ -637,7 +637,7 @@ function DrawerBody({
         </div>
         {d.url && (
           <div className="flex items-center gap-1.5 shrink-0">
-            <p className="truncate font-mono text-[11px] text-muted-foreground max-w-[200px]">{d.url}</p>
+            <p className="font-mono text-[13px] text-muted-foreground max-w-[340px] break-all">{d.url}</p>
             <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-1 transition-colors"><Copy className="h-3.5 w-3.5" /></button>
             <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1 transition-colors"><ExternalLink className="h-3.5 w-3.5" /></a>
           </div>
