@@ -28,10 +28,12 @@ export function DailyDecisionView({
   const [open, setOpen] = useState(false);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+  // === Helpers to read from tracking_link_ltv ===
   const getLtv = (l: any) => {
     const key = String(l.id ?? "").trim().toLowerCase();
     const rec = ltvLookup[key];
-    return rec ? Number(rec.total_ltv || 0) : Number(l.revenue || 0);
+    return rec ? Number(rec.total_ltv || 0) : 0;
   };
   const getCrossPoll = (l: any) => {
     const key = String(l.id ?? "").trim().toLowerCase();
@@ -44,7 +46,30 @@ export function DailyDecisionView({
     return rec ? Number(rec.new_subs_total || 0) : 0;
   };
 
-  // Build today's snapshot lookup by tracking_link_id
+  // === Period snapshot lookups ===
+  const periodSnapshotByLink = useMemo(() => {
+    if (isAllTime || !snapshotLookup) return null;
+    return snapshotLookup;
+  }, [isAllTime, snapshotLookup]);
+
+  // === Determine "live" links: not DEAD/NO_DATA + had activity in period ===
+  const liveLinks = useMemo(() => {
+    return links.filter(l => {
+      const status = (l.status || "").toUpperCase();
+      if (status === "DEAD" || status === "NO_DATA") return false;
+
+      // Check activity: for period filters use snapshots, for all time use tracking_links cumulative
+      if (periodSnapshotByLink) {
+        const id = String(l.id ?? "").toLowerCase();
+        const snap = periodSnapshotByLink[id];
+        return snap && (snap.subscribers > 0 || snap.clicks > 0);
+      }
+      // All time: use tracking_links fields
+      return Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0;
+    });
+  }, [links, periodSnapshotByLink]);
+
+  // === Build today/lastweek lookups for trend badges ===
   const todayLookup = useMemo(() => {
     const map: Record<string, { subscribers: number; revenue: number; clicks: number }> = {};
     for (const s of todaySnapshots) {
@@ -59,7 +84,6 @@ export function DailyDecisionView({
     return map;
   }, [todaySnapshots]);
 
-  // Build last week lookup for trend comparison
   const lastWeekLookup = useMemo(() => {
     const map: Record<string, { subscribers: number; revenue: number }> = {};
     for (const s of lastWeekSnapshots) {
@@ -79,30 +103,15 @@ export function DailyDecisionView({
     return map;
   }, [lastWeekSnapshots]);
 
-  // Only consider links with activity in the selected period
-  const activeInPeriod = useMemo(() => {
-    if (isAllTime || !snapshotLookup) return links;
-    return links.filter(l => {
-      const id = String(l.id ?? "").toLowerCase();
-      const snap = snapshotLookup[id];
-      return snap && (snap.clicks > 0 || snap.subscribers > 0);
-    });
-  }, [links, isAllTime, snapshotLookup]);
-
-  const linksWithSpend = useMemo(() => activeInPeriod.filter(l => Number(l.cost_total || 0) > 0), [activeInPeriod]);
-  const noSpendCount = useMemo(() => activeInPeriod.filter(l => (!l.cost_total || Number(l.cost_total) === 0) && (l.clicks > 0 || l.subscribers > 0)).length, [activeInPeriod]);
-
-  // === SUMMARY METRICS (from tracking_links + tracking_link_ltv, always available) ===
-  const resolvedActiveLinksCount = activeLinkCount ?? links.filter(l => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0).length;
+  // === Summary metrics ===
+  const resolvedActiveLinksCount = activeLinkCount ?? liveLinks.length;
 
   const bestRoi = useMemo(() => {
     let best: { name: string; roi: number } | null = null;
-    for (const l of links) {
+    for (const l of liveLinks) {
       const cost = Number(l.cost_total || 0);
       if (cost <= 0) continue;
-      const key = String(l.id ?? "").trim().toLowerCase();
-      const rec = ltvLookup[key];
-      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+      const ltv = getLtv(l) + getCrossPoll(l);
       if (ltv <= 0) continue;
       const roi = ((ltv - cost) / cost) * 100;
       if (!best || roi > best.roi) {
@@ -110,34 +119,47 @@ export function DailyDecisionView({
       }
     }
     return best;
-  }, [links, ltvLookup]);
+  }, [liveLinks, ltvLookup]);
 
   const topEarner = useMemo(() => {
     let best: { name: string; ltv: number } | null = null;
-    for (const l of links) {
-      const key = String(l.id ?? "").trim().toLowerCase();
-      const rec = ltvLookup[key];
-      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
+    for (const l of liveLinks) {
+      const ltv = getLtv(l);
       if (ltv > 0 && (!best || ltv > best.ltv)) {
         best = { name: l.campaign_name || "Unknown", ltv };
       }
     }
     return best;
-  }, [links, ltvLookup]);
+  }, [liveLinks, ltvLookup]);
 
-  // Compute profit and ROI for links with spend
-  const enrichedWithSpend = useMemo(() => {
-    return linksWithSpend.map(l => {
-      const rev = isAllTime ? getLtv(l) : Number(l.revenue || 0);
-      const cp = isAllTime ? getCrossPoll(l) : 0;
+  const needsAttentionCount = useMemo(() => {
+    return liveLinks.filter(l => {
       const cost = Number(l.cost_total || 0);
-      const profit = (rev + cp) - cost;
-      const roi = cost > 0 ? (profit / cost) * 100 : 0;
-      const newSubs = isAllTime ? getNewSubs(l) : Number(l.subscribers || 0);
-      const profitPerSub = newSubs > 0 ? profit / newSubs : null;
+      if (cost <= 0) return false;
+      const ltv = getLtv(l);
+      return ltv < cost;
+    }).length;
+  }, [liveLinks, ltvLookup]);
 
-      // Today's snapshot data
+  const noSpendCount = useMemo(() =>
+    liveLinks.filter(l => (!l.cost_total || Number(l.cost_total) === 0)).length,
+  [liveLinks]);
+
+  // === Enrich live links with spend for categorisation ===
+  const enrichedLive = useMemo(() => {
+    return liveLinks.filter(l => Number(l.cost_total || 0) > 0).map(l => {
       const id = String(l.id ?? "").toLowerCase();
+      const allTimeLtv = getLtv(l) + getCrossPoll(l);
+      const cost = Number(l.cost_total || 0);
+      // All Time ROI (always from tracking_link_ltv)
+      const allTimeRoi = cost > 0 ? ((allTimeLtv - cost) / cost) * 100 : 0;
+
+      // Period subs & revenue from snapshots (or all-time from tracking_links)
+      const snap = periodSnapshotByLink?.[id];
+      const periodSubs = snap ? snap.subscribers : Number(l.subscribers || 0);
+      const periodRev = snap ? snap.revenue : Number(l.revenue || 0);
+
+      // Today snapshot for trend
       const todaySnap = todayLookup[id];
       const lastWeekSnap = lastWeekLookup[id];
       const todaySubs = todaySnap?.subscribers ?? 0;
@@ -147,84 +169,144 @@ export function DailyDecisionView({
         ? ((todayRev - lastWeekRev) / lastWeekRev) * 100
         : null;
 
-      // Find account name
+      // Model name
       const account = accounts.find((a: any) => a.id === l.account_id);
       const modelName = account?.display_name || l.accounts?.display_name || "";
 
-      return { ...l, profit, roi, profitPerSub, ltv: rev, newSubs, todaySubs, todayRev, trend, modelName };
+      return {
+        ...l,
+        allTimeLtv,
+        allTimeRoi,
+        periodSubs,
+        periodRev,
+        todaySubs,
+        todayRev,
+        trend,
+        modelName,
+      };
     });
-  }, [linksWithSpend, ltvLookup, isAllTime, todayLookup, lastWeekLookup, accounts]);
+  }, [liveLinks, ltvLookup, periodSnapshotByLink, todayLookup, lastWeekLookup, accounts]);
 
+  // === SCALE / WATCH / STOP categories using All Time ROI ===
   const scaleLinks = useMemo(() =>
-    enrichedWithSpend
-      .filter(l => l.roi > 150 && l.profit > 0)
-      .sort((a, b) => b.profit - a.profit)
+    enrichedLive
+      .filter(l => l.allTimeRoi > 150)
+      .sort((a, b) => b.allTimeLtv - a.allTimeLtv)
       .slice(0, 5),
-    [enrichedWithSpend]
-  );
+  [enrichedLive]);
 
   const watchLinks = useMemo(() =>
-    enrichedWithSpend
-      .filter(l => l.roi >= 50 && l.roi <= 150)
-      .sort((a, b) => b.profit - a.profit)
+    enrichedLive
+      .filter(l => l.allTimeRoi >= 50 && l.allTimeRoi <= 150)
+      .sort((a, b) => b.allTimeLtv - a.allTimeLtv)
       .slice(0, 5),
-    [enrichedWithSpend]
-  );
+  [enrichedLive]);
 
-  const stopLinks = useMemo(() =>
-    enrichedWithSpend
-      .filter(l => l.roi < 0)
-      .sort((a, b) => a.roi - b.roi)
-      .slice(0, 5),
-    [enrichedWithSpend]
-  );
+  // STOP/FIX: has cost + zero period activity + ROI <= 0
+  const stopLinks = useMemo(() => {
+    return liveLinks
+      .filter(l => {
+        const cost = Number(l.cost_total || 0);
+        if (cost <= 0) return false;
+        const id = String(l.id ?? "").toLowerCase();
+        // Check zero activity in selected period
+        if (periodSnapshotByLink) {
+          const snap = periodSnapshotByLink[id];
+          const hasActivity = snap && (snap.subscribers > 0 || snap.clicks > 0);
+          if (hasActivity) return false; // has activity — not a stop candidate from period filter
+        }
+        const allTimeLtv = getLtv(l) + getCrossPoll(l);
+        const roi = ((allTimeLtv - cost) / cost) * 100;
+        return roi <= 0;
+      })
+      .map(l => {
+        const id = String(l.id ?? "").toLowerCase();
+        const allTimeLtv = getLtv(l) + getCrossPoll(l);
+        const cost = Number(l.cost_total || 0);
+        const allTimeRoi = cost > 0 ? ((allTimeLtv - cost) / cost) * 100 : 0;
+        const account = accounts.find((a: any) => a.id === l.account_id);
+        const modelName = account?.display_name || l.accounts?.display_name || "";
+        const todaySnap = todayLookup[id];
+        const lastWeekSnap = lastWeekLookup[id];
+        const todayRev = todaySnap?.revenue ?? 0;
+        const lastWeekRev = lastWeekSnap?.revenue ?? 0;
+        const trend = todayRev > 0 && lastWeekRev > 0
+          ? ((todayRev - lastWeekRev) / lastWeekRev) * 100
+          : null;
+        return {
+          ...l,
+          allTimeLtv,
+          allTimeRoi,
+          periodSubs: 0,
+          periodRev: 0,
+          todaySubs: todaySnap?.subscribers ?? 0,
+          todayRev,
+          trend,
+          modelName,
+        };
+      })
+      .sort((a, b) => a.allTimeRoi - b.allTimeRoi)
+      .slice(0, 5);
+  }, [liveLinks, ltvLookup, periodSnapshotByLink, todayLookup, lastWeekLookup, accounts]);
 
-  const needsAttentionCount = useMemo(() => {
-    return links.filter(l => {
-      const cost = Number(l.cost_total || 0);
-      if (cost <= 0) return false;
+  // === TOP 5 by LTV/Sub from tracking_link_ltv ===
+  const topProfitPerSub = useMemo(() => {
+    // Build per-link LTV/Sub from tracking_link_ltv
+    const items: { id: string; campaign_name: string; modelName: string; ltvPerSub: number }[] = [];
+    for (const l of liveLinks) {
       const key = String(l.id ?? "").trim().toLowerCase();
       const rec = ltvLookup[key];
-      const ltv = rec ? Number(rec.total_ltv || 0) : 0;
-      return ltv < cost;
-    }).length;
-  }, [links, ltvLookup]);
+      if (!rec) continue;
+      const totalLtv = Number(rec.total_ltv || 0);
+      const newSubs = Number(rec.new_subs_total || 0);
+      if (newSubs <= 0 || totalLtv <= 0) continue;
+      const ltvPerSub = totalLtv / newSubs;
+      const account = accounts.find((a: any) => a.id === l.account_id);
+      const modelName = account?.display_name || l.accounts?.display_name || "";
+      items.push({ id: l.id, campaign_name: l.campaign_name || "Unknown", modelName, ltvPerSub });
+    }
+    return items.sort((a, b) => b.ltvPerSub - a.ltvPerSub).slice(0, 5);
+  }, [liveLinks, ltvLookup, accounts]);
 
-  // Top 5 by Profit/Sub
-  const topProfitPerSub = useMemo(() =>
-    enrichedWithSpend
-      .filter(l => l.profitPerSub !== null && l.profitPerSub > 0)
-      .sort((a, b) => (b.profitPerSub || 0) - (a.profitPerSub || 0))
-      .slice(0, 5),
-    [enrichedWithSpend]
-  );
-
-  // Models snapshot
+  // === MODELS SNAPSHOT ===
   const modelSnapshot = useMemo(() => {
     if (!accounts.length) return [];
     return accounts.map((acc: any) => {
       const accLinks = links.filter((l: any) => l.account_id === acc.id);
-      // Compute subs/day from snapshot rows: SUM(subscribers) / COUNT(DISTINCT snapshot_date)
-      const accSnapshots = snapshotRows.filter((r: any) => {
-        const linkIds = new Set(accLinks.map((l: any) => String(l.id).toLowerCase()));
-        return linkIds.has(String(r.tracking_link_id ?? "").toLowerCase());
-      });
+
+      // Subs/day from snapshot rows
+      const accLinkIds = new Set(accLinks.map((l: any) => String(l.id).toLowerCase()));
+      const accSnapshots = snapshotRows.filter((r: any) =>
+        accLinkIds.has(String(r.tracking_link_id ?? "").toLowerCase())
+      );
       const totalSnapshotSubs = accSnapshots.reduce((s: number, r: any) => s + Number(r.subscribers || 0), 0);
       const distinctDates = new Set(accSnapshots.map((r: any) => r.snapshot_date));
-      const subsToday = distinctDates.size > 0 ? Math.round(totalSnapshotSubs / distinctDates.size) : 0;
+      const subsPerDay = distinctDates.size > 0 ? Math.round(totalSnapshotSubs / distinctDates.size) : 0;
 
-      const spendToday = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-      const totalLtvVal = isAllTime
-        ? accLinks.reduce((s: number, l: any) => s + getLtv(l), 0)
-        : accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      const newSubs = isAllTime
-        ? accLinks.reduce((s: number, l: any) => s + getNewSubs(l), 0)
-        : totalSnapshotSubs;
-      const profit = totalLtvVal - spendToday;
-      const profitPerSub = newSubs > 0 ? profit / newSubs : null;
-      return { ...acc, subsToday, spendToday, profitPerSub };
+      // Spend from tracking_links
+      const spendTotal = accLinks.reduce((s: number, l: any) => s + (Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0), 0);
+
+      // LTV/Sub from tracking_link_ltv: SUM(total_ltv) / SUM(new_subs_total) per account
+      let accLtv = 0;
+      let accNewSubs = 0;
+      for (const l of accLinks) {
+        const key = String(l.id ?? "").trim().toLowerCase();
+        const rec = ltvLookup[key];
+        if (rec) {
+          accLtv += Number(rec.total_ltv || 0);
+          accNewSubs += Number(rec.new_subs_total || 0);
+        }
+      }
+      const ltvPerSub = accNewSubs > 0 ? accLtv / accNewSubs : null;
+
+      // Profit/Sub = LTV/Sub - (cost_total / subscribers)
+      const totalSubs = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+      const costPerSub = totalSubs > 0 ? spendTotal / totalSubs : 0;
+      const profitPerSub = ltvPerSub != null ? ltvPerSub - costPerSub : null;
+
+      return { ...acc, subsPerDay, spendTotal, ltvPerSub, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
-  }, [accounts, links, ltvLookup, isAllTime, snapshotRows]);
+  }, [accounts, links, ltvLookup, snapshotRows]);
 
   function TrendBadge({ trend }: { trend: number | null }) {
     if (trend === null) return <span className="text-[9px] text-muted-foreground">—</span>;
@@ -247,9 +329,10 @@ export function DailyDecisionView({
         <div className="flex items-center justify-between mt-1">
           <span className="text-[10px] text-muted-foreground">{l.modelName}</span>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-muted-foreground">{l.todaySubs} subs</span>
-            <span className="text-[10px] font-mono text-muted-foreground">{fmtC(l.todayRev)}</span>
-            <span className={`font-mono text-[10px] font-bold ${l.roi >= 0 ? "text-primary" : "text-destructive"}`}>{l.roi.toFixed(0)}%</span>
+            <span className="text-[10px] font-mono text-muted-foreground">{l.periodSubs} subs</span>
+            <span className="text-[10px] font-mono text-muted-foreground">{fmtC(l.periodRev)}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">LTV {fmtC(l.allTimeLtv)}</span>
+            <span className={`font-mono text-[10px] font-bold ${l.allTimeRoi >= 0 ? "text-primary" : "text-destructive"}`}>{l.allTimeRoi.toFixed(0)}%</span>
           </div>
         </div>
       </div>
@@ -371,10 +454,10 @@ export function DailyDecisionView({
             </div>
           </div>
 
-          {/* Section 3 — Top 5 by Profit/Sub */}
+          {/* Section 3 — Top 5 by LTV/Sub */}
           <div className="p-4 border-b border-border">
             <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5 text-primary" /> Top 5 by Profit/Sub
+              <Zap className="h-3.5 w-3.5 text-primary" /> Top 5 by LTV/Sub
             </h4>
             {topProfitPerSub.length === 0 ? (
               <p className="text-xs text-muted-foreground">No data yet</p>
@@ -385,7 +468,7 @@ export function DailyDecisionView({
                     <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-[10px] text-muted-foreground">{l.modelName}</span>
-                      <span className="text-[10px] font-mono font-bold text-primary">{fmtC(l.profitPerSub!)}/sub</span>
+                      <span className="text-[10px] font-mono font-bold text-primary">{fmtC(l.ltvPerSub)}/sub</span>
                     </div>
                   </div>
                 ))}
@@ -404,8 +487,8 @@ export function DailyDecisionView({
                   <div key={m.id} className="flex items-center gap-3 text-xs">
                     <ModelAvatar avatarUrl={m.avatar_thumb_url} name={m.display_name} size={24} />
                     <span className="text-foreground font-medium w-24 truncate">{m.display_name}</span>
-                    <span className="text-muted-foreground font-mono">{m.subsToday.toLocaleString()} subs/day</span>
-                    <span className="text-muted-foreground font-mono">{fmtC(m.spendToday)} spend</span>
+                    <span className="text-muted-foreground font-mono">{m.subsPerDay.toLocaleString()} subs/day</span>
+                    <span className="text-muted-foreground font-mono">{fmtC(m.spendTotal)} spend</span>
                     <span className={`font-mono font-bold ${m.profitPerSub != null ? (m.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
                       {m.profitPerSub != null ? `${fmtC(m.profitPerSub)}/sub` : "—"}
                     </span>
