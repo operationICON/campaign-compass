@@ -1134,26 +1134,46 @@ function KpiCards({
       }
 
       case "organic_fans_pct": {
-        // Always use All Time data — LTV sync is not date-based
-        // new_subs_total from tracking_link_ltv, subscribers from accounts table
-        const modelIdSet = modelParam ? new Set([modelParam]) : null;
-        const groupAccIds = groupFilter !== "all"
+        // Use all-time tracking_links.subscribers and tracking_link_ltv.new_subs_total
+        // For time filters, restrict to links that had activity in the snapshot period
+        const ofModelIdSet = modelParam ? new Set([modelParam]) : null;
+        const ofGroupAccIds = groupFilter !== "all"
           ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id))
           : null;
-        const filterSet = modelIdSet || groupAccIds;
+        const ofFilterSet = ofModelIdSet || ofGroupAccIds;
 
-        let allTimeNewSubs = 0;
+        // Build set of link IDs active in the snapshot period (for time filters)
+        const isAllTimeOF = timePeriod === "all" && !customRange;
+        const periodLinkIds = !isAllTimeOF && overviewSnapshotLookup
+          ? new Set(Object.keys(overviewSnapshotLookup))
+          : null;
+
+        // Build LTV lookup by tracking_link_id
+        const ltvByLink = new Map<string, number>();
         for (const r of trackingLinkLtv) {
-          if (filterSet && !filterSet.has(r.account_id)) continue;
-          allTimeNewSubs += Number(r.new_subs_total || 0);
+          const lid = String(r.tracking_link_id ?? "").toLowerCase();
+          if (!lid) continue;
+          if (ofFilterSet && !ofFilterSet.has(r.account_id)) continue;
+          const ns = Number(r.new_subs_total || 0);
+          if (ns > 0) ltvByLink.set(lid, (ltvByLink.get(lid) || 0) + ns);
         }
-        // Use SUM(subscribers) from tracking_links (total tracked subs, not account-wide)
-        let allTimeSubs = 0;
-        for (const l of links) {
-          if (filterSet && !filterSet.has(l.account_id)) continue;
-          allTimeSubs += Number(l.subscribers || 0);
+
+        let ofNewSubs = 0;
+        let ofTotalSubs = 0;
+        for (const l of allLinks) {
+          if (l.deleted_at) continue;
+          const lid = String(l.id ?? "").toLowerCase();
+          if (ofFilterSet && !ofFilterSet.has(l.account_id)) continue;
+          if (periodLinkIds && !periodLinkIds.has(lid)) continue;
+          const subs = Number(l.subscribers || 0);
+          if (subs <= 0) continue;
+          const ns = ltvByLink.get(lid) || 0;
+          if (ns <= 0) continue;
+          ofNewSubs += ns;
+          ofTotalSubs += subs;
         }
-        const organicPct = allTimeSubs > 0 ? (allTimeNewSubs / allTimeSubs) * 100 : null;
+
+        const organicPct = ofTotalSubs > 0 ? (ofNewSubs / ofTotalSubs) * 100 : null;
         const pctColor = organicPct === null ? "text-muted-foreground"
           : organicPct > 20 ? "text-primary"
           : organicPct >= 10 ? "text-[hsl(38_92%_50%)]"
