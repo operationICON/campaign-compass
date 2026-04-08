@@ -371,14 +371,8 @@ export default function CampaignsPage() {
     return accountOptions.filter((a: any) => groupUsernames.includes(a.username));
   }, [accountOptions, groupFilter]);
 
-  // ─── Permanent filter: hide old zero-traffic links ───
-  const baseLinks = useMemo(() => {
-    return enrichedLinks.filter((l: any) => {
-      const hasTraffic = (l.clicks || 0) > 0 || (l.subscribers || 0) > 0;
-      const isNew = l.daysSinceCreated <= 30;
-      return hasTraffic || isNew;
-    });
-  }, [enrichedLinks]);
+  // ─── All links (no artificial filtering) ───
+  const baseLinks = enrichedLinks;
 
   // ─── Filtering ───
   const filtered = useMemo(() => {
