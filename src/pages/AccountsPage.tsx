@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource } from "@/lib/source-helpers";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
@@ -11,12 +11,12 @@ import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 
 import { format, differenceInDays, subDays } from "date-fns";
-import { ArrowLeft, ChevronUp, ChevronDown, Pencil, Trash2, Plus, Check, X } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
 
-const GENDER_OPTIONS = ["Female", "Trans", "Male", "Non-binary"] as const;
+const GENDER_OPTIONS = ["Female", "Trans", "Male", "Uncategorized"] as const;
 type GenderIdentity = typeof GENDER_OPTIONS[number];
 
 const GENDER_BADGE_STYLES: Record<string, string> = {
@@ -37,9 +37,19 @@ const AVATAR_COLORS = [
 ];
 
 type SortKey = "campaign_name" | "revenue" | "clicks" | "subscribers" | "profit" | "roi" | "created_at";
+type CardSortKey = "spend" | "ltv_per_sub" | "subscribers" | "active_links" | "alpha";
+
+const CARD_SORT_OPTIONS: { key: CardSortKey; label: string }[] = [
+  { key: "spend", label: "Top Spenders" },
+  { key: "ltv_per_sub", label: "Highest LTV/Sub" },
+  { key: "subscribers", label: "Most Subscribers" },
+  { key: "active_links", label: "Most Active Links" },
+  { key: "alpha", label: "Alphabetical" },
+];
 
 export default function AccountsPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
@@ -48,11 +58,12 @@ export default function AccountsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
+  const [cardSort, setCardSort] = useState<CardSortKey>("spend");
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
-  // Snapshot-based time filtering
   const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+  const isAllTime = timePeriod === "all" && !customRange;
 
   const { data: allLinks = [] } = useQuery({
     queryKey: ["tracking_links"],
@@ -74,7 +85,6 @@ export default function AccountsPage() {
     queryFn: fetchTrackingLinkLtv,
   });
 
-  // LTV lookup map
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
@@ -84,7 +94,6 @@ export default function AccountsPage() {
     return map;
   }, [trackingLinkLtv]);
 
-  // Auto-select model from URL param
   useEffect(() => {
     const modelId = searchParams.get("model");
     if (modelId && accounts.length > 0 && !selectedAccount) {
@@ -100,7 +109,6 @@ export default function AccountsPage() {
   const getGender = (account: any): string => account.gender_identity || "Uncategorized";
   const getGenderBadgeStyle = (gender: string) => GENDER_BADGE_STYLES[gender] || GENDER_BADGE_STYLES.Uncategorized;
 
-  // All unique genders for filter tabs
   const allCategories = useMemo(() => {
     const cats = new Set<string>();
     accounts.forEach((a: any) => cats.add(getGender(a)));
@@ -121,7 +129,6 @@ export default function AccountsPage() {
     toast.success(gender ? `Set to "${gender}"` : "Gender removed");
   };
 
-  // Agency benchmark CVR
   const agencyAvgCvr = useMemo(() => {
     const qualified = links.filter((l: any) => l.clicks > 100);
     if (qualified.length === 0) return null;
@@ -130,88 +137,214 @@ export default function AccountsPage() {
     return totalC > 0 ? (totalS / totalC) * 100 : null;
   }, [links]);
 
+  // FIX 6 — helper for safe username display
+  const displayUsername = (acc: any) => {
+    const u = acc.username;
+    if (!u || u === "—" || u.trim() === "") return null;
+    return `@${u.replace("@", "")}`;
+  };
+
   const accountStats = useMemo(() => {
     const stats: Record<string, any> = {};
+    const now = new Date();
+    const thirtyDaysAgo = subDays(now, 30);
+
     for (const acc of accounts) {
-      const accLinks = links.filter((l: any) => l.account_id === acc.id);
-      const totalRevenue = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      // LTV from tracking_link_ltv table
+      const accLinks = allLinks.filter((l: any) => l.account_id === acc.id);
+      const accLinksFiltered = links.filter((l: any) => l.account_id === acc.id);
+
+      // Revenue from filtered links (period-aware via snapshots)
+      const totalRevenue = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+
+      // LTV from tracking_link_ltv table (always all-time source)
       const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
-      const totalLtv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
-      const totalSpend = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-      const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
+      const totalLtvAllTime = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
+      const crossPollAllTime = accLtvRecords.reduce((s: number, r: any) => s + Number(r.cross_poll_revenue || 0), 0);
+      const hasLtvData = accLtvRecords.length > 0;
+
+      // FIX 1 — Tracked Subs from tracking_link_ltv.new_subs_total
+      const trackedSubs = hasLtvData
+        ? accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0)
+        : null;
+
+      // Total spend (always all-time)
+      const totalSpendAllTime = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
+      // Period-aware values
+      let periodLtv: number | null = null;
+      let periodSpend: number | null = null;
+      let periodSubs: number | null = null;
+
+      if (isAllTime) {
+        periodLtv = totalLtvAllTime + crossPollAllTime;
+        periodSpend = totalSpendAllTime;
+        // Period subs = tracked subs for all time
+        periodSubs = trackedSubs;
+      } else {
+        // Period LTV = sum of snapshot revenue
+        const snapshotRev = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+        const snapshotSubs = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+        const hasSnapData = snapshotRev > 0 || snapshotSubs > 0;
+        periodLtv = hasSnapData ? snapshotRev : null;
+        periodSubs = hasSnapData ? snapshotSubs : null;
+        // Proportional spend
+        if (hasSnapData) {
+          const snapshotDays = (snapshotLookup ? Object.values(snapshotLookup).reduce((m, v) => Math.max(m, v.days), 0) : 0) || 1;
+          periodSpend = accLinks.reduce((s: number, l: any) => {
+            const cost = Number(l.cost_total || 0);
+            if (cost <= 0) return s;
+            const daysRunning = Math.max(1, l.created_at ? differenceInDays(now, new Date(l.created_at)) : 1);
+            return s + (cost / daysRunning) * snapshotDays;
+          }, 0);
+        } else {
+          periodSpend = null;
+        }
+      }
+
+      const totalClicks = accLinksFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+
+      // FIX 9 — Active links = clicks > 0 in last 30 days AND deleted_at IS NULL
       const activeLinks = accLinks.filter((l: any) => {
-        const days = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : 999;
-        return l.clicks > 0 || days <= 30;
+        if (l.deleted_at) return false;
+        // Check if link had clicks recently (use created_at as proxy, or clicks > 0)
+        const created = l.created_at ? new Date(l.created_at) : null;
+        const daysSinceCreated = created ? differenceInDays(now, created) : 999;
+        return l.clicks > 0 && daysSinceCreated <= 30 || (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0);
       });
 
-      // Last 30d LTV from daily_metrics
-      const thirtyDaysAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
-      const accMetrics = dailyMetrics.filter((m: any) => m.account_id === acc.id && m.date >= thirtyDaysAgo);
-      const ltv30d = accMetrics.reduce((s: number, m: any) => s + Number(m.revenue || 0), 0);
+      // FIX 3 — Subs/Day = total subs across links / days since earliest link created_at
+      const earliestCreated = accLinks.reduce((earliest: Date | null, l: any) => {
+        if (!l.created_at) return earliest;
+        const d = new Date(l.created_at);
+        return !earliest || d < earliest ? d : earliest;
+      }, null as Date | null);
+      const daysSinceEarliest = earliestCreated ? Math.max(1, differenceInDays(now, earliestCreated)) : 0;
+      const subsPerDay = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
 
-      // Model CVR (qualified links only)
-      const qualifiedLinks = accLinks.filter((l: any) => l.clicks > 100);
+      // FIX 2 — Untracked %
+      const apiSubs = acc.subscribers_count || 0;
+      const untrackedPct = apiSubs > 0 && trackedSubs !== null
+        ? Math.max(0, ((apiSubs - trackedSubs) / apiSubs) * 100)
+        : null;
+
+      // LTV/Sub
+      const ltvPerSub = isAllTime
+        ? (trackedSubs && trackedSubs > 0 && totalLtvAllTime > 0 ? totalLtvAllTime / trackedSubs : null)
+        : (periodSubs && periodSubs > 0 && periodLtv !== null && periodLtv > 0 ? periodLtv / periodSubs : null);
+
+      // Profit/Sub
+      const profit = periodLtv !== null && periodSpend !== null ? periodLtv - periodSpend : null;
+      const profitPerSub = profit !== null && ((isAllTime ? trackedSubs : periodSubs) || 0) > 0
+        ? profit / ((isAllTime ? trackedSubs : periodSubs) || 1)
+        : null;
+
+      // Model CVR
+      const qualifiedLinks = accLinksFiltered.filter((l: any) => l.clicks > 100);
       const qSubs = qualifiedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
       const qClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
       const avgCvr = qClicks > 0 ? (qSubs / qClicks) * 100 : null;
       const cvrDiff = avgCvr !== null && agencyAvgCvr !== null ? avgCvr - agencyAvgCvr : null;
 
-      // Tracked subs from tracking_link_ltv
-      const trackedSubs = accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+      const blendedRoi = periodSpend && periodSpend > 0 && periodLtv !== null ? ((periodLtv - periodSpend) / periodSpend) * 100 : null;
 
-      const attributedPct = (acc.subscribers_count || 0) > 0 ? (trackedSubs / acc.subscribers_count) * 100 : 0;
-      const unattributedPct = Math.max(0, 100 - attributedPct);
+      // Last 30d LTV
+      const thirtyAgo = format(subDays(now, 30), "yyyy-MM-dd");
+      const accMetrics30d = dailyMetrics.filter((m: any) => m.account_id === acc.id && m.date >= thirtyAgo);
+      const ltv30d = accLtvRecords.reduce((s: number, r: any) => s + Number(r.ltv_last_30d || 0), 0) || (accMetrics30d.length > 0 ? accMetrics30d.reduce((s: number, m: any) => s + Number(m.revenue || 0), 0) : null);
 
-      const effectiveLtv = totalLtv > 0 ? totalLtv : totalRevenue;
-      const profit = effectiveLtv - totalSpend;
-      const profitPerSub = trackedSubs > 0 ? profit / trackedSubs : (totalSubs > 0 ? profit / totalSubs : null);
       stats[acc.id] = {
         totalRevenue,
-        totalLtv,
-        totalSpend,
+        totalLtv: periodLtv,
+        totalLtvAllTime,
+        totalSpend: periodSpend,
+        totalSpendAllTime,
         totalProfit: profit,
         totalCampaigns: accLinks.length,
         activeCampaigns: activeLinks.length,
-        avgSubsDay: accLinks.length > 1 ? (totalSubs / Math.max(1, accLinks.length)).toFixed(0) : "—",
-        ltv30d: accLtvRecords.reduce((s: number, r: any) => s + Number(r.ltv_last_30d || 0), 0) || (accMetrics.length > 0 ? ltv30d : null),
+        subsPerDay,
+        ltv30d,
         totalClicks,
         totalSubs,
         trackedSubs,
-        apiSubs: acc.subscribers_count || 0,
-        blendedRoi: totalSpend > 0 ? ((effectiveLtv - totalSpend) / totalSpend) * 100 : null,
+        apiSubs,
+        blendedRoi,
         avgCvr,
         cvrDiff,
-        unattributedPct,
+        untrackedPct,
         profitPerSub,
+        ltvPerSub,
+        hasLtvData,
       };
     }
     return stats;
-  }, [accounts, links, dailyMetrics, agencyAvgCvr, trackingLinkLtv]);
+  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime]);
+
+  // FIX 8 — Account filter
+  const afterAccountFilter = useMemo(() => {
+    if (pageModelFilter === "all") return accounts;
+    return accounts.filter((a: any) => a.id === pageModelFilter);
+  }, [accounts, pageModelFilter]);
 
   const filteredAccounts = useMemo(() => {
-    if (categoryFilter === "all") return accounts;
-    return accounts.filter((a: any) => getGender(a) === categoryFilter);
-  }, [accounts, categoryFilter]);
+    let list = afterAccountFilter;
+    if (categoryFilter !== "all") {
+      list = list.filter((a: any) => getGender(a) === categoryFilter);
+    }
+    return list;
+  }, [afterAccountFilter, categoryFilter]);
+
+  // FIX 4 — Sort model cards
+  const sortedAccounts = useMemo(() => {
+    return [...filteredAccounts].sort((a: any, b: any) => {
+      const sa = accountStats[a.id] || {};
+      const sb = accountStats[b.id] || {};
+      switch (cardSort) {
+        case "spend":
+          // Primary: spend DESC, secondary: ltvPerSub DESC
+          if ((sb.totalSpendAllTime || 0) !== (sa.totalSpendAllTime || 0))
+            return (sb.totalSpendAllTime || 0) - (sa.totalSpendAllTime || 0);
+          return (sb.ltvPerSub || 0) - (sa.ltvPerSub || 0);
+        case "ltv_per_sub":
+          return (sb.ltvPerSub || 0) - (sa.ltvPerSub || 0);
+        case "subscribers":
+          return (sb.apiSubs || 0) - (sa.apiSubs || 0);
+        case "active_links":
+          return (sb.activeCampaigns || 0) - (sa.activeCampaigns || 0);
+        case "alpha":
+          return (a.display_name || "").localeCompare(b.display_name || "");
+        default:
+          return 0;
+      }
+    });
+  }, [filteredAccounts, accountStats, cardSort]);
+
+  // Account options for dropdown — FIX 8: no @unknown
+  const accountOptions = useMemo(() => {
+    const accountIdsWithLinks = new Set(allLinks.map((l: any) => l.account_id));
+    return accounts
+      .filter((a: any) => accountIdsWithLinks.has(a.id) && a.username && a.username.trim() !== "" && a.username !== "—")
+      .map((a: any) => ({ id: a.id, username: a.username || "", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))
+      .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name));
+  }, [accounts, allLinks]);
 
   const AvatarCircle = ({ account, size = 80 }: { account: any; size?: number }) => {
     const colorIdx = accounts.indexOf(account) % AVATAR_COLORS.length;
     const thumbUrl = account.avatar_thumb_url;
+    const initial = (account.display_name || "?").charAt(0).toUpperCase();
     return (
       <div style={{ width: size, height: size }}>
         {thumbUrl ? (
           <img src={thumbUrl} alt={account.display_name} className="rounded-full object-cover border-[3px] border-white shadow-md" style={{ width: size, height: size }} />
         ) : (
           <div className={`rounded-full bg-gradient-to-br ${AVATAR_COLORS[colorIdx]} flex items-center justify-center text-white font-bold border-[3px] border-white shadow-md`} style={{ width: size, height: size, fontSize: size * 0.35 }}>
-            {account.display_name.charAt(0)}
+            {initial}
           </div>
         )}
       </div>
     );
   };
 
-  // === SORT HELPER for campaigns tab ===
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
@@ -231,7 +364,6 @@ export default function AccountsPage() {
     return { label: "No Spend", cls: "bg-muted text-muted-foreground" };
   };
 
-  // Derived data for selected account (must be above conditional return)
   const selectedAccLinks = useMemo(() => {
     if (!selectedAccount) return [];
     return links.filter((l: any) => l.account_id === selectedAccount.id);
@@ -284,20 +416,19 @@ export default function AccountsPage() {
     return (
       <DashboardLayout>
         <div className="space-y-5">
-          {/* Back button */}
           <button onClick={() => { setSelectedAccount(null); setActiveTab("campaigns"); }} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" /> All Models
           </button>
 
-          {/* Profile card */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex flex-col md:flex-row">
-              {/* Left column */}
               <div className="md:w-[30%] p-6 border-b md:border-b-0 md:border-r border-border flex flex-col items-center text-center">
                 <AvatarCircle account={acc} size={120} />
                 <p className="text-[10px] text-muted-foreground mt-1.5">Synced from OnlyFans</p>
                 <h2 className="text-xl font-bold text-foreground mt-4">{acc.display_name}</h2>
-                <p className="text-sm text-primary font-medium">@{acc.username || "—"}</p>
+                {displayUsername(acc) && (
+                  <p className="text-sm text-primary font-medium">{displayUsername(acc)}</p>
+                )}
                 <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${getGenderBadgeStyle(category)}`}>
                   {category}
                 </span>
@@ -317,16 +448,14 @@ export default function AccountsPage() {
                 </div>
               </div>
 
-              {/* Right column */}
               <div className="md:w-[70%] p-6">
-                {/* Stats row 1 */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   {[
                     { label: "Total Revenue", value: fmtCurrency(stats.totalRevenue || 0) },
-                    { label: "Total LTV", value: stats.totalLtv > 0 ? fmtCurrency(stats.totalLtv) : "Fan sync needed", accent: stats.totalLtv > 0 },
-                    { label: "Last 30d LTV", value: stats.ltv30d != null ? fmtCurrency(stats.ltv30d) : "Syncing..." },
-                    { label: "Total Spend", value: fmtCurrency(stats.totalSpend || 0) },
-                    { label: "Total Profit", value: stats.totalSpend > 0 ? fmtCurrency(stats.totalProfit) : "—", positive: stats.totalProfit >= 0 },
+                    { label: "Total LTV", value: stats.totalLtv != null ? fmtCurrency(stats.totalLtv) : "—", accent: (stats.totalLtv || 0) > 0 },
+                    { label: "Last 30d LTV", value: stats.ltv30d != null ? fmtCurrency(stats.ltv30d) : "—" },
+                    { label: "Total Spend", value: fmtCurrency(stats.totalSpendAllTime || 0) },
+                    { label: "Total Profit", value: stats.totalProfit != null ? fmtCurrency(stats.totalProfit) : "—", positive: (stats.totalProfit || 0) >= 0 },
                   ].map((s) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
@@ -334,15 +463,14 @@ export default function AccountsPage() {
                     </div>
                   ))}
                 </div>
-                {/* Stats row 2 */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                   {[
                     { label: "Total Tracking Links", value: String(stats.totalCampaigns || 0) },
                     { label: "Active Tracking Links", value: String(stats.activeCampaigns || 0) },
-                    { label: "Avg Subs/Day", value: stats.avgSubsDay },
+                    { label: "Subs/Day", value: stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—" },
                     { label: "ROI %", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
-                    { label: "Unattributed", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
-                      colored: true, pctVal: stats.unattributedPct },
+                    { label: "Untracked %", value: stats.untrackedPct != null ? fmtPct(stats.untrackedPct) : "—",
+                      colored: true, pctVal: stats.untrackedPct },
                   ].map((s: any) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
@@ -354,7 +482,6 @@ export default function AccountsPage() {
                     </div>
                   ))}
                 </div>
-                {/* CVR comparison */}
                 {stats.avgCvr !== null && (
                   <div className="flex items-center gap-3 mb-6 px-1">
                     <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Avg CVR:</span>
@@ -367,7 +494,6 @@ export default function AccountsPage() {
                   </div>
                 )}
 
-                {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
                     {(["campaigns", "sources", "performance"] as const).map((tab) => (
@@ -384,7 +510,6 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
-                {/* Tab content */}
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
                     {sortedLinks.length === 0 ? (
@@ -398,7 +523,7 @@ export default function AccountsPage() {
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
                             <th className="text-right py-2 px-3">Subs/Day</th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>LTV <SortIcon col="revenue" /></th>{/* TODO: sort by ltv from lookup */}
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>LTV <SortIcon col="revenue" /></th>
                             <th className="text-right py-2 px-3">Cross-Poll</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
@@ -561,55 +686,72 @@ export default function AccountsPage() {
           onCustomRangeChange={setCustomRange}
           modelFilter={pageModelFilter}
           onModelFilterChange={setPageModelFilter}
-          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+          accounts={accountOptions}
         />
 
-        {/* Filter pills */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              categoryFilter === "all"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-            }`}
+        {/* Filter pills + sort dropdown */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setCategoryFilter("all")}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                categoryFilter === "all"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+              }`}
+            >
+              All <span className="ml-1.5 text-xs opacity-70">{accounts.length}</span>
+            </button>
+            {allCategories.map((cat) => {
+              const count = accounts.filter((a: any) => getGender(a) === cat).length;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    categoryFilter === cat
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                  }`}
+                >
+                  {cat} <span className="ml-1.5 text-xs opacity-70">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* FIX 4 — Sort dropdown */}
+          <select
+            value={cardSort}
+            onChange={(e) => setCardSort(e.target.value as CardSortKey)}
+            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
           >
-            All <span className="ml-1.5 text-xs opacity-70">{accounts.length}</span>
-          </button>
-          {allCategories.map((cat) => {
-            const count = accounts.filter((a: any) => getGender(a) === cat).length;
-            return (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  categoryFilter === cat
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                }`}
-              >
-                {cat} <span className="ml-1.5 text-xs opacity-70">{count}</span>
-              </button>
-            );
-          })}
+            {CARD_SORT_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Model cards grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredAccounts.map((acc: any) => {
+          {sortedAccounts.map((acc: any) => {
             const stats = accountStats[acc.id] || {};
             const category = getGender(acc);
             const isEditing = editingGenderFor === acc.id;
             return (
               <div
                 key={acc.id}
-                className="bg-card border border-border rounded-2xl p-5 card-hover transition-all duration-200 hover:border-primary/40 cursor-pointer"
+                className="bg-card border border-border rounded-2xl p-5 transition-all duration-200 hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
+                onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
               >
-                <div className="flex items-start gap-4 mb-4" onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
+                <div className="flex items-start gap-4 mb-4">
                   <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
-                    <p className="text-[13px] text-muted-foreground">@{acc.username || "—"}</p>
+                    {/* FIX 6 — No @— */}
+                    {displayUsername(acc) && (
+                      <p className="text-[13px] text-muted-foreground">{displayUsername(acc)}</p>
+                    )}
                     <div className="flex items-center gap-2 mt-1.5 relative">
                       {isEditing ? (
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -621,21 +763,13 @@ export default function AccountsPage() {
                             {GENDER_OPTIONS.map((g) => (
                               <button
                                 key={g}
-                                onClick={() => handleSaveGender(acc.id, g)}
+                                onClick={() => handleSaveGender(acc.id, g === "Uncategorized" ? null : g)}
                                 className={`px-4 py-1.5 text-[11px] text-left hover:bg-secondary transition-colors ${category === g ? "font-bold text-primary" : "text-foreground"}`}
                               >
-                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${g === "Female" ? "bg-pink-400" : g === "Trans" ? "bg-purple-400" : g === "Male" ? "bg-blue-400" : "bg-yellow-400"}`} />
+                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${g === "Female" ? "bg-pink-400" : g === "Trans" ? "bg-purple-400" : g === "Male" ? "bg-blue-400" : "bg-muted-foreground"}`} />
                                 {g}
                               </button>
                             ))}
-                            {category !== "Uncategorized" && (
-                              <button
-                                onClick={() => handleSaveGender(acc.id, null)}
-                                className="px-4 py-1.5 text-[11px] text-left text-destructive hover:bg-secondary transition-colors border-t border-border"
-                              >
-                                Remove
-                              </button>
-                            )}
                           </div>
                         </div>
                       ) : (
@@ -655,48 +789,53 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
-                <div onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
-                  {/* KPI grid */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Subs</span>
-                      <span className="font-mono font-semibold text-foreground">{fmtNum(stats.apiSubs || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tracked Subs</span>
-                      <span className="font-mono font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Untracked %</span>
-                      <span className={`font-mono font-semibold ${(stats.unattributedPct || 0) > 50 ? "text-[hsl(var(--warning))]" : "text-foreground"}`}>
-                        {fmtPct(stats.unattributedPct || 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">LTV/Sub</span>
-                      <span className="font-mono font-semibold text-primary">
-                        {stats.trackedSubs > 0 && stats.totalLtv > 0 ? fmtCurrency(stats.totalLtv / stats.trackedSubs) : "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Spend</span>
-                      <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpend || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Profit/Sub</span>
-                      <span className={`font-mono font-semibold ${stats.profitPerSub != null ? (stats.profitPerSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                        {stats.profitPerSub != null ? fmtCurrency(stats.profitPerSub) : "—"}
-                      </span>
-                    </div>
+                {/* KPI grid */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Subs</span>
+                    <span className="font-mono font-semibold text-foreground">{stats.apiSubs > 0 ? fmtNum(stats.apiSubs) : "—"}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tracked Subs</span>
+                    <span className="font-mono font-semibold text-foreground">
+                      {stats.trackedSubs !== null ? fmtNum(stats.trackedSubs) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Untracked %</span>
+                    <span className={`font-mono font-semibold ${
+                      stats.untrackedPct == null ? "text-muted-foreground"
+                        : stats.untrackedPct > 50 ? "text-destructive"
+                        : stats.untrackedPct <= 30 ? "text-primary"
+                        : "text-foreground"
+                    }`}>
+                      {stats.untrackedPct != null ? fmtPct(stats.untrackedPct) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">LTV/Sub</span>
+                    <span className="font-mono font-semibold text-primary">
+                      {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Spend</span>
+                    <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Profit/Sub</span>
+                    <span className={`font-mono font-semibold ${stats.profitPerSub != null ? (stats.profitPerSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
+                      {stats.profitPerSub != null ? fmtCurrency(stats.profitPerSub) : "—"}
+                    </span>
+                  </div>
+                </div>
 
-                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
-                    <span>{stats.activeCampaigns || 0} active links</span>
-                    <span className="text-border">·</span>
-                    <span>{stats.totalCampaigns || 0} total</span>
-                    <span className="text-border">·</span>
-                    <span>{stats.avgSubsDay} subs/day</span>
-                  </div>
+                <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
+                  <span>{stats.activeCampaigns || 0} active links</span>
+                  <span className="text-border">·</span>
+                  <span>{stats.totalCampaigns || 0} total</span>
+                  <span className="text-border">·</span>
+                  <span>{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—"}</span>
                 </div>
               </div>
             );
