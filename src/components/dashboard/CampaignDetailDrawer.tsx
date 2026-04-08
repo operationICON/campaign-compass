@@ -423,21 +423,132 @@ function DrawerBodyInner({
 
           <div className="w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
 
-          {/* COLUMN 4 — CALCULATIONS */}
+          {/* COLUMN 4 — BREAKDOWN */}
           <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(142 55% 49%)" }}>
             <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">🧮 Calculations</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">📋 Breakdown</h4>
             </div>
-            <div className="p-0">
-              <DataRow label="LTV/Sub" value={showCurrency(ltvPerSub)} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
-              <DataRow label="Profit/Sub" value={profitPerSub != null && cost > 0 ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
-              <DataRow label="ROI" value={showRoi(roi)} tone={roi != null ? profitTone(roi) : "neutral"} />
-              <DataRow label="CVR %" value={cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
-              <DataRow label="Break Even LTV" value={breakEvenLtv != null ? `Need ${fmtC2(breakEvenLtv)}/sub` : "—"} tone="neutral" />
-              <DataRow label="Spender %" value={showPct(spenderRate)} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
-              <DataRow label="Org %" value={showPct(orgPct)} tone={orgPct != null && orgPct > 0 ? "positive" : "neutral"} />
-              <DataRow label="Avg Expenses" value={avgExpenses != null ? fmtC2(avgExpenses) : "—"} tone="neutral" />
-              <DataRow label="Est Daily Spend" value={estDailySpend != null ? fmtC2(estDailySpend) : "—"} tone="neutral" />
+            <div className="px-4 py-3 space-y-0">
+              {/* PART 1 — Campaign Summary */}
+              <div className="space-y-1 pb-3">
+                {(() => {
+                  const realCpl = newSubs > 0 && cost > 0 ? cost / newSubs : null;
+                  const cType = d.cost_type || "";
+                  // Line 1
+                  let line1: React.ReactNode;
+                  if (cost <= 0) {
+                    line1 = <span>This campaign has no spend set yet.</span>;
+                  } else if (cType === "CPC") {
+                    line1 = <>This campaign brought in <span className="text-primary font-semibold not-italic">{newSubs.toLocaleString()}</span> subscribers at <span className="text-primary font-semibold not-italic">{fmtC2(costInputValue)}</span>/click{realCpl != null && <> (<span className="text-primary font-semibold not-italic">{fmtC2(realCpl)}</span>/sub effective cost)</>}.</>;
+                  } else if (cType === "FIXED") {
+                    line1 = <>This campaign brought in <span className="text-primary font-semibold not-italic">{newSubs.toLocaleString()}</span> subscribers for a flat <span className="text-primary font-semibold not-italic">{fmtC2(cost)}</span> fee{realCpl != null && <> (<span className="text-primary font-semibold not-italic">{fmtC2(realCpl)}</span>/sub)</>}.</>;
+                  } else {
+                    line1 = <>This campaign brought in <span className="text-primary font-semibold not-italic">{newSubs.toLocaleString()}</span> subscribers at <span className="text-primary font-semibold not-italic">{fmtC2(costInputValue)}</span>/sub.</>;
+                  }
+                  // Line 2
+                  let line2: React.ReactNode;
+                  if (cost <= 0) {
+                    line2 = totalLtv > 0
+                      ? <>Total LTV earned is <span className="text-primary font-semibold not-italic">{fmtC2(totalLtv)}</span>.</>
+                      : <>No LTV data yet.</>;
+                  } else {
+                    line2 = <>Each subscriber generated <span className="text-primary font-semibold not-italic">{ltvPerSub != null ? fmtC2(ltvPerSub) : "—"}</span> in LTV — a <span className={`font-semibold not-italic ${roi != null && roi >= 0 ? "text-primary" : "text-destructive"}`}>{roi != null ? `${roi.toFixed(0)}%` : "—"}</span> ROI.</>;
+                  }
+                  // Line 3
+                  let line3: React.ReactNode = null;
+                  if (cost > 0) {
+                    const noRecentClicks = totalClicks === 0;
+                    if (noRecentClicks) {
+                      line3 = <span className="text-destructive not-italic">No recent clicks detected. Consider pausing spend.</span>;
+                    } else if (profit >= 0) {
+                      line3 = <span className="text-primary not-italic">This campaign is profitable. Scale if traffic is available.</span>;
+                    } else if (breakEvenLtv != null) {
+                      line3 = <>Break-even requires <span className="text-primary font-semibold not-italic">{fmtC2(breakEvenLtv)}</span>/sub LTV.</>;
+                    }
+                  }
+                  return (
+                    <p className="text-xs italic text-muted-foreground leading-relaxed">
+                      {line1}<br />{line2}{line3 && <><br />{line3}</>}
+                    </p>
+                  );
+                })()}
+              </div>
+
+              <div className="border-t border-border" />
+
+              {/* PART 2 — Revenue Reconciliation */}
+              <div className="py-3 space-y-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Where does the money come from?</p>
+                {[
+                  { label: "Est. Revenue", value: Number(d.revenue ?? 0), tone: "neutral" as const },
+                  { label: "LTV", value: totalLtv, tone: "neutral" as const },
+                  { label: "Unaccounted", value: Number(d.revenue ?? 0) - totalLtv, tone: ((Number(d.revenue ?? 0) - totalLtv) > 0 ? "warning" : "neutral") as "positive" | "negative" | "neutral" },
+                  { label: "Cross-Poll LTV", value: crossPoll, tone: "neutral" as const },
+                  { label: "Total LTV", value: totalLtv + crossPoll, tone: "positive" as const },
+                ].map(r => (
+                  <div key={r.label} className="flex items-center justify-between h-7">
+                    <span className="text-[11px] text-muted-foreground">{r.label}</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      r.label === "Total LTV" ? "text-primary" :
+                      r.label === "Unaccounted" && r.value > 0 ? "text-amber-400" :
+                      r.tone === "positive" ? "text-primary" : "text-foreground"
+                    }`}>
+                      {r.value !== 0 ? fmtC2(r.value) : "—"}
+                    </span>
+                  </div>
+                ))}
+                <p className="text-[11px] font-mono text-muted-foreground pt-1">
+                  Total LTV = <span className="text-primary">{fmtC2(totalLtv)}</span> + <span className="text-primary">{fmtC2(crossPoll)}</span> cross-poll
+                </p>
+              </div>
+
+              {/* PART 3 — Cost Breakdown */}
+              {cost > 0 && (
+                <>
+                  <div className="border-t border-border" />
+                  <div className="py-3 space-y-1">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost breakdown</p>
+                    {(() => {
+                      const cType = d.cost_type || "CPL";
+                      const realCpl = newSubs > 0 ? cost / newSubs : null;
+                      if (cType === "CPL") {
+                        return (
+                          <p className="text-xs font-mono text-muted-foreground">
+                            <span className="text-primary">{tlSubscribers.toLocaleString()}</span> subs × <span className="text-primary">{fmtC2(costInputValue)}</span>/sub = <span className="text-primary">{fmtC2(cost)}</span> total spend
+                          </p>
+                        );
+                      }
+                      if (cType === "CPC") {
+                        return (
+                          <div className="space-y-1">
+                            <p className="text-xs font-mono text-muted-foreground">
+                              <span className="text-primary">{totalClicks.toLocaleString()}</span> clicks × <span className="text-primary">{fmtC2(costInputValue)}</span>/click = <span className="text-primary">{fmtC2(cost)}</span> total spend
+                            </p>
+                            {realCpl != null && (
+                              <p className="text-xs font-mono text-muted-foreground">
+                                Effective CPL: <span className="text-primary">{fmtC2(cost)}</span> / <span className="text-primary">{newSubs.toLocaleString()}</span> = <span className="text-primary">{fmtC2(realCpl)}</span>/sub
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
+                      // FIXED
+                      return (
+                        <div className="space-y-1">
+                          <p className="text-xs font-mono text-muted-foreground">
+                            Flat fee: <span className="text-primary">{fmtC2(cost)}</span>
+                          </p>
+                          {realCpl != null && (
+                            <p className="text-xs font-mono text-muted-foreground">
+                              Effective CPL: <span className="text-primary">{fmtC2(cost)}</span> / <span className="text-primary">{newSubs.toLocaleString()}</span> = <span className="text-primary">{fmtC2(realCpl)}</span>/sub
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
