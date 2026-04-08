@@ -492,11 +492,16 @@ export default function DashboardPage() {
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    const attributedSubs = Math.min(periodSubscribers, accountTotalSubs);
+    // Attributed = new_subs_total from tracking_link_ltv for filtered accounts
+    const acctIds = new Set(accts.map((a: any) => a.id));
+    const attributedSubs = (trackingLinkLtv || [])
+      .filter((r: any) => acctIds.has(r.account_id))
+      .reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+    const attributedPct = accountTotalSubs > 0 ? (attributedSubs / accountTotalSubs) * 100 : 0;
+    const pct = Math.max(0, 100 - attributedPct);
     const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
-    const pct = accountTotalSubs > 0 ? Math.max(0, (unattributed / accountTotalSubs) * 100) : 0;
     return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow: false };
-  }, [accounts, modelParam, groupFilter, periodSubscribers]);
+  }, [accounts, modelParam, groupFilter, trackingLinkLtv]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -944,10 +949,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Fans with no tracking link · {periodLabel}</p>
-            {unattributedStats.accountTotalSubs > 0 && (
-              <p className="text-[10px] text-muted-foreground italic mt-0.5">Requires fan sync for accuracy</p>
-            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Fans not acquired through tracked campaigns</p>
             <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
               <div className="space-y-1 text-[11px]">
                 <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>
