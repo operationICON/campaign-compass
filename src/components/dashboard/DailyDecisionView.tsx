@@ -782,15 +782,6 @@ function DrawerBody({
         </div>
       </div>
 
-      {/* TRACKING LINK */}
-      {d.url && (
-        <div className="mx-6 mb-4 rounded-lg border border-border bg-card px-4 py-3 flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
-          <p className="truncate font-mono text-xs text-muted-foreground flex-1">{d.url}</p>
-          <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-1 transition-colors"><Copy className="h-4 w-4" /></button>
-          <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1 transition-colors"><ExternalLink className="h-4 w-4" /></a>
-        </div>
-      )}
     </div>
   );
 }
