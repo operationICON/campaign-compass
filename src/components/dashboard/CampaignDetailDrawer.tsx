@@ -435,10 +435,13 @@ function DrawerBodyInner({
             <div className="px-4 py-3 space-y-0">
               {/* PART 1 — Campaign Summary */}
               <div className="space-y-1 pb-3">
-                {(() => {
+                {!hasLtvData ? (
+                  <p className="text-xs italic text-muted-foreground leading-relaxed">
+                    This campaign was created {daysRunning ?? "?"} days ago. LTV data not available yet — needs at least one sync cycle to calculate.
+                  </p>
+                ) : (() => {
                   const realCpl = newSubs > 0 && cost > 0 ? cost / newSubs : null;
                   const cType = d.cost_type || "";
-                  // Line 1
                   let line1: React.ReactNode;
                   if (cost <= 0) {
                     line1 = <span>This campaign has no spend set yet.</span>;
@@ -449,7 +452,6 @@ function DrawerBodyInner({
                   } else {
                     line1 = <>This campaign brought in <span className="text-primary font-semibold not-italic">{newSubs.toLocaleString()}</span> subscribers at <span className="text-primary font-semibold not-italic">{fmtC2(costInputValue)}</span>/sub.</>;
                   }
-                  // Line 2
                   let line2: React.ReactNode;
                   if (cost <= 0) {
                     line2 = totalLtv > 0
@@ -458,7 +460,6 @@ function DrawerBodyInner({
                   } else {
                     line2 = <>Each subscriber generated <span className="text-primary font-semibold not-italic">{ltvPerSub != null ? fmtC2(ltvPerSub) : "—"}</span> in LTV — a <span className={`font-semibold not-italic ${roi != null && roi >= 0 ? "text-primary" : "text-destructive"}`}>{roi != null ? `${roi.toFixed(0)}%` : "—"}</span> ROI.</>;
                   }
-                  // Line 3
                   let line3: React.ReactNode = null;
                   if (cost > 0) {
                     const noRecentClicks = totalClicks === 0;
