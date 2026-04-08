@@ -340,13 +340,22 @@ export default function CampaignsPage() {
       const profitPerSub = newSubsTotal > 0 && computedProfit !== null ? computedProfit / newSubsTotal : null;
       // LTV/Sub from tracking_link_ltv
       const ltvPerSubFromRecord = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
-      let computedStatus = calcStatus(l);
-      if (computedStatus !== "TESTING" && computedStatus !== "INACTIVE") {
-        if (costTotalVal > 0 && computedRoi !== null) {
-          computedStatus = calcStatusFromRoi(computedRoi);
-        } else if (costTotalVal <= 0 && (l.clicks > 0 || subs > 0)) {
-          computedStatus = "NO_SPEND";
-        }
+      // STEP 4: Fixed status logic
+      let computedStatus: string;
+      const linkClicks = l.clicks || 0;
+      if (linkClicks === 0 && daysSinceCreated > 3) {
+        computedStatus = "DEAD";
+      } else if (costTotalVal > 0 && computedRoi !== null) {
+        if (computedRoi > 150) computedStatus = "SCALE";
+        else if (computedRoi >= 50) computedStatus = "WATCH";
+        else if (computedRoi >= 0) computedStatus = "LOW";
+        else computedStatus = "KILL";
+      } else if (costTotalVal <= 0) {
+        if (ltvFromTable !== null && ltvFromTable > 0) computedStatus = "NO_SPEND";
+        else if (!hasLtvData) computedStatus = "NO_DATA";
+        else computedStatus = "NO_SPEND";
+      } else {
+        computedStatus = calcStatus(l);
       }
       return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord, newSubsTotal, ltvPerSubFromRecord };
     });
