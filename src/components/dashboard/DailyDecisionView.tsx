@@ -781,8 +781,8 @@ function DrawerBody({
             <div className="px-3 py-2.5 border-b border-border">
               <h4 className="text-sm font-bold text-foreground">⭐ ALL TIME</h4>
             </div>
-            <DataRow label="Total LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
-            <DataRow label="Cross-Poll" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
+            <DataRow label="Campaign LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
+            <DataRow label="Cross-Poll LTV" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
             <DataRow label="New Fans" value={d.newSubs.toLocaleString()} />
             <DataRow label="Existing Fans" value={existingFans.toLocaleString()} />
             <DataRow label="LTV/Sub" value={fmtC2(d.ltvPerSub)} tone={d.ltvPerSub > 0 ? "positive" : "neutral"} />
