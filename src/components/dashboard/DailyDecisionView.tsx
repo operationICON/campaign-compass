@@ -659,7 +659,7 @@ function DrawerBody({
               key={btn.key}
               variant={activeAction === btn.key ? "default" : "outline"}
               size="sm"
-              className="flex-1 h-10 text-[13px] gap-1.5"
+              className="flex-1 h-9 text-[13px] gap-1.5"
               onClick={() => {
                 if (btn.key === "details") {
                   navigate(`/campaigns?link=${d.id}`);
