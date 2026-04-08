@@ -190,24 +190,8 @@ export default function CampaignsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["campaigns_tracking_link_ltv"],
-    queryFn: async () => {
-      const allRows: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("tracking_link_ltv")
-          .select("tracking_link_id, total_ltv, cross_poll_revenue, ltv_per_sub, spender_pct, is_estimated, new_subs_total")
-          .range(from, from + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        from += batchSize;
-      }
-      return allRows;
-    },
+    queryKey: ["tracking_link_ltv"],
+    queryFn: fetchTrackingLinkLtv,
   });
   const { data: trafficSources = [] } = useQuery({
     queryKey: ["traffic_sources"],
