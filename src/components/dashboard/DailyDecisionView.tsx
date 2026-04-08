@@ -432,18 +432,32 @@ export function DailyDecisionView({
                 <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-primary" /> Models Snapshot
                 </h4>
-                <div className="space-y-1.5">
-                  {modelSnapshot.map((m: any) => (
-                    <div key={m.id} className="flex items-center gap-3 text-xs">
-                      <ModelAvatar avatarUrl={m.avatar_thumb_url} name={m.display_name} size={24} />
-                      <span className="text-foreground font-medium w-24 truncate">{m.display_name}</span>
-                      <span className="text-muted-foreground font-mono">{m.subsPerDay.toLocaleString()} subs/day</span>
-                      <span className="text-muted-foreground font-mono">{fmtC(m.spendTotal)} spend</span>
-                      <span className={`font-mono font-bold ${m.profitPerSub != null ? (m.profitPerSub >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground"}`}>
-                        {m.profitPerSub != null ? `${fmtC2(m.profitPerSub)}/sub` : "—"}
-                      </span>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[760px] space-y-2">
+                    <div className="grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr] gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span>Model</span>
+                      <span>Subs/Day</span>
+                      <span>Spend</span>
+                      <span>LTV/Sub</span>
+                      <span>Profit/Sub</span>
                     </div>
-                  ))}
+                    {modelSnapshot.map((m: any) => (
+                      <div key={m.id} className="grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr] items-center gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <ModelAvatar avatarUrl={m.avatar_thumb_url} name={m.display_name} size={24} />
+                          <span className="truncate font-medium text-foreground">{m.display_name}</span>
+                        </div>
+                        <span className="font-mono text-muted-foreground">{m.subsPerDay.toLocaleString()} subs/day</span>
+                        <span className="font-mono text-muted-foreground">{fmtC(m.spendTotal)} spend</span>
+                        <span className={`rounded-md border px-2 py-1 text-center font-mono font-semibold ${getValueToneClasses(m.ltvPerSub != null && m.ltvPerSub > 0 ? "positive" : "neutral")}`}>
+                          {m.ltvPerSub != null ? `${fmtC2(m.ltvPerSub)}/sub` : "—"}
+                        </span>
+                        <span className={`rounded-md border px-2 py-1 text-center font-mono font-semibold ${getValueToneClasses(m.profitPerSub != null ? (m.profitPerSub >= 0 ? "positive" : "negative") : "neutral")}`}>
+                          {m.profitPerSub != null ? `${fmtC2(m.profitPerSub)}/sub` : "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -461,13 +475,13 @@ export function DailyDecisionView({
       <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) setSelectedCampaign(null); }}>
         <DrawerContent className="max-h-[85vh]">
           {drawerCampaign && (
-            <div className="overflow-y-auto px-6 pb-6">
+            <div className="overflow-y-auto px-5 pb-5">
               <DrawerHeader className="px-0">
                 <div className="flex items-center gap-3">
                   <ModelAvatar avatarUrl={drawerCampaign.avatarUrl} name={drawerCampaign.modelName} size={36} />
                   <div className="flex-1 min-w-0">
-                    <DrawerTitle className="text-base truncate">{drawerCampaign.campaign_name || "Unknown"}</DrawerTitle>
-                    <DrawerDescription className="text-xs">
+                    <DrawerTitle className="truncate text-lg font-bold">{drawerCampaign.campaign_name || "Unknown"}</DrawerTitle>
+                    <DrawerDescription className="text-sm leading-snug">
                       {drawerCampaign.modelName}
                       {drawerCampaign.source && ` · ${drawerCampaign.source}`}
                       {drawerCampaign.created_at && ` · Created ${new Date(drawerCampaign.created_at).toLocaleDateString()}`}
@@ -477,65 +491,65 @@ export function DailyDecisionView({
               </DrawerHeader>
 
               {/* Period Performance */}
-              <div className="mb-4">
-                <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Period Performance</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-secondary/50 rounded-lg p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase">Period Subs</p>
-                    <p className="text-lg font-mono font-bold text-foreground">{drawerCampaign.periodSubs.toLocaleString()}</p>
+              <div className="mb-3">
+                <h4 className="mb-2 text-base font-bold text-foreground">Period Performance</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2.5">
+                    <p className="text-xs font-semibold text-muted-foreground">Period Subs</p>
+                    <p className="text-2xl font-mono font-bold leading-none text-foreground">{drawerCampaign.periodSubs.toLocaleString()}</p>
                   </div>
-                  <div className="bg-secondary/50 rounded-lg p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase">Period Revenue</p>
-                    <p className="text-lg font-mono font-bold text-foreground">{fmtC(drawerCampaign.periodRev)}</p>
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2.5">
+                    <p className="text-xs font-semibold text-muted-foreground">Period Revenue</p>
+                    <p className="text-2xl font-mono font-bold leading-none text-foreground">{fmtC(drawerCampaign.periodRev)}</p>
                   </div>
                 </div>
               </div>
 
               {/* All Time Metrics */}
-              <div className="mb-4">
-                <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">All Time</h4>
-                <DetailRow label="Total LTV" value={fmtC2(drawerCampaign.totalLtv)} />
-                <DetailRow label="Cross-Poll Revenue" value={fmtC2(drawerCampaign.crossPoll)} />
+              <div className="mb-3">
+                <h4 className="mb-2 text-base font-bold text-foreground">All Time</h4>
+                <DetailRow label="Total LTV" value={fmtC2(drawerCampaign.totalLtv)} tone={drawerCampaign.totalLtv > 0 ? "positive" : "neutral"} />
+                <DetailRow label="Cross-Poll Revenue" value={fmtC2(drawerCampaign.crossPoll)} tone={drawerCampaign.crossPoll > 0 ? "positive" : "neutral"} />
                 <DetailRow label="New Fans" value={drawerCampaign.newSubs.toLocaleString()} />
-                <DetailRow label="LTV/Sub" value={fmtC2(drawerCampaign.ltvPerSub)} color="text-primary" />
+                <DetailRow label="LTV/Sub" value={fmtC2(drawerCampaign.ltvPerSub)} tone={drawerCampaign.ltvPerSub > 0 ? "positive" : "neutral"} />
               </div>
 
               {/* Financials */}
-              <div className="mb-4">
-                <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Financials</h4>
+              <div className="mb-3">
+                <h4 className="mb-2 text-base font-bold text-foreground">Financials</h4>
                 <DetailRow label="Total Spend" value={fmtC2(drawerCampaign.cost)} />
                 <DetailRow
                   label="Profit"
                   value={fmtC2(drawerProfit)}
-                  color={drawerProfit >= 0 ? "text-primary" : "text-destructive"}
+                  tone={drawerProfit >= 0 ? "positive" : "negative"}
                 />
                 <DetailRow
                   label="Profit/Sub"
                   value={drawerCampaign.newSubs > 0 ? fmtC2(drawerProfitPerSub) : "—"}
-                  color={drawerProfitPerSub >= 0 ? "text-primary" : "text-destructive"}
+                  tone={drawerCampaign.newSubs > 0 ? (drawerProfitPerSub >= 0 ? "positive" : "negative") : "neutral"}
                 />
                 <DetailRow
                   label="ROI"
                   value={drawerCampaign.cost > 0 ? fmtPct(drawerCampaign.roi) : "No spend"}
-                  color={drawerCampaign.roi >= 0 ? "text-primary" : "text-destructive"}
+                  tone={drawerCampaign.cost > 0 ? (drawerCampaign.roi >= 0 ? "positive" : "negative") : "neutral"}
                 />
               </div>
 
               {/* Traffic */}
-              <div className="mb-4">
-                <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Traffic</h4>
+              <div className="mb-3">
+                <h4 className="mb-2 text-base font-bold text-foreground">Traffic</h4>
                 <DetailRow label="Total Clicks" value={Number(drawerCampaign.clicks || 0).toLocaleString()} />
                 <DetailRow label="Total Subscribers" value={Number(drawerCampaign.subscribers || 0).toLocaleString()} />
-                <DetailRow label="CVR %" value={drawerCvr > 0 ? `${drawerCvr.toFixed(2)}%` : "—"} />
+                <DetailRow label="CVR %" value={drawerCvr > 0 ? `${drawerCvr.toFixed(2)}%` : "—"} tone={drawerCvr > 0 ? "positive" : "neutral"} />
                 <DetailRow label="Spenders" value={Number(drawerCampaign.spenders || 0).toLocaleString()} />
               </div>
 
               {/* Tracking Link */}
               {drawerCampaign.url && (
                 <div>
-                  <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Tracking Link</h4>
-                  <div className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2">
-                    <p className="text-xs text-muted-foreground truncate flex-1 font-mono">{drawerCampaign.url}</p>
+                  <h4 className="mb-2 text-base font-bold text-foreground">Tracking Link</h4>
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2">
+                    <p className="flex-1 truncate font-mono text-sm text-muted-foreground">{drawerCampaign.url}</p>
                     <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleCopy(drawerCampaign.url)}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
