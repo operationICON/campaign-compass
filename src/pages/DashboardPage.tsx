@@ -1148,8 +1148,8 @@ function KpiCards({
 
         // Build set of link IDs active in the snapshot period (for time filters)
         const isAllTimeOF = timePeriod === "all" && !customRange;
-        const periodLinkIds = !isAllTimeOF && overviewSnapshotLookup
-          ? new Set(Object.keys(overviewSnapshotLookup))
+        const periodLinkIds = !isAllTimeOF && snapshotLookup
+          ? new Set(Object.keys(snapshotLookup))
           : null;
 
         // Build LTV lookup by tracking_link_id
