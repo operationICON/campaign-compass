@@ -768,7 +768,7 @@ function DrawerBody({
           {/* PERIOD PERFORMANCE */}
           <div className="rounded-lg border border-border overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: "hsl(var(--primary))", background: "hsl(200 25% 14%)" }}>
             <div className="px-3 py-2.5 border-b border-border">
-              <h4 className="text-sm font-bold text-foreground">📅 PERIOD</h4>
+              <h4 className="text-sm font-bold text-foreground">📅 PERFORMANCE</h4>
             </div>
             <DataRow label="Period Subs" value={d.periodSubs.toLocaleString()} />
             <DataRow label="Period Revenue" value={fmtC(d.periodRev)} tone={d.periodRev > 0 ? "positive" : "neutral"} />
