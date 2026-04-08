@@ -263,7 +263,7 @@ export function DailyDecisionView({
     return "border-border bg-secondary/50 text-foreground";
   }
 
-  function DetailRow({
+  function GridCell({
     label,
     value,
     tone = "neutral",
@@ -273,11 +273,9 @@ export function DailyDecisionView({
     tone?: "positive" | "negative" | "neutral";
   }) {
     return (
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/70 py-1 last:border-b-0">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <span className={`min-w-[112px] rounded-md border px-2.5 py-1 text-right text-sm font-semibold leading-none ${getValueToneClasses(tone)}`}>
-          {value}
-        </span>
+      <div className={`rounded-md border px-2.5 py-1.5 ${getValueToneClasses(tone)}`}>
+        <p className="text-[11px] font-medium text-muted-foreground leading-none mb-0.5">{label}</p>
+        <p className="text-sm font-mono font-semibold leading-tight">{value}</p>
       </div>
     );
   }
