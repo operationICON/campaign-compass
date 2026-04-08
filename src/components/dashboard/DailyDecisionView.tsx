@@ -805,13 +805,6 @@ function DrawerBody({
     </div>
   );
 }
-/* ─── Drawer Body (extracted for hooks) ─── */
-function DrawerBody({
-  campaign: d, profit, profitPerSub, cvr,
-  fmtC, fmtC2, fmtPct, handleCopy,
-  activeAction, setActiveAction, actionSaving, setActionSaving,
-  sourceTags, queryClient, navigate, setSelectedCampaign, DataCard, getValueColor,
-}: any) {
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
