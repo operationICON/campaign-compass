@@ -354,11 +354,14 @@ export default function CampaignsPage() {
     return [...tags].sort();
   }, [links]);
 
-  // ─── Account/filter options ───
+  // ─── Account/filter options — only accounts with at least 1 tracking link ───
   const accountOptions = useMemo(() => {
-    return accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))
+    const accountIdsWithLinks = new Set(allLinks.map((l: any) => l.account_id));
+    return accounts
+      .filter((a: any) => accountIdsWithLinks.has(a.id) && a.username && a.username !== "unknown")
+      .map((a: any) => ({ id: a.id, username: a.username || "", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))
       .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name));
-  }, [accounts]);
+  }, [accounts, allLinks]);
 
   const filteredAccountOptions = useMemo(() => {
     if (groupFilter === "all") return accountOptions;
