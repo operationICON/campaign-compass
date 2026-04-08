@@ -11,6 +11,7 @@ const mainNav = [
   { to: "/campaigns", icon: LayoutGrid, label: "Tracking Links" },
   { to: "/cross-poll", icon: GitBranch, label: "Cross-Poll" },
   { to: "/accounts", icon: Users, label: "Models" },
+  { to: "/fans", icon: Heart, label: "Fans" },
   { to: "/traffic-sources", icon: Tag, label: "Sources" },
   { to: "/audit", icon: ShieldCheck, label: "Audit" },
   { to: "/charts", icon: BarChart3, label: "Charts" },
