@@ -949,10 +949,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Fans with no tracking link · {periodLabel}</p>
-            {unattributedStats.accountTotalSubs > 0 && (
-              <p className="text-[10px] text-muted-foreground italic mt-0.5">Requires fan sync for accuracy</p>
-            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Fans not acquired through tracked campaigns</p>
             <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl p-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[220px]">
               <div className="space-y-1 text-[11px]">
                 <div className="flex justify-between"><span className="text-muted-foreground">Total account subs</span><span className="font-mono text-foreground">{unattributedStats.accountTotalSubs.toLocaleString()}</span></div>

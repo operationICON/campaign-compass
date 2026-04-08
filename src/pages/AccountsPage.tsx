@@ -158,8 +158,8 @@ export default function AccountsPage() {
       const avgCvr = qClicks > 0 ? (qSubs / qClicks) * 100 : null;
       const cvrDiff = avgCvr !== null && agencyAvgCvr !== null ? avgCvr - agencyAvgCvr : null;
 
-      const unattributedSubs = Math.max(0, (acc.subscribers_count || 0) - totalSubs);
-      const unattributedPct = (acc.subscribers_count || 0) > 0 ? (unattributedSubs / acc.subscribers_count) * 100 : 0;
+      const attributedPct = (acc.subscribers_count || 0) > 0 ? (trackedSubs / acc.subscribers_count) * 100 : 0;
+      const unattributedPct = Math.max(0, 100 - attributedPct);
 
       // Tracked subs from tracking_link_ltv
       const trackedSubs = accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
