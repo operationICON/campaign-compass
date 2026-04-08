@@ -138,6 +138,8 @@ export function DailyDecisionView({
         totalLtv, crossPoll, newSubs, ltvPerSub, cost, roi,
         modelName, avatarUrl,
         hasPeriodSubs: periodSubs > 0,
+        allTimeSubs: Number(l.subscribers || 0),
+        allTimeSpenders: Number(l.spenders || 0),
       };
     });
   }, [links, periodSnapshotByLink, allTimeSnapshotByLink, ltvLookup, accounts]);
