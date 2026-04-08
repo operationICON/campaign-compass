@@ -897,8 +897,8 @@ export default function CampaignsPage() {
                         const ltvBased = link.ltvBased;
                         const roi = link.computedRoi ?? 0;
                         const status = link.computedStatus;
-                        const displayStatus = STATUS_LABELS[status] || "NO SPEND";
-                        const statusStyle = STATUS_STYLES[status] || STATUS_STYLES["NO_SPEND"];
+                        const displayStatus = STATUS_LABELS[status] || status;
+                        const statusStyle = STATUS_STYLES[status] || STATUS_STYLES["NO_DATA"];
                         const isInactive = status === "INACTIVE";
                         const isExpanded = expandedRow === link.id;
 
