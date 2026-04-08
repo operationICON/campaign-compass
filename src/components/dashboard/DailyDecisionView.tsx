@@ -472,81 +472,109 @@ export function DailyDecisionView({
       {/* Campaign Detail Drawer */}
       <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) setSelectedCampaign(null); }}>
         <DrawerContent className="max-h-[85vh]">
-          {drawerCampaign && (
-            <div className="overflow-y-auto px-5 pb-5">
-              <DrawerHeader className="px-0">
-                <div className="flex items-center gap-3">
-                  <ModelAvatar avatarUrl={drawerCampaign.avatarUrl} name={drawerCampaign.modelName} size={36} />
-                  <div className="flex-1 min-w-0">
-                    <DrawerTitle className="truncate text-lg font-bold">{drawerCampaign.campaign_name || "Unknown"}</DrawerTitle>
-                    <DrawerDescription className="text-sm leading-snug">
-                      {drawerCampaign.modelName}
-                      {drawerCampaign.source && ` · ${drawerCampaign.source}`}
-                      {drawerCampaign.created_at && ` · Created ${new Date(drawerCampaign.created_at).toLocaleDateString()}`}
-                    </DrawerDescription>
+          {drawerCampaign && (() => {
+            const daysRunning = drawerCampaign.created_at
+              ? Math.max(1, Math.round((Date.now() - new Date(drawerCampaign.created_at).getTime()) / 86400000))
+              : null;
+            const spenderRate = Number(drawerCampaign.subscribers || 0) > 0
+              ? (Number(drawerCampaign.spenders || 0) / Number(drawerCampaign.subscribers || 0)) * 100 : 0;
+            const existingFans = Math.max(0, Number(drawerCampaign.subscribers || 0) - drawerCampaign.newSubs);
+            const orgPct = Number(drawerCampaign.subscribers || 0) > 0
+              ? (drawerCampaign.newSubs / Number(drawerCampaign.subscribers || 0)) * 100 : 0;
+
+            return (
+              <div className="overflow-y-auto px-5 pb-5">
+                {/* HEADER */}
+                <DrawerHeader className="px-0 pb-2">
+                  <div className="flex items-center gap-3">
+                    <ModelAvatar avatarUrl={drawerCampaign.avatarUrl} name={drawerCampaign.modelName} size={50} />
+                    <div className="flex-1 min-w-0">
+                      <DrawerTitle className="truncate text-xl font-bold leading-tight">
+                        {drawerCampaign.campaign_name || "Unknown"}
+                      </DrawerTitle>
+                      <p className="text-sm font-medium text-primary truncate">{drawerCampaign.modelName}</p>
+                    </div>
                   </div>
+                  <DrawerDescription asChild>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                      {drawerCampaign.created_at && (
+                        <span>Created {new Date(drawerCampaign.created_at).toLocaleDateString()}</span>
+                      )}
+                      {daysRunning && <span className="font-semibold text-foreground">{daysRunning}d running</span>}
+                      {drawerCampaign.source_tag && (
+                        <span className="rounded-full border border-border bg-secondary/60 px-2 py-0.5 font-medium">{drawerCampaign.source_tag}</span>
+                      )}
+                      {drawerCampaign.status && (
+                        <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary">{drawerCampaign.status}</span>
+                      )}
+                      {drawerCampaign.traffic_category && (
+                        <span className="rounded-full border border-border bg-secondary/60 px-2 py-0.5">{drawerCampaign.traffic_category}</span>
+                      )}
+                    </div>
+                  </DrawerDescription>
+                </DrawerHeader>
+
+                {/* ACTION BUTTONS */}
+                <div className="flex gap-1.5 mb-3">
+                  {[
+                    { label: "Edit Source", icon: null },
+                    { label: "Edit Spend", icon: null },
+                    { label: "Set Status", icon: null },
+                    { label: "Delete", icon: null },
+                    { label: "View Details", icon: null },
+                  ].map(btn => (
+                    <Button key={btn.label} variant="outline" size="sm" className="flex-1 h-7 text-[11px] px-1">
+                      {btn.label}
+                    </Button>
+                  ))}
                 </div>
-              </DrawerHeader>
 
-              {/* Period Performance */}
-              <div className="mb-3">
-                <h4 className="mb-2 text-base font-bold text-foreground">Period Performance</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2.5">
-                    <p className="text-xs font-semibold text-muted-foreground">Period Subs</p>
-                    <p className="text-2xl font-mono font-bold leading-none text-foreground">{drawerCampaign.periodSubs.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2.5">
-                    <p className="text-xs font-semibold text-muted-foreground">Period Revenue</p>
-                    <p className="text-2xl font-mono font-bold leading-none text-foreground">{fmtC(drawerCampaign.periodRev)}</p>
-                  </div>
+                {/* TWO-COLUMN GRID */}
+                {/* Period Performance */}
+                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                  <GridCell label="Period Subs" value={drawerCampaign.periodSubs.toLocaleString()} />
+                  <GridCell label="Period Revenue" value={fmtC(drawerCampaign.periodRev)} tone={drawerCampaign.periodRev > 0 ? "positive" : "neutral"} />
+                  <GridCell label="Period Clicks" value={drawerCampaign.periodClicks.toLocaleString()} />
+                  <GridCell label="Avg Subs/Day" value={daysRunning ? (drawerCampaign.periodSubs / Math.max(1, daysRunning)).toFixed(1) : "—"} />
                 </div>
-              </div>
 
-              {/* All Time Metrics */}
-              <div className="mb-3">
-                <h4 className="mb-2 text-base font-bold text-foreground">All Time</h4>
-                <DetailRow label="Total LTV" value={fmtC2(drawerCampaign.totalLtv)} tone={drawerCampaign.totalLtv > 0 ? "positive" : "neutral"} />
-                <DetailRow label="Cross-Poll Revenue" value={fmtC2(drawerCampaign.crossPoll)} tone={drawerCampaign.crossPoll > 0 ? "positive" : "neutral"} />
-                <DetailRow label="New Fans" value={drawerCampaign.newSubs.toLocaleString()} />
-                <DetailRow label="LTV/Sub" value={fmtC2(drawerCampaign.ltvPerSub)} tone={drawerCampaign.ltvPerSub > 0 ? "positive" : "neutral"} />
-              </div>
+                <div className="border-t border-border my-2" />
 
-              {/* Financials */}
-              <div className="mb-3">
-                <h4 className="mb-2 text-base font-bold text-foreground">Financials</h4>
-                <DetailRow label="Total Spend" value={fmtC2(drawerCampaign.cost)} />
-                <DetailRow
-                  label="Profit"
-                  value={fmtC2(drawerProfit)}
-                  tone={drawerProfit >= 0 ? "positive" : "negative"}
-                />
-                <DetailRow
-                  label="Profit/Sub"
-                  value={drawerCampaign.newSubs > 0 ? fmtC2(drawerProfitPerSub) : "—"}
-                  tone={drawerCampaign.newSubs > 0 ? (drawerProfitPerSub >= 0 ? "positive" : "negative") : "neutral"}
-                />
-                <DetailRow
-                  label="ROI"
-                  value={drawerCampaign.cost > 0 ? fmtPct(drawerCampaign.roi) : "No spend"}
-                  tone={drawerCampaign.cost > 0 ? (drawerCampaign.roi >= 0 ? "positive" : "negative") : "neutral"}
-                />
-              </div>
+                {/* LTV & Attribution */}
+                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                  <GridCell label="Total LTV" value={fmtC2(drawerCampaign.totalLtv)} tone={drawerCampaign.totalLtv > 0 ? "positive" : "neutral"} />
+                  <GridCell label="Cross-Poll" value={fmtC2(drawerCampaign.crossPoll)} tone={drawerCampaign.crossPoll > 0 ? "positive" : "neutral"} />
+                  <GridCell label="New Fans" value={drawerCampaign.newSubs.toLocaleString()} />
+                  <GridCell label="Existing Fans" value={existingFans.toLocaleString()} />
+                  <GridCell label="LTV/Sub" value={fmtC2(drawerCampaign.ltvPerSub)} tone={drawerCampaign.ltvPerSub > 0 ? "positive" : "neutral"} />
+                  <GridCell label="Org %" value={`${orgPct.toFixed(1)}%`} />
+                  <GridCell label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
+                  <GridCell label="Total Subs" value={Number(drawerCampaign.subscribers || 0).toLocaleString()} />
+                </div>
 
-              {/* Traffic */}
-              <div className="mb-3">
-                <h4 className="mb-2 text-base font-bold text-foreground">Traffic</h4>
-                <DetailRow label="Total Clicks" value={Number(drawerCampaign.clicks || 0).toLocaleString()} />
-                <DetailRow label="Total Subscribers" value={Number(drawerCampaign.subscribers || 0).toLocaleString()} />
-                <DetailRow label="CVR %" value={drawerCvr > 0 ? `${drawerCvr.toFixed(2)}%` : "—"} tone={drawerCvr > 0 ? "positive" : "neutral"} />
-                <DetailRow label="Spenders" value={Number(drawerCampaign.spenders || 0).toLocaleString()} />
-              </div>
+                <div className="border-t border-border my-2" />
 
-              {/* Tracking Link */}
-              {drawerCampaign.url && (
-                <div>
-                  <h4 className="mb-2 text-base font-bold text-foreground">Tracking Link</h4>
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2">
+                {/* Financials */}
+                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                  <GridCell label="Total Spend" value={fmtC2(drawerCampaign.cost)} />
+                  <GridCell label="Cost Type" value={drawerCampaign.cost_type || "—"} />
+                  <GridCell label="Profit" value={fmtC2(drawerProfit)} tone={drawerProfit >= 0 ? "positive" : "negative"} />
+                  <GridCell label="Profit/Sub" value={drawerCampaign.newSubs > 0 ? fmtC2(drawerProfitPerSub) : "—"} tone={drawerCampaign.newSubs > 0 ? (drawerProfitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
+                  <GridCell label="ROI" value={drawerCampaign.cost > 0 ? fmtPct(drawerCampaign.roi) : "No spend"} tone={drawerCampaign.cost > 0 ? (drawerCampaign.roi >= 0 ? "positive" : "negative") : "neutral"} />
+                  <GridCell label="CVR %" value={drawerCvr > 0 ? `${drawerCvr.toFixed(2)}%` : "—"} tone={drawerCvr > 0 ? "positive" : "neutral"} />
+                </div>
+
+                <div className="border-t border-border my-2" />
+
+                {/* Traffic */}
+                <div className="grid grid-cols-2 gap-1.5 mb-3">
+                  <GridCell label="Total Clicks" value={Number(drawerCampaign.clicks || 0).toLocaleString()} />
+                  <GridCell label="Spenders" value={Number(drawerCampaign.spenders || 0).toLocaleString()} />
+                </div>
+
+                {/* TRACKING LINK */}
+                {drawerCampaign.url && (
+                  <div className="rounded-lg border border-border bg-secondary/50 px-3 py-2 flex items-center gap-2">
                     <p className="flex-1 truncate font-mono text-sm text-muted-foreground">{drawerCampaign.url}</p>
                     <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleCopy(drawerCampaign.url)}>
                       <Copy className="h-3.5 w-3.5" />
@@ -557,10 +585,10 @@ export function DailyDecisionView({
                       </Button>
                     </a>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
         </DrawerContent>
       </Drawer>
     </>
