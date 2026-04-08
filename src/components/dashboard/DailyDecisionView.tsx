@@ -651,8 +651,7 @@ function DrawerBody({
       <div className="px-6 py-2.5 border-b border-border">
         <div className="flex gap-1.5">
           {[
-            { key: "source", icon: <Pencil className="h-3.5 w-3.5" />, label: "Source" },
-            { key: "spend", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend" },
+            { key: "spend_source", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend & Source" },
             { key: "status", icon: <Activity className="h-3.5 w-3.5" />, label: "Status" },
             { key: "delete", icon: <Trash2 className="h-3.5 w-3.5" />, label: "Delete" },
             { key: "details", icon: <ArrowUpRight className="h-3.5 w-3.5" />, label: "Details" },
@@ -675,35 +674,83 @@ function DrawerBody({
           ))}
         </div>
 
-        {/* ACTION PANELS */}
-        {activeAction === "source" && (
-          <div className="border-t border-border mt-2 pt-2 space-y-2">
-            <select value={sourceVal} onChange={e => setSourceVal(e.target.value)} className="w-full h-9 rounded-md border border-border bg-secondary px-3 text-sm text-foreground">
-              <option value="">— None —</option>
-              {sourceTags.map((t: any) => <option key={t.tag_name} value={t.tag_name}>{t.tag_name}</option>)}
-            </select>
-            <div className="flex gap-2">
-              <Button size="sm" className="h-8 text-xs flex-1" onClick={saveSource} disabled={actionSaving}>
-                {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setActiveAction(null)}>Cancel</Button>
-            </div>
-          </div>
-        )}
-        {activeAction === "spend" && (
-          <div className="border-t border-border mt-2 pt-2 space-y-2">
-            <div className="flex gap-2">
-              <select value={costType} onChange={e => setCostType(e.target.value)} className="h-9 rounded-md border border-border bg-secondary px-3 text-sm text-foreground w-28">
-                <option value="CPL">CPL</option><option value="CPC">CPC</option><option value="FIXED">Fixed</option>
-              </select>
-              <Input type="number" value={costValue} onChange={e => setCostValue(e.target.value)} placeholder="Value" className="h-9 text-sm flex-1" />
-            </div>
-            <p className="text-xs text-muted-foreground">Total: <span className="font-mono font-semibold text-foreground">{fmtC2(calcCostTotal())}</span></p>
-            <div className="flex gap-2">
-              <Button size="sm" className="h-8 text-xs flex-1" onClick={saveSpend} disabled={actionSaving}>
-                {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setActiveAction(null)}>Cancel</Button>
+        {/* COMBINED SPEND + SOURCE PANEL */}
+        {activeAction === "spend_source" && (
+          <div className="mt-2 rounded-lg border border-border overflow-hidden" style={{ background: "#0D1117" }}>
+            <div className="grid grid-cols-2 divide-x divide-border">
+              {/* LEFT — SPEND */}
+              <div className="p-3 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Spend</span>
+                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                  {d.cost_total > 0
+                    ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{fmtC2(d.cost_total)}</span>
+                    : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
+                  }
+                </div>
+                <div className="flex gap-1">
+                  {(["CPL", "CPC", "FIXED"] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setCostType(t)}
+                      className={`flex-1 h-7 rounded-md text-[11px] font-bold transition-colors ${
+                        costType === t
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary border border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <Input
+                  type="number"
+                  value={costValue}
+                  onChange={e => setCostValue(e.target.value)}
+                  placeholder="Cost value..."
+                  className="h-8 text-sm font-mono bg-card border-border"
+                />
+                <p className="text-[11px] text-muted-foreground">Total: <span className="font-mono font-semibold text-foreground">{fmtC2(calcCostTotal())}</span></p>
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={saveSpend} disabled={actionSaving}>
+                    {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
+                    setActionSaving(true);
+                    try {
+                      await supabase.from("tracking_links").update({ cost_type: null, cost_value: 0, cost_total: 0 }).eq("id", d.id);
+                      toast.success("Spend cleared");
+                      refreshAll();
+                    } catch { toast.error("Failed to clear"); }
+                    setActionSaving(false);
+                  }} disabled={actionSaving}>Clear</Button>
+                </div>
+              </div>
+
+              {/* RIGHT — SOURCE */}
+              <div className="p-3 space-y-2.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">{d.source_tag || "Untagged"}</span>
+                </div>
+                <select
+                  value={sourceVal}
+                  onChange={e => setSourceVal(e.target.value)}
+                  className="w-full h-8 rounded-md border border-border bg-card px-2.5 text-sm text-foreground"
+                >
+                  <option value="">— Untagged —</option>
+                  {sourceTags.map((t: any) => <option key={t.tag_name} value={t.tag_name}>{t.tag_name}</option>)}
+                </select>
+                <div className="flex gap-1.5">
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setSourceVal("")}>
+                    — Edit
+                  </Button>
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={saveSource} disabled={actionSaving}>
+                    {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}
