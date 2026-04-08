@@ -29,7 +29,7 @@ export type CampaignKpiCardId =
   | "most_profitable_source"
   | "worst_source"
   | "avg_expenses_per_campaign"
-  | "blended_roi"
+  | "avg_cost_sub"
   | "ltv_30d_per_model";
 
 export type AnyKpiCardId = DashboardKpiCardId | CampaignKpiCardId;
@@ -88,7 +88,7 @@ const CAMPAIGN_CARDS: CardDef<CampaignKpiCardId>[] = [
   { id: "total_profit", label: "Total Profit", alwaysOn: true, defaultOn: true },
   { id: "active_campaigns", label: "Active Campaigns", defaultOn: true },
   { id: "avg_cpl", label: "Avg CPL", defaultOn: true },
-  { id: "blended_roi", label: "ROI %", defaultOn: true },
+  { id: "avg_cost_sub", label: "Avg Cost/Sub", defaultOn: true },
   { id: "untagged", label: "Untagged", defaultOn: true },
   { id: "profit_sub", label: "Profit/Sub", defaultOn: false },
   { id: "avg_cvr", label: "Avg CVR", defaultOn: false },
