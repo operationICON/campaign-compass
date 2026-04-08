@@ -475,7 +475,7 @@ export default function CampaignsPage() {
     const scopedLinks = filtered;
     // For period filters, link.revenue is already snapshot-applied (period delta)
     const totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0), 0);
+    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
