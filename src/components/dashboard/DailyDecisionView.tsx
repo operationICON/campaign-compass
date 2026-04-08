@@ -506,9 +506,6 @@ export function DailyDecisionView({
     </>
   );
 }
-  const [sourceVal, setSourceVal] = useState(d.source_tag || "");
-  const [costType, setCostType] = useState(d.cost_type || "CPL");
-  const [costValue, setCostValue] = useState(String(d.cost_value || ""));
 
   const daysRunning = d.created_at
     ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
