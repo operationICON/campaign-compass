@@ -625,7 +625,7 @@ function DrawerBody({
               </SheetTitle>
               <p className="text-[15px] font-medium text-primary truncate">{d.modelName}</p>
             </SheetHeader>
-            <DrawerDescription asChild>
+            <SheetDescription asChild>
               <div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-muted-foreground">
                   {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
@@ -656,7 +656,7 @@ function DrawerBody({
                   </div>
                 )}
               </div>
-            </DrawerDescription>
+            </SheetDescription>
           </div>
         </div>
       </div>
