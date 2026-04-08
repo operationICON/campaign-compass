@@ -13,9 +13,10 @@ export const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   WATCH: { bg: "#dbeafe", text: "#0891b2" },
   LOW: { bg: "#fef9c3", text: "#854d0e" },
   KILL: { bg: "#fee2e2", text: "#dc2626" },
-  NO_SPEND: { bg: "#f9fafb", text: "#94a3b8" },
-  "NO SPEND": { bg: "#f9fafb", text: "#94a3b8" },
+  NO_SPEND: { bg: "#fff7ed", text: "#d97706" },
+  "NO SPEND": { bg: "#fff7ed", text: "#d97706" },
   NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
+  DEAD: { bg: "#f3f4f6", text: "#9ca3af" },
   DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
 };
 
@@ -28,7 +29,8 @@ export const STATUS_LABELS: Record<string, string> = {
   KILL: "KILL",
   NO_SPEND: "NO SPEND",
   "NO SPEND": "NO SPEND",
-  NO_DATA: "NO SPEND",
+  NO_DATA: "NO DATA",
+  DEAD: "DEAD",
 };
 
 // ─── Effective Revenue ───

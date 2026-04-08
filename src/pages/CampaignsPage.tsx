@@ -340,13 +340,22 @@ export default function CampaignsPage() {
       const profitPerSub = newSubsTotal > 0 && computedProfit !== null ? computedProfit / newSubsTotal : null;
       // LTV/Sub from tracking_link_ltv
       const ltvPerSubFromRecord = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
-      let computedStatus = calcStatus(l);
-      if (computedStatus !== "TESTING" && computedStatus !== "INACTIVE") {
-        if (costTotalVal > 0 && computedRoi !== null) {
-          computedStatus = calcStatusFromRoi(computedRoi);
-        } else if (costTotalVal <= 0 && (l.clicks > 0 || subs > 0)) {
-          computedStatus = "NO_SPEND";
-        }
+      // STEP 4: Fixed status logic
+      let computedStatus: string;
+      const linkClicks = l.clicks || 0;
+      if (linkClicks === 0 && daysSinceCreated > 3) {
+        computedStatus = "DEAD";
+      } else if (costTotalVal > 0 && computedRoi !== null) {
+        if (computedRoi > 150) computedStatus = "SCALE";
+        else if (computedRoi >= 50) computedStatus = "WATCH";
+        else if (computedRoi >= 0) computedStatus = "LOW";
+        else computedStatus = "KILL";
+      } else if (costTotalVal <= 0) {
+        if (ltvFromTable !== null && ltvFromTable > 0) computedStatus = "NO_SPEND";
+        else if (!hasLtvData) computedStatus = "NO_DATA";
+        else computedStatus = "NO_SPEND";
+      } else {
+        computedStatus = calcStatus(l);
       }
       return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord, newSubsTotal, ltvPerSubFromRecord };
     });
@@ -466,7 +475,7 @@ export default function CampaignsPage() {
     const scopedLinks = filtered;
     // For period filters, link.revenue is already snapshot-applied (period delta)
     const totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0), 0);
+    const totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
     const activeCampaigns = scopedLinks.filter((l: any) => {
       if (l.clicks <= 0) return false;
       const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
@@ -888,8 +897,8 @@ export default function CampaignsPage() {
                         const ltvBased = link.ltvBased;
                         const roi = link.computedRoi ?? 0;
                         const status = link.computedStatus;
-                        const displayStatus = STATUS_LABELS[status] || "NO SPEND";
-                        const statusStyle = STATUS_STYLES[status] || STATUS_STYLES["NO_SPEND"];
+                        const displayStatus = STATUS_LABELS[status] || status;
+                        const statusStyle = STATUS_STYLES[status] || STATUS_STYLES["NO_DATA"];
                         const isInactive = status === "INACTIVE";
                         const isExpanded = expandedRow === link.id;
 
@@ -1030,13 +1039,12 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "spender_rate": {
-                                  const newSubsForSpender = link.ltvRecord ? Number(link.ltvRecord.new_subs_total || 0) : 0;
-                                  const spenderPctCalc = newSubsForSpender > 0 ? (Number(link.spenders || 0) / newSubsForSpender) * 100 : null;
+                                  const spenderPctVal = link.ltvRecord ? Number(link.ltvRecord.spender_pct || 0) : null;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {spenderPctCalc !== null && spenderPctCalc > 0 ? (
-                                      <span className={spenderPctCalc > 10 ? "text-primary" : spenderPctCalc >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
-                                        {spenderPctCalc.toFixed(1)}%
+                                    {spenderPctVal !== null && spenderPctVal > 0 ? (
+                                      <span className={spenderPctVal > 10 ? "text-primary" : spenderPctVal >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                        {spenderPctVal.toFixed(1)}%
                                       </span>
                                     ) : <span className="text-muted-foreground">—</span>}
                                   </td>
