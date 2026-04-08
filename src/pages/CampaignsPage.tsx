@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { TagBadge, useTagColors } from "@/components/TagBadge";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
