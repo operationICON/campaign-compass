@@ -1030,12 +1030,13 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "spender_rate": {
-                                  const spenderPctFromRecord = link.ltvRecord ? Number(link.ltvRecord.spender_pct || 0) : null;
+                                  const newSubsForSpender = link.ltvRecord ? Number(link.ltvRecord.new_subs_total || 0) : 0;
+                                  const spenderPctCalc = newSubsForSpender > 0 ? (Number(link.spenders || 0) / newSubsForSpender) * 100 : null;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {spenderPctFromRecord !== null && spenderPctFromRecord > 0 ? (
-                                      <span className={spenderPctFromRecord > 10 ? "text-primary" : spenderPctFromRecord >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
-                                        {spenderPctFromRecord.toFixed(1)}%
+                                    {spenderPctCalc !== null && spenderPctCalc > 0 ? (
+                                      <span className={spenderPctCalc > 10 ? "text-primary" : spenderPctCalc >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                        {spenderPctCalc.toFixed(1)}%
                                       </span>
                                     ) : <span className="text-muted-foreground">—</span>}
                                   </td>
