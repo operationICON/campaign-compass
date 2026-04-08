@@ -371,14 +371,8 @@ export default function CampaignsPage() {
     return accountOptions.filter((a: any) => groupUsernames.includes(a.username));
   }, [accountOptions, groupFilter]);
 
-  // ─── Permanent filter: hide old zero-traffic links ───
-  const baseLinks = useMemo(() => {
-    return enrichedLinks.filter((l: any) => {
-      const hasTraffic = (l.clicks || 0) > 0 || (l.subscribers || 0) > 0;
-      const isNew = l.daysSinceCreated <= 30;
-      return hasTraffic || isNew;
-    });
-  }, [enrichedLinks]);
+  // ─── All links (no artificial filtering) ───
+  const baseLinks = enrichedLinks;
 
   // ─── Filtering ───
   const filtered = useMemo(() => {
@@ -638,7 +632,7 @@ export default function CampaignsPage() {
           <div>
             <h1 className="text-[20px] font-bold text-foreground">Tracking Links</h1>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {sorted.length.toLocaleString()} tracking links · {modelCount} models
+              {allLinks.length.toLocaleString()} tracking links · {modelCount} models
               {lastSynced && ` · Last synced ${format(lastSynced, "MMM d, HH:mm")}`}
             </p>
           </div>
@@ -954,19 +948,20 @@ export default function CampaignsPage() {
                                     {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
                                   </td>
                                 );
-                                case "revenue": return (
+                                case "revenue": {
+                                  const revVal = Number(link.revenue || 0);
+                                  const hasSnapshotRev = !isAllTime && link.snapshotDays !== undefined && link.snapshotDays > 0;
+                                  return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="text-foreground inline-flex items-center gap-1">
-                                          {fmtC(Number(link.revenue || 0))}
-                                          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">Est.</span>
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Estimated revenue · includes all subscribers (not just new)</TooltipContent>
-                                    </Tooltip>
+                                    <span className="text-foreground inline-flex items-center gap-1">
+                                      {fmtC(revVal)}
+                                      {!hasSnapshotRev && revVal > 0 && (
+                                        <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">Est.</span>
+                                      )}
+                                    </span>
                                   </td>
-                                );
+                                  );
+                                }
                                 case "ltv": {
                                   // All Time: use tracking_link_ltv.total_ltv + cross_poll_revenue
                                   // Period: use snapshot revenue (already applied to link.revenue)
@@ -1035,12 +1030,13 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "spender_rate": {
-                                  const spenderPctFromRecord = link.ltvRecord ? Number(link.ltvRecord.spender_pct || 0) : null;
+                                  const newSubsForSpender = link.ltvRecord ? Number(link.ltvRecord.new_subs_total || 0) : 0;
+                                  const spenderPctCalc = newSubsForSpender > 0 ? (Number(link.spenders || 0) / newSubsForSpender) * 100 : null;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {spenderPctFromRecord !== null && spenderPctFromRecord > 0 ? (
-                                      <span className={spenderPctFromRecord > 10 ? "text-primary" : spenderPctFromRecord >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
-                                        {spenderPctFromRecord.toFixed(1)}%
+                                    {spenderPctCalc !== null && spenderPctCalc > 0 ? (
+                                      <span className={spenderPctCalc > 10 ? "text-primary" : spenderPctCalc >= 5 ? "text-[hsl(38_92%_50%)]" : "text-destructive"}>
+                                        {spenderPctCalc.toFixed(1)}%
                                       </span>
                                     ) : <span className="text-muted-foreground">—</span>}
                                   </td>
@@ -1103,8 +1099,6 @@ export default function CampaignsPage() {
                                   </td>
                                 );
                                 case "subs_day": {
-                                  // Period: SUM(subscribers) / COUNT(DISTINCT snapshot_date)
-                                  // All Time: use dailyMetrics delta-based subsDay
                                   let subsPerDay: number | null = null;
                                   let subsDayLbl: string | null = null;
                                   if (!isAllTime && link.snapshotDays !== undefined) {
@@ -1113,8 +1107,14 @@ export default function CampaignsPage() {
                                     subsPerDay = pDays > 0 ? pSubs / pDays : (pSubs > 0 ? pSubs : null);
                                     if (pSubs === 0 && pDays === 0) subsDayLbl = "—";
                                   } else {
-                                    subsPerDay = link.subsDay;
-                                    subsDayLbl = link.subsDayLabel;
+                                    // All Time: subscribers / days since created
+                                    const totalSubs = Number(link.subscribers || 0);
+                                    const daysSince = Math.max(1, link.daysSinceCreated || 1);
+                                    if (totalSubs > 0 && daysSince > 0) {
+                                      subsPerDay = totalSubs / daysSince;
+                                    } else if (totalSubs === 0) {
+                                      subsDayLbl = "—";
+                                    }
                                   }
                                   return (
                                   <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
