@@ -491,7 +491,7 @@ export function DailyDecisionView({
       {/* Campaign Detail Bottom Drawer */}
       <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
         <DrawerContent className="h-[65vh] max-h-[65vh] p-0 overflow-hidden border-t border-border" style={{ background: "#161B22" }}>
-          {drawerCampaign && <DrawerBodyInner
+          {drawerCampaign && <DrawerBody
             campaign={drawerCampaign}
             profit={drawerProfit}
             profitPerSub={drawerProfitPerSub}
