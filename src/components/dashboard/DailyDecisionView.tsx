@@ -2,13 +2,18 @@ import { useState, useMemo } from "react";
 import {
   ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle,
   BarChart3, Users, Zap, Link2, AlertTriangle, DollarSign, Copy, ExternalLink,
+  Pencil, Coins, Activity, Trash2, ArrowUpRight, Loader2,
 } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 interface DailyDecisionViewProps {
   links: any[];
   ltvLookup?: Record<string, any>;
