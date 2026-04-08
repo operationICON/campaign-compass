@@ -291,9 +291,9 @@ export function DailyDecisionView({
     tone?: "positive" | "negative" | "neutral";
   }) {
     return (
-      <div className={`rounded-md border px-2.5 py-1.5 ${getValueToneClasses(tone)}`}>
-        <p className="text-[11px] font-medium text-muted-foreground leading-none mb-0.5">{label}</p>
-        <p className="text-sm font-mono font-semibold leading-tight">{value}</p>
+      <div className={`rounded border px-2 py-1 ${getValueToneClasses(tone)}`}>
+        <p className="text-[11px] text-muted-foreground leading-none mb-px">{label}</p>
+        <p className="text-[13px] font-mono font-bold leading-tight">{value}</p>
       </div>
     );
   }
