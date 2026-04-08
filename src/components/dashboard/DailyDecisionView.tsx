@@ -508,8 +508,6 @@ export function DailyDecisionView({
 }
 
 
-
-  const calcCostTotal = () => {
     const v = Number(costValue) || 0;
     if (costType === "CPC") return v * Number(d.clicks || 0);
     if (costType === "CPL") return v * Number(d.subscribers || 0);
