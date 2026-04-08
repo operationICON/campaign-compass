@@ -612,6 +612,8 @@ export default function DashboardPage() {
           enabledCards={enabledCards}
           accounts={accounts}
           links={filteredLinksForKpi}
+          allLinks={allLinks}
+          snapshotLookup={overviewSnapshotLookup}
           totalSpend={totalSpend}
           totalRevenue={totalRevenue}
           totalLtv={totalLtv}
