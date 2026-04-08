@@ -84,10 +84,14 @@ function DrawerBodyInner({
   const tlSubscribers = Number(d.subscribers ?? d.allTimeSubs ?? 0); // tracking_links.subscribers
   const tlSpenders = Number(d.spenders ?? d.allTimeSpenders ?? 0);   // tracking_links.spenders
 
-  // From tracking_link_ltv table
-  const totalLtv = Number(d.totalLtv ?? d.ltvFromTable ?? 0);       // tracking_link_ltv.total_ltv
-  const crossPoll = Number(d.crossPoll ?? d.crossPollRevenue ?? 0);  // tracking_link_ltv.cross_poll_revenue
-  const newSubs = Number(d.newSubs ?? d.newSubsTotal ?? 0);          // tracking_link_ltv.new_subs_total
+  // From tracking_link_ltv table — detect if LTV row exists at all
+  const rawLtv = d.totalLtv ?? d.ltvFromTable;
+  const rawCrossPoll = d.crossPoll ?? d.crossPollRevenue;
+  const rawNewSubs = d.newSubs ?? d.newSubsTotal;
+  const hasLtvData = rawLtv != null && rawLtv !== 0 || rawCrossPoll != null && rawCrossPoll !== 0 || rawNewSubs != null && rawNewSubs !== 0;
+  const totalLtv = Number(rawLtv ?? 0);
+  const crossPoll = Number(rawCrossPoll ?? 0);
+  const newSubs = Number(rawNewSubs ?? 0);
 
   // Period values (from daily_snapshots for selected date filter)
   const periodSubs = Number(d.periodSubs ?? 0);
@@ -381,8 +385,8 @@ function DrawerBodyInner({
               <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
               <DataRow label="Profit/Sub" value={profitPerSub != null && cost > 0 ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null && cost > 0 ? profitTone(profitPerSub) : "neutral"} />
               <DataRow label="ROI" value={showRoi(roi)} tone={roi != null ? profitTone(roi) : "neutral"} />
-              <DataRow label="CVR %" value={cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
-              <DataRow label="Total Clicks" value={totalClicks > 0 ? totalClicks.toLocaleString() : "—"} />
+              <DataRow label="CVR %" value={totalClicks > 0 && cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
+              <DataRow label="Total Clicks" value={totalClicks.toLocaleString()} />
               <DataRow label="Spenders" value={tlSpenders > 0 ? tlSpenders.toLocaleString() : "—"} />
             </div>
           </div>
@@ -397,7 +401,7 @@ function DrawerBodyInner({
             <div className="p-0">
               <DataRow label="Period Subs" value={hasPeriodData ? periodSubs.toLocaleString() : "—"} />
               <DataRow label="Period Revenue" value={hasPeriodData && periodRev > 0 ? fmtC2(periodRev) : "—"} tone={hasPeriodData && periodRev > 0 ? "positive" : "neutral"} />
-              <DataRow label="Period Clicks" value={hasPeriodData ? periodClicks.toLocaleString() : "—"} />
+              <DataRow label="Period Clicks" value={periodClicks.toLocaleString()} />
               <DataRow label="Avg Subs/Day" value={avgSubsDay ?? "—"} />
             </div>
           </div>
@@ -410,11 +414,11 @@ function DrawerBodyInner({
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">⭐ All Time</h4>
             </div>
             <div className="p-0">
-              <DataRow label="Campaign LTV" value={totalLtv > 0 ? fmtC2(totalLtv) : "—"} tone={totalLtv > 0 ? "positive" : "neutral"} />
-              <DataRow label="Cross-Poll LTV" value={crossPoll > 0 ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
-              <DataRow label="New Fans" value={newSubs > 0 ? newSubs.toLocaleString() : "—"} />
-              <DataRow label="Existing Fans" value={existingFans > 0 ? existingFans.toLocaleString() : "—"} />
-              <DataRow label="LTV/Sub" value={showCurrency(ltvPerSub)} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+              <DataRow label="Campaign LTV" value={hasLtvData ? fmtC2(totalLtv) : "—"} tone={totalLtv > 0 ? "positive" : "neutral"} />
+              <DataRow label="Cross-Poll LTV" value={hasLtvData ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
+              <DataRow label="New Fans" value={hasLtvData ? newSubs.toLocaleString() : "—"} />
+              <DataRow label="Existing Fans" value={hasLtvData ? (existingFans > 0 ? existingFans.toLocaleString() : "0") : "—"} />
+              <DataRow label="LTV/Sub" value={hasLtvData && ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
               <DataRow label="Org %" value={showPct(orgPct)} />
               <DataRow label="Spender Rate" value={showPct(spenderRate)} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
               <DataRow label="Total Subs" value={tlSubscribers > 0 ? tlSubscribers.toLocaleString() : "—"} />
@@ -431,10 +435,13 @@ function DrawerBodyInner({
             <div className="px-4 py-3 space-y-0">
               {/* PART 1 — Campaign Summary */}
               <div className="space-y-1 pb-3">
-                {(() => {
+                {!hasLtvData ? (
+                  <p className="text-xs italic text-muted-foreground leading-relaxed">
+                    This campaign was created {daysRunning ?? "?"} days ago. LTV data not available yet — needs at least one sync cycle to calculate.
+                  </p>
+                ) : (() => {
                   const realCpl = newSubs > 0 && cost > 0 ? cost / newSubs : null;
                   const cType = d.cost_type || "";
-                  // Line 1
                   let line1: React.ReactNode;
                   if (cost <= 0) {
                     line1 = <span>This campaign has no spend set yet.</span>;
@@ -445,7 +452,6 @@ function DrawerBodyInner({
                   } else {
                     line1 = <>This campaign brought in <span className="text-primary font-semibold not-italic">{newSubs.toLocaleString()}</span> subscribers at <span className="text-primary font-semibold not-italic">{fmtC2(costInputValue)}</span>/sub.</>;
                   }
-                  // Line 2
                   let line2: React.ReactNode;
                   if (cost <= 0) {
                     line2 = totalLtv > 0
@@ -454,7 +460,6 @@ function DrawerBodyInner({
                   } else {
                     line2 = <>Each subscriber generated <span className="text-primary font-semibold not-italic">{ltvPerSub != null ? fmtC2(ltvPerSub) : "—"}</span> in LTV — a <span className={`font-semibold not-italic ${roi != null && roi >= 0 ? "text-primary" : "text-destructive"}`}>{roi != null ? `${roi.toFixed(0)}%` : "—"}</span> ROI.</>;
                   }
-                  // Line 3
                   let line3: React.ReactNode = null;
                   if (cost > 0) {
                     const noRecentClicks = totalClicks === 0;
@@ -477,6 +482,7 @@ function DrawerBodyInner({
               <div className="border-t border-border" />
 
               {/* PART 2 — Revenue Reconciliation */}
+              {hasLtvData && (
               <div className="py-3 space-y-1.5">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Where does the money come from?</p>
                 {[
@@ -501,6 +507,7 @@ function DrawerBodyInner({
                   Total LTV = <span className="text-primary">{fmtC2(totalLtv)}</span> + <span className="text-primary">{fmtC2(crossPoll)}</span> cross-poll
                 </p>
               </div>
+              )}
 
               {/* PART 3 — Cost Breakdown */}
               {cost > 0 && (
