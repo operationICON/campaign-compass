@@ -1126,16 +1126,26 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "ltv_sub": {
-                                  const ltvSubFromRecord = link.ltvRecord ? Number(link.ltvRecord.ltv_per_sub || 0) : null;
+                                  // All Time: total_ltv / new_subs_total
+                                  // Period: period revenue / period subs
+                                  let ltvSubVal: number | null = null;
+                                  if (isAllTime) {
+                                    ltvSubVal = link.ltvRecord ? Number(link.ltvRecord.ltv_per_sub || 0) : null;
+                                  } else {
+                                    const pSubs = Number(link.subscribers || 0);
+                                    const pRev = Number(link.revenue || 0);
+                                    ltvSubVal = pSubs > 0 ? pRev / pSubs : null;
+                                  }
+                                  const showLtvSubDash = ltvSubVal === null || ltvSubVal === 0;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span className="text-foreground">
-                                          {ltvSubFromRecord !== null && ltvSubFromRecord > 0 ? fmtC(ltvSubFromRecord) : "—"}
+                                          {showLtvSubDash ? "—" : fmtC(ltvSubVal!)}
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>Average LTV per new subscriber</TooltipContent>
+                                      <TooltipContent>{isAllTime ? "Average LTV per new subscriber" : "Period revenue per period subscriber"}</TooltipContent>
                                     </Tooltip>
                                   </td>
                                   );
