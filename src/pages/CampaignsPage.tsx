@@ -608,7 +608,6 @@ export default function CampaignsPage() {
       periodRev: Number(link.revenue || 0),
       periodClicks: Number(link.clicks || 0),
     });
-    }
   };
 
   const onSpendSaved = () => {
@@ -1550,6 +1549,7 @@ export default function CampaignsPage() {
         </div>
 
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
+        <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
       </div>
     </DashboardLayout>
   );
