@@ -488,127 +488,287 @@ export function DailyDecisionView({
       </div>
 
       {/* Campaign Detail Drawer */}
-      <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) setSelectedCampaign(null); }}>
+      <Drawer open={!!selectedCampaign} onOpenChange={(v) => { if (!v) { setSelectedCampaign(null); setActiveAction(null); } }}>
         <DrawerContent className="max-h-[85vh]">
-          {drawerCampaign && (() => {
-            const daysRunning = drawerCampaign.created_at
-              ? Math.max(1, Math.round((Date.now() - new Date(drawerCampaign.created_at).getTime()) / 86400000))
-              : null;
-            const spenderRate = Number(drawerCampaign.subscribers || 0) > 0
-              ? (Number(drawerCampaign.spenders || 0) / Number(drawerCampaign.subscribers || 0)) * 100 : 0;
-            const existingFans = Math.max(0, Number(drawerCampaign.subscribers || 0) - drawerCampaign.newSubs);
-            const orgPct = Number(drawerCampaign.subscribers || 0) > 0
-              ? (drawerCampaign.newSubs / Number(drawerCampaign.subscribers || 0)) * 100 : 0;
-
-            return (
-              <div className="overflow-y-auto px-5 pb-5">
-                {/* HEADER */}
-                <DrawerHeader className="px-0 pb-2">
-                  <div className="flex items-center gap-3">
-                    <ModelAvatar avatarUrl={drawerCampaign.avatarUrl} name={drawerCampaign.modelName} size={50} />
-                    <div className="flex-1 min-w-0">
-                      <DrawerTitle className="truncate text-xl font-bold leading-tight">
-                        {drawerCampaign.campaign_name || "Unknown"}
-                      </DrawerTitle>
-                      <p className="text-sm font-medium text-primary truncate">{drawerCampaign.modelName}</p>
-                    </div>
-                  </div>
-                  <DrawerDescription asChild>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
-                      {drawerCampaign.created_at && (
-                        <span>Created {new Date(drawerCampaign.created_at).toLocaleDateString()}</span>
-                      )}
-                      {daysRunning && <span className="font-semibold text-foreground">{daysRunning}d running</span>}
-                      {drawerCampaign.source_tag && (
-                        <span className="rounded-full border border-border bg-secondary/60 px-2 py-0.5 font-medium">{drawerCampaign.source_tag}</span>
-                      )}
-                      {drawerCampaign.status && (
-                        <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary">{drawerCampaign.status}</span>
-                      )}
-                      {drawerCampaign.traffic_category && (
-                        <span className="rounded-full border border-border bg-secondary/60 px-2 py-0.5">{drawerCampaign.traffic_category}</span>
-                      )}
-                    </div>
-                  </DrawerDescription>
-                </DrawerHeader>
-
-                {/* ACTION BUTTONS */}
-                <div className="flex gap-1.5 mb-3">
-                  {[
-                    { label: "Edit Source", icon: null },
-                    { label: "Edit Spend", icon: null },
-                    { label: "Set Status", icon: null },
-                    { label: "Delete", icon: null },
-                    { label: "View Details", icon: null },
-                  ].map(btn => (
-                    <Button key={btn.label} variant="outline" size="sm" className="flex-1 h-7 text-[11px] px-1">
-                      {btn.label}
-                    </Button>
-                  ))}
-                </div>
-
-                {/* TWO-COLUMN GRID */}
-                {/* Period Performance */}
-                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                  <GridCell label="Period Subs" value={drawerCampaign.periodSubs.toLocaleString()} />
-                  <GridCell label="Period Revenue" value={fmtC(drawerCampaign.periodRev)} tone={drawerCampaign.periodRev > 0 ? "positive" : "neutral"} />
-                  <GridCell label="Period Clicks" value={drawerCampaign.periodClicks.toLocaleString()} />
-                  <GridCell label="Avg Subs/Day" value={daysRunning ? (drawerCampaign.periodSubs / Math.max(1, daysRunning)).toFixed(1) : "—"} />
-                </div>
-
-                <div className="border-t border-border my-2" />
-
-                {/* LTV & Attribution */}
-                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                  <GridCell label="Total LTV" value={fmtC2(drawerCampaign.totalLtv)} tone={drawerCampaign.totalLtv > 0 ? "positive" : "neutral"} />
-                  <GridCell label="Cross-Poll" value={fmtC2(drawerCampaign.crossPoll)} tone={drawerCampaign.crossPoll > 0 ? "positive" : "neutral"} />
-                  <GridCell label="New Fans" value={drawerCampaign.newSubs.toLocaleString()} />
-                  <GridCell label="Existing Fans" value={existingFans.toLocaleString()} />
-                  <GridCell label="LTV/Sub" value={fmtC2(drawerCampaign.ltvPerSub)} tone={drawerCampaign.ltvPerSub > 0 ? "positive" : "neutral"} />
-                  <GridCell label="Org %" value={`${orgPct.toFixed(1)}%`} />
-                  <GridCell label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
-                  <GridCell label="Total Subs" value={Number(drawerCampaign.subscribers || 0).toLocaleString()} />
-                </div>
-
-                <div className="border-t border-border my-2" />
-
-                {/* Financials */}
-                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                  <GridCell label="Total Spend" value={fmtC2(drawerCampaign.cost)} />
-                  <GridCell label="Cost Type" value={drawerCampaign.cost_type || "—"} />
-                  <GridCell label="Profit" value={fmtC2(drawerProfit)} tone={drawerProfit >= 0 ? "positive" : "negative"} />
-                  <GridCell label="Profit/Sub" value={drawerCampaign.newSubs > 0 ? fmtC2(drawerProfitPerSub) : "—"} tone={drawerCampaign.newSubs > 0 ? (drawerProfitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
-                  <GridCell label="ROI" value={drawerCampaign.cost > 0 ? fmtPct(drawerCampaign.roi) : "No spend"} tone={drawerCampaign.cost > 0 ? (drawerCampaign.roi >= 0 ? "positive" : "negative") : "neutral"} />
-                  <GridCell label="CVR %" value={drawerCvr > 0 ? `${drawerCvr.toFixed(2)}%` : "—"} tone={drawerCvr > 0 ? "positive" : "neutral"} />
-                </div>
-
-                <div className="border-t border-border my-2" />
-
-                {/* Traffic */}
-                <div className="grid grid-cols-2 gap-1.5 mb-3">
-                  <GridCell label="Total Clicks" value={Number(drawerCampaign.clicks || 0).toLocaleString()} />
-                  <GridCell label="Spenders" value={Number(drawerCampaign.spenders || 0).toLocaleString()} />
-                </div>
-
-                {/* TRACKING LINK */}
-                {drawerCampaign.url && (
-                  <div className="rounded-lg border border-border bg-secondary/50 px-3 py-2 flex items-center gap-2">
-                    <p className="flex-1 truncate font-mono text-sm text-muted-foreground">{drawerCampaign.url}</p>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleCopy(drawerCampaign.url)}>
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    <a href={drawerCampaign.url} target="_blank" rel="noopener noreferrer">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
-                    </a>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {drawerCampaign && <DrawerBody
+            campaign={drawerCampaign}
+            profit={drawerProfit}
+            profitPerSub={drawerProfitPerSub}
+            cvr={drawerCvr}
+            fmtC={fmtC}
+            fmtC2={fmtC2}
+            fmtPct={fmtPct}
+            handleCopy={handleCopy}
+            activeAction={activeAction}
+            setActiveAction={setActiveAction}
+            actionSaving={actionSaving}
+            setActionSaving={setActionSaving}
+            sourceTags={sourceTags}
+            queryClient={queryClient}
+            navigate={navigate}
+            setSelectedCampaign={setSelectedCampaign}
+            GridCell={GridCell}
+          />}
         </DrawerContent>
       </Drawer>
     </>
+  );
+}
+
+/* ─── Drawer Body (extracted for hooks) ─── */
+function DrawerBody({
+  campaign: d, profit, profitPerSub, cvr,
+  fmtC, fmtC2, fmtPct, handleCopy,
+  activeAction, setActiveAction, actionSaving, setActionSaving,
+  sourceTags, queryClient, navigate, setSelectedCampaign, GridCell,
+}: any) {
+  const [sourceVal, setSourceVal] = useState(d.source_tag || "");
+  const [costType, setCostType] = useState(d.cost_type || "CPL");
+  const [costValue, setCostValue] = useState(String(d.cost_value || ""));
+
+  const daysRunning = d.created_at
+    ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
+    : null;
+  const spenderRate = Number(d.subscribers || 0) > 0
+    ? (Number(d.spenders || 0) / Number(d.subscribers || 0)) * 100 : 0;
+  const existingFans = Math.max(0, Number(d.subscribers || 0) - d.newSubs);
+  const orgPct = Number(d.subscribers || 0) > 0
+    ? (d.newSubs / Number(d.subscribers || 0)) * 100 : 0;
+
+  const calcCostTotal = () => {
+    const v = Number(costValue) || 0;
+    if (costType === "CPC") return v * Number(d.clicks || 0);
+    if (costType === "CPL") return v * Number(d.subscribers || 0);
+    return v;
+  };
+
+  const refreshAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+    queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
+  };
+
+  const saveSource = async () => {
+    setActionSaving(true);
+    try {
+      const { error } = await supabase.from("tracking_links").update({ source_tag: sourceVal, manually_tagged: true }).eq("id", d.id);
+      if (error) throw error;
+      toast.success("Source tag saved");
+      refreshAll();
+      setActiveAction(null);
+    } catch { toast.error("Failed to save source tag"); }
+    setActionSaving(false);
+  };
+
+  const saveSpend = async () => {
+    setActionSaving(true);
+    try {
+      const total = calcCostTotal();
+      const { error } = await supabase.from("tracking_links").update({
+        cost_type: costType, cost_value: Number(costValue) || 0, cost_total: total,
+      }).eq("id", d.id);
+      if (error) throw error;
+      toast.success("Spend saved");
+      refreshAll();
+      setActiveAction(null);
+    } catch { toast.error("Failed to save spend"); }
+    setActionSaving(false);
+  };
+
+  const saveStatus = async (status: string) => {
+    setActionSaving(true);
+    try {
+      const { error } = await supabase.from("tracking_links").update({ status }).eq("id", d.id);
+      if (error) throw error;
+      toast.success(`Status set to ${status}`);
+      refreshAll();
+      setActiveAction(null);
+    } catch { toast.error("Failed to save status"); }
+    setActionSaving(false);
+  };
+
+  const confirmDelete = async () => {
+    setActionSaving(true);
+    try {
+      const { error } = await supabase.from("tracking_links").update({ deleted_at: new Date().toISOString() }).eq("id", d.id);
+      if (error) throw error;
+      toast.success("Campaign deleted");
+      refreshAll();
+      setSelectedCampaign(null);
+    } catch { toast.error("Failed to delete"); }
+    setActionSaving(false);
+  };
+
+  const statuses = ["SCALE", "WATCH", "KILL", "HOLD", "TEST"];
+
+  return (
+    <div className="overflow-y-auto px-4 pb-4 max-w-[480px] mx-auto">
+      {/* HEADER */}
+      <DrawerHeader className="px-0 pb-1 pt-0">
+        <div className="flex items-center gap-2.5">
+          <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={40} />
+          <div className="flex-1 min-w-0">
+            <DrawerTitle className="truncate text-lg font-bold leading-tight">
+              {d.campaign_name || "Unknown"}
+            </DrawerTitle>
+            <p className="text-[13px] font-medium text-primary truncate">{d.modelName}</p>
+          </div>
+        </div>
+        <DrawerDescription asChild>
+          <div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
+              {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
+              {d.created_at && <span>·</span>}
+              {daysRunning && <span className="font-semibold text-foreground">{daysRunning}d running</span>}
+              {d.status && (
+                <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px font-semibold text-primary">{d.status}</span>
+              )}
+              {d.traffic_category && (
+                <span className="rounded-full border border-border bg-secondary/60 px-1.5 py-px">{d.traffic_category}</span>
+              )}
+            </div>
+            {/* Tracking link inline */}
+            {d.url && (
+              <div className="flex items-center gap-1 mt-1">
+                <p className="truncate font-mono text-[11px] text-muted-foreground flex-1">{d.url}</p>
+                <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-0.5"><Copy className="h-3 w-3" /></button>
+                <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-0.5"><ExternalLink className="h-3 w-3" /></a>
+              </div>
+            )}
+          </div>
+        </DrawerDescription>
+      </DrawerHeader>
+
+      {/* ACTION BUTTONS */}
+      <div className="flex gap-1 mb-2">
+        {[
+          { key: "source", icon: <Pencil className="h-3 w-3" />, label: "Source" },
+          { key: "spend", icon: <Coins className="h-3 w-3" />, label: "Spend" },
+          { key: "status", icon: <Activity className="h-3 w-3" />, label: "Status" },
+          { key: "delete", icon: <Trash2 className="h-3 w-3" />, label: "Delete" },
+          { key: "details", icon: <ArrowUpRight className="h-3 w-3" />, label: "Details" },
+        ].map(btn => (
+          <Button
+            key={btn.key}
+            variant={activeAction === btn.key ? "default" : "outline"}
+            size="sm"
+            className="flex-1 h-7 text-[10px] px-1 gap-1"
+            onClick={() => {
+              if (btn.key === "details") {
+                navigate(`/campaigns?link=${d.id}`);
+                return;
+              }
+              setActiveAction(activeAction === btn.key ? null : btn.key);
+            }}
+          >
+            {btn.icon}{btn.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* ACTION PANELS */}
+      {activeAction === "source" && (
+        <div className="rounded-lg border border-border bg-secondary/30 p-2.5 mb-2 space-y-2">
+          <select
+            value={sourceVal}
+            onChange={e => setSourceVal(e.target.value)}
+            className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
+          >
+            <option value="">— None —</option>
+            {sourceTags.map((t: any) => <option key={t.tag_name} value={t.tag_name}>{t.tag_name}</option>)}
+          </select>
+          <div className="flex gap-1.5">
+            <Button size="sm" className="h-7 text-[11px] flex-1" onClick={saveSource} disabled={actionSaving}>
+              {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {activeAction === "spend" && (
+        <div className="rounded-lg border border-border bg-secondary/30 p-2.5 mb-2 space-y-2">
+          <div className="flex gap-2">
+            <select value={costType} onChange={e => setCostType(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs w-24">
+              <option value="CPL">CPL</option>
+              <option value="CPC">CPC</option>
+              <option value="FIXED">Fixed</option>
+            </select>
+            <Input type="number" value={costValue} onChange={e => setCostValue(e.target.value)} placeholder="Value" className="h-8 text-xs flex-1" />
+          </div>
+          <p className="text-[11px] text-muted-foreground">Total: <span className="font-mono font-semibold text-foreground">{fmtC2(calcCostTotal())}</span></p>
+          <div className="flex gap-1.5">
+            <Button size="sm" className="h-7 text-[11px] flex-1" onClick={saveSpend} disabled={actionSaving}>
+              {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {activeAction === "status" && (
+        <div className="rounded-lg border border-border bg-secondary/30 p-2.5 mb-2">
+          <div className="flex gap-1.5">
+            {statuses.map(s => (
+              <Button
+                key={s}
+                size="sm"
+                variant={d.status === s ? "default" : "outline"}
+                className="flex-1 h-7 text-[10px]"
+                disabled={actionSaving}
+                onClick={() => saveStatus(s)}
+              >
+                {actionSaving && d.status === s ? <Loader2 className="h-3 w-3 animate-spin" /> : s}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeAction === "delete" && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 mb-2">
+          <p className="text-xs text-destructive font-medium mb-2">Delete "{d.campaign_name}"? Cannot be undone.</p>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setActiveAction(null)}>Cancel</Button>
+            <Button size="sm" variant="destructive" className="h-7 text-[11px] flex-1" onClick={confirmDelete} disabled={actionSaving}>
+              {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm Delete"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* DATA GRID */}
+      <div className="grid grid-cols-2 gap-1 mb-1">
+        <GridCell label="Period Subs" value={d.periodSubs.toLocaleString()} />
+        <GridCell label="Period Revenue" value={fmtC(d.periodRev)} tone={d.periodRev > 0 ? "positive" : "neutral"} />
+        <GridCell label="Period Clicks" value={d.periodClicks.toLocaleString()} />
+        <GridCell label="Avg Subs/Day" value={daysRunning ? (d.periodSubs / Math.max(1, daysRunning)).toFixed(1) : "—"} />
+      </div>
+
+      <div className="border-t border-border my-1.5" />
+
+      <div className="grid grid-cols-2 gap-1 mb-1">
+        <GridCell label="Total LTV" value={fmtC2(d.totalLtv)} tone={d.totalLtv > 0 ? "positive" : "neutral"} />
+        <GridCell label="Cross-Poll" value={fmtC2(d.crossPoll)} tone={d.crossPoll > 0 ? "positive" : "neutral"} />
+        <GridCell label="New Fans" value={d.newSubs.toLocaleString()} />
+        <GridCell label="Existing Fans" value={existingFans.toLocaleString()} />
+        <GridCell label="LTV/Sub" value={fmtC2(d.ltvPerSub)} tone={d.ltvPerSub > 0 ? "positive" : "neutral"} />
+        <GridCell label="Org %" value={`${orgPct.toFixed(1)}%`} />
+        <GridCell label="Spender Rate" value={`${spenderRate.toFixed(1)}%`} tone={spenderRate > 0 ? "positive" : "neutral"} />
+        <GridCell label="Total Subs" value={Number(d.subscribers || 0).toLocaleString()} />
+      </div>
+
+      <div className="border-t border-border my-1.5" />
+
+      <div className="grid grid-cols-2 gap-1 mb-1">
+        <GridCell label="Total Spend" value={fmtC2(d.cost)} />
+        <GridCell label="Cost Type" value={d.cost_type || "—"} />
+        <GridCell label="Profit" value={fmtC2(profit)} tone={profit >= 0 ? "positive" : "negative"} />
+        <GridCell label="Profit/Sub" value={d.newSubs > 0 ? fmtC2(profitPerSub) : "—"} tone={d.newSubs > 0 ? (profitPerSub >= 0 ? "positive" : "negative") : "neutral"} />
+        <GridCell label="ROI" value={d.cost > 0 ? fmtPct(d.roi) : "No spend"} tone={d.cost > 0 ? (d.roi >= 0 ? "positive" : "negative") : "neutral"} />
+        <GridCell label="CVR %" value={cvr > 0 ? `${cvr.toFixed(2)}%` : "—"} tone={cvr > 0 ? "positive" : "neutral"} />
+        <GridCell label="Total Clicks" value={Number(d.clicks || 0).toLocaleString()} />
+        <GridCell label="Spenders" value={Number(d.spenders || 0).toLocaleString()} />
+      </div>
+    </div>
   );
 }
