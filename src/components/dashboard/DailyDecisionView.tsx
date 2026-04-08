@@ -644,51 +644,6 @@ function DrawerBody({
           <XCircle className="h-5 w-5" />
         </button>
       </div>
-      <div className="px-6 pt-4 pb-3 border-b border-border">
-        <div className="flex items-center gap-4">
-          <ModelAvatar avatarUrl={d.avatarUrl} name={d.modelName} size={64} />
-          <div className="flex-1 min-w-0">
-            <SheetHeader className="p-0">
-              <SheetTitle className="truncate text-[22px] font-bold leading-tight text-foreground">
-                {d.campaign_name || "Unknown"}
-              </SheetTitle>
-              <p className="text-[15px] font-medium text-primary truncate">{d.modelName}</p>
-            </SheetHeader>
-            <SheetDescription asChild>
-              <div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-muted-foreground">
-                  {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
-                  {daysRunning && (
-                    <>
-                      <span>·</span>
-                      <span className="font-semibold text-foreground">{daysRunning}d running</span>
-                    </>
-                  )}
-                  {d.status && (
-                    <>
-                      <span>·</span>
-                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span>
-                    </>
-                  )}
-                  {d.traffic_category && (
-                    <>
-                      <span>·</span>
-                      <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-[11px]">{d.traffic_category}</span>
-                    </>
-                  )}
-                </div>
-                {d.url && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <p className="truncate font-mono text-xs text-muted-foreground flex-1">{d.url}</p>
-                    <button onClick={() => handleCopy(d.url)} className="text-muted-foreground hover:text-foreground p-1 transition-colors"><Copy className="h-3.5 w-3.5" /></button>
-                    <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1 transition-colors"><ExternalLink className="h-3.5 w-3.5" /></a>
-                  </div>
-                )}
-              </div>
-            </SheetDescription>
-          </div>
-        </div>
-      </div>
 
       {/* ACTION BUTTONS */}
       <div className="px-6 py-2.5 border-b border-border">
