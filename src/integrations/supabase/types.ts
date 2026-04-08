@@ -318,6 +318,100 @@ export type Database = {
           },
         ]
       }
+      chatting_team_chats: {
+        Row: {
+          account_id: string | null
+          fan_avatar: string | null
+          fan_id: string
+          fan_name: string | null
+          fan_username: string | null
+          fetched_at: string | null
+          id: string
+          is_unread: boolean | null
+          last_message_at: string | null
+          last_message_preview: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          fan_avatar?: string | null
+          fan_id: string
+          fan_name?: string | null
+          fan_username?: string | null
+          fetched_at?: string | null
+          id?: string
+          is_unread?: boolean | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          fan_avatar?: string | null
+          fan_id?: string
+          fan_name?: string | null
+          fan_username?: string | null
+          fetched_at?: string | null
+          id?: string
+          is_unread?: boolean | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatting_team_chats_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatting_team_new_fans: {
+        Row: {
+          account_id: string | null
+          fan_avatar: string | null
+          fan_id: string
+          fan_name: string | null
+          fan_username: string | null
+          fetched_at: string | null
+          id: string
+          subscribe_price: number | null
+          subscribed_at: string | null
+          subscription_type: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          fan_avatar?: string | null
+          fan_id: string
+          fan_name?: string | null
+          fan_username?: string | null
+          fetched_at?: string | null
+          id?: string
+          subscribe_price?: number | null
+          subscribed_at?: string | null
+          subscription_type?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          fan_avatar?: string | null
+          fan_id?: string
+          fan_name?: string | null
+          fan_username?: string | null
+          fetched_at?: string | null
+          id?: string
+          subscribe_price?: number | null
+          subscribed_at?: string | null
+          subscription_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatting_team_new_fans_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_metrics: {
         Row: {
           account_id: string | null
