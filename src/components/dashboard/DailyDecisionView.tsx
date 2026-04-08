@@ -805,7 +805,6 @@ function DrawerBody({
     </div>
   );
 }
-  const [sourceVal, setSourceVal] = useState(d.source_tag || "");
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
 
