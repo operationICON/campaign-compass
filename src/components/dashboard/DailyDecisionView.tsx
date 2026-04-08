@@ -145,25 +145,25 @@ export function DailyDecisionView({
     });
   }, [links, periodSnapshotByLink, allTimeSnapshotByLink, ltvLookup, accounts]);
 
-  // === SCALE NOW ===
-  const scaleLinks = useMemo(() =>
+  // === SCALE NOW (sorted by highest LTV/sub) ===
+  const allScaleLinks = useMemo(() =>
     enriched
       .filter(l => l.hasPeriodSubs && l.ltvPerSub > 20 && (l.cost === 0 || l.roi > 150))
-      .sort((a, b) => b.totalLtv - a.totalLtv)
-      .slice(0, 8),
+      .sort((a, b) => b.ltvPerSub - a.ltvPerSub),
   [enriched]);
+  const scaleLinks = allScaleLinks.slice(0, 5);
 
-  // === WATCH ===
-  const watchLinks = useMemo(() =>
+  // === WATCH (sorted by highest LTV/sub) ===
+  const allWatchLinks = useMemo(() =>
     enriched
       .filter(l => l.hasPeriodSubs && ((l.ltvPerSub >= 5 && l.ltvPerSub <= 20) || (l.roi >= 50 && l.roi <= 150)))
-      .filter(l => !scaleLinks.some(s => s.id === l.id))
-      .sort((a, b) => b.totalLtv - a.totalLtv)
-      .slice(0, 8),
-  [enriched, scaleLinks]);
+      .filter(l => !allScaleLinks.some(s => s.id === l.id))
+      .sort((a, b) => b.ltvPerSub - a.ltvPerSub),
+  [enriched, allScaleLinks]);
+  const watchLinks = allWatchLinks.slice(0, 5);
 
-  // === STOP/FIX ===
-  const stopLinks = useMemo(() =>
+  // === STOP/FIX (sorted by highest spend first) ===
+  const allStopLinks = useMemo(() =>
     enriched
       .filter(l => {
         if (l.cost <= 0) return false;
@@ -171,10 +171,14 @@ export function DailyDecisionView({
         const negRoi = l.roi < 0;
         return zeroSubs || negRoi;
       })
-      .filter(l => !scaleLinks.some(s => s.id === l.id) && !watchLinks.some(w => w.id === l.id))
-      .sort((a, b) => a.roi - b.roi)
-      .slice(0, 8),
-  [enriched, scaleLinks, watchLinks]);
+      .filter(l => !allScaleLinks.some(s => s.id === l.id) && !allWatchLinks.some(w => w.id === l.id))
+      .sort((a, b) => b.cost - a.cost),
+  [enriched, allScaleLinks, allWatchLinks]);
+  const stopLinks = allStopLinks.slice(0, 5);
+
+  const [showAllScale, setShowAllScale] = useState(false);
+  const [showAllWatch, setShowAllWatch] = useState(false);
+  const [showAllStop, setShowAllStop] = useState(false);
 
   // === Summary metrics ===
   const activeLinksCount = campaignsWithSubs.length;

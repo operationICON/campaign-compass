@@ -1228,7 +1228,7 @@ function KpiCards({
   };
 
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(orderedCards.length, 6)}, 1fr)`, gridAutoRows: "1fr" }}>
+    <div className="grid grid-cols-4 gap-4" style={{ gridAutoRows: "1fr" }}>
       {orderedCards.map(id => renderCard(id as OverviewKpiCardId))}
     </div>
   );
