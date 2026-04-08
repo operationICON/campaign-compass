@@ -608,7 +608,6 @@ export default function CampaignsPage() {
       periodRev: Number(link.revenue || 0),
       periodClicks: Number(link.clicks || 0),
     });
-    }
   };
 
   const onSpendSaved = () => {
