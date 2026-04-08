@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
-import { PageFilterBar } from "@/components/PageFilterBar";
+import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -480,8 +480,7 @@ export default function CampaignsPage() {
   // ─── Filtering ───
   const filtered = useMemo(() => {
     let result = baseLinks;
-    // Page-level model filter (from filter bar)
-    if (pageModelFilter !== "all") result = result.filter((l: any) => l.account_id === pageModelFilter);
+    // Account filter (from top bar)
     if (groupFilter !== "all") {
       const groupUsernames = GROUP_MAP[groupFilter] || [];
       const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
@@ -555,60 +554,83 @@ export default function CampaignsPage() {
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
+    const periodDays = campaignsSnapshotRange?.dayCount ?? 0;
 
-    // Total Spend — ALWAYS all time, never changes with period
+    // Links with cost set
     const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const totalSpendAllTime = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
+    // Check if snapshot data exists for period
+    const hasSnapshotData = !isAllTime && campaignsSnapshotRows.length > 0;
 
     // Total LTV — switches based on period
     let totalLtv: number;
     if (isAllTime) {
-      // All Time: SUM(tracking_link_ltv.total_ltv + cross_poll_revenue)
       totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
-    } else {
-      // Period: SUM(daily_snapshots.revenue) — already applied to link.revenue by applySnapshotToLinks
+    } else if (hasSnapshotData) {
       totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    } else {
+      totalLtv = 0; // No data for period
     }
 
-    // Total Profit
+    // Total Spend — proportional for periods
+    let totalSpend: number;
+    if (isAllTime) {
+      totalSpend = totalSpendAllTime;
+    } else if (hasSnapshotData && periodDays > 0) {
+      // Proportional: (cost_total / days_running) × days_in_period
+      totalSpend = linksWithCost.reduce((s: number, l: any) => {
+        const costTotal = Number(l.cost_total || 0);
+        const daysRunning = Math.max(1, l.daysSinceCreated || 1);
+        return s + (costTotal / daysRunning) * periodDays;
+      }, 0);
+    } else {
+      totalSpend = 0;
+    }
+
+    // Period subs from snapshots
+    let periodSubs = 0;
+    if (!isAllTime && hasSnapshotData) {
+      periodSubs = scopedLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+    }
+
+    // Total Profit — same time scope for both sides
     let totalProfitCalc: number;
     if (isAllTime) {
-      // All Time: Total LTV (all time) - Total Spend (all time)
       const ltvWithSpend = linksWithCost.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
       totalProfitCalc = ltvWithSpend - totalSpendAllTime;
+    } else if (hasSnapshotData) {
+      totalProfitCalc = totalLtv - totalSpend;
     } else {
-      // Period: Period LTV - Total Spend (all time)
-      // But don't show misleading negative — period LTV is partial
-      totalProfitCalc = totalLtv - totalSpendAllTime;
+      totalProfitCalc = 0;
     }
 
-    // Avg Cost/Sub — ALWAYS all time
-    const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
-    const avgCostPerSubCalc = paidNewSubs > 0 ? totalSpendAllTime / paidNewSubs : null;
+    // Avg Cost/Sub
+    let avgCostPerSubCalc: number | null;
+    if (isAllTime) {
+      const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
+      avgCostPerSubCalc = paidNewSubs > 0 ? totalSpendAllTime / paidNewSubs : null;
+    } else if (hasSnapshotData && periodSubs > 0) {
+      avgCostPerSubCalc = totalSpend / periodSubs;
+    } else {
+      avgCostPerSubCalc = null;
+    }
 
-    const activeCampaigns = scopedLinks.filter((l: any) => {
-      if (l.clicks <= 0) return false;
-      const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
-      return calcDate ? differenceInDays(new Date(), calcDate) <= 30 : false;
-    }).length;
-    const qualifiedLinks = scopedLinks.filter((l: any) => l.clicks > 100);
-    const totalSubs = qualifiedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const totalClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
-    const avgCvr = totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
     const untagged = scopedLinks.filter((l: any) => !getEffectiveSource(l)).length;
     const totalCount = scopedLinks.length;
     const trackedCount = linksWithCost.length;
-
-    const profitPerSubCalc = paidNewSubs > 0 ? totalProfitCalc / paidNewSubs : null;
+    const paidNewSubsAllTime = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
+    const profitPerSubCalc = paidNewSubsAllTime > 0 ? totalProfitCalc / paidNewSubsAllTime : null;
 
     return {
-      totalRevenue: totalLtv, totalLtv, activeCampaigns, avgCvr, noSpend, untagged, totalCount,
-      profitPerSub: profitPerSubCalc, avgCpl: avgCostPerSubCalc, trackedCount,
+      totalRevenue: totalLtv, totalLtv, noSpend, untagged, totalCount,
+      profitPerSub: profitPerSubCalc, trackedCount,
       avgCostPerSub: avgCostPerSubCalc, isEstimate: false,
-      totalSpend: totalSpendAllTime, totalProfit: totalProfitCalc,
+      totalSpend, totalProfit: totalProfitCalc,
+      hasSnapshotData, periodDays,
     };
-  }, [filtered, isAllTime]);
+  }, [filtered, isAllTime, campaignsSnapshotRange, campaignsSnapshotRows]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
@@ -713,15 +735,41 @@ export default function CampaignsPage() {
         </div>
 
         {/* ═══ TIME + MODEL FILTER BAR ═══ */}
-        <PageFilterBar
-          timePeriod={timePeriod}
-          onTimePeriodChange={setTimePeriod}
-          customRange={customRange}
-          onCustomRangeChange={setCustomRange}
-          modelFilter={pageModelFilter}
-          onModelFilterChange={setPageModelFilter}
-          accounts={accountOptions}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <AccountFilterDropdown
+            value={accountFilter}
+            onChange={(v) => { setAccountFilter(v); setPage(1); }}
+            accounts={filteredAccountOptions}
+          />
+          <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+            {([
+              { key: "day" as TimePeriod, label: "Last Day" },
+              { key: "week" as TimePeriod, label: "Last Week" },
+              { key: "month" as TimePeriod, label: "Last Month" },
+              { key: "prev_month" as TimePeriod, label: "Prev Month" },
+              { key: "all" as TimePeriod, label: "All Time" },
+            ]).map((tp) => (
+              <button
+                key={tp.key}
+                onClick={() => {
+                  setTimePeriod(tp.key);
+                  setCustomRange(null);
+                }}
+                className={`px-4 py-2 text-xs font-medium transition-colors ${
+                  timePeriod === tp.key && !customRange
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tp.label}
+              </button>
+            ))}
+          </div>
+          <DateRangePicker
+            value={customRange}
+            onChange={(range) => setCustomRange(range)}
+          />
+        </div>
 
         <div
           className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer transition-all duration-200"
@@ -745,29 +793,33 @@ export default function CampaignsPage() {
             </div>
           </div>
 
-          {!kpiCollapsed && (
+          {!kpiCollapsed && (() => {
+            const periodLabel = customRange ? "Custom range" : timePeriod === "day" ? "Last 24 hours" : timePeriod === "week" ? "Last 7 days" : timePeriod === "month" ? "Last 30 days" : timePeriod === "prev_month" ? "Previous month" : "All time across all links";
+            const spendLabel = isAllTime ? "All paid campaigns" : `${periodLabel} est.`;
+            const showDash = !isAllTime && !kpis.hasSnapshotData;
+            return (
             <div className="px-3.5 pb-3" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr", gap: "10px", alignItems: "stretch" }}>
                 {/* Card 1 — Total LTV (hero) */}
                 <div className="rounded-xl p-4 flex flex-col justify-center" style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
                   <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total LTV</p>
-                  <p className="text-[22px] font-bold text-white font-mono mt-1">{fmtC(kpis.totalLtv)}</p>
-                  <p className="text-[10px] text-white/60 mt-0.5">All time across all links</p>
+                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv)}</p>
+                  <p className="text-[10px] text-white/60 mt-0.5">{periodLabel}</p>
                 </div>
                 {/* Card 2 — Total Spend */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Total Spend" value={<span className="text-foreground">{hasAnyExpenses ? fmtC(totalExpenses) : "—"}</span>} sub="All paid campaigns"
-                  tooltip={{ title: "Total Spend", desc: "Sum of cost_total across campaigns with spend set." }} />
+                  label="Total Spend" value={showDash ? <span className="text-muted-foreground">—</span> : <span className="text-foreground">{kpis.totalSpend > 0 ? fmtC(kpis.totalSpend) : "—"}</span>} sub={spendLabel}
+                  tooltip={{ title: "Total Spend", desc: isAllTime ? "Sum of cost_total across campaigns with spend set." : "Proportional daily spend estimate for the selected period." }} />
                 {/* Card 3 — Total Profit */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
-                  label="Total Profit" value={hasAnyExpenses
-                    ? <span className={totalProfitAll >= 0 ? "text-primary" : "text-destructive"}>{fmtC(totalProfitAll)}</span>
-                    : <span className="text-muted-foreground">—</span>} sub="LTV minus spend"
-                  tooltip={{ title: "Total Profit", desc: "Total LTV minus total spend across paid campaigns." }} />
+                  label="Total Profit" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.totalSpend > 0
+                    ? <span className={kpis.totalProfit >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalProfit)}</span>
+                    : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "LTV minus spend" : `${periodLabel}`}
+                  tooltip={{ title: "Total Profit", desc: "LTV minus spend for the same time scope." }} />
                 {/* Card 4 — Avg Cost/Sub */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Avg Cost/Sub" value={kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub="Cost per acquired subscriber"
-                  tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber. Only includes campaigns with spend set." }} />
+                  label="Avg Cost/Sub" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "Cost per acquired subscriber" : spendLabel}
+                  tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber for the selected period." }} />
                 {/* Card 5 — Untagged */}
                 <div className="cursor-pointer" onClick={() => { setSourceFilter(sourceFilter === "untagged" ? "all" : "untagged"); setPage(1); }}>
                   <KPICard borderColor={kpis.untagged > 0 ? "hsl(var(--warning))" : "hsl(var(--primary))"} icon={<Tag className={`h-4 w-4 ${kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}`} />}
@@ -776,7 +828,8 @@ export default function CampaignsPage() {
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* ═══ FILTER BAR ═══ */}
@@ -786,7 +839,7 @@ export default function CampaignsPage() {
             <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors" />
           </div>
-          <AccountFilterDropdown value={accountFilter} onChange={(v) => { setAccountFilter(v); setPage(1); }} accounts={filteredAccountOptions} />
+          
           <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
             className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
             <option value="all">All Campaigns</option>
