@@ -198,10 +198,10 @@ export function DailyDecisionView({
     return best;
   }, [enriched]);
 
-  // === TOP 5 by LTV/Sub ===
+  // === TOP 5 by LTV/Sub (min 5 new fans) ===
   const topLtvPerSub = useMemo(() =>
     enriched
-      .filter(l => l.newSubs > 0 && l.ltvPerSub > 0)
+      .filter(l => l.newSubs >= 5 && l.ltvPerSub > 0)
       .sort((a, b) => b.ltvPerSub - a.ltvPerSub)
       .slice(0, 5),
   [enriched]);
@@ -220,6 +220,16 @@ export function DailyDecisionView({
       const subsPerDay = distinctDates.size > 0 ? Math.round(totalSnapshotSubs / distinctDates.size) : 0;
       const spendTotal = accLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
 
+      // Est. Daily Spend = total spend / days since first campaign
+      const oldestCreated = accLinks.reduce((oldest: string | null, l: any) => {
+        if (!l.created_at) return oldest;
+        return !oldest || l.created_at < oldest ? l.created_at : oldest;
+      }, null as string | null);
+      const daysSinceFirst = oldestCreated
+        ? Math.max(1, Math.round((Date.now() - new Date(oldestCreated).getTime()) / 86400000))
+        : 1;
+      const estDailySpend = spendTotal / daysSinceFirst;
+
       let accLtv = 0, accNewSubs = 0;
       for (const l of accLinks) {
         const key = String(l.id ?? "").trim().toLowerCase();
@@ -232,7 +242,7 @@ export function DailyDecisionView({
       const ltvPerSub = accNewSubs > 0 ? accLtv / accNewSubs : null;
       const profitPerSub = accNewSubs > 0 ? (accLtv - spendTotal) / accNewSubs : null;
 
-      return { ...acc, subsPerDay, spendTotal, ltvPerSub, profitPerSub };
+      return { ...acc, subsPerDay, spendTotal, estDailySpend, ltvPerSub, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
   }, [accounts, links, ltvLookup, snapshotRows]);
 
@@ -432,13 +442,19 @@ export function DailyDecisionView({
                     <button
                       key={l.id}
                       onClick={() => setSelectedCampaign(l)}
-                      className="bg-secondary/50 border border-border rounded-lg px-3 py-2 text-left hover:bg-secondary/80 transition-colors cursor-pointer"
+                      className="bg-secondary/50 border border-border rounded-lg px-3 py-2.5 text-left hover:bg-secondary/80 transition-colors cursor-pointer"
                     >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <ModelAvatar avatarUrl={l.avatarUrl} name={l.modelName} size={16} />
-                        <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <ModelAvatar avatarUrl={l.avatarUrl} name={l.modelName} size={20} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground truncate">{l.campaign_name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{l.modelName}</p>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-primary">{fmtC2(l.ltvPerSub)}/sub</span>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm font-mono font-bold text-primary">{fmtC2(l.ltvPerSub)}/sub</span>
+                        <span className="text-[10px] text-muted-foreground">{l.newSubs} fans</span>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -456,7 +472,7 @@ export function DailyDecisionView({
                     <div className="grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr] gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       <span>Model</span>
                       <span>Subs/Day</span>
-                      <span>Spend</span>
+                      <span>Est. Daily Spend</span>
                       <span>LTV/Sub</span>
                       <span>Profit/Sub</span>
                     </div>
@@ -467,7 +483,7 @@ export function DailyDecisionView({
                           <span className="truncate font-medium text-foreground">{m.display_name}</span>
                         </div>
                         <span className="font-mono text-muted-foreground">{m.subsPerDay.toLocaleString()} subs/day</span>
-                        <span className="font-mono text-muted-foreground">{fmtC(m.spendTotal)} spend</span>
+                        <span className="font-mono text-muted-foreground">{fmtC2(m.estDailySpend)}/day</span>
                         <span className={`font-mono font-semibold ${getValueColor(m.ltvPerSub != null && m.ltvPerSub > 0 ? "positive" : "neutral")}`}>
                           {m.ltvPerSub != null ? `${fmtC2(m.ltvPerSub)}/sub` : "—"}
                         </span>
