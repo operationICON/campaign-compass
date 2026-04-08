@@ -1218,15 +1218,30 @@ export default function CampaignsPage() {
                                     </div>
                                   </td>
                                 );
-                                case "subs_day": return (
+                                case "subs_day": {
+                                  // Period: SUM(subscribers) / COUNT(DISTINCT snapshot_date)
+                                  // All Time: use dailyMetrics delta-based subsDay
+                                  let subsPerDay: number | null = null;
+                                  let subsDayLbl: string | null = null;
+                                  if (!isAllTime && link.snapshotDays !== undefined) {
+                                    const pSubs = Number(link.subscribers || 0);
+                                    const pDays = Number(link.snapshotDays || 0);
+                                    subsPerDay = pDays > 0 ? pSubs / pDays : (pSubs > 0 ? pSubs : null);
+                                    if (pSubs === 0 && pDays === 0) subsDayLbl = "—";
+                                  } else {
+                                    subsPerDay = link.subsDay;
+                                    subsDayLbl = link.subsDayLabel;
+                                  }
+                                  return (
                                   <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {link.subsDay !== null && link.subsDay > 0
-                                      ? <span className="text-primary font-bold">{Math.round(link.subsDay)}/day</span>
-                                      : link.subsDayLabel
-                                        ? <span className="text-muted-foreground text-[10px]">{link.subsDayLabel}</span>
+                                    {subsPerDay !== null && subsPerDay > 0
+                                      ? <span className="text-primary font-bold">{subsPerDay.toFixed(1)}/day</span>
+                                      : subsDayLbl
+                                        ? <span className="text-muted-foreground text-[10px]">{subsDayLbl}</span>
                                         : <span className="text-muted-foreground">0/day</span>}
                                   </td>
-                                );
+                                  );
+                                }
                                 case "created": {
                                   const days = link.daysSinceCreated;
                                   const createdDate = format(new Date(link.created_at), "MMM d, yyyy");
