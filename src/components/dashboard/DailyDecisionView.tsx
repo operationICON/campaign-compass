@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
+} from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
