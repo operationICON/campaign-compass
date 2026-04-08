@@ -414,11 +414,11 @@ function DrawerBodyInner({
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">⭐ All Time</h4>
             </div>
             <div className="p-0">
-              <DataRow label="Campaign LTV" value={totalLtv > 0 ? fmtC2(totalLtv) : "—"} tone={totalLtv > 0 ? "positive" : "neutral"} />
-              <DataRow label="Cross-Poll LTV" value={crossPoll > 0 ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
-              <DataRow label="New Fans" value={newSubs > 0 ? newSubs.toLocaleString() : "—"} />
-              <DataRow label="Existing Fans" value={existingFans > 0 ? existingFans.toLocaleString() : "—"} />
-              <DataRow label="LTV/Sub" value={showCurrency(ltvPerSub)} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+              <DataRow label="Campaign LTV" value={hasLtvData ? fmtC2(totalLtv) : "—"} tone={totalLtv > 0 ? "positive" : "neutral"} />
+              <DataRow label="Cross-Poll LTV" value={hasLtvData ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
+              <DataRow label="New Fans" value={hasLtvData ? newSubs.toLocaleString() : "—"} />
+              <DataRow label="Existing Fans" value={hasLtvData ? (existingFans > 0 ? existingFans.toLocaleString() : "0") : "—"} />
+              <DataRow label="LTV/Sub" value={hasLtvData && ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
               <DataRow label="Org %" value={showPct(orgPct)} />
               <DataRow label="Spender Rate" value={showPct(spenderRate)} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
               <DataRow label="Total Subs" value={tlSubscribers > 0 ? tlSubscribers.toLocaleString() : "—"} />
