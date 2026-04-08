@@ -1053,19 +1053,36 @@ function KpiCards({
 
       case "est_revenue": {
         const isAllTimeRev = timePeriod === "all" && !customRange;
-        const estRevValue = isAllTimeRev
-          ? accounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0)
-          : totalRevenue;
+        const tp = timePeriod as string;
+        let estRevValue: number;
+        let estRevSubtitle: string;
+        if (isAllTimeRev) {
+          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          estRevSubtitle = "Total account revenue · All Time";
+        } else if (tp === "day") {
+          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
+          estRevSubtitle = "Total account revenue · Last Day";
+        } else if (tp === "week") {
+          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
+          estRevSubtitle = "Total account revenue · Last Week";
+        } else if (tp === "month") {
+          estRevValue = accounts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
+          estRevSubtitle = "Total account revenue · Last Month";
+        } else {
+          estRevValue = totalRevenue;
+          estRevSubtitle = `Snapshot revenue · ${periodLabel}`;
+        }
+        const showEstBadge = tp === "prev_month" || !!customRange;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-foreground" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{isAllTimeRev ? "Total Revenue" : "Est. Revenue"}</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{showEstBadge ? "Est. Revenue" : "Total Revenue"}</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(estRevValue)} {!isAllTimeRev && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none align-middle">Est.</span>}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">{isAllTimeRev ? "Total account revenue · All Time" : `Snapshot revenue · ${periodLabel}`}</p>
+            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(estRevValue)} {showEstBadge && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none align-middle">Est.</span>}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{estRevSubtitle}</p>
           </div>
         );
       }
