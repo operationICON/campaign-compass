@@ -735,7 +735,7 @@ export default function DashboardPage() {
 // ═══ KPI Cards component ═══
 function KpiCards({
   isLoading, isVisible, enabledCards,
-  accounts, links,
+  accounts, links, allLinks, snapshotLookup,
   totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
@@ -746,6 +746,8 @@ function KpiCards({
   enabledCards: string[];
   accounts: any[];
   links: any[];
+  allLinks: any[];
+  snapshotLookup: Record<string, any> | null;
   totalSpend: number;
   totalRevenue: number;
   totalLtv: number;
