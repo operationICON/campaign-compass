@@ -465,7 +465,7 @@ export function DailyDecisionView({
                       <span>Model</span>
                       <span>Subs/Day</span>
                       <span>Est. Daily Spend</span>
-                      <span>LTV/Sub</span>
+                      <span>LTV/New Sub</span>
                       <span>Profit/Sub</span>
                     </div>
                     {modelSnapshot.map((m: any) => (
