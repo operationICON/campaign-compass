@@ -44,17 +44,16 @@ function getOverviewSnapshotRange(
 
   switch (timePeriod) {
     case "day":
-      // Resolved to MAX(snapshot_date) at query time
       return { from: "__latest__", to: "__latest__", dayCount: 1 };
     case "week":
-      // Resolved server-side: CURRENT_DATE - 7
       return { from: "__server_week__", to: "__server_latest__", dayCount: 7 };
     case "month":
-      // Resolved server-side: CURRENT_DATE - 30
       return { from: "__server_month__", to: "__server_latest__", dayCount: 30 };
-    case "prev_month":
-      // Resolved server-side: CURRENT_DATE - 60 to CURRENT_DATE - 31
-      return { from: "__server_prev_from__", to: "__server_prev_to__", dayCount: 30 };
+    case "prev_month": {
+      const prevMonth = subMonths(new Date(), 1);
+      const daysInPrevMonth = getDaysInMonth(prevMonth);
+      return { from: "__server_prev_from__", to: "__server_prev_to__", dayCount: daysInPrevMonth };
+    }
     case "all":
     default:
       return null;
