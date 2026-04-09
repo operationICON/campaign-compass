@@ -65,6 +65,7 @@ export default function FansPage() {
   const [chatNotes, setChatNotes] = useState<Record<string, string>>(lsGet("chats_notes"));
   const [fanFlagged, setFanFlagged] = useState<Record<string, boolean>>(lsGet("fans_flagged"));
   const [sheetNoteInput, setSheetNoteInput] = useState("");
+  const [modelRefreshing, setModelRefreshing] = useState(false);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
