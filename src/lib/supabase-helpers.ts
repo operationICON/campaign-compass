@@ -433,18 +433,28 @@ export async function fetchTransactionTotals(filters?: {
   account_id?: string;
   date_from?: string;
 }) {
-  let query = supabase
-    .from("transactions")
-    .select("revenue, account_id, date");
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    let query = supabase
+      .from("transactions")
+      .select("revenue, account_id, date")
+      .range(from, from + pageSize - 1);
 
-  if (filters?.account_id) query = query.eq("account_id", filters.account_id);
-  if (filters?.date_from) query = query.gte("date", filters.date_from);
+    if (filters?.account_id) query = query.eq("account_id", filters.account_id);
+    if (filters?.date_from) query = query.gte("date", filters.date_from);
 
-  const { data, error } = await query;
-  if (error) throw error;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
 
-  const totalRevenue = (data || []).reduce((sum, tx) => sum + Number(tx.revenue || 0), 0);
-  return { totalRevenue, count: (data || []).length };
+  const totalRevenue = allData.reduce((sum, tx) => sum + Number(tx.revenue || 0), 0);
+  return { totalRevenue, count: allData.length };
 }
 
 export async function fetchActiveLinkCount(accountIds?: string[]) {
