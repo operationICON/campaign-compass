@@ -21,20 +21,30 @@ export async function fetchTrackingLinks(filters?: {
   date_from?: string;
   date_to?: string;
 }) {
-  let query = supabase
-    .from("tracking_links")
-    .select("*, accounts(display_name, username, avatar_thumb_url)")
-    .is("deleted_at", null)
-    .order("revenue", { ascending: false });
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    let query = supabase
+      .from("tracking_links")
+      .select("*, accounts(display_name, username, avatar_thumb_url)")
+      .is("deleted_at", null)
+      .order("revenue", { ascending: false })
+      .range(from, from + pageSize - 1);
 
-  if (filters?.account_id) query = query.eq("account_id", filters.account_id);
-  if (filters?.campaign_id) query = query.eq("campaign_id", filters.campaign_id);
-  if (filters?.date_from) query = query.gte("created_at", filters.date_from);
-  if (filters?.date_to) query = query.lte("created_at", filters.date_to);
+    if (filters?.account_id) query = query.eq("account_id", filters.account_id);
+    if (filters?.campaign_id) query = query.eq("campaign_id", filters.campaign_id);
+    if (filters?.date_from) query = query.gte("created_at", filters.date_from);
+    if (filters?.date_to) query = query.lte("created_at", filters.date_to);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
 }
 
 export async function fetchTransactions(filters?: {
@@ -42,18 +52,28 @@ export async function fetchTransactions(filters?: {
   date_from?: string;
   date_to?: string;
 }) {
-  let query = supabase
-    .from("transactions")
-    .select("*")
-    .order("date", { ascending: false });
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    let query = supabase
+      .from("transactions")
+      .select("*")
+      .order("date", { ascending: false })
+      .range(from, from + pageSize - 1);
 
-  if (filters?.account_id) query = query.eq("account_id", filters.account_id);
-  if (filters?.date_from) query = query.gte("date", filters.date_from);
-  if (filters?.date_to) query = query.lte("date", filters.date_to);
+    if (filters?.account_id) query = query.eq("account_id", filters.account_id);
+    if (filters?.date_from) query = query.gte("date", filters.date_from);
+    if (filters?.date_to) query = query.lte("date", filters.date_to);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
 }
 
 export async function fetchAdSpend(filters?: {
@@ -61,27 +81,47 @@ export async function fetchAdSpend(filters?: {
   date_from?: string;
   date_to?: string;
 }) {
-  let query = supabase
-    .from("ad_spend")
-    .select("*, campaigns(name)")
-    .order("date", { ascending: false });
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    let query = supabase
+      .from("ad_spend")
+      .select("*, campaigns(name)")
+      .order("date", { ascending: false })
+      .range(from, from + pageSize - 1);
 
-  if (filters?.campaign_id) query = query.eq("campaign_id", filters.campaign_id);
-  if (filters?.date_from) query = query.gte("date", filters.date_from);
-  if (filters?.date_to) query = query.lte("date", filters.date_to);
+    if (filters?.campaign_id) query = query.eq("campaign_id", filters.campaign_id);
+    if (filters?.date_from) query = query.gte("date", filters.date_from);
+    if (filters?.date_to) query = query.lte("date", filters.date_to);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
 }
 
 export async function fetchSyncLogs() {
-  const { data, error } = await supabase
-    .from("sync_logs")
-    .select("*, accounts(display_name)")
-    .order("started_at", { ascending: false });
-  if (error) throw error;
-  return data;
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from("sync_logs")
+      .select("*, accounts(display_name)")
+      .order("started_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
 }
 
 export async function fetchSyncLogsCount() {
@@ -393,18 +433,28 @@ export async function fetchTransactionTotals(filters?: {
   account_id?: string;
   date_from?: string;
 }) {
-  let query = supabase
-    .from("transactions")
-    .select("revenue, account_id, date");
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    let query = supabase
+      .from("transactions")
+      .select("revenue, account_id, date")
+      .range(from, from + pageSize - 1);
 
-  if (filters?.account_id) query = query.eq("account_id", filters.account_id);
-  if (filters?.date_from) query = query.gte("date", filters.date_from);
+    if (filters?.account_id) query = query.eq("account_id", filters.account_id);
+    if (filters?.date_from) query = query.gte("date", filters.date_from);
 
-  const { data, error } = await query;
-  if (error) throw error;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
 
-  const totalRevenue = (data || []).reduce((sum, tx) => sum + Number(tx.revenue || 0), 0);
-  return { totalRevenue, count: (data || []).length };
+  const totalRevenue = allData.reduce((sum, tx) => sum + Number(tx.revenue || 0), 0);
+  return { totalRevenue, count: allData.length };
 }
 
 export async function fetchActiveLinkCount(accountIds?: string[]) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchSyncLogs, fetchAccounts, triggerSync } from "@/lib/supabase-helpers";
@@ -7,7 +7,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2,
   ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
-  BarChart3, Camera, Users, Truck, Play,
+  BarChart3, Camera, Users, Truck, Play, Square,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -76,6 +76,7 @@ export default function LogsPage() {
   // Running state per sync type
   const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false });
   const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "" });
+  const abortRefs = useRef<Record<string, AbortController>>({});
 
   useEffect(() => {
     const channel = supabase
@@ -118,68 +119,97 @@ export default function LogsPage() {
 
   useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter]);
 
+  // Stop handler
+  const stopSync = useCallback((type: string) => {
+    const ctrl = abortRefs.current[type];
+    if (ctrl) {
+      ctrl.abort();
+      delete abortRefs.current[type];
+    }
+    setRunning(r => ({ ...r, [type]: false }));
+    setProgress(p => ({ ...p, [type]: "" }));
+    toast.info(`${SYNC_LABELS[type as SyncType]} sync stopped`);
+  }, []);
+
   // Sync handlers
   const runDashboardSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.dashboard = ctrl;
     setRunning(r => ({ ...r, dashboard: true }));
     setProgress(p => ({ ...p, dashboard: "Starting..." }));
     try {
-      await triggerSync(undefined, true, (msg) => setProgress(p => ({ ...p, dashboard: msg })));
+      await triggerSync(undefined, true, (msg) => {
+        if (ctrl.signal.aborted) throw new DOMException("Aborted", "AbortError");
+        setProgress(p => ({ ...p, dashboard: msg }));
+      });
+      if (ctrl.signal.aborted) return;
       toast.success("Dashboard sync complete");
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
     } catch (err: any) {
+      if (err.name === "AbortError") return;
       toast.error(`Dashboard sync failed: ${err.message}`);
     } finally {
+      delete abortRefs.current.dashboard;
       setRunning(r => ({ ...r, dashboard: false }));
       setProgress(p => ({ ...p, dashboard: "" }));
     }
   }, [queryClient]);
 
   const runSnapshotSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.snapshot = ctrl;
     setRunning(r => ({ ...r, snapshot: true }));
     setProgress(p => ({ ...p, snapshot: "Saving snapshots..." }));
     try {
-      // Log this as a snapshot sync
       await supabase.from("sync_logs").insert({
         status: "running", triggered_by: "snapshot_sync", message: "Snapshot sync started",
         records_processed: 0,
       });
+      if (ctrl.signal.aborted) return;
       const res = await supabase.functions.invoke("sync-account", {
         body: { snapshot_only: true },
       });
+      if (ctrl.signal.aborted) return;
       if (res.error) throw res.error;
       toast.success(`Snapshot sync complete — ${res.data?.snapshots_saved ?? 0} snapshots saved`);
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
     } catch (err: any) {
+      if (err.name === "AbortError") return;
       toast.error(`Snapshot sync failed: ${err.message}`);
     } finally {
+      delete abortRefs.current.snapshot;
       setRunning(r => ({ ...r, snapshot: false }));
       setProgress(p => ({ ...p, snapshot: "" }));
     }
   }, [queryClient]);
 
-
   const runOnlyTrafficSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.onlytraffic = ctrl;
     setRunning(r => ({ ...r, onlytraffic: true }));
     setProgress(p => ({ ...p, onlytraffic: "Syncing OnlyTraffic..." }));
     try {
-      // Log this as an onlytraffic sync
       await supabase.from("sync_logs").insert({
         status: "running", triggered_by: "onlytraffic_sync", message: "OnlyTraffic sync started",
         records_processed: 0,
       });
+      if (ctrl.signal.aborted) return;
       const res = await supabase.functions.invoke("auto-tag-campaigns", {
         body: {},
       });
+      if (ctrl.signal.aborted) return;
       if (res.error) throw res.error;
       toast.success(`OnlyTraffic sync complete — ${res.data?.tagged ?? 0} campaigns tagged`);
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
     } catch (err: any) {
+      if (err.name === "AbortError") return;
       toast.error(`OnlyTraffic sync failed: ${err.message}`);
     } finally {
+      delete abortRefs.current.onlytraffic;
       setRunning(r => ({ ...r, onlytraffic: false }));
       setProgress(p => ({ ...p, onlytraffic: "" }));
     }
@@ -212,27 +242,39 @@ export default function LogsPage() {
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
             return (
-              <Button
-                key={type}
-                variant="outline"
-                onClick={syncHandlers[type]}
-                disabled={isRunning}
-                className={`h-auto py-4 px-4 flex flex-col items-center gap-2 ${colors.border} hover:${colors.bg} transition-all`}
-              >
-                {isRunning ? (
-                  <Loader2 className={`h-5 w-5 animate-spin ${colors.text}`} />
-                ) : (
-                  <Icon className={`h-5 w-5 ${colors.text}`} />
-                )}
-                <span className="text-sm font-semibold text-foreground">
-                  Sync {SYNC_LABELS[type]}
-                </span>
-                {isRunning && progress[type] && (
-                  <span className="text-[10px] text-muted-foreground text-center truncate max-w-full">
-                    {progress[type]}
+              <div key={type} className="flex flex-col gap-1.5">
+                <Button
+                  variant="outline"
+                  onClick={syncHandlers[type]}
+                  disabled={isRunning}
+                  className={`h-auto py-4 px-4 flex flex-col items-center gap-2 ${colors.border} hover:${colors.bg} transition-all`}
+                >
+                  {isRunning ? (
+                    <Loader2 className={`h-5 w-5 animate-spin ${colors.text}`} />
+                  ) : (
+                    <Icon className={`h-5 w-5 ${colors.text}`} />
+                  )}
+                  <span className="text-sm font-semibold text-foreground">
+                    Sync {SYNC_LABELS[type]}
                   </span>
+                  {isRunning && progress[type] && (
+                    <span className="text-[10px] text-muted-foreground text-center truncate max-w-full">
+                      {progress[type]}
+                    </span>
+                  )}
+                </Button>
+                {isRunning && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => stopSync(type)}
+                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                  >
+                    <Square className="h-3 w-3" />
+                    Stop
+                  </Button>
                 )}
-              </Button>
+              </div>
             );
           })}
         </div>
