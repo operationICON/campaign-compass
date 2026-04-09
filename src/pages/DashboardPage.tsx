@@ -1036,7 +1036,7 @@ function KpiCards({
 
       // ═══ OLD CARDS (kept in customize panel) ═══
       case "total_revenue": {
-        const totalTrackingRevenue = isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0);
+        const totalTrackingRevenue = (isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0)) * revMultiplier;
         const showDash = !isAllTime && !hasSnapshotData;
         return (
           <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
@@ -1045,6 +1045,7 @@ function KpiCards({
                 <DollarSign className="h-4 w-4 text-white" />
               </div>
               <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
             </div>
             <p className="text-[22px] font-bold font-mono text-white">{showDash ? "—" : fmtC(totalTrackingRevenue)}</p>
             <p className="text-[11px] text-white/60 mt-1">{periodLabel}</p>
