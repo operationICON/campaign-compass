@@ -890,6 +890,12 @@ function KpiCards({
   const orderedCards = enabledCards.filter(id => isVisible(id));
   const cardStyle = { boxShadow: "0 2px 8px rgba(0,0,0,0.04)" };
 
+  // ── Helper: sum of breakdown types (the balanced Total Revenue) ──
+  const calcTotalRevFromTypes = (accts: any[]) => {
+    return accts.reduce((s: number, a: any) =>
+      s + Number(a.ltv_messages || 0) + Number(a.ltv_tips || 0) + Number(a.ltv_subscriptions || 0) + Number(a.ltv_posts || 0), 0);
+  };
+
   const renderCard = (id: OverviewKpiCardId) => {
     switch (id) {
       // ═══ CARD 1 — PROFIT/SUB (hero teal gradient) ═══
@@ -897,7 +903,7 @@ function KpiCards({
         let profitPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const accountsLtvTotal = calcTotalRevFromTypes(filtAccounts);
           const totalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
@@ -936,7 +942,7 @@ function KpiCards({
         let ltvPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtv2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const accountsLtv2 = calcTotalRevFromTypes(filtAccounts);
           const totalSubsCount2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
           ltvPerSub = totalSubsCount2 > 0 ? (accountsLtv2 * revMultiplier) / totalSubsCount2 : null;
           subtitle = "All time · accounts revenue per subscriber";
@@ -1025,30 +1031,39 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        const accountsLtv5 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const accountsLtv5 = calcTotalRevFromTypes(filtAccounts);
         const campaignRevenue5 = allTimeRevenue;
+        const unattribVal = Math.max(0, accountsLtv5 - campaignRevenue5);
         const pct = accountsLtv5 > 0
-          ? ((accountsLtv5 - campaignRevenue5) / accountsLtv5) * 100
+          ? (unattribVal / accountsLtv5) * 100
           : null;
         const colorClass = pct === null ? "text-muted-foreground"
           : pct > 50 ? "text-destructive"
           : pct >= 30 ? "text-[hsl(38_92%_50%)]"
           : "text-primary";
+
+        // Breakdown: unattributed by type
+        const uaMessages = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0);
+        const uaTips = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0);
+        const uaSubs = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0);
+        const uaPosts = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0);
+        // Messages untracked = ltv_messages - campaign revenue (campaigns are mostly messages)
+        const uaMessagesUntracked = Math.max(0, uaMessages - campaignRevenue5);
+
         return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Percent className="h-4 w-4 text-primary" />
-              </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed %</span>
-            </div>
-            {pct !== null ? (
-              <p className={`text-[22px] font-bold font-mono ${colorClass}`}>{pct.toFixed(1)}%</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            )}
-            <p className="text-[11px] text-muted-foreground mt-1">Revenue not attributed to tracking links · All time</p>
-          </div>
+          <UnattributedCard
+            key={id}
+            pct={pct}
+            colorClass={colorClass}
+            cardStyle={cardStyle}
+            unattribVal={unattribVal}
+            uaMessagesUntracked={uaMessagesUntracked}
+            uaTips={uaTips}
+            uaSubs={uaSubs}
+            uaPosts={uaPosts}
+            fmtC={fmtC}
+            revMultiplier={revMultiplier}
+          />
         );
       }
 
@@ -1056,10 +1071,9 @@ function KpiCards({
       case "total_revenue": {
         let revVal: number | null = null;
         let subtitle = "";
+        const activeAccts = filtAccounts.filter((a: any) => a.is_active !== false);
         if (isAllTime) {
-          revVal = filtAccounts
-            .filter((a: any) => a.is_active !== false && Number(a.ltv_total || 0) > 0)
-            .reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier;
+          revVal = calcTotalRevFromTypes(activeAccts) * revMultiplier;
           subtitle = "All time · accounts revenue";
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
@@ -1068,23 +1082,9 @@ function KpiCards({
           subtitle = periodLabel;
         }
 
-        // Breakdown data (always from accounts for All Time)
-        const bkAccts = filtAccounts.filter((a: any) => a.is_active !== false && Number(a.ltv_total || 0) > 0);
-        const bkTotal = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-        const bkMessages = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0) * revMultiplier;
-        const bkTips = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0) * revMultiplier;
-        const bkSubs = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0) * revMultiplier;
-        const bkPosts = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0) * revMultiplier;
-        const bkTotalRev = bkTotal * revMultiplier;
+        const bkTotalRev = calcTotalRevFromTypes(activeAccts) * revMultiplier;
         const bkTracked = allTimeRevenue * revMultiplier;
         const bkUnattr = Math.max(0, bkTotalRev - bkTracked);
-
-        const breakdownRows = [
-          { label: "Messages / PPV", value: bkMessages, color: "hsl(var(--primary))" },
-          { label: "Tips", value: bkTips, color: "hsl(38 92% 50%)" },
-          { label: "Subscriptions", value: bkSubs, color: "hsl(280 60% 55%)" },
-          { label: "Posts", value: bkPosts, color: "hsl(210 80% 55%)" },
-        ];
 
         return (
           <TotalRevenueCard
@@ -1094,7 +1094,6 @@ function KpiCards({
             revenueMode={revenueMode}
             fmtC={fmtC}
             cardStyle={cardStyle}
-            breakdownRows={breakdownRows}
             bkTotalRev={bkTotalRev}
             bkTracked={bkTracked}
             bkUnattr={bkUnattr}
@@ -1132,9 +1131,8 @@ function KpiCards({
 }
 
 /* ── Total Revenue Card with expandable breakdown ── */
-function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, breakdownRows, bkTotalRev, bkTracked, bkUnattr, isAllTime }: {
+function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, bkTotalRev, bkTracked, bkUnattr, isAllTime }: {
   revVal: number | null; subtitle: string; revenueMode: "gross" | "net"; fmtC: (v: number) => string; cardStyle: any;
-  breakdownRows: { label: string; value: number; color: string }[];
   bkTotalRev: number; bkTracked: number; bkUnattr: number; isAllTime: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1157,7 +1155,6 @@ function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, brea
       )}
       <p className="text-[11px] text-white/60 mt-1">{subtitle}</p>
 
-      {/* Expand toggle */}
       {isAllTime && bkTotalRev > 0 && (
         <>
           <button
@@ -1170,20 +1167,9 @@ function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, brea
 
           {expanded && (
             <div className="mt-2 pt-2 border-t border-white/10 space-y-1.5">
-              {breakdownRows.map(row => (
-                <div key={row.label} className="flex items-center justify-between text-[12px]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: row.color }} />
-                    <span className="text-white/60">{row.label}</span>
-                  </div>
-                  <span className="font-mono text-white/80">{fmtBk(row.value)} · {pct(row.value)}</span>
-                </div>
-              ))}
-
-              <div className="border-t border-white/10 pt-1.5 mt-1.5" />
               <div className="flex items-center justify-between text-[12px]">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "hsl(142 55% 49%)" }} />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "hsl(var(--primary))" }} />
                   <span className="text-white/60">Via Campaigns</span>
                 </div>
                 <span className="font-mono text-white/80">{fmtBk(bkTracked)} · {pct(bkTracked)}</span>
@@ -1195,6 +1181,78 @@ function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, brea
                 </div>
                 <span className="font-mono text-white/80">{fmtBk(bkUnattr)} · {pct(bkUnattr)}</span>
               </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Unattributed % Card with expandable breakdown ── */
+function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesUntracked, uaTips, uaSubs, uaPosts, fmtC, revMultiplier }: {
+  pct: number | null; colorClass: string; cardStyle: any;
+  unattribVal: number; uaMessagesUntracked: number; uaTips: number; uaSubs: number; uaPosts: number;
+  fmtC: (v: number) => string; revMultiplier: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const fmtBk = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+  // Apply rev multiplier
+  const mUnattr = unattribVal * revMultiplier;
+  const mMsg = uaMessagesUntracked * revMultiplier;
+  const mTips = uaTips * revMultiplier;
+  const mSubs = uaSubs * revMultiplier;
+  const mPosts = uaPosts * revMultiplier;
+
+  const uaPct = (v: number) => mUnattr > 0 ? `${((v / mUnattr) * 100).toFixed(1)}%` : "0%";
+
+  const rows = [
+    { label: "Messages / PPV", value: mMsg, color: "hsl(var(--primary))" },
+    { label: "Tips", value: mTips, color: "hsl(38 92% 50%)" },
+    { label: "Subscriptions", value: mSubs, color: "hsl(280 60% 55%)" },
+    { label: "Posts", value: mPosts, color: "hsl(210 80% 55%)" },
+  ];
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+          <Percent className="h-4 w-4 text-primary" />
+        </div>
+        <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed %</span>
+      </div>
+      {pct !== null ? (
+        <p className={`text-[22px] font-bold font-mono ${colorClass}`}>{pct.toFixed(1)}%</p>
+      ) : (
+        <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+      )}
+      <p className="text-[11px] text-muted-foreground mt-1">Revenue not attributed to tracking links · All time</p>
+
+      {mUnattr > 0 && (
+        <>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 mt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+            {expanded ? "Hide breakdown" : "Show breakdown"}
+          </button>
+
+          {expanded && (
+            <div className="mt-2 pt-2 border-t border-border space-y-1.5">
+              <p className="text-[11px] font-medium text-foreground">Unattributed: {fmtBk(mUnattr)}</p>
+              <p className="text-[10px] text-muted-foreground">Revenue not from tracking links · by type</p>
+              {rows.map(row => (
+                <div key={row.label} className="flex items-center justify-between text-[12px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: row.color }} />
+                    <span className="text-muted-foreground">{row.label}</span>
+                  </div>
+                  <span className="font-mono text-foreground/80">{fmtBk(row.value)} · {uaPct(row.value)}</span>
+                </div>
+              ))}
+              <p className="text-[10px] text-muted-foreground/60 mt-1">Messages shown minus tracked campaign revenue</p>
             </div>
           )}
         </>
