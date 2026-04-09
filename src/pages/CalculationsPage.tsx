@@ -114,7 +114,7 @@ function LoadingRow() {
 }
 
 export default function CalculationsPage() {
-  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
 
   const { data: allAccounts = [] } = useQuery({ queryKey: ["calc_accounts_list"], queryFn: fetchAccountsHelper });
 

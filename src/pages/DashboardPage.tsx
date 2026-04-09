@@ -717,6 +717,8 @@ export default function DashboardPage() {
             return accountRev - campaignRev;
           })()}
           trackingLinkLtv={trackingLinkLtv}
+          revMultiplier={revMultiplier}
+          revenueMode={revenueMode}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
