@@ -60,6 +60,8 @@ const MODEL_COMP_COLS: ItemDef<ModelCompColId>[] = [
 ];
 
 const CT_PREFS_KEY = "ct_kpi_preferences";
+const CT_PREFS_VERSION_KEY = "ct_kpi_prefs_version";
+const CT_PREFS_CURRENT_VERSION = 2;
 
 interface CtPrefs {
   overview_kpi?: string[];
@@ -80,17 +82,32 @@ function saveCtPrefs(prefs: CtPrefs) {
   try { localStorage.setItem(CT_PREFS_KEY, JSON.stringify(prefs)); } catch {}
 }
 
+/** Check if prefs version is current; if not, clear and reset */
+function ensurePrefsVersion() {
+  try {
+    const v = localStorage.getItem(CT_PREFS_VERSION_KEY);
+    if (v !== String(CT_PREFS_CURRENT_VERSION)) {
+      localStorage.removeItem(CT_PREFS_KEY);
+      localStorage.setItem(CT_PREFS_VERSION_KEY, String(CT_PREFS_CURRENT_VERSION));
+    }
+  } catch {}
+}
+
 function loadItems<T extends string>(prefsKey: keyof CtPrefs, defs: ItemDef<T>[]): string[] {
+  ensurePrefsVersion();
   const alwaysOn = defs.filter(d => d.alwaysOn).map(d => d.id);
+  const defaults = defs.filter(d => d.alwaysOn || d.defaultOn).map(d => d.id);
   const prefs = loadCtPrefs();
   const saved = prefs[prefsKey];
-  if (saved && Array.isArray(saved)) {
+  if (saved && Array.isArray(saved) && saved.length > 0) {
     const set = new Set(saved);
     alwaysOn.forEach(id => set.add(id));
     const validIds = new Set(defs.map(d => d.id));
-    return [...set].filter(id => validIds.has(id as T));
+    const result = [...set].filter(id => validIds.has(id as T));
+    // If filtering left us with nothing visible, return defaults
+    return result.length > 0 ? result : defaults;
   }
-  return defs.filter(d => d.alwaysOn || d.defaultOn).map(d => d.id);
+  return defaults;
 }
 
 function saveItems(prefsKey: keyof CtPrefs, items: string[]) {
