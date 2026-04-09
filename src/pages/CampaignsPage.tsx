@@ -567,14 +567,14 @@ export default function CampaignsPage() {
     // Check if snapshot data exists for period
     const hasSnapshotData = !isAllTime && campaignsSnapshotRows.length > 0;
 
-    // Total LTV — switches based on period
+    // Total Revenue — uses tracking_links.revenue (not tracking_link_ltv.total_ltv)
     let totalLtv: number;
     if (isAllTime) {
-      totalLtv = scopedLinks.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
+      totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     } else if (hasSnapshotData) {
       totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     } else {
-      totalLtv = 0; // No data for period
+      totalLtv = 0;
     }
 
     // Total Spend — proportional for periods
