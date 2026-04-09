@@ -12,8 +12,9 @@ import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
   RefreshCw, TrendingUp, Users, Tag, BarChart3, PieChart, X,
-  DollarSign, Activity, Award, Percent
+  DollarSign, Activity, Award, Percent, ChevronDown
 } from "lucide-react";
+import { useState as useStateImport } from "react";
 
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
@@ -1066,22 +1067,39 @@ function KpiCards({
           revVal = snapshotRevenue * revMultiplier;
           subtitle = periodLabel;
         }
+
+        // Breakdown data (always from accounts for All Time)
+        const bkAccts = filtAccounts.filter((a: any) => a.is_active !== false && Number(a.ltv_total || 0) > 0);
+        const bkTotal = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const bkMessages = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0) * revMultiplier;
+        const bkTips = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0) * revMultiplier;
+        const bkSubs = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0) * revMultiplier;
+        const bkPosts = bkAccts.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0) * revMultiplier;
+        const bkTotalRev = bkTotal * revMultiplier;
+        const bkTracked = allTimeRevenue * revMultiplier;
+        const bkUnattr = Math.max(0, bkTotalRev - bkTracked);
+
+        const breakdownRows = [
+          { label: "Messages / PPV", value: bkMessages, color: "hsl(var(--primary))" },
+          { label: "Tips", value: bkTips, color: "hsl(38 92% 50%)" },
+          { label: "Subscriptions", value: bkSubs, color: "hsl(280 60% 55%)" },
+          { label: "Posts", value: bkPosts, color: "hsl(210 80% 55%)" },
+        ];
+
         return (
-          <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
-              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
-            </div>
-            {revVal !== null ? (
-              <p className="text-[22px] font-bold font-mono text-white">{fmtC(revVal)}</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
-            )}
-            <p className="text-[11px] text-white/60 mt-1">{subtitle}</p>
-          </div>
+          <TotalRevenueCard
+            key={id}
+            revVal={revVal}
+            subtitle={subtitle}
+            revenueMode={revenueMode}
+            fmtC={fmtC}
+            cardStyle={cardStyle}
+            breakdownRows={breakdownRows}
+            bkTotalRev={bkTotalRev}
+            bkTracked={bkTracked}
+            bkUnattr={bkUnattr}
+            isAllTime={isAllTime}
+          />
         );
       }
 
@@ -1109,6 +1127,78 @@ function KpiCards({
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {orderedCards.map(id => renderCard(id as OverviewKpiCardId))}
+    </div>
+  );
+}
+
+/* ── Total Revenue Card with expandable breakdown ── */
+function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, breakdownRows, bkTotalRev, bkTracked, bkUnattr, isAllTime }: {
+  revVal: number | null; subtitle: string; revenueMode: "gross" | "net"; fmtC: (v: number) => string; cardStyle: any;
+  breakdownRows: { label: string; value: number; color: string }[];
+  bkTotalRev: number; bkTracked: number; bkUnattr: number; isAllTime: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const fmtBk = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const pct = (v: number) => bkTotalRev > 0 ? `${((v / bkTotalRev) * 100).toFixed(1)}%` : "0%";
+
+  return (
+    <div className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+          <DollarSign className="h-4 w-4 text-white" />
+        </div>
+        <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
+        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
+      </div>
+      {revVal !== null ? (
+        <p className="text-[22px] font-bold font-mono text-white">{fmtC(revVal)}</p>
+      ) : (
+        <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+      )}
+      <p className="text-[11px] text-white/60 mt-1">{subtitle}</p>
+
+      {/* Expand toggle */}
+      {isAllTime && bkTotalRev > 0 && (
+        <>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 mt-2 text-[11px] text-white/60 hover:text-white/90 transition-colors"
+          >
+            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+            {expanded ? "Hide breakdown" : "Show breakdown"}
+          </button>
+
+          {expanded && (
+            <div className="mt-2 pt-2 border-t border-white/10 space-y-1.5">
+              {breakdownRows.map(row => (
+                <div key={row.label} className="flex items-center justify-between text-[12px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: row.color }} />
+                    <span className="text-white/60">{row.label}</span>
+                  </div>
+                  <span className="font-mono text-white/80">{fmtBk(row.value)} · {pct(row.value)}</span>
+                </div>
+              ))}
+
+              <div className="border-t border-white/10 pt-1.5 mt-1.5" />
+              <div className="flex items-center justify-between text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "hsl(142 55% 49%)" }} />
+                  <span className="text-white/60">Via Campaigns</span>
+                </div>
+                <span className="font-mono text-white/80">{fmtBk(bkTracked)} · {pct(bkTracked)}</span>
+              </div>
+              <div className="flex items-center justify-between text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full shrink-0 bg-white/30" />
+                  <span className="text-white/60">Unattributed</span>
+                </div>
+                <span className="font-mono text-white/80">{fmtBk(bkUnattr)} · {pct(bkUnattr)}</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
