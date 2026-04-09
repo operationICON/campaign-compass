@@ -1031,7 +1031,7 @@ export default function TrafficSourcesPage() {
                   </th>
                   <SortHeader label="Tracking Link" k="campaign_name" />
                   {columnOrder.visibleOrderedColumns.map(c => {
-                    const rightAligned = ["clicks","subscribers","cvr","revenue","ltv","ltv_per_sub","expenses","profit","profit_per_sub","roi","subs_day"].includes(c.id);
+                    const rightAligned = ["clicks","subscribers","cvr","revenue","ltv","ltv_per_sub","ltv_sub_all","expenses","profit","profit_per_sub","roi","subs_day"].includes(c.id);
                     const sortMap: Record<string, SortKey> = { clicks: "clicks", subscribers: "subscribers", cvr: "cvr", revenue: "revenue", ltv: "ltv", expenses: "cost_total", profit: "profit", roi: "roi", source: "source_tag", created: "created_at" };
                     const sk = sortMap[c.id];
                     if (sk) return <SortHeader key={c.id} label={c.label} k={sk} align={rightAligned ? "right" : undefined} />;
