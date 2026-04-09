@@ -4,10 +4,10 @@ import { Settings2, Lock } from "lucide-react";
 // ── KPI Card IDs ──
 export type OverviewKpiCardId =
   | "profit_per_sub" | "ltv_per_sub" | "cpl" | "subs_per_day" | "unattributed_pct"
-  | "total_revenue" | "ltv_sub" | "avg_cpl" | "subs_day"
+  | "total_revenue"
   | "expenses" | "avg_expenses"
   | "total_profit" | "blended_roi" | "active_campaigns"
-  | "best_source" | "ltv_30d_per_model" | "profit_sub";
+  | "best_source" | "ltv_30d_per_model";
 
 // ── Insight Panel IDs ──
 export type InsightPanelId =
@@ -34,10 +34,6 @@ const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "unattributed_pct", label: "Unattributed %", alwaysOn: true },
   // Hidden by default (in Customize panel)
   { id: "total_revenue", label: "Total Revenue", defaultOn: false },
-  { id: "ltv_sub", label: "Avg LTV/Sub (old)", defaultOn: false },
-  { id: "profit_sub", label: "Profit/Sub (old)", defaultOn: false },
-  { id: "avg_cpl", label: "Avg CPL (old)", defaultOn: false },
-  { id: "subs_day", label: "Subs/Day (old)", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
   { id: "total_profit", label: "Total Profit", defaultOn: false },

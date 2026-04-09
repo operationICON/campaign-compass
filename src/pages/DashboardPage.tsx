@@ -1050,89 +1050,8 @@ function KpiCards({
         );
       }
 
-      case "profit_sub": {
-        return (
-          <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "#0F172A", border: "1px solid #1E293B" }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-[11px] text-white/70 font-medium uppercase tracking-wider">Profit/Sub (old)</span>
-            </div>
-            {avgProfitPerSub !== null ? (
-              <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub)}</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
-            )}
-            <p className="text-[11px] text-white/50 mt-1">{periodLabel}</p>
-          </div>
-        );
-      }
 
-      case "ltv_sub": {
-        const agencyTotalRevenue = isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0);
-        const agencyTotalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-        const avgLtvPerSub = agencyTotalSubsCount > 0 ? agencyTotalRevenue / agencyTotalSubsCount : null;
-        return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="h-4 w-4 text-primary" />
-              </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg LTV/Sub (old)</span>
-            </div>
-            {avgLtvPerSub !== null ? (
-              <p className="text-[22px] font-bold font-mono text-primary">{fmtC(avgLtvPerSub)}</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            )}
-            <p className="text-[11px] text-muted-foreground mt-1">{periodLabel}</p>
-          </div>
-        );
-      }
 
-      case "avg_cpl": {
-        const avgCpl = periodSubscribers > 0 ? totalSpend / periodSubscribers : null;
-        return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Tag className="h-4 w-4 text-primary" />
-              </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg CPL (old)</span>
-            </div>
-            {avgCpl !== null ? (
-              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgCpl)}</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            )}
-            <p className="text-[11px] text-muted-foreground mt-1">{periodLabel}</p>
-          </div>
-        );
-      }
-
-      case "subs_day": {
-        const isAllTimeSubsCard = isAllTime;
-        const subsPerDayCalc = periodDayCount ? periodSubscribers / periodDayCount : null;
-        return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <BarChart3 className="h-4 w-4 text-primary" />
-              </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{isAllTimeSubsCard ? "Total Subs (old)" : "Subs/Day (old)"}</span>
-            </div>
-            {isAllTimeSubsCard ? (
-              <p className="text-[22px] font-bold font-mono text-primary">{periodSubscribers.toLocaleString()}</p>
-            ) : subsPerDayCalc !== null && subsPerDayCalc > 0 ? (
-              <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            )}
-            <p className="text-[11px] text-muted-foreground mt-1">{periodLabel}</p>
-          </div>
-        );
-      }
 
       case "ltv_30d_per_model": {
         const sortedModels = [...accounts]
