@@ -764,61 +764,74 @@ function KpiCards({
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
     : TIME_PERIODS.find(t => t.key === timePeriod)?.label || "All Time";
 
-  const subsPerDayCalc = periodDayCount ? periodSubscribers / periodDayCount : null;
-  const noDataForPeriod = !hasSnapshotData && timePeriod !== "all";
-
-  // Avg CPL = Expenses / tracked subscribers for the selected period
-  const avgCpl = periodSubscribers > 0 ? totalSpend / periodSubscribers : null;
-
-  // Extra card computations
-  const linksInPeriod = timePeriod === "all" && !customRange
-    ? links
-    : links.filter((l: any) => Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0 || Number(l.revenue || 0) > 0);
-  const withSpend = linksInPeriod.filter((l: any) => Number(l.cost_total || 0) > 0);
-  const expenses = totalSpend;
-  const withSpendCount = withSpend.length;
-  const avgExpenses = withSpendCount > 0 ? expenses / withSpendCount : null;
-
-  const cardTotalProfit = totalProfit;
-  const blendedRoi = expenses > 0 ? (cardTotalProfit / expenses) * 100 : null;
-  const activeCampaigns = activeLinkCount;
-
-  // Best source by ROI
-  const bySource: Record<string, { rev: number; spend: number; profit: number }> = {};
-  withSpend.forEach((l: any) => {
-    const tag = getEffectiveSource(l) || "Untagged";
-    if (tag === "Untagged") return;
-    if (!bySource[tag]) bySource[tag] = { rev: 0, spend: 0, profit: 0 };
-    const revenue = Number(l.revenue || 0);
-    bySource[tag].rev += revenue;
-    bySource[tag].spend += Number(l.cost_total || 0);
-    bySource[tag].profit += revenue - Number(l.cost_total || 0);
-  });
-  let bestSource: { name: string; roi: number } | null = null;
-  Object.entries(bySource).forEach(([name, d]) => {
-    const roi = d.spend > 0 ? (d.profit / d.spend) * 100 : 0;
-    if (!bestSource || roi > bestSource.roi) bestSource = { name, roi };
-  });
-
   const isAllTime = timePeriod === "all" && !customRange;
-  // For All Time, use new_subs_total (fans who generated LTV) as denominator
-  // Filter by model/group selection
-  const ltvPerSub = (() => {
-    if (isAllTime) {
-      const modelIdSet = modelParam ? new Set([modelParam]) : null;
-      const groupAccIds = groupFilter !== "all"
-        ? new Set(accounts.filter((a: any) => getAccountCategory(a) === groupFilter).map((a: any) => a.id))
-        : null;
-      const filterSet = modelIdSet || groupAccIds;
-      let ltvSubs = 0;
-      for (const r of trackingLinkLtv) {
-        if (filterSet && !filterSet.has(r.account_id)) continue;
-        ltvSubs += Number(r.new_subs_total || 0);
+  const noDataForPeriod = !hasSnapshotData && !isAllTime;
+
+  // ── Filter accounts by model/group selection ──
+  const filtAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam)
+    : groupFilter !== "all" ? accounts.filter((a: any) => getAccountCategory(a) === groupFilter)
+    : accounts;
+
+  // ── All Time base values from tracking_links ──
+  const allTimeRevenue = allLinks
+    .filter((l: any) => {
+      if (modelParam) return l.account_id === modelParam;
+      if (groupFilter !== "all") {
+        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
+        return acctIds.has(l.account_id);
       }
-      return ltvSubs > 0 ? totalLtv / ltvSubs : null;
-    }
-    return periodSubscribers > 0 ? totalLtv / periodSubscribers : null;
-  })();
+      return true;
+    })
+    .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+
+  const allTimeSpend = allLinks
+    .filter((l: any) => {
+      const cost = Number(l.cost_total || 0);
+      if (cost <= 0) return false;
+      if (modelParam) return l.account_id === modelParam;
+      if (groupFilter !== "all") {
+        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
+        return acctIds.has(l.account_id);
+      }
+      return true;
+    })
+    .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+
+  const allTimePaidSubs = allLinks
+    .filter((l: any) => {
+      const cost = Number(l.cost_total || 0);
+      if (cost <= 0) return false;
+      if (modelParam) return l.account_id === modelParam;
+      if (groupFilter !== "all") {
+        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
+        return acctIds.has(l.account_id);
+      }
+      return true;
+    })
+    .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+
+  const allTimeTotalSubs = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+  const allTimeTrackingSubs = allLinks
+    .filter((l: any) => {
+      if (modelParam) return l.account_id === modelParam;
+      if (groupFilter !== "all") {
+        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
+        return acctIds.has(l.account_id);
+      }
+      return true;
+    })
+    .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+
+  // ── Snapshot period values ──
+  const snapshotRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+  const snapshotSubs = links.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+
+  // ── Earliest tracking link date for All Time subs/day ──
+  const earliestCreated = allLinks.reduce((earliest: Date | null, l: any) => {
+    if (!l.created_at) return earliest;
+    const d = new Date(l.created_at);
+    return !earliest || d < earliest ? d : earliest;
+  }, null as Date | null);
 
   if (isLoading) {
     return (
@@ -833,35 +846,157 @@ function KpiCards({
     );
   }
 
-  // Build ordered card list: always-on first, then extras in order they appear in enabledCards
   const orderedCards = enabledCards.filter(id => isVisible(id));
-
   const cardStyle = { boxShadow: "0 2px 8px rgba(0,0,0,0.04)" };
 
   const renderCard = (id: OverviewKpiCardId) => {
     switch (id) {
-      case "profit_sub": {
+      // ═══ CARD 1 — PROFIT/SUB (hero teal gradient) ═══
+      case "profit_per_sub": {
+        let profitPerSub: number | null = null;
+        if (isAllTime) {
+          const profit = allTimeRevenue - allTimeSpend;
+          profitPerSub = allTimeTotalSubs > 0 && allTimeSpend > 0 ? profit / allTimeTotalSubs : null;
+        } else if (hasSnapshotData) {
+          // Period: snapshot revenue - no daily spend breakdown available
+          profitPerSub = snapshotSubs > 0 ? snapshotRevenue / snapshotSubs : null;
+          // Can't subtract spend for period, show revenue/sub as proxy
+        } else {
+          profitPerSub = null;
+        }
+        const showDash = profitPerSub === null || (!isAllTime && !hasSnapshotData) || (isAllTime && allTimeSpend <= 0);
+        const isPositive = profitPerSub !== null && profitPerSub >= 0;
         return (
-          <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "#0F172A", border: "1px solid #1E293B" }}>
+          <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                 <TrendingUp className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[11px] text-white/70 font-medium uppercase tracking-wider">Profit/Sub</span>
+              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Profit/Sub</span>
             </div>
-            {avgProfitPerSub !== null ? (
-              <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub)}</p>
+            {showDash ? (
+              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">{noDataForPeriod ? "$0.00" : "—"}</p>
+              <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-white" : "text-red-300"}`}>{fmtC(profitPerSub!)}</p>
             )}
-            <p className="text-[11px] text-white/50 mt-1 line-clamp-2">{noDataForPeriod ? "No data for this period" : `Total profit / tracked subs · ${periodLabel}`}</p>
+            <p className="text-[11px] text-white/60 mt-1">{isAllTime ? "All time profit per subscriber" : noDataForPeriod ? "No data for this period" : periodLabel}</p>
           </div>
         );
       }
 
+      // ═══ CARD 2 — LTV/SUB ═══
+      case "ltv_per_sub": {
+        let ltvPerSub: number | null = null;
+        if (isAllTime) {
+          ltvPerSub = allTimeTotalSubs > 0 ? allTimeRevenue / allTimeTotalSubs : null;
+        } else if (hasSnapshotData) {
+          ltvPerSub = snapshotSubs > 0 ? snapshotRevenue / snapshotSubs : null;
+        }
+        const showDash = ltvPerSub === null || (!isAllTime && !hasSnapshotData);
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
+            </div>
+            {showDash ? (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-primary">{fmtC(ltvPerSub!)}</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "Revenue per subscriber" : noDataForPeriod ? "No data for this period" : periodLabel}</p>
+          </div>
+        );
+      }
+
+      // ═══ CARD 3 — CPL (Always All Time) ═══
+      case "cpl": {
+        const cplVal = allTimePaidSubs > 0 ? allTimeSpend / allTimePaidSubs : null;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Tag className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">CPL</span>
+            </div>
+            {cplVal !== null ? (
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(cplVal)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Cost per lead · All time</p>
+          </div>
+        );
+      }
+
+      // ═══ CARD 4 — SUBS/DAY ═══
+      case "subs_per_day": {
+        let subsPerDay: number | null = null;
+        let label = "";
+        if (isAllTime) {
+          if (earliestCreated) {
+            const daysSince = Math.max(1, differenceInDays(new Date(), earliestCreated));
+            subsPerDay = allTimeTotalSubs > 0 ? allTimeTotalSubs / daysSince : null;
+          }
+          label = "All time average";
+        } else if (hasSnapshotData && periodDayCount && periodDayCount > 0) {
+          subsPerDay = snapshotSubs / periodDayCount;
+          label = periodLabel;
+        } else {
+          label = "No data for this period";
+        }
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
+            </div>
+            {subsPerDay !== null && subsPerDay > 0 ? (
+              <p className="text-[22px] font-bold font-mono text-primary">{Math.round(subsPerDay)}/day</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">{label}</p>
+          </div>
+        );
+      }
+
+      // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
+      case "unattributed_pct": {
+        const pct = allTimeTotalSubs > 0
+          ? ((allTimeTotalSubs - allTimeTrackingSubs) / allTimeTotalSubs) * 100
+          : null;
+        const colorClass = pct === null ? "text-muted-foreground"
+          : pct < 0 ? "text-destructive"
+          : pct <= 40 ? "text-primary"
+          : "text-[hsl(38_92%_50%)]"; // amber
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Percent className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed %</span>
+            </div>
+            {pct !== null ? (
+              <p className={`text-[22px] font-bold font-mono ${colorClass}`}>{pct.toFixed(1)}%</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Subs not attributed to tracking links · All time</p>
+          </div>
+        );
+      }
+
+      // ═══ OLD CARDS (kept in customize panel) ═══
       case "total_revenue": {
-        // Layer 1: SUM(tracking_links.revenue) all accounts
-        const totalTrackingRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+        const totalTrackingRevenue = isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0);
+        const showDash = !isAllTime && !hasSnapshotData;
         return (
           <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
             <div className="flex items-center gap-2 mb-2">
@@ -870,76 +1005,95 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-white">{fmtC(totalTrackingRevenue)}</p>
-            <p className="text-[11px] text-white/60 mt-1">All tracking link revenue</p>
+            <p className="text-[22px] font-bold font-mono text-white">{showDash ? "—" : fmtC(totalTrackingRevenue)}</p>
+            <p className="text-[11px] text-white/60 mt-1">{periodLabel}</p>
+          </div>
+        );
+      }
+
+      case "profit_sub": {
+        return (
+          <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "#0F172A", border: "1px solid #1E293B" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-[11px] text-white/70 font-medium uppercase tracking-wider">Profit/Sub (old)</span>
+            </div>
+            {avgProfitPerSub !== null ? (
+              <p className="text-[22px] font-bold font-mono text-emerald-400">{fmtC(avgProfitPerSub)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+            )}
+            <p className="text-[11px] text-white/50 mt-1">{periodLabel}</p>
           </div>
         );
       }
 
       case "ltv_sub": {
-        // Layer 1: SUM(tracking_links.revenue) / SUM(accounts.subscribers_count)
-        const agencyTotalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-        const filtAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam)
-          : groupFilter !== "all" ? accounts.filter((a: any) => getAccountCategory(a) === groupFilter)
-          : accounts;
+        const agencyTotalRevenue = isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0);
         const agencyTotalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
         const avgLtvPerSub = agencyTotalSubsCount > 0 ? agencyTotalRevenue / agencyTotalSubsCount : null;
         return (
-          <div key={id} className="rounded-2xl p-5 group relative" style={{ ...cardStyle, background: "#0D9488", border: "1px solid #14B8A6" }}>
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                <Users className="h-4 w-4 text-white" />
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Avg LTV/Sub</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg LTV/Sub (old)</span>
             </div>
             {avgLtvPerSub !== null ? (
-              <p className="text-[22px] font-bold font-mono text-white">{fmtC(avgLtvPerSub)}</p>
+              <p className="text-[22px] font-bold font-mono text-primary">{fmtC(avgLtvPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">Revenue per subscriber</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{periodLabel}</p>
           </div>
         );
       }
 
-      case "avg_cpl":
+      case "avg_cpl": {
+        const avgCpl = periodSubscribers > 0 ? totalSpend / periodSubscribers : null;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Tag className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg CPL</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg CPL (old)</span>
             </div>
             {avgCpl !== null ? (
               <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgCpl)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">{noDataForPeriod ? "$0.00" : "—"}</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">{noDataForPeriod ? "No data for this period" : `Expenses / tracked subs · ${periodLabel}`}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{periodLabel}</p>
           </div>
         );
+      }
 
-      case "subs_day":
-        const isAllTimeSubsCard = timePeriod === "all" && !customRange;
+      case "subs_day": {
+        const isAllTimeSubsCard = isAllTime;
+        const subsPerDayCalc = periodDayCount ? periodSubscribers / periodDayCount : null;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <BarChart3 className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{isAllTimeSubsCard ? "Total Subs" : "Subs/Day"}</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{isAllTimeSubsCard ? "Total Subs (old)" : "Subs/Day (old)"}</span>
             </div>
             {isAllTimeSubsCard ? (
               <p className="text-[22px] font-bold font-mono text-primary">{periodSubscribers.toLocaleString()}</p>
             ) : subsPerDayCalc !== null && subsPerDayCalc > 0 ? (
               <p className="text-[22px] font-bold font-mono text-primary">+{Math.round(subsPerDayCalc)}/day</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">{noDataForPeriod ? "0/day" : "---"}</p>
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">{isAllTimeSubsCard ? "Total subscribers across all campaigns" : noDataForPeriod ? "No data for this period" : `Tracked subs / day · ${periodLabel}`}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{periodLabel}</p>
           </div>
         );
+      }
 
       case "ltv_30d_per_model": {
         const sortedModels = [...accounts]
@@ -983,7 +1137,7 @@ function KpiCards({
   };
 
   return (
-    <div className="grid grid-cols-4 gap-4" style={{ gridAutoRows: "1fr" }}>
+    <div className="grid grid-cols-5 gap-4">
       {orderedCards.map(id => renderCard(id as OverviewKpiCardId))}
     </div>
   );
