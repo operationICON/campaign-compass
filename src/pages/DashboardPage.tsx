@@ -859,23 +859,48 @@ function KpiCards({
         );
       }
 
-      case "ltv_sub":
+      case "total_revenue": {
+        // Layer 1: SUM(tracking_links.revenue) all accounts
+        const totalTrackingRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+        return (
+          <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
+            </div>
+            <p className="text-[22px] font-bold font-mono text-white">{fmtC(totalTrackingRevenue)}</p>
+            <p className="text-[11px] text-white/60 mt-1">All tracking link revenue</p>
+          </div>
+        );
+      }
+
+      case "ltv_sub": {
+        // Layer 1: SUM(tracking_links.revenue) / SUM(accounts.subscribers_count)
+        const agencyTotalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+        const filtAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam)
+          : groupFilter !== "all" ? accounts.filter((a: any) => getAccountCategory(a) === groupFilter)
+          : accounts;
+        const agencyTotalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+        const avgLtvPerSub = agencyTotalSubsCount > 0 ? agencyTotalRevenue / agencyTotalSubsCount : null;
         return (
           <div key={id} className="rounded-2xl p-5 group relative" style={{ ...cardStyle, background: "#0D9488", border: "1px solid #14B8A6" }}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                 <Users className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">LTV/Sub</span>
+              <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Avg LTV/Sub</span>
             </div>
-            {ltvPerSub !== null ? (
-              <p className="text-[22px] font-bold font-mono text-white">{fmtC(ltvPerSub)}</p>
+            {avgLtvPerSub !== null ? (
+              <p className="text-[22px] font-bold font-mono text-white">{fmtC(avgLtvPerSub)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-white/40">{noDataForPeriod ? "$0.00" : "—"}</p>
+              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">{noDataForPeriod ? "No data for this period" : `LTV / tracked subs · ${periodLabel}`}</p>
+            <p className="text-[11px] text-white/60 mt-1">Revenue per subscriber</p>
           </div>
         );
+      }
 
       case "avg_cpl":
         return (
