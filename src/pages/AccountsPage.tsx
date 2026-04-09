@@ -832,9 +832,18 @@ export default function AccountsPage() {
                     <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Profit/Sub</span>
+                    <span className="text-muted-foreground">Profit/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className={`font-mono font-semibold ${stats.profitPerSub != null ? (stats.profitPerSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                      {stats.profitPerSub != null ? fmtCurrency(stats.profitPerSub) : "—"}
+                      {(() => {
+                        if (stats.profitPerSub == null) return "—";
+                        // Recalculate with multiplier: profit = (revenue * mult - spend) / subs
+                        const periodLtv = stats.totalLtv;
+                        const periodSpend = stats.totalSpend;
+                        const subs = stats.trackedSubs || stats.apiSubs || 0;
+                        if (periodLtv == null || periodSpend == null || subs <= 0) return fmtCurrency(stats.profitPerSub);
+                        const adjustedProfit = (periodLtv * revMultiplier) - periodSpend;
+                        return fmtCurrency(adjustedProfit / subs);
+                      })()}
                     </span>
                   </div>
                 </div>
