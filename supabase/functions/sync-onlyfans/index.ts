@@ -279,8 +279,8 @@ Deno.serve(async (req) => {
         const upsertedLinks: any[] = [] // Collect for LTV sync
 
         try {
-          const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
-          console.log(`Got ${items.length} tracking links for ${acctId}`)
+          const items = await fetchAllTrackingLinks(acctId, apiKey)
+          console.log(`Account ${account.display_name}: ${items.length} tracking links fetched`)
 
           const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? 'Unknown'))]
           const { data: existingCampaigns } = await db.from('campaigns')
