@@ -179,8 +179,10 @@ export function DailyDecisionView({
 
   const topEarner = useMemo(() => {
     let best: any = null;
+    const bestRev = 0;
     for (const l of enriched) {
-      if (l.totalLtv > 0 && (!best || l.totalLtv > best.totalLtv)) best = l;
+      const rev = Number(l.revenue || 0);
+      if (rev > 0 && (!best || rev > bestRev)) best = { ...l, _topRev: rev };
     }
     return best;
   }, [enriched]);
