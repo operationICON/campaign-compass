@@ -73,7 +73,7 @@ const ALL_COLUMNS = [
   { id: "subscribers", label: "Subscribers", defaultOn: false },
   { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
-  { id: "ltv", label: "LTV", defaultOn: true },
+  { id: "ltv", label: "New Fan LTV", defaultOn: true },
   { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
@@ -1094,18 +1094,19 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "ltv": {
-                                  const ltvVal = Number(link.revenue || 0) * revMultiplier;
-                                  const hasLtv = ltvVal > 0;
-                                  const showDash = !isAllTime && ltvVal === 0;
+                                  // New Fan LTV from tracking_link_ltv.total_ltv
+                                  const ltvVal = link.ltvFromTable != null ? Number(link.ltvFromTable) * revMultiplier : null;
+                                  const hasLtv = ltvVal !== null && ltvVal > 0;
+                                  const showDash = ltvVal === null;
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <span className={showDash ? "text-muted-foreground" : hasLtv ? "text-[hsl(var(--primary))] font-semibold" : "text-muted-foreground"}>
-                                            {showDash ? "—" : fmtC(ltvVal)}
+                                            {showDash ? "—" : ltvVal === 0 ? "$0.00" : fmtC(ltvVal!)}
                                           </span>
                                         </TooltipTrigger>
-                                        <TooltipContent>{isAllTime ? "All time revenue from tracking_links" : "Period revenue from daily snapshots"}{revenueMode === "net" ? " (after 20% fee)" : ""}</TooltipContent>
+                                        <TooltipContent>Revenue from new fans only (tracking_link_ltv){revenueMode === "net" ? " (after 20% fee)" : ""}</TooltipContent>
                                       </Tooltip>
                                     </td>
                                   );
