@@ -424,7 +424,7 @@ export function DailyDecisionView({
             {/* Top 5 by LTV/Sub */}
             <div className="p-4 border-b border-border">
               <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Zap className="h-3.5 w-3.5 text-primary" /> Top 5 by LTV/Sub
+                <Zap className="h-3.5 w-3.5 text-primary" /> Top 5 by LTV/New Sub
               </h4>
               {topLtvPerSub.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No data yet</p>
