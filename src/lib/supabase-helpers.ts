@@ -52,18 +52,28 @@ export async function fetchTransactions(filters?: {
   date_from?: string;
   date_to?: string;
 }) {
-  let query = supabase
-    .from("transactions")
-    .select("*")
-    .order("date", { ascending: false });
+  const allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    let query = supabase
+      .from("transactions")
+      .select("*")
+      .order("date", { ascending: false })
+      .range(from, from + pageSize - 1);
 
-  if (filters?.account_id) query = query.eq("account_id", filters.account_id);
-  if (filters?.date_from) query = query.gte("date", filters.date_from);
-  if (filters?.date_to) query = query.lte("date", filters.date_to);
+    if (filters?.account_id) query = query.eq("account_id", filters.account_id);
+    if (filters?.date_from) query = query.gte("date", filters.date_from);
+    if (filters?.date_to) query = query.lte("date", filters.date_to);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
 }
 
 export async function fetchAdSpend(filters?: {
