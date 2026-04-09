@@ -210,8 +210,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC BUTTONS ═══ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {(["dashboard", "snapshot", "ltv", "onlytraffic"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-3 gap-3">
+          {(["dashboard", "snapshot", "onlytraffic"] as SyncType[]).map((type) => {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
