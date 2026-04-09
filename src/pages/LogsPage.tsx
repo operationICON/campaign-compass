@@ -521,7 +521,7 @@ export default function LogsPage() {
           )}
         </div>
       </div>
-      <FanSyncModal open={fanSyncOpen} onOpenChange={setFanSyncOpen} />
+      
     </DashboardLayout>
   );
 }
