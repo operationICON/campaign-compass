@@ -242,8 +242,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {(["dashboard", "snapshot", "ltv", "onlytraffic"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-3 gap-3">
+          {(["dashboard", "snapshot", "onlytraffic"] as SyncType[]).map((type) => {
             const colors = SYNC_COLORS[type];
             const Icon = SYNC_ICONS[type];
             const last = statusCards[type];
