@@ -9,6 +9,15 @@ export type OverviewKpiCardId =
   | "total_profit" | "blended_roi" | "active_campaigns"
   | "best_source" | "ltv_30d_per_model" | "profit_sub";
 
+// ── Insight Panel IDs ──
+export type InsightPanelId =
+  | "top_campaigns" | "perf_by_source" | "subs_day_model"
+  | "roi_by_source" | "spend_by_source" | "ltv_per_model"
+  | "cpl_by_source" | "model_comparison";
+
+// ── Model Comparison Column IDs ──
+export type ModelCompColId = "roi" | "subs_day";
+
 interface ItemDef<T extends string> {
   id: T;
   label: string;
@@ -82,7 +91,6 @@ function loadItems<T extends string>(prefsKey: keyof CtPrefs, defs: ItemDef<T>[]
   if (saved && Array.isArray(saved)) {
     const set = new Set(saved);
     alwaysOn.forEach(id => set.add(id));
-    // Remove obsolete IDs
     const validIds = new Set(defs.map(d => d.id));
     return [...set].filter(id => validIds.has(id as T));
   }
