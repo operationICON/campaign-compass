@@ -70,7 +70,7 @@ export default function FansPage() {
     queryKey: ["accounts"],
     queryFn: async () => {
       const { data } = await supabase.from("accounts")
-        .select("id, display_name, username, avatar_thumb_url, is_active")
+        .select("id, display_name, username, avatar_thumb_url, is_active, onlyfans_account_id")
         .eq("is_active", true).order("display_name");
       return data || [];
     },
