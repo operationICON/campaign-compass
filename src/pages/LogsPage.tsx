@@ -119,68 +119,97 @@ export default function LogsPage() {
 
   useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter]);
 
+  // Stop handler
+  const stopSync = useCallback((type: string) => {
+    const ctrl = abortRefs.current[type];
+    if (ctrl) {
+      ctrl.abort();
+      delete abortRefs.current[type];
+    }
+    setRunning(r => ({ ...r, [type]: false }));
+    setProgress(p => ({ ...p, [type]: "" }));
+    toast.info(`${SYNC_LABELS[type as SyncType]} sync stopped`);
+  }, []);
+
   // Sync handlers
   const runDashboardSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.dashboard = ctrl;
     setRunning(r => ({ ...r, dashboard: true }));
     setProgress(p => ({ ...p, dashboard: "Starting..." }));
     try {
-      await triggerSync(undefined, true, (msg) => setProgress(p => ({ ...p, dashboard: msg })));
+      await triggerSync(undefined, true, (msg) => {
+        if (ctrl.signal.aborted) throw new DOMException("Aborted", "AbortError");
+        setProgress(p => ({ ...p, dashboard: msg }));
+      });
+      if (ctrl.signal.aborted) return;
       toast.success("Dashboard sync complete");
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
     } catch (err: any) {
+      if (err.name === "AbortError") return;
       toast.error(`Dashboard sync failed: ${err.message}`);
     } finally {
+      delete abortRefs.current.dashboard;
       setRunning(r => ({ ...r, dashboard: false }));
       setProgress(p => ({ ...p, dashboard: "" }));
     }
   }, [queryClient]);
 
   const runSnapshotSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.snapshot = ctrl;
     setRunning(r => ({ ...r, snapshot: true }));
     setProgress(p => ({ ...p, snapshot: "Saving snapshots..." }));
     try {
-      // Log this as a snapshot sync
       await supabase.from("sync_logs").insert({
         status: "running", triggered_by: "snapshot_sync", message: "Snapshot sync started",
         records_processed: 0,
       });
+      if (ctrl.signal.aborted) return;
       const res = await supabase.functions.invoke("sync-account", {
         body: { snapshot_only: true },
       });
+      if (ctrl.signal.aborted) return;
       if (res.error) throw res.error;
       toast.success(`Snapshot sync complete — ${res.data?.snapshots_saved ?? 0} snapshots saved`);
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
     } catch (err: any) {
+      if (err.name === "AbortError") return;
       toast.error(`Snapshot sync failed: ${err.message}`);
     } finally {
+      delete abortRefs.current.snapshot;
       setRunning(r => ({ ...r, snapshot: false }));
       setProgress(p => ({ ...p, snapshot: "" }));
     }
   }, [queryClient]);
 
-
   const runOnlyTrafficSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.onlytraffic = ctrl;
     setRunning(r => ({ ...r, onlytraffic: true }));
     setProgress(p => ({ ...p, onlytraffic: "Syncing OnlyTraffic..." }));
     try {
-      // Log this as an onlytraffic sync
       await supabase.from("sync_logs").insert({
         status: "running", triggered_by: "onlytraffic_sync", message: "OnlyTraffic sync started",
         records_processed: 0,
       });
+      if (ctrl.signal.aborted) return;
       const res = await supabase.functions.invoke("auto-tag-campaigns", {
         body: {},
       });
+      if (ctrl.signal.aborted) return;
       if (res.error) throw res.error;
       toast.success(`OnlyTraffic sync complete — ${res.data?.tagged ?? 0} campaigns tagged`);
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
     } catch (err: any) {
+      if (err.name === "AbortError") return;
       toast.error(`OnlyTraffic sync failed: ${err.message}`);
     } finally {
+      delete abortRefs.current.onlytraffic;
       setRunning(r => ({ ...r, onlytraffic: false }));
       setProgress(p => ({ ...p, onlytraffic: "" }));
     }
