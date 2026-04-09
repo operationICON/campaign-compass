@@ -1130,6 +1130,12 @@ export default function TrafficSourcesPage() {
                           case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>{fmtC(Number(link.revenue || 0))}</td>;
                           case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
                           case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
+                          case "ltv_sub_all": {
+                            const revAll = Number(link.revenue || 0);
+                            const subsAll = Number(link.subscribers || 0);
+                            const ltvSubAllVal = subsAll > 0 ? revAll / subsAll : null;
+                            return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvSubAllVal !== null && ltvSubAllVal > 0 ? "" : "hsl(var(--muted-foreground))" }}>{ltvSubAllVal != null && ltvSubAllVal > 0 ? fmtC(ltvSubAllVal) : "—"}</td>;
+                          }
                           case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
                           case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit !== null && profit > 0 ? "hsl(var(--success))" : profit !== null && profit < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
                           case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub !== null && profitPerSub > 0 ? "hsl(var(--success))" : profitPerSub !== null && profitPerSub < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{profitPerSub !== null ? fmtC(profitPerSub) : "—"}</td>;
