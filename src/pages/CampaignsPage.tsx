@@ -978,7 +978,6 @@ export default function CampaignsPage() {
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
                             case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
                             default: return null;
-                            default: return null;
                           }
                         })}
                         <th className="text-center whitespace-nowrap bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }} title="Fan sync status">👥</th>
