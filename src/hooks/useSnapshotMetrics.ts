@@ -123,12 +123,11 @@ export function useSnapshotMetrics(
             break;
           }
           case "prev_month": {
-            const dFrom = new Date(serverMaxDate + "T00:00:00Z");
-            dFrom.setUTCDate(dFrom.getUTCDate() - 60);
-            const dTo = new Date(serverMaxDate + "T00:00:00Z");
-            dTo.setUTCDate(dTo.getUTCDate() - 31);
-            fromDate = dFrom.toISOString().slice(0, 10);
-            toDate = dTo.toISOString().slice(0, 10);
+            const refDate = new Date(serverMaxDate + "T00:00:00Z");
+            const prevMonthStart = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth() - 1, 1));
+            const prevMonthEnd = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), 0));
+            fromDate = prevMonthStart.toISOString().slice(0, 10);
+            toDate = prevMonthEnd.toISOString().slice(0, 10);
             break;
           }
           default:

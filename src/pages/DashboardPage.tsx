@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { startOfMonth, endOfMonth, subMonths, getDaysInMonth } from "date-fns";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { subDays, format, differenceInDays } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -43,17 +44,16 @@ function getOverviewSnapshotRange(
 
   switch (timePeriod) {
     case "day":
-      // Resolved to MAX(snapshot_date) at query time
       return { from: "__latest__", to: "__latest__", dayCount: 1 };
     case "week":
-      // Resolved server-side: CURRENT_DATE - 7
       return { from: "__server_week__", to: "__server_latest__", dayCount: 7 };
     case "month":
-      // Resolved server-side: CURRENT_DATE - 30
       return { from: "__server_month__", to: "__server_latest__", dayCount: 30 };
-    case "prev_month":
-      // Resolved server-side: CURRENT_DATE - 60 to CURRENT_DATE - 31
-      return { from: "__server_prev_from__", to: "__server_prev_to__", dayCount: 30 };
+    case "prev_month": {
+      const prevMonth = subMonths(new Date(), 1);
+      const daysInPrevMonth = getDaysInMonth(prevMonth);
+      return { from: "__server_prev_from__", to: "__server_prev_to__", dayCount: daysInPrevMonth };
+    }
     case "all":
     default:
       return null;
@@ -202,12 +202,11 @@ export default function DashboardPage() {
           fromDate = d.toISOString().slice(0, 10);
           toDate = serverMaxDate;
         } else if (fromDate === "__server_prev_from__") {
-          const dFrom = new Date(serverMaxDate + "T00:00:00Z");
-          dFrom.setUTCDate(dFrom.getUTCDate() - 60);
-          const dTo = new Date(serverMaxDate + "T00:00:00Z");
-          dTo.setUTCDate(dTo.getUTCDate() - 31);
-          fromDate = dFrom.toISOString().slice(0, 10);
-          toDate = dTo.toISOString().slice(0, 10);
+          const refDate = new Date(serverMaxDate + "T00:00:00Z");
+          const prevMonthDate = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth() - 1, 1));
+          const prevMonthEnd = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), 0));
+          fromDate = prevMonthDate.toISOString().slice(0, 10);
+          toDate = prevMonthEnd.toISOString().slice(0, 10);
         }
       }
 
@@ -894,11 +893,22 @@ function KpiCards({
     switch (id) {
       // ═══ CARD 1 — PROFIT/SUB (hero teal gradient) ═══
       case "profit_per_sub": {
-        // LOCKED: (SUM(accounts.ltv_total) - SUM(tracking_links.cost_total)) / SUM(accounts.subscribers_count) — Always All Time
-        const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-        const totalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-        const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
-        const profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
+        let profitPerSub: number | null = null;
+        let subtitle = "";
+        if (isAllTime) {
+          const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const totalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
+          profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
+          subtitle = "All time · accounts revenue minus spend";
+        } else if (noDataForPeriod) {
+          subtitle = "No data for this period";
+        } else {
+          const periodRev = snapshotRevenue * revMultiplier;
+          const periodProfit = periodRev - totalSpend;
+          profitPerSub = snapshotSubs > 0 ? periodProfit / snapshotSubs : null;
+          subtitle = periodLabel;
+        }
         const showDash = profitPerSub === null;
         const isPositive = profitPerSub !== null && profitPerSub >= 0;
         return (
@@ -915,17 +925,26 @@ function KpiCards({
             ) : (
               <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-white" : "text-red-300"}`}>{fmtC(profitPerSub!)}</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">All time · accounts revenue minus spend</p>
+            <p className="text-[11px] text-white/60 mt-1">{subtitle}</p>
           </div>
         );
       }
 
       // ═══ CARD 2 — LTV/SUB ═══
       case "ltv_per_sub": {
-        // LOCKED: SUM(accounts.ltv_total) / SUM(accounts.subscribers_count) — Always All Time
-        const accountsLtv2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-        const totalSubsCount2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-        const ltvPerSub = totalSubsCount2 > 0 ? (accountsLtv2 * revMultiplier) / totalSubsCount2 : null;
+        let ltvPerSub: number | null = null;
+        let subtitle = "";
+        if (isAllTime) {
+          const accountsLtv2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const totalSubsCount2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          ltvPerSub = totalSubsCount2 > 0 ? (accountsLtv2 * revMultiplier) / totalSubsCount2 : null;
+          subtitle = "All time · accounts revenue per subscriber";
+        } else if (noDataForPeriod) {
+          subtitle = "No data for this period";
+        } else {
+          ltvPerSub = snapshotSubs > 0 ? (snapshotRevenue * revMultiplier) / snapshotSubs : null;
+          subtitle = periodLabel;
+        }
         const showDash = ltvPerSub === null;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
@@ -941,7 +960,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-primary">{fmtC(ltvPerSub!)}</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">All time · accounts revenue per subscriber</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{subtitle}</p>
           </div>
         );
       }
@@ -977,7 +996,9 @@ function KpiCards({
             subsPerDay = allTimeTotalSubs > 0 ? allTimeTotalSubs / daysSince : null;
           }
           label = "All time average";
-        } else if (hasSnapshotData && periodDayCount && periodDayCount > 0) {
+        } else if (noDataForPeriod) {
+          label = "No data for this period";
+        } else if (periodDayCount && periodDayCount > 0) {
           subsPerDay = snapshotSubs / periodDayCount;
           label = periodLabel;
         } else {
@@ -1003,16 +1024,15 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        // LOCKED: (SUM(accounts.ltv_total) - SUM(tracking_links.revenue)) / SUM(accounts.ltv_total) * 100
         const accountsLtv5 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-        const campaignRevenue5 = allTimeRevenue; // SUM(tracking_links.revenue)
+        const campaignRevenue5 = allTimeRevenue;
         const pct = accountsLtv5 > 0
           ? ((accountsLtv5 - campaignRevenue5) / accountsLtv5) * 100
           : null;
         const colorClass = pct === null ? "text-muted-foreground"
           : pct > 50 ? "text-destructive"
-          : pct >= 30 ? "text-[hsl(38_92%_50%)]" // amber
-          : "text-primary"; // green < 30%
+          : pct >= 30 ? "text-[hsl(38_92%_50%)]"
+          : "text-primary";
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1031,11 +1051,21 @@ function KpiCards({
         );
       }
 
-      // ═══ TOTAL REVENUE (uses accounts.ltv_total) ═══
+      // ═══ TOTAL REVENUE ═══
       case "total_revenue": {
-        const accountsLtvRev = filtAccounts
-          .filter((a: any) => a.is_active !== false && Number(a.ltv_total || 0) > 0)
-          .reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier;
+        let revVal: number | null = null;
+        let subtitle = "";
+        if (isAllTime) {
+          revVal = filtAccounts
+            .filter((a: any) => a.is_active !== false && Number(a.ltv_total || 0) > 0)
+            .reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier;
+          subtitle = "All time · accounts revenue";
+        } else if (noDataForPeriod) {
+          subtitle = "No data for this period";
+        } else {
+          revVal = snapshotRevenue * revMultiplier;
+          subtitle = periodLabel;
+        }
         return (
           <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
             <div className="flex items-center gap-2 mb-2">
@@ -1045,13 +1075,17 @@ function KpiCards({
               <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
               <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-white">{fmtC(accountsLtvRev)}</p>
-            <p className="text-[11px] text-white/60 mt-1">All time · accounts revenue</p>
+            {revVal !== null ? (
+              <p className="text-[22px] font-bold font-mono text-white">{fmtC(revVal)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+            )}
+            <p className="text-[11px] text-white/60 mt-1">{subtitle}</p>
           </div>
         );
       }
 
-      // ═══ TOTAL SUBS ═══
+      // ═══ TOTAL SUBS (Always All Time) ═══
       case "total_subs": {
         const totalSubsVal = filtAccounts
           .filter((a: any) => a.is_active !== false)
@@ -1065,7 +1099,7 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Subs</span>
             </div>
             <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Active subscribers across all models</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Active subscribers across all models · All time</p>
           </div>
         );
       }
