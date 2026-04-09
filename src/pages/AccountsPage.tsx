@@ -60,6 +60,7 @@ export default function AccountsPage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
   const [cardSort, setCardSort] = useState<CardSortKey>("ltv_per_sub");
+  const [expandedBreakdown, setExpandedBreakdown] = useState<Set<string>>(new Set());
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
@@ -856,6 +857,50 @@ export default function AccountsPage() {
                     </span>
                   </div>
                 </div>
+
+                {/* Revenue breakdown expandable */}
+                {Number(acc.ltv_total || 0) > 0 && (() => {
+                  const ltvT = Number(acc.ltv_total || 0);
+                  const isExp = expandedBreakdown.has(acc.id);
+                  const rows = [
+                    { label: "Messages / PPV", value: Number(acc.ltv_messages || 0), color: "hsl(var(--primary))" },
+                    { label: "Tips", value: Number(acc.ltv_tips || 0), color: "hsl(38 92% 50%)" },
+                    { label: "Subscriptions", value: Number(acc.ltv_subscriptions || 0), color: "hsl(280 60% 55%)" },
+                    { label: "Posts", value: Number(acc.ltv_posts || 0), color: "hsl(210 80% 55%)" },
+                  ].filter(r => r.value > 0);
+                  return (
+                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => {
+                          setExpandedBreakdown(prev => {
+                            const next = new Set(prev);
+                            if (next.has(acc.id)) next.delete(acc.id); else next.add(acc.id);
+                            return next;
+                          });
+                        }}
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isExp ? "rotate-180" : ""}`} />
+                        {isExp ? "Hide breakdown" : "Revenue breakdown"}
+                      </button>
+                      {isExp && (
+                        <div className="mt-1.5 space-y-1 text-[12px]">
+                          {rows.map(r => (
+                            <div key={r.label} className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: r.color }} />
+                                <span className="text-muted-foreground">{r.label}</span>
+                              </div>
+                              <span className="font-mono text-foreground/80">
+                                {fmtCurrency(r.value * revMultiplier)} · {ltvT > 0 ? ((r.value / ltvT) * 100).toFixed(1) : "0"}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
                   <span>{stats.activeCampaigns || 0} active links</span>

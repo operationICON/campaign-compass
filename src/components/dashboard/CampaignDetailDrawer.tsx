@@ -412,6 +412,9 @@ function DrawerBodyInner({
             </div>
             <div className="p-0">
               <DataRow label="Campaign Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "—"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
+              <div className="px-3 py-1.5">
+                <p className="text-[10px] text-muted-foreground/60 italic leading-snug">Revenue breakdown by type not available at campaign level — shown at account level</p>
+              </div>
               <DataRow label="Campaign LTV" value={hasLtvData ? fmtC2(totalLtv) : "—"} tone={totalLtv > 0 ? "positive" : "neutral"} />
               <DataRow label="Cross-Poll Revenue" value={hasLtvData ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
               <DataRow label="Total Revenue incl. Cross-Poll" value={hasLtvData ? fmtC2(totalLtv + crossPoll) : "—"} tone="positive" />
