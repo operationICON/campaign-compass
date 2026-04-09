@@ -74,7 +74,6 @@ const ALL_COLUMNS = [
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
   { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
-  { id: "ltv_sub", label: "LTV/New Sub", defaultOn: true },
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
@@ -86,7 +85,6 @@ const ALL_COLUMNS = [
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
-  { id: "org_pct", label: "Org %", defaultOn: false },
 ];
 
 // ─── Constants ───
