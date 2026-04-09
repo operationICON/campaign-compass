@@ -185,10 +185,9 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
-  const syncHandlers: Record<SyncType, () => void> = {
+  const syncHandlers: Partial<Record<SyncType, () => void>> = {
     dashboard: runDashboardSync,
     snapshot: runSnapshotSync,
-    
     onlytraffic: runOnlyTrafficSync,
   };
 
