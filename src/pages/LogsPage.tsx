@@ -71,7 +71,7 @@ export default function LogsPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [syncPage, setSyncPage] = useState(1);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const [fanSyncOpen, setFanSyncOpen] = useState(false);
+  
 
   // Running state per sync type
   const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false });
