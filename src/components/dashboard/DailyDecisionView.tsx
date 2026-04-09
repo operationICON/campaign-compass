@@ -332,7 +332,7 @@ export function DailyDecisionView({
               <div className="px-4 py-3 border-r border-border">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Best LTV/Sub</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Best LTV/New Sub</span>
                 </div>
                 {bestLtvSub ? (
                   <>
