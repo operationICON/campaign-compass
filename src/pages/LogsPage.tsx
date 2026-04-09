@@ -7,7 +7,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2,
   ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
-  BarChart3, Camera, Users, Truck, Play,
+  BarChart3, Camera, Users, Truck, Play, Square,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
