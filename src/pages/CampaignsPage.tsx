@@ -74,7 +74,6 @@ const ALL_COLUMNS = [
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
   { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
-  { id: "ltv_sub", label: "LTV/New Sub", defaultOn: true },
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
@@ -86,7 +85,6 @@ const ALL_COLUMNS = [
   { id: "created", label: "Created", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
-  { id: "org_pct", label: "Org %", defaultOn: false },
 ];
 
 // ─── Constants ───
@@ -806,9 +804,9 @@ export default function CampaignsPage() {
             return (
             <div className="px-3.5 pb-3" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr", gap: "10px", alignItems: "stretch" }}>
-                {/* Card 1 — Total LTV (hero) */}
+                {/* Card 1 — Total Revenue (hero) */}
                 <div className="rounded-xl p-4 flex flex-col justify-center" style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
-                  <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total LTV</p>
+                  <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total Revenue</p>
                   <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv)}</p>
                   <p className="text-[10px] text-white/60 mt-0.5">{periodLabel}</p>
                 </div>
@@ -961,14 +959,6 @@ export default function CampaignsPage() {
                                 </div>
                               </th>
                             );
-                            case "ltv_sub": return (
-                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "85px" }}>
-                                <div className="flex items-center justify-end gap-1">
-                                  LTV/New Sub
-                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Revenue attributed to new subscribers only, from tracking_link_ltv</TooltipContent></Tooltip>
-                                </div>
-                              </th>
-                            );
                             case "ltv_sub_all": return (
                               <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>
                                 <div className="flex items-center justify-end gap-1">
@@ -987,7 +977,6 @@ export default function CampaignsPage() {
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
                             case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
-                            case "org_pct": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "65px" }}>Org %</th>;
                             default: return null;
                           }
                         })}
