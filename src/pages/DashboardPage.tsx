@@ -609,6 +609,33 @@ export default function DashboardPage() {
             }}
           />
 
+          {/* Gross / Net toggle */}
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => handleRevenueModeChange("gross")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "gross" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Gross
+                </button>
+                <button
+                  onClick={() => handleRevenueModeChange("net")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "net" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Net
+                </button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[220px] text-center">
+              OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
+            </TooltipContent>
+          </UITooltip>
+
           {/* Active filter count */}
           {activeFilterCount > 0 && (
             <button
