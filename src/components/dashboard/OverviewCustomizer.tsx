@@ -34,10 +34,6 @@ const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "unattributed_pct", label: "Unattributed %", alwaysOn: true },
   // Hidden by default (in Customize panel)
   { id: "total_revenue", label: "Total Revenue", defaultOn: false },
-  { id: "ltv_sub", label: "Avg LTV/Sub (old)", defaultOn: false },
-  { id: "profit_sub", label: "Profit/Sub (old)", defaultOn: false },
-  { id: "avg_cpl", label: "Avg CPL (old)", defaultOn: false },
-  { id: "subs_day", label: "Subs/Day (old)", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
