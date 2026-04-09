@@ -795,54 +795,63 @@ export default function AccountsPage() {
                 {/* KPI grid */}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Subs</span>
-                    <span className="font-mono font-semibold text-foreground">{stats.apiSubs > 0 ? fmtNum(stats.apiSubs) : "—"}</span>
+                    <span className="text-muted-foreground">Total Revenue</span>
+                    <span className="font-mono font-semibold text-foreground">{fmtCurrency((Number(acc.ltv_total || 0)) * revMultiplier)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tracked Subs</span>
-                    <span className="font-mono font-semibold text-foreground">
-                      {stats.trackedSubs !== null ? fmtNum(stats.trackedSubs) : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Untracked %</span>
-                    <span className={`font-mono font-semibold ${
-                      stats.untrackedPct == null ? "text-muted-foreground"
-                        : stats.untrackedPct > 50 ? "text-destructive"
-                        : stats.untrackedPct <= 30 ? "text-primary"
-                        : "text-foreground"
-                    }`}>
-                      {stats.untrackedPct != null ? fmtPct(stats.untrackedPct) : "—"}
-                    </span>
-                  </div>
-                   <div className="flex justify-between">
                     <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
-                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                        const totalRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier;
+                        const ltvTotal = Number(acc.ltv_total || 0) * revMultiplier;
                         const subsCount = Number(acc.subscribers_count || 0);
-                        const val = subsCount > 0 ? totalRev / subsCount : null;
+                        const val = subsCount > 0 ? ltvTotal / subsCount : null;
                         return val != null ? fmtCurrency(val) : "—";
                       })()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Spend</span>
+                    <span className="text-muted-foreground">Campaign Rev</span>
+                    <span className="font-mono font-semibold text-foreground">
+                      {(() => {
+                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
+                        return fmtCurrency(accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier);
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">New Fan LTV</span>
+                    <span className="font-mono font-semibold text-foreground">
+                      {(() => {
+                        const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
+                        const total = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0) * revMultiplier;
+                        return total > 0 ? fmtCurrency(total) : "—";
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Spend</span>
                     <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Profit/Sub <RevenueModeBadge mode={revenueMode} /></span>
-                    <span className={`font-mono font-semibold ${stats.profitPerSub != null ? (stats.profitPerSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
+                    <span className="text-muted-foreground">Unattributed</span>
+                    <span className={`font-mono font-semibold ${
+                      (() => {
+                        const ltvT = Number(acc.ltv_total || 0);
+                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
+                        const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+                        const pct = ltvT > 0 ? ((ltvT - campRev) / ltvT) * 100 : null;
+                        return pct == null ? "text-muted-foreground"
+                          : pct > 50 ? "text-destructive"
+                          : pct >= 30 ? "text-[hsl(38_92%_50%)]"
+                          : "text-primary";
+                      })()
+                    }`}>
                       {(() => {
-                        if (stats.profitPerSub == null) return "—";
-                        // Recalculate with multiplier: profit = (revenue * mult - spend) / subs
-                        const periodLtv = stats.totalLtv;
-                        const periodSpend = stats.totalSpend;
-                        const subs = stats.trackedSubs || stats.apiSubs || 0;
-                        if (periodLtv == null || periodSpend == null || subs <= 0) return fmtCurrency(stats.profitPerSub);
-                        const adjustedProfit = (periodLtv * revMultiplier) - periodSpend;
-                        return fmtCurrency(adjustedProfit / subs);
+                        const ltvT = Number(acc.ltv_total || 0);
+                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
+                        const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+                        const pct = ltvT > 0 ? ((ltvT - campRev) / ltvT) * 100 : null;
+                        return pct != null ? fmtPct(pct) : "—";
                       })()}
                     </span>
                   </div>
