@@ -1101,26 +1101,8 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "ltv_sub": {
-                                  // LTV/New Sub: always from tracking_link_ltv
-                                  let ltvNewSubVal: number | null = null;
-                                  if (link.ltvRecord) {
-                                    const ns = Number(link.ltvRecord.new_subs_total || 0);
-                                    const tl = Number(link.ltvRecord.total_ltv || 0);
-                                    ltvNewSubVal = ns > 0 ? tl / ns : null;
-                                  }
-                                  const showNewSubDash = ltvNewSubVal === null || ltvNewSubVal === 0;
-                                  return (
-                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="text-foreground">
-                                          {showNewSubDash ? "—" : fmtC(ltvNewSubVal!)}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Revenue attributed to new subscribers only, from tracking_link_ltv</TooltipContent>
-                                    </Tooltip>
-                                  </td>
-                                  );
+                                  // Removed — LTV/New Sub no longer shown
+                                  return null;
                                 }
                                 case "ltv_sub_all": {
                                   // LTV/Sub: revenue / subscribers for selected period
