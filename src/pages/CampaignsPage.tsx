@@ -1113,26 +1113,49 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "ltv_sub": {
-                                  // All Time: total_ltv / new_subs_total
-                                  // Period: period revenue / period subs
-                                  let ltvSubVal: number | null = null;
-                                  if (isAllTime) {
-                                    ltvSubVal = link.ltvRecord ? Number(link.ltvRecord.ltv_per_sub || 0) : null;
-                                  } else {
-                                    const pSubs = Number(link.subscribers || 0);
-                                    const pRev = Number(link.revenue || 0);
-                                    ltvSubVal = pSubs > 0 ? pRev / pSubs : null;
+                                  // LTV/New Sub: always from tracking_link_ltv
+                                  let ltvNewSubVal: number | null = null;
+                                  if (link.ltvRecord) {
+                                    const ns = Number(link.ltvRecord.new_subs_total || 0);
+                                    const tl = Number(link.ltvRecord.total_ltv || 0);
+                                    ltvNewSubVal = ns > 0 ? tl / ns : null;
                                   }
-                                  const showLtvSubDash = ltvSubVal === null || ltvSubVal === 0;
+                                  const showNewSubDash = ltvNewSubVal === null || ltvNewSubVal === 0;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span className="text-foreground">
-                                          {showLtvSubDash ? "—" : fmtC(ltvSubVal!)}
+                                          {showNewSubDash ? "—" : fmtC(ltvNewSubVal!)}
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>{isAllTime ? "Average LTV per new subscriber" : "Period revenue per period subscriber"}</TooltipContent>
+                                      <TooltipContent>Revenue attributed to new subscribers only, from tracking_link_ltv</TooltipContent>
+                                    </Tooltip>
+                                  </td>
+                                  );
+                                }
+                                case "ltv_sub_all": {
+                                  // LTV/Sub: revenue / subscribers for selected period
+                                  let ltvSubAllVal: number | null = null;
+                                  if (isAllTime) {
+                                    const totalRev = Number(link.revenue || 0);
+                                    const totalSubs = Number(link.subscribers || 0);
+                                    ltvSubAllVal = totalSubs > 0 ? totalRev / totalSubs : null;
+                                  } else {
+                                    const pRev = Number(link.revenue || 0);
+                                    const pSubs = Number(link.subscribers || 0);
+                                    ltvSubAllVal = pSubs > 0 ? pRev / pSubs : null;
+                                  }
+                                  const showAllDash = ltvSubAllVal === null || ltvSubAllVal === 0;
+                                  return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-foreground">
+                                          {showAllDash ? "—" : fmtC(ltvSubAllVal!)}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Total revenue divided by all subscribers for the selected period</TooltipContent>
                                     </Tooltip>
                                   </td>
                                   );
