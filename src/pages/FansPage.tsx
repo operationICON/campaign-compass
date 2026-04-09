@@ -65,12 +65,13 @@ export default function FansPage() {
   const [chatNotes, setChatNotes] = useState<Record<string, string>>(lsGet("chats_notes"));
   const [fanFlagged, setFanFlagged] = useState<Record<string, boolean>>(lsGet("fans_flagged"));
   const [sheetNoteInput, setSheetNoteInput] = useState("");
+  const [modelRefreshing, setModelRefreshing] = useState(false);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
       const { data } = await supabase.from("accounts")
-        .select("id, display_name, username, avatar_thumb_url, is_active")
+        .select("id, display_name, username, avatar_thumb_url, is_active, onlyfans_account_id")
         .eq("is_active", true).order("display_name");
       return data || [];
     },
@@ -146,6 +147,29 @@ export default function FansPage() {
   };
 
   const selectedAccount = selectedModelId ? accounts.find(a => a.id === selectedModelId) : null;
+
+  const handleModelRefresh = async () => {
+    if (!selectedAccount) return;
+    setModelRefreshing(true);
+    try {
+      const { error } = await supabase.functions.invoke("refresh-chatting-team", {
+        body: {
+          account_id: selectedAccount.id,
+          external_account_id: (selectedAccount as any).onlyfans_account_id,
+        },
+      });
+      if (error) throw error;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["chatting_team_new_fans"] }),
+        queryClient.invalidateQueries({ queryKey: ["chatting_team_chats"] }),
+      ]);
+      toast.success(`Refreshed — ${selectedAccount.display_name}`);
+    } catch {
+      toast.error("Refresh failed — try again");
+    } finally {
+      setModelRefreshing(false);
+    }
+  };
   const modelFans = selectedModelId ? (fansByAccount[selectedModelId] || []) : [];
   const modelChats = selectedModelId ? (chatsByAccount[selectedModelId] || []) : [];
 
@@ -300,6 +324,11 @@ export default function FansPage() {
                 <StatPill label="New Fans" value={modelFans.length} color="text-primary bg-primary/10" />
                 <StatPill label="Chatted" value={modelChats.length} color="text-blue-400 bg-blue-500/10" />
                 <StatPill label="Unread" value={modelChats.filter(c => c.is_unread).length} color="text-amber-400 bg-amber-500/10" />
+                <button onClick={handleModelRefresh} disabled={modelRefreshing}
+                  className="h-8 px-3 text-[11px] font-medium rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                  <RefreshCw className={`h-3 w-3 ${modelRefreshing ? "animate-spin" : ""}`} />
+                  {modelRefreshing ? "Refreshing..." : "Refresh"}
+                </button>
               </div>
             </div>
 
@@ -312,17 +341,16 @@ export default function FansPage() {
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">{modelFans.length}</span>
                 </div>
                 {fansLoading ? (
-                  <div className="px-4 pb-4 grid grid-cols-2 gap-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-[60px] rounded-lg" />)}</div>
+                  <div className="px-4 pb-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-[44px] rounded-lg" />)}</div>
                 ) : modelFans.length === 0 ? (
                   <div className="px-4 pb-6 pt-2 text-center text-[12px] text-muted-foreground">No new fans in the last 24 hours</div>
                 ) : (
                   <>
-                    <div className="px-3 pb-3 grid grid-cols-2 gap-px">
+                    <div className="pb-1">
                       {modelFans.slice(0, 10).map(fan => (
                         <button key={fan.id} onClick={() => openFanSheet(fan)}
-                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary/30 transition-colors cursor-pointer text-left relative
-                            ${fanFlagged[fan.id] ? "border-l-[3px] border-l-amber-400" : ""}
-                            ${welcomed[fan.id] ? "" : ""}`}>
+                          className={`w-full flex items-center gap-2.5 px-4 h-[44px] hover:bg-secondary/30 transition-colors cursor-pointer text-left border-b border-border/50
+                            ${fanFlagged[fan.id] ? "border-l-[3px] border-l-amber-400" : ""}`}>
                           <div className="relative shrink-0">
                             <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={32} />
                             {welcomed[fan.id] && (
@@ -332,7 +360,7 @@ export default function FansPage() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-[11px] font-semibold text-foreground truncate">{fan.fan_name || "Unknown"}</div>
+                            <div className="text-[12px] font-semibold text-foreground truncate">{fan.fan_name || "Unknown"}</div>
                             <div className="text-[10px] text-muted-foreground">{shortTimeAgo(fan.subscribed_at)}</div>
                           </div>
                           <div className="shrink-0">
