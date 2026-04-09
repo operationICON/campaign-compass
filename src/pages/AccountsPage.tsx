@@ -687,6 +687,8 @@ export default function AccountsPage() {
           modelFilter={pageModelFilter}
           onModelFilterChange={setPageModelFilter}
           accounts={accountOptions}
+          revenueMode={revenueMode}
+          onRevenueModeChange={setRevenueMode}
         />
 
         {/* Filter pills + sort dropdown */}
@@ -812,12 +814,12 @@ export default function AccountsPage() {
                       {stats.untrackedPct != null ? fmtPct(stats.untrackedPct) : "—"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                   <div className="flex justify-between">
                     <span className="text-muted-foreground">LTV/Sub</span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
                         const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                        const totalRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+                        const totalRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier;
                         const subsCount = Number(acc.subscribers_count || 0);
                         const val = subsCount > 0 ? totalRev / subsCount : null;
                         return val != null ? fmtCurrency(val) : "—";
