@@ -601,8 +601,8 @@ export default function CampaignsPage() {
     // Total Profit — same time scope for both sides
     let totalProfitCalc: number;
     if (isAllTime) {
-      const ltvWithSpend = linksWithCost.reduce((s: number, l: any) => s + (l.ltvFromTable ?? 0) + (l.crossPollRevenue ?? 0), 0);
-      totalProfitCalc = ltvWithSpend - totalSpendAllTime;
+      const revWithSpend = linksWithCost.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      totalProfitCalc = revWithSpend - totalSpendAllTime;
     } else if (hasSnapshotData) {
       totalProfitCalc = totalLtv - totalSpend;
     } else {
