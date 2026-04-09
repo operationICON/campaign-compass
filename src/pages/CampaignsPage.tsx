@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -773,6 +774,31 @@ export default function CampaignsPage() {
             value={customRange}
             onChange={(range) => setCustomRange(range)}
           />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setRevenueMode("gross")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "gross" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Gross
+                </button>
+                <button
+                  onClick={() => setRevenueMode("net")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "net" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Net
+                </button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[220px] text-center">
+              OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         <div
