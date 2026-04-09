@@ -832,8 +832,11 @@ export default function CampaignsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr", gap: "10px", alignItems: "stretch" }}>
                 {/* Card 1 — Total Revenue (hero) */}
                 <div className="rounded-xl p-4 flex flex-col justify-center" style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
-                  <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total Revenue</p>
-                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv)}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total Revenue</p>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
+                  </div>
+                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv * revMultiplier)}</p>
                   <p className="text-[10px] text-white/60 mt-0.5">{periodLabel}</p>
                 </div>
                 {/* Card 2 — Total Spend */}
@@ -843,9 +846,9 @@ export default function CampaignsPage() {
                 {/* Card 3 — Total Profit */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
                   label="Total Profit" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.totalSpend > 0
-                    ? <span className={kpis.totalProfit >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalProfit)}</span>
+                    ? <span className={(kpis.totalLtv * revMultiplier - kpis.totalSpend) >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalLtv * revMultiplier - kpis.totalSpend)}</span>
                     : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "LTV minus spend" : `${periodLabel}`}
-                  tooltip={{ title: "Total Profit", desc: "LTV minus spend for the same time scope." }} />
+                  tooltip={{ title: "Total Profit", desc: "Revenue (after fee if Net) minus spend." }} />
                 {/* Card 4 — Avg Cost/Sub */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
                   label="Avg Cost/Sub" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "Cost per acquired subscriber" : spendLabel}
