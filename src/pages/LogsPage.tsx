@@ -10,7 +10,7 @@ import {
   BarChart3, Camera, Users, Truck, Play,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
-import { FanSyncModal } from "@/components/dashboard/FanSyncModal";
+
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ export default function LogsPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [syncPage, setSyncPage] = useState(1);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const [fanSyncOpen, setFanSyncOpen] = useState(false);
+  
 
   // Running state per sync type
   const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false });
@@ -160,9 +160,6 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
-  const runLtvSync = useCallback(() => {
-    setFanSyncOpen(true);
-  }, []);
 
   const runOnlyTrafficSync = useCallback(async () => {
     setRunning(r => ({ ...r, onlytraffic: true }));
@@ -188,10 +185,9 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
-  const syncHandlers: Record<SyncType, () => void> = {
+  const syncHandlers: Partial<Record<SyncType, () => void>> = {
     dashboard: runDashboardSync,
     snapshot: runSnapshotSync,
-    ltv: runLtvSync,
     onlytraffic: runOnlyTrafficSync,
   };
 
@@ -210,8 +206,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC BUTTONS ═══ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {(["dashboard", "snapshot", "ltv", "onlytraffic"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-3 gap-3">
+          {(["dashboard", "snapshot", "onlytraffic"] as SyncType[]).map((type) => {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
@@ -242,8 +238,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {(["dashboard", "snapshot", "ltv", "onlytraffic"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-3 gap-3">
+          {(["dashboard", "snapshot", "onlytraffic"] as SyncType[]).map((type) => {
             const colors = SYNC_COLORS[type];
             const Icon = SYNC_ICONS[type];
             const last = statusCards[type];
@@ -524,7 +520,7 @@ export default function LogsPage() {
           )}
         </div>
       </div>
-      <FanSyncModal open={fanSyncOpen} onOpenChange={setFanSyncOpen} />
+      
     </DashboardLayout>
   );
 }
