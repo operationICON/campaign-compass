@@ -1086,7 +1086,7 @@ export default function CampaignsPage() {
                                   </td>
                                 );
                                 case "revenue": {
-                                  const revVal = Number(link.revenue || 0);
+                                  const revVal = Number(link.revenue || 0) * revMultiplier;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <span className="text-foreground">{fmtC(revVal)}</span>
@@ -1094,8 +1094,7 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "ltv": {
-                                  // LTV = tracking_links.revenue (All Time) or snapshot revenue (Period)
-                                  const ltvVal = Number(link.revenue || 0);
+                                  const ltvVal = Number(link.revenue || 0) * revMultiplier;
                                   const hasLtv = ltvVal > 0;
                                   const showDash = !isAllTime && ltvVal === 0;
                                   return (
@@ -1106,7 +1105,7 @@ export default function CampaignsPage() {
                                             {showDash ? "—" : fmtC(ltvVal)}
                                           </span>
                                         </TooltipTrigger>
-                                        <TooltipContent>{isAllTime ? "All time revenue from tracking_links" : "Period revenue from daily snapshots"}</TooltipContent>
+                                        <TooltipContent>{isAllTime ? "All time revenue from tracking_links" : "Period revenue from daily snapshots"}{revenueMode === "net" ? " (after 20% fee)" : ""}</TooltipContent>
                                       </Tooltip>
                                     </td>
                                   );
@@ -1137,11 +1136,11 @@ export default function CampaignsPage() {
                                   // LTV/Sub: revenue / subscribers for selected period
                                   let ltvSubAllVal: number | null = null;
                                   if (isAllTime) {
-                                    const totalRev = Number(link.revenue || 0);
+                                    const totalRev = Number(link.revenue || 0) * revMultiplier;
                                     const totalSubs = Number(link.subscribers || 0);
                                     ltvSubAllVal = totalSubs > 0 ? totalRev / totalSubs : null;
                                   } else {
-                                    const pRev = Number(link.revenue || 0);
+                                    const pRev = Number(link.revenue || 0) * revMultiplier;
                                     const pSubs = Number(link.subscribers || 0);
                                     ltvSubAllVal = pSubs > 0 ? pRev / pSubs : null;
                                   }
