@@ -20,6 +20,8 @@ import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } fro
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import type { TimePeriod } from "@/hooks/usePageFilters";
+import { RevenueModeBadge } from "@/components/RevenueModeBadge";
+import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface OverviewSnapshotRange {
   from: string;
@@ -67,6 +69,14 @@ export default function DashboardPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [revenueMode, setRevenueMode] = useState<"gross" | "net">(() => {
+    try { const v = localStorage.getItem("global_revenue_mode"); if (v === "net") return "net"; } catch {} return "gross";
+  });
+  const revMultiplier = revenueMode === "net" ? 0.80 : 1;
+  const handleRevenueModeChange = (mode: "gross" | "net") => {
+    setRevenueMode(mode);
+    try { localStorage.setItem("global_revenue_mode", mode); } catch {}
+  };
 
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
