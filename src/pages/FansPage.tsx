@@ -341,17 +341,16 @@ export default function FansPage() {
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">{modelFans.length}</span>
                 </div>
                 {fansLoading ? (
-                  <div className="px-4 pb-4 grid grid-cols-2 gap-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-[60px] rounded-lg" />)}</div>
+                  <div className="px-4 pb-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-[44px] rounded-lg" />)}</div>
                 ) : modelFans.length === 0 ? (
                   <div className="px-4 pb-6 pt-2 text-center text-[12px] text-muted-foreground">No new fans in the last 24 hours</div>
                 ) : (
                   <>
-                    <div className="px-3 pb-3 grid grid-cols-2 gap-px">
+                    <div className="pb-1">
                       {modelFans.slice(0, 10).map(fan => (
                         <button key={fan.id} onClick={() => openFanSheet(fan)}
-                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary/30 transition-colors cursor-pointer text-left relative
-                            ${fanFlagged[fan.id] ? "border-l-[3px] border-l-amber-400" : ""}
-                            ${welcomed[fan.id] ? "" : ""}`}>
+                          className={`w-full flex items-center gap-2.5 px-4 h-[44px] hover:bg-secondary/30 transition-colors cursor-pointer text-left border-b border-border/50
+                            ${fanFlagged[fan.id] ? "border-l-[3px] border-l-amber-400" : ""}`}>
                           <div className="relative shrink-0">
                             <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={32} />
                             {welcomed[fan.id] && (
@@ -361,7 +360,7 @@ export default function FansPage() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-[11px] font-semibold text-foreground truncate">{fan.fan_name || "Unknown"}</div>
+                            <div className="text-[12px] font-semibold text-foreground truncate">{fan.fan_name || "Unknown"}</div>
                             <div className="text-[10px] text-muted-foreground">{shortTimeAgo(fan.subscribed_at)}</div>
                           </div>
                           <div className="shrink-0">
