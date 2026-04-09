@@ -3,21 +3,14 @@ import { Settings2, Lock } from "lucide-react";
 
 // ── KPI Card IDs ──
 export type OverviewKpiCardId =
-  | "profit_sub" | "ltv_sub" | "avg_cpl" | "subs_day"
+  | "profit_per_sub" | "ltv_per_sub" | "cpl" | "subs_per_day" | "unattributed_pct"
+  | "total_revenue" | "ltv_sub" | "avg_cpl" | "subs_day"
   | "expenses" | "avg_expenses"
   | "total_profit" | "blended_roi" | "active_campaigns"
-  | "best_source" | "total_revenue" | "ltv_30d_per_model";
+  | "best_source" | "ltv_30d_per_model" | "profit_sub";
 
-// ── Insight Panel IDs ──
-export type InsightPanelId =
-  | "top_campaigns" | "perf_by_source" | "subs_day_model"
-  | "roi_by_source" | "spend_by_source" | "ltv_per_model"
-  | "cpl_by_source" | "model_comparison";
-
-// ── Model Comparison Column IDs ──
-export type ModelCompColId = "roi" | "subs_day";
-
-interface ItemDef<T extends string> {
+// ── KPI Card definitions ──
+interface ItemDef2<T extends string> {
   id: T;
   label: string;
   alwaysOn?: boolean;
@@ -25,11 +18,18 @@ interface ItemDef<T extends string> {
 }
 
 const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
-  { id: "total_revenue", label: "Total Revenue", alwaysOn: true },
-  { id: "ltv_sub", label: "Avg LTV/Sub", alwaysOn: true },
-  { id: "profit_sub", label: "Profit/Sub", defaultOn: true },
-  { id: "avg_cpl", label: "Avg CPL", defaultOn: true },
-  { id: "subs_day", label: "Subs/Day", defaultOn: true },
+  // New 5 default cards
+  { id: "profit_per_sub", label: "Profit/Sub", alwaysOn: true },
+  { id: "ltv_per_sub", label: "LTV/Sub", alwaysOn: true },
+  { id: "cpl", label: "CPL", alwaysOn: true },
+  { id: "subs_per_day", label: "Subs/Day", alwaysOn: true },
+  { id: "unattributed_pct", label: "Unattributed %", alwaysOn: true },
+  // Hidden by default (in Customize panel)
+  { id: "total_revenue", label: "Total Revenue", defaultOn: false },
+  { id: "ltv_sub", label: "Avg LTV/Sub (old)", defaultOn: false },
+  { id: "profit_sub", label: "Profit/Sub (old)", defaultOn: false },
+  { id: "avg_cpl", label: "Avg CPL (old)", defaultOn: false },
+  { id: "subs_day", label: "Subs/Day (old)", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
