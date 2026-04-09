@@ -160,9 +160,6 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
-  const runLtvSync = useCallback(() => {
-    setFanSyncOpen(true);
-  }, []);
 
   const runOnlyTrafficSync = useCallback(async () => {
     setRunning(r => ({ ...r, onlytraffic: true }));
