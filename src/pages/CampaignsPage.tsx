@@ -60,7 +60,7 @@ import { TrackingLinkPanel } from "@/components/dashboard/TrackingLinkPanel";
 import { Pencil } from "lucide-react";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
