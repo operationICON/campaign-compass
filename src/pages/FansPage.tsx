@@ -333,7 +333,7 @@ export default function FansPage() {
             </div>
 
             {/* Two panels — 60/40 split */}
-            <div className="grid gap-4" style={{ gridTemplateColumns: "3fr 2fr" }}>
+            <div className="grid grid-cols-2 gap-4">
               {/* LEFT: NEW FANS — 2-col grid, 10 items */}
               <div className="bg-card border border-border rounded-2xl border-l-[3px] border-l-emerald-500 overflow-hidden">
                 <div className="px-4 pt-4 pb-3 flex items-center gap-2">
