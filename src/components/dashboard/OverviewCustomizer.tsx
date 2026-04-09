@@ -9,8 +9,7 @@ export type OverviewKpiCardId =
   | "total_profit" | "blended_roi" | "active_campaigns"
   | "best_source" | "ltv_30d_per_model" | "profit_sub";
 
-// ── KPI Card definitions ──
-interface ItemDef2<T extends string> {
+interface ItemDef<T extends string> {
   id: T;
   label: string;
   alwaysOn?: boolean;
