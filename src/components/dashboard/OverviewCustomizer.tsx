@@ -26,14 +26,14 @@ interface ItemDef<T extends string> {
 }
 
 const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
-  // New 5 default cards
-  { id: "profit_per_sub", label: "Profit/Sub", alwaysOn: true },
-  { id: "ltv_per_sub", label: "LTV/Sub", alwaysOn: true },
-  { id: "cpl", label: "CPL", alwaysOn: true },
-  { id: "subs_per_day", label: "Subs/Day", alwaysOn: true },
-  { id: "unattributed_pct", label: "Unattributed %", alwaysOn: true },
+  // Default visible cards
+  { id: "profit_per_sub", label: "Profit/Sub", defaultOn: true },
+  { id: "ltv_per_sub", label: "LTV/Sub", defaultOn: true },
+  { id: "cpl", label: "CPL", defaultOn: true },
+  { id: "subs_per_day", label: "Subs/Day", defaultOn: true },
   // Hidden by default (in Customize panel)
   { id: "total_revenue", label: "Total Revenue", defaultOn: false },
+  { id: "unattributed_pct", label: "Unattributed %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
