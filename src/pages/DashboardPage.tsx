@@ -202,12 +202,11 @@ export default function DashboardPage() {
           fromDate = d.toISOString().slice(0, 10);
           toDate = serverMaxDate;
         } else if (fromDate === "__server_prev_from__") {
-          const dFrom = new Date(serverMaxDate + "T00:00:00Z");
-          dFrom.setUTCDate(dFrom.getUTCDate() - 60);
-          const dTo = new Date(serverMaxDate + "T00:00:00Z");
-          dTo.setUTCDate(dTo.getUTCDate() - 31);
-          fromDate = dFrom.toISOString().slice(0, 10);
-          toDate = dTo.toISOString().slice(0, 10);
+          const refDate = new Date(serverMaxDate + "T00:00:00Z");
+          const prevMonthDate = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth() - 1, 1));
+          const prevMonthEnd = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), 0));
+          fromDate = prevMonthDate.toISOString().slice(0, 10);
+          toDate = prevMonthEnd.toISOString().slice(0, 10);
         }
       }
 
