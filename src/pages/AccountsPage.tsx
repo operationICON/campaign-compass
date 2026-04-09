@@ -813,7 +813,7 @@ export default function AccountsPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">LTV/Sub</span>
+                    <span className="text-muted-foreground">LTV/New Sub</span>
                     <span className="font-mono font-semibold text-primary">
                       {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub) : "—"}
                     </span>
