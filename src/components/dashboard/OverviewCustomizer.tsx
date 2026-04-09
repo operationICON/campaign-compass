@@ -4,10 +4,9 @@ import { Settings2, Lock } from "lucide-react";
 // ── KPI Card IDs ──
 export type OverviewKpiCardId =
   | "profit_sub" | "ltv_sub" | "avg_cpl" | "subs_day"
-  | "unattributed" | "expenses" | "avg_expenses"
+  | "expenses" | "avg_expenses"
   | "total_profit" | "blended_roi" | "active_campaigns"
-  | "best_source" | "est_revenue" | "total_ltv" | "ltv_30d_per_model"
-  | "organic_revenue" | "organic_fans_pct";
+  | "best_source" | "total_revenue" | "ltv_30d_per_model";
 
 // ── Insight Panel IDs ──
 export type InsightPanelId =
@@ -26,22 +25,18 @@ interface ItemDef<T extends string> {
 }
 
 const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
-  { id: "profit_sub", label: "Profit/Sub", alwaysOn: true },
-  { id: "ltv_sub", label: "LTV/New Sub", alwaysOn: true },
+  { id: "total_revenue", label: "Total Revenue", alwaysOn: true },
+  { id: "ltv_sub", label: "Avg LTV/Sub", alwaysOn: true },
+  { id: "profit_sub", label: "Profit/Sub", defaultOn: true },
   { id: "avg_cpl", label: "Avg CPL", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
-  { id: "unattributed", label: "Unattributed Subs %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
   { id: "blended_roi", label: "ROI", defaultOn: false },
   { id: "active_campaigns", label: "Active Tracking Links", defaultOn: false },
   { id: "best_source", label: "Best Source", defaultOn: false },
-  { id: "est_revenue", label: "Est. Revenue", defaultOn: true },
-  { id: "total_ltv", label: "LTV", defaultOn: true },
   { id: "ltv_30d_per_model", label: "30D LTV Per Model", defaultOn: false },
-  { id: "organic_revenue", label: "Organic Revenue", defaultOn: true },
-  { id: "organic_fans_pct", label: "Organic Fans %", defaultOn: true },
 ];
 
 const INSIGHT_PANELS: ItemDef<InsightPanelId>[] = [
@@ -88,33 +83,10 @@ function loadItems<T extends string>(prefsKey: keyof CtPrefs, defs: ItemDef<T>[]
   if (saved && Array.isArray(saved)) {
     const set = new Set(saved);
     alwaysOn.forEach(id => set.add(id));
-    return [...set];
+    // Remove obsolete IDs
+    const validIds = new Set(defs.map(d => d.id));
+    return [...set].filter(id => validIds.has(id as T));
   }
-  // Migrate from old keys
-  const oldKeyMap: Record<string, string> = {
-    overview_kpi: "overview_kpi_cards",
-    overview_insights: "overview_insight_panels",
-    overview_model_cols: "overview_model_comp_cols",
-    campaigns_kpi: "campaigns_kpi_cards",
-  };
-  try {
-    const oldKey = oldKeyMap[prefsKey];
-    if (oldKey) {
-      const old = localStorage.getItem(oldKey);
-      if (old) {
-        const parsed = JSON.parse(old) as string[];
-        const set = new Set(parsed);
-        alwaysOn.forEach(id => set.add(id));
-        const result = [...set];
-        // Migrate to new key
-        const p = loadCtPrefs();
-        p[prefsKey] = result;
-        saveCtPrefs(p);
-        localStorage.removeItem(oldKey);
-        return result;
-      }
-    }
-  } catch {}
   return defs.filter(d => d.alwaysOn || d.defaultOn).map(d => d.id);
 }
 
