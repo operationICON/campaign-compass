@@ -1031,10 +1031,11 @@ function KpiCards({
         );
       }
 
-      // ═══ OLD CARDS (kept in customize panel) ═══
+      // ═══ TOTAL REVENUE (uses accounts.ltv_total) ═══
       case "total_revenue": {
-        const totalTrackingRevenue = (isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0)) * revMultiplier;
-        const showDash = !isAllTime && !hasSnapshotData;
+        const accountsLtvRev = filtAccounts
+          .filter((a: any) => a.is_active !== false && Number(a.ltv_total || 0) > 0)
+          .reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier;
         return (
           <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
             <div className="flex items-center gap-2 mb-2">
@@ -1044,53 +1045,30 @@ function KpiCards({
               <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
               <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-white">{showDash ? "—" : fmtC(totalTrackingRevenue)}</p>
-            <p className="text-[11px] text-white/60 mt-1">{periodLabel}</p>
+            <p className="text-[22px] font-bold font-mono text-white">{fmtC(accountsLtvRev)}</p>
+            <p className="text-[11px] text-white/60 mt-1">All time · accounts revenue</p>
           </div>
         );
       }
 
-
-
-
-      case "ltv_30d_per_model": {
-        const sortedModels = [...accounts]
-          .sort((a, b) => (b.ltv_last_30d ?? 0) - (a.ltv_last_30d ?? 0));
+      // ═══ TOTAL SUBS ═══
+      case "total_subs": {
+        const totalSubsVal = filtAccounts
+          .filter((a: any) => a.is_active !== false)
+          .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
         return (
-          <div key={id} className="bg-card border border-border rounded-2xl p-5 col-span-2" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-1">
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Users className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">30D LTV per Model</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Subs</span>
             </div>
-            <p className="text-[11px] text-muted-foreground italic mb-3 ml-10">Revenue from new subscribers in last 30 days</p>
-            <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
-              {sortedModels.map((acc: any) => (
-                <div key={acc.id} className="flex items-center gap-2 text-[12px]">
-                  <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
-                    {acc.avatar_thumb_url ? (
-                      <img src={acc.avatar_thumb_url} alt="" className="w-full h-full object-cover rounded-full" />
-                    ) : (
-                      <span className="text-[10px] font-bold text-muted-foreground">{(acc.display_name || "?")[0].toUpperCase()}</span>
-                    )}
-                  </div>
-                  <span className="text-muted-foreground truncate">@{acc.username || acc.display_name}</span>
-                  <span className="ml-auto font-mono font-semibold shrink-0 text-muted-foreground">
-                    {acc.ltv_last_30d != null && acc.ltv_last_30d > 0
-                      ? <span className="text-[#0891b2]">{fmtC(acc.ltv_last_30d)}</span>
-                      : "—"}
-                  </span>
-                </div>
-              ))}
-              {sortedModels.length === 0 && <p className="text-[11px] text-muted-foreground">No models</p>}
-            </div>
+            <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Active subscribers across all models</p>
           </div>
         );
       }
-
-      default:
-        return null;
     }
   };
 
