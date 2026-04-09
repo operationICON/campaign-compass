@@ -1120,6 +1120,168 @@ function KpiCards({
           </div>
         );
       }
+
+      // ═══ EXPENSES ═══
+      case "expenses": {
+        const expVal = isAllTime ? allTimeSpend : totalSpend;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Expenses</span>
+            </div>
+            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(expVal)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · total ad spend" : `${periodLabel}${!isAllTime && !noDataForPeriod ? " · Est. spend" : ""}`}</p>
+          </div>
+        );
+      }
+
+      // ═══ AVG EXPENSES ═══
+      case "avg_expenses": {
+        const activePaidLinks = allLinks.filter((l: any) => {
+          const cost = Number(l.cost_total || 0);
+          if (cost <= 0) return false;
+          if (modelParam) return l.account_id === modelParam;
+          if (groupFilter !== "all") {
+            const acctIds = new Set(filtAccounts.map((a: any) => a.id));
+            return acctIds.has(l.account_id);
+          }
+          return true;
+        });
+        const avgExp = activePaidLinks.length > 0 ? allTimeSpend / activePaidLinks.length : null;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg Expenses</span>
+            </div>
+            {avgExp !== null ? (
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgExp)}</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">Average spend per paid campaign · All time</p>
+          </div>
+        );
+      }
+
+      // ═══ TOTAL PROFIT ═══
+      case "total_profit": {
+        const tpRev = isAllTime ? calcTotalRevFromTypes(filtAccounts) * revMultiplier : snapshotRevenue * revMultiplier;
+        const tpSpend = isAllTime ? allTimeSpend : totalSpend;
+        const tpVal = tpRev - tpSpend;
+        const isPositive = tpVal >= 0;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
+              <RevenueModeBadge mode={revenueMode} />
+            </div>
+            <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{fmtC(tpVal)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · revenue minus spend" : periodLabel}</p>
+          </div>
+        );
+      }
+
+      // ═══ ROI ═══
+      case "blended_roi": {
+        const roiRev = isAllTime ? calcTotalRevFromTypes(filtAccounts) * revMultiplier : snapshotRevenue * revMultiplier;
+        const roiSpend = isAllTime ? allTimeSpend : totalSpend;
+        const roiProfit = roiRev - roiSpend;
+        const roiVal = roiSpend > 0 ? (roiProfit / roiSpend) * 100 : null;
+        const isPositive = roiVal !== null && roiVal >= 0;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Percent className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">ROI</span>
+              <RevenueModeBadge mode={revenueMode} />
+            </div>
+            {roiVal !== null ? (
+              <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{roiVal.toFixed(1)}%</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · blended ROI" : periodLabel}</p>
+          </div>
+        );
+      }
+
+      // ═══ ACTIVE TRACKING LINKS ═══
+      case "active_campaigns": {
+        const activeCount = allLinks.filter((l: any) => {
+          if (modelParam) return l.account_id === modelParam;
+          if (groupFilter !== "all") {
+            const acctIds = new Set(filtAccounts.map((a: any) => a.id));
+            return acctIds.has(l.account_id);
+          }
+          return true;
+        }).length;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Active Tracking Links</span>
+            </div>
+            <p className="text-[22px] font-bold font-mono text-foreground">{activeCount}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Tracking links with data</p>
+          </div>
+        );
+      }
+
+      // ═══ BEST SOURCE ═══
+      case "best_source": {
+        const sourceMap: Record<string, number> = {};
+        const relevantLinks = allLinks.filter((l: any) => {
+          if (modelParam) return l.account_id === modelParam;
+          if (groupFilter !== "all") {
+            const acctIds = new Set(filtAccounts.map((a: any) => a.id));
+            return acctIds.has(l.account_id);
+          }
+          return true;
+        });
+        for (const l of relevantLinks) {
+          const src = l.source || l.traffic_source || "Unknown";
+          const rev = Number(l.revenue || 0);
+          const cost = Number(l.cost_total || 0);
+          const profit = rev * revMultiplier - cost;
+          sourceMap[src] = (sourceMap[src] || 0) + profit;
+        }
+        const sorted = Object.entries(sourceMap).sort((a, b) => b[1] - a[1]);
+        const bestSrc = sorted.length > 0 ? sorted[0] : null;
+        return (
+          <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Tag className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Best Source</span>
+            </div>
+            {bestSrc ? (
+              <>
+                <p className="text-[22px] font-bold font-mono text-foreground truncate">{bestSrc[0]}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Profit: {fmtC(bestSrc[1])} · All time</p>
+              </>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            )}
+          </div>
+        );
+      }
+
+      default:
+        return null;
     }
   };
 
