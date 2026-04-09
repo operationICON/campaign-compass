@@ -251,7 +251,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
                   <div><span className="text-muted-foreground block">Total Spend</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cost_total)}</span></div>
                   <div><span className="text-muted-foreground block">CPC</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cpc_real)}</span></div>
                   <div><span className="text-muted-foreground block">Cost/Sub</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cpl_real)}</span></div>
-                  <div><span className="text-muted-foreground block">LTV/Sub</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.arpu)}</span></div>
+                  <div><span className="text-muted-foreground block">LTV/New Sub</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.arpu)}</span></div>
                 </div>
                 <div className="border-t border-border pt-2 flex items-center justify-between">
                   <div className="text-xs">

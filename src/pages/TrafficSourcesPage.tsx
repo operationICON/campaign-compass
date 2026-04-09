@@ -1285,7 +1285,7 @@ export default function TrafficSourcesPage() {
                                       { l: "Subs", v: subsEl.toLocaleString(), c: "" },
                                       { l: "LTV", v: hasDetailLtv ? fmtC(ltvVal ?? 0) : "—", c: ltvVal !== null && ltvVal > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" },
                                       { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" },
-                                      { l: "LTV/Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "" : "hsl(var(--muted-foreground))" },
+                                      { l: "LTV/New Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "" : "hsl(var(--muted-foreground))" },
                                       { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
                                       { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "hsl(var(--success))" : spenderRateVal >= 5 ? "hsl(var(--warning))" : spenderRateVal > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" },
                                     ].map(r => (

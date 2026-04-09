@@ -418,7 +418,8 @@ function DrawerBodyInner({
               <DataRow label="Cross-Poll LTV" value={hasLtvData ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
               <DataRow label="New Fans" value={hasLtvData ? newSubs.toLocaleString() : "—"} />
               <DataRow label="Existing Fans" value={hasLtvData ? (existingFans > 0 ? existingFans.toLocaleString() : "0") : "—"} />
-              <DataRow label="LTV/Sub" value={hasLtvData && ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+              <DataRow label="LTV/New Sub" value={hasLtvData && ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+              {(() => { const allSubs = Number(d.subscribers || 0); const allRev = Number(d.revenue || 0); const ltvSubAll = allSubs > 0 ? allRev / allSubs : null; return <DataRow label="LTV/Sub" value={ltvSubAll != null && ltvSubAll > 0 ? fmtC2(ltvSubAll) : "—"} tone={ltvSubAll != null && ltvSubAll > 0 ? "positive" : "neutral"} />; })()}
               <DataRow label="Org %" value={showPct(orgPct)} />
               <DataRow label="Spender Rate" value={showPct(spenderRate)} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
               <DataRow label="Total Subs" value={tlSubscribers > 0 ? tlSubscribers.toLocaleString() : "—"} />
