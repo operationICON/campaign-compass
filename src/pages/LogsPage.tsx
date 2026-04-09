@@ -10,7 +10,7 @@ import {
   BarChart3, Camera, Users, Truck, Play,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
-import { FanSyncModal } from "@/components/dashboard/FanSyncModal";
+
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
