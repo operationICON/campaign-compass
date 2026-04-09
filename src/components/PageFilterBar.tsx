@@ -1,6 +1,7 @@
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
-import { TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
+import { TIME_PERIODS, type TimePeriod, type RevenueMode } from "@/hooks/usePageFilters";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface PageFilterBarProps {
   timePeriod: TimePeriod;
@@ -10,6 +11,8 @@ interface PageFilterBarProps {
   modelFilter: string;
   onModelFilterChange: (v: string) => void;
   accounts: { id: string; username: string; display_name: string; avatar_thumb_url?: string | null }[];
+  revenueMode?: RevenueMode;
+  onRevenueModeChange?: (mode: RevenueMode) => void;
 }
 
 export function PageFilterBar({
@@ -20,6 +23,8 @@ export function PageFilterBar({
   modelFilter,
   onModelFilterChange,
   accounts,
+  revenueMode,
+  onRevenueModeChange,
 }: PageFilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -52,6 +57,38 @@ export function PageFilterBar({
         value={customRange}
         onChange={(range) => onCustomRangeChange(range)}
       />
+
+      {revenueMode && onRevenueModeChange && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+              <button
+                onClick={() => onRevenueModeChange("gross")}
+                className={`px-3 py-2 text-xs font-medium transition-colors ${
+                  revenueMode === "gross"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Gross
+              </button>
+              <button
+                onClick={() => onRevenueModeChange("net")}
+                className={`px-3 py-2 text-xs font-medium transition-colors ${
+                  revenueMode === "net"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Net
+              </button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[220px] text-center">
+            OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
+          </TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 }

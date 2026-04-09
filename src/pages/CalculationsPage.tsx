@@ -114,7 +114,7 @@ function LoadingRow() {
 }
 
 export default function CalculationsPage() {
-  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
 
   const { data: allAccounts = [] } = useQuery({ queryKey: ["calc_accounts_list"], queryFn: fetchAccountsHelper });
 
@@ -291,6 +291,8 @@ export default function CalculationsPage() {
           modelFilter={modelFilter}
           onModelFilterChange={setModelFilter}
           accounts={allAccounts.map((a: any) => ({ id: a.id, username: a.username || "", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+          revenueMode={revenueMode}
+          onRevenueModeChange={setRevenueMode}
         />
 
         {/* SECTION 1 — Revenue Reconciliation */}

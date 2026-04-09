@@ -20,6 +20,8 @@ import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } fro
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import type { TimePeriod } from "@/hooks/usePageFilters";
+import { RevenueModeBadge } from "@/components/RevenueModeBadge";
+import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface OverviewSnapshotRange {
   from: string;
@@ -67,6 +69,14 @@ export default function DashboardPage() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [revenueMode, setRevenueMode] = useState<"gross" | "net">(() => {
+    try { const v = localStorage.getItem("global_revenue_mode"); if (v === "net") return "net"; } catch {} return "gross";
+  });
+  const revMultiplier = revenueMode === "net" ? 0.80 : 1;
+  const handleRevenueModeChange = (mode: "gross" | "net") => {
+    setRevenueMode(mode);
+    try { localStorage.setItem("global_revenue_mode", mode); } catch {}
+  };
 
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
@@ -599,6 +609,33 @@ export default function DashboardPage() {
             }}
           />
 
+          {/* Gross / Net toggle */}
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => handleRevenueModeChange("gross")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "gross" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Gross
+                </button>
+                <button
+                  onClick={() => handleRevenueModeChange("net")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "net" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Net
+                </button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[220px] text-center">
+              OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
+            </TooltipContent>
+          </UITooltip>
+
           {/* Active filter count */}
           {activeFilterCount > 0 && (
             <button
@@ -680,6 +717,8 @@ export default function DashboardPage() {
             return accountRev - campaignRev;
           })()}
           trackingLinkLtv={trackingLinkLtv}
+          revMultiplier={revMultiplier}
+          revenueMode={revenueMode}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
@@ -731,7 +770,7 @@ function KpiCards({
   totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
-  trackingLinkLtv,
+  trackingLinkLtv, revMultiplier, revenueMode,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
@@ -759,6 +798,8 @@ function KpiCards({
   hasSnapshotData: boolean;
   organicRevenue: number;
   trackingLinkLtv: any[];
+  revMultiplier: number;
+  revenueMode: "gross" | "net";
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
@@ -855,12 +896,10 @@ function KpiCards({
       case "profit_per_sub": {
         let profitPerSub: number | null = null;
         if (isAllTime) {
-          const profit = allTimeRevenue - allTimeSpend;
+          const profit = allTimeRevenue * revMultiplier - allTimeSpend;
           profitPerSub = allTimeTotalSubs > 0 && allTimeSpend > 0 ? profit / allTimeTotalSubs : null;
         } else if (hasSnapshotData) {
-          // Period: snapshot revenue - no daily spend breakdown available
-          profitPerSub = snapshotSubs > 0 ? snapshotRevenue / snapshotSubs : null;
-          // Can't subtract spend for period, show revenue/sub as proxy
+          profitPerSub = snapshotSubs > 0 ? (snapshotRevenue * revMultiplier) / snapshotSubs : null;
         } else {
           profitPerSub = null;
         }
@@ -873,6 +912,7 @@ function KpiCards({
                 <TrendingUp className="h-4 w-4 text-white" />
               </div>
               <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Profit/Sub</span>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
             </div>
             {showDash ? (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
@@ -888,9 +928,9 @@ function KpiCards({
       case "ltv_per_sub": {
         let ltvPerSub: number | null = null;
         if (isAllTime) {
-          ltvPerSub = allTimeTotalSubs > 0 ? allTimeRevenue / allTimeTotalSubs : null;
+          ltvPerSub = allTimeTotalSubs > 0 ? (allTimeRevenue * revMultiplier) / allTimeTotalSubs : null;
         } else if (hasSnapshotData) {
-          ltvPerSub = snapshotSubs > 0 ? snapshotRevenue / snapshotSubs : null;
+          ltvPerSub = snapshotSubs > 0 ? (snapshotRevenue * revMultiplier) / snapshotSubs : null;
         }
         const showDash = ltvPerSub === null || (!isAllTime && !hasSnapshotData);
         return (
@@ -900,6 +940,7 @@ function KpiCards({
                 <Users className="h-4 w-4 text-primary" />
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
+              <RevenueModeBadge mode={revenueMode} />
             </div>
             {showDash ? (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
@@ -995,7 +1036,7 @@ function KpiCards({
 
       // ═══ OLD CARDS (kept in customize panel) ═══
       case "total_revenue": {
-        const totalTrackingRevenue = isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0);
+        const totalTrackingRevenue = (isAllTime ? allTimeRevenue : (hasSnapshotData ? snapshotRevenue : 0)) * revMultiplier;
         const showDash = !isAllTime && !hasSnapshotData;
         return (
           <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
@@ -1004,6 +1045,7 @@ function KpiCards({
                 <DollarSign className="h-4 w-4 text-white" />
               </div>
               <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Total Revenue</span>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
             </div>
             <p className="text-[22px] font-bold font-mono text-white">{showDash ? "—" : fmtC(totalTrackingRevenue)}</p>
             <p className="text-[11px] text-white/60 mt-1">{periodLabel}</p>

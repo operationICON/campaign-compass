@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
+import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -51,7 +52,7 @@ export default function AccountsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
@@ -687,6 +688,8 @@ export default function AccountsPage() {
           modelFilter={pageModelFilter}
           onModelFilterChange={setPageModelFilter}
           accounts={accountOptions}
+          revenueMode={revenueMode}
+          onRevenueModeChange={setRevenueMode}
         />
 
         {/* Filter pills + sort dropdown */}
@@ -812,12 +815,12 @@ export default function AccountsPage() {
                       {stats.untrackedPct != null ? fmtPct(stats.untrackedPct) : "—"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">LTV/Sub</span>
+                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
                         const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                        const totalRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+                        const totalRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier;
                         const subsCount = Number(acc.subscribers_count || 0);
                         const val = subsCount > 0 ? totalRev / subsCount : null;
                         return val != null ? fmtCurrency(val) : "—";
@@ -829,9 +832,18 @@ export default function AccountsPage() {
                     <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Profit/Sub</span>
+                    <span className="text-muted-foreground">Profit/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className={`font-mono font-semibold ${stats.profitPerSub != null ? (stats.profitPerSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                      {stats.profitPerSub != null ? fmtCurrency(stats.profitPerSub) : "—"}
+                      {(() => {
+                        if (stats.profitPerSub == null) return "—";
+                        // Recalculate with multiplier: profit = (revenue * mult - spend) / subs
+                        const periodLtv = stats.totalLtv;
+                        const periodSpend = stats.totalSpend;
+                        const subs = stats.trackedSubs || stats.apiSubs || 0;
+                        if (periodLtv == null || periodSpend == null || subs <= 0) return fmtCurrency(stats.profitPerSub);
+                        const adjustedProfit = (periodLtv * revMultiplier) - periodSpend;
+                        return fmtCurrency(adjustedProfit / subs);
+                      })()}
                     </span>
                   </div>
                 </div>
