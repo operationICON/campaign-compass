@@ -452,11 +452,11 @@ export default function AccountsPage() {
               <div className="md:w-[70%] p-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   {[
-                    { label: "Total Revenue", value: fmtCurrency(stats.totalRevenue || 0) },
-                    { label: "Total LTV", value: stats.totalLtv != null ? fmtCurrency(stats.totalLtv) : "—", accent: (stats.totalLtv || 0) > 0 },
-                    { label: "Last 30d LTV", value: stats.ltv30d != null ? fmtCurrency(stats.ltv30d) : "—" },
+                    { label: "Total Revenue", value: fmtCurrency(Number(acc.ltv_total || 0) * revMultiplier) },
+                    { label: "Campaign Rev", value: fmtCurrency(stats.totalRevenue * revMultiplier || 0) },
+                    { label: "New Fan LTV", value: stats.totalLtvAllTime > 0 ? fmtCurrency(stats.totalLtvAllTime * revMultiplier) : "—", accent: stats.totalLtvAllTime > 0 },
                     { label: "Total Spend", value: fmtCurrency(stats.totalSpendAllTime || 0) },
-                    { label: "Total Profit", value: stats.totalProfit != null ? fmtCurrency(stats.totalProfit) : "—", positive: (stats.totalProfit || 0) >= 0 },
+                    { label: "Total Profit", value: (() => { const p = Number(acc.ltv_total || 0) * revMultiplier - (stats.totalSpendAllTime || 0); return fmtCurrency(p); })(), positive: (Number(acc.ltv_total || 0) * revMultiplier - (stats.totalSpendAllTime || 0)) >= 0 },
                   ].map((s) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
