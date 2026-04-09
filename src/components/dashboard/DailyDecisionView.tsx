@@ -261,7 +261,7 @@ export function DailyDecisionView({
             <p className="text-[11px] font-mono font-medium text-foreground">{fmtC(l.periodRev)}</p>
           </div>
           <div>
-            <p className="text-[9px] text-muted-foreground uppercase">LTV/Sub</p>
+            <p className="text-[9px] text-muted-foreground uppercase">LTV/New Sub</p>
             <p className="text-[11px] font-mono font-medium text-foreground">{fmtC2(l.ltvPerSub)}</p>
           </div>
           <div>
@@ -332,7 +332,7 @@ export function DailyDecisionView({
               <div className="px-4 py-3 border-r border-border">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Best LTV/Sub</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Best LTV/New Sub</span>
                 </div>
                 {bestLtvSub ? (
                   <>
@@ -424,7 +424,7 @@ export function DailyDecisionView({
             {/* Top 5 by LTV/Sub */}
             <div className="p-4 border-b border-border">
               <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Zap className="h-3.5 w-3.5 text-primary" /> Top 5 by LTV/Sub
+                <Zap className="h-3.5 w-3.5 text-primary" /> Top 5 by LTV/New Sub
               </h4>
               {topLtvPerSub.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No data yet</p>
@@ -465,7 +465,7 @@ export function DailyDecisionView({
                       <span>Model</span>
                       <span>Subs/Day</span>
                       <span>Est. Daily Spend</span>
-                      <span>LTV/Sub</span>
+                      <span>LTV/New Sub</span>
                       <span>Profit/Sub</span>
                     </div>
                     {modelSnapshot.map((m: any) => (

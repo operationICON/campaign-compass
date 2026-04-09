@@ -60,7 +60,7 @@ import { TrackingLinkPanel } from "@/components/dashboard/TrackingLinkPanel";
 import { Pencil } from "lucide-react";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
@@ -74,7 +74,8 @@ const ALL_COLUMNS = [
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
   { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
-  { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
+  { id: "ltv_sub", label: "LTV/New Sub", defaultOn: true },
+  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
@@ -523,6 +524,11 @@ export default function CampaignsPage() {
         case "subscribers": aVal = Number(a.subscribers || 0); bVal = Number(b.subscribers || 0); break;
         case "cvr": aVal = Number(a.clicks) > 0 ? (a.subscribers / a.clicks) : -Infinity; bVal = Number(b.clicks) > 0 ? (b.subscribers / b.clicks) : -Infinity; break;
         case "media_buyer": aVal = (a.media_buyer || "zzz").toLowerCase(); bVal = (b.media_buyer || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        case "ltv_sub_all": {
+          const aR = Number(a.revenue || 0), aS = Number(a.subscribers || 0);
+          const bR = Number(b.revenue || 0), bS = Number(b.subscribers || 0);
+          aVal = aS > 0 ? aR / aS : -Infinity; bVal = bS > 0 ? bR / bS : -Infinity; break;
+        }
         default: aVal = 0; bVal = 0;
       }
       return sortAsc ? aVal - bVal : bVal - aVal;
@@ -955,7 +961,22 @@ export default function CampaignsPage() {
                                 </div>
                               </th>
                             );
-                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
+                            case "ltv_sub": return (
+                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "85px" }}>
+                                <div className="flex items-center justify-end gap-1">
+                                  LTV/New Sub
+                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Revenue attributed to new subscribers only, from tracking_link_ltv</TooltipContent></Tooltip>
+                                </div>
+                              </th>
+                            );
+                            case "ltv_sub_all": return (
+                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>
+                                <div className="flex items-center justify-end gap-1">
+                                  LTV/Sub
+                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Total revenue divided by all subscribers for the selected period</TooltipContent></Tooltip>
+                                </div>
+                              </th>
+                            );
                             case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
@@ -1097,26 +1118,49 @@ export default function CampaignsPage() {
                                   );
                                 }
                                 case "ltv_sub": {
-                                  // All Time: total_ltv / new_subs_total
-                                  // Period: period revenue / period subs
-                                  let ltvSubVal: number | null = null;
-                                  if (isAllTime) {
-                                    ltvSubVal = link.ltvRecord ? Number(link.ltvRecord.ltv_per_sub || 0) : null;
-                                  } else {
-                                    const pSubs = Number(link.subscribers || 0);
-                                    const pRev = Number(link.revenue || 0);
-                                    ltvSubVal = pSubs > 0 ? pRev / pSubs : null;
+                                  // LTV/New Sub: always from tracking_link_ltv
+                                  let ltvNewSubVal: number | null = null;
+                                  if (link.ltvRecord) {
+                                    const ns = Number(link.ltvRecord.new_subs_total || 0);
+                                    const tl = Number(link.ltvRecord.total_ltv || 0);
+                                    ltvNewSubVal = ns > 0 ? tl / ns : null;
                                   }
-                                  const showLtvSubDash = ltvSubVal === null || ltvSubVal === 0;
+                                  const showNewSubDash = ltvNewSubVal === null || ltvNewSubVal === 0;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span className="text-foreground">
-                                          {showLtvSubDash ? "—" : fmtC(ltvSubVal!)}
+                                          {showNewSubDash ? "—" : fmtC(ltvNewSubVal!)}
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>{isAllTime ? "Average LTV per new subscriber" : "Period revenue per period subscriber"}</TooltipContent>
+                                      <TooltipContent>Revenue attributed to new subscribers only, from tracking_link_ltv</TooltipContent>
+                                    </Tooltip>
+                                  </td>
+                                  );
+                                }
+                                case "ltv_sub_all": {
+                                  // LTV/Sub: revenue / subscribers for selected period
+                                  let ltvSubAllVal: number | null = null;
+                                  if (isAllTime) {
+                                    const totalRev = Number(link.revenue || 0);
+                                    const totalSubs = Number(link.subscribers || 0);
+                                    ltvSubAllVal = totalSubs > 0 ? totalRev / totalSubs : null;
+                                  } else {
+                                    const pRev = Number(link.revenue || 0);
+                                    const pSubs = Number(link.subscribers || 0);
+                                    ltvSubAllVal = pSubs > 0 ? pRev / pSubs : null;
+                                  }
+                                  const showAllDash = ltvSubAllVal === null || ltvSubAllVal === 0;
+                                  return (
+                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-foreground">
+                                          {showAllDash ? "—" : fmtC(ltvSubAllVal!)}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Total revenue divided by all subscribers for the selected period</TooltipContent>
                                     </Tooltip>
                                   </td>
                                   );
@@ -1391,7 +1435,7 @@ export default function CampaignsPage() {
                                             { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
                                             { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-primary" : "text-muted-foreground" },
                                             { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "text-primary" : "text-muted-foreground" },
-                                            { l: "LTV/Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
+                                            { l: "LTV/New Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
                                             { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "text-primary" : "text-muted-foreground" },
                                             { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "text-success" : spenderRateVal >= 5 ? "text-warning" : spenderRateVal > 0 ? "text-destructive" : "text-muted-foreground" },
                                           ].map(r => (

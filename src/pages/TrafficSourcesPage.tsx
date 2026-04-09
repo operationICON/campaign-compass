@@ -52,7 +52,7 @@ function loadAnalysisVisibility(): Set<SourceAnalysisId> {
   return new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id));
 }
 
-type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created" | "notes";
+type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "ltv_sub_all" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created" | "notes";
 type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
 
 type KpiId = "total_sources" | "tagged" | "untagged" | "total_spend" | "total_revenue" | "blended_roi"
@@ -93,7 +93,8 @@ const TS_COLUMNS: ColumnDef[] = [
   { id: "cvr", label: "CVR", defaultOn: true },
   { id: "revenue", label: "Revenue", defaultOn: true },
   { id: "ltv", label: "LTV", defaultOn: true },
-  { id: "ltv_per_sub", label: "LTV/Sub", defaultOn: true },
+  { id: "ltv_per_sub", label: "LTV/New Sub", defaultOn: true },
+  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "expenses", label: "Spend", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_per_sub", label: "Profit/Sub", defaultOn: true },
@@ -1030,7 +1031,7 @@ export default function TrafficSourcesPage() {
                   </th>
                   <SortHeader label="Tracking Link" k="campaign_name" />
                   {columnOrder.visibleOrderedColumns.map(c => {
-                    const rightAligned = ["clicks","subscribers","cvr","revenue","ltv","ltv_per_sub","expenses","profit","profit_per_sub","roi","subs_day"].includes(c.id);
+                    const rightAligned = ["clicks","subscribers","cvr","revenue","ltv","ltv_per_sub","ltv_sub_all","expenses","profit","profit_per_sub","roi","subs_day"].includes(c.id);
                     const sortMap: Record<string, SortKey> = { clicks: "clicks", subscribers: "subscribers", cvr: "cvr", revenue: "revenue", ltv: "ltv", expenses: "cost_total", profit: "profit", roi: "roi", source: "source_tag", created: "created_at" };
                     const sk = sortMap[c.id];
                     if (sk) return <SortHeader key={c.id} label={c.label} k={sk} align={rightAligned ? "right" : undefined} />;
@@ -1129,6 +1130,12 @@ export default function TrafficSourcesPage() {
                           case "revenue": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>{fmtC(Number(link.revenue || 0))}</td>;
                           case "ltv": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltv !== null && ltv > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltv ?? 0) : "—"}</td>;
                           case "ltv_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvPerSub !== null && ltvPerSub > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{hasLtvRecord ? fmtC(ltvPerSub ?? 0) : "—"}</td>;
+                          case "ltv_sub_all": {
+                            const revAll = Number(link.revenue || 0);
+                            const subsAll = Number(link.subscribers || 0);
+                            const ltvSubAllVal = subsAll > 0 ? revAll / subsAll : null;
+                            return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: ltvSubAllVal !== null && ltvSubAllVal > 0 ? "" : "hsl(var(--muted-foreground))" }}>{ltvSubAllVal != null && ltvSubAllVal > 0 ? fmtC(ltvSubAllVal) : "—"}</td>;
+                          }
                           case "expenses": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: costTotal > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{costTotal > 0 ? fmtC(costTotal) : "—"}</td>;
                           case "profit": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profit !== null && profit > 0 ? "hsl(var(--success))" : profit !== null && profit < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
                           case "profit_per_sub": return <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px", color: profitPerSub !== null && profitPerSub > 0 ? "hsl(var(--success))" : profitPerSub !== null && profitPerSub < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{profitPerSub !== null ? fmtC(profitPerSub) : "—"}</td>;
@@ -1278,7 +1285,7 @@ export default function TrafficSourcesPage() {
                                       { l: "Subs", v: subsEl.toLocaleString(), c: "" },
                                       { l: "LTV", v: hasDetailLtv ? fmtC(ltvVal ?? 0) : "—", c: ltvVal !== null && ltvVal > 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" },
                                       { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" },
-                                      { l: "LTV/Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "" : "hsl(var(--muted-foreground))" },
+                                      { l: "LTV/New Sub", v: hasDetailLtv ? fmtC(ltvSubVal ?? 0) : "—", c: ltvSubVal !== null && ltvSubVal > 0 ? "" : "hsl(var(--muted-foreground))" },
                                       { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c },
                                       { l: "Spender%", v: spenderRateVal > 0 ? `${spenderRateVal.toFixed(1)}%` : "—", c: spenderRateVal > 10 ? "hsl(var(--success))" : spenderRateVal >= 5 ? "hsl(var(--warning))" : spenderRateVal > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" },
                                     ].map(r => (

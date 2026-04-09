@@ -41,7 +41,7 @@ type CardSortKey = "spend" | "ltv_per_sub" | "subscribers" | "active_links" | "a
 
 const CARD_SORT_OPTIONS: { key: CardSortKey; label: string }[] = [
   { key: "spend", label: "Top Spenders" },
-  { key: "ltv_per_sub", label: "Highest LTV/Sub" },
+  { key: "ltv_per_sub", label: "Highest LTV/New Sub" },
   { key: "subscribers", label: "Most Subscribers" },
   { key: "active_links", label: "Most Active Links" },
   { key: "alpha", label: "Alphabetical" },
@@ -813,7 +813,7 @@ export default function AccountsPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">LTV/Sub</span>
+                    <span className="text-muted-foreground">LTV/New Sub</span>
                     <span className="font-mono font-semibold text-primary">
                       {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub) : "—"}
                     </span>

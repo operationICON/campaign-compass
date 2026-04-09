@@ -27,7 +27,7 @@ interface ItemDef<T extends string> {
 
 const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "profit_sub", label: "Profit/Sub", alwaysOn: true },
-  { id: "ltv_sub", label: "LTV/Sub", alwaysOn: true },
+  { id: "ltv_sub", label: "LTV/New Sub", alwaysOn: true },
   { id: "avg_cpl", label: "Avg CPL", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
   { id: "unattributed", label: "Unattributed Subs %", defaultOn: false },
