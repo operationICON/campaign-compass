@@ -147,6 +147,29 @@ export default function FansPage() {
   };
 
   const selectedAccount = selectedModelId ? accounts.find(a => a.id === selectedModelId) : null;
+
+  const handleModelRefresh = async () => {
+    if (!selectedAccount) return;
+    setModelRefreshing(true);
+    try {
+      const { error } = await supabase.functions.invoke("refresh-chatting-team", {
+        body: {
+          account_id: selectedAccount.id,
+          external_account_id: (selectedAccount as any).onlyfans_account_id,
+        },
+      });
+      if (error) throw error;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["chatting_team_new_fans"] }),
+        queryClient.invalidateQueries({ queryKey: ["chatting_team_chats"] }),
+      ]);
+      toast.success(`Refreshed — ${selectedAccount.display_name}`);
+    } catch {
+      toast.error("Refresh failed — try again");
+    } finally {
+      setModelRefreshing(false);
+    }
+  };
   const modelFans = selectedModelId ? (fansByAccount[selectedModelId] || []) : [];
   const modelChats = selectedModelId ? (chatsByAccount[selectedModelId] || []) : [];
 
