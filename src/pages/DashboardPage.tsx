@@ -1026,7 +1026,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Subs not attributed to tracking links · All time</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Revenue not attributed to tracking links · All time</p>
           </div>
         );
       }
