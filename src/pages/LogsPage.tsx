@@ -76,6 +76,7 @@ export default function LogsPage() {
   // Running state per sync type
   const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false });
   const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "" });
+  const abortRefs = useRef<Record<string, AbortController>>({});
 
   useEffect(() => {
     const channel = supabase
