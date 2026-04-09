@@ -42,7 +42,7 @@ type CardSortKey = "spend" | "ltv_per_sub" | "subscribers" | "active_links" | "a
 
 const CARD_SORT_OPTIONS: { key: CardSortKey; label: string }[] = [
   { key: "spend", label: "Top Spenders" },
-  { key: "ltv_per_sub", label: "Highest LTV/New Sub" },
+  { key: "ltv_per_sub", label: "Highest LTV/Sub" },
   { key: "subscribers", label: "Most Subscribers" },
   { key: "active_links", label: "Most Active Links" },
   { key: "alpha", label: "Alphabetical" },
@@ -59,7 +59,7 @@ export default function AccountsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
-  const [cardSort, setCardSort] = useState<CardSortKey>("spend");
+  const [cardSort, setCardSort] = useState<CardSortKey>("ltv_per_sub");
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
@@ -307,7 +307,7 @@ export default function AccountsPage() {
             return (sb.totalSpendAllTime || 0) - (sa.totalSpendAllTime || 0);
           return (sb.ltvPerSub || 0) - (sa.ltvPerSub || 0);
         case "ltv_per_sub":
-          return (sb.ltvPerSub || 0) - (sa.ltvPerSub || 0);
+          return ((Number(b.ltv_total || 0) / Math.max(Number(b.subscribers_count || 0), 1))) - ((Number(a.ltv_total || 0) / Math.max(Number(a.subscribers_count || 0), 1)));
         case "subscribers":
           return (sb.apiSubs || 0) - (sa.apiSubs || 0);
         case "active_links":
