@@ -36,19 +36,66 @@ async function apiFetchAllPages(path: string, apiKey: string, maxPages = 100): P
     const data = json.data
     if (data && Array.isArray(data.list)) {
       allItems.push(...data.list)
-      const nextPage = json._pagination?.next_page ?? null
+      const nextPage = json._pagination?.next_page ?? json._meta?._pagination?.next_page ?? null
       const hasMore = data.hasMore === true
       currentUrl = (hasMore && nextPage) ? nextPage : null
     } else if (data && Array.isArray(data)) {
       allItems.push(...data)
-      currentUrl = json._pagination?.next_page ?? null
+      currentUrl = json._pagination?.next_page ?? json._meta?._pagination?.next_page ?? null
     } else {
       break
     }
+
+    // Small delay between pages to avoid rate limiting
+    await new Promise(r => setTimeout(r, 300))
   }
 
   console.log(`Fetched ${allItems.length} items from ${path} in ${page} pages`)
   return allItems
+}
+
+// Dedicated tracking links pagination — follows next_page until null
+async function fetchAllTrackingLinks(ofAccountId: string, apiKey: string): Promise<any[]> {
+  const allLinks: any[] = []
+  let url: string | null = `/${ofAccountId}/tracking-links?limit=50`
+  let page = 0
+
+  while (url) {
+    page++
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`
+    console.log(`Tracking links page ${page}: ${fullUrl}`)
+    const res = await fetch(fullUrl, { headers: apiHeaders(apiKey) })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`Tracking links API returned ${res.status}: ${body}`)
+    }
+    const json = await res.json()
+
+    const links = json?.data?.list || []
+    if (links.length === 0) break
+
+    allLinks.push(...links)
+
+    // Follow next_page until null — check both _pagination and _meta._pagination
+    const nextPage = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null
+    if (nextPage) {
+      try {
+        const parsed = new URL(nextPage)
+        url = parsed.pathname + parsed.search
+      } catch {
+        // If it's already a relative path
+        url = nextPage
+      }
+    } else {
+      url = null
+    }
+
+    // Small delay between pages to avoid rate limiting
+    await new Promise(r => setTimeout(r, 300))
+  }
+
+  console.log(`Fetched ${allLinks.length} tracking links for ${ofAccountId} in ${page} pages`)
+  return allLinks
 }
 
 async function apiFetch(path: string, apiKey: string): Promise<any> {
@@ -232,8 +279,8 @@ Deno.serve(async (req) => {
         const upsertedLinks: any[] = [] // Collect for LTV sync
 
         try {
-          const items = await apiFetchAllPages(`/${acctId}/tracking-links?limit=50`, apiKey)
-          console.log(`Got ${items.length} tracking links for ${acctId}`)
+          const items = await fetchAllTrackingLinks(acctId, apiKey)
+          console.log(`Account ${account.display_name}: ${items.length} tracking links fetched`)
 
           const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? 'Unknown'))]
           const { data: existingCampaigns } = await db.from('campaigns')
