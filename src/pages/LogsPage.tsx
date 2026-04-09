@@ -242,27 +242,39 @@ export default function LogsPage() {
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
             return (
-              <Button
-                key={type}
-                variant="outline"
-                onClick={syncHandlers[type]}
-                disabled={isRunning}
-                className={`h-auto py-4 px-4 flex flex-col items-center gap-2 ${colors.border} hover:${colors.bg} transition-all`}
-              >
-                {isRunning ? (
-                  <Loader2 className={`h-5 w-5 animate-spin ${colors.text}`} />
-                ) : (
-                  <Icon className={`h-5 w-5 ${colors.text}`} />
-                )}
-                <span className="text-sm font-semibold text-foreground">
-                  Sync {SYNC_LABELS[type]}
-                </span>
-                {isRunning && progress[type] && (
-                  <span className="text-[10px] text-muted-foreground text-center truncate max-w-full">
-                    {progress[type]}
+              <div key={type} className="flex flex-col gap-1.5">
+                <Button
+                  variant="outline"
+                  onClick={syncHandlers[type]}
+                  disabled={isRunning}
+                  className={`h-auto py-4 px-4 flex flex-col items-center gap-2 ${colors.border} hover:${colors.bg} transition-all`}
+                >
+                  {isRunning ? (
+                    <Loader2 className={`h-5 w-5 animate-spin ${colors.text}`} />
+                  ) : (
+                    <Icon className={`h-5 w-5 ${colors.text}`} />
+                  )}
+                  <span className="text-sm font-semibold text-foreground">
+                    Sync {SYNC_LABELS[type]}
                   </span>
+                  {isRunning && progress[type] && (
+                    <span className="text-[10px] text-muted-foreground text-center truncate max-w-full">
+                      {progress[type]}
+                    </span>
+                  )}
+                </Button>
+                {isRunning && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => stopSync(type)}
+                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                  >
+                    <Square className="h-3 w-3" />
+                    Stop
+                  </Button>
                 )}
-              </Button>
+              </div>
             );
           })}
         </div>
