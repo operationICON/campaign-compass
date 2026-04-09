@@ -816,7 +816,7 @@ export default function AccountsPage() {
                     </span>
                   </div>
                    <div className="flex justify-between">
-                    <span className="text-muted-foreground">LTV/Sub</span>
+                    <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
                         const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
