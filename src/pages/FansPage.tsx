@@ -324,6 +324,11 @@ export default function FansPage() {
                 <StatPill label="New Fans" value={modelFans.length} color="text-primary bg-primary/10" />
                 <StatPill label="Chatted" value={modelChats.length} color="text-blue-400 bg-blue-500/10" />
                 <StatPill label="Unread" value={modelChats.filter(c => c.is_unread).length} color="text-amber-400 bg-amber-500/10" />
+                <button onClick={handleModelRefresh} disabled={modelRefreshing}
+                  className="h-8 px-3 text-[11px] font-medium rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                  <RefreshCw className={`h-3 w-3 ${modelRefreshing ? "animate-spin" : ""}`} />
+                  {modelRefreshing ? "Refreshing..." : "Refresh"}
+                </button>
               </div>
             </div>
 
