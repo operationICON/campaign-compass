@@ -179,8 +179,10 @@ export function DailyDecisionView({
 
   const topEarner = useMemo(() => {
     let best: any = null;
+    let bestRev = 0;
     for (const l of enriched) {
-      if (l.totalLtv > 0 && (!best || l.totalLtv > best.totalLtv)) best = l;
+      const rev = Number(l.revenue || 0);
+      if (rev > bestRev) { best = l; bestRev = rev; }
     }
     return best;
   }, [enriched]);
@@ -358,7 +360,7 @@ export function DailyDecisionView({
                 </div>
                 {topEarner ? (
                   <>
-                    <p className="text-sm font-bold text-foreground truncate">{fmtC(topEarner.totalLtv)}</p>
+                    <p className="text-sm font-bold text-foreground truncate">{fmtC(Number(topEarner.revenue || 0))}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{topEarner.campaign_name}</p>
                   </>
                 ) : <p className="text-sm font-bold text-muted-foreground">—</p>}

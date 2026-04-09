@@ -4,10 +4,10 @@ import { Settings2, Lock } from "lucide-react";
 // ── KPI Card IDs ──
 export type OverviewKpiCardId =
   | "profit_per_sub" | "ltv_per_sub" | "cpl" | "subs_per_day" | "unattributed_pct"
-  | "total_revenue"
+  | "total_revenue" | "total_subs"
   | "expenses" | "avg_expenses"
   | "total_profit" | "blended_roi" | "active_campaigns"
-  | "best_source" | "ltv_30d_per_model";
+  | "best_source";
 
 // ── Insight Panel IDs ──
 export type InsightPanelId =
@@ -40,7 +40,7 @@ const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
   { id: "blended_roi", label: "ROI", defaultOn: false },
   { id: "active_campaigns", label: "Active Tracking Links", defaultOn: false },
   { id: "best_source", label: "Best Source", defaultOn: false },
-  { id: "ltv_30d_per_model", label: "30D LTV Per Model", defaultOn: false },
+  { id: "total_subs", label: "Total Subs", defaultOn: false },
 ];
 
 const INSIGHT_PANELS: ItemDef<InsightPanelId>[] = [
