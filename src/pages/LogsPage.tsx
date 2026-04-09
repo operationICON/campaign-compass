@@ -188,7 +188,7 @@ export default function LogsPage() {
   const syncHandlers: Record<SyncType, () => void> = {
     dashboard: runDashboardSync,
     snapshot: runSnapshotSync,
-    ltv: runLtvSync,
+    
     onlytraffic: runOnlyTrafficSync,
   };
 
