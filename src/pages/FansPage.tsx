@@ -5,12 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose,
+  Drawer, DrawerContent,
 } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   UserPlus, DollarSign, MessageCircle, Bell, RefreshCw, Info, X,
-  ArrowLeft, Copy, ExternalLink, ChevronDown,
+  ArrowLeft, Copy, ExternalLink, ChevronDown, Check,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,8 +40,9 @@ const TIME_PILLS = [
   { key: "all", label: "All Time" },
 ] as const;
 type TimePill = typeof TIME_PILLS[number]["key"];
+type FanFilter = "all" | "paid" | "free" | "flagged" | "welcomed";
+type ChatFilter = "all" | "unread" | "flagged" | "done";
 
-/* ─── page ─── */
 export default function FansPage() {
   const queryClient = useQueryClient();
   const [timePill, setTimePill] = useState<TimePill>("day");
@@ -50,15 +51,13 @@ export default function FansPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 
-  // Bottom sheet state
   const [sheetFan, setSheetFan] = useState<any | null>(null);
   const [sheetChat, setSheetChat] = useState<any | null>(null);
-
-  // View-all drawer state
   const [fanDrawerAccountId, setFanDrawerAccountId] = useState<string | null>(null);
   const [chatDrawerAccountId, setChatDrawerAccountId] = useState<string | null>(null);
+  const [fanDrawerFilter, setFanDrawerFilter] = useState<FanFilter>("all");
+  const [chatDrawerFilter, setChatDrawerFilter] = useState<ChatFilter>("all");
 
-  // localStorage state
   const [welcomed, setWelcomed] = useState<Record<string, boolean>>(lsGet("fans_welcomed"));
   const [fanNotes, setFanNotes] = useState<Record<string, string>>(lsGet("fans_notes"));
   const [chatDone, setChatDone] = useState<Record<string, boolean>>(lsGet("chats_done"));
@@ -67,7 +66,6 @@ export default function FansPage() {
   const [fanFlagged, setFanFlagged] = useState<Record<string, boolean>>(lsGet("fans_flagged"));
   const [sheetNoteInput, setSheetNoteInput] = useState("");
 
-  /* ─── queries ─── */
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
@@ -96,7 +94,6 @@ export default function FansPage() {
     },
   });
 
-  /* ─── derived ─── */
   const lastUpdated = useMemo(() => {
     const dates = newFans.map(f => f.fetched_at).filter(Boolean) as string[];
     if (!dates.length) return null;
@@ -108,16 +105,8 @@ export default function FansPage() {
     return Date.now() - new Date(lastUpdated).getTime() > 2 * 3600_000;
   }, [lastUpdated]);
 
-  // KPI filtered by selectedModelId
-  const kpiFans = useMemo(() => {
-    if (!selectedModelId) return newFans;
-    return newFans.filter(x => x.account_id === selectedModelId);
-  }, [newFans, selectedModelId]);
-
-  const kpiChats = useMemo(() => {
-    if (!selectedModelId) return chats;
-    return chats.filter(x => x.account_id === selectedModelId);
-  }, [chats, selectedModelId]);
+  const kpiFans = useMemo(() => selectedModelId ? newFans.filter(x => x.account_id === selectedModelId) : newFans, [newFans, selectedModelId]);
+  const kpiChats = useMemo(() => selectedModelId ? chats.filter(x => x.account_id === selectedModelId) : chats, [chats, selectedModelId]);
 
   const totalNewFans = kpiFans.length;
   const paidFans = kpiFans.filter(f => f.subscription_type === "Paid").length;
@@ -128,18 +117,14 @@ export default function FansPage() {
   const fansByAccount = useMemo(() => {
     const map: Record<string, typeof newFans> = {};
     for (const a of accounts) map[a.id] = [];
-    for (const f of newFans) {
-      if (f.account_id && map[f.account_id]) map[f.account_id].push(f);
-    }
+    for (const f of newFans) { if (f.account_id && map[f.account_id]) map[f.account_id].push(f); }
     return map;
   }, [newFans, accounts]);
 
   const chatsByAccount = useMemo(() => {
     const map: Record<string, typeof chats> = {};
     for (const a of accounts) map[a.id] = [];
-    for (const c of chats) {
-      if (c.account_id && map[c.account_id]) map[c.account_id].push(c);
-    }
+    for (const c of chats) { if (c.account_id && map[c.account_id]) map[c.account_id].push(c); }
     return map;
   }, [chats, accounts]);
 
@@ -153,11 +138,10 @@ export default function FansPage() {
     setRefreshing(false);
   };
 
-  // localStorage actions
-  const toggle = (key: string, setter: React.Dispatch<React.SetStateAction<Record<string, boolean>>>, id: string) => {
+  const toggleLS = (key: string, setter: React.Dispatch<React.SetStateAction<Record<string, boolean>>>, id: string) => {
     setter(prev => { const next = { ...prev, [id]: !prev[id] }; lsSet(key, next); return next; });
   };
-  const saveNote = (key: string, setter: React.Dispatch<React.SetStateAction<Record<string, string>>>, id: string, note: string) => {
+  const saveNoteLS = (key: string, setter: React.Dispatch<React.SetStateAction<Record<string, string>>>, id: string, note: string) => {
     setter(prev => { const next = { ...prev, [id]: note }; lsSet(key, next); return next; });
   };
 
@@ -167,6 +151,24 @@ export default function FansPage() {
 
   const openFanSheet = (fan: any) => { setSheetChat(null); setSheetFan(fan); setSheetNoteInput(fanNotes[fan.id] || ""); };
   const openChatSheet = (chat: any) => { setSheetFan(null); setSheetChat(chat); setSheetNoteInput(chatNotes[chat.id] || ""); };
+
+  // Drawer filtered lists
+  const drawerFanList = useMemo(() => {
+    const list = selectedModelId ? modelFans : [];
+    if (fanDrawerFilter === "paid") return list.filter(f => f.subscription_type === "Paid");
+    if (fanDrawerFilter === "free") return list.filter(f => f.subscription_type !== "Paid");
+    if (fanDrawerFilter === "flagged") return list.filter(f => fanFlagged[f.id]);
+    if (fanDrawerFilter === "welcomed") return list.filter(f => welcomed[f.id]);
+    return list;
+  }, [modelFans, fanDrawerFilter, fanFlagged, welcomed, selectedModelId]);
+
+  const drawerChatList = useMemo(() => {
+    const list = selectedModelId ? modelChats : [];
+    if (chatDrawerFilter === "unread") return list.filter(c => c.is_unread);
+    if (chatDrawerFilter === "flagged") return list.filter(c => chatFlagged[c.id]);
+    if (chatDrawerFilter === "done") return list.filter(c => chatDone[c.id]);
+    return list;
+  }, [modelChats, chatDrawerFilter, chatFlagged, chatDone, selectedModelId]);
 
   return (
     <DashboardLayout>
@@ -183,22 +185,19 @@ export default function FansPage() {
               className="p-2 rounded-lg border border-border hover:bg-secondary transition-colors disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 text-muted-foreground ${refreshing ? "animate-spin" : ""}`} />
             </button>
-            {refreshing && <span className="text-primary text-[12px]">Refreshing...</span>}
           </div>
         </div>
 
-        {/* STALE BANNER */}
         {isStale && !bannerDismissed && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[12px] text-blue-300">
             <Info className="h-4 w-4 shrink-0 text-blue-400" />
-            <span className="flex-1">Fan data is cached and updated manually. Click refresh to reload from the database.</span>
+            <span className="flex-1">Fan data is cached and updated manually. Click refresh to reload.</span>
             <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-blue-500/20 rounded"><X className="h-3.5 w-3.5" /></button>
           </div>
         )}
 
         {/* FILTER ROW */}
         <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* All Models dropdown */}
           <div className="relative">
             <button onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
               className="h-9 min-w-[200px] px-3 rounded-lg border border-border bg-card text-sm text-foreground flex items-center gap-2 cursor-pointer">
@@ -211,22 +210,24 @@ export default function FansPage() {
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
             </button>
             {modelDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1 z-50 min-w-[240px] bg-card border border-border rounded-lg shadow-lg py-1 max-h-80 overflow-y-auto">
-                <button onClick={() => { setSelectedModelId(null); setModelDropdownOpen(false); }}
-                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-secondary/50 transition-colors ${!selectedModelId ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}>
-                  All Models
-                </button>
-                {accounts.map(acc => (
-                  <button key={acc.id} onClick={() => { setSelectedModelId(acc.id); setModelDropdownOpen(false); }}
-                    className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 hover:bg-secondary/50 transition-colors ${selectedModelId === acc.id ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}>
-                    <ModelAvatar avatarUrl={acc.avatar_thumb_url} name={acc.display_name} size={28} />
-                    <span>{acc.display_name}</span>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setModelDropdownOpen(false)} />
+                <div className="absolute left-0 top-full mt-1 z-50 min-w-[240px] bg-card border border-border rounded-lg shadow-lg py-1 max-h-80 overflow-y-auto">
+                  <button onClick={() => { setSelectedModelId(null); setModelDropdownOpen(false); }}
+                    className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-secondary/50 ${!selectedModelId ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}>
+                    All Models
                   </button>
-                ))}
-              </div>
+                  {accounts.map(acc => (
+                    <button key={acc.id} onClick={() => { setSelectedModelId(acc.id); setModelDropdownOpen(false); }}
+                      className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 hover:bg-secondary/50 ${selectedModelId === acc.id ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}>
+                      <ModelAvatar avatarUrl={acc.avatar_thumb_url} name={acc.display_name} size={28} />
+                      <span>{acc.display_name}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
-
           <div className="flex items-center gap-1">
             {TIME_PILLS.map(p => (
               <button key={p.key} onClick={() => setTimePill(p.key)}
@@ -252,9 +253,7 @@ export default function FansPage() {
           <div className="space-y-3">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">All Models — Click to View</p>
             {(fansLoading || chatsLoading) ? (
-              <div className="grid grid-cols-4 gap-3">
-                {[1,2,3,4].map(i => <Skeleton key={i} className="h-[120px] rounded-xl" />)}
-              </div>
+              <div className="grid grid-cols-4 gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-[120px] rounded-xl" />)}</div>
             ) : (
               <div className="grid grid-cols-4 gap-3">
                 {accounts.map(a => {
@@ -285,12 +284,10 @@ export default function FansPage() {
         ) : (
           /* ─── VIEW 2: MODEL DETAIL ─── */
           <div className="space-y-4">
-            <button onClick={() => setSelectedModelId(null)}
-              className="flex items-center gap-1.5 text-[12px] text-primary hover:underline">
+            <button onClick={() => setSelectedModelId(null)} className="flex items-center gap-1.5 text-[12px] text-primary hover:underline">
               <ArrowLeft className="h-3.5 w-3.5" /> All models
             </button>
 
-            {/* Model detail header */}
             <div className="flex items-center justify-between bg-card border border-border rounded-xl px-5 py-3">
               <div className="flex items-center gap-3">
                 <ModelAvatar avatarUrl={selectedAccount?.avatar_thumb_url} name={selectedAccount?.display_name || ""} size={44} />
@@ -306,27 +303,34 @@ export default function FansPage() {
               </div>
             </div>
 
-            {/* Two panels */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* NEW FANS PANEL */}
+            {/* Two panels — 60/40 split */}
+            <div className="grid gap-4" style={{ gridTemplateColumns: "3fr 2fr" }}>
+              {/* LEFT: NEW FANS — 2-col grid, 10 items */}
               <div className="bg-card border border-border rounded-2xl border-l-[3px] border-l-emerald-500 overflow-hidden">
                 <div className="px-4 pt-4 pb-3 flex items-center gap-2">
                   <span className="text-[14px] font-bold text-foreground">New Fans</span>
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">{modelFans.length}</span>
                 </div>
                 {fansLoading ? (
-                  <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-                    {[1,2,3,4].map(i => <Skeleton key={i} className="h-[80px] rounded-lg" />)}
-                  </div>
+                  <div className="px-4 pb-4 grid grid-cols-2 gap-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-[60px] rounded-lg" />)}</div>
                 ) : modelFans.length === 0 ? (
                   <div className="px-4 pb-6 pt-2 text-center text-[12px] text-muted-foreground">No new fans in the last 24 hours</div>
                 ) : (
                   <>
-                    <div className="px-4 pb-3 grid grid-cols-2 gap-px bg-border/30">
-                      {modelFans.slice(0, 6).map(fan => (
+                    <div className="px-3 pb-3 grid grid-cols-2 gap-px">
+                      {modelFans.slice(0, 10).map(fan => (
                         <button key={fan.id} onClick={() => openFanSheet(fan)}
-                          className={`flex items-center gap-2.5 p-3 bg-card hover:bg-secondary/30 transition-colors cursor-pointer text-left ${fanFlagged[fan.id] ? "border-l-2 border-l-amber-400" : ""}`}>
-                          <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={32} />
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary/30 transition-colors cursor-pointer text-left relative
+                            ${fanFlagged[fan.id] ? "border-l-[3px] border-l-amber-400" : ""}
+                            ${welcomed[fan.id] ? "" : ""}`}>
+                          <div className="relative shrink-0">
+                            <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={32} />
+                            {welcomed[fan.id] && (
+                              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                                <Check className="h-2.5 w-2.5 text-white" />
+                              </span>
+                            )}
+                          </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-[11px] font-semibold text-foreground truncate">{fan.fan_name || "Unknown"}</div>
                             <div className="text-[10px] text-muted-foreground">{shortTimeAgo(fan.subscribed_at)}</div>
@@ -341,7 +345,7 @@ export default function FansPage() {
                         </button>
                       ))}
                     </div>
-                    <button onClick={() => setFanDrawerAccountId(selectedModelId)}
+                    <button onClick={() => { setFanDrawerAccountId(selectedModelId); setFanDrawerFilter("all"); }}
                       className="w-full py-2.5 text-[12px] font-medium text-primary hover:bg-primary/5 transition-colors border-t border-border">
                       View all {modelFans.length} new fans →
                     </button>
@@ -349,39 +353,41 @@ export default function FansPage() {
                 )}
               </div>
 
-              {/* CHATTED PANEL */}
+              {/* RIGHT: CHATTED — vertical list, inbox style */}
               <div className="bg-card border border-border rounded-2xl border-l-[3px] border-l-blue-500 overflow-hidden">
                 <div className="px-4 pt-4 pb-3 flex items-center gap-2">
                   <span className="text-[14px] font-bold text-foreground">Chatted</span>
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">{modelChats.length}</span>
                 </div>
                 {chatsLoading ? (
-                  <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-                    {[1,2,3,4].map(i => <Skeleton key={i} className="h-[80px] rounded-lg" />)}
-                  </div>
+                  <div className="px-4 pb-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-[44px] rounded-lg" />)}</div>
                 ) : modelChats.length === 0 ? (
-                  <div className="px-4 pb-6 pt-2 text-center text-[12px] text-muted-foreground">No chat activity in the last 24 hours</div>
+                  <div className="px-4 pb-6 pt-2 text-center text-[12px] text-muted-foreground">No chat activity</div>
                 ) : (
                   <>
-                    <div className="px-4 pb-3 grid grid-cols-2 gap-px bg-border/30">
-                      {modelChats.slice(0, 6).map(chat => (
+                    <div className="pb-1">
+                      {modelChats.slice(0, 10).map(chat => (
                         <button key={chat.id} onClick={() => openChatSheet(chat)}
-                          className={`flex items-center gap-2.5 p-3 bg-card hover:bg-secondary/30 transition-colors cursor-pointer text-left ${chatDone[chat.id] ? "opacity-50" : ""} ${chatFlagged[chat.id] ? "border-l-2 border-l-amber-400" : ""}`}>
-                          <div className="relative shrink-0">
-                            <FanAvatar url={chat.fan_avatar} name={chat.fan_name} size={32} />
-                            {chat.is_unread && <span className="absolute -top-0.5 -right-0.5 w-[6px] h-[6px] rounded-full bg-amber-400" />}
-                          </div>
+                          className={`w-full flex items-center gap-2.5 px-4 h-[44px] hover:bg-secondary/30 transition-colors cursor-pointer text-left border-b border-border/50
+                            ${chatDone[chat.id] ? "opacity-50" : ""}
+                            ${chatFlagged[chat.id] ? "border-l-[3px] border-l-amber-400" : ""}`}>
+                          {chat.is_unread && !chatDone[chat.id] && (
+                            <span className="w-[6px] h-[6px] rounded-full bg-amber-400 shrink-0" />
+                          )}
+                          <FanAvatar url={chat.fan_avatar} name={chat.fan_name} size={28} />
                           <div className="min-w-0 flex-1">
-                            <div className="text-[11px] font-semibold text-foreground truncate">{chat.fan_name || "Unknown"}</div>
+                            <div className={`text-[11px] font-semibold text-foreground truncate ${chatDone[chat.id] ? "line-through" : ""}`}>
+                              {chat.fan_name || "Unknown"}
+                            </div>
                             {chat.last_message_preview && (
-                              <div className="text-[10px] text-muted-foreground italic truncate">{(chat.last_message_preview || "").slice(0, 30)}</div>
+                              <div className="text-[10px] text-muted-foreground italic truncate">{(chat.last_message_preview || "").slice(0, 40)}</div>
                             )}
                           </div>
-                          <div className="text-[10px] text-muted-foreground shrink-0">{shortTimeAgo(chat.last_message_at)}</div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{shortTimeAgo(chat.last_message_at)}</span>
                         </button>
                       ))}
                     </div>
-                    <button onClick={() => setChatDrawerAccountId(selectedModelId)}
+                    <button onClick={() => { setChatDrawerAccountId(selectedModelId); setChatDrawerFilter("all"); }}
                       className="w-full py-2.5 text-[12px] font-medium text-primary hover:bg-primary/5 transition-colors border-t border-border">
                       View all {modelChats.length} chats →
                     </button>
@@ -393,11 +399,12 @@ export default function FansPage() {
         )}
       </div>
 
-      {/* ═══ BOTTOM SHEET — FAN ═══ */}
+      {/* ═══ BOTTOM SHEET — NEW FAN ═══ */}
       <Drawer open={!!sheetFan} onOpenChange={(o) => { if (!o) setSheetFan(null); }}>
         <DrawerContent className="max-h-[85vh]">
           {sheetFan && (
-            <div className="px-6 pb-6 pt-2 space-y-4 overflow-y-auto">
+            <div className="px-6 pb-6 pt-2 space-y-5 overflow-y-auto">
+              {/* Header */}
               <div className="flex items-center gap-3">
                 <FanAvatar url={sheetFan.fan_avatar} name={sheetFan.fan_name} size={48} />
                 <div>
@@ -409,9 +416,7 @@ export default function FansPage() {
               {/* Meta badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 {sheetFan.subscription_type === "Paid" ? (
-                  <span className="text-[11px] px-2 py-1 rounded-lg bg-primary/15 text-primary font-medium">
-                    Paid{sheetFan.subscribe_price ? ` $${Number(sheetFan.subscribe_price).toFixed(2)}` : ""}
-                  </span>
+                  <span className="text-[11px] px-2 py-1 rounded-lg bg-primary/15 text-primary font-medium">Paid{sheetFan.subscribe_price ? ` $${Number(sheetFan.subscribe_price).toFixed(2)}` : ""}</span>
                 ) : (
                   <span className="text-[11px] px-2 py-1 rounded-lg bg-muted text-muted-foreground font-medium">Free</span>
                 )}
@@ -419,39 +424,51 @@ export default function FansPage() {
                 <span className="text-[11px] px-2 py-1 rounded-lg bg-blue-500/15 text-blue-400">New Fan</span>
               </div>
 
-              {/* Action buttons 2x2 */}
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => toggle("fans_welcomed", setWelcomed, sheetFan.id)}
-                  className={`h-9 text-[11px] font-medium rounded-lg border transition-colors ${welcomed[sheetFan.id] ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"}`}>
-                  {welcomed[sheetFan.id] ? "✓ Welcomed" : "👋 Send Welcome"}
+              {/* Primary action */}
+              <button onClick={() => toggleLS("fans_welcomed", setWelcomed, sheetFan.id)}
+                className={`w-full h-11 text-[13px] font-semibold rounded-xl transition-colors ${welcomed[sheetFan.id]
+                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>
+                {welcomed[sheetFan.id] ? "✓ Welcome Sent" : "👋 Send Welcome Message"}
+              </button>
+
+              {/* Secondary actions */}
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => toggleLS("fans_flagged", setFanFlagged, sheetFan.id)}
+                  className={`h-9 text-[11px] font-medium rounded-lg border transition-colors ${fanFlagged[sheetFan.id]
+                    ? "border-amber-500/30 text-amber-400 bg-amber-500/10" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                  ⚑ Flag
+                </button>
+                <button onClick={() => { navigator.clipboard.writeText(`@${(sheetFan.fan_username || "").replace("@","")}`); toast.success("Copied!"); }}
+                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1">
+                  <Copy className="h-3 w-3" /> Copy @
                 </button>
                 <button onClick={() => window.open(`https://onlyfans.com/${(sheetFan.fan_username || "").replace("@","")}`, "_blank")}
-                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors flex items-center justify-center gap-1.5">
-                  <ExternalLink className="h-3 w-3" /> Open on OnlyFans
-                </button>
-                <button onClick={() => toggle("fans_flagged", setFanFlagged, sheetFan.id)}
-                  className={`h-9 text-[11px] font-medium rounded-lg border transition-colors ${fanFlagged[sheetFan.id] ? "border-amber-500/30 text-amber-400 bg-amber-500/10" : "border-border text-muted-foreground hover:text-foreground hover:border-amber-500/30"}`}>
-                  {fanFlagged[sheetFan.id] ? "⚑ Flagged" : "⚑ Flag for follow-up"}
-                </button>
-                <button onClick={() => { navigator.clipboard.writeText(sheetFan.fan_username || ""); toast.success("Username copied"); }}
-                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors flex items-center justify-center gap-1.5">
-                  <Copy className="h-3 w-3" /> Copy username
+                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1">
+                  <ExternalLink className="h-3 w-3" /> View on OF
                 </button>
               </div>
 
-              {/* Note */}
-              <div className="space-y-2">
+              {/* Divider + Note */}
+              <div className="border-t border-border pt-4 space-y-2">
                 <label className="text-[11px] font-semibold text-muted-foreground uppercase">Note</label>
-                <textarea value={sheetNoteInput} onChange={e => setSheetNoteInput(e.target.value)}
-                  placeholder="Add a note about this fan..." rows={2}
-                  className="w-full text-[12px] px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary" />
-                <button onClick={() => { saveNote("fans_notes", setFanNotes, sheetFan.id, sheetNoteInput); toast.success("Note saved"); }}
-                  className="h-8 px-4 text-[11px] rounded-lg bg-primary text-primary-foreground font-medium">Save note</button>
+                <div className="flex gap-2">
+                  <textarea value={sheetNoteInput} onChange={e => setSheetNoteInput(e.target.value)}
+                    placeholder="Add a note about this fan..." rows={2}
+                    className="flex-1 text-[12px] px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary" />
+                  <button onClick={() => { saveNoteLS("fans_notes", setFanNotes, sheetFan.id, sheetNoteInput); toast.success("Saved"); }}
+                    className="self-end h-9 px-4 text-[11px] rounded-lg bg-primary text-primary-foreground font-medium shrink-0">Save</button>
+                </div>
                 {fanNotes[sheetFan.id] && (
-                  <div className="text-[11px] px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    {fanNotes[sheetFan.id]}
-                  </div>
+                  <div className="text-[11px] px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20">{fanNotes[sheetFan.id]}</div>
                 )}
+              </div>
+
+              {/* Fan info */}
+              <div className="flex items-center gap-4 text-[10px] text-muted-foreground border-t border-border pt-3">
+                <span>{sheetFan.subscription_type === "Paid" ? `Paid $${Number(sheetFan.subscribe_price || 0).toFixed(2)}` : "Free"}</span>
+                <span>Subscribed {shortTimeAgo(sheetFan.subscribed_at)}</span>
+                <span>ID: {sheetFan.fan_id}</span>
               </div>
             </div>
           )}
@@ -462,7 +479,7 @@ export default function FansPage() {
       <Drawer open={!!sheetChat} onOpenChange={(o) => { if (!o) setSheetChat(null); }}>
         <DrawerContent className="max-h-[85vh]">
           {sheetChat && (
-            <div className="px-6 pb-6 pt-2 space-y-4 overflow-y-auto">
+            <div className="px-6 pb-6 pt-2 space-y-5 overflow-y-auto">
               <div className="flex items-center gap-3">
                 <FanAvatar url={sheetChat.fan_avatar} name={sheetChat.fan_name} size={48} />
                 <div>
@@ -471,7 +488,6 @@ export default function FansPage() {
                 </div>
               </div>
 
-              {/* Meta badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 {sheetChat.is_unread ? (
                   <span className="text-[11px] px-2 py-1 rounded-lg bg-amber-500/15 text-amber-400 font-medium">Unread</span>
@@ -482,58 +498,69 @@ export default function FansPage() {
                 <span className="text-[11px] px-2 py-1 rounded-lg bg-blue-500/15 text-blue-400">Active Chat</span>
               </div>
 
-              {/* Action buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => toggle("chats_done", setChatDone, sheetChat.id)}
-                  className={`h-9 text-[11px] font-medium rounded-lg border transition-colors ${chatDone[sheetChat.id] ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"}`}>
-                  {chatDone[sheetChat.id] ? "✓ Done" : "Mark as done"}
+              {/* Two stacked primary buttons */}
+              <div className="space-y-2">
+                <button onClick={() => toggleLS("chats_done", setChatDone, sheetChat.id)}
+                  className={`w-full h-11 text-[13px] font-semibold rounded-xl transition-colors ${chatDone[sheetChat.id]
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>
+                  {chatDone[sheetChat.id] ? "✓ Done" : "✓ Mark as Done"}
                 </button>
-                <button onClick={() => toggle("chats_flagged", setChatFlagged, sheetChat.id)}
-                  className={`h-9 text-[11px] font-medium rounded-lg border transition-colors ${chatFlagged[sheetChat.id] ? "border-amber-500/30 text-amber-400 bg-amber-500/10" : "border-border text-muted-foreground hover:text-foreground hover:border-amber-500/30"}`}>
-                  {chatFlagged[sheetChat.id] ? "⚑ Flagged" : "⚑ Flag"}
+                <button onClick={() => toggleLS("chats_flagged", setChatFlagged, sheetChat.id)}
+                  className={`w-full h-11 text-[13px] font-semibold rounded-xl transition-colors ${chatFlagged[sheetChat.id]
+                    ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                    : "border border-border text-foreground hover:bg-secondary"}`}>
+                  {chatFlagged[sheetChat.id] ? "⚑ Flagged" : "⚑ Flag for follow-up"}
+                </button>
+              </div>
+
+              {/* Secondary */}
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { navigator.clipboard.writeText(`@${(sheetChat.fan_username || "").replace("@","")}`); toast.success("Copied!"); }}
+                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1">
+                  <Copy className="h-3 w-3" /> Copy @username
                 </button>
                 <button onClick={() => window.open(`https://onlyfans.com/my/chats/chat/${sheetChat.fan_id}`, "_blank")}
-                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors flex items-center justify-center gap-1.5">
+                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1">
                   <ExternalLink className="h-3 w-3" /> Open chat on OF
                 </button>
-                <button onClick={() => { navigator.clipboard.writeText(sheetChat.fan_username || ""); toast.success("Username copied"); }}
-                  className="h-9 text-[11px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors flex items-center justify-center gap-1.5">
-                  <Copy className="h-3 w-3" /> Copy username
-                </button>
               </div>
 
-              {/* Note */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-muted-foreground uppercase">Note</label>
-                <textarea value={sheetNoteInput} onChange={e => setSheetNoteInput(e.target.value)}
-                  placeholder="Add a note about this fan..." rows={2}
-                  className="w-full text-[12px] px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary" />
-                <button onClick={() => { saveNote("chats_notes", setChatNotes, sheetChat.id, sheetNoteInput); toast.success("Note saved"); }}
-                  className="h-8 px-4 text-[11px] rounded-lg bg-primary text-primary-foreground font-medium">Save note</button>
-                {chatNotes[sheetChat.id] && (
-                  <div className="text-[11px] px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    {chatNotes[sheetChat.id]}
-                  </div>
-                )}
-              </div>
-
-              {/* Last message */}
+              {/* Last messages as chat bubbles */}
               {sheetChat.last_message_preview && (
-                <div className="space-y-2">
+                <div className="border-t border-border pt-4 space-y-2">
                   <label className="text-[11px] font-semibold text-muted-foreground uppercase">Last messages</label>
-                  <div className="flex">
-                    <div className="max-w-[80%] px-3 py-2 rounded-lg bg-muted text-[12px] text-foreground">
-                      {sheetChat.last_message_preview}
+                  <div className="space-y-2">
+                    <div className="flex justify-start">
+                      <div className="max-w-[75%] px-3 py-2 rounded-xl bg-muted text-[12px] text-foreground rounded-bl-sm">
+                        {sheetChat.last_message_preview}
+                        <div className="text-[9px] text-muted-foreground mt-1">{shortTimeAgo(sheetChat.last_message_at)}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* Note */}
+              <div className="border-t border-border pt-4 space-y-2">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase">Note</label>
+                <div className="flex gap-2">
+                  <textarea value={sheetNoteInput} onChange={e => setSheetNoteInput(e.target.value)}
+                    placeholder="Add a note about this fan..." rows={2}
+                    className="flex-1 text-[12px] px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary" />
+                  <button onClick={() => { saveNoteLS("chats_notes", setChatNotes, sheetChat.id, sheetNoteInput); toast.success("Saved"); }}
+                    className="self-end h-9 px-4 text-[11px] rounded-lg bg-primary text-primary-foreground font-medium shrink-0">Save</button>
+                </div>
+                {chatNotes[sheetChat.id] && (
+                  <div className="text-[11px] px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20">{chatNotes[sheetChat.id]}</div>
+                )}
+              </div>
             </div>
           )}
         </DrawerContent>
       </Drawer>
 
-      {/* ═══ VIEW-ALL FANS DRAWER (right slide) ═══ */}
+      {/* ═══ VIEW-ALL FANS DRAWER (right) ═══ */}
       <Sheet open={!!fanDrawerAccountId} onOpenChange={(o) => { if (!o) setFanDrawerAccountId(null); }}>
         <SheetContent side="right" className="w-[480px] sm:max-w-[480px] p-0 flex flex-col">
           <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
@@ -546,17 +573,30 @@ export default function FansPage() {
               <span className="text-[12px] text-emerald-400">{modelFans.filter(f => f.subscription_type === "Paid").length} paid</span>
               <span className="text-[12px] text-muted-foreground">{modelFans.filter(f => f.subscription_type !== "Paid").length} free</span>
             </div>
+            <div className="flex items-center gap-1 mt-2">
+              {(["all","paid","free","flagged","welcomed"] as FanFilter[]).map(f => (
+                <button key={f} onClick={() => setFanDrawerFilter(f)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-lg transition-colors capitalize ${fanDrawerFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
+                  {f}
+                </button>
+              ))}
+            </div>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto">
-            {modelFans.map(fan => (
+            {drawerFanList.map(fan => (
               <button key={fan.id} onClick={() => openFanSheet(fan)}
-                className={`w-full flex items-center gap-3 px-5 py-3 border-b border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)] transition-colors text-left ${welcomed[fan.id] ? "opacity-60" : ""} ${fanFlagged[fan.id] ? "border-l-2 border-l-amber-400" : ""}`}>
-                <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={36} />
+                className={`w-full flex items-center gap-3 px-5 py-3 border-b border-border/50 hover:bg-secondary/30 transition-colors text-left
+                  ${welcomed[fan.id] ? "opacity-60" : ""} ${fanFlagged[fan.id] ? "border-l-[3px] border-l-amber-400" : ""}`}>
+                <div className="relative shrink-0">
+                  <FanAvatar url={fan.fan_avatar} name={fan.fan_name} size={40} />
+                  {welcomed[fan.id] && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <Check className="h-2.5 w-2.5 text-white" />
+                    </span>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold text-foreground truncate">
-                    {fan.fan_name || "Unknown"}
-                    {welcomed[fan.id] && <span className="ml-2 text-[10px] text-emerald-400">✓ Welcomed</span>}
-                  </div>
+                  <div className="text-[13px] font-semibold text-foreground truncate">{fan.fan_name || "Unknown"}</div>
                   {fan.fan_username && <div className="text-[11px] text-muted-foreground truncate">@{(fan.fan_username || "").replace("@","")}</div>}
                   {fanNotes[fan.id] && <div className="text-[10px] text-amber-400 mt-0.5 truncate">📝 {fanNotes[fan.id]}</div>}
                 </div>
@@ -570,11 +610,12 @@ export default function FansPage() {
                 </div>
               </button>
             ))}
+            {drawerFanList.length === 0 && <div className="px-5 py-8 text-center text-[12px] text-muted-foreground">No fans match this filter</div>}
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* ═══ VIEW-ALL CHATS DRAWER (right slide) ═══ */}
+      {/* ═══ VIEW-ALL CHATS DRAWER (right) ═══ */}
       <Sheet open={!!chatDrawerAccountId} onOpenChange={(o) => { if (!o) setChatDrawerAccountId(null); }}>
         <SheetContent side="right" className="w-[480px] sm:max-w-[480px] p-0 flex flex-col">
           <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
@@ -587,26 +628,32 @@ export default function FansPage() {
               <span className="text-[12px] text-amber-400">{modelChats.filter(c => c.is_unread).length} unread</span>
               <span className="text-[12px] text-orange-400">{modelChats.filter(c => chatFlagged[c.id]).length} flagged</span>
             </div>
+            <div className="flex items-center gap-1 mt-2">
+              {(["all","unread","flagged","done"] as ChatFilter[]).map(f => (
+                <button key={f} onClick={() => setChatDrawerFilter(f)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-lg transition-colors capitalize ${chatDrawerFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
+                  {f}
+                </button>
+              ))}
+            </div>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto">
-            {modelChats.map(chat => {
-              const isDone = chatDone[chat.id];
-              const isFlagged = chatFlagged[chat.id];
-              return (
-                <button key={chat.id} onClick={() => openChatSheet(chat)}
-                  className={`w-full flex items-center gap-3 px-5 py-3 border-b border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)] transition-colors text-left ${isDone ? "opacity-50" : ""} ${isFlagged ? "border-l-2 border-l-amber-400" : ""}`}>
-                  {chat.is_unread && !isDone && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />}
-                  <FanAvatar url={chat.fan_avatar} name={chat.fan_name} size={36} />
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-[13px] font-semibold text-foreground truncate ${isDone ? "line-through" : ""}`}>{chat.fan_name || "Unknown"}</div>
-                    {chat.fan_username && <div className="text-[11px] text-muted-foreground truncate">@{(chat.fan_username || "").replace("@","")}</div>}
-                    {chatNotes[chat.id] && <div className="text-[10px] text-amber-400 mt-0.5 truncate">📝 {chatNotes[chat.id]}</div>}
-                    {chat.last_message_preview && <div className="text-[11px] text-muted-foreground italic truncate mt-0.5">{(chat.last_message_preview || "").slice(0, 50)}</div>}
-                  </div>
-                  <span className="text-[11px] text-muted-foreground shrink-0">{shortTimeAgo(chat.last_message_at)}</span>
-                </button>
-              );
-            })}
+            {drawerChatList.map(chat => (
+              <button key={chat.id} onClick={() => openChatSheet(chat)}
+                className={`w-full flex items-center gap-3 px-5 py-3 border-b border-border/50 hover:bg-secondary/30 transition-colors text-left
+                  ${chatDone[chat.id] ? "opacity-50" : ""} ${chatFlagged[chat.id] ? "border-l-[3px] border-l-amber-400" : ""}`}>
+                {chat.is_unread && !chatDone[chat.id] && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />}
+                <FanAvatar url={chat.fan_avatar} name={chat.fan_name} size={40} />
+                <div className="flex-1 min-w-0">
+                  <div className={`text-[13px] font-semibold text-foreground truncate ${chatDone[chat.id] ? "line-through" : ""}`}>{chat.fan_name || "Unknown"}</div>
+                  {chat.fan_username && <div className="text-[11px] text-muted-foreground truncate">@{(chat.fan_username || "").replace("@","")}</div>}
+                  {chatNotes[chat.id] && <div className="text-[10px] text-amber-400 mt-0.5 truncate">📝 {chatNotes[chat.id]}</div>}
+                  {chat.last_message_preview && <div className="text-[11px] text-muted-foreground italic truncate mt-0.5">{(chat.last_message_preview || "").slice(0, 50)}</div>}
+                </div>
+                <span className="text-[11px] text-muted-foreground shrink-0">{shortTimeAgo(chat.last_message_at)}</span>
+              </button>
+            ))}
+            {drawerChatList.length === 0 && <div className="px-5 py-8 text-center text-[12px] text-muted-foreground">No chats match this filter</div>}
           </div>
         </SheetContent>
       </Sheet>
@@ -615,7 +662,6 @@ export default function FansPage() {
 }
 
 /* ─── sub-components ─── */
-
 function KpiCard({ icon: Icon, label, value, subtitle, color, iconBg }: {
   icon: any; label: string; value: number; subtitle: string; color: string; iconBg: string;
 }) {
@@ -641,18 +687,12 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
 }
 
 function StatPill({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${color}`}>
-      {value} {label}
-    </span>
-  );
+  return <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${color}`}>{value} {label}</span>;
 }
 
 function FanAvatar({ url, name, size = 36 }: { url?: string | null; name?: string | null; size?: number }) {
   const initial = ((name || "?")[0] || "?").toUpperCase();
-  if (url) {
-    return <img src={url} alt="" className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />;
-  }
+  if (url) return <img src={url} alt="" className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />;
   return (
     <span className="rounded-full bg-muted flex items-center justify-center text-muted-foreground font-bold shrink-0"
       style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}>{initial}</span>
