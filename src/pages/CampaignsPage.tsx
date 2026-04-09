@@ -956,7 +956,22 @@ export default function CampaignsPage() {
                                 </div>
                               </th>
                             );
-                            case "ltv_sub": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>LTV/Sub</th>;
+                            case "ltv_sub": return (
+                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "85px" }}>
+                                <div className="flex items-center justify-end gap-1">
+                                  LTV/New Sub
+                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Revenue attributed to new subscribers only, from tracking_link_ltv</TooltipContent></Tooltip>
+                                </div>
+                              </th>
+                            );
+                            case "ltv_sub_all": return (
+                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>
+                                <div className="flex items-center justify-end gap-1">
+                                  LTV/Sub
+                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Total revenue divided by all subscribers for the selected period</TooltipContent></Tooltip>
+                                </div>
+                              </th>
+                            );
                             case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
