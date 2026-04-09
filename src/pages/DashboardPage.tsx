@@ -896,12 +896,10 @@ function KpiCards({
       case "profit_per_sub": {
         let profitPerSub: number | null = null;
         if (isAllTime) {
-          const profit = allTimeRevenue - allTimeSpend;
+          const profit = allTimeRevenue * revMultiplier - allTimeSpend;
           profitPerSub = allTimeTotalSubs > 0 && allTimeSpend > 0 ? profit / allTimeTotalSubs : null;
         } else if (hasSnapshotData) {
-          // Period: snapshot revenue - no daily spend breakdown available
-          profitPerSub = snapshotSubs > 0 ? snapshotRevenue / snapshotSubs : null;
-          // Can't subtract spend for period, show revenue/sub as proxy
+          profitPerSub = snapshotSubs > 0 ? (snapshotRevenue * revMultiplier) / snapshotSubs : null;
         } else {
           profitPerSub = null;
         }
@@ -914,6 +912,7 @@ function KpiCards({
                 <TrendingUp className="h-4 w-4 text-white" />
               </div>
               <span className="text-[11px] text-white/80 font-medium uppercase tracking-wider">Profit/Sub</span>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
             </div>
             {showDash ? (
               <p className="text-[22px] font-bold font-mono text-white/40">—</p>
@@ -929,9 +928,9 @@ function KpiCards({
       case "ltv_per_sub": {
         let ltvPerSub: number | null = null;
         if (isAllTime) {
-          ltvPerSub = allTimeTotalSubs > 0 ? allTimeRevenue / allTimeTotalSubs : null;
+          ltvPerSub = allTimeTotalSubs > 0 ? (allTimeRevenue * revMultiplier) / allTimeTotalSubs : null;
         } else if (hasSnapshotData) {
-          ltvPerSub = snapshotSubs > 0 ? snapshotRevenue / snapshotSubs : null;
+          ltvPerSub = snapshotSubs > 0 ? (snapshotRevenue * revMultiplier) / snapshotSubs : null;
         }
         const showDash = ltvPerSub === null || (!isAllTime && !hasSnapshotData);
         return (
@@ -941,6 +940,7 @@ function KpiCards({
                 <Users className="h-4 w-4 text-primary" />
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">LTV/Sub</span>
+              <RevenueModeBadge mode={revenueMode} />
             </div>
             {showDash ? (
               <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
