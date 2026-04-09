@@ -524,6 +524,11 @@ export default function CampaignsPage() {
         case "subscribers": aVal = Number(a.subscribers || 0); bVal = Number(b.subscribers || 0); break;
         case "cvr": aVal = Number(a.clicks) > 0 ? (a.subscribers / a.clicks) : -Infinity; bVal = Number(b.clicks) > 0 ? (b.subscribers / b.clicks) : -Infinity; break;
         case "media_buyer": aVal = (a.media_buyer || "zzz").toLowerCase(); bVal = (b.media_buyer || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        case "ltv_sub_all": {
+          const aR = Number(a.revenue || 0), aS = Number(a.subscribers || 0);
+          const bR = Number(b.revenue || 0), bS = Number(b.subscribers || 0);
+          aVal = aS > 0 ? aR / aS : -Infinity; bVal = bS > 0 ? bR / bS : -Infinity; break;
+        }
         default: aVal = 0; bVal = 0;
       }
       return sortAsc ? aVal - bVal : bVal - aVal;
