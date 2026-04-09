@@ -407,24 +407,17 @@ export default function CampaignsPage() {
       const ltvFromTable = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
       const crossPollRevenue = hasLtvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
-      // FIX 4/5: Profit = (total_ltv + cross_poll_revenue) - cost_total; ROI = profit / cost_total * 100
+      // FIX 4/5: Profit = tracking_links.revenue - cost_total; ROI = profit / cost_total * 100
       const costTotalVal = Number(l.cost_total || 0);
       const hasLtvData = ltvFromTable !== null;
       let computedProfit: number | null = null;
       let computedRoi: number | null = null;
       let profitIsEstimate = false;
       let roiIsEstimate = false;
-      if (hasLtvData && costTotalVal > 0) {
-        computedProfit = (ltvFromTable + (crossPollRevenue || 0)) - costTotalVal;
+      if (costTotalVal > 0) {
+        const revForProfit = Number(l.revenue || 0);
+        computedProfit = revForProfit - costTotalVal;
         computedRoi = costTotalVal > 0 ? (computedProfit / costTotalVal) * 100 : null;
-      } else if (!hasLtvData && costTotalVal > 0) {
-        // Fallback to revenue-based
-        const { profit: fp, isEstimate: fe } = calcProfit(l);
-        const { roi: fr, isEstimate: re } = calcRoi(l);
-        computedProfit = fp;
-        computedRoi = fr;
-        profitIsEstimate = fe;
-        roiIsEstimate = re;
       }
       // Profit/Sub uses new_subs_total from tracking_link_ltv
       const newSubsTotal = ltvRecord ? Number(ltvRecord.new_subs_total || 0) : 0;
