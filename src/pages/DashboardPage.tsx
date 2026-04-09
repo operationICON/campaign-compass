@@ -894,16 +894,12 @@ function KpiCards({
     switch (id) {
       // ═══ CARD 1 — PROFIT/SUB (hero teal gradient) ═══
       case "profit_per_sub": {
-        let profitPerSub: number | null = null;
-        if (isAllTime) {
-          const profit = allTimeRevenue * revMultiplier - allTimeSpend;
-          profitPerSub = allTimeTotalSubs > 0 && allTimeSpend > 0 ? profit / allTimeTotalSubs : null;
-        } else if (hasSnapshotData) {
-          profitPerSub = snapshotSubs > 0 ? (snapshotRevenue * revMultiplier) / snapshotSubs : null;
-        } else {
-          profitPerSub = null;
-        }
-        const showDash = profitPerSub === null || (!isAllTime && !hasSnapshotData) || (isAllTime && allTimeSpend <= 0);
+        // LOCKED: (SUM(accounts.ltv_total) - SUM(tracking_links.cost_total)) / SUM(accounts.subscribers_count) — Always All Time
+        const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const totalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+        const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
+        const profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
+        const showDash = profitPerSub === null;
         const isPositive = profitPerSub !== null && profitPerSub >= 0;
         return (
           <div key={id} className="rounded-2xl p-5 flex flex-col" style={{ ...cardStyle, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
@@ -919,20 +915,18 @@ function KpiCards({
             ) : (
               <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-white" : "text-red-300"}`}>{fmtC(profitPerSub!)}</p>
             )}
-            <p className="text-[11px] text-white/60 mt-1">{isAllTime ? "All time profit per subscriber" : noDataForPeriod ? "No data for this period" : periodLabel}</p>
+            <p className="text-[11px] text-white/60 mt-1">All time · accounts revenue minus spend</p>
           </div>
         );
       }
 
       // ═══ CARD 2 — LTV/SUB ═══
       case "ltv_per_sub": {
-        let ltvPerSub: number | null = null;
-        if (isAllTime) {
-          ltvPerSub = allTimeTotalSubs > 0 ? (allTimeRevenue * revMultiplier) / allTimeTotalSubs : null;
-        } else if (hasSnapshotData) {
-          ltvPerSub = snapshotSubs > 0 ? (snapshotRevenue * revMultiplier) / snapshotSubs : null;
-        }
-        const showDash = ltvPerSub === null || (!isAllTime && !hasSnapshotData);
+        // LOCKED: SUM(accounts.ltv_total) / SUM(accounts.subscribers_count) — Always All Time
+        const accountsLtv2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const totalSubsCount2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+        const ltvPerSub = totalSubsCount2 > 0 ? (accountsLtv2 * revMultiplier) / totalSubsCount2 : null;
+        const showDash = ltvPerSub === null;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -947,7 +941,7 @@ function KpiCards({
             ) : (
               <p className="text-[22px] font-bold font-mono text-primary">{fmtC(ltvPerSub!)}</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "Revenue per subscriber" : noDataForPeriod ? "No data for this period" : periodLabel}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">All time · accounts revenue per subscriber</p>
           </div>
         );
       }
@@ -1009,13 +1003,16 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        const pct = allTimeTotalSubs > 0
-          ? ((allTimeTotalSubs - allTimeTrackingSubs) / allTimeTotalSubs) * 100
+        // LOCKED: (SUM(accounts.ltv_total) - SUM(tracking_links.revenue)) / SUM(accounts.ltv_total) * 100
+        const accountsLtv5 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const campaignRevenue5 = allTimeRevenue; // SUM(tracking_links.revenue)
+        const pct = accountsLtv5 > 0
+          ? ((accountsLtv5 - campaignRevenue5) / accountsLtv5) * 100
           : null;
         const colorClass = pct === null ? "text-muted-foreground"
-          : pct < 0 ? "text-destructive"
-          : pct <= 40 ? "text-primary"
-          : "text-[hsl(38_92%_50%)]"; // amber
+          : pct > 50 ? "text-destructive"
+          : pct >= 30 ? "text-[hsl(38_92%_50%)]" // amber
+          : "text-primary"; // green < 30%
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
