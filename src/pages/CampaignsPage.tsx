@@ -804,9 +804,9 @@ export default function CampaignsPage() {
             return (
             <div className="px-3.5 pb-3" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr", gap: "10px", alignItems: "stretch" }}>
-                {/* Card 1 — Total LTV (hero) */}
+                {/* Card 1 — Total Revenue (hero) */}
                 <div className="rounded-xl p-4 flex flex-col justify-center" style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))" }}>
-                  <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total LTV</p>
+                  <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total Revenue</p>
                   <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv)}</p>
                   <p className="text-[10px] text-white/60 mt-0.5">{periodLabel}</p>
                 </div>

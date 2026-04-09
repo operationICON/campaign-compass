@@ -813,9 +813,15 @@ export default function AccountsPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">LTV/New Sub</span>
+                    <span className="text-muted-foreground">LTV/Sub</span>
                     <span className="font-mono font-semibold text-primary">
-                      {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub) : "—"}
+                      {(() => {
+                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
+                        const totalRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+                        const subsCount = Number(acc.subscribers_count || 0);
+                        const val = subsCount > 0 ? totalRev / subsCount : null;
+                        return val != null ? fmtCurrency(val) : "—";
+                      })()}
                     </span>
                   </div>
                   <div className="flex justify-between">
