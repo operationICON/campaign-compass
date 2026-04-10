@@ -103,7 +103,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const colorMap = useTagColors();
 
   const otLinks = useMemo(() => allLinks.filter(l => isOnlyTraffic(l) && l.deleted_at == null), [allLinks]);
-  const manualLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
+  const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
 
   // No Source: null traffic_category, not deleted, has activity
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
@@ -114,6 +114,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const noSourceCount = noSourceLinks.length;
   const noSourceRevenue = noSourceLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
   const noSourceSpend = noSourceLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
+
+  // Manual + No Source combined for the Manual category
+  const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
