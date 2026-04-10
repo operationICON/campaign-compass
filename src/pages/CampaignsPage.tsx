@@ -628,7 +628,7 @@ export default function CampaignsPage() {
       totalSpend, totalProfit: totalProfitCalc,
       hasSnapshotData,
     };
-  }, [filtered, allLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts, ltvLookup]);
+  }, [filtered, allLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts, ltvLookup, unmatchedSpendTotal]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
