@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Per
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
+import { TrafficSourceDetail } from "./TrafficSourceDetail";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -85,6 +86,7 @@ function getRoiBadge(roi: number | null): { label: string; bg: string; text: str
 
 export function TrafficCategoryNav({ links, allLinks }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+  const [activeSource, setActiveSource] = useState<string | null>(null);
   const colorMap = useTagColors();
 
   const otLinks = useMemo(() => allLinks.filter(isOnlyTraffic), [allLinks]);
@@ -113,6 +115,29 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
       }))
       .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
   }, [activeCategory, categoryLinks]);
+
+  // Level 3: links for active source
+  const sourceLinks = useMemo(() => {
+    if (!activeSource || !activeCategory) return [];
+    return categoryLinks.filter(l => {
+      const tag = getEffectiveSource(l) || "Untagged";
+      return tag === activeSource;
+    });
+  }, [activeSource, activeCategory, categoryLinks]);
+
+  // ═══ LEVEL 3 ═══
+  if (activeCategory && activeSource) {
+    const dotColor = colorMap[activeSource] || "#94a3b8";
+    return (
+      <TrafficSourceDetail
+        sourceName={activeSource}
+        sourceColor={dotColor}
+        categoryName={activeCategory}
+        links={sourceLinks}
+        onBack={() => setActiveSource(null)}
+      />
+    );
+  }
 
   // ═══ LEVEL 1 ═══
   if (!activeCategory) {
@@ -217,7 +242,7 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
           const badge = getRoiBadge(src.roi);
           const dotColor = colorMap[src.name] || "#94a3b8";
           return (
-            <div key={src.name} className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <button key={src.name} onClick={() => setActiveSource(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -250,7 +275,7 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
                   {badge.label}
                 </span>
               </div>
-            </div>
+            </button>
           );
         })}
         {sourceCards.length === 0 && (
