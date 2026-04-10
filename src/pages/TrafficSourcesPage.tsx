@@ -428,7 +428,7 @@ export default function TrafficSourcesPage() {
   const sourceAnalysis = useMemo(() => {
     // Group links by source
     const bySource: Record<string, any[]> = {};
-    allLinks.forEach((l: any) => {
+    dateAccountFiltered.forEach((l: any) => {
       const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = [];
       bySource[tag].push(l);
