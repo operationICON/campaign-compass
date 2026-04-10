@@ -240,7 +240,22 @@ export default function TrafficSourcesPage() {
     },
   });
   const isLoading = linksLoading || snapshotLoading;
-  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
+  const isAllTime = timePeriod === "all" && !customRange;
+  const links = useMemo(() => {
+    const snapped = applySnapshotToLinks(allLinks, snapshotLookup);
+    if (!snapshotLookup) return snapped; // All Time — no prorating needed
+    // Prorate cost_total for time-filtered views:
+    // daily_spend = cost_total / age_days, then × snapshotDays
+    return snapped.map(l => {
+      const costTotal = Number(l.cost_total || 0);
+      if (costTotal <= 0) return l;
+      const ageDays = Math.max(1, differenceInDays(new Date(), new Date(l.created_at)));
+      const snapshotDays = Number(l.snapshotDays || 0);
+      if (snapshotDays <= 0) return { ...l, cost_total: 0 };
+      const proratedCost = (costTotal / ageDays) * snapshotDays;
+      return { ...l, cost_total: proratedCost };
+    });
+  }, [allLinks, snapshotLookup]);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
