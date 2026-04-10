@@ -331,7 +331,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={categoryMetrics.profitPerSub !== null ? fmtC(categoryMetrics.profitPerSub) : "—"} color={categoryMetrics.profitPerSub !== null ? (categoryMetrics.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
             <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
             <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
-            <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={adjRoi !== null ? fmtPct(adjRoi) : "—"} color={adjRoi !== null ? (adjRoi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+            <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={categoryMetrics.roi !== null ? fmtPct(categoryMetrics.roi) : "—"} color={categoryMetrics.roi !== null ? (categoryMetrics.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
           </div>
         );
       })()}
