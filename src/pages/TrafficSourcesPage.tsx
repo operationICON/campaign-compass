@@ -23,7 +23,7 @@ import {
   Hash, Tag, HelpCircle, DollarSign, TrendingUp, Percent, Users, Activity, MousePointerClick, Award,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, differenceInDays, subDays } from "date-fns";
+import { format, differenceInDays, subDays, startOfMonth, endOfMonth, subMonths, startOfDay } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -257,6 +257,59 @@ export default function TrafficSourcesPage() {
     });
   }, [allLinks, snapshotLookup]);
 
+  // ── Master filtered set: date (by created_at) + account ──
+  const dateAccountFiltered = useMemo(() => {
+    let result = allLinks as any[];
+
+    // Account filter
+    if (pageModelFilter !== "all") {
+      result = result.filter((l: any) => l.account_id === pageModelFilter);
+    }
+
+    // Date filter by created_at
+    if (customRange) {
+      const from = startOfDay(customRange.from).getTime();
+      const to = startOfDay(customRange.to).getTime() + 86400000; // end of day
+      result = result.filter((l: any) => {
+        const t = new Date(l.created_at).getTime();
+        return t >= from && t < to;
+      });
+    } else {
+      const now = new Date();
+      switch (timePeriod) {
+        case "day": {
+          const cutoff = subDays(now, 1).getTime();
+          result = result.filter((l: any) => new Date(l.created_at).getTime() >= cutoff);
+          break;
+        }
+        case "week": {
+          const cutoff = subDays(now, 7).getTime();
+          result = result.filter((l: any) => new Date(l.created_at).getTime() >= cutoff);
+          break;
+        }
+        case "month": {
+          const cutoff = subDays(now, 30).getTime();
+          result = result.filter((l: any) => new Date(l.created_at).getTime() >= cutoff);
+          break;
+        }
+        case "prev_month": {
+          const prevMonthStart = startOfMonth(subMonths(now, 1)).getTime();
+          const prevMonthEnd = endOfMonth(subMonths(now, 1)).getTime() + 86400000;
+          result = result.filter((l: any) => {
+            const t = new Date(l.created_at).getTime();
+            return t >= prevMonthStart && t < prevMonthEnd;
+          });
+          break;
+        }
+        case "all":
+        default:
+          break; // no filter
+      }
+    }
+
+    return result;
+  }, [allLinks, pageModelFilter, timePeriod, customRange]);
+
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
@@ -323,42 +376,39 @@ export default function TrafficSourcesPage() {
   // ── KPI calculations ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
-    const tagged = allLinks.filter((l: any) => !!getEffectiveSource(l)).length;
-    const untagged = allLinks.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
-    const totalRevenue = allLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalSubscribers = allLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const totalClicks = allLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
+    const tagged = dateAccountFiltered.filter((l: any) => !!getEffectiveSource(l)).length;
+    const untagged = dateAccountFiltered.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
+    const totalRevenue = dateAccountFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const totalSubscribers = dateAccountFiltered.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalClicks = dateAccountFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
     const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
     const activeSourceIds = new Set<string>();
-    allLinks.forEach((l: any) => {
+    dateAccountFiltered.forEach((l: any) => {
       if (l.traffic_source_id && l.clicks > 0 && l.updated_at >= thirtyDaysAgo) {
         activeSourceIds.add(l.traffic_source_id);
       }
     });
     const activeSources = activeSourceIds.size;
 
-    // Total Spend = SUM(cost_total) WHERE cost_total > 0
-    const totalSpend = allLinks
+    const totalSpend = dateAccountFiltered
       .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
-    // Total Profit = SUM(revenue) - SUM(cost_total WHERE cost_total > 0)
     const totalProfit = totalRevenue - totalSpend;
     const blendedRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : 0;
 
-    // Avg CPL = SUM(cost_total WHERE payment_type='CPL' AND cost_total > 0) / SUM(subscribers WHERE same)
-    const cplLinks = allLinks.filter((l: any) => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
+    const cplLinks = dateAccountFiltered.filter((l: any) => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
     const cplSpend = cplLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
     const cplSubs = cplLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : 0;
 
-    const paidLinks = allLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const paidLinks = dateAccountFiltered.filter((l: any) => Number(l.cost_total || 0) > 0);
     const paidSubs = paidLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const avgProfitSub = paidSubs > 0 ? totalProfit / paidSubs : 0;
 
     const revenueBySource: Record<string, number> = {};
-    allLinks.forEach((l: any) => {
+    dateAccountFiltered.forEach((l: any) => {
       const es = getEffectiveSource(l);
       if (es) {
         revenueBySource[es] = (revenueBySource[es] || 0) + Number(l.revenue || 0);
@@ -372,13 +422,13 @@ export default function TrafficSourcesPage() {
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
     };
-  }, [sources, allLinks]);
+  }, [sources, dateAccountFiltered]);
 
   // ── Source Analysis calculations ──
   const sourceAnalysis = useMemo(() => {
     // Group links by source
     const bySource: Record<string, any[]> = {};
-    allLinks.forEach((l: any) => {
+    dateAccountFiltered.forEach((l: any) => {
       const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = [];
       bySource[tag].push(l);
@@ -451,7 +501,7 @@ export default function TrafficSourcesPage() {
     growthTrend.sort((a, b) => b.change - a.change);
 
     return { subsPerDay, distribution, growthTrend, topContrib };
-  }, [links, sources, sourceFilter, dailyMetrics]);
+  }, [dateAccountFiltered, sources, sourceFilter, dailyMetrics]);
 
 
   const selectedSource = useMemo(() => sources.find((s: any) => s.id === editSourceId), [sources, editSourceId]);
@@ -550,8 +600,7 @@ export default function TrafficSourcesPage() {
   }, [links]);
 
   const filtered = useMemo(() => {
-    let result = links as any[];
-    if (pageModelFilter !== "all") result = result.filter(l => l.account_id === pageModelFilter);
+    let result = dateAccountFiltered as any[];
     if (accountFilter !== "all") result = result.filter(l => l.account_id === accountFilter);
     if (sourceFilter === "untagged") result = result.filter(l => !getEffectiveSource(l));
     else if (sourceFilter !== "all") result = result.filter(l => getEffectiveSource(l) === sourceFilter);
@@ -568,7 +617,7 @@ export default function TrafficSourcesPage() {
       );
     }
     return result;
-  }, [links, pageModelFilter, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
+  }, [dateAccountFiltered, accountFilter, sourceFilter, categoryFilter, searchQuery, sources]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -889,7 +938,7 @@ export default function TrafficSourcesPage() {
         </div>
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
-        <TrafficCategoryNav links={allLinks} allLinks={allLinks} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} />
+        <TrafficCategoryNav links={dateAccountFiltered} allLinks={dateAccountFiltered} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} />
       </div>
     </DashboardLayout>
   );
