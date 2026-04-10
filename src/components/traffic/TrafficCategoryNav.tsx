@@ -116,6 +116,29 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
       .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
   }, [activeCategory, categoryLinks]);
 
+  // Level 3: links for active source
+  const sourceLinks = useMemo(() => {
+    if (!activeSource || !activeCategory) return [];
+    return categoryLinks.filter(l => {
+      const tag = getEffectiveSource(l) || "Untagged";
+      return tag === activeSource;
+    });
+  }, [activeSource, activeCategory, categoryLinks]);
+
+  // ═══ LEVEL 3 ═══
+  if (activeCategory && activeSource) {
+    const dotColor = colorMap[activeSource] || "#94a3b8";
+    return (
+      <TrafficSourceDetail
+        sourceName={activeSource}
+        sourceColor={dotColor}
+        categoryName={activeCategory}
+        links={sourceLinks}
+        onBack={() => setActiveSource(null)}
+      />
+    );
+  }
+
   // ═══ LEVEL 1 ═══
   if (!activeCategory) {
     return (
