@@ -552,83 +552,81 @@ export default function CampaignsPage() {
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
-    const periodDays = campaignsSnapshotRange?.dayCount ?? 0;
 
-    // Links with cost set
-    const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const totalSpendAllTime = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    // ── All-time base links (unaffected by snapshot overlay) ──
+    const allTimeLinks = enrichedLinks.filter((l: any) => {
+      if (groupFilter !== "all") {
+        const groupUsernames = GROUP_MAP[groupFilter] || [];
+        const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
+        if (!groupAccountIds.includes(l.account_id)) return false;
+      }
+      if (accountFilter !== "all" && l.account_id !== accountFilter) return false;
+      return true;
+    });
 
     // Check if snapshot data exists for period
     const hasSnapshotData = !isAllTime && campaignsSnapshotRows.length > 0;
 
-    // Total Revenue — uses tracking_links.revenue (not tracking_link_ltv.total_ltv)
-    let totalLtv: number;
+    // ── CARD 1: Total Revenue ──
+    let totalRevenue: number;
     if (isAllTime) {
-      totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      // All Time: SUM(tracking_links.revenue) from original links
+      totalRevenue = allTimeLinks.reduce((s: number, l: any) => s + Number(l.originalRevenue ?? l.revenue ?? 0), 0);
     } else if (hasSnapshotData) {
-      totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      // Period: snapshot-applied revenue is already on scopedLinks
+      totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     } else {
-      totalLtv = 0;
+      totalRevenue = 0;
     }
 
-    // Total Spend — proportional for periods
-    let totalSpend: number;
-    if (isAllTime) {
-      totalSpend = totalSpendAllTime;
-    } else if (hasSnapshotData && periodDays > 0) {
-      // Proportional: (cost_total / days_running) × days_in_period
-      totalSpend = linksWithCost.reduce((s: number, l: any) => {
-        const costTotal = Number(l.cost_total || 0);
-        const daysRunning = Math.max(1, l.daysSinceCreated || 1);
-        return s + (costTotal / daysRunning) * periodDays;
-      }, 0);
-    } else {
-      totalSpend = 0;
-    }
+    // ── CARD 2: Total Spend — ALWAYS all-time ──
+    const totalSpend = allTimeLinks
+      .filter((l: any) => Number(l.cost_total || 0) > 0)
+      .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
-    // Period subs from snapshots
-    let periodSubs = 0;
-    if (!isAllTime && hasSnapshotData) {
-      periodSubs = scopedLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-    }
-
-    // Total Profit — same time scope for both sides
+    // ── CARD 3: Total Profit ──
     let totalProfitCalc: number;
     if (isAllTime) {
-      const revWithSpend = linksWithCost.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      totalProfitCalc = revWithSpend - totalSpendAllTime;
+      totalProfitCalc = totalRevenue - totalSpend;
     } else if (hasSnapshotData) {
-      totalProfitCalc = totalLtv - totalSpend;
+      totalProfitCalc = totalRevenue - totalSpend;
     } else {
       totalProfitCalc = 0;
     }
 
-    // Avg Cost/Sub
-    let avgCostPerSubCalc: number | null;
-    if (isAllTime) {
-      const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
-      avgCostPerSubCalc = paidNewSubs > 0 ? totalSpendAllTime / paidNewSubs : null;
-    } else if (hasSnapshotData && periodSubs > 0) {
-      avgCostPerSubCalc = totalSpend / periodSubs;
-    } else {
-      avgCostPerSubCalc = null;
-    }
+    // ── CARD 4: Avg CPL — ALWAYS all-time, CPL payment_type only ──
+    const cplLinks = allTimeLinks.filter((l: any) => {
+      const pt = (l.payment_type || l.cost_type || "").toUpperCase();
+      return pt === "CPL" && Number(l.cost_total || 0) > 0;
+    });
+    const cplSpend = cplLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const cplSubs = cplLinks.reduce((s: number, l: any) => s + Number(l.originalSubscribers ?? l.subscribers ?? 0), 0);
+    const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
+
+    // ── CARD 5: Untagged — ALWAYS all-time, only active links ──
+    const untagged = allTimeLinks.filter((l: any) => {
+      if (getEffectiveSource(l)) return false;
+      if (l.deleted_at) return false;
+      const clicks = Number(l.originalClicks ?? l.clicks ?? 0);
+      const subs = Number(l.originalSubscribers ?? l.subscribers ?? 0);
+      const rev = Number(l.originalRevenue ?? l.revenue ?? 0);
+      return clicks > 0 || subs > 0 || rev > 0;
+    }).length;
 
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
-    const untagged = scopedLinks.filter((l: any) => !getEffectiveSource(l)).length;
     const totalCount = scopedLinks.length;
-    const trackedCount = linksWithCost.length;
-    const paidNewSubsAllTime = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
+    const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
+    const paidNewSubsAllTime = allTimeLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
     const profitPerSubCalc = paidNewSubsAllTime > 0 ? totalProfitCalc / paidNewSubsAllTime : null;
 
     return {
-      totalRevenue: totalLtv, totalLtv, noSpend, untagged, totalCount,
+      totalRevenue, totalLtv: totalRevenue, noSpend, untagged, totalCount,
       profitPerSub: profitPerSubCalc, trackedCount,
-      avgCostPerSub: avgCostPerSubCalc, isEstimate: false,
+      avgCpl, isEstimate: false,
       totalSpend, totalProfit: totalProfitCalc,
-      hasSnapshotData, periodDays,
+      hasSnapshotData,
     };
-  }, [filtered, isAllTime, campaignsSnapshotRange, campaignsSnapshotRows]);
+  }, [filtered, enrichedLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
