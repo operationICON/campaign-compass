@@ -11,7 +11,8 @@ const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
 interface Props {
   links: any[];
-  allLinks: any[]; // unfiltered by time for stable category assignment
+  allLinks: any[];
+  onTagLink?: (linkId: string, sourceTag: string) => void;
 }
 
 type Category = "OnlyTraffic" | "Manual";
@@ -84,7 +85,7 @@ function getRoiBadge(roi: number | null): { label: string; bg: string; text: str
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-export function TrafficCategoryNav({ links, allLinks }: Props) {
+export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const colorMap = useTagColors();
@@ -125,6 +126,15 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
     });
   }, [activeSource, activeCategory, categoryLinks]);
 
+  // Collect all unique source tags for the dropdown
+  const sourceTagOptions = useMemo(() => {
+    const tags = new Set<string>();
+    allLinks.forEach(l => {
+      if (l.source_tag) tags.add(l.source_tag);
+    });
+    return Array.from(tags).sort((a, b) => a.localeCompare(b));
+  }, [allLinks]);
+
   // ═══ LEVEL 3 ═══
   if (activeCategory && activeSource) {
     const dotColor = colorMap[activeSource] || "#94a3b8";
@@ -135,6 +145,8 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
         categoryName={activeCategory}
         links={sourceLinks}
         onBack={() => setActiveSource(null)}
+        sourceTagOptions={sourceTagOptions}
+        onTagLink={onTagLink || (() => {})}
       />
     );
   }
