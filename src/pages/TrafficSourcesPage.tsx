@@ -323,15 +323,15 @@ export default function TrafficSourcesPage() {
   // ── KPI calculations ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
-    const tagged = links.filter((l: any) => !!getEffectiveSource(l)).length;
-    const untagged = links.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
-    const totalRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalSubscribers = links.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-    const totalClicks = links.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
+    const tagged = allLinks.filter((l: any) => !!getEffectiveSource(l)).length;
+    const untagged = allLinks.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
+    const totalRevenue = allLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    const totalSubscribers = allLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalClicks = allLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
     const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
     const activeSourceIds = new Set<string>();
-    links.forEach((l: any) => {
+    allLinks.forEach((l: any) => {
       if (l.traffic_source_id && l.clicks > 0 && l.updated_at >= thirtyDaysAgo) {
         activeSourceIds.add(l.traffic_source_id);
       }
@@ -339,7 +339,7 @@ export default function TrafficSourcesPage() {
     const activeSources = activeSourceIds.size;
 
     // Total Spend = SUM(cost_total) WHERE cost_total > 0
-    const totalSpend = links
+    const totalSpend = allLinks
       .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
@@ -348,17 +348,17 @@ export default function TrafficSourcesPage() {
     const blendedRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : 0;
 
     // Avg CPL = SUM(cost_total WHERE payment_type='CPL' AND cost_total > 0) / SUM(subscribers WHERE same)
-    const cplLinks = links.filter((l: any) => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
+    const cplLinks = allLinks.filter((l: any) => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
     const cplSpend = cplLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
     const cplSubs = cplLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : 0;
 
-    const paidLinks = links.filter((l: any) => Number(l.cost_total || 0) > 0);
+    const paidLinks = allLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
     const paidSubs = paidLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
     const avgProfitSub = paidSubs > 0 ? totalProfit / paidSubs : 0;
 
     const revenueBySource: Record<string, number> = {};
-    links.forEach((l: any) => {
+    allLinks.forEach((l: any) => {
       const es = getEffectiveSource(l);
       if (es) {
         revenueBySource[es] = (revenueBySource[es] || 0) + Number(l.revenue || 0);
@@ -371,15 +371,14 @@ export default function TrafficSourcesPage() {
       totalSpend, totalRevenue, blendedRoi,
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
-      isEstimate: false,
     };
-  }, [sources, links]);
+  }, [sources, allLinks]);
 
   // ── Source Analysis calculations ──
   const sourceAnalysis = useMemo(() => {
     // Group links by source
     const bySource: Record<string, any[]> = {};
-    links.forEach((l: any) => {
+    allLinks.forEach((l: any) => {
       const tag = getEffectiveSource(l) || "Untagged";
       if (!bySource[tag]) bySource[tag] = [];
       bySource[tag].push(l);
@@ -890,7 +889,7 @@ export default function TrafficSourcesPage() {
         </div>
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
-        <TrafficCategoryNav links={links} allLinks={allLinks} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} />
+        <TrafficCategoryNav links={allLinks} allLinks={allLinks} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} />
       </div>
     </DashboardLayout>
   );

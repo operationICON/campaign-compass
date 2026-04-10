@@ -27,7 +27,7 @@ function getStatusBadge(link: any): { label: string; bg: string; text: string } 
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "status" | "source";
+type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "ltvSub" | "status" | "source";
 
 interface Props {
   sourceName: string;
@@ -77,6 +77,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       const roi = spend > 0 ? (rev - spend) / spend * 100 : -Infinity;
       const subs = l.subscribers || 0;
       const profitSub = spend > 0 && subs > 0 ? (rev - spend) / subs : -Infinity;
+      const ltvSub = subs > 0 ? rev / subs : -Infinity;
       switch (sortKey) {
         case "campaign": return (l.campaign_name || "").toLowerCase();
         case "model": return (l.accounts?.username || "").toLowerCase();
@@ -88,6 +89,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         case "profit": return profit;
         case "roi": return roi;
         case "profitSub": return profitSub;
+        case "ltvSub": return ltvSub;
         case "status": return spend <= 0 ? -2 : roi;
         case "source": return (l.source_tag || "").toLowerCase();
         default: return 0;
@@ -182,6 +184,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profit")}>Profit <SortIcon col="profit" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon col="roi" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profitSub")}>Profit/Sub <SortIcon col="profitSub" /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltvSub")}>LTV/Sub <SortIcon col="ltvSub" /></TableHead>
               <TableHead className={`${thClass} text-center`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
             </TableRow>
           </TableHeader>
@@ -193,6 +196,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               const roi = spend > 0 ? ((rev - spend) / spend) * 100 : null;
               const subs = link.subscribers || 0;
               const profitSub = spend > 0 && subs > 0 ? (rev - spend) / subs : null;
+              const ltvSub = subs > 0 ? rev / subs : null;
               const badge = getStatusBadge(link);
               const username = link.accounts?.username || null;
               const displayName = link.accounts?.display_name || username || "Unknown";
@@ -247,6 +251,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profit !== null ? fmtC(profit) : "—"}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
                   <TableCell className="text-center">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
                       {badge.label}
@@ -257,7 +262,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             })}
             {pageRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isUntaggedView ? 12 : 11} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
+                <TableCell colSpan={isUntaggedView ? 13 : 12} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
                   No campaigns found
                 </TableCell>
               </TableRow>
