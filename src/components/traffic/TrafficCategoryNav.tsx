@@ -275,7 +275,7 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
                   {badge.label}
                 </span>
               </div>
-            </div>
+            </button>
           );
         })}
         {sourceCards.length === 0 && (
