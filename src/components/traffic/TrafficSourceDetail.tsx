@@ -27,7 +27,7 @@ function getStatusBadge(link: any): { label: string; bg: string; text: string } 
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "ltvSub" | "created" | "status" | "source";
+type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "ltvSub" | "created" | "status" | "source" | "orderId";
 
 function getAgePill(days: number): { label: string; bg: string; text: string } {
   if (days <= 30) return { label: `${days}d`, bg: "hsl(142 71% 45% / 0.15)", text: "hsl(142 71% 45%)" };
@@ -56,6 +56,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
 
   const isUntaggedView = sourceName === "Untagged";
+  const isOnlyTraffic = categoryName === "OnlyTraffic";
 
   // KPIs
   const kpis = useMemo(() => {
@@ -101,6 +102,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         case "created": return new Date(l.created_at).getTime();
         case "status": return spend <= 0 ? -2 : roi;
         case "source": return (l.source_tag || "").toLowerCase();
+        case "orderId": return (l.onlytraffic_order_id || "").toLowerCase();
         default: return 0;
       }
     };
@@ -186,6 +188,9 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               <TableHead className={thClass} onClick={() => handleSort("campaign")}>Campaign <SortIcon col="campaign" /></TableHead>
               <TableHead className={thClass} onClick={() => handleSort("model")}>Model <SortIcon col="model" /></TableHead>
               <TableHead className={thClass} onClick={() => handleSort("marketer")}>Marketer <SortIcon col="marketer" /></TableHead>
+              {isOnlyTraffic && (
+                <TableHead className={thClass} onClick={() => handleSort("orderId")}>Order ID <SortIcon col="orderId" /></TableHead>
+              )}
               {isUntaggedView && (
                 <TableHead className={`${thClass}`} onClick={() => handleSort("source")}>Source <SortIcon col="source" /></TableHead>
               )}
@@ -233,6 +238,11 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                   <TableCell>
                     <span className="text-foreground" style={{ fontSize: "12px" }}>{link.onlytraffic_marketer || "—"}</span>
                   </TableCell>
+                  {isOnlyTraffic && (
+                    <TableCell>
+                      <span className="text-foreground font-mono" style={{ fontSize: "11px" }}>{link.onlytraffic_order_id || "—"}</span>
+                    </TableCell>
+                  )}
                   {isUntaggedView && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {!link.source_tag ? (
@@ -298,7 +308,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             })}
             {pageRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isUntaggedView ? 14 : 13} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
+                <TableCell colSpan={isUntaggedView ? 15 : isOnlyTraffic ? 14 : 13} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
                   No campaigns found
                 </TableCell>
               </TableRow>
