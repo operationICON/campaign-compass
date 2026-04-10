@@ -276,25 +276,12 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
             </div>
-            {/* No Source campaigns */}
             {noSourceCount > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Untagged / No Source</span>
+                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Includes No Source</span>
                   <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
                     {fmtN(noSourceCount)} campaigns
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Spend</span>
-                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
-                    {fmtC(noSourceSpend)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Revenue</span>
-                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
-                    {fmtC(noSourceRevenue)}
                   </span>
                 </div>
               </div>
