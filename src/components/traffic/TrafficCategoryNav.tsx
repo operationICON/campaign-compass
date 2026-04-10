@@ -96,13 +96,22 @@ function getRoiBadge(roi: number | null): { label: string; bg: string; text: str
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
+export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const colorMap = useTagColors();
 
   const otLinks = useMemo(() => allLinks.filter(isOnlyTraffic), [allLinks]);
   const manualLinks = useMemo(() => allLinks.filter(isManual), [allLinks]);
+
+  // No Source: null traffic_category, has activity, not deleted
+  const noSourceLinks = useMemo(() => allLinks.filter(l =>
+    l.traffic_category == null &&
+    l.deleted_at == null &&
+    (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
+  ), [allLinks]);
+  const noSourceCount = noSourceLinks.length;
+  const noSourceRevenue = noSourceLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
