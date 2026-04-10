@@ -157,7 +157,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       </div>
 
       {/* Sub-KPI row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-8 gap-2">
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(kpis.spend)} color="#dc2626" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(kpis.revenue)} color="#16a34a" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(kpis.profit)} color={kpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
@@ -305,12 +305,12 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
 
 function SubKpi({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="bg-card border border-border px-3 py-2.5 rounded-xl" style={{ borderLeft: `3px solid ${color}` }}>
-      <div className="flex items-center gap-1.5 mb-0.5">
+    <div className="bg-card border border-border px-2 py-2 rounded-lg" style={{ borderLeft: `3px solid ${color}` }}>
+      <div className="flex items-center gap-1 mb-0.5">
         <span style={{ color }}>{icon}</span>
-        <span className="text-muted-foreground" style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
+        <span className="text-muted-foreground" style={{ fontSize: "9px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
       </div>
-      <p className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>{value}</p>
+      <p className="font-mono font-bold text-foreground" style={{ fontSize: "13px" }}>{value}</p>
     </div>
   );
 }
