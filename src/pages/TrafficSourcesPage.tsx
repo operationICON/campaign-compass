@@ -436,7 +436,7 @@ export default function TrafficSourcesPage() {
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
     };
-  }, [sources, dateAccountFiltered]);
+  }, [sources, dateAccountFiltered, accounts]);
 
   // ── Source Analysis calculations ──
   const sourceAnalysis = useMemo(() => {
