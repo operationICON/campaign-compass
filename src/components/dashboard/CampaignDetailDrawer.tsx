@@ -382,10 +382,15 @@ function DrawerBodyInner({
             </div>
             <div className="p-0">
               <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
-              <DataRow label="Cost Type" value={d.cost_type || "—"} />
-              <DataRow label="Cost Per Lead" value={costInputValue > 0 ? fmtC2(costInputValue) : "—"} />
+              <DataRow label="Cost Type" value={paymentType || "—"} />
+              {paymentType === "CPL" && (
+                <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
+              )}
+              {paymentType === "CPC" && (
+                <DataRow label="Cost Per Click" value={costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
+              )}
               <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
-              <DataRow label="Profit/Sub" value={profitPerSub != null && cost > 0 ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null && cost > 0 ? profitTone(profitPerSub) : "neutral"} />
+              <DataRow label="Profit/Sub" value={profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
               <DataRow label="ROI" value={showRoi(roi)} tone={roi != null ? profitTone(roi) : "neutral"} />
               <DataRow label="CVR %" value={totalClicks > 0 && cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
               <DataRow label="Total Clicks" value={totalClicks.toLocaleString()} />
