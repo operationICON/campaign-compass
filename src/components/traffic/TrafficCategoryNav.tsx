@@ -5,6 +5,7 @@ import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
 import { TrafficSourceDetail } from "./TrafficSourceDetail";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { UnmatchedOrdersCard } from "./UnmatchedOrdersCard";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -271,6 +272,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </div>
           </button>
         </div>
+
+        {/* Unmatched Orders Card */}
+        <UnmatchedOrdersCard />
       </div>
     );
   }
