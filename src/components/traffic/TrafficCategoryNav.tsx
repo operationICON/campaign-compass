@@ -126,6 +126,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
     });
   }, [activeSource, activeCategory, categoryLinks]);
 
+  // Collect all unique source tags for the dropdown
+  const sourceTagOptions = useMemo(() => {
+    const tags = new Set<string>();
+    allLinks.forEach(l => {
+      if (l.source_tag) tags.add(l.source_tag);
+    });
+    return Array.from(tags).sort((a, b) => a.localeCompare(b));
+  }, [allLinks]);
+
   // ═══ LEVEL 3 ═══
   if (activeCategory && activeSource) {
     const dotColor = colorMap[activeSource] || "#94a3b8";
@@ -136,6 +145,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
         categoryName={activeCategory}
         links={sourceLinks}
         onBack={() => setActiveSource(null)}
+        sourceTagOptions={sourceTagOptions}
+        onTagLink={onTagLink || (() => {})}
       />
     );
   }
