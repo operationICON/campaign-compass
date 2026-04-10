@@ -217,7 +217,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                     <span className="text-foreground" style={{ fontSize: "12px" }}>{link.onlytraffic_marketer || "—"}</span>
                   </TableCell>
                   {isUntaggedView && (
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {!link.source_tag ? (
                         <Select
                           disabled={isSaving}
