@@ -14,6 +14,7 @@ interface Props {
   links: any[];
   allLinks: any[];
   onTagLink?: (linkId: string, sourceTag: string) => void;
+  unmatchedOrders?: { count: number; spend: number };
 }
 
 type Category = "OnlyTraffic" | "Manual";
