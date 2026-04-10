@@ -694,7 +694,7 @@ export default function TrafficSourcesPage() {
 
   return (
     <DashboardLayout>
-      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-4">
+      <div className="bg-background min-h-screen p-4 space-y-4">
         {/* ═══ TIME + MODEL FILTER BAR ═══ */}
         <PageFilterBar
           timePeriod={timePeriod}
@@ -718,7 +718,7 @@ export default function TrafficSourcesPage() {
               <div className="flex items-center gap-2">
                 <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
                 <div className="relative">
-                  <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
+                  <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-border text-xs font-medium text-muted-foreground rounded-lg">
                     <Settings2 className="h-3.5 w-3.5" /> Columns
                   </button>
                   {kpiDropdownOpen && (
@@ -875,7 +875,7 @@ export default function TrafficSourcesPage() {
                     ))}
                   </div>
                 </div>
-                <button onClick={handleNewSource} disabled={!newName.trim() || saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
+                <button onClick={handleNewSource} disabled={!newName.trim() || saving} className="w-full py-2 text-sm font-bold text-primary-foreground bg-primary disabled:opacity-50 rounded-lg">
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>
