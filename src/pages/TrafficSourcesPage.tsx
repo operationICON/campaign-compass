@@ -501,7 +501,7 @@ export default function TrafficSourcesPage() {
     growthTrend.sort((a, b) => b.change - a.change);
 
     return { subsPerDay, distribution, growthTrend, topContrib };
-  }, [links, sources, sourceFilter, dailyMetrics]);
+  }, [dateAccountFiltered, sources, sourceFilter, dailyMetrics]);
 
 
   const selectedSource = useMemo(() => sources.find((s: any) => s.id === editSourceId), [sources, editSourceId]);
