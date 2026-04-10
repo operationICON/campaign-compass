@@ -308,6 +308,16 @@ export default function CampaignsPage() {
       return data || [];
     },
   });
+
+  // Fetch valid unmatched orders spend
+  const { data: unmatchedSpendTotal = 0 } = useQuery({
+    queryKey: ["unmatched_orders_spend_campaigns"],
+    queryFn: async () => {
+      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent, status").in("status", ["completed", "active", "accepted"]);
+      if (!data) return 0;
+      return data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0);
+    },
+  });
   
   const tagColorMap = useTagColors();
 

@@ -115,6 +115,16 @@ export default function DashboardPage() {
     queryFn: fetchTrackingLinkLtv,
   });
 
+  // Fetch valid unmatched orders spend
+  const { data: unmatchedSpendTotal = 0 } = useQuery({
+    queryKey: ["unmatched_orders_spend_overview"],
+    queryFn: async () => {
+      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent, status").in("status", ["completed", "active", "accepted"]);
+      if (!data) return 0;
+      return data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0);
+    },
+  });
+
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
     "jessie_ca_xo": "Female", "zoey.skyy": "Female", "ella_cherryy": "Female",
