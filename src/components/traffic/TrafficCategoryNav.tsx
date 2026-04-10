@@ -112,11 +112,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
   ), [allLinks]);
   const noSourceCount = noSourceLinks.length;
-  const noSourceRevenue = noSourceLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-  const noSourceSpend = noSourceLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
 
-  // Manual metrics use ONLY traffic_category='Manual' links
-  const manualLinks = manualOnlyLinks;
+  // Manual = Manual tagged + No Source links (so user can see/edit them)
+  const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
@@ -220,11 +218,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-500">API</span>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-              <MetricRow label="Spend" value={fmtC(otMetrics.spend + (unmatchedOrders?.spend || 0))} />
+              <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
               <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
-              {(() => { const otTotalSpend = otMetrics.spend + (unmatchedOrders?.spend || 0); const otProfit = otMetrics.revenue - otTotalSpend; return <MetricRow label="Profit" value={fmtC(otProfit)} color={otProfit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />; })()}
+              <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
               <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
-              {(() => { const otTotalSpend = otMetrics.spend + (unmatchedOrders?.spend || 0); const otProfit = otMetrics.revenue - otTotalSpend; const otRoi = otTotalSpend > 0 ? (otProfit / otTotalSpend) * 100 : null; return <MetricRow label="ROI" value={otRoi !== null ? fmtPct(otRoi) : "—"} color={otRoi !== null ? (otRoi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />; })()}
+              <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
             {/* Unmatched Orders summary */}
@@ -278,17 +276,12 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </div>
             {noSourceCount > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between">
                   <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Includes No Source</span>
                   <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
                     {fmtN(noSourceCount)} campaigns
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-muted-foreground" style={{ fontSize: "10px" }}>
-                  <span>Spend: {fmtC(noSourceSpend)}</span>
-                  <span>Rev: {fmtC(noSourceRevenue)}</span>
-                </div>
-                <span className="text-muted-foreground/60" style={{ fontSize: "9px" }}>Not included in Manual metrics</span>
               </div>
             )}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
@@ -329,19 +322,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
       {/* Sub-KPI row */}
       {(() => {
-        const isOT = activeCategory === "OnlyTraffic";
-        const umSpend = isOT ? (unmatchedOrders?.spend || 0) : 0;
-        const adjSpend = categoryMetrics.spend + umSpend;
-        const adjProfit = categoryMetrics.revenue - adjSpend;
-        const adjRoi = adjSpend > 0 ? (adjProfit / adjSpend) * 100 : null;
-        const adjProfitPerSub = adjSpend > 0 && categoryMetrics.subs > 0 ? adjProfit / categoryMetrics.subs : null;
         return (
           <div className="grid grid-cols-8 gap-2">
-            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(adjSpend)} color="#dc2626" />
+            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(categoryMetrics.spend)} color="#dc2626" />
             <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
-            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(adjProfit)} color={adjProfit >= 0 ? "#16a34a" : "#dc2626"} />
+            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(categoryMetrics.profit)} color={categoryMetrics.profit >= 0 ? "#16a34a" : "#dc2626"} />
             <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={categoryMetrics.avgCpl !== null ? fmtC(categoryMetrics.avgCpl) : "—"} color="#0891b2" />
-            <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={adjProfitPerSub !== null ? fmtC(adjProfitPerSub) : "—"} color={adjProfitPerSub !== null ? (adjProfitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+            <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={categoryMetrics.profitPerSub !== null ? fmtC(categoryMetrics.profitPerSub) : "—"} color={categoryMetrics.profitPerSub !== null ? (categoryMetrics.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
             <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
             <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
             <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={adjRoi !== null ? fmtPct(adjRoi) : "—"} color={adjRoi !== null ? (adjRoi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
