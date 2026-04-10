@@ -115,8 +115,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const noSourceRevenue = noSourceLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
   const noSourceSpend = noSourceLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
 
-  // Manual + No Source combined for the Manual category
-  const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
+  // Manual metrics use ONLY traffic_category='Manual' links
+  const manualLinks = manualOnlyLinks;
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
