@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
@@ -45,6 +46,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
 
   const isUntaggedView = sourceName === "Untagged";
 
@@ -200,7 +202,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               const isSaving = savingIds.has(link.id);
 
               return (
-                <TableRow key={link.id} className="border-border">
+                <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setDrawerCampaign(link)}>
                   <TableCell className="max-w-[220px]">
                     <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
                     <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{link.url}</p>
@@ -215,7 +217,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                     <span className="text-foreground" style={{ fontSize: "12px" }}>{link.onlytraffic_marketer || "—"}</span>
                   </TableCell>
                   {isUntaggedView && (
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {!link.source_tag ? (
                         <Select
                           disabled={isSaving}
@@ -289,6 +291,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
           </div>
         )}
       </div>
+      <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
     </div>
   );
 }
