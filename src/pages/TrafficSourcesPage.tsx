@@ -694,7 +694,7 @@ export default function TrafficSourcesPage() {
 
   return (
     <DashboardLayout>
-      <div style={{ background: "#f0f4f8", minHeight: "100vh" }} className="p-4 space-y-4">
+      <div className="bg-background min-h-screen p-4 space-y-4">
         {/* ═══ TIME + MODEL FILTER BAR ═══ */}
         <PageFilterBar
           timePeriod={timePeriod}
@@ -718,7 +718,7 @@ export default function TrafficSourcesPage() {
               <div className="flex items-center gap-2">
                 <RefreshButton queryKeys={["tracking_links_ts", "traffic_sources", "manual_notes_ts", "accounts"]} />
                 <div className="relative">
-                  <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-medium" style={{ borderColor: "#e8edf2", borderRadius: "8px", color: "#64748b" }}>
+                  <button onClick={() => setKpiDropdownOpen(!kpiDropdownOpen)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-border text-xs font-medium text-muted-foreground rounded-lg">
                     <Settings2 className="h-3.5 w-3.5" /> Columns
                   </button>
                   {kpiDropdownOpen && (
@@ -785,10 +785,9 @@ export default function TrafficSourcesPage() {
                           className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-secondary transition-colors" style={{ fontSize: "13px" }}>
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || "#0891b2" }} />
                           <span className="flex-1 font-medium text-foreground">{s.name}</span>
-                          <span className="px-1.5 py-0.5 text-[10px] font-semibold" style={{
-                            borderRadius: "4px",
-                            background: s.category === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe",
-                            color: s.category === "OnlyTraffic" ? "#7c3aed" : "#0891b2" }}>{s.category}</span>
+                          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded" style={{
+                            background: s.category === "OnlyTraffic" ? "hsl(263 70% 50% / 0.15)" : "hsl(192 91% 36% / 0.15)",
+                            color: s.category === "OnlyTraffic" ? "hsl(263 70% 50%)" : "hsl(192 91% 36%)" }}>{s.category}</span>
                           <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{getSourceCampaignCount(s.id)}</span>
                         </button>
                       ))}
@@ -875,7 +874,7 @@ export default function TrafficSourcesPage() {
                     ))}
                   </div>
                 </div>
-                <button onClick={handleNewSource} disabled={!newName.trim() || saving} className="w-full py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#0891b2", borderRadius: "8px" }}>
+                <button onClick={handleNewSource} disabled={!newName.trim() || saving} className="w-full py-2 text-sm font-bold text-primary-foreground bg-primary disabled:opacity-50 rounded-lg">
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>
