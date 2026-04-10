@@ -83,8 +83,12 @@ export function UnmatchedOrdersCard() {
   const statusColor = (s: string | null) => {
     if (!s) return {};
     if (s === "completed") return { backgroundColor: "hsl(142 71% 45% / 0.15)", color: "hsl(142 71% 45%)" };
+    if (s === "active") return { backgroundColor: "hsl(174 60% 51% / 0.15)", color: "hsl(174 60% 51%)" };
+    if (s === "accepted") return { backgroundColor: "hsl(217 91% 60% / 0.15)", color: "hsl(217 91% 60%)" };
+    if (s === "waiting") return { backgroundColor: "hsl(38 92% 50% / 0.15)", color: "hsl(38 92% 50%)" };
     if (s === "rejected") return { backgroundColor: "hsl(0 84% 60% / 0.15)", color: "hsl(0 84% 60%)" };
-    return { backgroundColor: "hsl(38 92% 50% / 0.15)", color: "hsl(38 92% 50%)" };
+    if (s === "cancelled") return { backgroundColor: "hsl(220 9% 46% / 0.2)", color: "hsl(220 9% 46%)" };
+    return { backgroundColor: "hsl(220 9% 46% / 0.15)", color: "hsl(220 9% 46%)" };
   };
 
   const typeBadge = (t: string | null) => {

@@ -342,7 +342,7 @@ export default function TrafficSourcesPage() {
   const { data: unmatchedOrdersData = { count: 0, spend: 0 } } = useQuery({
     queryKey: ["unmatched_orders_summary"],
     queryFn: async () => {
-      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent");
+      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent, status").in("status", ["completed", "active", "accepted"]);
       if (!data) return { count: 0, spend: 0 };
       return {
         count: data.length,
