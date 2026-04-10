@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
