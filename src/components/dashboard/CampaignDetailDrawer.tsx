@@ -103,16 +103,21 @@ function DrawerBodyInner({
 
   // ─── ALL TIME ───
   const existingFans = Math.max(0, tlSubscribers - newSubs);
-  // LTV/Sub = revenue / subscribers (Layer 2)
   const campaignRevenue = Number(d.revenue ?? 0);
-  const ltvPerSub = tlSubscribers > 0 ? campaignRevenue / tlSubscribers : null;
+  // LTV/Sub = tracking_link_ltv.total_ltv / new_subs_total
+  const ltvPerSub = newSubs > 0 ? totalLtv / newSubs : null;
   const spenderRate = newSubs > 0 ? Math.min(100, (tlSpenders / newSubs) * 100) : null;
 
   // ─── FINANCIALS — use tracking_links.revenue ───
   const profit = campaignRevenue - cost;
-  const profitPerSub = tlSubscribers > 0 && cost > 0 ? profit / tlSubscribers : null;
+  const profitPerSub = tlSubscribers > 0 ? profit / tlSubscribers : null;
   const roi = cost > 0 ? (profit / cost) * 100 : null;
   const cvr = totalClicks > 0 ? (tlSubscribers / totalClicks) * 100 : null;
+
+  // ─── Cost display helpers ───
+  const paymentType = d.payment_type || d.cost_type || null;
+  const costPerLead = Number(d.cost_per_lead ?? 0);
+  const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
 
   // ─── CALCULATIONS ───
   const breakEvenLtv = newSubs > 0 && cost > 0 ? cost / newSubs : null;
@@ -377,10 +382,15 @@ function DrawerBodyInner({
             </div>
             <div className="p-0">
               <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
-              <DataRow label="Cost Type" value={d.cost_type || "—"} />
-              <DataRow label="Cost Per Lead" value={costInputValue > 0 ? fmtC2(costInputValue) : "—"} />
+              <DataRow label="Cost Type" value={paymentType || "—"} />
+              {paymentType === "CPL" && (
+                <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
+              )}
+              {paymentType === "CPC" && (
+                <DataRow label="Cost Per Click" value={costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
+              )}
               <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
-              <DataRow label="Profit/Sub" value={profitPerSub != null && cost > 0 ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null && cost > 0 ? profitTone(profitPerSub) : "neutral"} />
+              <DataRow label="Profit/Sub" value={profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
               <DataRow label="ROI" value={showRoi(roi)} tone={roi != null ? profitTone(roi) : "neutral"} />
               <DataRow label="CVR %" value={totalClicks > 0 && cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
               <DataRow label="Total Clicks" value={totalClicks.toLocaleString()} />
