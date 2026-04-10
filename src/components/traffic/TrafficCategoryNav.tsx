@@ -103,7 +103,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const colorMap = useTagColors();
 
   const otLinks = useMemo(() => allLinks.filter(l => isOnlyTraffic(l) && l.deleted_at == null), [allLinks]);
-  const manualLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
+  const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
 
   // No Source: null traffic_category, not deleted, has activity
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
@@ -114,6 +114,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const noSourceCount = noSourceLinks.length;
   const noSourceRevenue = noSourceLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
   const noSourceSpend = noSourceLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
+
+  // Manual + No Source combined for the Manual category
+  const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
@@ -273,25 +276,12 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
             </div>
-            {/* No Source campaigns */}
             {noSourceCount > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Untagged / No Source</span>
+                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Includes No Source</span>
                   <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
                     {fmtN(noSourceCount)} campaigns
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Spend</span>
-                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
-                    {fmtC(noSourceSpend)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Revenue</span>
-                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
-                    {fmtC(noSourceRevenue)}
                   </span>
                 </div>
               </div>
