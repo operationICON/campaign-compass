@@ -108,15 +108,16 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   };
 
   const handleAssignSource = async (linkId: string, tag: string) => {
+    const actualTag = tag === "__add_manual__" ? "Manual" : tag;
     setSavingIds(prev => new Set(prev).add(linkId));
     try {
       const { error } = await supabase
         .from("tracking_links")
-        .update({ source_tag: tag, traffic_category: "Manual", manually_tagged: true })
+        .update({ source_tag: actualTag, traffic_category: "Manual", manually_tagged: true })
         .eq("id", linkId);
       if (error) throw error;
-      onTagLink(linkId, tag);
-      toast.success(`Tagged as "${tag}"`);
+      onTagLink(linkId, actualTag);
+      toast.success(`Tagged as "${actualTag}"`);
     } catch (e: any) {
       toast.error("Failed to tag: " + (e.message || "Unknown error"));
     } finally {
