@@ -2,9 +2,14 @@ import React, { useState, useMemo } from "react";
 import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -20,7 +25,7 @@ function getStatusBadge(link: any): { label: string; bg: string; text: string } 
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "status";
+type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "status" | "source";
 
 interface Props {
   sourceName: string;
@@ -28,14 +33,19 @@ interface Props {
   categoryName: string;
   links: any[];
   onBack: () => void;
+  sourceTagOptions: string[];
+  onTagLink: (linkId: string, sourceTag: string) => void;
 }
 
 const PAGE_SIZE = 25;
 
-export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, links, onBack }: Props) {
+export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, links, onBack, sourceTagOptions, onTagLink }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(0);
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+
+  const isUntaggedView = sourceName === "Untagged";
 
   // KPIs
   const kpis = useMemo(() => {
@@ -76,6 +86,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         case "roi": return roi;
         case "profitSub": return profitSub;
         case "status": return spend <= 0 ? -2 : roi;
+        case "source": return (l.source_tag || "").toLowerCase();
         default: return 0;
       }
     };
@@ -94,6 +105,23 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
     setPage(0);
+  };
+
+  const handleAssignSource = async (linkId: string, tag: string) => {
+    setSavingIds(prev => new Set(prev).add(linkId));
+    try {
+      const { error } = await supabase
+        .from("tracking_links")
+        .update({ source_tag: tag, traffic_category: "Manual", manually_tagged: true })
+        .eq("id", linkId);
+      if (error) throw error;
+      onTagLink(linkId, tag);
+      toast.success(`Tagged as "${tag}"`);
+    } catch (e: any) {
+      toast.error("Failed to tag: " + (e.message || "Unknown error"));
+    } finally {
+      setSavingIds(prev => { const n = new Set(prev); n.delete(linkId); return n; });
+    }
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -140,6 +168,9 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               <TableHead className={thClass} onClick={() => handleSort("campaign")}>Campaign <SortIcon col="campaign" /></TableHead>
               <TableHead className={thClass} onClick={() => handleSort("model")}>Model <SortIcon col="model" /></TableHead>
               <TableHead className={thClass} onClick={() => handleSort("marketer")}>Marketer <SortIcon col="marketer" /></TableHead>
+              {isUntaggedView && (
+                <TableHead className={`${thClass}`} onClick={() => handleSort("source")}>Source <SortIcon col="source" /></TableHead>
+              )}
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("clicks")}>Clicks <SortIcon col="clicks" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("subs")}>Subs <SortIcon col="subs" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("revenue")}>Revenue <SortIcon col="revenue" /></TableHead>
@@ -164,6 +195,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               const avatarUrl = link.accounts?.avatar_thumb_url || null;
               const profitColor = profit !== null ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
               const roiColor = roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
+              const isSaving = savingIds.has(link.id);
 
               return (
                 <TableRow key={link.id} className="border-border">
@@ -180,6 +212,30 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                   <TableCell>
                     <span className="text-foreground" style={{ fontSize: "12px" }}>{link.onlytraffic_marketer || "—"}</span>
                   </TableCell>
+                  {isUntaggedView && (
+                    <TableCell>
+                      {!link.source_tag ? (
+                        <Select
+                          disabled={isSaving}
+                          onValueChange={(val) => handleAssignSource(link.id, val)}
+                        >
+                          <SelectTrigger className="h-7 w-[130px] text-[11px] border-border bg-background">
+                            <SelectValue placeholder={isSaving ? "Saving…" : "Assign source"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sourceTagOptions.map(tag => (
+                              <SelectItem key={tag} value={tag} className="text-[11px]">{tag}</SelectItem>
+                            ))}
+                            <SelectItem value="__add_manual__" className="text-[11px] text-blue-500 font-semibold">
+                              + Add to Manual
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-foreground" style={{ fontSize: "12px" }}>{link.source_tag}</span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
@@ -197,7 +253,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             })}
             {pageRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
+                <TableCell colSpan={isUntaggedView ? 12 : 11} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
                   No campaigns found
                 </TableCell>
               </TableRow>
