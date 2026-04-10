@@ -278,12 +278,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </div>
             {noSourceCount > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Includes No Source</span>
                   <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
                     {fmtN(noSourceCount)} campaigns
                   </span>
                 </div>
+                <div className="flex items-center gap-3 text-muted-foreground" style={{ fontSize: "10px" }}>
+                  <span>Spend: {fmtC(noSourceSpend)}</span>
+                  <span>Rev: {fmtC(noSourceRevenue)}</span>
+                </div>
+                <span className="text-muted-foreground/60" style={{ fontSize: "9px" }}>Not included in Manual metrics</span>
               </div>
             )}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
