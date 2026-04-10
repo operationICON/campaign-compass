@@ -31,17 +31,22 @@ function calcCategoryMetrics(catLinks: any[]) {
     .reduce((s, l) => s + Number(l.cost_total || 0), 0);
   const revenue = catLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
   const profit = revenue - spend;
+  const subs = catLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
   const roi = spend > 0 ? (profit / spend) * 100 : null;
 
-  // Avg CPL: only CPL payment type links
   const cplLinks = catLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
   const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
   const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
   const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
 
-  const campaigns = catLinks.length;
+  const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
+  const ltvPerSub = subs > 0 ? revenue / subs : null;
 
-  // Active sources
+  const ages = catLinks.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
+  const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
+  const subsDay = avgAge > 0 ? subs / avgAge : 0;
+
+  const campaigns = catLinks.length;
   const sourceTags = new Set<string>();
   catLinks.forEach(l => {
     const es = getEffectiveSource(l);
@@ -49,7 +54,7 @@ function calcCategoryMetrics(catLinks: any[]) {
   });
   const activeSources = sourceTags.size;
 
-  return { spend, revenue, profit, roi, avgCpl, campaigns, activeSources };
+  return { spend, revenue, profit, roi, avgCpl, profitPerSub, ltvPerSub, subsDay, campaigns, activeSources, subs };
 }
 
 function calcSourceMetrics(sourceLinks: any[]) {
@@ -241,12 +246,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
       </div>
 
       {/* Sub-KPI row */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(categoryMetrics.spend)} color="#dc2626" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(categoryMetrics.profit)} color={categoryMetrics.profit >= 0 ? "#16a34a" : "#dc2626"} />
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={categoryMetrics.avgCpl !== null ? fmtC(categoryMetrics.avgCpl) : "—"} color="#0891b2" />
-        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Sources" value={fmtN(categoryMetrics.activeSources)} color="#7c3aed" />
+        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={categoryMetrics.profitPerSub !== null ? fmtC(categoryMetrics.profitPerSub) : "—"} color={categoryMetrics.profitPerSub !== null ? (categoryMetrics.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
+        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={categoryMetrics.roi !== null ? fmtPct(categoryMetrics.roi) : "—"} color={categoryMetrics.roi !== null ? (categoryMetrics.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
       {/* Source cards grid */}
@@ -265,22 +273,20 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
                 <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{src.campaigns} campaigns</span>
               </div>
 
-              {/* Metrics grid */}
+              {/* Metrics grid — 8 KPIs in order */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 <MetricRow label="Spend" value={fmtC(src.spend)} />
-                <MetricRow label="Subs/Day" value={src.subsDay > 0 ? src.subsDay.toFixed(1) : "0"} />
+                <MetricRow label="Revenue" value={fmtC(src.revenue)} />
+                <MetricRow label="Profit" value={fmtC(src.profit)} color={src.spend > 0 ? (src.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
                 <MetricRow label="Avg CPL" value={src.avgCpl !== null ? fmtC(src.avgCpl) : "—"} />
+                <MetricRow label="Profit/Sub" value={src.profitPerSub !== null ? fmtC(src.profitPerSub) : "—"} color={src.profitPerSub !== null ? (src.profitPerSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                <MetricRow label="Subs/Day" value={src.subsDay > 0 ? src.subsDay.toFixed(1) : "0"} />
+                <MetricRow label="LTV/Sub" value={src.ltvPerSub !== null ? fmtC(src.ltvPerSub) : "—"} color="#0891b2" />
                 <MetricRow label="ROI" value={src.roi !== null ? fmtPct(src.roi) : "—"} color={src.roi !== null ? (src.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
               </div>
 
-              {/* Profit/Sub full width */}
-              <div className="flex items-center justify-between pt-2 border-t border-border">
-                <div>
-                  <span className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}>LTV/Sub</span>
-                  <p className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>
-                    {src.ltvPerSub !== null ? fmtC(src.ltvPerSub) : "—"}
-                  </p>
-                </div>
+              {/* Badge */}
+              <div className="flex items-center justify-end pt-2 border-t border-border">
                 <span
                   className="px-2 py-0.5 rounded-full text-[10px] font-bold"
                   style={{ backgroundColor: badge.bg, color: badge.text }}

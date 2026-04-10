@@ -61,11 +61,12 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
     const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
     const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
-    const profitPerSub = subs > 0 ? profit / subs : null;
+    const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
+    const ltvPerSub = subs > 0 ? revenue / subs : null;
     const ages = links.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
     const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
     const subsDay = avgAge > 0 ? subs / avgAge : 0;
-    return { spend, revenue, profit, avgCpl, profitPerSub, subsDay, roi };
+    return { spend, revenue, profit, avgCpl, profitPerSub, ltvPerSub, subsDay, roi };
   }, [links]);
 
   // Sorting
@@ -156,13 +157,14 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       </div>
 
       {/* Sub-KPI row */}
-      <div className="grid grid-cols-7 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(kpis.spend)} color="#dc2626" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(kpis.revenue)} color="#16a34a" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(kpis.profit)} color={kpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} color="#0891b2" />
-        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} color="#7c3aed" />
+        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} color={kpis.profitPerSub !== null ? (kpis.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
         <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={kpis.subsDay > 0 ? kpis.subsDay.toFixed(1) : "0"} color="#d97706" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={kpis.ltvPerSub !== null ? fmtC(kpis.ltvPerSub) : "—"} color="#0891b2" />
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
@@ -179,12 +181,12 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               )}
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("clicks")}>Clicks <SortIcon col="clicks" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("subs")}>Subs <SortIcon col="subs" /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("revenue")}>Revenue <SortIcon col="revenue" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("spend")}>Spend <SortIcon col="spend" /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("revenue")}>Revenue <SortIcon col="revenue" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profit")}>Profit <SortIcon col="profit" /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon col="roi" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profitSub")}>Profit/Sub <SortIcon col="profitSub" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltvSub")}>LTV/Sub <SortIcon col="ltvSub" /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon col="roi" /></TableHead>
               <TableHead className={`${thClass} text-center`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
             </TableRow>
           </TableHeader>
@@ -246,12 +248,12 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                   )}
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(spend)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profit !== null ? fmtC(profit) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "#0891b2" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
                   <TableCell className="text-center">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
                       {badge.label}
