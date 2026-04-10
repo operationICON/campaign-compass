@@ -159,6 +159,31 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
   // ═══ LEVEL 3 ═══
   if (activeCategory && activeSource) {
+    // Unmatched Orders as a "source"
+    if (activeSource === "__unmatched__") {
+      return (
+        <div className="space-y-4">
+          <button
+            onClick={() => setActiveSource(null)}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            style={{ fontSize: "13px", fontWeight: 500 }}
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to {activeCategory}
+          </button>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
+              <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched Orders</span>
+            </div>
+            <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
+              Orders that could not be matched to any tracking link
+            </span>
+          </div>
+          <UnmatchedOrdersCard />
+        </div>
+      );
+    }
+
     const dotColor = colorMap[activeSource] || "#94a3b8";
     return (
       <TrafficSourceDetail
@@ -182,60 +207,53 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         </p>
         <div className="grid grid-cols-2 gap-4">
           {/* OnlyTraffic Card */}
-          <div className="bg-card border border-border rounded-xl p-5 text-left">
-            <button
-              onClick={() => setActiveCategory("OnlyTraffic")}
-              className="w-full text-left hover:opacity-80 transition-opacity group"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Zap className="h-4 w-4 text-emerald-500" />
-                <span className="text-foreground font-bold text-base">OnlyTraffic</span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-500">API</span>
-              </div>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
-                <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
-                <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
-                <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
-                <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
-                <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
-              </div>
-              {/* Unmatched Orders summary */}
-              {unmatchedOrders && unmatchedOrders.count > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
-                            <span className="font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>Unmatched</span>
-                          </div>
-                          <span className="font-mono font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>
-                            {fmtN(unmatchedOrders.count)} orders · {fmtC(unmatchedOrders.spend)}
-                          </span>
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                      Orders from OnlyTraffic that could not be matched to any tracking link — null URLs or trial links
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-                <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{otMetrics.activeSources} active sources</span>
-                <span className="text-emerald-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
-                  View sources <ChevronRight className="h-3.5 w-3.5" />
-                </span>
-              </div>
-            </button>
-
-            {/* Unmatched Orders Table — inside OnlyTraffic card */}
-            <div className="mt-4 pt-4 border-t border-border">
-              <UnmatchedOrdersCard />
+          <button
+            onClick={() => setActiveCategory("OnlyTraffic")}
+            className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Zap className="h-4 w-4 text-emerald-500" />
+              <span className="text-foreground font-bold text-base">OnlyTraffic</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-500">API</span>
             </div>
-          </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+              <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
+              <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
+              <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
+              <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
+              <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
+              <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
+            </div>
+            {/* Unmatched Orders summary */}
+            {unmatchedOrders && unmatchedOrders.count > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
+                          <span className="font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>Unmatched</span>
+                        </div>
+                        <span className="font-mono font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>
+                          {fmtN(unmatchedOrders.count)} orders · {fmtC(unmatchedOrders.spend)}
+                        </span>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                    Orders from OnlyTraffic that could not be matched to any tracking link — null URLs or trial links
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+              <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{otMetrics.activeSources} active sources</span>
+              <span className="text-emerald-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
+                View sources <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+            </div>
+          </button>
 
           {/* Manual Card */}
           <button
@@ -382,7 +400,32 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </button>
           );
         })}
-        {sourceCards.length === 0 && (
+        {/* Unmatched Orders source card — OnlyTraffic only */}
+        {activeCategory === "OnlyTraffic" && unmatchedOrders && unmatchedOrders.count > 0 && (
+          <button
+            onClick={() => setActiveSource("__unmatched__")}
+            className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors"
+            style={{ borderColor: "hsl(38 92% 50% / 0.3)" }}
+          >
+            <div className="mb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
+                <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched</span>
+              </div>
+              <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{fmtN(unmatchedOrders.count)} orders</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              <MetricRow label="Total Spend" value={fmtC(unmatchedOrders.spend)} />
+              <MetricRow label="Orders" value={fmtN(unmatchedOrders.count)} />
+            </div>
+            <div className="flex items-center justify-end pt-2 border-t border-border">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: "hsl(38 92% 50% / 0.15)", color: "#d97706" }}>
+                UNMATCHED
+              </span>
+            </div>
+          </button>
+        )}
+        {sourceCards.length === 0 && (!unmatchedOrders || unmatchedOrders.count === 0) && (
           <div className="col-span-3 text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
             No sources found in this category
           </div>
