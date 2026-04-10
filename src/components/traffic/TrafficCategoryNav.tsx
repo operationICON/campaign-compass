@@ -265,12 +265,12 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
           return (
             <button key={src.name} onClick={() => setActiveSource(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
               {/* Header */}
-              <div className="flex items-center justify-between">
+              <div className="mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                  <span className="text-foreground font-semibold" style={{ fontSize: "13px" }}>{src.name}</span>
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                  <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{src.name}</span>
                 </div>
-                <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{src.campaigns} campaigns</span>
+                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{src.campaigns} campaigns</span>
               </div>
 
               {/* Metrics grid — 8 KPIs in order */}

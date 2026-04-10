@@ -150,9 +150,11 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       </button>
 
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: sourceColor }} />
-        <span className="text-foreground font-bold text-lg">{sourceName}</span>
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: sourceColor }} />
+          <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{sourceName}</span>
+        </div>
         <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{links.length} campaigns</span>
       </div>
 
