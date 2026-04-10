@@ -586,10 +586,11 @@ export default function CampaignsPage() {
       totalRevenue = 0;
     }
 
-    // ── CARD 2: Total Spend — ALWAYS all-time ──
-    const totalSpend = atLinks
+    // ── CARD 2: Total Spend — ALWAYS all-time + valid unmatched ──
+    const matchedSpend = atLinks
       .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const totalSpend = matchedSpend + unmatchedSpendTotal;
 
     // ── CARD 3: Total Profit ──
     const totalProfitCalc = (isAllTime || hasSnapshotData) ? (totalRevenue - totalSpend) : 0;
