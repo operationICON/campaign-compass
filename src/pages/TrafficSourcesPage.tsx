@@ -23,7 +23,7 @@ import {
   Hash, Tag, HelpCircle, DollarSign, TrendingUp, Percent, Users, Activity, MousePointerClick, Award,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, differenceInDays, subDays } from "date-fns";
+import { format, differenceInDays, subDays, startOfMonth, endOfMonth, subMonths, startOfDay } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
