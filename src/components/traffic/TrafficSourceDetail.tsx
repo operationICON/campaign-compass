@@ -61,11 +61,12 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
     const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
     const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
-    const profitPerSub = subs > 0 ? profit / subs : null;
+    const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
+    const ltvPerSub = subs > 0 ? revenue / subs : null;
     const ages = links.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
     const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
     const subsDay = avgAge > 0 ? subs / avgAge : 0;
-    return { spend, revenue, profit, avgCpl, profitPerSub, subsDay, roi };
+    return { spend, revenue, profit, avgCpl, profitPerSub, ltvPerSub, subsDay, roi };
   }, [links]);
 
   // Sorting
@@ -156,13 +157,14 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       </div>
 
       {/* Sub-KPI row */}
-      <div className="grid grid-cols-7 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(kpis.spend)} color="#dc2626" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(kpis.revenue)} color="#16a34a" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(kpis.profit)} color={kpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} color="#0891b2" />
-        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} color="#7c3aed" />
+        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} color={kpis.profitPerSub !== null ? (kpis.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
         <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={kpis.subsDay > 0 ? kpis.subsDay.toFixed(1) : "0"} color="#d97706" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={kpis.ltvPerSub !== null ? fmtC(kpis.ltvPerSub) : "—"} color="#0891b2" />
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
