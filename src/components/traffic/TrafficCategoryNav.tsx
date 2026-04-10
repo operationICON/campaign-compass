@@ -220,11 +220,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-500">API</span>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-              <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
+              <MetricRow label="Spend" value={fmtC(otMetrics.spend + (unmatchedOrders?.spend || 0))} />
               <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
-              <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
+              {(() => { const otTotalSpend = otMetrics.spend + (unmatchedOrders?.spend || 0); const otProfit = otMetrics.revenue - otTotalSpend; return <MetricRow label="Profit" value={fmtC(otProfit)} color={otProfit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />; })()}
               <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
-              <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
+              {(() => { const otTotalSpend = otMetrics.spend + (unmatchedOrders?.spend || 0); const otProfit = otMetrics.revenue - otTotalSpend; const otRoi = otTotalSpend > 0 ? (otProfit / otTotalSpend) * 100 : null; return <MetricRow label="ROI" value={otRoi !== null ? fmtPct(otRoi) : "—"} color={otRoi !== null ? (otRoi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />; })()}
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
             {/* Unmatched Orders summary */}

@@ -404,15 +404,16 @@ export default function TrafficSourcesPage() {
     });
     const activeSources = activeSourceTags.size;
 
-    const totalSpend = dateAccountFiltered
+    const matchedSpend = dateAccountFiltered
       .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const totalSpend = matchedSpend + unmatchedSpendTotal;
 
     const totalProfit = totalRevenue - totalSpend;
 
-    // ROI % based on OnlyTraffic links only
+    // ROI % based on OnlyTraffic links only + unmatched spend
     const otLinks = dateAccountFiltered.filter((l: any) => l.traffic_category === "OnlyTraffic");
-    const otSpend = otLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const otSpend = otLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0) + unmatchedSpendTotal;
     const otRevenue = otLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const blendedRoi = otSpend > 0 ? ((otRevenue - otSpend) / otSpend) * 100 : 0;
 
