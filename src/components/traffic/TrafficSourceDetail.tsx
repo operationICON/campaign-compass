@@ -27,7 +27,7 @@ function getStatusBadge(link: any): { label: string; bg: string; text: string } 
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "status" | "source";
+type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "ltvSub" | "status" | "source";
 
 interface Props {
   sourceName: string;
