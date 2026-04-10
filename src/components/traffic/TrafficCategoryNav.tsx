@@ -242,7 +242,7 @@ export function TrafficCategoryNav({ links, allLinks }: Props) {
           const badge = getRoiBadge(src.roi);
           const dotColor = colorMap[src.name] || "#94a3b8";
           return (
-            <div key={src.name} className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <button key={src.name} onClick={() => setActiveSource(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
