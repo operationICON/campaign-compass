@@ -904,6 +904,42 @@ export type Database = {
         }
         Relationships: []
       }
+      onlytraffic_unmatched_orders: {
+        Row: {
+          campaign_url: string | null
+          created_at: string | null
+          id: string
+          marketer: string | null
+          order_id: string | null
+          order_type: string | null
+          source: string | null
+          status: string | null
+          total_spent: number | null
+        }
+        Insert: {
+          campaign_url?: string | null
+          created_at?: string | null
+          id?: string
+          marketer?: string | null
+          order_id?: string | null
+          order_type?: string | null
+          source?: string | null
+          status?: string | null
+          total_spent?: number | null
+        }
+        Update: {
+          campaign_url?: string | null
+          created_at?: string | null
+          id?: string
+          marketer?: string | null
+          order_id?: string | null
+          order_type?: string | null
+          source?: string | null
+          status?: string | null
+          total_spent?: number | null
+        }
+        Relationships: []
+      }
       source_tag_rules: {
         Row: {
           color: string
