@@ -181,12 +181,12 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               )}
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("clicks")}>Clicks <SortIcon col="clicks" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("subs")}>Subs <SortIcon col="subs" /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("revenue")}>Revenue <SortIcon col="revenue" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("spend")}>Spend <SortIcon col="spend" /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("revenue")}>Revenue <SortIcon col="revenue" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profit")}>Profit <SortIcon col="profit" /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon col="roi" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profitSub")}>Profit/Sub <SortIcon col="profitSub" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltvSub")}>LTV/Sub <SortIcon col="ltvSub" /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon col="roi" /></TableHead>
               <TableHead className={`${thClass} text-center`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
             </TableRow>
           </TableHeader>
@@ -248,12 +248,12 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                   )}
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(spend)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profit !== null ? fmtC(profit) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "#0891b2" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
                   <TableCell className="text-center">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
                       {badge.label}
