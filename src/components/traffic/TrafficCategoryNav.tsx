@@ -73,8 +73,9 @@ function calcSourceMetrics(sourceLinks: any[]) {
   const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
 
   const profitPerSub = subs > 0 ? profit / subs : null;
+  const ltvPerSub = subs > 0 ? revenue / subs : null;
 
-  return { spend, revenue, profit, subs, roi, subsDay, avgCpl, profitPerSub, campaigns: sourceLinks.length };
+  return { spend, revenue, profit, subs, roi, subsDay, avgCpl, profitPerSub, ltvPerSub, campaigns: sourceLinks.length };
 }
 
 function getRoiBadge(roi: number | null): { label: string; bg: string; text: string } {
