@@ -103,16 +103,21 @@ function DrawerBodyInner({
 
   // ─── ALL TIME ───
   const existingFans = Math.max(0, tlSubscribers - newSubs);
-  // LTV/Sub = revenue / subscribers (Layer 2)
   const campaignRevenue = Number(d.revenue ?? 0);
-  const ltvPerSub = tlSubscribers > 0 ? campaignRevenue / tlSubscribers : null;
+  // LTV/Sub = tracking_link_ltv.total_ltv / new_subs_total
+  const ltvPerSub = newSubs > 0 ? totalLtv / newSubs : null;
   const spenderRate = newSubs > 0 ? Math.min(100, (tlSpenders / newSubs) * 100) : null;
 
   // ─── FINANCIALS — use tracking_links.revenue ───
   const profit = campaignRevenue - cost;
-  const profitPerSub = tlSubscribers > 0 && cost > 0 ? profit / tlSubscribers : null;
+  const profitPerSub = tlSubscribers > 0 ? profit / tlSubscribers : null;
   const roi = cost > 0 ? (profit / cost) * 100 : null;
   const cvr = totalClicks > 0 ? (tlSubscribers / totalClicks) * 100 : null;
+
+  // ─── Cost display helpers ───
+  const paymentType = d.payment_type || d.cost_type || null;
+  const costPerLead = Number(d.cost_per_lead ?? 0);
+  const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
 
   // ─── CALCULATIONS ───
   const breakEvenLtv = newSubs > 0 && cost > 0 ? cost / newSubs : null;
