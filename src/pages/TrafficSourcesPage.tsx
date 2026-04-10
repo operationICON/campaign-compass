@@ -257,6 +257,59 @@ export default function TrafficSourcesPage() {
     });
   }, [allLinks, snapshotLookup]);
 
+  // ── Master filtered set: date (by created_at) + account ──
+  const dateAccountFiltered = useMemo(() => {
+    let result = allLinks as any[];
+
+    // Account filter
+    if (pageModelFilter !== "all") {
+      result = result.filter((l: any) => l.account_id === pageModelFilter);
+    }
+
+    // Date filter by created_at
+    if (customRange) {
+      const from = startOfDay(customRange.from).getTime();
+      const to = startOfDay(customRange.to).getTime() + 86400000; // end of day
+      result = result.filter((l: any) => {
+        const t = new Date(l.created_at).getTime();
+        return t >= from && t < to;
+      });
+    } else {
+      const now = new Date();
+      switch (timePeriod) {
+        case "day": {
+          const cutoff = subDays(now, 1).getTime();
+          result = result.filter((l: any) => new Date(l.created_at).getTime() >= cutoff);
+          break;
+        }
+        case "week": {
+          const cutoff = subDays(now, 7).getTime();
+          result = result.filter((l: any) => new Date(l.created_at).getTime() >= cutoff);
+          break;
+        }
+        case "month": {
+          const cutoff = subDays(now, 30).getTime();
+          result = result.filter((l: any) => new Date(l.created_at).getTime() >= cutoff);
+          break;
+        }
+        case "prev_month": {
+          const prevMonthStart = startOfMonth(subMonths(now, 1)).getTime();
+          const prevMonthEnd = endOfMonth(subMonths(now, 1)).getTime() + 86400000;
+          result = result.filter((l: any) => {
+            const t = new Date(l.created_at).getTime();
+            return t >= prevMonthStart && t < prevMonthEnd;
+          });
+          break;
+        }
+        case "all":
+        default:
+          break; // no filter
+      }
+    }
+
+    return result;
+  }, [allLinks, pageModelFilter, timePeriod, customRange]);
+
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
