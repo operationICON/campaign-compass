@@ -785,10 +785,9 @@ export default function TrafficSourcesPage() {
                           className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-secondary transition-colors" style={{ fontSize: "13px" }}>
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || "#0891b2" }} />
                           <span className="flex-1 font-medium text-foreground">{s.name}</span>
-                          <span className="px-1.5 py-0.5 text-[10px] font-semibold" style={{
-                            borderRadius: "4px",
-                            background: s.category === "OnlyTraffic" ? "#ede9fe" : "#e0f2fe",
-                            color: s.category === "OnlyTraffic" ? "#7c3aed" : "#0891b2" }}>{s.category}</span>
+                          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded" style={{
+                            background: s.category === "OnlyTraffic" ? "hsl(263 70% 50% / 0.15)" : "hsl(192 91% 36% / 0.15)",
+                            color: s.category === "OnlyTraffic" ? "hsl(263 70% 50%)" : "hsl(192 91% 36%)" }}>{s.category}</span>
                           <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{getSourceCampaignCount(s.id)}</span>
                         </button>
                       ))}
