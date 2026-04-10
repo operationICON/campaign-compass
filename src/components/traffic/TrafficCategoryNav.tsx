@@ -102,10 +102,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const colorMap = useTagColors();
 
-  const otLinks = useMemo(() => allLinks.filter(isOnlyTraffic), [allLinks]);
-  const manualLinks = useMemo(() => allLinks.filter(isManual), [allLinks]);
+  const otLinks = useMemo(() => allLinks.filter(l => isOnlyTraffic(l) && l.deleted_at == null), [allLinks]);
+  const manualLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
 
-  // No Source: null traffic_category, has activity, not deleted
+  // No Source: null traffic_category, not deleted, has activity
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
     l.traffic_category == null &&
     l.deleted_at == null &&
@@ -113,6 +113,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   ), [allLinks]);
   const noSourceCount = noSourceLinks.length;
   const noSourceRevenue = noSourceLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+  const noSourceSpend = noSourceLinks.reduce((s: number, l: any) => s + Math.max(0, Number(l.cost_total || 0)), 0);
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
@@ -240,9 +241,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/15 text-blue-500">Direct</span>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-              <MetricRow label="Spend" value={manualMetrics.spend > 0 ? fmtC(manualMetrics.spend) : "—"} />
+              <MetricRow label="Spend" value={fmtC(manualMetrics.spend)} />
               <MetricRow label="Revenue" value={fmtC(manualMetrics.revenue)} />
-              <MetricRow label="Profit" value={manualMetrics.spend > 0 ? fmtC(manualMetrics.profit) : "—"} color={manualMetrics.spend > 0 ? (manualMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
+              <MetricRow label="Profit" value={fmtC(manualMetrics.profit)} color={manualMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
               <MetricRow label="Avg CPL" value={manualMetrics.avgCpl !== null ? fmtC(manualMetrics.avgCpl) : "—"} />
               <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
@@ -251,9 +252,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             {noSourceCount > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>No Source</span>
+                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Untagged / No Source</span>
                   <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
                     {fmtN(noSourceCount)} campaigns
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Spend</span>
+                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
+                    {fmtC(noSourceSpend)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
