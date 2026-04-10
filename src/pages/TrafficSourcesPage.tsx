@@ -339,6 +339,15 @@ export default function TrafficSourcesPage() {
     queryFn: fetchTrackingLinkLtv,
   });
 
+  const { data: unmatchedSpendTotal = 0 } = useQuery({
+    queryKey: ["unmatched_spend_total"],
+    queryFn: async () => {
+      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent");
+      if (!data) return 0;
+      return data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0);
+    },
+  });
+
   // LTV lookup map — normalize keys for UUID↔TEXT matching
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
