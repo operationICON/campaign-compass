@@ -437,7 +437,7 @@ export default function TrafficSourcesPage() {
 
     return {
       totalSources, tagged, untagged,
-      totalSpend, totalRevenue, blendedRoi,
+      matchedSpend, totalSpend, totalRevenue, blendedRoi,
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
     };
@@ -758,7 +758,7 @@ export default function TrafficSourcesPage() {
         <div>
           <div className="flex items-center justify-between" style={{ fontSize: "11px", fontWeight: 500 }}>
             <span className="text-muted-foreground">Tracked</span>
-            <span className="font-mono font-semibold text-foreground">{fmtC(kpis.totalSpend)}</span>
+            <span className="font-mono font-semibold text-foreground">{fmtC(kpis.matchedSpend)}</span>
           </div>
           <div className="flex items-center justify-between" style={{ fontSize: "11px", fontWeight: 500 }}>
             <span className="text-muted-foreground">Unmatched</span>
@@ -766,7 +766,7 @@ export default function TrafficSourcesPage() {
           </div>
           <div className="flex items-center justify-between pt-1 mt-1 border-t border-border">
             <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Total Spend</span>
-            <span className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>{fmtC(kpis.totalSpend + unmatchedSpendTotal)}</span>
+            <span className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>{fmtC(kpis.totalSpend)}</span>
           </div>
         </div>
       ),
