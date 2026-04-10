@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle } from "lucide-react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
 import { TrafficSourceDetail } from "./TrafficSourceDetail";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -13,6 +14,7 @@ interface Props {
   links: any[];
   allLinks: any[];
   onTagLink?: (linkId: string, sourceTag: string) => void;
+  unmatchedOrders?: { count: number; spend: number };
 }
 
 type Category = "OnlyTraffic" | "Manual";
@@ -94,13 +96,22 @@ function getRoiBadge(roi: number | null): { label: string; bg: string; text: str
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
+export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const colorMap = useTagColors();
 
   const otLinks = useMemo(() => allLinks.filter(isOnlyTraffic), [allLinks]);
   const manualLinks = useMemo(() => allLinks.filter(isManual), [allLinks]);
+
+  // No Source: null traffic_category, has activity, not deleted
+  const noSourceLinks = useMemo(() => allLinks.filter(l =>
+    l.traffic_category == null &&
+    l.deleted_at == null &&
+    (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
+  ), [allLinks]);
+  const noSourceCount = noSourceLinks.length;
+  const noSourceRevenue = noSourceLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
@@ -186,6 +197,29 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
               <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
+            {/* Unmatched Orders */}
+            {unmatchedOrders && unmatchedOrders.count > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
+                          <span className="font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>Unmatched</span>
+                        </div>
+                        <span className="font-mono font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>
+                          {fmtN(unmatchedOrders.count)} orders · {fmtC(unmatchedOrders.spend)}
+                        </span>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                    Orders from OnlyTraffic that could not be matched to any tracking link — null URLs or trial links
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{otMetrics.activeSources} active sources</span>
               <span className="text-emerald-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
@@ -212,6 +246,23 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
               <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
             </div>
+            {/* No Source campaigns */}
+            {noSourceCount > 0 && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>No Source</span>
+                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
+                    {fmtN(noSourceCount)} campaigns
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Revenue</span>
+                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
+                    {fmtC(noSourceRevenue)}
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{manualMetrics.activeSources} active sources</span>
               <span className="text-blue-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>

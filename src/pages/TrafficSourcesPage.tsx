@@ -339,14 +339,18 @@ export default function TrafficSourcesPage() {
     queryFn: fetchTrackingLinkLtv,
   });
 
-  const { data: unmatchedSpendTotal = 0 } = useQuery({
-    queryKey: ["unmatched_spend_total"],
+  const { data: unmatchedOrdersData = { count: 0, spend: 0 } } = useQuery({
+    queryKey: ["unmatched_orders_summary"],
     queryFn: async () => {
       const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent");
-      if (!data) return 0;
-      return data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0);
+      if (!data) return { count: 0, spend: 0 };
+      return {
+        count: data.length,
+        spend: data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0),
+      };
     },
   });
+  const unmatchedSpendTotal = unmatchedOrdersData.spend;
 
   // LTV lookup map — normalize keys for UUID↔TEXT matching
   const ltvLookup = useMemo(() => {
@@ -972,7 +976,7 @@ export default function TrafficSourcesPage() {
         </div>
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
-        <TrafficCategoryNav links={dateAccountFiltered} allLinks={dateAccountFiltered} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} />
+        <TrafficCategoryNav links={dateAccountFiltered} allLinks={dateAccountFiltered} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} unmatchedOrders={unmatchedOrdersData} />
       </div>
     </DashboardLayout>
   );
