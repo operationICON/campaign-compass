@@ -818,28 +818,28 @@ export default function CampaignsPage() {
                     <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total Revenue</p>
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
                   </div>
-                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv * revMultiplier)}</p>
+                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalRevenue * revMultiplier)}</p>
                   <p className="text-[10px] text-white/60 mt-0.5">{periodLabel}</p>
                 </div>
-                {/* Card 2 — Total Spend */}
+                {/* Card 2 — Total Spend (always all-time) */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Total Spend" value={showDash ? <span className="text-muted-foreground">—</span> : <span className="text-foreground">{kpis.totalSpend > 0 ? fmtC(kpis.totalSpend) : "—"}</span>} sub={spendLabel}
-                  tooltip={{ title: "Total Spend", desc: isAllTime ? "Sum of cost_total across campaigns with spend set." : "Proportional daily spend estimate for the selected period." }} />
+                  label="Total Spend" value={<span className="text-foreground">{kpis.totalSpend > 0 ? fmtC(kpis.totalSpend) : "—"}</span>} sub="All paid campaigns · All time"
+                  tooltip={{ title: "Total Spend", desc: "Sum of cost_total across all campaigns with spend set. Always shows all-time value." }} />
                 {/* Card 3 — Total Profit */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
                   label="Total Profit" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.totalSpend > 0
-                    ? <span className={(kpis.totalLtv * revMultiplier - kpis.totalSpend) >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalLtv * revMultiplier - kpis.totalSpend)}</span>
-                    : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "LTV minus spend" : `${periodLabel}`}
-                  tooltip={{ title: "Total Profit", desc: "Revenue (after fee if Net) minus spend." }} />
-                {/* Card 4 — Avg Cost/Sub */}
+                    ? <span className={(kpis.totalRevenue * revMultiplier - kpis.totalSpend) >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalRevenue * revMultiplier - kpis.totalSpend)}</span>
+                    : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "Revenue minus spend" : `${periodLabel} revenue - all-time spend`}
+                  tooltip={{ title: "Total Profit", desc: "Total Revenue (after fee if Net) minus Total Spend." }} />
+                {/* Card 4 — Avg CPL (always all-time, CPL only) */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Avg Cost/Sub" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "Cost per acquired subscriber" : spendLabel}
-                  tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber for the selected period." }} />
-                {/* Card 5 — Untagged */}
+                  label="AVG CPL" value={kpis.avgCpl !== null ? <span className="text-primary">{fmtC(kpis.avgCpl)}</span> : <span className="text-muted-foreground">—</span>} sub="Cost per lead · CPL only"
+                  tooltip={{ title: "Avg CPL", desc: "Average cost per lead across CPL-type campaigns only. Always shows all-time value." }} />
+                {/* Card 5 — Untagged (always all-time) */}
                 <div className="cursor-pointer" onClick={() => { setSourceFilter(sourceFilter === "untagged" ? "all" : "untagged"); setPage(1); }}>
                   <KPICard borderColor={kpis.untagged > 0 ? "hsl(var(--warning))" : "hsl(var(--primary))"} icon={<Tag className={`h-4 w-4 ${kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}`} />}
-                    label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}>{kpis.untagged}</span>} sub="No source tag set"
-                    tooltip={{ title: "Untagged", desc: "Campaigns without a source tag. Click to filter." }} />
+                    label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}>{kpis.untagged.toLocaleString()}</span>} sub="No source tag · All time"
+                    tooltip={{ title: "Untagged", desc: "Links without a source tag that have activity (clicks, subs, or revenue). Click to filter." }} />
                 </div>
               </div>
             </div>
