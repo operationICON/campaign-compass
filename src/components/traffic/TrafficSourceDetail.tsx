@@ -202,7 +202,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               const isSaving = savingIds.has(link.id);
 
               return (
-                <TableRow key={link.id} className="border-border">
+                <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setDrawerCampaign(link)}>
                   <TableCell className="max-w-[220px]">
                     <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
                     <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{link.url}</p>
