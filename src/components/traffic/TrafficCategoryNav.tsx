@@ -195,11 +195,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/15 text-blue-500">Direct</span>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-              <MetricRow label="Spend" value={fmtC(manualMetrics.spend)} />
+              <MetricRow label="Spend" value={manualMetrics.spend > 0 ? fmtC(manualMetrics.spend) : "—"} />
               <MetricRow label="Revenue" value={fmtC(manualMetrics.revenue)} />
-              <MetricRow label="Profit" value={fmtC(manualMetrics.profit)} color={manualMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
+              <MetricRow label="Profit" value={manualMetrics.spend > 0 ? fmtC(manualMetrics.profit) : "—"} color={manualMetrics.spend > 0 ? (manualMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Avg CPL" value={manualMetrics.avgCpl !== null ? fmtC(manualMetrics.avgCpl) : "—"} />
-              <MetricRow label="ROI" value={manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
+              <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
             </div>
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
