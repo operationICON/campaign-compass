@@ -197,6 +197,29 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
+            {/* Unmatched Orders */}
+            {unmatchedOrders && unmatchedOrders.count > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
+                          <span className="font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>Unmatched</span>
+                        </div>
+                        <span className="font-mono font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>
+                          {fmtN(unmatchedOrders.count)} orders · {fmtC(unmatchedOrders.spend)}
+                        </span>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                    Orders from OnlyTraffic that could not be matched to any tracking link — null URLs or trial links
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{otMetrics.activeSources} active sources</span>
               <span className="text-emerald-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
