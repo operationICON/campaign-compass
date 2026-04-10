@@ -182,53 +182,60 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         </p>
         <div className="grid grid-cols-2 gap-4">
           {/* OnlyTraffic Card */}
-          <button
-            onClick={() => setActiveCategory("OnlyTraffic")}
-            className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Zap className="h-4 w-4 text-emerald-500" />
-              <span className="text-foreground font-bold text-base">OnlyTraffic</span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-500">API</span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-              <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
-              <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
-              <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
-              <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
-              <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
-              <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
-            </div>
-            {/* Unmatched Orders */}
-            {unmatchedOrders && unmatchedOrders.count > 0 && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="mt-3 pt-3 border-t border-border">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
-                          <span className="font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>Unmatched</span>
+          <div className="bg-card border border-border rounded-xl p-5 text-left">
+            <button
+              onClick={() => setActiveCategory("OnlyTraffic")}
+              className="w-full text-left hover:opacity-80 transition-opacity group"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Zap className="h-4 w-4 text-emerald-500" />
+                <span className="text-foreground font-bold text-base">OnlyTraffic</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-500">API</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
+                <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
+                <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
+                <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
+                <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
+                <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
+              </div>
+              {/* Unmatched Orders summary */}
+              {unmatchedOrders && unmatchedOrders.count > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
+                            <span className="font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>Unmatched</span>
+                          </div>
+                          <span className="font-mono font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>
+                            {fmtN(unmatchedOrders.count)} orders · {fmtC(unmatchedOrders.spend)}
+                          </span>
                         </div>
-                        <span className="font-mono font-semibold" style={{ fontSize: "11px", color: "#d97706" }}>
-                          {fmtN(unmatchedOrders.count)} orders · {fmtC(unmatchedOrders.spend)}
-                        </span>
                       </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                    Orders from OnlyTraffic that could not be matched to any tracking link — null URLs or trial links
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-              <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{otMetrics.activeSources} active sources</span>
-              <span className="text-emerald-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
-                View sources <ChevronRight className="h-3.5 w-3.5" />
-              </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                      Orders from OnlyTraffic that could not be matched to any tracking link — null URLs or trial links
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{otMetrics.activeSources} active sources</span>
+                <span className="text-emerald-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
+                  View sources <ChevronRight className="h-3.5 w-3.5" />
+                </span>
+              </div>
+            </button>
+
+            {/* Unmatched Orders Table — inside OnlyTraffic card */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <UnmatchedOrdersCard />
             </div>
-          </button>
+          </div>
 
           {/* Manual Card */}
           <button
@@ -279,9 +286,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </div>
           </button>
         </div>
-
-        {/* Unmatched Orders Card */}
-        <UnmatchedOrdersCard />
       </div>
     );
   }
