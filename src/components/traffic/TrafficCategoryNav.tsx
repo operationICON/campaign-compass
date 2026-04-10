@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Per
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
+import { TrafficSourceDetail } from "./TrafficSourceDetail";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
