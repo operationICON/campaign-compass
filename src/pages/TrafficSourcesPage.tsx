@@ -437,7 +437,7 @@ export default function TrafficSourcesPage() {
 
     return {
       totalSources, tagged, untagged,
-      totalSpend, totalRevenue, blendedRoi,
+      matchedSpend, totalSpend, totalRevenue, blendedRoi,
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
     };
