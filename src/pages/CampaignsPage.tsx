@@ -1153,17 +1153,28 @@ export default function CampaignsPage() {
                                   </td>
                                   );
                                 }
-                                case "expenses": return (
+                                case "expenses": {
+                                  const pt = link.payment_type || link.cost_type || null;
+                                  const ptLabel = pt ? pt.toUpperCase() : null;
+                                  return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {hasCost ? (
-                                      <span className="text-muted-foreground">{fmtC(costTotal)}</span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)]">
-                                        No Spend
-                                      </span>
-                                    )}
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      {ptLabel && (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold leading-none bg-muted text-muted-foreground">
+                                          {ptLabel}
+                                        </span>
+                                      )}
+                                      {hasCost ? (
+                                        <span className="text-foreground">{fmtC(costTotal)}</span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)]">
+                                          No Spend
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
-                                );
+                                  );
+                                }
                                 case "profit": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {hasCost ? (
