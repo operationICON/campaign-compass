@@ -159,6 +159,31 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
   // ═══ LEVEL 3 ═══
   if (activeCategory && activeSource) {
+    // Unmatched Orders as a "source"
+    if (activeSource === "__unmatched__") {
+      return (
+        <div className="space-y-4">
+          <button
+            onClick={() => setActiveSource(null)}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            style={{ fontSize: "13px", fontWeight: 500 }}
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to {activeCategory}
+          </button>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
+              <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched Orders</span>
+            </div>
+            <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
+              Orders that could not be matched to any tracking link
+            </span>
+          </div>
+          <UnmatchedOrdersCard />
+        </div>
+      );
+    }
+
     const dotColor = colorMap[activeSource] || "#94a3b8";
     return (
       <TrafficSourceDetail
