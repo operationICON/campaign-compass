@@ -976,7 +976,7 @@ export default function TrafficSourcesPage() {
         </div>
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
-        <TrafficCategoryNav links={dateAccountFiltered} allLinks={dateAccountFiltered} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} />
+        <TrafficCategoryNav links={dateAccountFiltered} allLinks={dateAccountFiltered} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} unmatchedOrders={unmatchedOrdersData} />
       </div>
     </DashboardLayout>
   );
