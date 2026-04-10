@@ -402,7 +402,32 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </button>
           );
         })}
-        {sourceCards.length === 0 && (
+        {/* Unmatched Orders source card — OnlyTraffic only */}
+        {activeCategory === "OnlyTraffic" && unmatchedOrders && unmatchedOrders.count > 0 && (
+          <button
+            onClick={() => setActiveSource("__unmatched__")}
+            className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors"
+            style={{ borderColor: "hsl(38 92% 50% / 0.3)" }}
+          >
+            <div className="mb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
+                <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched</span>
+              </div>
+              <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{fmtN(unmatchedOrders.count)} orders</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              <MetricRow label="Total Spend" value={fmtC(unmatchedOrders.spend)} />
+              <MetricRow label="Orders" value={fmtN(unmatchedOrders.count)} />
+            </div>
+            <div className="flex items-center justify-end pt-2 border-t border-border">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: "hsl(38 92% 50% / 0.15)", color: "#d97706" }}>
+                UNMATCHED
+              </span>
+            </div>
+          </button>
+        )}
+        {sourceCards.length === 0 && (!unmatchedOrders || unmatchedOrders.count === 0) && (
           <div className="col-span-3 text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
             No sources found in this category
           </div>
