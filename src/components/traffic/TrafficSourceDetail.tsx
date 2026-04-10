@@ -262,7 +262,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             })}
             {pageRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isUntaggedView ? 12 : 11} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
+                <TableCell colSpan={isUntaggedView ? 13 : 12} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
                   No campaigns found
                 </TableCell>
               </TableRow>
