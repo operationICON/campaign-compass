@@ -80,7 +80,10 @@ function calcSourceMetrics(sourceLinks: any[]) {
   const profitPerSub = subs > 0 ? profit / subs : null;
   const ltvPerSub = subs > 0 ? revenue / subs : null;
 
-  return { spend, revenue, profit, subs, roi, subsDay, avgCpl, profitPerSub, ltvPerSub, campaigns: sourceLinks.length };
+  const cpcLinks = sourceLinks.filter(l => l.payment_type === "CPC" && Number(l.cost_total || 0) > 0);
+  const cpcSpend = cpcLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
+
+  return { spend, revenue, profit, subs, roi, subsDay, avgCpl, profitPerSub, ltvPerSub, campaigns: sourceLinks.length, cplSpend, cpcSpend };
 }
 
 function getRoiBadge(roi: number | null): { label: string; bg: string; text: string } {
@@ -275,7 +278,23 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
 
               {/* Metrics grid — 8 KPIs in order */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                <MetricRow label="Spend" value={fmtC(src.spend)} />
+                <div>
+                  <MetricRow label="Spend" value={fmtC(src.spend)} />
+                  {activeCategory === "OnlyTraffic" && (src.cplSpend > 0 || src.cpcSpend > 0) && (
+                    <div className="flex gap-1 mt-0.5 justify-end">
+                      {src.cplSpend > 0 && (
+                        <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(174 60% 51% / 0.2)", color: "hsl(174 60% 41%)" }}>
+                          CPL: {fmtC(src.cplSpend)}
+                        </span>
+                      )}
+                      {src.cpcSpend > 0 && (
+                        <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(38 92% 50% / 0.2)", color: "hsl(38 92% 40%)" }}>
+                          CPC: {fmtC(src.cpcSpend)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <MetricRow label="Revenue" value={fmtC(src.revenue)} />
                 <MetricRow label="Profit" value={fmtC(src.profit)} color={src.spend > 0 ? (src.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
                 <MetricRow label="Avg CPL" value={src.avgCpl !== null ? fmtC(src.avgCpl) : "—"} />
