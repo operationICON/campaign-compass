@@ -388,17 +388,17 @@ export default function TrafficSourcesPage() {
     const tagged = dateAccountFiltered.filter((l: any) => !!getEffectiveSource(l)).length;
     const untagged = dateAccountFiltered.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
     const totalRevenue = dateAccountFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalSubscribers = dateAccountFiltered.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+    const totalSubscribers = accounts.filter((a: any) => a.is_active).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const totalClicks = dateAccountFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
-    const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
-    const activeSourceIds = new Set<string>();
+    // Active Sources = distinct source_tag from OnlyTraffic links
+    const activeSourceTags = new Set<string>();
     dateAccountFiltered.forEach((l: any) => {
-      if (l.traffic_source_id && l.clicks > 0 && l.updated_at >= thirtyDaysAgo) {
-        activeSourceIds.add(l.traffic_source_id);
+      if (l.traffic_category === "OnlyTraffic" && l.source_tag) {
+        activeSourceTags.add(l.source_tag);
       }
     });
-    const activeSources = activeSourceIds.size;
+    const activeSources = activeSourceTags.size;
 
     const totalSpend = dateAccountFiltered
       .filter((l: any) => Number(l.cost_total || 0) > 0)
@@ -436,7 +436,7 @@ export default function TrafficSourcesPage() {
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
     };
-  }, [sources, dateAccountFiltered]);
+  }, [sources, dateAccountFiltered, accounts]);
 
   // ── Source Analysis calculations ──
   const sourceAnalysis = useMemo(() => {
