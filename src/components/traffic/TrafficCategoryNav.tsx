@@ -246,7 +246,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
       </div>
 
       {/* Sub-KPI row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-8 gap-2">
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(categoryMetrics.spend)} color="#dc2626" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(categoryMetrics.profit)} color={categoryMetrics.profit >= 0 ? "#16a34a" : "#dc2626"} />
