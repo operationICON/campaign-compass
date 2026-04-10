@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown } from "lucide-react";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,7 +27,14 @@ function getStatusBadge(link: any): { label: string; bg: string; text: string } 
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "ltvSub" | "status" | "source";
+type SortKey = "campaign" | "model" | "marketer" | "clicks" | "subs" | "revenue" | "spend" | "profit" | "roi" | "profitSub" | "ltvSub" | "created" | "status" | "source";
+
+function getAgePill(days: number): { label: string; bg: string; text: string } {
+  if (days <= 30) return { label: `${days}d`, bg: "hsl(142 71% 45% / 0.15)", text: "hsl(142 71% 45%)" };
+  if (days <= 90) return { label: `${days}d`, bg: "hsl(199 89% 48% / 0.15)", text: "hsl(199 89% 48%)" };
+  if (days <= 180) return { label: `${days}d`, bg: "hsl(38 92% 50% / 0.15)", text: "hsl(38 92% 50%)" };
+  return { label: `${days}d`, bg: "hsl(220 9% 46% / 0.15)", text: "hsl(220 9% 46%)" };
+}
 
 interface Props {
   sourceName: string;
@@ -42,7 +49,7 @@ interface Props {
 const PAGE_SIZE = 25;
 
 export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, links, onBack, sourceTagOptions, onTagLink }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>("revenue");
+  const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
@@ -91,6 +98,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         case "roi": return roi;
         case "profitSub": return profitSub;
         case "ltvSub": return ltvSub;
+        case "created": return new Date(l.created_at).getTime();
         case "status": return spend <= 0 ? -2 : roi;
         case "source": return (l.source_tag || "").toLowerCase();
         default: return 0;
@@ -189,6 +197,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profitSub")}>Profit/Sub <SortIcon col="profitSub" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltvSub")}>LTV/Sub <SortIcon col="ltvSub" /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon col="roi" /></TableHead>
+              <TableHead className={thClass} onClick={() => handleSort("created")}>Created <SortIcon col="created" /></TableHead>
               <TableHead className={`${thClass} text-center`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
             </TableRow>
           </TableHeader>
@@ -267,6 +276,18 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "#0891b2" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const ageDays = Math.max(0, differenceInDays(new Date(), new Date(link.created_at)));
+                      const pill = getAgePill(ageDays);
+                      return (
+                        <div>
+                          <p className="text-foreground" style={{ fontSize: "11px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
+                          <span className="inline-block mt-0.5 rounded-full font-bold" style={{ fontSize: "9px", padding: "1px 6px", backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className="text-center">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
                       {badge.label}
