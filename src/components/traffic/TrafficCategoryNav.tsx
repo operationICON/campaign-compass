@@ -272,6 +272,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </div>
           </button>
         </div>
+
+        {/* Unmatched Orders Card */}
+        <UnmatchedOrdersCard />
       </div>
     );
   }
