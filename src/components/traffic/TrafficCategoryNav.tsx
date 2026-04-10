@@ -22,7 +22,7 @@ function isOnlyTraffic(link: any): boolean {
 }
 
 function isManual(link: any): boolean {
-  return link.traffic_category === "Manual";
+  return link.traffic_category !== "OnlyTraffic";
 }
 
 function calcCategoryMetrics(catLinks: any[]) {
