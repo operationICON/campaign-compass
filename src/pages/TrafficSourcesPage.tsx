@@ -883,7 +883,6 @@ export default function TrafficSourcesPage() {
           </div>
         </div>
 
-        {/* SOURCE ANALYSIS SECTION */}
         {/* TRAFFIC CATEGORY NAVIGATION */}
         <TrafficCategoryNav links={links} allLinks={allLinks} />
       </div>
