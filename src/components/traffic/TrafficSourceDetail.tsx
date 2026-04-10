@@ -46,6 +46,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
 
   const isUntaggedView = sourceName === "Untagged";
 
