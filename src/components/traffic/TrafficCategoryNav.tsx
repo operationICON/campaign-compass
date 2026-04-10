@@ -115,7 +115,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
         name,
         ...calcSourceMetrics(sLinks),
       }))
-      .sort((a, b) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
+      .sort((a, b) => (b.ltvPerSub ?? -Infinity) - (a.ltvPerSub ?? -Infinity));
   }, [activeCategory, categoryLinks]);
 
   // Level 3: links for active source
@@ -276,9 +276,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
               {/* Profit/Sub full width */}
               <div className="flex items-center justify-between pt-2 border-t border-border">
                 <div>
-                  <span className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}>Profit/Sub</span>
+                  <span className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}>LTV/Sub</span>
                   <p className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>
-                    {src.profitPerSub !== null ? fmtC(src.profitPerSub) : "—"}
+                    {src.ltvPerSub !== null ? fmtC(src.ltvPerSub) : "—"}
                   </p>
                 </div>
                 <span
