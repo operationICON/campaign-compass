@@ -501,11 +501,11 @@ export default function DashboardPage() {
     return sum;
   }, [isAllTime, overviewSnapshotRows, agencyAccountIds]);
   const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : snapshotRevenue;
-  const totalProfit = isAllTime && allTimeTotals ? allTimeTotals.totalProfit : totalLtv - totalSpend;
+  const totalProfit = totalLtv - totalSpend;
   // hasSnapshotData: true if any snapshot rows were returned for this period
   const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
   const avgProfitPerSub = isAllTime && allTimeTotals
-    ? (allTimeTotals.ltvSubs > 0 ? allTimeTotals.totalProfit / allTimeTotals.ltvSubs : null)
+    ? (allTimeTotals.ltvSubs > 0 ? totalProfit / allTimeTotals.ltvSubs : null)
     : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
