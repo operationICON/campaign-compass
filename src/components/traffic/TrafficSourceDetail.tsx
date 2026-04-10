@@ -250,7 +250,18 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                   )}
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(spend)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>
+                    {fmtC(spend)}
+                    {link.payment_type === "CPL" && (
+                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#0891b2", width: "fit-content", marginLeft: "auto" }}>CPL</span>
+                    )}
+                    {link.payment_type === "CPC" && (
+                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#d97706", width: "fit-content", marginLeft: "auto" }}>CPC</span>
+                    )}
+                    {link.payment_type === "Fixed" && (
+                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#64748b", width: "fit-content", marginLeft: "auto" }}>Fixed</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profit !== null ? fmtC(profit) : "—"}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
