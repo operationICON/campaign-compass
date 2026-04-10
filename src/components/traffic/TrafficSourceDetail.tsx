@@ -20,8 +20,9 @@ function getStatusBadge(link: any): { label: string; bg: string; text: string } 
   if (spend <= 0) return { label: "NO SPEND", bg: "hsl(220 9% 46% / 0.15)", text: "hsl(220 9% 46%)" };
   const revenue = Number(link.revenue || 0);
   const roi = (revenue - spend) / spend * 100;
-  if (roi >= 100) return { label: "SCALE", bg: "hsl(142 71% 45% / 0.15)", text: "hsl(142 71% 45%)" };
-  if (roi >= 0) return { label: "TEST", bg: "hsl(38 92% 50% / 0.15)", text: "hsl(38 92% 50%)" };
+  if (roi > 150) return { label: "SCALE", bg: "hsl(142 71% 45% / 0.15)", text: "hsl(142 71% 45%)" };
+  if (roi >= 50) return { label: "WATCH", bg: "hsl(199 89% 48% / 0.15)", text: "hsl(199 89% 48%)" };
+  if (roi >= 0) return { label: "LOW", bg: "hsl(38 92% 50% / 0.15)", text: "hsl(38 92% 50%)" };
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
