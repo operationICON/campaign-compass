@@ -291,6 +291,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
           </div>
         )}
       </div>
+      <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
     </div>
   );
 }
