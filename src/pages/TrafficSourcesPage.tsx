@@ -884,7 +884,7 @@ export default function TrafficSourcesPage() {
         </div>
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
-        <TrafficCategoryNav links={links} allLinks={allLinks} />
+        <TrafficCategoryNav links={links} allLinks={allLinks} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} />
       </div>
     </DashboardLayout>
   );
