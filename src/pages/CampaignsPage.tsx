@@ -552,83 +552,72 @@ export default function CampaignsPage() {
   // ─── KPI Calculations ───
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
-    const periodDays = campaignsSnapshotRange?.dayCount ?? 0;
 
-    // Links with cost set
-    const linksWithCost = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0);
-    const totalSpendAllTime = linksWithCost.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    // ── Base all-time links (before snapshot overlay) filtered by account ──
+    let atLinks = allLinks;
+    if (groupFilter !== "all") {
+      const groupUsernames = GROUP_MAP[groupFilter] || [];
+      const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
+      atLinks = atLinks.filter((l: any) => groupAccountIds.includes(l.account_id));
+    }
+    if (accountFilter !== "all") atLinks = atLinks.filter((l: any) => l.account_id === accountFilter);
 
     // Check if snapshot data exists for period
     const hasSnapshotData = !isAllTime && campaignsSnapshotRows.length > 0;
 
-    // Total Revenue — uses tracking_links.revenue (not tracking_link_ltv.total_ltv)
-    let totalLtv: number;
+    // ── CARD 1: Total Revenue ──
+    let totalRevenue: number;
     if (isAllTime) {
-      totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      totalRevenue = atLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     } else if (hasSnapshotData) {
-      totalLtv = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      // scopedLinks have snapshot-applied revenue
+      totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     } else {
-      totalLtv = 0;
+      totalRevenue = 0;
     }
 
-    // Total Spend — proportional for periods
-    let totalSpend: number;
-    if (isAllTime) {
-      totalSpend = totalSpendAllTime;
-    } else if (hasSnapshotData && periodDays > 0) {
-      // Proportional: (cost_total / days_running) × days_in_period
-      totalSpend = linksWithCost.reduce((s: number, l: any) => {
-        const costTotal = Number(l.cost_total || 0);
-        const daysRunning = Math.max(1, l.daysSinceCreated || 1);
-        return s + (costTotal / daysRunning) * periodDays;
-      }, 0);
-    } else {
-      totalSpend = 0;
-    }
+    // ── CARD 2: Total Spend — ALWAYS all-time ──
+    const totalSpend = atLinks
+      .filter((l: any) => Number(l.cost_total || 0) > 0)
+      .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
-    // Period subs from snapshots
-    let periodSubs = 0;
-    if (!isAllTime && hasSnapshotData) {
-      periodSubs = scopedLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-    }
+    // ── CARD 3: Total Profit ──
+    const totalProfitCalc = (isAllTime || hasSnapshotData) ? (totalRevenue - totalSpend) : 0;
 
-    // Total Profit — same time scope for both sides
-    let totalProfitCalc: number;
-    if (isAllTime) {
-      const revWithSpend = linksWithCost.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      totalProfitCalc = revWithSpend - totalSpendAllTime;
-    } else if (hasSnapshotData) {
-      totalProfitCalc = totalLtv - totalSpend;
-    } else {
-      totalProfitCalc = 0;
-    }
+    // ── CARD 4: Avg CPL — ALWAYS all-time, CPL payment_type only ──
+    const cplLinks = atLinks.filter((l: any) => {
+      const pt = (l.payment_type || l.cost_type || "").toUpperCase();
+      return pt === "CPL" && Number(l.cost_total || 0) > 0;
+    });
+    const cplSpend = cplLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+    const cplSubs = cplLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+    const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
 
-    // Avg Cost/Sub
-    let avgCostPerSubCalc: number | null;
-    if (isAllTime) {
-      const paidNewSubs = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
-      avgCostPerSubCalc = paidNewSubs > 0 ? totalSpendAllTime / paidNewSubs : null;
-    } else if (hasSnapshotData && periodSubs > 0) {
-      avgCostPerSubCalc = totalSpend / periodSubs;
-    } else {
-      avgCostPerSubCalc = null;
-    }
+    // ── CARD 5: Untagged — ALWAYS all-time, only links with activity ──
+    const untagged = atLinks.filter((l: any) => {
+      if (getEffectiveSource(l)) return false;
+      if (l.deleted_at) return false;
+      return Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0 || Number(l.revenue || 0) > 0;
+    }).length;
 
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
-    const untagged = scopedLinks.filter((l: any) => !getEffectiveSource(l)).length;
     const totalCount = scopedLinks.length;
-    const trackedCount = linksWithCost.length;
-    const paidNewSubsAllTime = linksWithCost.reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
+    const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
+    const paidNewSubsAllTime = atLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => {
+      const linkId = normalizeTrackingLinkId(l.id);
+      const ltvRec = ltvLookup[linkId];
+      return s + (ltvRec ? Number(ltvRec.new_subs_total || 0) : 0);
+    }, 0);
     const profitPerSubCalc = paidNewSubsAllTime > 0 ? totalProfitCalc / paidNewSubsAllTime : null;
 
     return {
-      totalRevenue: totalLtv, totalLtv, noSpend, untagged, totalCount,
+      totalRevenue, totalLtv: totalRevenue, noSpend, untagged, totalCount,
       profitPerSub: profitPerSubCalc, trackedCount,
-      avgCostPerSub: avgCostPerSubCalc, isEstimate: false,
+      avgCpl, isEstimate: false,
       totalSpend, totalProfit: totalProfitCalc,
-      hasSnapshotData, periodDays,
+      hasSnapshotData,
     };
-  }, [filtered, isAllTime, campaignsSnapshotRange, campaignsSnapshotRows]);
+  }, [filtered, allLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts, ltvLookup]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
@@ -829,28 +818,28 @@ export default function CampaignsPage() {
                     <p className="text-[11px] font-medium text-white/70 uppercase tracking-wider">Total Revenue</p>
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
                   </div>
-                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalLtv * revMultiplier)}</p>
+                  <p className="text-[22px] font-bold text-white font-mono mt-1">{showDash ? "—" : fmtC(kpis.totalRevenue * revMultiplier)}</p>
                   <p className="text-[10px] text-white/60 mt-0.5">{periodLabel}</p>
                 </div>
-                {/* Card 2 — Total Spend */}
+                {/* Card 2 — Total Spend (always all-time) */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Total Spend" value={showDash ? <span className="text-muted-foreground">—</span> : <span className="text-foreground">{kpis.totalSpend > 0 ? fmtC(kpis.totalSpend) : "—"}</span>} sub={spendLabel}
-                  tooltip={{ title: "Total Spend", desc: isAllTime ? "Sum of cost_total across campaigns with spend set." : "Proportional daily spend estimate for the selected period." }} />
+                  label="Total Spend" value={<span className="text-foreground">{kpis.totalSpend > 0 ? fmtC(kpis.totalSpend) : "—"}</span>} sub="All paid campaigns · All time"
+                  tooltip={{ title: "Total Spend", desc: "Sum of cost_total across all campaigns with spend set. Always shows all-time value." }} />
                 {/* Card 3 — Total Profit */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<TrendingUp className="h-4 w-4 text-primary" />}
                   label="Total Profit" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.totalSpend > 0
-                    ? <span className={(kpis.totalLtv * revMultiplier - kpis.totalSpend) >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalLtv * revMultiplier - kpis.totalSpend)}</span>
-                    : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "LTV minus spend" : `${periodLabel}`}
-                  tooltip={{ title: "Total Profit", desc: "Revenue (after fee if Net) minus spend." }} />
-                {/* Card 4 — Avg Cost/Sub */}
+                    ? <span className={(kpis.totalRevenue * revMultiplier - kpis.totalSpend) >= 0 ? "text-primary" : "text-destructive"}>{fmtC(kpis.totalRevenue * revMultiplier - kpis.totalSpend)}</span>
+                    : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "Revenue minus spend" : `${periodLabel} revenue - all-time spend`}
+                  tooltip={{ title: "Total Profit", desc: "Total Revenue (after fee if Net) minus Total Spend." }} />
+                {/* Card 4 — Avg CPL (always all-time, CPL only) */}
                 <KPICard borderColor="hsl(var(--primary))" icon={<DollarSign className="h-4 w-4 text-primary" />}
-                  label="Avg Cost/Sub" value={showDash ? <span className="text-muted-foreground">—</span> : kpis.avgCostPerSub !== null ? <span className="text-primary">{fmtC(kpis.avgCostPerSub)}</span> : <span className="text-muted-foreground">—</span>} sub={isAllTime ? "Cost per acquired subscriber" : spendLabel}
-                  tooltip={{ title: "Avg Cost/Sub", desc: "Average cost to acquire one subscriber for the selected period." }} />
-                {/* Card 5 — Untagged */}
+                  label="AVG CPL" value={kpis.avgCpl !== null ? <span className="text-primary">{fmtC(kpis.avgCpl)}</span> : <span className="text-muted-foreground">—</span>} sub="Cost per lead · CPL only"
+                  tooltip={{ title: "Avg CPL", desc: "Average cost per lead across CPL-type campaigns only. Always shows all-time value." }} />
+                {/* Card 5 — Untagged (always all-time) */}
                 <div className="cursor-pointer" onClick={() => { setSourceFilter(sourceFilter === "untagged" ? "all" : "untagged"); setPage(1); }}>
                   <KPICard borderColor={kpis.untagged > 0 ? "hsl(var(--warning))" : "hsl(var(--primary))"} icon={<Tag className={`h-4 w-4 ${kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}`} />}
-                    label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}>{kpis.untagged}</span>} sub="No source tag set"
-                    tooltip={{ title: "Untagged", desc: "Campaigns without a source tag. Click to filter." }} />
+                    label="Untagged" value={<span className={kpis.untagged > 0 ? "text-[hsl(var(--warning))]" : "text-primary"}>{kpis.untagged.toLocaleString()}</span>} sub="No source tag · All time"
+                    tooltip={{ title: "Untagged", desc: "Links without a source tag that have activity (clicks, subs, or revenue). Click to filter." }} />
                 </div>
               </div>
             </div>
