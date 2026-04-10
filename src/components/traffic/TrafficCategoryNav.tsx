@@ -246,6 +246,23 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
             </div>
+            {/* No Source campaigns */}
+            {noSourceCount > 0 && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>No Source</span>
+                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
+                    {fmtN(noSourceCount)} campaigns
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Revenue</span>
+                  <span className="font-mono font-semibold text-muted-foreground" style={{ fontSize: "11px" }}>
+                    {fmtC(noSourceRevenue)}
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{manualMetrics.activeSources} active sources</span>
               <span className="text-blue-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
