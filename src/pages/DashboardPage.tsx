@@ -481,12 +481,12 @@ export default function DashboardPage() {
     },
   });
 
-  // Total Expenses: All Time uses allTimeTotals, periods use DB query
+  // Total Expenses: All Time uses allTimeTotals, periods use DB query — always include valid unmatched spend
   const totalSpend = useMemo(() => {
-    if (isAllTime && allTimeTotals) return allTimeTotals.expenses;
-    if (periodActiveLinkIds && periodActiveLinkIds.length > 0) return periodExpensesFromDb ?? 0;
-    return 0;
-  }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb]);
+    const matched = isAllTime && allTimeTotals ? allTimeTotals.expenses
+      : (periodActiveLinkIds && periodActiveLinkIds.length > 0 ? (periodExpensesFromDb ?? 0) : 0);
+    return matched + unmatchedSpendTotal;
+  }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb, unmatchedSpendTotal]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
   // Total LTV — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
