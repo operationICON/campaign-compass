@@ -220,11 +220,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-500">API</span>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-              <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
+              <MetricRow label="Spend" value={fmtC(otMetrics.spend + (unmatchedOrders?.spend || 0))} />
               <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
-              <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
+              {(() => { const otTotalSpend = otMetrics.spend + (unmatchedOrders?.spend || 0); const otProfit = otMetrics.revenue - otTotalSpend; return <MetricRow label="Profit" value={fmtC(otProfit)} color={otProfit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />; })()}
               <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
-              <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
+              {(() => { const otTotalSpend = otMetrics.spend + (unmatchedOrders?.spend || 0); const otProfit = otMetrics.revenue - otTotalSpend; const otRoi = otTotalSpend > 0 ? (otProfit / otTotalSpend) * 100 : null; return <MetricRow label="ROI" value={otRoi !== null ? fmtPct(otRoi) : "—"} color={otRoi !== null ? (otRoi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />; })()}
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
             {/* Unmatched Orders summary */}
@@ -323,16 +323,26 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       </div>
 
       {/* Sub-KPI row */}
-      <div className="grid grid-cols-8 gap-2">
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(categoryMetrics.spend)} color="#dc2626" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(categoryMetrics.profit)} color={categoryMetrics.profit >= 0 ? "#16a34a" : "#dc2626"} />
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={categoryMetrics.avgCpl !== null ? fmtC(categoryMetrics.avgCpl) : "—"} color="#0891b2" />
-        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={categoryMetrics.profitPerSub !== null ? fmtC(categoryMetrics.profitPerSub) : "—"} color={categoryMetrics.profitPerSub !== null ? (categoryMetrics.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
-        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={categoryMetrics.roi !== null ? fmtPct(categoryMetrics.roi) : "—"} color={categoryMetrics.roi !== null ? (categoryMetrics.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-      </div>
+      {(() => {
+        const isOT = activeCategory === "OnlyTraffic";
+        const umSpend = isOT ? (unmatchedOrders?.spend || 0) : 0;
+        const adjSpend = categoryMetrics.spend + umSpend;
+        const adjProfit = categoryMetrics.revenue - adjSpend;
+        const adjRoi = adjSpend > 0 ? (adjProfit / adjSpend) * 100 : null;
+        const adjProfitPerSub = adjSpend > 0 && categoryMetrics.subs > 0 ? adjProfit / categoryMetrics.subs : null;
+        return (
+          <div className="grid grid-cols-8 gap-2">
+            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(adjSpend)} color="#dc2626" />
+            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
+            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(adjProfit)} color={adjProfit >= 0 ? "#16a34a" : "#dc2626"} />
+            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={categoryMetrics.avgCpl !== null ? fmtC(categoryMetrics.avgCpl) : "—"} color="#0891b2" />
+            <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={adjProfitPerSub !== null ? fmtC(adjProfitPerSub) : "—"} color={adjProfitPerSub !== null ? (adjProfitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+            <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
+            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
+            <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={adjRoi !== null ? fmtPct(adjRoi) : "—"} color={adjRoi !== null ? (adjRoi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+          </div>
+        );
+      })()}
 
       {/* Source cards grid */}
       <div className="grid grid-cols-3 gap-3">

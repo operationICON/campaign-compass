@@ -115,6 +115,16 @@ export default function DashboardPage() {
     queryFn: fetchTrackingLinkLtv,
   });
 
+  // Fetch valid unmatched orders spend
+  const { data: unmatchedSpendTotal = 0 } = useQuery({
+    queryKey: ["unmatched_orders_spend_overview"],
+    queryFn: async () => {
+      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent, status").in("status", ["completed", "active", "accepted"]);
+      if (!data) return 0;
+      return data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0);
+    },
+  });
+
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
     "jessie_ca_xo": "Female", "zoey.skyy": "Female", "ella_cherryy": "Female",
@@ -471,12 +481,12 @@ export default function DashboardPage() {
     },
   });
 
-  // Total Expenses: All Time uses allTimeTotals, periods use DB query
+  // Total Expenses: All Time uses allTimeTotals, periods use DB query — always include valid unmatched spend
   const totalSpend = useMemo(() => {
-    if (isAllTime && allTimeTotals) return allTimeTotals.expenses;
-    if (periodActiveLinkIds && periodActiveLinkIds.length > 0) return periodExpensesFromDb ?? 0;
-    return 0;
-  }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb]);
+    const matched = isAllTime && allTimeTotals ? allTimeTotals.expenses
+      : (periodActiveLinkIds && periodActiveLinkIds.length > 0 ? (periodExpensesFromDb ?? 0) : 0);
+    return matched + unmatchedSpendTotal;
+  }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb, unmatchedSpendTotal]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
   // Total LTV — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
@@ -491,11 +501,11 @@ export default function DashboardPage() {
     return sum;
   }, [isAllTime, overviewSnapshotRows, agencyAccountIds]);
   const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : snapshotRevenue;
-  const totalProfit = isAllTime && allTimeTotals ? allTimeTotals.totalProfit : totalLtv - totalSpend;
+  const totalProfit = totalLtv - totalSpend;
   // hasSnapshotData: true if any snapshot rows were returned for this period
   const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
   const avgProfitPerSub = isAllTime && allTimeTotals
-    ? (allTimeTotals.ltvSubs > 0 ? allTimeTotals.totalProfit / allTimeTotals.ltvSubs : null)
+    ? (allTimeTotals.ltvSubs > 0 ? totalProfit / allTimeTotals.ltvSubs : null)
     : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
