@@ -318,12 +318,12 @@ function MetricRow({ label, value, color }: { label: string; value: string; colo
 
 function SubKpi({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="bg-card border border-border px-3 py-2.5 rounded-xl" style={{ borderLeft: `3px solid ${color}` }}>
-      <div className="flex items-center gap-1.5 mb-0.5">
+    <div className="bg-card border border-border px-2 py-2 rounded-lg" style={{ borderLeft: `3px solid ${color}` }}>
+      <div className="flex items-center gap-1 mb-0.5">
         <span style={{ color }}>{icon}</span>
-        <span className="text-muted-foreground" style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
+        <span className="text-muted-foreground" style={{ fontSize: "9px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
       </div>
-      <p className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>{value}</p>
+      <p className="font-mono font-bold text-foreground" style={{ fontSize: "13px" }}>{value}</p>
     </div>
   );
 }
