@@ -742,7 +742,27 @@ export default function TrafficSourcesPage() {
     total_sources: { label: "Total Sources", value: fmtN(kpis.totalSources), icon: <Hash className="h-4 w-4" />, color: "#0891b2" },
     tagged: { label: "Tagged Campaigns", value: fmtN(kpis.tagged), sub: `${links.length > 0 ? ((kpis.tagged / links.length) * 100).toFixed(0) : 0}% of total`, icon: <Tag className="h-4 w-4" />, color: "#16a34a" },
     untagged: { label: "Untagged", value: fmtN(kpis.untagged), sub: kpis.untagged > 0 ? "Need tagging" : "All tagged", icon: <HelpCircle className="h-4 w-4" />, color: kpis.untagged > 0 ? "#d97706" : "#16a34a" },
-    total_spend: { label: "Total Spend", value: fmtC(kpis.totalSpend), icon: <DollarSign className="h-4 w-4" />, color: "#dc2626" },
+    total_spend: {
+      label: "Total Spend",
+      value: (
+        <div>
+          <div className="flex items-center justify-between" style={{ fontSize: "11px", fontWeight: 500 }}>
+            <span className="text-muted-foreground">Tracked</span>
+            <span className="font-mono font-semibold text-foreground">{fmtC(kpis.totalSpend)}</span>
+          </div>
+          <div className="flex items-center justify-between" style={{ fontSize: "11px", fontWeight: 500 }}>
+            <span className="text-muted-foreground">Unmatched</span>
+            <span className="font-mono font-semibold text-foreground">{fmtC(unmatchedSpendTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between pt-1 mt-1 border-t border-border">
+            <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Total Spend</span>
+            <span className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>{fmtC(kpis.totalSpend + unmatchedSpendTotal)}</span>
+          </div>
+        </div>
+      ),
+      icon: <DollarSign className="h-4 w-4" />,
+      color: "#dc2626",
+    },
     total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
     blended_roi: { label: "ROI %", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", sub: kpis.totalSpend > 0 ? (kpis.blendedRoi > 0 ? "Profitable" : "Negative") : "No spend data", icon: <Percent className="h-4 w-4" />, color: kpis.blendedRoi > 0 ? "#16a34a" : kpis.totalSpend > 0 ? "#dc2626" : "#94a3b8" },
     total_profit: { label: "Total Profit", value: kpis.totalSpend > 0 ? fmtC(kpis.totalProfit) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.totalProfit > 0 ? "#16a34a" : "#dc2626" },
