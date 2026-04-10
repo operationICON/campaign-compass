@@ -11,7 +11,8 @@ const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
 interface Props {
   links: any[];
-  allLinks: any[]; // unfiltered by time for stable category assignment
+  allLinks: any[];
+  onTagLink?: (linkId: string, sourceTag: string) => void;
 }
 
 type Category = "OnlyTraffic" | "Manual";
@@ -84,7 +85,7 @@ function getRoiBadge(roi: number | null): { label: string; bg: string; text: str
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-export function TrafficCategoryNav({ links, allLinks }: Props) {
+export function TrafficCategoryNav({ links, allLinks, onTagLink }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const colorMap = useTagColors();
