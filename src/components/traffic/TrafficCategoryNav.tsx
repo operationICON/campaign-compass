@@ -255,11 +255,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                 </span>
               </div>
             </button>
-
-            {/* Unmatched Orders Table — inside OnlyTraffic card */}
-            <div className="mt-4 pt-4 border-t border-border">
-              <UnmatchedOrdersCard />
-            </div>
           </div>
 
           {/* Manual Card */}
