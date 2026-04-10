@@ -553,16 +553,14 @@ export default function CampaignsPage() {
   const kpis = useMemo(() => {
     const scopedLinks = filtered;
 
-    // ── All-time base links (unaffected by snapshot overlay) ──
-    const allTimeLinks = enrichedLinks.filter((l: any) => {
-      if (groupFilter !== "all") {
-        const groupUsernames = GROUP_MAP[groupFilter] || [];
-        const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
-        if (!groupAccountIds.includes(l.account_id)) return false;
-      }
-      if (accountFilter !== "all" && l.account_id !== accountFilter) return false;
-      return true;
-    });
+    // ── Base all-time links (before snapshot overlay) filtered by account ──
+    let atLinks = allLinks;
+    if (groupFilter !== "all") {
+      const groupUsernames = GROUP_MAP[groupFilter] || [];
+      const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
+      atLinks = atLinks.filter((l: any) => groupAccountIds.includes(l.account_id));
+    }
+    if (accountFilter !== "all") atLinks = atLinks.filter((l: any) => l.account_id === accountFilter);
 
     // Check if snapshot data exists for period
     const hasSnapshotData = !isAllTime && campaignsSnapshotRows.length > 0;
@@ -570,53 +568,46 @@ export default function CampaignsPage() {
     // ── CARD 1: Total Revenue ──
     let totalRevenue: number;
     if (isAllTime) {
-      // All Time: SUM(tracking_links.revenue) from original links
-      totalRevenue = allTimeLinks.reduce((s: number, l: any) => s + Number(l.originalRevenue ?? l.revenue ?? 0), 0);
+      totalRevenue = atLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     } else if (hasSnapshotData) {
-      // Period: snapshot-applied revenue is already on scopedLinks
+      // scopedLinks have snapshot-applied revenue
       totalRevenue = scopedLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     } else {
       totalRevenue = 0;
     }
 
     // ── CARD 2: Total Spend — ALWAYS all-time ──
-    const totalSpend = allTimeLinks
+    const totalSpend = atLinks
       .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
     // ── CARD 3: Total Profit ──
-    let totalProfitCalc: number;
-    if (isAllTime) {
-      totalProfitCalc = totalRevenue - totalSpend;
-    } else if (hasSnapshotData) {
-      totalProfitCalc = totalRevenue - totalSpend;
-    } else {
-      totalProfitCalc = 0;
-    }
+    const totalProfitCalc = (isAllTime || hasSnapshotData) ? (totalRevenue - totalSpend) : 0;
 
     // ── CARD 4: Avg CPL — ALWAYS all-time, CPL payment_type only ──
-    const cplLinks = allTimeLinks.filter((l: any) => {
+    const cplLinks = atLinks.filter((l: any) => {
       const pt = (l.payment_type || l.cost_type || "").toUpperCase();
       return pt === "CPL" && Number(l.cost_total || 0) > 0;
     });
     const cplSpend = cplLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const cplSubs = cplLinks.reduce((s: number, l: any) => s + Number(l.originalSubscribers ?? l.subscribers ?? 0), 0);
+    const cplSubs = cplLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
     const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
 
-    // ── CARD 5: Untagged — ALWAYS all-time, only active links ──
-    const untagged = allTimeLinks.filter((l: any) => {
+    // ── CARD 5: Untagged — ALWAYS all-time, only links with activity ──
+    const untagged = atLinks.filter((l: any) => {
       if (getEffectiveSource(l)) return false;
       if (l.deleted_at) return false;
-      const clicks = Number(l.originalClicks ?? l.clicks ?? 0);
-      const subs = Number(l.originalSubscribers ?? l.subscribers ?? 0);
-      const rev = Number(l.originalRevenue ?? l.revenue ?? 0);
-      return clicks > 0 || subs > 0 || rev > 0;
+      return Number(l.clicks || 0) > 0 || Number(l.subscribers || 0) > 0 || Number(l.revenue || 0) > 0;
     }).length;
 
     const noSpend = scopedLinks.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0).length;
     const totalCount = scopedLinks.length;
     const trackedCount = scopedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
-    const paidNewSubsAllTime = allTimeLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + (l.newSubsTotal || 0), 0);
+    const paidNewSubsAllTime = atLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => {
+      const linkId = normalizeTrackingLinkId(l.id);
+      const ltvRec = ltvLookup[linkId];
+      return s + (ltvRec ? Number(ltvRec.new_subs_total || 0) : 0);
+    }, 0);
     const profitPerSubCalc = paidNewSubsAllTime > 0 ? totalProfitCalc / paidNewSubsAllTime : null;
 
     return {
@@ -626,7 +617,7 @@ export default function CampaignsPage() {
       totalSpend, totalProfit: totalProfitCalc,
       hasSnapshotData,
     };
-  }, [filtered, enrichedLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts]);
+  }, [filtered, allLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts, ltvLookup]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
