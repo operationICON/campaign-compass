@@ -3,7 +3,7 @@ import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
