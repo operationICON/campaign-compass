@@ -119,7 +119,9 @@ export function useSnapshotMetrics(
             const d = new Date(serverMaxDate + "T00:00:00Z");
             d.setUTCDate(d.getUTCDate() - 30);
             fromDate = d.toISOString().slice(0, 10);
-            toDate = serverMaxDate;
+            const dEnd = new Date(serverMaxDate + "T00:00:00Z");
+            dEnd.setUTCDate(dEnd.getUTCDate() - 1);
+            toDate = dEnd.toISOString().slice(0, 10);
             break;
           }
           case "prev_month": {

@@ -901,13 +901,9 @@ function KpiCards({
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
-        } else if (noDataForPeriod) {
-          subtitle = "No data for this period";
         } else {
-          const periodRev = snapshotRevenue * revMultiplier;
-          const periodProfit = periodRev - allTimeSpend;
-          profitPerSub = snapshotSubs > 0 ? periodProfit / snapshotSubs : null;
-          subtitle = periodLabel;
+          profitPerSub = null;
+          subtitle = "Not available for period filters";
         }
         const showDash = profitPerSub === null;
         const isPositive = profitPerSub !== null && profitPerSub >= 0;
