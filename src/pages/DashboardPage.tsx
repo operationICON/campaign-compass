@@ -201,7 +201,9 @@ export default function DashboardPage() {
           const d = new Date(serverMaxDate + "T00:00:00Z");
           d.setUTCDate(d.getUTCDate() - 30);
           fromDate = d.toISOString().slice(0, 10);
-          toDate = serverMaxDate;
+          const dEnd = new Date(serverMaxDate + "T00:00:00Z");
+          dEnd.setUTCDate(dEnd.getUTCDate() - 1);
+          toDate = dEnd.toISOString().slice(0, 10);
         } else if (fromDate === "__server_prev_from__") {
           const refDate = new Date(serverMaxDate + "T00:00:00Z");
           const prevMonthDate = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth() - 1, 1));
@@ -901,13 +903,9 @@ function KpiCards({
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
-        } else if (noDataForPeriod) {
-          subtitle = "No data for this period";
         } else {
-          const periodRev = snapshotRevenue * revMultiplier;
-          const periodProfit = periodRev - allTimeSpend;
-          profitPerSub = snapshotSubs > 0 ? periodProfit / snapshotSubs : null;
-          subtitle = periodLabel;
+          profitPerSub = null;
+          subtitle = "Not available for period filters";
         }
         const showDash = profitPerSub === null;
         const isPositive = profitPerSub !== null && profitPerSub >= 0;
