@@ -201,7 +201,9 @@ export default function DashboardPage() {
           const d = new Date(serverMaxDate + "T00:00:00Z");
           d.setUTCDate(d.getUTCDate() - 30);
           fromDate = d.toISOString().slice(0, 10);
-          toDate = serverMaxDate;
+          const dEnd = new Date(serverMaxDate + "T00:00:00Z");
+          dEnd.setUTCDate(dEnd.getUTCDate() - 1);
+          toDate = dEnd.toISOString().slice(0, 10);
         } else if (fromDate === "__server_prev_from__") {
           const refDate = new Date(serverMaxDate + "T00:00:00Z");
           const prevMonthDate = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth() - 1, 1));
