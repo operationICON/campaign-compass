@@ -21,7 +21,7 @@ import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
-import type { TimePeriod } from "@/hooks/usePageFilters";
+import { usePageFilters, TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -64,20 +64,10 @@ function getOverviewSnapshotRange(
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
+  const { timePeriod, setTimePeriod, modelFilter: selectedModel, setModelFilter: setSelectedModel, customRange, setCustomRange, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
   const [groupFilter, setGroupFilter] = useState<string>("all");
-  const [selectedModel, setSelectedModel] = useState<string>("all");
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [costSlideIn, setCostSlideIn] = useState<any>(null);
-  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
-  const [revenueMode, setRevenueMode] = useState<"gross" | "net">(() => {
-    try { const v = localStorage.getItem("global_revenue_mode"); if (v === "net") return "net"; } catch {} return "gross";
-  });
-  const revMultiplier = revenueMode === "net" ? 0.80 : 1;
-  const handleRevenueModeChange = (mode: "gross" | "net") => {
-    setRevenueMode(mode);
-    try { localStorage.setItem("global_revenue_mode", mode); } catch {}
-  };
 
   const {
     kpiCards: enabledCards, toggleKpi: toggleCard, isKpiVisible: isVisible,
@@ -526,13 +516,6 @@ export default function DashboardPage() {
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
-    { key: "day", label: "Last Day" },
-    { key: "week", label: "Last Week" },
-    { key: "month", label: "Last Month" },
-    { key: "prev_month", label: "Prev Month" },
-    { key: "all", label: "All Time" },
-  ];
 
 
   return (
@@ -624,7 +607,7 @@ export default function DashboardPage() {
             <TooltipTrigger asChild>
               <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
                 <button
-                  onClick={() => handleRevenueModeChange("gross")}
+                  onClick={() => setRevenueMode("gross")}
                   className={`px-3 py-2 text-xs font-medium transition-colors ${
                     revenueMode === "gross" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -632,7 +615,7 @@ export default function DashboardPage() {
                   Gross
                 </button>
                 <button
-                  onClick={() => handleRevenueModeChange("net")}
+                  onClick={() => setRevenueMode("net")}
                   className={`px-3 py-2 text-xs font-medium transition-colors ${
                     revenueMode === "net" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}

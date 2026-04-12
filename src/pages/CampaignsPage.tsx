@@ -3,7 +3,7 @@ import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
@@ -24,28 +24,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import type { TimePeriod } from "@/hooks/usePageFilters";
-
-// ─── Snapshot range helper (copied from Overview) ───
-interface CampaignsSnapshotRange { from: string; to: string; dayCount: number; }
-function getCampaignsSnapshotRange(
-  timePeriod: TimePeriod,
-  customRange: { from: Date; to: Date } | null
-): CampaignsSnapshotRange | null {
-  if (customRange) {
-    return {
-      from: format(customRange.from, "yyyy-MM-dd"),
-      to: format(customRange.to, "yyyy-MM-dd"),
-      dayCount: Math.max(1, differenceInDays(customRange.to, customRange.from) + 1),
-    };
-  }
-  switch (timePeriod) {
-    case "day": return { from: "__latest__", to: "__latest__", dayCount: 1 };
-    case "week": return { from: "__server_week__", to: "__server_latest__", dayCount: 7 };
-    case "month": return { from: "__server_month__", to: "__server_latest__", dayCount: 30 };
-    case "prev_month": return { from: "__server_prev_from__", to: "__server_prev_to__", dayCount: 30 };
-    case "all": default: return null;
-  }
-}
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, X, Tag,
@@ -179,11 +157,8 @@ export default function CampaignsPage() {
   const [editingLink, setEditingLink] = useState<any>(null);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
 
-  // ─── Snapshot range (same approach as Overview page) ───
-  const campaignsSnapshotRange = useMemo(
-    () => getCampaignsSnapshotRange(timePeriod, customRange),
-    [timePeriod, customRange]
-  );
+  // ─── Snapshot-based time filtering (shared hook) ───
+  const { snapshotLookup, isLoading: snapshotsLoading } = useSnapshotMetrics(timePeriod, customRange);
 
   // ─── Data fetching (always fetch all links) ───
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
@@ -209,89 +184,10 @@ export default function CampaignsPage() {
     },
   });
 
-  // ─── Snapshot query (exact copy of Overview's approach) ───
-  const {
-    data: campaignsSnapshotRows = [],
-    isLoading: snapshotsLoading,
-    isFetching: snapshotsFetching,
-  } = useQuery({
-    queryKey: [
-      "daily_snapshots",
-      "campaigns_page",
-      campaignsSnapshotRange?.from ?? "all",
-      campaignsSnapshotRange?.to ?? "all",
-    ],
-    enabled: !!campaignsSnapshotRange,
-    queryFn: async () => {
-      if (!campaignsSnapshotRange) return [];
-
-      let fromDate = campaignsSnapshotRange.from;
-      let toDate = campaignsSnapshotRange.to;
-
-      // Resolve server date for sentinel values
-      const needsServerDate = fromDate.startsWith("__");
-      if (needsServerDate) {
-        const { data: latest, error: latestError } = await supabase
-          .from("daily_snapshots")
-          .select("snapshot_date")
-          .order("snapshot_date", { ascending: false })
-          .limit(1);
-        if (latestError) throw latestError;
-        const serverMaxDate = latest?.[0]?.snapshot_date;
-        if (!serverMaxDate) return [];
-
-        if (fromDate === "__latest__") {
-          fromDate = serverMaxDate;
-          toDate = serverMaxDate;
-        } else if (fromDate === "__server_week__") {
-          const d = new Date(serverMaxDate + "T00:00:00Z");
-          d.setUTCDate(d.getUTCDate() - 7);
-          fromDate = d.toISOString().slice(0, 10);
-          toDate = serverMaxDate;
-        } else if (fromDate === "__server_month__") {
-          const d = new Date(serverMaxDate + "T00:00:00Z");
-          d.setUTCDate(d.getUTCDate() - 30);
-          fromDate = d.toISOString().slice(0, 10);
-          toDate = serverMaxDate;
-        } else if (fromDate === "__server_prev_from__") {
-          const dFrom = new Date(serverMaxDate + "T00:00:00Z");
-          dFrom.setUTCDate(dFrom.getUTCDate() - 60);
-          const dTo = new Date(serverMaxDate + "T00:00:00Z");
-          dTo.setUTCDate(dTo.getUTCDate() - 31);
-          fromDate = dFrom.toISOString().slice(0, 10);
-          toDate = dTo.toISOString().slice(0, 10);
-        }
-      }
-
-      const rows: any[] = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("daily_snapshots")
-          .select("tracking_link_id, clicks, subscribers, revenue, account_id, snapshot_date")
-          .gte("snapshot_date", fromDate)
-          .lte("snapshot_date", toDate)
-          .range(rangeFrom, rangeFrom + batchSize - 1);
-        if (error) throw error;
-        if (!data?.length) break;
-        rows.push(...data);
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-      }
-      return rows;
-    },
-  });
-
-  const campaignsSnapshotLookup = useMemo(() => {
-    if (!campaignsSnapshotRange) return null;
-    return buildSnapshotLookup(campaignsSnapshotRows);
-  }, [campaignsSnapshotRange, campaignsSnapshotRows]);
-
   // Rows always show — only column values change with period
   const isLoading = linksLoading;
-  // Apply snapshot metrics to links (same as Overview)
-  const links = useMemo(() => applySnapshotToLinks(allLinks, campaignsSnapshotLookup), [allLinks, campaignsSnapshotLookup]);
+  // Apply snapshot metrics to links
+  const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
   const { data: adSpendData = [] } = useQuery({ queryKey: ["ad_spend"], queryFn: () => fetchAdSpend() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
@@ -573,7 +469,7 @@ export default function CampaignsPage() {
     if (accountFilter !== "all") atLinks = atLinks.filter((l: any) => l.account_id === accountFilter);
 
     // Check if snapshot data exists for period
-    const hasSnapshotData = !isAllTime && campaignsSnapshotRows.length > 0;
+    const hasSnapshotData = !isAllTime && !!snapshotLookup && Object.keys(snapshotLookup).length > 0;
 
     // ── CARD 1: Total Revenue ──
     let totalRevenue: number;
@@ -628,7 +524,7 @@ export default function CampaignsPage() {
       totalSpend, totalProfit: totalProfitCalc,
       hasSnapshotData,
     };
-  }, [filtered, allLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts, ltvLookup, unmatchedSpendTotal]);
+  }, [filtered, allLinks, isAllTime, snapshotLookup, groupFilter, accountFilter, accounts, ltvLookup, unmatchedSpendTotal]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
