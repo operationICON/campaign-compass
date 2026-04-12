@@ -247,9 +247,9 @@ export default function FansPage() {
             )}
           </div>
           <div className="flex items-center gap-1">
-            {TIME_PILLS.map(p => (
-              <button key={p.key} onClick={() => setTimePill(p.key)}
-                className={`px-3 py-1.5 text-[12px] font-medium rounded-lg transition-colors ${timePill === p.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
+            {TIME_PERIODS.map(p => (
+              <button key={p.key} onClick={() => { setTimePeriod(p.key); setCustomRange(null); }}
+                className={`px-3 py-1.5 text-[12px] font-medium rounded-lg transition-colors ${timePeriod === p.key && !customRange ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
                 {p.label}
               </button>
             ))}
