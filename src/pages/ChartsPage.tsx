@@ -2,6 +2,9 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchDailyMetrics, fetchTrackingLinks, fetchAccounts, fetchTransactions } from "@/lib/supabase-helpers";
+import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { PageFilterBar } from "@/components/PageFilterBar";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -19,10 +22,15 @@ const tooltipStyle = {
 };
 
 export default function ChartsPage() {
+  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange } = usePageFilters();
+  const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
+
   const { data: metrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
-  const { data: links = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
+  const { data: rawLinks = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: transactions = [] } = useQuery({ queryKey: ["transactions"], queryFn: () => fetchTransactions() });
+
+  const links = useMemo(() => applySnapshotToLinks(rawLinks, snapshotLookup), [rawLinks, snapshotLookup]);
 
   const accountColorMap = useMemo(() => {
     const map: Record<string, string> = {};
