@@ -1024,7 +1024,7 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        const accountsLtv5 = calcTotalRevFromTypes(filtAccounts);
+        const accountsLtv5 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         const campaignRevenue5 = allTimeRevenue;
         const unattribVal = Math.max(0, accountsLtv5 - campaignRevenue5);
         const pct = accountsLtv5 > 0
