@@ -896,8 +896,8 @@ function KpiCards({
         let profitPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtvTotal = calcTotalRevFromTypes(filtAccounts);
-          const totalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          const accountsLtvTotal = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const totalSubsCount = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
@@ -905,7 +905,7 @@ function KpiCards({
           subtitle = "No data for this period";
         } else {
           const periodRev = snapshotRevenue * revMultiplier;
-          const periodProfit = periodRev - totalSpend;
+          const periodProfit = periodRev - allTimeSpend;
           profitPerSub = snapshotSubs > 0 ? periodProfit / snapshotSubs : null;
           subtitle = periodLabel;
         }
@@ -935,8 +935,8 @@ function KpiCards({
         let ltvPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtv2 = calcTotalRevFromTypes(filtAccounts);
-          const totalSubsCount2 = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          const accountsLtv2 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const totalSubsCount2 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
           ltvPerSub = totalSubsCount2 > 0 ? (accountsLtv2 * revMultiplier) / totalSubsCount2 : null;
           subtitle = "All time · accounts revenue per subscriber";
         } else if (noDataForPeriod) {
@@ -1065,8 +1065,9 @@ function KpiCards({
         let revVal: number | null = null;
         let subtitle = "";
         const activeAccts = filtAccounts.filter((a: any) => a.is_active !== false);
+        const accountsLtvTotal = activeAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         if (isAllTime) {
-          revVal = calcTotalRevFromTypes(activeAccts) * revMultiplier;
+          revVal = accountsLtvTotal * revMultiplier;
           subtitle = "All time · accounts revenue";
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
@@ -1075,7 +1076,7 @@ function KpiCards({
           subtitle = periodLabel;
         }
 
-        const bkTotalRev = calcTotalRevFromTypes(activeAccts) * revMultiplier;
+        const bkTotalRev = accountsLtvTotal * revMultiplier;
         const bkTracked = allTimeRevenue * revMultiplier;
         const bkUnattr = Math.max(0, bkTotalRev - bkTracked);
 
@@ -1095,11 +1096,23 @@ function KpiCards({
         );
       }
 
-      // ═══ TOTAL SUBS (Always All Time) ═══
+      // ═══ TOTAL SUBS ═══
       case "total_subs": {
-        const totalSubsVal = filtAccounts
-          .filter((a: any) => a.is_active !== false)
-          .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+        let totalSubsVal: number;
+        let subsSubtitle: string;
+        if (isAllTime) {
+          totalSubsVal = filtAccounts
+            .filter((a: any) => a.is_active !== false)
+            .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          subsSubtitle = "Active subscribers across all models · All time";
+        } else if (noDataForPeriod) {
+          totalSubsVal = 0;
+          subsSubtitle = "No data for this period";
+        } else {
+          totalSubsVal = snapshotSubs;
+          subsSubtitle = periodLabel;
+        }
+        const showSubsDash = !isAllTime && noDataForPeriod;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1108,15 +1121,18 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Subs</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Active subscribers across all models · All time</p>
+            {showSubsDash ? (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">{subsSubtitle}</p>
           </div>
         );
       }
 
       // ═══ EXPENSES ═══
       case "expenses": {
-        const expVal = isAllTime ? allTimeSpend : totalSpend;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1125,8 +1141,8 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Expenses</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(expVal)}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · total ad spend" : `${periodLabel}${!isAllTime && !noDataForPeriod ? " · Est. spend" : ""}`}</p>
+            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(allTimeSpend)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">All time · total ad spend</p>
           </div>
         );
       }
@@ -1164,9 +1180,9 @@ function KpiCards({
 
       // ═══ TOTAL PROFIT ═══
       case "total_profit": {
-        const tpRev = isAllTime ? calcTotalRevFromTypes(filtAccounts) * revMultiplier : snapshotRevenue * revMultiplier;
-        const tpSpend = isAllTime ? allTimeSpend : totalSpend;
-        const tpVal = tpRev - tpSpend;
+        const activeAcctsTP = filtAccounts.filter((a: any) => a.is_active !== false);
+        const tpRev = isAllTime ? activeAcctsTP.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
+        const tpVal = tpRev - allTimeSpend;
         const isPositive = tpVal >= 0;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
@@ -1185,10 +1201,10 @@ function KpiCards({
 
       // ═══ ROI ═══
       case "blended_roi": {
-        const roiRev = isAllTime ? calcTotalRevFromTypes(filtAccounts) * revMultiplier : snapshotRevenue * revMultiplier;
-        const roiSpend = isAllTime ? allTimeSpend : totalSpend;
-        const roiProfit = roiRev - roiSpend;
-        const roiVal = roiSpend > 0 ? (roiProfit / roiSpend) * 100 : null;
+        const activeAcctsROI = filtAccounts.filter((a: any) => a.is_active !== false);
+        const roiRev = isAllTime ? activeAcctsROI.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
+        const roiProfit = roiRev - allTimeSpend;
+        const roiVal = allTimeSpend > 0 ? (roiProfit / allTimeSpend) * 100 : null;
         const isPositive = roiVal !== null && roiVal >= 0;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
