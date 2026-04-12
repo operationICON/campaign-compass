@@ -470,7 +470,7 @@ export default function CampaignsPage() {
     if (accountFilter !== "all") atLinks = atLinks.filter((l: any) => l.account_id === accountFilter);
 
     // Check if snapshot data exists for period
-    const hasSnapshotData = !isAllTime && campaignsSnapshotRows.length > 0;
+    const hasSnapshotData = !isAllTime && !!snapshotLookup && Object.keys(snapshotLookup).length > 0;
 
     // ── CARD 1: Total Revenue ──
     let totalRevenue: number;
@@ -525,7 +525,7 @@ export default function CampaignsPage() {
       totalSpend, totalProfit: totalProfitCalc,
       hasSnapshotData,
     };
-  }, [filtered, allLinks, isAllTime, campaignsSnapshotRows, groupFilter, accountFilter, accounts, ltvLookup, unmatchedSpendTotal]);
+  }, [filtered, allLinks, isAllTime, snapshotLookup, groupFilter, accountFilter, accounts, ltvLookup, unmatchedSpendTotal]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {
