@@ -680,7 +680,7 @@ export default function DashboardPage() {
             });
 
             if (isAllTime) {
-              // All Time: accounts.ltv_total - (tracking_link_ltv.total_ltv + cross_poll_revenue)
+              // All Time: accounts.ltv_total - tracking_links.revenue
               const accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
               const accountIdSet = new Set(accts.map((a: any) => a.id));
               let campaignLtv = 0;
