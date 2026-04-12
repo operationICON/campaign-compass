@@ -123,6 +123,16 @@ export default function ChartsPage() {
           <RefreshButton queryKeys={["daily_metrics", "tracking_links", "accounts", "transactions"]} />
         </div>
 
+        <PageFilterBar
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+          modelFilter={modelFilter}
+          onModelFilterChange={setModelFilter}
+          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-card border border-border rounded-lg p-5 card-hover">
             <h2 className="text-sm font-bold text-foreground mb-4">Daily LTV by Model (30 Days)</h2>
