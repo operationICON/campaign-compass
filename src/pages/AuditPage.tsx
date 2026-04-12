@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
@@ -112,21 +113,19 @@ const AUDIT_COLUMNS: ColumnDef[] = [
 export default function AuditPage() {
   const queryClient = useQueryClient();
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
-  const { data: allLinks = [], isLoading } = useQuery({
-    queryKey: ["audit_all_links", dateFilter.from, dateFilter.to],
+  const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
+  const { data: rawLinks = [], isLoading } = useQuery({
+    queryKey: ["audit_all_links"],
     queryFn: async () => {
       const allData: any[] = [];
       let from = 0;
       const pageSize = 1000;
       while (true) {
-        let query = supabase
+        const { data, error } = await supabase
           .from("tracking_links")
           .select("*, accounts(display_name, username, avatar_thumb_url)")
           .order("created_at", { ascending: false })
           .range(from, from + pageSize - 1);
-        if (dateFilter.from) query = query.gte("updated_at", dateFilter.from);
-        if (dateFilter.to) query = query.lte("updated_at", dateFilter.to);
-        const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) break;
         allData.push(...data);
@@ -136,6 +135,7 @@ export default function AuditPage() {
       return allData;
     },
   });
+  const allLinks = useMemo(() => applySnapshotToLinks(rawLinks, snapshotLookup), [rawLinks, snapshotLookup]);
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const { data: trackingLinkLtv = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],

@@ -13,6 +13,7 @@ import {
   ArrowLeft, Copy, ExternalLink, ChevronDown, Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
 
 /* ─── localStorage helpers ─── */
 function lsGet(key: string): Record<string, any> {
@@ -33,19 +34,12 @@ function shortTimeAgo(dateStr: string | null) {
   } catch { return "—"; }
 }
 
-const TIME_PILLS = [
-  { key: "day", label: "Last Day" },
-  { key: "week", label: "Last Week" },
-  { key: "month", label: "Last Month" },
-  { key: "all", label: "All Time" },
-] as const;
-type TimePill = typeof TIME_PILLS[number]["key"];
 type FanFilter = "all" | "paid" | "free" | "flagged" | "welcomed";
 type ChatFilter = "all" | "unread" | "flagged" | "done";
 
 export default function FansPage() {
   const queryClient = useQueryClient();
-  const [timePill, setTimePill] = useState<TimePill>("day");
+  const { timePeriod, setTimePeriod, customRange, setCustomRange } = usePageFilters();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
