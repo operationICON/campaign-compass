@@ -314,12 +314,14 @@ function DrawerBodyInner({
         )}
       </div>
 
-      {/* FINANCIALS — 2 columns */}
+      {/* ROW 1 — 3 columns: Financials Left | Financials Right | Campaign Info */}
       <div className="px-6 pt-3 pb-1">
-        <h4 className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground mb-1">🔥 Financials</h4>
-        <div className="grid grid-cols-2 gap-0" style={{ borderTop: "2px solid hsl(var(--destructive))" }}>
-          {/* LEFT */}
+        <div className="grid grid-cols-3 gap-0 border-t-2 border-destructive">
+          {/* COL 1 — FINANCIALS LEFT */}
           <div className="border-r border-border">
+            <div className="px-3 py-1 border-b border-border">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Financials</span>
+            </div>
             <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
             <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
             <DataRow label="Profit/Sub" value={cost > 0 && profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
@@ -327,8 +329,11 @@ function DrawerBodyInner({
             <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
             <DataRow label="Subscribers" value={tlSubscribers.toLocaleString()} />
           </div>
-          {/* RIGHT */}
-          <div>
+          {/* COL 2 — FINANCIALS RIGHT */}
+          <div className="border-r border-border">
+            <div className="px-3 py-1 border-b border-border">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-transparent select-none">—</span>
+            </div>
             <DataRow label="Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "$0.00"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
             <DataRow label="ROI" value={roi != null ? `${roi.toFixed(0)}%` : "—"} tone={roi != null ? profitTone(roi) : "neutral"} />
             <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
@@ -338,21 +343,16 @@ function DrawerBodyInner({
             <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
             <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
           </div>
-        </div>
-      </div>
-
-      {/* CAMPAIGN INFO — 2 columns */}
-      <div className="px-6 pt-2 pb-1">
-        <h4 className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground mb-1">📋 Campaign Info</h4>
-        <div className="grid grid-cols-2 gap-0" style={{ borderTop: "2px solid hsl(var(--primary))" }}>
-          <div className="border-r border-border">
-            <DataRow label="Source" value={d.source_tag || "—"} />
-            <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
-            <DataRow label="Days Running" value={daysRunning != null ? String(daysRunning) : "—"} />
-          </div>
+          {/* COL 3 — CAMPAIGN INFO */}
           <div>
+            <div className="px-3 py-1 border-b border-border">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Campaign Info</span>
+            </div>
+            <DataRow label="Source" value={d.source_tag || "—"} />
             <DataRow label="Marketer" value={d.onlytraffic_marketer || "—"} />
+            <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
             <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
+            <DataRow label="Days Running" value={daysRunning != null ? String(daysRunning) : "—"} />
             <DataRow label="Status" value={
               d.status
                 ? <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span>
