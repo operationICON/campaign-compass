@@ -87,6 +87,29 @@ export default function AccountsPage() {
     queryFn: fetchTrackingLinkLtv,
   });
 
+  // Fetch transaction breakdowns per account for revenue breakdown
+  const { data: txBreakdowns = {} } = useQuery({
+    queryKey: ["tx_breakdowns_by_account"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("account_id, type, revenue");
+      if (error) throw error;
+      const map: Record<string, { messages: number; tips: number; subscriptions: number; posts: number }> = {};
+      for (const tx of (data || [])) {
+        if (!tx.account_id) continue;
+        if (!map[tx.account_id]) map[tx.account_id] = { messages: 0, tips: 0, subscriptions: 0, posts: 0 };
+        const rev = Number(tx.revenue || 0);
+        const t = (tx.type || "").toLowerCase();
+        if (t === "message") map[tx.account_id].messages += rev;
+        else if (t === "tip") map[tx.account_id].tips += rev;
+        else if (t.includes("subscription")) map[tx.account_id].subscriptions += rev;
+        else if (t === "post") map[tx.account_id].posts += rev;
+      }
+      return map;
+    },
+  });
+
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
