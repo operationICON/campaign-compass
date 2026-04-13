@@ -1,11 +1,16 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle, Search, X } from "lucide-react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { TrafficSourceDetail } from "./TrafficSourceDetail";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { UnmatchedOrdersCard } from "./UnmatchedOrdersCard";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { calcStatus, STATUS_STYLES, STATUS_LABELS } from "@/lib/calc-helpers";
+import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
