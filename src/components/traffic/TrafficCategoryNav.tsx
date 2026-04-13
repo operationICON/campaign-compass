@@ -21,6 +21,7 @@ interface Props {
   allLinks: any[];
   onTagLink?: (linkId: string, sourceTag: string) => void;
   unmatchedOrders?: { count: number; spend: number };
+  onLevelChange?: (level: 1 | 2 | 3) => void;
 }
 
 type Category = "OnlyTraffic" | "Manual";
