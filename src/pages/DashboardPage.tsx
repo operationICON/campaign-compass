@@ -1180,6 +1180,7 @@ function KpiCards({
         const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const tpVal = tpRev - tpSpend;
         const showDash = !isAllTime && noDataForPeriod;
+        const isPositive = tpVal >= 0;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1189,7 +1190,11 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
               <RevenueModeBadge mode={revenueMode} />
             </div>
-            <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{fmtC(tpVal)}</p>
+            {showDash ? (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            ) : (
+              <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{fmtC(tpVal)}</p>
+            )}
             <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · revenue minus spend" : periodLabel}</p>
           </div>
         );
