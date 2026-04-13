@@ -858,7 +858,7 @@ export default function TrafficSourcesPage() {
             <div className="grid grid-cols-3 gap-3">
               {visibleKpiList.map(k => {
                 const r = kpiRenderMap[k.id];
-                return <KpiCard key={k.id} label={r.label} value={r.value} sub={r.sub} icon={r.icon} color={r.color} />;
+                return <KpiCard key={k.id} label={r.label} value={r.value} sub={r.sub} icon={r.icon} color={r.color}>{r.children}</KpiCard>;
               })}
             </div>
           </div>
