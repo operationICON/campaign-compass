@@ -498,7 +498,7 @@ function DrawerBodyInner({
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Where does the money come from?</p>
                 {[
                   { label: "Campaign Revenue", value: campaignRevenue, tone: "neutral" as const },
-                  { label: "Campaign LTV", value: totalLtv, tone: "neutral" as const },
+                  
                   { label: "Cross-Poll Revenue", value: crossPoll, tone: "neutral" as const },
                   { label: "Total Revenue incl. Cross-Poll", value: totalLtv + crossPoll, tone: "positive" as const },
                 ].map(r => (
