@@ -205,15 +205,6 @@ export default function CampaignsPage() {
     },
   });
 
-  // Fetch valid unmatched orders spend
-  const { data: unmatchedSpendTotal = 0 } = useQuery({
-    queryKey: ["unmatched_orders_spend_campaigns"],
-    queryFn: async () => {
-      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent, status").in("status", ["completed", "active", "accepted"]);
-      if (!data) return 0;
-      return data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0);
-    },
-  });
   
   const tagColorMap = useTagColors();
 
@@ -482,11 +473,10 @@ export default function CampaignsPage() {
       totalRevenue = 0;
     }
 
-    // ── CARD 2: Total Spend — ALWAYS all-time + valid unmatched ──
-    const matchedSpend = atLinks
+    // ── CARD 2: Total Spend — ALWAYS all-time tracking_links.cost_total only ──
+    const totalSpend = atLinks
       .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const totalSpend = matchedSpend + unmatchedSpendTotal;
 
     // ── CARD 3: Total Profit ──
     const totalProfitCalc = (isAllTime || hasSnapshotData) ? (totalRevenue - totalSpend) : 0;
@@ -524,7 +514,7 @@ export default function CampaignsPage() {
       totalSpend, totalProfit: totalProfitCalc,
       hasSnapshotData,
     };
-  }, [filtered, allLinks, isAllTime, snapshotLookup, groupFilter, accountFilter, accounts, ltvLookup, unmatchedSpendTotal]);
+  }, [filtered, allLinks, isAllTime, snapshotLookup, groupFilter, accountFilter, accounts, ltvLookup]);
 
   // ─── Last synced ───
   const lastSynced = useMemo(() => {

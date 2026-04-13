@@ -348,7 +348,7 @@ export default function TrafficSourcesPage() {
       };
     },
   });
-  const unmatchedSpendTotal = unmatchedOrdersData.spend;
+  
 
   // LTV lookup map — normalize keys for UUID↔TEXT matching
   const ltvLookup = useMemo(() => {
@@ -402,16 +402,15 @@ export default function TrafficSourcesPage() {
     });
     const activeSources = activeSourceTags.size;
 
-    const matchedSpend = dateAccountFiltered
+    const totalSpend = dateAccountFiltered
       .filter((l: any) => Number(l.cost_total || 0) > 0)
       .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const totalSpend = matchedSpend + unmatchedSpendTotal;
 
     const totalProfit = totalRevenue - totalSpend;
 
-    // ROI % based on OnlyTraffic links only + unmatched spend
+    // ROI % based on OnlyTraffic links only
     const otLinks = dateAccountFiltered.filter((l: any) => l.traffic_category === "OnlyTraffic");
-    const otSpend = otLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0) + unmatchedSpendTotal;
+    const otSpend = otLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
     const otRevenue = otLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const blendedRoi = otSpend > 0 ? ((otRevenue - otSpend) / otSpend) * 100 : 0;
 
@@ -435,7 +434,7 @@ export default function TrafficSourcesPage() {
 
     return {
       totalSources, tagged, untagged,
-      matchedSpend, totalSpend, totalRevenue, blendedRoi,
+      totalSpend, totalRevenue, blendedRoi,
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
     };
@@ -752,22 +751,8 @@ export default function TrafficSourcesPage() {
     untagged: { label: "Untagged", value: fmtN(kpis.untagged), sub: kpis.untagged > 0 ? "Need tagging" : "All tagged", icon: <HelpCircle className="h-4 w-4" />, color: kpis.untagged > 0 ? "#d97706" : "#16a34a" },
     total_spend: {
       label: "Total Spend",
-      value: (
-        <div>
-          <div className="flex items-center justify-between" style={{ fontSize: "11px", fontWeight: 500 }}>
-            <span className="text-muted-foreground">Tracked</span>
-            <span className="font-mono font-semibold text-foreground">{fmtC(kpis.matchedSpend)}</span>
-          </div>
-          <div className="flex items-center justify-between" style={{ fontSize: "11px", fontWeight: 500 }}>
-            <span className="text-muted-foreground">Unmatched</span>
-            <span className="font-mono font-semibold text-foreground">{fmtC(unmatchedSpendTotal)}</span>
-          </div>
-          <div className="flex items-center justify-between pt-1 mt-1 border-t border-border">
-            <span className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600 }}>Total Spend</span>
-            <span className="font-mono font-bold text-foreground" style={{ fontSize: "16px" }}>{fmtC(kpis.totalSpend)}</span>
-          </div>
-        </div>
-      ),
+      value: fmtC(kpis.totalSpend),
+      sub: "tracking_links.cost_total",
       icon: <DollarSign className="h-4 w-4" />,
       color: "#dc2626",
     },

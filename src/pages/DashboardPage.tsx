@@ -105,15 +105,6 @@ export default function DashboardPage() {
     queryFn: fetchTrackingLinkLtv,
   });
 
-  // Fetch valid unmatched orders spend
-  const { data: unmatchedSpendTotal = 0 } = useQuery({
-    queryKey: ["unmatched_orders_spend_overview"],
-    queryFn: async () => {
-      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent, status").in("status", ["completed", "active", "accepted"]);
-      if (!data) return 0;
-      return data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0);
-    },
-  });
 
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
@@ -473,12 +464,11 @@ export default function DashboardPage() {
     },
   });
 
-  // Total Expenses: All Time uses allTimeTotals, periods use DB query — always include valid unmatched spend
+  // Total Expenses: All Time uses allTimeTotals, periods use DB query — tracking_links.cost_total only
   const totalSpend = useMemo(() => {
-    const matched = isAllTime && allTimeTotals ? allTimeTotals.expenses
+    return isAllTime && allTimeTotals ? allTimeTotals.expenses
       : (periodActiveLinkIds && periodActiveLinkIds.length > 0 ? (periodExpensesFromDb ?? 0) : 0);
-    return matched + unmatchedSpendTotal;
-  }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb, unmatchedSpendTotal]);
+  }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
   // Total LTV + Spend — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
