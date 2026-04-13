@@ -61,24 +61,49 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const isUntaggedView = sourceName === "Untagged";
   const isOnlyTraffic = categoryName === "OnlyTraffic";
 
+  // Marketer options from links in this source
+  const marketerOptions = useMemo(() => {
+    const set = new Set<string>();
+    links.forEach(l => { if (l.onlytraffic_marketer) set.add(l.onlytraffic_marketer); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [links]);
+
+  // Filtered links by search + marketer
+  const filteredLinks = useMemo(() => {
+    let result = links;
+    if (selectedMarketer !== "__all__") {
+      result = result.filter(l => l.onlytraffic_marketer === selectedMarketer);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(l => {
+        const name = (l.campaign_name || "").toLowerCase();
+        const url = (l.url || "").toLowerCase();
+        const orderId = (l.onlytraffic_order_id || "").toLowerCase();
+        return name.includes(q) || url.includes(q) || orderId.includes(q);
+      });
+    }
+    return result;
+  }, [links, selectedMarketer, searchQuery]);
+
   // KPIs
   const kpis = useMemo(() => {
-    const spend = links.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
-    const revenue = links.reduce((s, l) => s + Number(l.revenue || 0), 0);
+    const spend = filteredLinks.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+    const revenue = filteredLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
     const profit = revenue - spend;
-    const subs = links.reduce((s, l) => s + (l.subscribers || 0), 0);
+    const subs = filteredLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
     const roi = spend > 0 ? (profit / spend) * 100 : null;
-    const cplLinks = links.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
+    const cplLinks = filteredLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
     const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
     const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
     const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
     const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
     const ltvPerSub = subs > 0 ? revenue / subs : null;
-    const ages = links.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
+    const ages = filteredLinks.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
     const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
     const subsDay = avgAge > 0 ? subs / avgAge : 0;
     return { spend, revenue, profit, avgCpl, profitPerSub, ltvPerSub, subsDay, roi };
-  }, [links]);
+  }, [filteredLinks]);
 
   // Sorting
   const sorted = useMemo(() => {
