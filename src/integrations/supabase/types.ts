@@ -913,6 +913,78 @@ export type Database = {
         }
         Relationships: []
       }
+      onlytraffic_order_performance: {
+        Row: {
+          clicks: number | null
+          cost: number | null
+          created_at: string | null
+          data_source: string | null
+          date_end: string | null
+          date_start: string | null
+          id: string
+          ltv_per_sub: number | null
+          order_id: string | null
+          profit: number | null
+          revenue: number | null
+          roi: number | null
+          subs_per_day: number | null
+          subscribers: number | null
+          tracking_link_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          clicks?: number | null
+          cost?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          date_end?: string | null
+          date_start?: string | null
+          id?: string
+          ltv_per_sub?: number | null
+          order_id?: string | null
+          profit?: number | null
+          revenue?: number | null
+          roi?: number | null
+          subs_per_day?: number | null
+          subscribers?: number | null
+          tracking_link_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          clicks?: number | null
+          cost?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          date_end?: string | null
+          date_start?: string | null
+          id?: string
+          ltv_per_sub?: number | null
+          order_id?: string | null
+          profit?: number | null
+          revenue?: number | null
+          roi?: number | null
+          subs_per_day?: number | null
+          subscribers?: number | null
+          tracking_link_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onlytraffic_order_performance_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "onlytraffic_orders"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "onlytraffic_order_performance_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onlytraffic_orders: {
         Row: {
           id: string
