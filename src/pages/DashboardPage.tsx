@@ -228,7 +228,7 @@ export default function DashboardPage() {
       while (true) {
         let query = supabase
           .from("daily_snapshots")
-          .select("tracking_link_id, clicks, subscribers, revenue, account_id, snapshot_date")
+          .select("tracking_link_id, clicks, subscribers, revenue, cost_total, account_id, snapshot_date")
           .gte("snapshot_date", fromDate)
           .lte("snapshot_date", toDate)
           .range(rangeFrom, rangeFrom + batchSize - 1);
@@ -481,17 +481,22 @@ export default function DashboardPage() {
   }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb, unmatchedSpendTotal]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
-  // Total LTV — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
+  // Total LTV + Spend — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
   const snapshotRevenue = useMemo(() => {
     if (isAllTime) return 0;
-    let sum = 0;
-    const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
-    for (const row of overviewSnapshotRows) {
-      // If filtering by account, the query already filters, but double-check
-      sum += Number(row.revenue || 0);
-    }
-    return sum;
-  }, [isAllTime, overviewSnapshotRows, agencyAccountIds]);
+    return overviewSnapshotRows.reduce((s, r) => s + Number(r.revenue || 0), 0);
+  }, [isAllTime, overviewSnapshotRows]);
+
+  const snapshotSpend = useMemo(() => {
+    if (isAllTime) return 0;
+    return overviewSnapshotRows.reduce((s, r) => s + Number((r as any).cost_total || 0), 0);
+  }, [isAllTime, overviewSnapshotRows]);
+
+  const snapshotSubs = useMemo(() => {
+    if (isAllTime) return 0;
+    return overviewSnapshotRows.reduce((s, r) => s + Number(r.subscribers || 0), 0);
+  }, [isAllTime, overviewSnapshotRows]);
+
   const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : snapshotRevenue;
   const totalProfit = totalLtv - totalSpend;
   // hasSnapshotData: true if any snapshot rows were returned for this period
@@ -714,6 +719,8 @@ export default function DashboardPage() {
           trackingLinkLtv={trackingLinkLtv}
           revMultiplier={revMultiplier}
           revenueMode={revenueMode}
+          snapshotSpend={snapshotSpend}
+          snapshotSubs={snapshotSubs}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
@@ -766,6 +773,7 @@ function KpiCards({
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
   trackingLinkLtv, revMultiplier, revenueMode,
+  snapshotSpend, snapshotSubs,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
@@ -795,6 +803,8 @@ function KpiCards({
   trackingLinkLtv: any[];
   revMultiplier: number;
   revenueMode: "gross" | "net";
+  snapshotSpend: number;
+  snapshotSubs: number;
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
@@ -858,9 +868,8 @@ function KpiCards({
     })
     .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
 
-  // ── Snapshot period values ──
+  // ── Snapshot period values (snapshotSpend, snapshotSubs passed as props from actual snapshot rows) ──
   const snapshotRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-  const snapshotSubs = links.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
 
   // ── Earliest tracking link date for All Time subs/day ──
   const earliestCreated = allLinks.reduce((earliest: Date | null, l: any) => {
@@ -903,9 +912,12 @@ function KpiCards({
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
+        } else if (noDataForPeriod) {
+          subtitle = "No data for this period";
         } else {
-          profitPerSub = null;
-          subtitle = "Not available for period filters";
+          const periodProfit = snapshotRevenue * revMultiplier - snapshotSpend;
+          profitPerSub = snapshotSubs > 0 ? periodProfit / snapshotSubs : null;
+          subtitle = periodLabel;
         }
         const showDash = profitPerSub === null;
         const isPositive = profitPerSub !== null && profitPerSub >= 0;
@@ -1094,23 +1106,12 @@ function KpiCards({
         );
       }
 
-      // ═══ TOTAL SUBS ═══
+      // ═══ TOTAL SUBS (always accounts.subscribers_count) ═══
       case "total_subs": {
-        let totalSubsVal: number;
-        let subsSubtitle: string;
-        if (isAllTime) {
-          totalSubsVal = filtAccounts
-            .filter((a: any) => a.is_active !== false)
-            .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-          subsSubtitle = "Active subscribers across all models · All time";
-        } else if (noDataForPeriod) {
-          totalSubsVal = 0;
-          subsSubtitle = "No data for this period";
-        } else {
-          totalSubsVal = snapshotSubs;
-          subsSubtitle = periodLabel;
-        }
-        const showSubsDash = !isAllTime && noDataForPeriod;
+        const totalSubsVal = filtAccounts
+          .filter((a: any) => a.is_active !== false)
+          .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+        const subsSubtitle = "Active subscribers across all models · All time";
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1119,11 +1120,7 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Subs</span>
             </div>
-            {showSubsDash ? (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
-            )}
+            <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
             <p className="text-[11px] text-muted-foreground mt-1">{subsSubtitle}</p>
           </div>
         );
@@ -1180,7 +1177,9 @@ function KpiCards({
       case "total_profit": {
         const activeAcctsTP = filtAccounts.filter((a: any) => a.is_active !== false);
         const tpRev = isAllTime ? activeAcctsTP.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
-        const tpVal = tpRev - allTimeSpend;
+        const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
+        const tpVal = tpRev - tpSpend;
+        const showDash = !isAllTime && noDataForPeriod;
         const isPositive = tpVal >= 0;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
@@ -1191,7 +1190,11 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Profit</span>
               <RevenueModeBadge mode={revenueMode} />
             </div>
-            <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{fmtC(tpVal)}</p>
+            {showDash ? (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            ) : (
+              <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{fmtC(tpVal)}</p>
+            )}
             <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · revenue minus spend" : periodLabel}</p>
           </div>
         );
@@ -1201,8 +1204,9 @@ function KpiCards({
       case "blended_roi": {
         const activeAcctsROI = filtAccounts.filter((a: any) => a.is_active !== false);
         const roiRev = isAllTime ? activeAcctsROI.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
-        const roiProfit = roiRev - allTimeSpend;
-        const roiVal = allTimeSpend > 0 ? (roiProfit / allTimeSpend) * 100 : null;
+        const roiSpend = isAllTime ? allTimeSpend : snapshotSpend;
+        const roiProfit = roiRev - roiSpend;
+        const roiVal = roiSpend > 0 ? (roiProfit / roiSpend) * 100 : null;
         const isPositive = roiVal !== null && roiVal >= 0;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
