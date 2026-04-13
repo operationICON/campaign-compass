@@ -83,6 +83,41 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     },
   });
 
+  // Fetch marketer+offer_id per tracking_link_id for table display
+  const { data: linkMarketerMap = {} } = useQuery({
+    queryKey: ["onlytraffic_orders_link_marketer_map"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("onlytraffic_orders")
+        .select("tracking_link_id, marketer, offer_id")
+        .not("marketer", "is", null);
+      if (!data) return {};
+      // Build map: tracking_link_id → { marketer, offer_id }
+      // Also track which marketers have multiple offer_ids
+      const marketerOffers: Record<string, Set<number>> = {};
+      data.forEach((o: any) => {
+        if (!o.marketer) return;
+        if (!marketerOffers[o.marketer]) marketerOffers[o.marketer] = new Set();
+        if (o.offer_id != null) marketerOffers[o.marketer].add(o.offer_id);
+      });
+      const multiOffer = new Set<string>();
+      Object.entries(marketerOffers).forEach(([m, offers]) => {
+        if (offers.size > 1) multiOffer.add(m);
+      });
+      // Build per-link map (first order wins)
+      const map: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean }> = {};
+      data.forEach((o: any) => {
+        if (!o.tracking_link_id || map[o.tracking_link_id]) return;
+        map[o.tracking_link_id] = {
+          marketer: o.marketer,
+          offer_id: o.offer_id,
+          showOfferId: multiOffer.has(o.marketer) && o.offer_id != null,
+        };
+      });
+      return map;
+    },
+  });
+
   // Filtered links by search + marketer
   const filteredLinks = useMemo(() => {
     let result = links;
