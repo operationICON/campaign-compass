@@ -204,6 +204,11 @@ export default function TrafficSourcesPage() {
   const [sourceSearchQuery, setSourceSearchQuery] = useState("");
   const sourceSearchRef = useRef<HTMLDivElement>(null);
 
+  // Track category nav level for side panel visibility
+  const [navLevel, setNavLevel] = useState<1 | 2 | 3>(1);
+  const [sidePanelForced, setSidePanelForced] = useState(false);
+  const showSidePanel = navLevel === 1 || sidePanelForced;
+
   // Data
   const { data: sources = [] } = useQuery({
     queryKey: ["traffic_sources"],
