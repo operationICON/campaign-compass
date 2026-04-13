@@ -134,13 +134,13 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         default: return 0;
       }
     };
-    return [...links].sort((a, b) => {
+    return [...filteredLinks].sort((a, b) => {
       const va = getValue(a);
       const vb = getValue(b);
       if (typeof va === "string" && typeof vb === "string") return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
       return sortAsc ? (va as number) - (vb as number) : (vb as number) - (va as number);
     });
-  }, [links, sortKey, sortAsc]);
+  }, [filteredLinks, sortKey, sortAsc]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const pageRows = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
