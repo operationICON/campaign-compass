@@ -348,7 +348,7 @@ export default function TrafficSourcesPage() {
       };
     },
   });
-  const unmatchedSpendTotal = unmatchedOrdersData.spend;
+  
 
   // LTV lookup map — normalize keys for UUID↔TEXT matching
   const ltvLookup = useMemo(() => {
