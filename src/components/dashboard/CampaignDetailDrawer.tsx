@@ -425,7 +425,7 @@ function DrawerBodyInner({
               <div className="px-3 py-1.5">
                 <p className="text-[10px] text-muted-foreground/60 italic leading-snug">Revenue breakdown by type not available at campaign level — shown at account level</p>
               </div>
-              <DataRow label="Campaign LTV" value={hasLtvData ? fmtC2(totalLtv) : "—"} tone={totalLtv > 0 ? "positive" : "neutral"} />
+              
               <DataRow label="Cross-Poll Revenue" value={hasLtvData ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
               <DataRow label="Total Revenue incl. Cross-Poll" value={hasLtvData ? fmtC2(totalLtv + crossPoll) : "—"} tone="positive" />
               <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
@@ -498,7 +498,7 @@ function DrawerBodyInner({
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Where does the money come from?</p>
                 {[
                   { label: "Campaign Revenue", value: campaignRevenue, tone: "neutral" as const },
-                  { label: "Campaign LTV", value: totalLtv, tone: "neutral" as const },
+                  
                   { label: "Cross-Poll Revenue", value: crossPoll, tone: "neutral" as const },
                   { label: "Total Revenue incl. Cross-Poll", value: totalLtv + crossPoll, tone: "positive" as const },
                 ].map(r => (

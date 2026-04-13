@@ -253,7 +253,7 @@ export function DailyDecisionView({
             {fmtPct(l.roi)} ROI
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-2 gap-1">
           <div>
             <p className="text-[9px] text-muted-foreground uppercase">Subs</p>
             <p className="text-[11px] font-mono font-medium text-foreground">{l.periodSubs.toLocaleString()}</p>
@@ -261,14 +261,6 @@ export function DailyDecisionView({
           <div>
             <p className="text-[9px] text-muted-foreground uppercase">Revenue</p>
             <p className="text-[11px] font-mono font-medium text-foreground">{fmtC(l.periodRev)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] text-muted-foreground uppercase">LTV/New Sub</p>
-            <p className="text-[11px] font-mono font-medium text-foreground">{fmtC2(l.ltvPerSub)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] text-muted-foreground uppercase">All Time LTV</p>
-            <p className="text-[11px] font-mono font-medium text-foreground">{fmtC(l.totalLtv)}</p>
           </div>
         </div>
       </button>

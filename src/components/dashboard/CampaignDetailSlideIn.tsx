@@ -183,7 +183,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
               { icon: Users, label: "Subscribers", value: link.subscribers.toLocaleString() },
               { icon: TrendingUp, label: "CVR", value: `${(cvr * 100).toFixed(1)}%` },
               { icon: DollarSign, label: "Revenue", value: fmtC(revenue) },
-              { icon: DollarSign, label: "LTV", value: ltv > 0 ? fmtC(ltv) : (link.fans_last_synced_at ? "$0.00" : "—"), highlight: ltv > 0 },
+              
               { icon: BarChart3, label: "EPC", value: `$${epc.toFixed(2)}` },
               { icon: UserCheck, label: "LTV/Sub", value: ltvPerSub > 0 ? `$${ltvPerSub.toFixed(2)}` : "—" },
               { icon: UserCheck, label: "Spender %", value: Number(link.spender_rate || 0) > 0 ? `${Number(link.spender_rate).toFixed(1)}%` : "—" },
@@ -193,7 +193,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                   <stat.icon className="h-3 w-3 text-muted-foreground" />
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{stat.label}</span>
                 </div>
-                <p className={`font-mono text-sm font-bold ${stat.highlight ? "text-primary" : "text-foreground"}`}>
+                <p className={`font-mono text-sm font-bold ${(stat as any).highlight ? "text-primary" : "text-foreground"}`}>
                   {stat.value}
                 </p>
               </div>
