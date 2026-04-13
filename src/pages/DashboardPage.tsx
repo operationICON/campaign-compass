@@ -228,7 +228,7 @@ export default function DashboardPage() {
       while (true) {
         let query = supabase
           .from("daily_snapshots")
-          .select("tracking_link_id, clicks, subscribers, revenue, account_id, snapshot_date")
+          .select("tracking_link_id, clicks, subscribers, revenue, cost_total, account_id, snapshot_date")
           .gte("snapshot_date", fromDate)
           .lte("snapshot_date", toDate)
           .range(rangeFrom, rangeFrom + batchSize - 1);
@@ -481,17 +481,22 @@ export default function DashboardPage() {
   }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb, unmatchedSpendTotal]);
   const totalRevenue = overviewPeriodTotals.revenue;
 
-  // Total LTV — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
+  // Total LTV + Spend — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
   const snapshotRevenue = useMemo(() => {
     if (isAllTime) return 0;
-    let sum = 0;
-    const accountIdSet = agencyAccountIds ? new Set(agencyAccountIds) : null;
-    for (const row of overviewSnapshotRows) {
-      // If filtering by account, the query already filters, but double-check
-      sum += Number(row.revenue || 0);
-    }
-    return sum;
-  }, [isAllTime, overviewSnapshotRows, agencyAccountIds]);
+    return overviewSnapshotRows.reduce((s, r) => s + Number(r.revenue || 0), 0);
+  }, [isAllTime, overviewSnapshotRows]);
+
+  const snapshotSpend = useMemo(() => {
+    if (isAllTime) return 0;
+    return overviewSnapshotRows.reduce((s, r) => s + Number((r as any).cost_total || 0), 0);
+  }, [isAllTime, overviewSnapshotRows]);
+
+  const snapshotSubs = useMemo(() => {
+    if (isAllTime) return 0;
+    return overviewSnapshotRows.reduce((s, r) => s + Number(r.subscribers || 0), 0);
+  }, [isAllTime, overviewSnapshotRows]);
+
   const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : snapshotRevenue;
   const totalProfit = totalLtv - totalSpend;
   // hasSnapshotData: true if any snapshot rows were returned for this period
