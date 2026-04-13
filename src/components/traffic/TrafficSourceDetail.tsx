@@ -55,6 +55,8 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const [page, setPage] = useState(0);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
 
   const isUntaggedView = sourceName === "Untagged";
   const isOnlyTraffic = categoryName === "OnlyTraffic";
