@@ -1177,8 +1177,9 @@ function KpiCards({
       case "total_profit": {
         const activeAcctsTP = filtAccounts.filter((a: any) => a.is_active !== false);
         const tpRev = isAllTime ? activeAcctsTP.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
-        const tpVal = tpRev - allTimeSpend;
-        const isPositive = tpVal >= 0;
+        const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
+        const tpVal = tpRev - tpSpend;
+        const showDash = !isAllTime && noDataForPeriod;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
