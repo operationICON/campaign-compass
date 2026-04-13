@@ -112,13 +112,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
   const colorMap = useTagColors();
 
-  // Fetch distinct marketer+source combos from onlytraffic_orders
-  const { data: orderMarketerCombos = [] } = useQuery({
+  // Fetch distinct marketer+source+offer_id combos from onlytraffic_orders
+  const { data: orderMarketerCombos = [], data: rawOrderData } = useQuery({
     queryKey: ["onlytraffic_orders_marketer_combos"],
     queryFn: async () => {
       const { data } = await supabase
         .from("onlytraffic_orders")
-        .select("marketer, source, tracking_link_id")
+        .select("marketer, source, tracking_link_id, offer_id")
         .not("marketer", "is", null);
       if (!data) return [];
       // Build distinct marketer names with their tracking_link_ids
@@ -133,6 +133,35 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         .sort((a, b) => a.label.localeCompare(b.label));
     },
   });
+
+  // FIX 5: Build marketer+offer_id lookup per source name
+  const { data: sourceMarketerData = [] } = useQuery({
+    queryKey: ["onlytraffic_orders_source_marketers"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("onlytraffic_orders")
+        .select("marketer, source, offer_id")
+        .not("marketer", "is", null);
+      return data || [];
+    },
+  });
+
+  // Map: source name → array of { marketer, offer_id }
+  const sourceMarketerMap = useMemo(() => {
+    const map: Record<string, { marketer: string; offer_id: number | null }[]> = {};
+    const seen: Record<string, Set<string>> = {};
+    sourceMarketerData.forEach((o: any) => {
+      const src = o.source;
+      if (!src) return;
+      if (!map[src]) { map[src] = []; seen[src] = new Set(); }
+      const key = `${o.marketer}_${o.offer_id ?? ''}`;
+      if (!seen[src].has(key)) {
+        seen[src].add(key);
+        map[src].push({ marketer: o.marketer, offer_id: o.offer_id });
+      }
+    });
+    return map;
+  }, [sourceMarketerData]);
 
   // Notify parent of level changes
   const setCategoryAndNotify = (cat: Category | null) => {
@@ -528,6 +557,22 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                     <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{src.name}</span>
                   </div>
                   <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{src.campaigns} campaigns</span>
+                  {/* FIX 5: Show marketer+offer_id below source name for OnlyTraffic */}
+                  {isOT && (() => {
+                    const marketers = sourceMarketerMap[src.name] || [];
+                    if (marketers.length === 0) return null;
+                    // Format: "Owen #521 · Matt #766" — max 3 then "+ X more"
+                    const display = marketers.slice(0, 3).map(m => {
+                      if (m.offer_id != null) return `${m.marketer} #${m.offer_id}`;
+                      return m.marketer;
+                    });
+                    const extra = marketers.length > 3 ? ` + ${marketers.length - 3} more` : "";
+                    return (
+                      <p className="text-muted-foreground truncate" style={{ fontSize: "11px", marginTop: "2px" }}>
+                        {display.join(" · ")}{extra}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                   <div>
