@@ -410,8 +410,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       </div>
 
       {/* Search bar + Marketer filter */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
@@ -428,19 +428,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </button>
           )}
         </div>
-        {orderMarketerCombos.length > 0 && (
-          <Select value={selectedMarketer} onValueChange={setSelectedMarketer}>
-            <SelectTrigger className="w-[220px] h-9 text-sm">
-              <SelectValue placeholder="All Marketers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All Marketers</SelectItem>
-              {orderMarketerCombos.map(c => (
-                <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={selectedMarketer} onValueChange={setSelectedMarketer}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All Marketers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Marketers</SelectItem>
+            {orderMarketerCombos.map(c => (
+              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Search results table OR source cards */}
