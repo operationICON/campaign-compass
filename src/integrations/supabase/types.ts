@@ -913,6 +913,68 @@ export type Database = {
         }
         Relationships: []
       }
+      onlytraffic_orders: {
+        Row: {
+          id: string
+          marketer: string | null
+          order_completed_at: string | null
+          order_created_at: string | null
+          order_id: string
+          order_number: number | null
+          order_type: string | null
+          price_per_unit: number | null
+          quantity_delivered: number | null
+          quantity_ordered: number | null
+          source: string | null
+          status: string | null
+          synced_at: string | null
+          total_spent: number | null
+          tracking_link_id: string | null
+        }
+        Insert: {
+          id?: string
+          marketer?: string | null
+          order_completed_at?: string | null
+          order_created_at?: string | null
+          order_id: string
+          order_number?: number | null
+          order_type?: string | null
+          price_per_unit?: number | null
+          quantity_delivered?: number | null
+          quantity_ordered?: number | null
+          source?: string | null
+          status?: string | null
+          synced_at?: string | null
+          total_spent?: number | null
+          tracking_link_id?: string | null
+        }
+        Update: {
+          id?: string
+          marketer?: string | null
+          order_completed_at?: string | null
+          order_created_at?: string | null
+          order_id?: string
+          order_number?: number | null
+          order_type?: string | null
+          price_per_unit?: number | null
+          quantity_delivered?: number | null
+          quantity_ordered?: number | null
+          source?: string | null
+          status?: string | null
+          synced_at?: string | null
+          total_spent?: number | null
+          tracking_link_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onlytraffic_orders_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onlytraffic_unmatched_orders: {
         Row: {
           campaign_url: string | null
