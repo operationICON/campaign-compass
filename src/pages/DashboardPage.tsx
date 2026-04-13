@@ -1106,23 +1106,12 @@ function KpiCards({
         );
       }
 
-      // ═══ TOTAL SUBS ═══
+      // ═══ TOTAL SUBS (always accounts.subscribers_count) ═══
       case "total_subs": {
-        let totalSubsVal: number;
-        let subsSubtitle: string;
-        if (isAllTime) {
-          totalSubsVal = filtAccounts
-            .filter((a: any) => a.is_active !== false)
-            .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-          subsSubtitle = "Active subscribers across all models · All time";
-        } else if (noDataForPeriod) {
-          totalSubsVal = 0;
-          subsSubtitle = "No data for this period";
-        } else {
-          totalSubsVal = snapshotSubs;
-          subsSubtitle = periodLabel;
-        }
-        const showSubsDash = !isAllTime && noDataForPeriod;
+        const totalSubsVal = filtAccounts
+          .filter((a: any) => a.is_active !== false)
+          .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+        const subsSubtitle = "Active subscribers across all models · All time";
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1131,11 +1120,7 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Subs</span>
             </div>
-            {showSubsDash ? (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
-            ) : (
-              <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
-            )}
+            <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
             <p className="text-[11px] text-muted-foreground mt-1">{subsSubtitle}</p>
           </div>
         );
