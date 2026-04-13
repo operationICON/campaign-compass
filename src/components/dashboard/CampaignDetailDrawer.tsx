@@ -438,63 +438,90 @@ function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; 
     return m;
   };
 
+  const copyAllOrders = () => {
+    const header = "Order ID\tDate\tMarketer\tSource\tOrdered\tDelivered\tPrice/Unit\tAmount\tStatus";
+    const rows = sorted.map(o => [
+      o.order_id || "", o.order_created_at ? format(new Date(o.order_created_at), "yyyy-MM-dd") : "",
+      o.marketer || "", o.source || "", o.quantity_ordered ?? "", o.quantity_delivered ?? "",
+      o.price_per_unit != null ? `$${Number(o.price_per_unit).toFixed(2)}` : "",
+      o.total_spent != null ? `$${Number(o.total_spent).toFixed(2)}` : "", o.status || "",
+    ].join("\t")).join("\n");
+    navigator.clipboard.writeText(`${header}\n${rows}`);
+    toast.success("All orders copied");
+  };
+
+  const copyOrderId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast.success("Order ID copied");
+  };
+
   return (
-    <div className="px-6 pb-4">
-      <div className="border-t border-border pt-4">
-        <div className="mb-3">
-          <h4 className="text-sm font-bold text-foreground">Order History</h4>
+    <div className="px-6 pb-3">
+      <div className="border-t border-border pt-2">
+        <div className="flex items-center justify-between mb-1">
+          <h4 className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Order History</h4>
           {!isLoading && orders.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {orders.length} order{orders.length !== 1 ? "s" : ""} · {fmtC2(rawSpend)} total raw spend · {fmtC2(cappedSpend)} capped spend
-            </p>
+            <button onClick={copyAllOrders} className="text-muted-foreground hover:text-foreground p-1 transition-colors" title="Copy all orders">
+              <Copy className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
+        {!isLoading && orders.length > 0 && (
+          <p className="text-[11px] text-muted-foreground mb-1">
+            {orders.length} order{orders.length !== 1 ? "s" : ""} · {fmtC2(rawSpend)} raw · {fmtC2(cappedSpend)} capped
+          </p>
+        )}
 
         {isLoading ? (
-          <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading orders…</div>
+          <div className="flex items-center gap-2 py-3 text-[11px] text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
         ) : orders.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic py-2">No order history available</p>
+          <p className="text-[11px] text-muted-foreground italic py-2">No orders</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-xs">
+            <table className="w-full" style={{ fontSize: "11px" }}>
               <thead>
                 <tr className="border-b border-border" style={{ background: "#0D1117" }}>
-                  {["Order ID", "Date", "Marketer", "Source", "Ordered", "Delivered", "Price/Unit", "Amount", "Status"].map(h => (
-                    <th key={h} className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">{h}</th>
+                  {["Order ID", "Date", "Marketer", "Source", "Ord", "Del", "$/Unit", "Amount", "Status"].map(h => (
+                    <th key={h} className="px-2 py-1.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {sorted.map(o => (
-                  <tr key={o.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-3 py-2 font-mono text-[11px] text-foreground whitespace-nowrap">{o.order_id || "—"}</td>
-                    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
-                      {o.order_created_at ? format(new Date(o.order_created_at), "MMM d, yyyy") : "—"}
+                  <tr key={o.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors" style={{ height: "36px" }}>
+                    <td className="px-2 py-1 font-mono text-foreground whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1">
+                        {o.order_id || "—"}
+                        {o.order_id && (
+                          <button onClick={() => copyOrderId(o.order_id!)} className="text-muted-foreground hover:text-foreground transition-colors">
+                            <Copy className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 text-foreground">{formatMarketer(o)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{o.source || "—"}</td>
-                    <td className="px-3 py-2 text-foreground whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1"><User className="h-3 w-3 text-muted-foreground" />{o.quantity_ordered ?? "—"}</span>
+                    <td className="px-2 py-1 text-muted-foreground whitespace-nowrap">
+                      {o.order_created_at ? format(new Date(o.order_created_at), "MMM d") : "—"}
                     </td>
-                    <td className="px-3 py-2 text-foreground whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1"><CheckCircle className="h-3 w-3 text-muted-foreground" />{o.quantity_delivered ?? "—"}</span>
-                    </td>
-                    <td className="px-3 py-2 font-mono text-foreground whitespace-nowrap">
+                    <td className="px-2 py-1 text-foreground">{formatMarketer(o)}</td>
+                    <td className="px-2 py-1 text-muted-foreground">{o.source || "—"}</td>
+                    <td className="px-2 py-1 text-foreground">{o.quantity_ordered ?? "—"}</td>
+                    <td className="px-2 py-1 text-foreground">{o.quantity_delivered ?? "—"}</td>
+                    <td className="px-2 py-1 font-mono text-foreground whitespace-nowrap">
                       {o.price_per_unit != null
-                        ? `$${Number(o.price_per_unit).toFixed(2)}/${(o.order_type || "").toLowerCase().includes("click") ? "click" : "sub"}`
+                        ? `$${Number(o.price_per_unit).toFixed(2)}`
                         : "—"}
                     </td>
-                    <td className="px-3 py-2 font-mono font-semibold text-foreground whitespace-nowrap">
+                    <td className="px-2 py-1 font-mono font-semibold text-foreground whitespace-nowrap">
                       {o.total_spent != null ? fmtC2(Number(o.total_spent)) : "—"}
                     </td>
-                    <td className="px-3 py-2">{statusPill(o.status)}</td>
+                    <td className="px-2 py-1">{statusPill(o.status)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="border-t border-border" style={{ background: "#0D1117" }}>
-                  <td colSpan={9} className="px-3 py-2 text-[11px] font-semibold text-muted-foreground">
-                    Total: {orders.length} orders · {totalOrdered.toLocaleString()} ordered · {totalDelivered.toLocaleString()} delivered · {fmtC2(rawSpend)} raw spend · {fmtC2(cappedSpend)} capped (cost_total)
+                  <td colSpan={9} className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
+                    {orders.length} orders · {totalOrdered.toLocaleString()} ord · {totalDelivered.toLocaleString()} del · {fmtC2(rawSpend)} raw · {fmtC2(cappedSpend)} capped
                   </td>
                 </tr>
               </tfoot>
