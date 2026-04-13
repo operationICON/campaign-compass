@@ -247,7 +247,6 @@ function DrawerBodyInner({
         <div className="flex gap-1.5">
           {[
             { key: "spend_source", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend & Source" },
-            { key: "status", icon: <Activity className="h-3.5 w-3.5" />, label: "Status" },
             { key: "delete", icon: <Trash2 className="h-3.5 w-3.5" />, label: "Delete" },
             { key: "details", icon: <ArrowUpRight className="h-3.5 w-3.5" />, label: "Details" },
           ].map(btn => (
