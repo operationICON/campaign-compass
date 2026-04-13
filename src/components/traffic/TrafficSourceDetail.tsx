@@ -73,7 +73,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       if (!data) return [];
       const comboMap: Record<string, Set<string>> = {};
       data.forEach((o: any) => {
-        const key = `${o.marketer} - ${o.source || "Unknown"}`;
+        const key = o.marketer;
         if (!comboMap[key]) comboMap[key] = new Set();
         if (o.tracking_link_id) comboMap[key].add(o.tracking_link_id);
       });

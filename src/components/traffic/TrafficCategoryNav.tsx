@@ -121,10 +121,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         .select("marketer, source, tracking_link_id")
         .not("marketer", "is", null);
       if (!data) return [];
-      // Build distinct marketer+source combos with their tracking_link_ids
+      // Build distinct marketer names with their tracking_link_ids
       const comboMap: Record<string, Set<string>> = {};
       data.forEach((o: any) => {
-        const key = `${o.marketer} - ${o.source || "Unknown"}`;
+        const key = o.marketer;
         if (!comboMap[key]) comboMap[key] = new Set();
         if (o.tracking_link_id) comboMap[key].add(o.tracking_link_id);
       });
