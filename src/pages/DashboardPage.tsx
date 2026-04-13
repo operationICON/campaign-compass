@@ -1128,6 +1128,9 @@ function KpiCards({
 
       // ═══ EXPENSES ═══
       case "expenses": {
+        const expVal = isAllTime ? allTimeSpend : snapshotSpend;
+        const expSubtitle = isAllTime ? "All time · total ad spend" : noDataForPeriod ? "No data for this period" : periodLabel;
+        const expShowDash = !isAllTime && noDataForPeriod;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1136,8 +1139,12 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Expenses</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(allTimeSpend)}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">All time · total ad spend</p>
+            {expShowDash ? (
+              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+            ) : (
+              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(expVal)}</p>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">{expSubtitle}</p>
           </div>
         );
       }
