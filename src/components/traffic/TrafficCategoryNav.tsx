@@ -209,7 +209,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         name,
         ...calcSourceMetrics(sLinks),
       }))
-      .sort((a, b) => (b.ltvPerSub ?? -Infinity) - (a.ltvPerSub ?? -Infinity));
+      .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0));
   }, [activeCategory, categoryLinks]);
 
   // Level 3: links for active source
