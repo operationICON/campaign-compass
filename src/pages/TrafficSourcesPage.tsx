@@ -752,23 +752,42 @@ export default function TrafficSourcesPage() {
   }, [totalPages, safePage]);
 
   // ── KPI rendering map ──
-  const kpiRenderMap: Record<KpiId, { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }> = {
+  const kpiRenderMap: Record<KpiId, { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string; children?: React.ReactNode }> = {
     total_sources: { label: "Total Sources", value: fmtN(kpis.totalSources), icon: <Hash className="h-4 w-4" />, color: "#0891b2" },
-    tagged: { label: "Tagged Campaigns", value: fmtN(kpis.tagged), sub: `${links.length > 0 ? ((kpis.tagged / links.length) * 100).toFixed(0) : 0}% of total`, icon: <Tag className="h-4 w-4" />, color: "#16a34a" },
-    untagged: { label: "Untagged", value: fmtN(kpis.untagged), sub: kpis.untagged > 0 ? "Need tagging" : "All tagged", icon: <HelpCircle className="h-4 w-4" />, color: kpis.untagged > 0 ? "#d97706" : "#16a34a" },
+    tagged: { label: "Tagged Campaigns", value: fmtN(kpis.tagged), sub: `${dateAccountFiltered.length > 0 ? ((kpis.tagged / dateAccountFiltered.length) * 100).toFixed(0) : 0}% of total`, icon: <Tag className="h-4 w-4" />, color: "#16a34a" },
+    untagged: {
+      label: "Untagged",
+      value: fmtN(kpis.untagged),
+      sub: kpis.untagged > 0 ? "Need tagging" : "All tagged",
+      icon: <HelpCircle className="h-4 w-4" />,
+      color: kpis.untagged > 0 ? "#d97706" : "#16a34a",
+      children: kpis.untagged > 0 ? (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {kpis.untaggedWithRevenue > 0 && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "hsl(192 91% 36% / 0.15)", color: "hsl(192 91% 36%)" }}>{kpis.untaggedWithRevenue} with revenue</span>
+          )}
+          {kpis.untaggedWithSpend > 0 && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "hsl(45 93% 47% / 0.15)", color: "hsl(45 93% 47%)" }}>{kpis.untaggedWithSpend} with spend</span>
+          )}
+          {kpis.untaggedNoActivity > 0 && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">{kpis.untaggedNoActivity} no activity</span>
+          )}
+        </div>
+      ) : undefined,
+    },
     total_spend: {
       label: "Total Spend",
       value: fmtC(kpis.totalSpend),
-      sub: "tracking_links.cost_total",
+      sub: "All time · tracked spend",
       icon: <DollarSign className="h-4 w-4" />,
       color: "#dc2626",
     },
-    total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
+    total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), sub: "All time · campaign revenue", icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
     blended_roi: { label: "ROI %", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", sub: kpis.totalSpend > 0 ? (kpis.blendedRoi > 0 ? "Profitable" : "Negative") : "No spend data", icon: <Percent className="h-4 w-4" />, color: kpis.blendedRoi > 0 ? "#16a34a" : kpis.totalSpend > 0 ? "#dc2626" : "#94a3b8" },
     total_profit: { label: "Total Profit", value: kpis.totalSpend > 0 ? fmtC(kpis.totalProfit) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.totalProfit > 0 ? "#16a34a" : "#dc2626" },
     avg_cpl: { label: "Avg CPL", value: kpis.avgCpl > 0 ? fmtC(kpis.avgCpl) : "—", icon: <DollarSign className="h-4 w-4" />, color: "#0891b2" },
     total_subscribers: { label: "Total Subscribers", value: fmtN(kpis.totalSubscribers), icon: <Users className="h-4 w-4" />, color: "#7c3aed" },
-    active_sources: { label: "Active Sources", value: fmtN(kpis.activeSources), sub: "Last 30 days", icon: <Activity className="h-4 w-4" />, color: "#0891b2" },
+    active_sources: { label: "Active Sources", value: fmtN(kpis.activeSources), sub: "Distinct OnlyTraffic tags", icon: <Activity className="h-4 w-4" />, color: "#0891b2" },
     total_clicks: { label: "Total Clicks", value: fmtN(kpis.totalClicks), icon: <MousePointerClick className="h-4 w-4" />, color: "#64748b" },
     avg_profit_sub: { label: "Avg Profit/Sub", value: kpis.avgProfitSub !== 0 ? fmtC(kpis.avgProfitSub) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.avgProfitSub > 0 ? "#16a34a" : "#dc2626" },
     top_source: { label: "Top Source", value: kpis.topSource ? kpis.topSource[0] : "—", sub: kpis.topSource ? fmtC(kpis.topSource[1]) : undefined, icon: <Award className="h-4 w-4" />, color: "#d97706" },
