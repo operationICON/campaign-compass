@@ -121,7 +121,7 @@ import { EstBadge } from "@/components/EstBadge";
 function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new Date(createdAt)); }
 
 // ── KPI Card ──
-function KpiCard({ label, value, sub, icon, color }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }) {
+function KpiCard({ label, value, sub, icon, color, children }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string; children?: React.ReactNode }) {
   return (
     <div className="bg-card border border-border px-4 py-3 rounded-xl" style={{ borderLeft: `3px solid ${color}` }}>
       <div className="flex items-center gap-2 mb-1">
@@ -130,6 +130,7 @@ function KpiCard({ label, value, sub, icon, color }: { label: string; value: Rea
       </div>
       <p className="font-mono font-bold text-foreground" style={{ fontSize: "20px", lineHeight: 1.2 }}>{value}</p>
       {sub && <p className="text-muted-foreground" style={{ fontSize: "11px", marginTop: "2px" }}>{sub}</p>}
+      {children}
     </div>
   );
 }
