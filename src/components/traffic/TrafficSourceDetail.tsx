@@ -216,8 +216,8 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       </div>
 
       {/* Search + Marketer filter */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
@@ -231,19 +231,17 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             </button>
           )}
         </div>
-        {orderMarketerCombos.length > 0 && (
-          <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-            <SelectTrigger className="w-[220px] h-9 text-sm">
-              <SelectValue placeholder="All Marketers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All Marketers</SelectItem>
-              {orderMarketerCombos.map(c => (
-                <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All Marketers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Marketers</SelectItem>
+            {orderMarketerCombos.map(c => (
+              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Sub-KPI row */}
