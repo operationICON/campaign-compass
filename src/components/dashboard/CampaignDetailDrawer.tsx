@@ -16,12 +16,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 /* ─── Data Row helper ─── */
-function DataRow({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "positive" | "negative" | "neutral" }) {
+function DataRow({ label, value, tone = "neutral" }: { label: string; value: string | React.ReactNode; tone?: "positive" | "negative" | "neutral" }) {
   const colorClass = tone === "positive" ? "text-primary" : tone === "negative" ? "text-destructive" : "text-foreground";
   return (
-    <div className="flex items-center justify-between h-9 px-3 border-b border-border">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`text-sm font-mono font-bold ${colorClass}`}>{value}</span>
+    <div className="flex items-center justify-between py-[4px] px-3 border-b border-border">
+      <span className="text-[11px] text-muted-foreground leading-tight">{label}</span>
+      <span className={`text-[13px] font-mono font-bold ${colorClass} leading-tight`}>{value}</span>
     </div>
   );
 }
@@ -314,55 +314,55 @@ function DrawerBodyInner({
         )}
       </div>
 
-      {/* TWO COLUMN DATA GRID */}
-      <div className="px-6 py-4 overflow-x-auto">
-        <div className="flex min-w-[520px]" style={{ gap: 0 }}>
-          {/* COLUMN 1 — FINANCIALS */}
-          <div className="flex-1 min-w-[260px] overflow-y-auto" style={{ borderTop: "3px solid hsl(var(--destructive))" }}>
-            <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">🔥 Financials</h4>
-            </div>
-            <div className="p-0">
-              <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
-              <DataRow label="Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "$0.00"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
-              <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
-              <DataRow label="ROI" value={roi != null ? `${roi.toFixed(0)}%` : "—"} tone={roi != null ? profitTone(roi) : "neutral"} />
-              <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
-              <DataRow label="Profit/Sub" value={cost > 0 && profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
-              <DataRow label="Subs/Day" value={subsPerDay} />
-              <DataRow label="CPL" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
-              <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
-              <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
-              <DataRow label="Subscribers" value={tlSubscribers.toLocaleString()} />
-              <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
-              <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
-            </div>
+      {/* FINANCIALS — 2 columns */}
+      <div className="px-6 pt-3 pb-1">
+        <h4 className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground mb-1">🔥 Financials</h4>
+        <div className="grid grid-cols-2 gap-0" style={{ borderTop: "2px solid hsl(var(--destructive))" }}>
+          {/* LEFT */}
+          <div className="border-r border-border">
+            <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
+            <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
+            <DataRow label="Profit/Sub" value={cost > 0 && profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
+            <DataRow label="Subs/Day" value={subsPerDay} />
+            <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
+            <DataRow label="Subscribers" value={tlSubscribers.toLocaleString()} />
           </div>
-
-          <div className="w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
-
-          {/* COLUMN 2 — ALL TIME */}
-          <div className="flex-1 min-w-[260px] overflow-y-auto" style={{ borderTop: "3px solid hsl(45 93% 47%)" }}>
-            <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">⭐ All Time</h4>
-            </div>
-            <div className="p-0">
-              <DataRow label="Campaign Revenue" value={fmtC2(campaignRevenue)} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
-              <DataRow label="Total Subs" value={tlSubscribers.toLocaleString()} />
-              <DataRow label="Total Clicks" value={totalClicks.toLocaleString()} />
-              <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
-              <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
-              <DataRow label="Source" value={d.source_tag || "—"} />
-              <DataRow label="Marketer" value={d.onlytraffic_marketer || "—"} />
-              <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
-              <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
-              <DataRow label="Days Running" value={daysRunning != null ? String(daysRunning) : "—"} />
-            </div>
+          {/* RIGHT */}
+          <div>
+            <DataRow label="Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "$0.00"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
+            <DataRow label="ROI" value={roi != null ? `${roi.toFixed(0)}%` : "—"} tone={roi != null ? profitTone(roi) : "neutral"} />
+            <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+            {paymentType === "CPL" && <DataRow label="CPL" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />}
+            {paymentType === "CPC" && <DataRow label="CPC" value={costPerClick > 0 ? fmtC2(costPerClick) : "—"} />}
+            <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
+            <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
+            <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
           </div>
         </div>
       </div>
 
-      {/* ORDER HISTORY — OnlyTraffic only (FIX 4) */}
+      {/* CAMPAIGN INFO — 2 columns */}
+      <div className="px-6 pt-2 pb-1">
+        <h4 className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground mb-1">📋 Campaign Info</h4>
+        <div className="grid grid-cols-2 gap-0" style={{ borderTop: "2px solid hsl(var(--primary))" }}>
+          <div className="border-r border-border">
+            <DataRow label="Source" value={d.source_tag || "—"} />
+            <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
+            <DataRow label="Days Running" value={daysRunning != null ? String(daysRunning) : "—"} />
+          </div>
+          <div>
+            <DataRow label="Marketer" value={d.onlytraffic_marketer || "—"} />
+            <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
+            <DataRow label="Status" value={
+              d.status
+                ? <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span>
+                : "—"
+            } />
+          </div>
+        </div>
+      </div>
+
+      {/* ORDER HISTORY — OnlyTraffic only */}
       {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={cost} />}
     </div>
   );
