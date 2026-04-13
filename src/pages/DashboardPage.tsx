@@ -1204,8 +1204,9 @@ function KpiCards({
       case "blended_roi": {
         const activeAcctsROI = filtAccounts.filter((a: any) => a.is_active !== false);
         const roiRev = isAllTime ? activeAcctsROI.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
-        const roiProfit = roiRev - allTimeSpend;
-        const roiVal = allTimeSpend > 0 ? (roiProfit / allTimeSpend) * 100 : null;
+        const roiSpend = isAllTime ? allTimeSpend : snapshotSpend;
+        const roiProfit = roiRev - roiSpend;
+        const roiVal = roiSpend > 0 ? (roiProfit / roiSpend) * 100 : null;
         const isPositive = roiVal !== null && roiVal >= 0;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
