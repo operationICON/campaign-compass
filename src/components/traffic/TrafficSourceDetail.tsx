@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
-import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { differenceInDays, format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { supabase } from "@/integrations/supabase/client";
