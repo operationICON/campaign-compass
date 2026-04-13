@@ -989,6 +989,8 @@ export type Database = {
         Row: {
           id: string
           marketer: string | null
+          offer_id: number | null
+          offer_marketer_uuid: string | null
           order_completed_at: string | null
           order_created_at: string | null
           order_id: string
@@ -1006,6 +1008,8 @@ export type Database = {
         Insert: {
           id?: string
           marketer?: string | null
+          offer_id?: number | null
+          offer_marketer_uuid?: string | null
           order_completed_at?: string | null
           order_created_at?: string | null
           order_id: string
@@ -1023,6 +1027,8 @@ export type Database = {
         Update: {
           id?: string
           marketer?: string | null
+          offer_id?: number | null
+          offer_marketer_uuid?: string | null
           order_completed_at?: string | null
           order_created_at?: string | null
           order_id?: string
