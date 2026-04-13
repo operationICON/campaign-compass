@@ -100,7 +100,7 @@ function DrawerBodyInner({
   const subsPerDay = daysRunning && daysRunning > 0 && tlSubscribers > 0
     ? (tlSubscribers / daysRunning).toFixed(1) : "0";
 
-  // ─── FIX 3: ALL TIME — from tracking_links only ───
+  // Spender rate
   const spenderRate = tlSubscribers > 0 ? Math.min(100, (tlSpenders / tlSubscribers) * 100) : null;
 
   const profitTone = (v: number | null): "positive" | "negative" | "neutral" =>
