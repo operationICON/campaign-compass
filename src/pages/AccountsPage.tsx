@@ -873,14 +873,32 @@ export default function AccountsPage() {
 
                 {/* Revenue breakdown expandable */}
                 {Number(acc.ltv_total || 0) > 0 && (() => {
-                  const ltvT = Number(acc.ltv_total || 0);
+                  const ltvT = Number(acc.ltv_total || 0) * revMultiplier;
                   const isExp = expandedBreakdown.has(acc.id);
-                  const rows = [
-                    { label: "Messages / PPV", value: Number(acc.ltv_messages || 0), color: "hsl(var(--primary))" },
-                    { label: "Tips", value: Number(acc.ltv_tips || 0), color: "hsl(38 92% 50%)" },
-                    { label: "Subscriptions", value: Number(acc.ltv_subscriptions || 0), color: "hsl(280 60% 55%)" },
-                    { label: "Posts", value: Number(acc.ltv_posts || 0), color: "hsl(210 80% 55%)" },
-                  ].filter(r => r.value > 0);
+                  // Use accounts ltv_ fields first, fall back to transaction breakdowns
+                  const accMsg = Number(acc.ltv_messages || 0);
+                  const accTips = Number(acc.ltv_tips || 0);
+                  const accSubs = Number(acc.ltv_subscriptions || 0);
+                  const accPosts = Number(acc.ltv_posts || 0);
+                  const hasAccBreakdown = accMsg > 0 || accTips > 0 || accSubs > 0 || accPosts > 0;
+                  const txB = (txBreakdowns as Record<string, any>)[acc.id];
+                  const rows = hasAccBreakdown
+                    ? [
+                        { label: "Messages / PPV", value: accMsg, color: "hsl(var(--primary))" },
+                        { label: "Tips", value: accTips, color: "hsl(38 92% 50%)" },
+                        { label: "Subscriptions", value: accSubs, color: "hsl(280 60% 55%)" },
+                        { label: "Posts", value: accPosts, color: "hsl(210 80% 55%)" },
+                      ].filter(r => r.value > 0)
+                    : txB
+                      ? [
+                          { label: "Messages / PPV", value: txB.messages, color: "hsl(var(--primary))" },
+                          { label: "Tips", value: txB.tips, color: "hsl(38 92% 50%)" },
+                          { label: "Subscriptions", value: txB.subscriptions, color: "hsl(280 60% 55%)" },
+                          { label: "Posts", value: txB.posts, color: "hsl(210 80% 55%)" },
+                        ].filter(r => r.value > 0)
+                      : [];
+                  const rowTotal = rows.reduce((s, r) => s + r.value, 0);
+                  if (rows.length === 0) return null;
                   return (
                     <div className="mt-1" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -905,7 +923,7 @@ export default function AccountsPage() {
                                 <span className="text-muted-foreground">{r.label}</span>
                               </div>
                               <span className="font-mono text-foreground/80">
-                                {fmtCurrency(r.value * revMultiplier)} · {ltvT > 0 ? ((r.value / ltvT) * 100).toFixed(1) : "0"}%
+                                {fmtCurrency(r.value * revMultiplier)} · {rowTotal > 0 ? ((r.value / rowTotal) * 100).toFixed(1) : "0"}%
                               </span>
                             </div>
                           ))}
