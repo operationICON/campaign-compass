@@ -790,8 +790,8 @@ export default function TrafficSourcesPage() {
 
         {/* TOP SECTION — KPIs left + Source Card right */}
         <div className="flex gap-4 items-start mb-4">
-          {/* Left 60% — KPI Cards */}
-          <div style={{ flex: "0 0 60%" }}>
+          {/* Left — KPI Cards */}
+          <div style={{ flex: showSidePanel ? "0 0 60%" : "1 1 100%" }}>
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h1 className="text-xl font-bold text-foreground">Traffic Sources</h1>
