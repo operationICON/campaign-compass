@@ -231,15 +231,15 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             </button>
           )}
         </div>
-        {marketerOptions.length > 0 && (
+        {orderMarketerCombos.length > 0 && (
           <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-            <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectTrigger className="w-[220px] h-9 text-sm">
               <SelectValue placeholder="All Marketers" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All Marketers</SelectItem>
-              {marketerOptions.map(m => (
-                <SelectItem key={m} value={m}>{m}</SelectItem>
+              {orderMarketerCombos.map(c => (
+                <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
