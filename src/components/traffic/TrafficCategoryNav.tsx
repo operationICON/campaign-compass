@@ -127,8 +127,41 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
 
   // Level 2: sources for active category
-  const categoryLinks = activeCategory === "OnlyTraffic" ? otLinks : manualLinks;
-  const categoryMetrics = activeCategory === "OnlyTraffic" ? otMetrics : manualMetrics;
+  // Marketer options for OnlyTraffic
+  const marketerOptions = useMemo(() => {
+    const set = new Set<string>();
+    otLinks.forEach(l => {
+      if (l.onlytraffic_marketer) set.add(l.onlytraffic_marketer);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [otLinks]);
+
+  // Apply marketer filter to category links
+  const categoryLinksRaw = activeCategory === "OnlyTraffic" ? otLinks : manualLinks;
+  const categoryLinks = useMemo(() => {
+    if (activeCategory !== "OnlyTraffic" || selectedMarketer === "__all__") return categoryLinksRaw;
+    return categoryLinksRaw.filter(l => l.onlytraffic_marketer === selectedMarketer);
+  }, [categoryLinksRaw, activeCategory, selectedMarketer]);
+
+  const categoryMetrics = useMemo(() => calcCategoryMetrics(categoryLinks), [categoryLinks]);
+
+  // Search results
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim() || !activeCategory) return [];
+    const q = searchQuery.trim().toLowerCase();
+    return categoryLinks.filter(l => {
+      const name = (l.campaign_name || "").toLowerCase();
+      const url = (l.url || "").toLowerCase();
+      if (name.includes(q) || url.includes(q)) return true;
+      if (activeCategory === "OnlyTraffic") {
+        const orderId = (l.onlytraffic_order_id || "").toLowerCase();
+        if (orderId.includes(q)) return true;
+      }
+      return false;
+    });
+  }, [searchQuery, activeCategory, categoryLinks]);
+
+  const isSearching = searchQuery.trim().length > 0;
 
   const sourceCards = useMemo(() => {
     if (!activeCategory) return [];
