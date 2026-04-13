@@ -347,7 +347,17 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="text-foreground" style={{ fontSize: "12px" }}>{link.onlytraffic_marketer || "—"}</span>
+                    <span className="text-foreground" style={{ fontSize: "12px" }}>
+                      {(() => {
+                        const info = (linkMarketerMap as any)[link.id];
+                        if (info) {
+                          return info.showOfferId
+                            ? <>{info.marketer} <span className="text-muted-foreground text-[10px]">#{info.offer_id}</span></>
+                            : info.marketer;
+                        }
+                        return link.onlytraffic_marketer || "—";
+                      })()}
+                    </span>
                   </TableCell>
                   {isOnlyTraffic && (
                     <TableCell>
