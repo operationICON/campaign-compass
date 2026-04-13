@@ -103,24 +103,6 @@ function DrawerBodyInner({
   // ─── FIX 3: ALL TIME — from tracking_links only ───
   const spenderRate = tlSubscribers > 0 ? Math.min(100, (tlSpenders / tlSubscribers) * 100) : null;
 
-  // From tracking_link_ltv table (for breakdown section only)
-  const rawLtv = d.totalLtv ?? d.ltvFromTable;
-  const rawCrossPoll = d.crossPoll ?? d.crossPollRevenue;
-  const rawNewSubs = d.newSubs ?? d.newSubsTotal;
-  const hasLtvData = rawLtv != null && rawLtv !== 0 || rawCrossPoll != null && rawCrossPoll !== 0 || rawNewSubs != null && rawNewSubs !== 0;
-  const totalLtv = Number(rawLtv ?? 0);
-  const crossPoll = Number(rawCrossPoll ?? 0);
-  const newSubs = Number(rawNewSubs ?? 0);
-
-  // ─── FIX 2: PERFORMANCE — from daily_snapshots via passed props ───
-  const periodSubs = Number(d.periodSubs ?? 0);
-  const periodRev = Number(d.periodRev ?? 0);
-  const periodClicks = Number(d.periodClicks ?? 0);
-  const snapshotDays = Number(d.snapshotDays ?? 0);
-  // hasSnapshots: true if the campaign has any snapshot data at all
-  const hasSnapshots = snapshotDays > 0 || periodSubs > 0 || periodRev > 0 || periodClicks > 0;
-  const avgSubsDay = hasSnapshots && snapshotDays > 0 ? (periodSubs / snapshotDays).toFixed(1) : null;
-
   const profitTone = (v: number | null): "positive" | "negative" | "neutral" =>
     v == null ? "neutral" : v >= 0 ? "positive" : "negative";
 
