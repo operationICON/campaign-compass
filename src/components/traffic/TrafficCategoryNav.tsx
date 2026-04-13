@@ -342,11 +342,16 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const catBadgeLabel = activeCategory === "OnlyTraffic" ? "API" : "Direct";
   const CatIcon = activeCategory === "OnlyTraffic" ? Zap : Globe;
 
+  const isOT = activeCategory === "OnlyTraffic";
+  const searchPlaceholder = isOT
+    ? "Search by campaign name, URL or Order ID..."
+    : "Search by campaign name or URL...";
+
   return (
     <div className="space-y-4">
       {/* Back button */}
       <button
-        onClick={() => setActiveCategory(null)}
+        onClick={() => { setActiveCategory(null); setSearchQuery(""); setSelectedMarketer("__all__"); }}
         className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         style={{ fontSize: "13px", fontWeight: 500 }}
       >
@@ -361,108 +366,204 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       </div>
 
       {/* Sub-KPI row */}
-      {(() => {
-        return (
-          <div className="grid grid-cols-8 gap-2">
-            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(categoryMetrics.spend)} color="#dc2626" />
-            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
-            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(categoryMetrics.profit)} color={categoryMetrics.profit >= 0 ? "#16a34a" : "#dc2626"} />
-            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={categoryMetrics.avgCpl !== null ? fmtC(categoryMetrics.avgCpl) : "—"} color="#0891b2" />
-            <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={categoryMetrics.profitPerSub !== null ? fmtC(categoryMetrics.profitPerSub) : "—"} color={categoryMetrics.profitPerSub !== null ? (categoryMetrics.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-            <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
-            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
-            <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={categoryMetrics.roi !== null ? fmtPct(categoryMetrics.roi) : "—"} color={categoryMetrics.roi !== null ? (categoryMetrics.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-          </div>
-        );
-      })()}
+      <div className="grid grid-cols-8 gap-2">
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(categoryMetrics.spend)} color="#dc2626" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(categoryMetrics.profit)} color={categoryMetrics.profit >= 0 ? "#16a34a" : "#dc2626"} />
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={categoryMetrics.avgCpl !== null ? fmtC(categoryMetrics.avgCpl) : "—"} color="#0891b2" />
+        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={categoryMetrics.profitPerSub !== null ? fmtC(categoryMetrics.profitPerSub) : "—"} color={categoryMetrics.profitPerSub !== null ? (categoryMetrics.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
+        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={categoryMetrics.roi !== null ? fmtPct(categoryMetrics.roi) : "—"} color={categoryMetrics.roi !== null ? (categoryMetrics.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+      </div>
 
-      {/* Source cards grid */}
-      <div className="grid grid-cols-3 gap-3">
-        {sourceCards.map(src => {
-          const badge = getRoiBadge(src.roi);
-          const dotColor = colorMap[src.name] || "#94a3b8";
-          return (
-            <button key={src.name} onClick={() => setActiveSource(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
-              {/* Header */}
+      {/* Search bar + Marketer filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="pl-9 pr-8 h-9 text-sm"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {isOT && marketerOptions.length > 0 && (
+          <Select value={selectedMarketer} onValueChange={setSelectedMarketer}>
+            <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectValue placeholder="All Marketers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Marketers</SelectItem>
+              {marketerOptions.map(m => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+
+      {/* Search results table OR source cards */}
+      {isSearching ? (
+        <div className="space-y-2">
+          <p className="text-muted-foreground" style={{ fontSize: "12px", fontWeight: 600 }}>
+            {searchResults.length} campaign{searchResults.length !== 1 ? "s" : ""} found
+          </p>
+          {searchResults.length > 0 ? (
+            <div className="border border-border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead style={{ fontSize: "11px" }}>Campaign</TableHead>
+                    <TableHead style={{ fontSize: "11px" }}>Model</TableHead>
+                    <TableHead style={{ fontSize: "11px" }}>Source</TableHead>
+                    <TableHead style={{ fontSize: "11px" }}>Marketer</TableHead>
+                    {isOT && <TableHead style={{ fontSize: "11px" }}>Order ID</TableHead>}
+                    <TableHead className="text-right" style={{ fontSize: "11px" }}>Spend</TableHead>
+                    <TableHead className="text-right" style={{ fontSize: "11px" }}>Revenue</TableHead>
+                    <TableHead className="text-right" style={{ fontSize: "11px" }}>Profit</TableHead>
+                    <TableHead className="text-right" style={{ fontSize: "11px" }}>ROI</TableHead>
+                    <TableHead style={{ fontSize: "11px" }}>Status</TableHead>
+                    <TableHead style={{ fontSize: "11px" }}>Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {searchResults.map(link => {
+                    const cost = Number(link.cost_total || 0);
+                    const rev = Number(link.revenue || 0);
+                    const profit = rev - cost;
+                    const roi = cost > 0 ? (profit / cost) * 100 : null;
+                    const status = calcStatus(link);
+                    const sStyle = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
+                    const sLabel = STATUS_LABELS[status] || status;
+                    const source = getEffectiveSource(link) || "Untagged";
+                    return (
+                      <TableRow key={link.id}>
+                        <TableCell className="max-w-[200px] truncate" style={{ fontSize: "12px" }}>
+                          {link.campaign_name || link.url}
+                        </TableCell>
+                        <TableCell style={{ fontSize: "12px" }}>{link.account_id?.slice(0, 8) || "—"}</TableCell>
+                        <TableCell style={{ fontSize: "12px" }}>{source}</TableCell>
+                        <TableCell style={{ fontSize: "12px" }}>{link.onlytraffic_marketer || "—"}</TableCell>
+                        {isOT && <TableCell style={{ fontSize: "12px" }}>{link.onlytraffic_order_id || "—"}</TableCell>}
+                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{cost > 0 ? fmtC(cost) : "—"}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(rev)}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: cost > 0 ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>
+                          {cost > 0 ? fmtC(profit) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>
+                          {roi !== null ? fmtPct(roi) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: sStyle.bg, color: sStyle.text }}>
+                            {sLabel}
+                          </span>
+                        </TableCell>
+                        <TableCell style={{ fontSize: "12px" }}>
+                          <div className="flex items-center gap-1.5">
+                            {format(new Date(link.created_at), "MMM d, yyyy")}
+                            <CampaignAgePill createdAt={link.created_at} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
+              No campaigns match your search
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          {sourceCards.map(src => {
+            const badge = getRoiBadge(src.roi);
+            const dotColor = colorMap[src.name] || "#94a3b8";
+            return (
+              <button key={src.name} onClick={() => setActiveSource(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
+                <div className="mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                    <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{src.name}</span>
+                  </div>
+                  <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{src.campaigns} campaigns</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                  <div>
+                    <MetricRow label="Spend" value={fmtC(src.spend)} />
+                    {isOT && (src.cplSpend > 0 || src.cpcSpend > 0) && (
+                      <div className="flex gap-1 mt-0.5 justify-end">
+                        {src.cplSpend > 0 && (
+                          <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(174 60% 51% / 0.2)", color: "hsl(174 60% 41%)" }}>
+                            CPL: {fmtC(src.cplSpend)}
+                          </span>
+                        )}
+                        {src.cpcSpend > 0 && (
+                          <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(38 92% 50% / 0.2)", color: "hsl(38 92% 40%)" }}>
+                            CPC: {fmtC(src.cpcSpend)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <MetricRow label="Revenue" value={fmtC(src.revenue)} />
+                  <MetricRow label="Profit" value={fmtC(src.profit)} color={src.spend > 0 ? (src.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                  <MetricRow label="Avg CPL" value={src.avgCpl !== null ? fmtC(src.avgCpl) : "—"} />
+                  <MetricRow label="Profit/Sub" value={src.profitPerSub !== null ? fmtC(src.profitPerSub) : "—"} color={src.profitPerSub !== null ? (src.profitPerSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                  <MetricRow label="Subs/Day" value={src.subsDay > 0 ? src.subsDay.toFixed(1) : "0"} />
+                  <MetricRow label="LTV/Sub" value={src.ltvPerSub !== null ? fmtC(src.ltvPerSub) : "—"} color="#0891b2" />
+                  <MetricRow label="ROI" value={src.roi !== null ? fmtPct(src.roi) : "—"} color={src.roi !== null ? (src.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                </div>
+                <div className="flex items-center justify-end pt-2 border-t border-border">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
+                    {badge.label}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+          {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
+            <button
+              onClick={() => setActiveSource("__unmatched__")}
+              className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors"
+              style={{ borderColor: "hsl(38 92% 50% / 0.3)" }}
+            >
               <div className="mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                  <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{src.name}</span>
+                  <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
+                  <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched</span>
                 </div>
-                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{src.campaigns} campaigns</span>
+                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{fmtN(unmatchedOrders.count)} orders</span>
               </div>
-
-              {/* Metrics grid — 8 KPIs in order */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                <div>
-                  <MetricRow label="Spend" value={fmtC(src.spend)} />
-                  {activeCategory === "OnlyTraffic" && (src.cplSpend > 0 || src.cpcSpend > 0) && (
-                    <div className="flex gap-1 mt-0.5 justify-end">
-                      {src.cplSpend > 0 && (
-                        <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(174 60% 51% / 0.2)", color: "hsl(174 60% 41%)" }}>
-                          CPL: {fmtC(src.cplSpend)}
-                        </span>
-                      )}
-                      {src.cpcSpend > 0 && (
-                        <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(38 92% 50% / 0.2)", color: "hsl(38 92% 40%)" }}>
-                          CPC: {fmtC(src.cpcSpend)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <MetricRow label="Revenue" value={fmtC(src.revenue)} />
-                <MetricRow label="Profit" value={fmtC(src.profit)} color={src.spend > 0 ? (src.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
-                <MetricRow label="Avg CPL" value={src.avgCpl !== null ? fmtC(src.avgCpl) : "—"} />
-                <MetricRow label="Profit/Sub" value={src.profitPerSub !== null ? fmtC(src.profitPerSub) : "—"} color={src.profitPerSub !== null ? (src.profitPerSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
-                <MetricRow label="Subs/Day" value={src.subsDay > 0 ? src.subsDay.toFixed(1) : "0"} />
-                <MetricRow label="LTV/Sub" value={src.ltvPerSub !== null ? fmtC(src.ltvPerSub) : "—"} color="#0891b2" />
-                <MetricRow label="ROI" value={src.roi !== null ? fmtPct(src.roi) : "—"} color={src.roi !== null ? (src.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                <MetricRow label="Total Spend" value={fmtC(unmatchedOrders.spend)} />
+                <MetricRow label="Orders" value={fmtN(unmatchedOrders.count)} />
               </div>
-
-              {/* Badge */}
               <div className="flex items-center justify-end pt-2 border-t border-border">
-                <span
-                  className="px-2 py-0.5 rounded-full text-[10px] font-bold"
-                  style={{ backgroundColor: badge.bg, color: badge.text }}
-                >
-                  {badge.label}
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: "hsl(38 92% 50% / 0.15)", color: "#d97706" }}>
+                  UNMATCHED
                 </span>
               </div>
             </button>
-          );
-        })}
-        {/* Unmatched Orders source card — OnlyTraffic only */}
-        {activeCategory === "OnlyTraffic" && unmatchedOrders && unmatchedOrders.count > 0 && (
-          <button
-            onClick={() => setActiveSource("__unmatched__")}
-            className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors"
-            style={{ borderColor: "hsl(38 92% 50% / 0.3)" }}
-          >
-            <div className="mb-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
-                <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched</span>
-              </div>
-              <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{fmtN(unmatchedOrders.count)} orders</span>
+          )}
+          {sourceCards.length === 0 && (!unmatchedOrders || unmatchedOrders.count === 0) && (
+            <div className="col-span-3 text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
+              No sources found in this category
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-              <MetricRow label="Total Spend" value={fmtC(unmatchedOrders.spend)} />
-              <MetricRow label="Orders" value={fmtN(unmatchedOrders.count)} />
-            </div>
-            <div className="flex items-center justify-end pt-2 border-t border-border">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: "hsl(38 92% 50% / 0.15)", color: "#d97706" }}>
-                UNMATCHED
-              </span>
-            </div>
-          </button>
-        )}
-        {sourceCards.length === 0 && (!unmatchedOrders || unmatchedOrders.count === 0) && (
-          <div className="col-span-3 text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
-            No sources found in this category
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
