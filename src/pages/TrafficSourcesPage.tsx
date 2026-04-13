@@ -204,10 +204,8 @@ export default function TrafficSourcesPage() {
   const [sourceSearchQuery, setSourceSearchQuery] = useState("");
   const sourceSearchRef = useRef<HTMLDivElement>(null);
 
-  // Track category nav level for side panel visibility
-  const [navLevel, setNavLevel] = useState<1 | 2 | 3>(1);
-  const [sidePanelForced, setSidePanelForced] = useState(false);
-  const showSidePanel = navLevel === 1 || sidePanelForced;
+  // Side panel always visible
+  const showSidePanel = true;
 
   // Data
   const { data: sources = [] } = useQuery({
@@ -964,16 +962,6 @@ export default function TrafficSourcesPage() {
             </div>
           </div>
           )}
-          {/* Toggle side panel button when hidden */}
-          {!showSidePanel && (
-            <button
-              onClick={() => setSidePanelForced(true)}
-              className="self-start px-3 py-2 text-xs font-semibold border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors whitespace-nowrap"
-            >
-              <Settings2 className="h-3.5 w-3.5 inline mr-1.5" />
-              Manage Sources
-            </button>
-          )}
         </div>
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
@@ -982,7 +970,7 @@ export default function TrafficSourcesPage() {
           allLinks={dateAccountFiltered}
           onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })}
           unmatchedOrders={unmatchedOrdersData}
-          onLevelChange={(level) => { setNavLevel(level); if (level === 1) setSidePanelForced(false); }}
+          onLevelChange={() => {}}
         />
       </div>
     </DashboardLayout>
