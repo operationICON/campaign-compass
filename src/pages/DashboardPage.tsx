@@ -773,6 +773,7 @@ function KpiCards({
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
   trackingLinkLtv, revMultiplier, revenueMode,
+  snapshotSpend, snapshotSubs,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
@@ -802,6 +803,8 @@ function KpiCards({
   trackingLinkLtv: any[];
   revMultiplier: number;
   revenueMode: "gross" | "net";
+  snapshotSpend: number;
+  snapshotSubs: number;
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
