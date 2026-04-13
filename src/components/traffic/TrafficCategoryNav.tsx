@@ -21,6 +21,7 @@ interface Props {
   allLinks: any[];
   onTagLink?: (linkId: string, sourceTag: string) => void;
   unmatchedOrders?: { count: number; spend: number };
+  onLevelChange?: (level: 1 | 2 | 3) => void;
 }
 
 type Category = "OnlyTraffic" | "Manual";
@@ -102,12 +103,25 @@ function getRoiBadge(roi: number | null): { label: string; bg: string; text: str
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
-export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders }: Props) {
+export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders, onLevelChange }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
   const colorMap = useTagColors();
+
+  // Notify parent of level changes
+  const setCategoryAndNotify = (cat: Category | null) => {
+    setActiveCategory(cat);
+    if (!cat) onLevelChange?.(1);
+    else onLevelChange?.(2);
+  };
+  const setSourceAndNotify = (src: string | null) => {
+    setActiveSource(src);
+    if (src) onLevelChange?.(3);
+    else if (activeCategory) onLevelChange?.(2);
+    else onLevelChange?.(1);
+  };
 
   const otLinks = useMemo(() => allLinks.filter(l => isOnlyTraffic(l) && l.deleted_at == null), [allLinks]);
   const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
@@ -205,7 +219,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       return (
         <div className="space-y-4">
           <button
-            onClick={() => setActiveSource(null)}
+            onClick={() => setSourceAndNotify(null)}
             className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
             style={{ fontSize: "13px", fontWeight: 500 }}
           >
@@ -232,7 +246,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         sourceColor={dotColor}
         categoryName={activeCategory}
         links={sourceLinks}
-        onBack={() => setActiveSource(null)}
+        onBack={() => setSourceAndNotify(null)}
         sourceTagOptions={sourceTagOptions}
         onTagLink={onTagLink || (() => {})}
       />
@@ -249,7 +263,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <div className="grid grid-cols-2 gap-4">
           {/* OnlyTraffic Card */}
           <button
-            onClick={() => setActiveCategory("OnlyTraffic")}
+            onClick={() => setCategoryAndNotify("OnlyTraffic")}
             className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
           >
             <div className="flex items-center gap-2 mb-4">
@@ -298,7 +312,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
           {/* Manual Card */}
           <button
-            onClick={() => setActiveCategory("Manual")}
+            onClick={() => setCategoryAndNotify("Manual")}
             className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
           >
             <div className="flex items-center gap-2 mb-4">
@@ -351,7 +365,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     <div className="space-y-4">
       {/* Back button */}
       <button
-        onClick={() => { setActiveCategory(null); setSearchQuery(""); setSelectedMarketer("__all__"); }}
+        onClick={() => { setCategoryAndNotify(null); setSearchQuery(""); setSelectedMarketer("__all__"); }}
         className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         style={{ fontSize: "13px", fontWeight: 500 }}
       >
@@ -491,7 +505,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             const badge = getRoiBadge(src.roi);
             const dotColor = colorMap[src.name] || "#94a3b8";
             return (
-              <button key={src.name} onClick={() => setActiveSource(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
+              <button key={src.name} onClick={() => setSourceAndNotify(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
                 <div className="mb-2">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
@@ -535,7 +549,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           })}
           {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
             <button
-              onClick={() => setActiveSource("__unmatched__")}
+              onClick={() => setSourceAndNotify("__unmatched__")}
               className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors"
               style={{ borderColor: "hsl(38 92% 50% / 0.3)" }}
             >

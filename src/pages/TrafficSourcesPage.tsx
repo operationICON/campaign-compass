@@ -204,6 +204,11 @@ export default function TrafficSourcesPage() {
   const [sourceSearchQuery, setSourceSearchQuery] = useState("");
   const sourceSearchRef = useRef<HTMLDivElement>(null);
 
+  // Track category nav level for side panel visibility
+  const [navLevel, setNavLevel] = useState<1 | 2 | 3>(1);
+  const [sidePanelForced, setSidePanelForced] = useState(false);
+  const showSidePanel = navLevel === 1 || sidePanelForced;
+
   // Data
   const { data: sources = [] } = useQuery({
     queryKey: ["traffic_sources"],
@@ -785,8 +790,8 @@ export default function TrafficSourcesPage() {
 
         {/* TOP SECTION — KPIs left + Source Card right */}
         <div className="flex gap-4 items-start mb-4">
-          {/* Left 60% — KPI Cards */}
-          <div style={{ flex: "0 0 60%" }}>
+          {/* Left — KPI Cards */}
+          <div style={{ flex: showSidePanel ? "0 0 60%" : "1 1 100%" }}>
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h1 className="text-xl font-bold text-foreground">Traffic Sources</h1>
@@ -837,7 +842,8 @@ export default function TrafficSourcesPage() {
             </div>
           </div>
 
-          {/* Right 40% — Source Card */}
+          {/* Right — Source Card */}
+          {showSidePanel && (
           <div style={{ flex: "0 0 38%" }}>
             <div className="bg-card border border-border px-5 py-4 space-y-4" style={{ borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
               <p style={{ fontSize: "13px", fontWeight: 700 }}>Traffic Source</p>
@@ -957,10 +963,27 @@ export default function TrafficSourcesPage() {
               </div>
             </div>
           </div>
+          )}
+          {/* Toggle side panel button when hidden */}
+          {!showSidePanel && (
+            <button
+              onClick={() => setSidePanelForced(true)}
+              className="self-start px-3 py-2 text-xs font-semibold border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors whitespace-nowrap"
+            >
+              <Settings2 className="h-3.5 w-3.5 inline mr-1.5" />
+              Manage Sources
+            </button>
+          )}
         </div>
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
-        <TrafficCategoryNav links={dateAccountFiltered} allLinks={dateAccountFiltered} onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })} unmatchedOrders={unmatchedOrdersData} />
+        <TrafficCategoryNav
+          links={dateAccountFiltered}
+          allLinks={dateAccountFiltered}
+          onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })}
+          unmatchedOrders={unmatchedOrdersData}
+          onLevelChange={(level) => { setNavLevel(level); if (level === 1) setSidePanelForced(false); }}
+        />
       </div>
     </DashboardLayout>
   );

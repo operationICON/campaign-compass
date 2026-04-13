@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
-import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { differenceInDays, format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,28 +55,55 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const [page, setPage] = useState(0);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
 
   const isUntaggedView = sourceName === "Untagged";
   const isOnlyTraffic = categoryName === "OnlyTraffic";
 
+  // Marketer options from links in this source
+  const marketerOptions = useMemo(() => {
+    const set = new Set<string>();
+    links.forEach(l => { if (l.onlytraffic_marketer) set.add(l.onlytraffic_marketer); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [links]);
+
+  // Filtered links by search + marketer
+  const filteredLinks = useMemo(() => {
+    let result = links;
+    if (selectedMarketer !== "__all__") {
+      result = result.filter(l => l.onlytraffic_marketer === selectedMarketer);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(l => {
+        const name = (l.campaign_name || "").toLowerCase();
+        const url = (l.url || "").toLowerCase();
+        const orderId = (l.onlytraffic_order_id || "").toLowerCase();
+        return name.includes(q) || url.includes(q) || orderId.includes(q);
+      });
+    }
+    return result;
+  }, [links, selectedMarketer, searchQuery]);
+
   // KPIs
   const kpis = useMemo(() => {
-    const spend = links.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
-    const revenue = links.reduce((s, l) => s + Number(l.revenue || 0), 0);
+    const spend = filteredLinks.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+    const revenue = filteredLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
     const profit = revenue - spend;
-    const subs = links.reduce((s, l) => s + (l.subscribers || 0), 0);
+    const subs = filteredLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
     const roi = spend > 0 ? (profit / spend) * 100 : null;
-    const cplLinks = links.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
+    const cplLinks = filteredLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
     const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
     const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
     const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
     const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
     const ltvPerSub = subs > 0 ? revenue / subs : null;
-    const ages = links.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
+    const ages = filteredLinks.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
     const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
     const subsDay = avgAge > 0 ? subs / avgAge : 0;
     return { spend, revenue, profit, avgCpl, profitPerSub, ltvPerSub, subsDay, roi };
-  }, [links]);
+  }, [filteredLinks]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -106,13 +134,13 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         default: return 0;
       }
     };
-    return [...links].sort((a, b) => {
+    return [...filteredLinks].sort((a, b) => {
       const va = getValue(a);
       const vb = getValue(b);
       if (typeof va === "string" && typeof vb === "string") return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
       return sortAsc ? (va as number) - (vb as number) : (vb as number) - (va as number);
     });
-  }, [links, sortKey, sortAsc]);
+  }, [filteredLinks, sortKey, sortAsc]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const pageRows = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -165,7 +193,38 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
           <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: sourceColor }} />
           <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{sourceName}</span>
         </div>
-        <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{links.length} campaigns</span>
+        <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{filteredLinks.length} campaigns{filteredLinks.length !== links.length ? ` (of ${links.length})` : ""}</span>
+      </div>
+
+      {/* Search + Marketer filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
+            placeholder={isOnlyTraffic ? "Search campaign name, URL, or Order ID..." : "Search campaign name or URL..."}
+            className="pl-9 pr-8 h-9 text-sm"
+          />
+          {searchQuery && (
+            <button onClick={() => { setSearchQuery(""); setPage(0); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {marketerOptions.length > 0 && (
+          <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
+            <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectValue placeholder="All Marketers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Marketers</SelectItem>
+              {marketerOptions.map(m => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Sub-KPI row */}
