@@ -219,7 +219,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       return (
         <div className="space-y-4">
           <button
-            onClick={() => setActiveSource(null)}
+            onClick={() => setSourceAndNotify(null)}
             className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
             style={{ fontSize: "13px", fontWeight: 500 }}
           >
@@ -246,7 +246,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         sourceColor={dotColor}
         categoryName={activeCategory}
         links={sourceLinks}
-        onBack={() => setActiveSource(null)}
+        onBack={() => setSourceAndNotify(null)}
         sourceTagOptions={sourceTagOptions}
         onTagLink={onTagLink || (() => {})}
       />
@@ -263,7 +263,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <div className="grid grid-cols-2 gap-4">
           {/* OnlyTraffic Card */}
           <button
-            onClick={() => setActiveCategory("OnlyTraffic")}
+            onClick={() => setCategoryAndNotify("OnlyTraffic")}
             className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
           >
             <div className="flex items-center gap-2 mb-4">
@@ -312,7 +312,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
           {/* Manual Card */}
           <button
-            onClick={() => setActiveCategory("Manual")}
+            onClick={() => setCategoryAndNotify("Manual")}
             className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
           >
             <div className="flex items-center gap-2 mb-4">
@@ -365,7 +365,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     <div className="space-y-4">
       {/* Back button */}
       <button
-        onClick={() => { setActiveCategory(null); setSearchQuery(""); setSelectedMarketer("__all__"); }}
+        onClick={() => { setCategoryAndNotify(null); setSearchQuery(""); setSelectedMarketer("__all__"); }}
         className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         style={{ fontSize: "13px", fontWeight: 500 }}
       >
@@ -505,7 +505,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             const badge = getRoiBadge(src.roi);
             const dotColor = colorMap[src.name] || "#94a3b8";
             return (
-              <button key={src.name} onClick={() => setActiveSource(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
+              <button key={src.name} onClick={() => setSourceAndNotify(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
                 <div className="mb-2">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
@@ -549,7 +549,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           })}
           {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
             <button
-              onClick={() => setActiveSource("__unmatched__")}
+              onClick={() => setSourceAndNotify("__unmatched__")}
               className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors"
               style={{ borderColor: "hsl(38 92% 50% / 0.3)" }}
             >
