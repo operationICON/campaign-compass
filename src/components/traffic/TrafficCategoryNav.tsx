@@ -557,6 +557,22 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                     <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{src.name}</span>
                   </div>
                   <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{src.campaigns} campaigns</span>
+                  {/* FIX 5: Show marketer+offer_id below source name for OnlyTraffic */}
+                  {isOT && (() => {
+                    const marketers = sourceMarketerMap[src.name] || [];
+                    if (marketers.length === 0) return null;
+                    // Format: "Owen #521 · Matt #766" — max 3 then "+ X more"
+                    const display = marketers.slice(0, 3).map(m => {
+                      if (m.offer_id != null) return `${m.marketer} #${m.offer_id}`;
+                      return m.marketer;
+                    });
+                    const extra = marketers.length > 3 ? ` + ${marketers.length - 3} more` : "";
+                    return (
+                      <p className="text-muted-foreground truncate" style={{ fontSize: "11px", marginTop: "2px" }}>
+                        {display.join(" · ")}{extra}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                   <div>
