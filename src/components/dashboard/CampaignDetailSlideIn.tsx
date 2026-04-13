@@ -193,7 +193,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                   <stat.icon className="h-3 w-3 text-muted-foreground" />
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{stat.label}</span>
                 </div>
-                <p className={`font-mono text-sm font-bold ${stat.highlight ? "text-primary" : "text-foreground"}`}>
+                <p className={`font-mono text-sm font-bold ${(stat as any).highlight ? "text-primary" : "text-foreground"}`}>
                   {stat.value}
                 </p>
               </div>
