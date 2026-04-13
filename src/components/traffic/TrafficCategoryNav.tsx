@@ -105,6 +105,8 @@ function getRoiBadge(roi: number | null): { label: string; bg: string; text: str
 export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeSource, setActiveSource] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
   const colorMap = useTagColors();
 
   const otLinks = useMemo(() => allLinks.filter(l => isOnlyTraffic(l) && l.deleted_at == null), [allLinks]);
