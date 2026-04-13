@@ -1,8 +1,9 @@
 import { useState } from "react";
 import {
   Copy, ExternalLink, XCircle, Coins, Activity, Trash2,
-  ArrowUpRight, Loader2, DollarSign, Calculator,
+  ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
 } from "lucide-react";
+import { format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
@@ -568,6 +569,120 @@ function DrawerBodyInner({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ORDER HISTORY — OnlyTraffic only */}
+      {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={cost} />}
+    </div>
+  );
+}
+
+/* ─── Order History Section ─── */
+function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; cappedSpend: number }) {
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["onlytraffic_orders", campaignId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("onlytraffic_orders")
+        .select("*")
+        .eq("tracking_link_id", campaignId)
+        .order("order_created_at", { ascending: false });
+      return data || [];
+    },
+  });
+
+  // Sort: active/waiting first, then by date desc
+  const sorted = [...orders].sort((a, b) => {
+    const activeStatuses = ["accepted", "waiting"];
+    const aActive = activeStatuses.includes((a.status || "").toLowerCase()) ? 0 : 1;
+    const bActive = activeStatuses.includes((b.status || "").toLowerCase()) ? 0 : 1;
+    if (aActive !== bActive) return aActive - bActive;
+    return new Date(b.order_created_at || 0).getTime() - new Date(a.order_created_at || 0).getTime();
+  });
+
+  const rawSpend = orders.reduce((s, o) => s + Number(o.total_spent || 0), 0);
+  const totalOrdered = orders.reduce((s, o) => s + Number(o.quantity_ordered || 0), 0);
+  const totalDelivered = orders.reduce((s, o) => s + Number(o.quantity_delivered || 0), 0);
+
+  const statusPill = (status: string | null) => {
+    const s = (status || "").toLowerCase();
+    const map: Record<string, { label: string; cls: string }> = {
+      accepted: { label: "Active", cls: "bg-green-500/15 text-green-400 border-green-500/30" },
+      waiting: { label: "Waiting", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+      completed: { label: "Completed", cls: "bg-muted text-muted-foreground border-border" },
+      cancelled: { label: "Cancelled", cls: "bg-destructive/15 text-destructive border-destructive/30" },
+    };
+    const found = map[s];
+    return (
+      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${found ? found.cls : "bg-muted text-muted-foreground border-border"}`}>
+        {found ? found.label : status || "—"}
+      </span>
+    );
+  };
+
+  return (
+    <div className="px-6 pb-4">
+      <div className="border-t border-border pt-4">
+        <div className="mb-3">
+          <h4 className="text-sm font-bold text-foreground">Order History</h4>
+          {!isLoading && orders.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {orders.length} order{orders.length !== 1 ? "s" : ""} · {fmtC2(rawSpend)} total raw spend · {fmtC2(cappedSpend)} capped spend
+            </p>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading orders…</div>
+        ) : orders.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic py-2">No order history available</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border" style={{ background: "#0D1117" }}>
+                  {["Order ID", "Date", "Marketer", "Source", "Ordered", "Delivered", "Price/Unit", "Amount", "Status"].map(h => (
+                    <th key={h} className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map(o => (
+                  <tr key={o.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-3 py-2 font-mono text-[11px] text-foreground whitespace-nowrap">{o.order_id || "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                      {o.order_created_at ? format(new Date(o.order_created_at), "MMM d, yyyy") : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{o.marketer || "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{o.source || "—"}</td>
+                    <td className="px-3 py-2 text-foreground whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1"><User className="h-3 w-3 text-muted-foreground" />{o.quantity_ordered ?? "—"}</span>
+                    </td>
+                    <td className="px-3 py-2 text-foreground whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1"><CheckCircle className="h-3 w-3 text-muted-foreground" />{o.quantity_delivered ?? "—"}</span>
+                    </td>
+                    <td className="px-3 py-2 font-mono text-foreground whitespace-nowrap">
+                      {o.price_per_unit != null
+                        ? `$${Number(o.price_per_unit).toFixed(2)}/${(o.order_type || "").toLowerCase().includes("click") ? "click" : "sub"}`
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2 font-mono font-semibold text-foreground whitespace-nowrap">
+                      {o.total_spent != null ? fmtC2(Number(o.total_spent)) : "—"}
+                    </td>
+                    <td className="px-3 py-2">{statusPill(o.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-border" style={{ background: "#0D1117" }}>
+                  <td colSpan={9} className="px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+                    Total: {orders.length} orders · {totalOrdered.toLocaleString()} ordered · {totalDelivered.toLocaleString()} delivered · {fmtC2(rawSpend)} raw spend · {fmtC2(cappedSpend)} capped (cost_total)
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
