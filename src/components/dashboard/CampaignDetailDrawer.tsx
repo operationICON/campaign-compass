@@ -521,7 +521,7 @@ function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; 
               <tfoot>
                 <tr className="border-t border-border" style={{ background: "#0D1117" }}>
                   <td colSpan={9} className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
-                    {orders.length} orders · {totalOrdered.toLocaleString()} ord · {totalDelivered.toLocaleString()} del · {fmtC2(rawSpend)} raw · {fmtC2(cappedSpend)} capped
+                    {orders.length} orders · {totalOrdered.toLocaleString()} ordered · {totalDelivered.toLocaleString()} delivered · {fmtC2(cappedSpend)} total spend (delivered subs × rate)
                   </td>
                 </tr>
               </tfoot>
