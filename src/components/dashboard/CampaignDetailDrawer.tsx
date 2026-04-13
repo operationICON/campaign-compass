@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Copy, ExternalLink, XCircle, Coins, Activity, Trash2,
+  Copy, ExternalLink, XCircle, Coins, Trash2,
   ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -177,18 +177,6 @@ function DrawerBodyInner({
     setActionSaving(false);
   };
 
-  const saveStatus = async (status: string) => {
-    setActionSaving(true);
-    try {
-      const { error } = await supabase.from("tracking_links").update({ status }).eq("id", d.id);
-      if (error) throw error;
-      toast.success(`Status set to ${status}`);
-      refreshAll();
-      setActiveAction(null);
-    } catch { toast.error("Failed to save status"); }
-    setActionSaving(false);
-  };
-
   const confirmDelete = async () => {
     setActionSaving(true);
     try {
@@ -200,8 +188,6 @@ function DrawerBodyInner({
     } catch { toast.error("Failed to delete"); }
     setActionSaving(false);
   };
-
-  const statuses = ["SCALE", "WATCH", "KILL", "HOLD", "TEST"];
 
   const showCurrency = (v: number | null) => v != null ? fmtC2(v) : "—";
   const showPct = (v: number | null) => v != null ? `${v.toFixed(1)}%` : "—";
@@ -345,17 +331,6 @@ function DrawerBodyInner({
                   </Button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-        {activeAction === "status" && (
-          <div className="border-t border-border mt-2 pt-2">
-            <div className="flex gap-1.5">
-              {statuses.map(s => (
-                <Button key={s} size="sm" variant={d.status === s ? "default" : "outline"} className="flex-1 h-8 text-xs" disabled={actionSaving} onClick={() => saveStatus(s)}>
-                  {actionSaving && d.status === s ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : s}
-                </Button>
-              ))}
             </div>
           </div>
         )}
