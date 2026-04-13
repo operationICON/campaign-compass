@@ -511,7 +511,23 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                         </TableCell>
                         <TableCell style={{ fontSize: "12px" }}>{link.account_id?.slice(0, 8) || "—"}</TableCell>
                         <TableCell style={{ fontSize: "12px" }}>{source}</TableCell>
-                        <TableCell style={{ fontSize: "12px" }}>{link.onlytraffic_marketer || "—"}</TableCell>
+                        <TableCell style={{ fontSize: "12px" }}>
+                          {(() => {
+                            // Find marketer info from sourceMarketerData for this link
+                            const orderInfo = sourceMarketerData.find((o: any) => o.source && link.onlytraffic_marketer === o.marketer);
+                            const m = link.onlytraffic_marketer;
+                            if (!m) return "—";
+                            // Check if this marketer has multiple offer_ids
+                            const offerIds = new Set<number>();
+                            sourceMarketerData.forEach((o: any) => {
+                              if (o.marketer === m && o.offer_id != null) offerIds.add(o.offer_id);
+                            });
+                            if (offerIds.size > 1 && orderInfo?.offer_id != null) {
+                              return <>{m} <span className="text-muted-foreground text-[10px]">#{orderInfo.offer_id}</span></>;
+                            }
+                            return m;
+                          })()}
+                        </TableCell>
                         {isOT && <TableCell style={{ fontSize: "12px" }}>{link.onlytraffic_order_id || "—"}</TableCell>}
                         <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{cost > 0 ? fmtC(cost) : "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(rev)}</TableCell>
