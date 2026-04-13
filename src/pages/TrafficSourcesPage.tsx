@@ -121,7 +121,7 @@ import { EstBadge } from "@/components/EstBadge";
 function getAgeDays(createdAt: string) { return differenceInDays(new Date(), new Date(createdAt)); }
 
 // ── KPI Card ──
-function KpiCard({ label, value, sub, icon, color }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }) {
+function KpiCard({ label, value, sub, icon, color, children }: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string; children?: React.ReactNode }) {
   return (
     <div className="bg-card border border-border px-4 py-3 rounded-xl" style={{ borderLeft: `3px solid ${color}` }}>
       <div className="flex items-center gap-2 mb-1">
@@ -130,6 +130,7 @@ function KpiCard({ label, value, sub, icon, color }: { label: string; value: Rea
       </div>
       <p className="font-mono font-bold text-foreground" style={{ fontSize: "20px", lineHeight: 1.2 }}>{value}</p>
       {sub && <p className="text-muted-foreground" style={{ fontSize: "11px", marginTop: "2px" }}>{sub}</p>}
+      {children}
     </div>
   );
 }
@@ -390,8 +391,13 @@ export default function TrafficSourcesPage() {
   // ── KPI calculations ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
-    const tagged = dateAccountFiltered.filter((l: any) => !!getEffectiveSource(l)).length;
-    const untagged = dateAccountFiltered.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
+    const tagged = dateAccountFiltered.filter((l: any) => !!l.traffic_category).length;
+    const untaggedLinks = dateAccountFiltered.filter((l: any) => !l.traffic_category);
+    const untagged = untaggedLinks.length;
+    const untaggedWithRevenue = untaggedLinks.filter((l: any) => Number(l.revenue || 0) > 0).length;
+    const untaggedWithSpend = untaggedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
+    const untaggedNoActivity = untaggedLinks.filter((l: any) => Number(l.revenue || 0) === 0 && Number(l.cost_total || 0) === 0).length;
+
     const totalRevenue = dateAccountFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const totalSubscribers = accounts.filter((a: any) => a.is_active).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const totalClicks = dateAccountFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
@@ -411,11 +417,8 @@ export default function TrafficSourcesPage() {
 
     const totalProfit = totalRevenue - totalSpend;
 
-    // ROI % based on OnlyTraffic links only
-    const otLinks = dateAccountFiltered.filter((l: any) => l.traffic_category === "OnlyTraffic");
-    const otSpend = otLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const otRevenue = otLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const blendedRoi = otSpend > 0 ? ((otRevenue - otSpend) / otSpend) * 100 : 0;
+    // ROI % — uses same tracking_links source for both revenue and spend
+    const blendedRoi = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend) * 100 : 0;
 
     const cplLinks = dateAccountFiltered.filter((l: any) => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
     const cplSpend = cplLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
@@ -437,6 +440,7 @@ export default function TrafficSourcesPage() {
 
     return {
       totalSources, tagged, untagged,
+      untaggedWithRevenue, untaggedWithSpend, untaggedNoActivity,
       totalSpend, totalRevenue, blendedRoi,
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
@@ -748,23 +752,42 @@ export default function TrafficSourcesPage() {
   }, [totalPages, safePage]);
 
   // ── KPI rendering map ──
-  const kpiRenderMap: Record<KpiId, { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string }> = {
+  const kpiRenderMap: Record<KpiId, { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; color: string; children?: React.ReactNode }> = {
     total_sources: { label: "Total Sources", value: fmtN(kpis.totalSources), icon: <Hash className="h-4 w-4" />, color: "#0891b2" },
-    tagged: { label: "Tagged Campaigns", value: fmtN(kpis.tagged), sub: `${links.length > 0 ? ((kpis.tagged / links.length) * 100).toFixed(0) : 0}% of total`, icon: <Tag className="h-4 w-4" />, color: "#16a34a" },
-    untagged: { label: "Untagged", value: fmtN(kpis.untagged), sub: kpis.untagged > 0 ? "Need tagging" : "All tagged", icon: <HelpCircle className="h-4 w-4" />, color: kpis.untagged > 0 ? "#d97706" : "#16a34a" },
+    tagged: { label: "Tagged Campaigns", value: fmtN(kpis.tagged), sub: `${dateAccountFiltered.length > 0 ? ((kpis.tagged / dateAccountFiltered.length) * 100).toFixed(0) : 0}% of total`, icon: <Tag className="h-4 w-4" />, color: "#16a34a" },
+    untagged: {
+      label: "Untagged",
+      value: fmtN(kpis.untagged),
+      sub: kpis.untagged > 0 ? "Need tagging" : "All tagged",
+      icon: <HelpCircle className="h-4 w-4" />,
+      color: kpis.untagged > 0 ? "#d97706" : "#16a34a",
+      children: kpis.untagged > 0 ? (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {kpis.untaggedWithRevenue > 0 && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "hsl(192 91% 36% / 0.15)", color: "hsl(192 91% 36%)" }}>{kpis.untaggedWithRevenue} with revenue</span>
+          )}
+          {kpis.untaggedWithSpend > 0 && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "hsl(45 93% 47% / 0.15)", color: "hsl(45 93% 47%)" }}>{kpis.untaggedWithSpend} with spend</span>
+          )}
+          {kpis.untaggedNoActivity > 0 && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">{kpis.untaggedNoActivity} no activity</span>
+          )}
+        </div>
+      ) : undefined,
+    },
     total_spend: {
       label: "Total Spend",
       value: fmtC(kpis.totalSpend),
-      sub: "tracking_links.cost_total",
+      sub: "All time · tracked spend",
       icon: <DollarSign className="h-4 w-4" />,
       color: "#dc2626",
     },
-    total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
+    total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), sub: "All time · campaign revenue", icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
     blended_roi: { label: "ROI %", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", sub: kpis.totalSpend > 0 ? (kpis.blendedRoi > 0 ? "Profitable" : "Negative") : "No spend data", icon: <Percent className="h-4 w-4" />, color: kpis.blendedRoi > 0 ? "#16a34a" : kpis.totalSpend > 0 ? "#dc2626" : "#94a3b8" },
     total_profit: { label: "Total Profit", value: kpis.totalSpend > 0 ? fmtC(kpis.totalProfit) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.totalProfit > 0 ? "#16a34a" : "#dc2626" },
     avg_cpl: { label: "Avg CPL", value: kpis.avgCpl > 0 ? fmtC(kpis.avgCpl) : "—", icon: <DollarSign className="h-4 w-4" />, color: "#0891b2" },
     total_subscribers: { label: "Total Subscribers", value: fmtN(kpis.totalSubscribers), icon: <Users className="h-4 w-4" />, color: "#7c3aed" },
-    active_sources: { label: "Active Sources", value: fmtN(kpis.activeSources), sub: "Last 30 days", icon: <Activity className="h-4 w-4" />, color: "#0891b2" },
+    active_sources: { label: "Active Sources", value: fmtN(kpis.activeSources), sub: "Distinct OnlyTraffic tags", icon: <Activity className="h-4 w-4" />, color: "#0891b2" },
     total_clicks: { label: "Total Clicks", value: fmtN(kpis.totalClicks), icon: <MousePointerClick className="h-4 w-4" />, color: "#64748b" },
     avg_profit_sub: { label: "Avg Profit/Sub", value: kpis.avgProfitSub !== 0 ? fmtC(kpis.avgProfitSub) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.avgProfitSub > 0 ? "#16a34a" : "#dc2626" },
     top_source: { label: "Top Source", value: kpis.topSource ? kpis.topSource[0] : "—", sub: kpis.topSource ? fmtC(kpis.topSource[1]) : undefined, icon: <Award className="h-4 w-4" />, color: "#d97706" },
@@ -835,7 +858,7 @@ export default function TrafficSourcesPage() {
             <div className="grid grid-cols-3 gap-3">
               {visibleKpiList.map(k => {
                 const r = kpiRenderMap[k.id];
-                return <KpiCard key={k.id} label={r.label} value={r.value} sub={r.sub} icon={r.icon} color={r.color} />;
+                return <KpiCard key={k.id} label={r.label} value={r.value} sub={r.sub} icon={r.icon} color={r.color}>{r.children}</KpiCard>;
               })}
             </div>
           </div>
