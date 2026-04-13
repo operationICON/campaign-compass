@@ -842,7 +842,8 @@ export default function TrafficSourcesPage() {
             </div>
           </div>
 
-          {/* Right 40% — Source Card */}
+          {/* Right — Source Card */}
+          {showSidePanel && (
           <div style={{ flex: "0 0 38%" }}>
             <div className="bg-card border border-border px-5 py-4 space-y-4" style={{ borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
               <p style={{ fontSize: "13px", fontWeight: 700 }}>Traffic Source</p>
