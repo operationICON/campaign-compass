@@ -183,7 +183,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
               { icon: Users, label: "Subscribers", value: link.subscribers.toLocaleString() },
               { icon: TrendingUp, label: "CVR", value: `${(cvr * 100).toFixed(1)}%` },
               { icon: DollarSign, label: "Revenue", value: fmtC(revenue) },
-              { icon: DollarSign, label: "LTV", value: ltv > 0 ? fmtC(ltv) : (link.fans_last_synced_at ? "$0.00" : "—"), highlight: ltv > 0 },
+              
               { icon: BarChart3, label: "EPC", value: `$${epc.toFixed(2)}` },
               { icon: UserCheck, label: "LTV/Sub", value: ltvPerSub > 0 ? `$${ltvPerSub.toFixed(2)}` : "—" },
               { icon: UserCheck, label: "Spender %", value: Number(link.spender_rate || 0) > 0 ? `${Number(link.spender_rate).toFixed(1)}%` : "—" },

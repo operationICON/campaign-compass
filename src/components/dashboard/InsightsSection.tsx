@@ -227,7 +227,6 @@ export function InsightsSection({
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Tracking Link</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Model</th>
                 <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Source</th>
-                <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">LTV</th>
               </tr>
             </thead>
             <tbody>
@@ -249,11 +248,6 @@ export function InsightsSection({
                         {getEffectiveSource(l)}
                       </span>
                     ) : <span className="text-[11px] text-muted-foreground">—</span>}
-                  </td>
-                  <td className="py-1.5 text-right">
-                    <span className="text-[12px] font-bold font-mono text-[#0891b2]">
-                      {l.ltvFromTable != null ? fmtC(l.ltvFromTable) : "—"}
-                    </span>
                   </td>
                 </tr>
               ))}
