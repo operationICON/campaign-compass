@@ -6,6 +6,7 @@ import { differenceInDays, format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
@@ -61,18 +62,36 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const isUntaggedView = sourceName === "Untagged";
   const isOnlyTraffic = categoryName === "OnlyTraffic";
 
-  // Marketer options from links in this source
-  const marketerOptions = useMemo(() => {
-    const set = new Set<string>();
-    links.forEach(l => { if (l.onlytraffic_marketer) set.add(l.onlytraffic_marketer); });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [links]);
+  // Fetch distinct marketer+source combos from onlytraffic_orders
+  const { data: orderMarketerCombos = [] } = useQuery({
+    queryKey: ["onlytraffic_orders_marketer_combos"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("onlytraffic_orders")
+        .select("marketer, source, tracking_link_id")
+        .not("marketer", "is", null);
+      if (!data) return [];
+      const comboMap: Record<string, Set<string>> = {};
+      data.forEach((o: any) => {
+        const key = `${o.marketer} - ${o.source || "Unknown"}`;
+        if (!comboMap[key]) comboMap[key] = new Set();
+        if (o.tracking_link_id) comboMap[key].add(o.tracking_link_id);
+      });
+      return Object.entries(comboMap)
+        .map(([label, ids]) => ({ label, trackingLinkIds: Array.from(ids) }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    },
+  });
 
   // Filtered links by search + marketer
   const filteredLinks = useMemo(() => {
     let result = links;
     if (selectedMarketer !== "__all__") {
-      result = result.filter(l => l.onlytraffic_marketer === selectedMarketer);
+      const combo = orderMarketerCombos.find(c => c.label === selectedMarketer);
+      if (combo) {
+        const idSet = new Set(combo.trackingLinkIds);
+        result = result.filter(l => idSet.has(l.id));
+      }
     }
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -84,7 +103,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
       });
     }
     return result;
-  }, [links, selectedMarketer, searchQuery]);
+  }, [links, selectedMarketer, searchQuery, orderMarketerCombos]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -212,15 +231,15 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             </button>
           )}
         </div>
-        {marketerOptions.length > 0 && (
+        {orderMarketerCombos.length > 0 && (
           <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-            <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectTrigger className="w-[220px] h-9 text-sm">
               <SelectValue placeholder="All Marketers" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All Marketers</SelectItem>
-              {marketerOptions.map(m => (
-                <SelectItem key={m} value={m}>{m}</SelectItem>
+              {orderMarketerCombos.map(c => (
+                <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
