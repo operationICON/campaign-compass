@@ -391,8 +391,13 @@ export default function TrafficSourcesPage() {
   // ── KPI calculations ──
   const kpis = useMemo(() => {
     const totalSources = sources.length;
-    const tagged = dateAccountFiltered.filter((l: any) => !!getEffectiveSource(l)).length;
-    const untagged = dateAccountFiltered.filter((l: any) => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length;
+    const tagged = dateAccountFiltered.filter((l: any) => !!l.traffic_category).length;
+    const untaggedLinks = dateAccountFiltered.filter((l: any) => !l.traffic_category);
+    const untagged = untaggedLinks.length;
+    const untaggedWithRevenue = untaggedLinks.filter((l: any) => Number(l.revenue || 0) > 0).length;
+    const untaggedWithSpend = untaggedLinks.filter((l: any) => Number(l.cost_total || 0) > 0).length;
+    const untaggedNoActivity = untaggedLinks.filter((l: any) => Number(l.revenue || 0) === 0 && Number(l.cost_total || 0) === 0).length;
+
     const totalRevenue = dateAccountFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
     const totalSubscribers = accounts.filter((a: any) => a.is_active).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const totalClicks = dateAccountFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
@@ -412,11 +417,8 @@ export default function TrafficSourcesPage() {
 
     const totalProfit = totalRevenue - totalSpend;
 
-    // ROI % based on OnlyTraffic links only
-    const otLinks = dateAccountFiltered.filter((l: any) => l.traffic_category === "OnlyTraffic");
-    const otSpend = otLinks.filter((l: any) => Number(l.cost_total || 0) > 0).reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-    const otRevenue = otLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const blendedRoi = otSpend > 0 ? ((otRevenue - otSpend) / otSpend) * 100 : 0;
+    // ROI % — uses same tracking_links source for both revenue and spend
+    const blendedRoi = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend) * 100 : 0;
 
     const cplLinks = dateAccountFiltered.filter((l: any) => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
     const cplSpend = cplLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
@@ -438,6 +440,7 @@ export default function TrafficSourcesPage() {
 
     return {
       totalSources, tagged, untagged,
+      untaggedWithRevenue, untaggedWithSpend, untaggedNoActivity,
       totalSpend, totalRevenue, blendedRoi,
       totalProfit, avgCpl, totalSubscribers,
       activeSources, totalClicks, avgProfitSub, topSource,
