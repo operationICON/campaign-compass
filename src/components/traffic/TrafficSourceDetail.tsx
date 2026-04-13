@@ -193,7 +193,38 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
           <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: sourceColor }} />
           <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{sourceName}</span>
         </div>
-        <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{links.length} campaigns</span>
+        <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{filteredLinks.length} campaigns{filteredLinks.length !== links.length ? ` (of ${links.length})` : ""}</span>
+      </div>
+
+      {/* Search + Marketer filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
+            placeholder={isOnlyTraffic ? "Search campaign name, URL, or Order ID..." : "Search campaign name or URL..."}
+            className="pl-9 pr-8 h-9 text-sm"
+          />
+          {searchQuery && (
+            <button onClick={() => { setSearchQuery(""); setPage(0); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {marketerOptions.length > 0 && (
+          <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
+            <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectValue placeholder="All Marketers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Marketers</SelectItem>
+              {marketerOptions.map(m => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Sub-KPI row */}
