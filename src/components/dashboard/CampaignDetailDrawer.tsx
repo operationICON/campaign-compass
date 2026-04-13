@@ -77,14 +77,33 @@ function DrawerBodyInner({
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
 
-  // ─── RAW SOURCE VALUES ───
-  const cost = Number(d.cost_total ?? d.cost ?? 0);
+  // ─── FIX 1: FINANCIALS — always from tracking_links ───
+  const cost = Number(d.cost_total ?? 0);
   const costInputValue = Number(d.cost_value ?? 0);
   const totalClicks = Number(d.clicks ?? 0);
-  const tlSubscribers = Number(d.subscribers ?? d.allTimeSubs ?? 0);
-  const tlSpenders = Number(d.spenders ?? d.allTimeSpenders ?? 0);
+  const tlSubscribers = Number(d.subscribers ?? 0);
+  const tlSpenders = Number(d.spenders_count ?? d.spenders ?? 0);
+  const campaignRevenue = Number(d.revenue ?? 0);
 
-  // From tracking_link_ltv table
+  const profit = campaignRevenue - cost;
+  const roi = cost > 0 ? (profit / cost) * 100 : null;
+  const ltvPerSub = tlSubscribers > 0 ? campaignRevenue / tlSubscribers : null;
+  const profitPerSub = cost > 0 && tlSubscribers > 0 ? profit / tlSubscribers : null;
+  const cvr = totalClicks > 0 ? (tlSubscribers / totalClicks) * 100 : null;
+  const costPerLead = Number(d.cost_per_lead ?? 0);
+  const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
+  const paymentType = d.payment_type || d.cost_type || null;
+
+  const daysRunning = d.created_at
+    ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
+    : null;
+  const subsPerDay = daysRunning && daysRunning > 0 && tlSubscribers > 0
+    ? (tlSubscribers / daysRunning).toFixed(1) : "0";
+
+  // ─── FIX 3: ALL TIME — from tracking_links only ───
+  const spenderRate = tlSubscribers > 0 ? Math.min(100, (tlSpenders / tlSubscribers) * 100) : null;
+
+  // From tracking_link_ltv table (for breakdown section only)
   const rawLtv = d.totalLtv ?? d.ltvFromTable;
   const rawCrossPoll = d.crossPoll ?? d.crossPollRevenue;
   const rawNewSubs = d.newSubs ?? d.newSubsTotal;
@@ -93,45 +112,17 @@ function DrawerBodyInner({
   const crossPoll = Number(rawCrossPoll ?? 0);
   const newSubs = Number(rawNewSubs ?? 0);
 
-  // Period values
+  // ─── FIX 2: PERFORMANCE — from daily_snapshots via passed props ───
   const periodSubs = Number(d.periodSubs ?? 0);
   const periodRev = Number(d.periodRev ?? 0);
   const periodClicks = Number(d.periodClicks ?? 0);
+  const snapshotDays = Number(d.snapshotDays ?? 0);
+  // hasSnapshots: true if the campaign has any snapshot data at all
+  const hasSnapshots = snapshotDays > 0 || periodSubs > 0 || periodRev > 0 || periodClicks > 0;
+  const avgSubsDay = hasSnapshots && snapshotDays > 0 ? (periodSubs / snapshotDays).toFixed(1) : null;
 
-  const daysRunning = d.created_at
-    ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
-    : null;
-
-  // ─── ALL TIME ───
-  const existingFans = Math.max(0, tlSubscribers - newSubs);
-  const campaignRevenue = Number(d.revenue ?? 0);
-  // LTV/Sub = tracking_link_ltv.total_ltv / new_subs_total
-  const ltvPerSub = newSubs > 0 ? totalLtv / newSubs : null;
-  const spenderRate = newSubs > 0 ? Math.min(100, (tlSpenders / newSubs) * 100) : null;
-
-  // ─── FINANCIALS — use tracking_links.revenue ───
-  const profit = campaignRevenue - cost;
-  const profitPerSub = tlSubscribers > 0 ? profit / tlSubscribers : null;
-  const roi = cost > 0 ? (profit / cost) * 100 : null;
-  const cvr = totalClicks > 0 ? (tlSubscribers / totalClicks) * 100 : null;
-
-  // ─── Cost display helpers ───
-  const paymentType = d.payment_type || d.cost_type || null;
-  const costPerLead = Number(d.cost_per_lead ?? 0);
-  const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
-
-  // ─── CALCULATIONS ───
-  const breakEvenLtv = newSubs > 0 && cost > 0 ? cost / newSubs : null;
-  const avgExpenses = daysRunning && daysRunning > 0 && cost > 0 ? cost / daysRunning : null;
-  const avgDailySubs = daysRunning && daysRunning > 0 && tlSubscribers > 0
-    ? tlSubscribers / daysRunning : 0;
-  const estDailySpend = costInputValue > 0 && avgDailySubs > 0
-    ? costInputValue * avgDailySubs : null;
-
-  const hasPeriodData = periodSubs > 0 || periodRev > 0 || periodClicks > 0;
-  const periodDays = daysRunning || 1;
-  const avgSubsDay = hasPeriodData && periodSubs > 0
-    ? (periodSubs / Math.max(1, periodDays)).toFixed(1) : null;
+  const profitTone = (v: number | null): "positive" | "negative" | "neutral" =>
+    v == null ? "neutral" : v >= 0 ? "positive" : "negative";
 
   const calcCostTotal = () => {
     const v = Number(costValue) || 0;
@@ -188,12 +179,6 @@ function DrawerBodyInner({
     } catch { toast.error("Failed to delete"); }
     setActionSaving(false);
   };
-
-  const showCurrency = (v: number | null) => v != null ? fmtC2(v) : "—";
-  const showPct = (v: number | null) => v != null ? `${v.toFixed(1)}%` : "—";
-  const showRoi = (v: number | null) => v != null ? `${v.toFixed(0)}%` : "No spend";
-  const profitTone = (v: number | null): "positive" | "negative" | "neutral" =>
-    v == null ? "neutral" : v >= 0 ? "positive" : "negative";
 
   return (
     <div className="overflow-y-auto flex-1">
@@ -350,64 +335,53 @@ function DrawerBodyInner({
       {/* FOUR COLUMN DATA GRID */}
       <div className="px-6 py-4 overflow-x-auto">
         <div className="flex min-w-[960px]" style={{ gap: 0 }}>
-          {/* COLUMN 1 — FINANCIALS */}
+          {/* COLUMN 1 — FINANCIALS (FIX 1) */}
           <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(var(--destructive))" }}>
             <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">🔥 Financials</h4>
             </div>
             <div className="p-0">
               <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
-              <DataRow label="Cost Type" value={paymentType || "—"} />
-              {paymentType === "CPL" && (
-                <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
-              )}
-              {paymentType === "CPC" && (
-                <DataRow label="Cost Per Click" value={costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
-              )}
+              <DataRow label="Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "$0.00"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
               <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
-              <DataRow label="Profit/Sub" value={profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
-              <DataRow label="ROI" value={showRoi(roi)} tone={roi != null ? profitTone(roi) : "neutral"} />
-              <DataRow label="CVR %" value={totalClicks > 0 && cvr != null ? `${cvr.toFixed(2)}%` : "—"} tone={cvr != null && cvr > 0 ? "positive" : "neutral"} />
-              <DataRow label="Total Clicks" value={totalClicks.toLocaleString()} />
-              <DataRow label="Spenders" value={tlSpenders > 0 ? tlSpenders.toLocaleString() : "—"} />
+              <DataRow label="ROI" value={cost > 0 ? `${roi!.toFixed(0)}%` : "—"} tone={roi != null ? profitTone(roi) : "neutral"} />
+              <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
+              <DataRow label="Profit/Sub" value={cost > 0 && profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
+              <DataRow label="Subs/Day" value={subsPerDay} />
+              <DataRow label="CPL" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
+              <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
+              <DataRow label="Subscribers" value={tlSubscribers.toLocaleString()} />
             </div>
           </div>
 
           <div className="w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
 
-          {/* COLUMN 2 — PERFORMANCE */}
+          {/* COLUMN 2 — PERFORMANCE (FIX 2) */}
           <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(var(--primary))" }}>
             <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">📊 Performance</h4>
             </div>
             <div className="p-0">
-              <DataRow label="Period Subs" value={hasPeriodData ? periodSubs.toLocaleString() : "—"} />
-              <DataRow label="Period Revenue" value={hasPeriodData && periodRev > 0 ? fmtC2(periodRev) : "—"} tone={hasPeriodData && periodRev > 0 ? "positive" : "neutral"} />
-              <DataRow label="Period Clicks" value={periodClicks.toLocaleString()} />
-              <DataRow label="Avg Subs/Day" value={avgSubsDay ?? "—"} />
+              <DataRow label="Period Subs" value={hasSnapshots ? periodSubs.toLocaleString() : "—"} />
+              <DataRow label="Period Revenue" value={hasSnapshots ? fmtC2(periodRev) : "—"} tone={periodRev > 0 ? "positive" : "neutral"} />
+              <DataRow label="Period Clicks" value={hasSnapshots ? periodClicks.toLocaleString() : "—"} />
+              <DataRow label="Avg Subs/Day" value={hasSnapshots ? (avgSubsDay ?? "0") : "—"} />
             </div>
           </div>
 
           <div className="w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
 
-          {/* COLUMN 3 — ALL TIME */}
+          {/* COLUMN 3 — ALL TIME (FIX 3) */}
           <div className="flex-1 min-w-[240px] overflow-y-auto" style={{ borderTop: "3px solid hsl(45 93% 47%)" }}>
             <div className="px-4 py-2 border-b border-border sticky top-0 z-10 bg-[#161B22]">
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">⭐ All Time</h4>
             </div>
             <div className="p-0">
-              <DataRow label="Campaign Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "—"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
-              <div className="px-3 py-1.5">
-                <p className="text-[10px] text-muted-foreground/60 italic leading-snug">Revenue breakdown by type not available at campaign level — shown at account level</p>
-              </div>
-              
-              <DataRow label="Cross-Poll Revenue" value={hasLtvData ? fmtC2(crossPoll) : "—"} tone={crossPoll > 0 ? "positive" : "neutral"} />
-              <DataRow label="Total Revenue incl. Cross-Poll" value={hasLtvData ? fmtC2(totalLtv + crossPoll) : "—"} tone="positive" />
+              <DataRow label="Campaign Revenue" value={fmtC2(campaignRevenue)} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
+              <DataRow label="Total Subs" value={tlSubscribers.toLocaleString()} />
+              <DataRow label="Total Clicks" value={totalClicks.toLocaleString()} />
               <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
-              <DataRow label="New Fans" value={hasLtvData ? newSubs.toLocaleString() : "—"} />
-              <DataRow label="Existing Fans" value={hasLtvData ? (existingFans > 0 ? existingFans.toLocaleString() : "0") : "—"} />
-              <DataRow label="Spender Rate" value={showPct(spenderRate)} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
-              <DataRow label="Total Subs" value={tlSubscribers > 0 ? tlSubscribers.toLocaleString() : "—"} />
+              <DataRow label="Spender Rate" value={spenderRate != null ? `${spenderRate.toFixed(1)}%` : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
             </div>
           </div>
 
@@ -448,6 +422,7 @@ function DrawerBodyInner({
                   }
                   let line3: React.ReactNode = null;
                   if (cost > 0) {
+                    const breakEvenLtv = newSubs > 0 ? cost / newSubs : null;
                     const noRecentClicks = totalClicks === 0;
                     if (noRecentClicks) {
                       line3 = <span className="text-destructive not-italic">No recent clicks detected. Consider pausing spend.</span>;
@@ -473,7 +448,6 @@ function DrawerBodyInner({
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Where does the money come from?</p>
                 {[
                   { label: "Campaign Revenue", value: campaignRevenue, tone: "neutral" as const },
-                  
                   { label: "Cross-Poll Revenue", value: crossPoll, tone: "neutral" as const },
                   { label: "Total Revenue incl. Cross-Poll", value: totalLtv + crossPoll, tone: "positive" as const },
                 ].map(r => (
@@ -545,13 +519,13 @@ function DrawerBodyInner({
         </div>
       </div>
 
-      {/* ORDER HISTORY — OnlyTraffic only */}
+      {/* ORDER HISTORY — OnlyTraffic only (FIX 4) */}
       {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={cost} />}
     </div>
   );
 }
 
-/* ─── Order History Section ─── */
+/* ─── Order History Section (FIX 4) ─── */
 function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; cappedSpend: number }) {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["onlytraffic_orders", campaignId],
@@ -563,6 +537,19 @@ function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; 
         .order("order_created_at", { ascending: false });
       return data || [];
     },
+  });
+
+  // Build a set of marketers that have >1 unique offer_id
+  const marketerMultiOffer = new Set<string>();
+  const marketerOffers: Record<string, Set<number>> = {};
+  orders.forEach(o => {
+    const m = o.marketer;
+    if (!m) return;
+    if (!marketerOffers[m]) marketerOffers[m] = new Set();
+    if (o.offer_id != null) marketerOffers[m].add(o.offer_id);
+  });
+  Object.entries(marketerOffers).forEach(([m, offers]) => {
+    if (offers.size > 1) marketerMultiOffer.add(m);
   });
 
   // Sort: active/waiting first, then by date desc
@@ -592,6 +579,20 @@ function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; 
         {found ? found.label : status || "—"}
       </span>
     );
+  };
+
+  const formatMarketer = (o: any) => {
+    const m = o.marketer;
+    if (!m) return "—";
+    // Show offer_id only if this marketer has >1 unique offer_id
+    if (marketerMultiOffer.has(m) && o.offer_id != null) {
+      return (
+        <span>
+          {m} <span className="text-muted-foreground text-[10px]">#{o.offer_id}</span>
+        </span>
+      );
+    }
+    return m;
   };
 
   return (
@@ -627,7 +628,7 @@ function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; 
                     <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                       {o.order_created_at ? format(new Date(o.order_created_at), "MMM d, yyyy") : "—"}
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{o.marketer || "—"}</td>
+                    <td className="px-3 py-2 text-foreground">{formatMarketer(o)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{o.source || "—"}</td>
                     <td className="px-3 py-2 text-foreground whitespace-nowrap">
                       <span className="inline-flex items-center gap-1"><User className="h-3 w-3 text-muted-foreground" />{o.quantity_ordered ?? "—"}</span>
