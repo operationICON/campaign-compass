@@ -719,6 +719,8 @@ export default function DashboardPage() {
           trackingLinkLtv={trackingLinkLtv}
           revMultiplier={revMultiplier}
           revenueMode={revenueMode}
+          snapshotSpend={snapshotSpend}
+          snapshotSubs={snapshotSubs}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
