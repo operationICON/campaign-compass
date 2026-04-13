@@ -455,7 +455,7 @@ export default function AccountsPage() {
                   {[
                     { label: "Total Revenue", value: fmtCurrency(Number(acc.ltv_total || 0) * revMultiplier) },
                     { label: "Campaign Rev", value: fmtCurrency(stats.totalRevenue * revMultiplier || 0) },
-                    { label: "New Fan LTV", value: stats.totalLtvAllTime > 0 ? fmtCurrency(stats.totalLtvAllTime * revMultiplier) : "—", accent: stats.totalLtvAllTime > 0 },
+                    
                     { label: "Total Spend", value: fmtCurrency(stats.totalSpendAllTime || 0) },
                     { label: "Total Profit", value: (() => { const p = Number(acc.ltv_total || 0) * revMultiplier - (stats.totalSpendAllTime || 0); return fmtCurrency(p); })(), positive: (Number(acc.ltv_total || 0) * revMultiplier - (stats.totalSpendAllTime || 0)) >= 0 },
                   ].map((s) => (
@@ -816,16 +816,6 @@ export default function AccountsPage() {
                       {(() => {
                         const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
                         return fmtCurrency(accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier);
-                      })()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">New Fan LTV</span>
-                    <span className="font-mono font-semibold text-foreground">
-                      {(() => {
-                        const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
-                        const total = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0) * revMultiplier;
-                        return total > 0 ? fmtCurrency(total) : "—";
                       })()}
                     </span>
                   </div>

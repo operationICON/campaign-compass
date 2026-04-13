@@ -262,14 +262,6 @@ export function DailyDecisionView({
             <p className="text-[9px] text-muted-foreground uppercase">Revenue</p>
             <p className="text-[11px] font-mono font-medium text-foreground">{fmtC(l.periodRev)}</p>
           </div>
-          <div>
-            <p className="text-[9px] text-muted-foreground uppercase">LTV/New Sub</p>
-            <p className="text-[11px] font-mono font-medium text-foreground">{fmtC2(l.ltvPerSub)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] text-muted-foreground uppercase">All Time LTV</p>
-            <p className="text-[11px] font-mono font-medium text-foreground">{fmtC(l.totalLtv)}</p>
-          </div>
         </div>
       </button>
     );

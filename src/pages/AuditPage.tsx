@@ -96,7 +96,7 @@ const AUDIT_COLUMNS: ColumnDef[] = [
   { id: "subscribers", label: "Subscribers", defaultOn: false },
   { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
-  { id: "ltv", label: "LTV", defaultOn: true },
+  
   { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
@@ -456,7 +456,7 @@ export default function AuditPage() {
             case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
             case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
             case "revenue": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>;
-            case "ltv": return <td key={c.id} className="p-2 text-right font-mono">{ltvVal !== null ? fmtC(ltvVal) : <span className="text-muted-foreground">—</span>}</td>;
+            
             case "ltv_sub": return <td key={c.id} className="p-2 text-right font-mono">${ltvPerSub}</td>;
             case "spender_rate": return <td key={c.id} className="p-2 text-right">{spenderRate}</td>;
             case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(costTotal)}</td>;

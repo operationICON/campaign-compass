@@ -53,8 +53,8 @@ function loadAnalysisVisibility(): Set<SourceAnalysisId> {
   return new Set(SOURCE_ANALYSIS_CARDS.filter(k => k.defaultOn).map(k => k.id));
 }
 
-type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv" | "ltv_per_sub" | "ltv_sub_all" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created" | "notes";
-type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "ltv" | "cost_total" | "profit" | "roi";
+type ColumnId = "model" | "source" | "category" | "clicks" | "subscribers" | "cvr" | "revenue" | "ltv_sub_all" | "expenses" | "profit" | "profit_per_sub" | "roi" | "status" | "subs_day" | "created" | "notes";
+type SortKey = "campaign_name" | "source_tag" | "clicks" | "subscribers" | "revenue" | "created_at" | "cvr" | "cost_total" | "profit" | "roi";
 
 type KpiId = "total_sources" | "tagged" | "untagged" | "total_spend" | "total_revenue" | "blended_roi"
   | "total_profit" | "avg_cpl" | "total_subscribers" | "active_sources" | "total_clicks" | "avg_profit_sub" | "top_source";
@@ -93,8 +93,6 @@ const TS_COLUMNS: ColumnDef[] = [
   { id: "subscribers", label: "Subs", defaultOn: true },
   { id: "cvr", label: "CVR", defaultOn: true },
   { id: "revenue", label: "Revenue", defaultOn: true },
-  { id: "ltv", label: "LTV", defaultOn: true },
-  { id: "ltv_per_sub", label: "LTV/New Sub", defaultOn: true },
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "expenses", label: "Spend", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
@@ -649,7 +647,7 @@ export default function TrafficSourcesPage() {
         case "subscribers": aVal = a.subscribers || 0; bVal = b.subscribers || 0; break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
         case "cvr": aVal = Number(a.cvr || 0); bVal = Number(b.cvr || 0); break;
-        case "ltv": aVal = (ltvLookup[String(a.id).toLowerCase()] ? Number(ltvLookup[String(a.id).toLowerCase()].total_ltv || 0) : 0); bVal = (ltvLookup[String(b.id).toLowerCase()] ? Number(ltvLookup[String(b.id).toLowerCase()].total_ltv || 0) : 0); break;
+        
         case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         case "profit": aVal = Number(a.profit || 0); bVal = Number(b.profit || 0); break;
         case "roi": aVal = Number(a.roi || 0); bVal = Number(b.roi || 0); break;

@@ -51,7 +51,7 @@ const ALL_COLUMNS = [
   { id: "subscribers", label: "Subscribers", defaultOn: false },
   { id: "cvr", label: "CVR", defaultOn: false },
   { id: "revenue", label: "Revenue", defaultOn: true },
-  { id: "ltv", label: "New Fan LTV", defaultOn: true },
+  
   { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
@@ -860,15 +860,6 @@ export default function CampaignsPage() {
                             case "subscribers": return <SortHeader key={c.id} label="Subs" sortKeyName="subscribers" width="70px" />;
                             case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
                             case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
-                            case "ltv": return (
-                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px", cursor: "pointer" }} onClick={() => handleSort("ltv")}>
-                                <div className="flex items-center justify-end gap-1">
-                                  New Fan LTV
-                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[200px]">Revenue from new fans only (tracking_link_ltv)</TooltipContent></Tooltip>
-                                  {sortKey === "ltv" && (sortAsc ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
-                                </div>
-                              </th>
-                            );
                             case "cross_poll": return (
                               <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "85px" }}>
                                 <div className="flex items-center justify-end gap-1">
@@ -980,24 +971,6 @@ export default function CampaignsPage() {
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <span className="text-foreground">{fmtC(revVal)}</span>
                                   </td>
-                                  );
-                                }
-                                case "ltv": {
-                                  // New Fan LTV from tracking_link_ltv.total_ltv
-                                  const ltvVal = link.ltvFromTable != null ? Number(link.ltvFromTable) * revMultiplier : null;
-                                  const hasLtv = ltvVal !== null && ltvVal > 0;
-                                  const showDash = ltvVal === null;
-                                  return (
-                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className={showDash ? "text-muted-foreground" : hasLtv ? "text-[hsl(var(--primary))] font-semibold" : "text-muted-foreground"}>
-                                            {showDash ? "—" : ltvVal === 0 ? "$0.00" : fmtC(ltvVal!)}
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Revenue from new fans only (tracking_link_ltv){revenueMode === "net" ? " (after 20% fee)" : ""}</TooltipContent>
-                                      </Tooltip>
-                                    </td>
                                   );
                                 }
                                 case "cross_poll": {
