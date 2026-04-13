@@ -873,16 +873,20 @@ export default function AccountsPage() {
 
                 {/* Revenue breakdown expandable */}
                 {Number(acc.ltv_total || 0) > 0 && (() => {
-                  const ltvT = Number(acc.ltv_total || 0) * revMultiplier;
+                  const ltvT = Number(acc.ltv_total || 0);
                   const isExp = expandedBreakdown.has(acc.id);
-                  // Use accounts ltv_ fields first, fall back to transaction breakdowns
+                  const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
+                  const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+                  const unattributed = Math.max(0, ltvT - campRev);
+
+                  // Type breakdown from accounts fields or transactions
                   const accMsg = Number(acc.ltv_messages || 0);
                   const accTips = Number(acc.ltv_tips || 0);
                   const accSubs = Number(acc.ltv_subscriptions || 0);
                   const accPosts = Number(acc.ltv_posts || 0);
                   const hasAccBreakdown = accMsg > 0 || accTips > 0 || accSubs > 0 || accPosts > 0;
                   const txB = (txBreakdowns as Record<string, any>)[acc.id];
-                  const rows = hasAccBreakdown
+                  const typeRows = hasAccBreakdown
                     ? [
                         { label: "Messages / PPV", value: accMsg, color: "hsl(var(--primary))" },
                         { label: "Tips", value: accTips, color: "hsl(38 92% 50%)" },
@@ -897,8 +901,7 @@ export default function AccountsPage() {
                           { label: "Posts", value: txB.posts, color: "hsl(210 80% 55%)" },
                         ].filter(r => r.value > 0)
                       : [];
-                  const rowTotal = rows.reduce((s, r) => s + r.value, 0);
-                  if (rows.length === 0) return null;
+
                   return (
                     <div className="mt-1" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -915,18 +918,45 @@ export default function AccountsPage() {
                         {isExp ? "Hide breakdown" : "Revenue breakdown"}
                       </button>
                       {isExp && (
-                        <div className="mt-1.5 space-y-1 text-[12px]">
-                          {rows.map(r => (
-                            <div key={r.label} className="flex items-center justify-between">
+                        <div className="mt-1.5 space-y-1.5 text-[12px]">
+                          {/* Attribution split */}
+                          <div className="space-y-1 pb-1.5 border-b border-border/50">
+                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: r.color }} />
-                                <span className="text-muted-foreground">{r.label}</span>
+                                <span className="w-2 h-2 rounded-full shrink-0 bg-primary" />
+                                <span className="text-muted-foreground">Via Campaigns</span>
                               </div>
                               <span className="font-mono text-foreground/80">
-                                {fmtCurrency(r.value * revMultiplier)} · {rowTotal > 0 ? ((r.value / rowTotal) * 100).toFixed(1) : "0"}%
+                                {fmtCurrency(campRev * revMultiplier)} · {ltvT > 0 ? ((campRev / ltvT) * 100).toFixed(1) : "0"}%
                               </span>
                             </div>
-                          ))}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground/50" />
+                                <span className="text-muted-foreground">Unattributed</span>
+                              </div>
+                              <span className="font-mono text-foreground/80">
+                                {fmtCurrency(unattributed * revMultiplier)} · {ltvT > 0 ? ((unattributed / ltvT) * 100).toFixed(1) : "0"}%
+                              </span>
+                            </div>
+                          </div>
+                          {/* Type breakdown */}
+                          {typeRows.length > 0 && (
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">By Type</span>
+                              {typeRows.map(r => (
+                                <div key={r.label} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: r.color }} />
+                                    <span className="text-muted-foreground">{r.label}</span>
+                                  </div>
+                                  <span className="font-mono text-foreground/80">
+                                    {fmtCurrency(r.value * revMultiplier)} · {ltvT > 0 ? ((r.value / ltvT) * 100).toFixed(1) : "0"}%
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
