@@ -461,7 +461,7 @@ export default function AccountsPage() {
                   ].map((s) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
-                      <p className={`text-lg font-bold font-mono ${s.accent ? "text-primary" : s.positive === false ? "text-destructive" : "text-foreground"}`}>{s.value}</p>
+                      <p className={`text-lg font-bold font-mono ${(s as any).accent ? "text-primary" : s.positive === false ? "text-destructive" : "text-foreground"}`}>{s.value}</p>
                     </div>
                   ))}
                 </div>

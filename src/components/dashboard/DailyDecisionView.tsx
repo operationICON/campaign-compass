@@ -253,7 +253,7 @@ export function DailyDecisionView({
             {fmtPct(l.roi)} ROI
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-2 gap-1">
           <div>
             <p className="text-[9px] text-muted-foreground uppercase">Subs</p>
             <p className="text-[11px] font-mono font-medium text-foreground">{l.periodSubs.toLocaleString()}</p>
