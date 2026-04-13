@@ -112,6 +112,28 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
   const colorMap = useTagColors();
 
+  // Fetch distinct marketer+source combos from onlytraffic_orders
+  const { data: orderMarketerCombos = [] } = useQuery({
+    queryKey: ["onlytraffic_orders_marketer_combos"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("onlytraffic_orders")
+        .select("marketer, source, tracking_link_id")
+        .not("marketer", "is", null);
+      if (!data) return [];
+      // Build distinct marketer+source combos with their tracking_link_ids
+      const comboMap: Record<string, Set<string>> = {};
+      data.forEach((o: any) => {
+        const key = `${o.marketer} - ${o.source || "Unknown"}`;
+        if (!comboMap[key]) comboMap[key] = new Set();
+        if (o.tracking_link_id) comboMap[key].add(o.tracking_link_id);
+      });
+      return Object.entries(comboMap)
+        .map(([label, ids]) => ({ label, trackingLinkIds: Array.from(ids) }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    },
+  });
+
   // Notify parent of level changes
   const setCategoryAndNotify = (cat: Category | null) => {
     setActiveCategory(cat);
@@ -142,22 +164,16 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
 
-  // Level 2: sources for active category
-  // Marketer options for OnlyTraffic
-  const marketerOptions = useMemo(() => {
-    const set = new Set<string>();
-    otLinks.forEach(l => {
-      if (l.onlytraffic_marketer) set.add(l.onlytraffic_marketer);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [otLinks]);
-
   // Apply marketer filter to category links
   const categoryLinksRaw = activeCategory === "OnlyTraffic" ? otLinks : manualLinks;
   const categoryLinks = useMemo(() => {
-    if (activeCategory !== "OnlyTraffic" || selectedMarketer === "__all__") return categoryLinksRaw;
-    return categoryLinksRaw.filter(l => l.onlytraffic_marketer === selectedMarketer);
-  }, [categoryLinksRaw, activeCategory, selectedMarketer]);
+    if (selectedMarketer === "__all__") return categoryLinksRaw;
+    // Find the selected combo's tracking_link_ids
+    const combo = orderMarketerCombos.find(c => c.label === selectedMarketer);
+    if (!combo) return categoryLinksRaw;
+    const idSet = new Set(combo.trackingLinkIds);
+    return categoryLinksRaw.filter(l => idSet.has(l.id));
+  }, [categoryLinksRaw, selectedMarketer, orderMarketerCombos]);
 
   const categoryMetrics = useMemo(() => calcCategoryMetrics(categoryLinks), [categoryLinks]);
 
