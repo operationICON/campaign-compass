@@ -479,9 +479,12 @@ export type Database = {
         Row: {
           account_id: string | null
           clicks: number | null
+          cost_per_lead: number | null
+          cost_total: number | null
           created_at: string | null
           external_tracking_link_id: string | null
           id: string
+          payment_type: string | null
           raw_clicks: number | null
           raw_revenue: number | null
           raw_subscribers: number | null
@@ -494,9 +497,12 @@ export type Database = {
         Insert: {
           account_id?: string | null
           clicks?: number | null
+          cost_per_lead?: number | null
+          cost_total?: number | null
           created_at?: string | null
           external_tracking_link_id?: string | null
           id?: string
+          payment_type?: string | null
           raw_clicks?: number | null
           raw_revenue?: number | null
           raw_subscribers?: number | null
@@ -509,9 +515,12 @@ export type Database = {
         Update: {
           account_id?: string | null
           clicks?: number | null
+          cost_per_lead?: number | null
+          cost_total?: number | null
           created_at?: string | null
           external_tracking_link_id?: string | null
           id?: string
+          payment_type?: string | null
           raw_clicks?: number | null
           raw_revenue?: number | null
           raw_subscribers?: number | null
