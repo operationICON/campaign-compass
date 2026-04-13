@@ -868,9 +868,8 @@ function KpiCards({
     })
     .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
 
-  // ── Snapshot period values ──
+  // ── Snapshot period values (snapshotSpend, snapshotSubs passed as props from actual snapshot rows) ──
   const snapshotRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-  const snapshotSubs = links.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
 
   // ── Earliest tracking link date for All Time subs/day ──
   const earliestCreated = allLinks.reduce((earliest: Date | null, l: any) => {
