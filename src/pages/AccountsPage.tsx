@@ -12,7 +12,7 @@ import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 
 import { format, differenceInDays, subDays } from "date-fns";
-import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X, UserPlus, Loader2 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
@@ -61,6 +61,28 @@ export default function AccountsPage() {
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
   const [cardSort, setCardSort] = useState<CardSortKey>("ltv_per_sub");
   const [expandedBreakdown, setExpandedBreakdown] = useState<Set<string>>(new Set());
+  const [discovering, setDiscovering] = useState(false);
+
+  const handleDiscoverAccounts = async () => {
+    setDiscovering(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("discover-accounts", { method: "POST" });
+      if (error) throw error;
+      const created = data?.created ?? 0;
+      const total = data?.total_api_accounts ?? 0;
+      if (created > 0) {
+        const newNames = (data.accounts ?? []).filter((a: any) => a.status === "created").map((a: any) => a.name).join(", ");
+        toast.success(`Found ${created} new account${created > 1 ? "s" : ""}: ${newNames}`);
+        queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      } else {
+        toast.info(`All ${total} accounts already synced — no new accounts found`);
+      }
+    } catch (err: any) {
+      toast.error(`Discovery failed: ${err.message}`);
+    } finally {
+      setDiscovering(false);
+    }
+  };
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
@@ -700,7 +722,17 @@ export default function AccountsPage() {
             <h1 className="text-[22px] font-bold text-foreground">Models</h1>
             <p className="text-sm text-muted-foreground">All accounts connected to Campaign Tracker</p>
           </div>
-          <RefreshButton queryKeys={["accounts", "tracking_links", "daily_metrics"]} />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDiscoverAccounts}
+              disabled={discovering}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium border border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
+            >
+              {discovering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+              {discovering ? "Discovering…" : "Discover New Accounts"}
+            </button>
+            <RefreshButton queryKeys={["accounts", "tracking_links", "daily_metrics"]} />
+          </div>
         </div>
 
         {/* ═══ TIME + MODEL FILTER BAR ═══ */}
