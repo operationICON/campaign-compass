@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SourceTagDropdownProps {
@@ -7,6 +7,7 @@ interface SourceTagDropdownProps {
   onChange: (value: string) => void;
   onSave: (value: string) => void;
   className?: string;
+  trackingLinkId?: string;
 }
 
 function levenshtein(a: string, b: string): number {
@@ -20,16 +21,18 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
-export function SourceTagDropdown({ value, onChange, onSave, className }: SourceTagDropdownProps) {
+export function SourceTagDropdown({ value, onChange, onSave, className, trackingLinkId }: SourceTagDropdownProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState(value);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const { data: rules = [] } = useQuery({
-    queryKey: ["source_tag_rules"],
+    queryKey: ["traffic_sources"],
     queryFn: async () => {
-      const { data } = await supabase.from("source_tag_rules").select("tag_name, color").order("priority", { ascending: false });
+      const { data } = await supabase.from("traffic_sources")
+        .select("id, name, color").order("name");
       return data || [];
     },
   });
@@ -47,33 +50,47 @@ export function SourceTagDropdown({ value, onChange, onSave, className }: Source
   const filtered = useMemo(() => {
     if (!search.trim()) return rules;
     const q = search.toLowerCase();
-    return rules.filter((r: any) => r.tag_name.toLowerCase().includes(q));
+    return rules.filter((r: any) => r.name.toLowerCase().includes(q));
   }, [rules, search]);
 
   const fuzzyMatch = useMemo(() => {
     if (!search.trim() || filtered.length > 0) return null;
     const q = search.toLowerCase();
     for (const r of rules) {
-      const name = r.tag_name;
-      if (name.toLowerCase() === q) return null; // exact match
+      const name = r.name;
+      if (name.toLowerCase() === q) return null;
       if (levenshtein(name.toLowerCase(), q) <= 2) return name;
     }
     return null;
   }, [search, filtered, rules]);
 
-  const exactExists = rules.some((r: any) => r.tag_name.toLowerCase() === search.trim().toLowerCase());
+  const exactExists = rules.some((r: any) => r.name.toLowerCase() === search.trim().toLowerCase());
 
-  const handleSelect = (tagName: string) => {
+  const handleSelect = async (tagName: string) => {
     onChange(tagName);
     setSearch(tagName);
     setOpen(false);
     onSave(tagName);
+
+    if (trackingLinkId) {
+      const source = rules.find((r: any) => r.name === tagName);
+      await supabase.from("tracking_links").update({
+        source_tag: tagName,
+        traffic_source_id: source?.id || null,
+        manually_tagged: true,
+        traffic_category: "Manual",
+      }).eq("id", trackingLinkId);
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+    }
   };
 
   const handleCreate = async () => {
     const name = search.trim();
     if (!name) return;
-    await supabase.from("source_tag_rules").upsert({ tag_name: name, keywords: [name.toLowerCase()], color: "#0891b2" }, { onConflict: "tag_name" });
+    await supabase.from("traffic_sources").upsert({
+      name: name
+    }, { onConflict: "name" });
+    queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
     handleSelect(name);
   };
 
@@ -84,7 +101,7 @@ export function SourceTagDropdown({ value, onChange, onSave, className }: Source
         onClick={() => { setOpen(true); inputRef.current?.focus(); }}
       >
         {value && !open && (
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rules.find((r: any) => r.tag_name === value)?.color || "#0891b2" }} />
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rules.find((r: any) => r.name === value)?.color || "#0891b2" }} />
         )}
         <input
           ref={inputRef}
@@ -100,12 +117,12 @@ export function SourceTagDropdown({ value, onChange, onSave, className }: Source
         <div className="absolute left-0 top-full mt-1 z-50 w-full min-w-[200px] bg-card border border-border rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
           {filtered.map((r: any) => (
             <button
-              key={r.tag_name}
-              onClick={() => handleSelect(r.tag_name)}
+              key={r.name}
+              onClick={() => handleSelect(r.name)}
               className="w-full px-3 py-1.5 text-left text-[11px] flex items-center gap-2 hover:bg-secondary/50 transition-colors text-foreground"
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#0891b2" }} />
-              {r.tag_name}
+              {r.name}
             </button>
           ))}
           {fuzzyMatch && (
