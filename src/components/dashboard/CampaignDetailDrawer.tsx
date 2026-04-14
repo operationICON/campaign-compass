@@ -85,11 +85,11 @@ function DrawerBodyInner({
   const tlSpenders = Number(d.spenders_count ?? d.spenders ?? 0);
   const campaignRevenue = Number(d.revenue ?? 0);
 
-  const profit = campaignRevenue - cost;
-  const roi = cost > 0 ? (profit / cost) * 100 : null;
+  const profit = d.profit != null ? Number(d.profit) : (cost > 0 ? campaignRevenue - cost : null);
+  const roi = d.roi != null ? Number(d.roi) : (cost > 0 ? ((campaignRevenue - cost) / cost) * 100 : null);
   const ltvPerSub = tlSubscribers > 0 ? campaignRevenue / tlSubscribers : null;
-  const profitPerSub = cost > 0 && tlSubscribers > 0 ? profit / tlSubscribers : null;
-  const cvr = totalClicks > 0 ? (tlSubscribers / totalClicks) * 100 : null;
+  const profitPerSub = cost > 0 && tlSubscribers > 0 && profit != null ? profit / tlSubscribers : null;
+  const cvr = d.cvr != null ? Number(d.cvr) : (totalClicks > 100 ? (tlSubscribers / totalClicks) * 100 : null);
   const costPerLead = Number(d.cost_per_lead ?? 0);
   const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
   const paymentType = d.payment_type || d.cost_type || null;
@@ -143,6 +143,22 @@ function DrawerBodyInner({
         cost_type: costType, cost_value: Number(costValue) || 0, cost_total: total,
       }).eq("id", d.id);
       if (error) throw error;
+      const { data: refreshed } = await supabase
+        .from("tracking_links")
+        .select("*")
+        .eq("id", d.id)
+        .single();
+      if (refreshed) {
+        d.cost_total = refreshed.cost_total;
+        d.profit = refreshed.profit;
+        d.roi = refreshed.roi;
+        d.cpl_real = refreshed.cpl_real;
+        d.cvr = refreshed.cvr;
+        d.status = refreshed.status;
+        d.cost_type = refreshed.cost_type;
+        d.cost_value = refreshed.cost_value;
+        d.payment_type = refreshed.payment_type;
+      }
       toast.success("Spend saved");
       refreshAll();
       setActiveAction(null);

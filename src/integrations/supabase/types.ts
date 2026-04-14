@@ -1606,6 +1606,27 @@ export type Database = {
           },
         ]
       }
+      system_health_check: {
+        Row: {
+          display_name: string | null
+          has_profit: number | null
+          has_revenue: number | null
+          has_spend: number | null
+          kill: number | null
+          last_updated: string | null
+          no_spend: number | null
+          scale: number | null
+          spend_no_profit: number | null
+          total_links: number | null
+          total_profit: number | null
+          total_revenue: number | null
+          total_spend: number | null
+          untagged: number | null
+          username: string | null
+          watch: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_ltv_by_period: {
