@@ -62,6 +62,7 @@ const ALL_COLUMNS = [
   { id: "status", label: "Status", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
   { id: "created", label: "Created", defaultOn: false },
+  { id: "last_synced", label: "Last Synced", defaultOn: true },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
@@ -592,7 +593,18 @@ export default function CampaignsPage() {
             <h1 className="text-[20px] font-bold text-foreground">Tracking Links</h1>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {allLinks.length.toLocaleString()} tracking links · {modelCount} models
-              {lastSynced && ` · Last synced ${format(lastSynced, "MMM d, HH:mm")}`}
+              {(() => {
+                const lastSync = allLinks.length > 0
+                  ? new Date(Math.max(...allLinks.map((l: any) => new Date(l.updated_at).getTime())))
+                  : null;
+                if (!lastSync) return null;
+                const diffHours = Math.floor((Date.now() - lastSync.getTime()) / 3600000);
+                const diffDays = Math.floor(diffHours / 24);
+                const rel = diffHours < 1 ? "just now"
+                  : diffHours < 24 ? `${diffHours}h ago`
+                  : `${diffDays}d ago`;
+                return ` · Last sync: ${rel}`;
+              })()}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -874,6 +886,11 @@ export default function CampaignsPage() {
                             case "status": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "80px" }}>Status</th>;
                             case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
+                            case "last_synced": return (
+                              <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>
+                                Last Synced
+                              </th>
+                            );
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
                             case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
                             default: return null;
@@ -1132,6 +1149,36 @@ export default function CampaignsPage() {
                                     </td>
                                   );
                                 }
+                                case "last_synced": return (
+                                  <td key={c.id} style={{ padding: "8px 12px" }}>
+                                    {(() => {
+                                      const updated = new Date(link.updated_at);
+                                      const now = new Date();
+                                      const diffHours = Math.floor((now.getTime() - updated.getTime()) / 3600000);
+                                      const diffDays = Math.floor(diffHours / 24);
+                                      const label = diffHours < 1 ? "Just now"
+                                        : diffHours < 24 ? `${diffHours}h ago`
+                                        : `${diffDays}d ago`;
+                                      const color = diffHours < 24 ? "#10b981"
+                                        : diffHours < 72 ? "#f59e0b"
+                                        : "#ef4444";
+                                      const exact = updated.toLocaleString("en-US", {
+                                        month: "short", day: "numeric",
+                                        year: "numeric", hour: "2-digit", minute: "2-digit"
+                                      });
+                                      return (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span style={{ color, fontSize: "11px", fontWeight: 600 }}>
+                                              {label}
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>{exact}</TooltipContent>
+                                        </Tooltip>
+                                      );
+                                    })()}
+                                  </td>
+                                );
                                 case "media_buyer": return (
                                   <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
