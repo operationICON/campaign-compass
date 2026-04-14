@@ -4,7 +4,7 @@ import {
   ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
   Pencil,
 } from "lucide-react";
-import { SourceSelector } from "@/components/SourceSelector";
+import { SourceTagDropdown } from "@/components/SourceTagDropdown";
 import { format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
@@ -282,16 +282,49 @@ function DrawerBodyInner({
               </div>
 
               {/* RIGHT — SOURCE */}
-              <div className="p-3">
-                <SourceSelector
-                  currentSourceTag={d.source_tag}
-                  currentTrafficSourceId={d.traffic_source_id}
-                  trackingLinkId={d.id}
-                  onSaved={() => {
-                    refreshAll();
-                    setActiveAction(null);
+              <div className="p-3 space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
+                <p className="text-xs font-semibold text-foreground">{d.source_tag || <span className="italic text-muted-foreground">Untagged</span>}</p>
+                <SourceTagDropdown
+                  value={d.source_tag || ""}
+                  onChange={() => {}}
+                  onSave={async (tag) => {
+                    try {
+                      const { data: ts } = await supabase
+                        .from("traffic_sources")
+                        .select("id")
+                        .eq("name", tag)
+                        .single();
+                      await supabase.from("tracking_links").update({
+                        source_tag: tag,
+                        traffic_source_id: ts?.id || null,
+                        manually_tagged: true,
+                        traffic_category: "Manual",
+                      }).eq("id", d.id);
+                      d.source_tag = tag;
+                      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                      toast.success("Source saved");
+                    } catch {
+                      toast.error("Failed to save source");
+                    }
                   }}
+                  trackingLinkId={d.id}
                 />
+                <button
+                  onClick={async () => {
+                    await supabase.from("tracking_links").update({
+                      source_tag: null,
+                      traffic_source_id: null,
+                      manually_tagged: false,
+                    }).eq("id", d.id);
+                    d.source_tag = null;
+                    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                    toast.success("Source cleared");
+                  }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                >
+                  Clear selection
+                </button>
               </div>
             </div>
           </div>
