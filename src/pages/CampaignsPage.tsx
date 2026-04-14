@@ -37,6 +37,7 @@ import { useColumnOrder } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { TrackingLinkPanel } from "@/components/dashboard/TrackingLinkPanel";
 import { Pencil } from "lucide-react";
+import { SourceSelector } from "@/components/SourceSelector";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all";

@@ -4,6 +4,7 @@ import {
   ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
   Pencil,
 } from "lucide-react";
+import { SourceSelector } from "@/components/SourceSelector";
 import { format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
