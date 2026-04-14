@@ -314,19 +314,96 @@ function DrawerBodyInner({
               {/* RIGHT — SOURCE */}
               <div className="p-3 space-y-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
-                <select
+                {/* Row 1 — Dropdown */}
+                <div className="space-y-1">
+                  {sourceTags.map((t: any) => (
+                    <div
+                      key={t.id}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] cursor-pointer transition-colors ${
+                        sourceVal === t.name ? "bg-primary/20 text-primary font-semibold" : "hover:bg-secondary/50 text-foreground"
+                      }`}
+                      onClick={() => { setSourceVal(t.name); }}
+                    >
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color || "#0891b2" }} />
+                      <span className="flex-1 truncate">{t.name}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSourceVal(t.name); }}
+                        className="p-0.5 text-muted-foreground hover:text-foreground"
+                        title="Edit"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!confirm(`Delete source "${t.name}"?`)) return;
+                          await supabase.from("traffic_sources").delete().eq("id", t.id);
+                          queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                          if (sourceVal === t.name) setSourceVal("");
+                          toast.success(`Deleted "${t.name}"`);
+                        }}
+                        className="p-0.5 text-muted-foreground hover:text-destructive"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {sourceTags.length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">No sources yet</p>
+                  )}
+                </div>
+                {/* Row 2 — Text input */}
+                <Input
+                  type="text"
                   value={sourceVal}
                   onChange={e => setSourceVal(e.target.value)}
-                  className="w-full h-8 rounded-md border border-border bg-card px-2 text-sm text-foreground"
-                >
-                  <option value="">— Untagged —</option>
-                  {sourceTags.map((t: any) => (
-                    <option key={t.id} value={t.name}>{t.name}</option>
-                  ))}
-                </select>
-                <Button size="sm" className="w-full h-8 text-xs" onClick={saveSource} disabled={actionSaving}>
-                  {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-                </Button>
+                  placeholder="CREATE NEW SOURCE NAME"
+                  className="h-8 text-sm bg-card border-border"
+                />
+                {/* Row 3 — Three buttons */}
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-8 text-[11px]"
+                    disabled={!sourceVal.trim() || actionSaving}
+                    onClick={async () => {
+                      setActionSaving(true);
+                      try {
+                        await supabase.from("traffic_sources").upsert({ name: sourceVal.trim() }, { onConflict: "name" });
+                        queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                        toast.success("Source created");
+                      } catch { toast.error("Failed to create"); }
+                      setActionSaving(false);
+                    }}
+                  >
+                    Create
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-8 text-[11px] text-destructive hover:text-destructive"
+                    disabled={!sourceVal.trim() || actionSaving}
+                    onClick={async () => {
+                      const src = sourceTags.find((t: any) => t.name === sourceVal);
+                      if (!src) { toast.error("Source not found"); return; }
+                      setActionSaving(true);
+                      try {
+                        await supabase.from("traffic_sources").delete().eq("id", src.id);
+                        queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                        setSourceVal("");
+                        toast.success(`Deleted "${src.name}"`);
+                      } catch { toast.error("Failed to delete"); }
+                      setActionSaving(false);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                  <Button size="sm" className="flex-1 h-8 text-[11px]" onClick={saveSource} disabled={actionSaving}>
+                    {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
