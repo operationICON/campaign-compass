@@ -315,44 +315,16 @@ function DrawerBodyInner({
               <div className="p-3 space-y-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
                 {/* Row 1 — Dropdown */}
-                <div className="space-y-1">
+                <select
+                  value={sourceVal}
+                  onChange={e => setSourceVal(e.target.value)}
+                  className="w-full h-8 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                >
+                  <option value="">— Select source —</option>
                   {sourceTags.map((t: any) => (
-                    <div
-                      key={t.id}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] cursor-pointer transition-colors ${
-                        sourceVal === t.name ? "bg-primary/20 text-primary font-semibold" : "hover:bg-secondary/50 text-foreground"
-                      }`}
-                      onClick={() => { setSourceVal(t.name); }}
-                    >
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color || "#0891b2" }} />
-                      <span className="flex-1 truncate">{t.name}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSourceVal(t.name); }}
-                        className="p-0.5 text-muted-foreground hover:text-foreground"
-                        title="Edit"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (!confirm(`Delete source "${t.name}"?`)) return;
-                          await supabase.from("traffic_sources").delete().eq("id", t.id);
-                          queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                          if (sourceVal === t.name) setSourceVal("");
-                          toast.success(`Deleted "${t.name}"`);
-                        }}
-                        className="p-0.5 text-muted-foreground hover:text-destructive"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
+                    <option key={t.id} value={t.name}>{t.name}</option>
                   ))}
-                  {sourceTags.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground">No sources yet</p>
-                  )}
-                </div>
+                </select>
                 {/* Row 2 — Text input */}
                 <Input
                   type="text"
