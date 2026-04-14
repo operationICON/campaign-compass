@@ -1147,7 +1147,8 @@ export default function CampaignsPage() {
                                       <p className="text-foreground" style={{ fontSize: "12px" }}>{createdDate}</p>
                                       <span className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 ${pill.cls}`}>{pill.label}</span>
                                     </td>
-                                );
+                                  );
+                                }
                                 case "last_synced": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     {(() => {
