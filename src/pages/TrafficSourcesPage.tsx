@@ -567,7 +567,7 @@ export default function TrafficSourcesPage() {
     try {
       const oldName = (selectedSource as any)?.name;
       const { error } = await supabase.from("traffic_sources").update({
-        name: formName.trim(), category: formCategory,
+        name: formName.trim(), category: "Manual",
       } as any).eq("id", editSourceId);
       if (error) throw error;
       if (oldName && oldName !== formName.trim()) {
@@ -600,7 +600,7 @@ export default function TrafficSourcesPage() {
     setSaving(true);
     try {
       const { error } = await supabase.from("traffic_sources").insert({
-        name: newName.trim(), category: newCategory, color: nextColor,
+        name: newName.trim(), category: "Manual", color: nextColor,
       });
       if (error) throw error;
       toast.success("Source created");
@@ -912,17 +912,6 @@ export default function TrafficSourcesPage() {
                       className="w-full px-3 py-2 bg-background border border-border text-sm outline-none mt-1"
                       style={{ borderRadius: "8px", fontSize: "13px" }} />
                   </div>
-                  <div>
-                    <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
-                    <div className="flex gap-2 mt-1">
-                      {(["OnlyTraffic", "Manual"] as const).map(cat => (
-                        <button key={cat} onClick={() => setFormCategory(cat)}
-                          className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors" style={{ borderRadius: "8px" }}>
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   {confirmDelete ? (
                     <div className="px-3 py-2 bg-destructive/10 border border-destructive/30 rounded-lg">
@@ -965,18 +954,6 @@ export default function TrafficSourcesPage() {
                       <span>Similar to <strong>{newNameWarning}</strong> — did you mean that?</span>
                     </div>
                   )}
-                </div>
-                <div>
-                  <label style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Category</label>
-                  <div className="flex gap-2 mt-1">
-                    {(["OnlyTraffic", "Manual"] as const).map(cat => (
-                      <button key={cat} onClick={() => setNewCategory(cat)}
-                        className="flex-1 px-3 py-1.5 text-xs font-bold transition-colors"
-                        style={{ borderRadius: "8px" }}>
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
                 </div>
                 <button onClick={handleNewSource} disabled={!newName.trim() || saving} className="w-full py-2 text-sm font-bold text-primary-foreground bg-primary disabled:opacity-50 rounded-lg">
                   {saving ? "Saving..." : "Save"}
