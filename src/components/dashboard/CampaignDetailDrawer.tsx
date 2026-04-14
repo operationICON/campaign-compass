@@ -116,30 +116,6 @@ function DrawerBodyInner({
     toast.success("Copied to clipboard");
   };
 
-  const saveSource = async () => {
-    setActionSaving(true);
-    try {
-      const { error } = await supabase.from("tracking_links").update({
-        source_tag: sourceVal || null,
-        traffic_source_id: sourceId || null,
-        manually_tagged: true,
-      }).eq("id", d.id);
-      if (error) throw error;
-      const { data: refreshed } = await supabase
-        .from("tracking_links")
-        .select("source_tag, manually_tagged, traffic_source_id")
-        .eq("id", d.id)
-        .single();
-      if (refreshed) {
-        setSourceVal(refreshed.source_tag || "");
-        setSourceId(refreshed.traffic_source_id || "");
-      }
-      toast.success("Source saved");
-      refreshAll();
-      setActiveAction(null);
-    } catch { toast.error("Failed to save source tag"); }
-    setActionSaving(false);
-  };
 
   const saveSpend = async () => {
     setActionSaving(true);
@@ -201,7 +177,7 @@ function DrawerBodyInner({
               {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
               {daysRunning && <><span>·</span><span className="font-semibold text-foreground">{daysRunning}d running</span></>}
               {d.status && <><span>·</span><span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span></>}
-              {sourceVal && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{sourceVal}</span></>}
+              {d.source_tag && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{d.source_tag}</span></>}
             </div>
           </DrawerDescription>
         </div>
@@ -367,7 +343,7 @@ function DrawerBodyInner({
             <div className="px-3 py-1 border-b border-border">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Campaign Info</span>
             </div>
-            <DataRow label="Source" value={sourceVal || "—"} />
+            <DataRow label="Source" value={d.source_tag || "—"} />
             <DataRow label="Marketer" value={d.onlytraffic_marketer || "—"} />
             <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
             <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
