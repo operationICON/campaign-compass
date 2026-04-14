@@ -1179,7 +1179,6 @@ export default function CampaignsPage() {
                                     })()}
                                   </td>
                                 );
-                                }
                                 case "media_buyer": return (
                                   <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
