@@ -132,17 +132,22 @@ function DrawerBodyInner({
   const saveSource = async () => {
     setActionSaving(true);
     try {
-      const { error } = await supabase.from("tracking_links").update({ source_tag: sourceVal, manually_tagged: true }).eq("id", d.id);
+      const { error } = await supabase.from("tracking_links").update({
+        source_tag: sourceVal || null,
+        traffic_source_id: sourceId || null,
+        manually_tagged: true,
+      }).eq("id", d.id);
       if (error) throw error;
       const { data: refreshed } = await supabase
         .from("tracking_links")
-        .select("source_tag, manually_tagged")
+        .select("source_tag, manually_tagged, traffic_source_id")
         .eq("id", d.id)
         .single();
       if (refreshed) {
         setSourceVal(refreshed.source_tag || "");
+        setSourceId(refreshed.traffic_source_id || "");
       }
-      toast.success("Source tag saved");
+      toast.success("Source saved");
       refreshAll();
       setActiveAction(null);
     } catch { toast.error("Failed to save source tag"); }
