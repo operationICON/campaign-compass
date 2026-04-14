@@ -1233,7 +1233,16 @@ export default function CampaignsPage() {
                             };
                             const clearSpendInline = async () => {
                               try {
-                                await clearTrackingLinkSpend(el.id, el.campaign_id);
+                                await supabase.from("tracking_links").update({
+                                  cost_type: null,
+                                  cost_value: null,
+                                  cost_total: 0,
+                                  profit: null,
+                                  roi: null,
+                                  cpl_real: null,
+                                  cpc_real: null,
+                                  status: 'NO_SPEND',
+                                }).eq("id", el.id);
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                 toast.success("Spend cleared");
                               } catch (err: any) { toast.error("Save failed — please try again"); }
