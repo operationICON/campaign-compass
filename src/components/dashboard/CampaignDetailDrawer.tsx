@@ -281,7 +281,16 @@ function DrawerBodyInner({
                   <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
                     setActionSaving(true);
                     try {
-                      await supabase.from("tracking_links").update({ cost_type: null, cost_value: 0, cost_total: 0 }).eq("id", d.id);
+                      await supabase.from("tracking_links").update({
+                        cost_type: null,
+                        cost_value: null,
+                        cost_total: 0,
+                        profit: null,
+                        roi: null,
+                        cpl_real: null,
+                        cpc_real: null,
+                        status: 'NO_SPEND',
+                      }).eq("id", d.id);
                       toast.success("Spend cleared");
                       refreshAll();
                     } catch { toast.error("Failed to clear"); }
