@@ -67,20 +67,8 @@ function DrawerBodyInner({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: sourceTags = [] } = useQuery({
-    queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data } = await supabase.from("traffic_sources").select("id, name, color").order("name");
-      return data || [];
-    },
-  });
-
-  const [sourceVal, setSourceVal] = useState(d.source_tag || "");
-  const [sourceId, setSourceId] = useState(d.traffic_source_id || "");
-  const [addingNew, setAddingNew] = useState(false);
-  const [editingSource, setEditingSource] = useState<any>(null);
-  const [newSourceName, setNewSourceName] = useState("");
-  const [newSourceColor, setNewSourceColor] = useState("#0891b2");
+  const [costType, setCostType] = useState(d.cost_type || "CPL");
+  const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
 
