@@ -69,8 +69,6 @@ function DrawerBodyInner({
 
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
-  const [costType, setCostType] = useState(d.cost_type || "CPL");
-  const [costValue, setCostValue] = useState(String(d.cost_value || ""));
 
   // ─── FIX 1: FINANCIALS — always from tracking_links ───
   const cost = Number(d.cost_total ?? 0);
