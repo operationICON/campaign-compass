@@ -4,6 +4,7 @@ import {
   ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
   Pencil,
 } from "lucide-react";
+import { SourceSelector } from "@/components/SourceSelector";
 import { format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
@@ -66,20 +67,6 @@ function DrawerBodyInner({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: sourceTags = [] } = useQuery({
-    queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data } = await supabase.from("traffic_sources").select("id, name, color").order("name");
-      return data || [];
-    },
-  });
-
-  const [sourceVal, setSourceVal] = useState(d.source_tag || "");
-  const [sourceId, setSourceId] = useState(d.traffic_source_id || "");
-  const [addingNew, setAddingNew] = useState(false);
-  const [editingSource, setEditingSource] = useState<any>(null);
-  const [newSourceName, setNewSourceName] = useState("");
-  const [newSourceColor, setNewSourceColor] = useState("#0891b2");
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
 
@@ -129,30 +116,6 @@ function DrawerBodyInner({
     toast.success("Copied to clipboard");
   };
 
-  const saveSource = async () => {
-    setActionSaving(true);
-    try {
-      const { error } = await supabase.from("tracking_links").update({
-        source_tag: sourceVal || null,
-        traffic_source_id: sourceId || null,
-        manually_tagged: true,
-      }).eq("id", d.id);
-      if (error) throw error;
-      const { data: refreshed } = await supabase
-        .from("tracking_links")
-        .select("source_tag, manually_tagged, traffic_source_id")
-        .eq("id", d.id)
-        .single();
-      if (refreshed) {
-        setSourceVal(refreshed.source_tag || "");
-        setSourceId(refreshed.traffic_source_id || "");
-      }
-      toast.success("Source saved");
-      refreshAll();
-      setActiveAction(null);
-    } catch { toast.error("Failed to save source tag"); }
-    setActionSaving(false);
-  };
 
   const saveSpend = async () => {
     setActionSaving(true);
@@ -214,7 +177,7 @@ function DrawerBodyInner({
               {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
               {daysRunning && <><span>·</span><span className="font-semibold text-foreground">{daysRunning}d running</span></>}
               {d.status && <><span>·</span><span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span></>}
-              {sourceVal && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{sourceVal}</span></>}
+              {d.source_tag && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{d.source_tag}</span></>}
             </div>
           </DrawerDescription>
         </div>
@@ -319,131 +282,16 @@ function DrawerBodyInner({
               </div>
 
               {/* RIGHT — SOURCE */}
-              <div className="p-3 space-y-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
-
-                {/* Current source display */}
-                <div className="flex items-center gap-2">
-                  {sourceVal ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sourceTags.find((s: any) => s.name === sourceVal)?.color || "#0891b2" }} />
-                      <span className="text-xs font-semibold text-foreground flex-1">{sourceVal}</span>
-                      <button
-                        onClick={() => {
-                          const existing = sourceTags.find((s: any) => s.name === sourceVal);
-                          if (existing) {
-                            setEditingSource(existing);
-                            setNewSourceName(existing.name);
-                            setNewSourceColor(existing.color || "#0891b2");
-                          }
-                        }}
-                        className="text-muted-foreground hover:text-foreground p-0.5 transition-colors"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-muted-foreground shrink-0" />
-                      <span className="text-xs text-muted-foreground">Untagged</span>
-                    </>
-                  )}
-                </div>
-
-                {/* Dropdown or Add/Edit form */}
-                {!addingNew && !editingSource ? (
-                  <>
-                    <select
-                      value={sourceVal}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === "__add_new__") {
-                          setAddingNew(true);
-                          setNewSourceName("");
-                          setNewSourceColor("#0891b2");
-                          return;
-                        }
-                        setSourceVal(val);
-                        const match = sourceTags.find((s: any) => s.name === val);
-                        setSourceId(match?.id || "");
-                      }}
-                      className="w-full h-8 rounded-md border border-border bg-card px-2.5 text-sm text-foreground"
-                    >
-                      <option value="">— Untagged —</option>
-                      {sourceTags.map((t: any) => (
-                        <option key={t.id} value={t.name}>{t.name}</option>
-                      ))}
-                      <option value="__add_new__">+ Add new source</option>
-                    </select>
-                    <Button size="sm" className="w-full h-8 text-xs" onClick={saveSource} disabled={actionSaving}>
-                      {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-                    </Button>
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <Input
-                      type="text"
-                      value={newSourceName}
-                      onChange={e => setNewSourceName(e.target.value)}
-                      placeholder="Source name..."
-                      className="h-8 text-sm bg-card border-border"
-                      autoFocus
-                    />
-                    <div className="flex gap-1 flex-wrap">
-                      {["#ff4500","#e1306c","#0891b2","#16a34a","#f97316","#7c3aed","#1da1f2","#ec4899"].map(c => (
-                        <button
-                          key={c}
-                          onClick={() => setNewSourceColor(c)}
-                          className={`w-6 h-6 rounded-full border-2 transition-all ${newSourceColor === c ? "border-foreground scale-110" : "border-transparent"}`}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex gap-1.5">
-                      <Button size="sm" className="flex-1 h-8 text-xs" disabled={!newSourceName.trim() || actionSaving} onClick={async () => {
-                        setActionSaving(true);
-                        try {
-                          if (editingSource) {
-                            // Update existing source
-                            const { error } = await supabase.from("traffic_sources").update({
-                              name: newSourceName.trim(),
-                              color: newSourceColor,
-                            }).eq("id", editingSource.id);
-                            if (error) throw error;
-                            // Update all tracking_links with old name
-                            if (editingSource.name !== newSourceName.trim()) {
-                              await supabase.from("tracking_links").update({
-                                source_tag: newSourceName.trim(),
-                              }).eq("source_tag", editingSource.name);
-                            }
-                            setSourceVal(newSourceName.trim());
-                            setSourceId(editingSource.id);
-                            toast.success("Source updated");
-                          } else {
-                            // Create new source
-                            const { data, error } = await supabase.from("traffic_sources").insert({
-                              name: newSourceName.trim(),
-                              color: newSourceColor,
-                            }).select().single();
-                            if (error) throw error;
-                            setSourceVal(data.name);
-                            setSourceId(data.id);
-                            toast.success("Source created");
-                          }
-                          queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                          setAddingNew(false);
-                          setEditingSource(null);
-                        } catch { toast.error("Failed to save source"); }
-                        setActionSaving(false);
-                      }}>
-                        {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : editingSource ? "Update" : "Create & Select"}
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { setAddingNew(false); setEditingSource(null); }}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <div className="p-3">
+                <SourceSelector
+                  currentSourceTag={d.source_tag}
+                  currentTrafficSourceId={d.traffic_source_id}
+                  trackingLinkId={d.id}
+                  onSaved={() => {
+                    refreshAll();
+                    setActiveAction(null);
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -495,7 +343,7 @@ function DrawerBodyInner({
             <div className="px-3 py-1 border-b border-border">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Campaign Info</span>
             </div>
-            <DataRow label="Source" value={sourceVal || "—"} />
+            <DataRow label="Source" value={d.source_tag || "—"} />
             <DataRow label="Marketer" value={d.onlytraffic_marketer || "—"} />
             <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
             <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
