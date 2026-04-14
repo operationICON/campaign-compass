@@ -222,6 +222,18 @@ export async function triggerSync(
   onProgress?: (msg: string) => void,
   testLinkId?: string
 ) {
+  // Check if a sync is already running
+  const { data: runningSyncs } = await supabase
+    .from('sync_logs')
+    .select('id')
+    .eq('status', 'running')
+    .gt('started_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+    .limit(1);
+
+  if (runningSyncs && runningSyncs.length > 0) {
+    throw new Error('A sync is already in progress. Please wait.');
+  }
+
   // Step 1: Sync accounts (fast — avatars, metadata)
   onProgress?.('Syncing accounts...');
   const orchestratorRes = await supabase.functions.invoke("sync-orchestrator", {
