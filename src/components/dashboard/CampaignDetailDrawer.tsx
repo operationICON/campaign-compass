@@ -66,9 +66,9 @@ function DrawerBodyInner({
   const navigate = useNavigate();
 
   const { data: sourceTags = [] } = useQuery({
-    queryKey: ["distinct_source_tags"],
+    queryKey: ["traffic_sources"],
     queryFn: async () => {
-      const { data } = await supabase.from("source_tag_rules").select("tag_name, color").order("tag_name");
+      const { data } = await supabase.from("traffic_sources").select("name, color").order("name");
       return data || [];
     },
   });
@@ -128,6 +128,14 @@ function DrawerBodyInner({
     try {
       const { error } = await supabase.from("tracking_links").update({ source_tag: sourceVal, manually_tagged: true }).eq("id", d.id);
       if (error) throw error;
+      const { data: refreshed } = await supabase
+        .from("tracking_links")
+        .select("source_tag, manually_tagged")
+        .eq("id", d.id)
+        .single();
+      if (refreshed) {
+        setSourceVal(refreshed.source_tag || "");
+      }
       toast.success("Source tag saved");
       refreshAll();
       setActiveAction(null);
@@ -195,7 +203,7 @@ function DrawerBodyInner({
               {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
               {daysRunning && <><span>·</span><span className="font-semibold text-foreground">{daysRunning}d running</span></>}
               {d.status && <><span>·</span><span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span></>}
-              {d.source_tag && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{d.source_tag}</span></>}
+              {sourceVal && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{sourceVal}</span></>}
             </div>
           </DrawerDescription>
         </div>
@@ -304,7 +312,7 @@ function DrawerBodyInner({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-muted-foreground shrink-0" />
-                  <span className="text-xs text-muted-foreground">{d.source_tag || "Untagged"}</span>
+                  <span className="text-xs text-muted-foreground">{sourceVal || "Untagged"}</span>
                 </div>
                 <select
                   value={sourceVal}
@@ -312,7 +320,7 @@ function DrawerBodyInner({
                   className="w-full h-8 rounded-md border border-border bg-card px-2.5 text-sm text-foreground"
                 >
                   <option value="">— Untagged —</option>
-                  {sourceTags.map((t: any) => <option key={t.tag_name} value={t.tag_name}>{t.tag_name}</option>)}
+                  {sourceTags.map((t: any) => <option key={t.name} value={t.name}>{t.name}</option>)}
                 </select>
                 <div className="flex gap-1.5">
                   <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setSourceVal("")}>
@@ -373,7 +381,7 @@ function DrawerBodyInner({
             <div className="px-3 py-1 border-b border-border">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Campaign Info</span>
             </div>
-            <DataRow label="Source" value={d.source_tag || "—"} />
+            <DataRow label="Source" value={sourceVal || "—"} />
             <DataRow label="Marketer" value={d.onlytraffic_marketer || "—"} />
             <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
             <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
