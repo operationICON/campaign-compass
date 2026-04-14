@@ -1410,47 +1410,16 @@ export default function CampaignsPage() {
                                         </div>
                                       </div>
                                       {/* Source */}
-                                      <div>
+                                      <div onClick={(e) => e.stopPropagation()}>
                                         <p className="text-muted-foreground" style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px", fontWeight: 600 }}>Source</p>
-                                        <div onClick={(e) => e.stopPropagation()}>
-                                          <div className="flex items-center gap-2 mb-2">
-                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentSource?.color || "hsl(var(--muted-foreground))" }} />
-                                            <span className="text-foreground font-semibold" style={{ fontSize: "12px" }}>{currentSource?.name || el.source_tag || "Untagged"}</span>
-                                          </div>
-                                          <TrafficSourceDropdown
-                                            value={el.source_tag}
-                                            trafficSourceId={el.traffic_source_id}
-                                            onSave={async (tag, tsId) => {
-                                              try {
-                                                await supabase.from("tracking_links").update({
-                                                  source_tag: tag, traffic_source_id: tsId, manually_tagged: true,
-                                                } as any).eq("id", el.id);
-                                                queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                                                toast.success("Source saved ✓", { duration: 1500 });
-                                              } catch { toast.error("Save failed"); }
-                                            }}
-                                          />
-                                          <div className="flex gap-1.5 mt-2">
-                                            <button onClick={(e) => { e.stopPropagation(); const inp = (e.currentTarget.parentElement?.parentElement?.querySelector('input[type="text"]') as HTMLInputElement); if (inp) { inp.focus(); inp.click(); } }}
-                                              className="px-2.5 py-1.5 text-[11px] font-medium border border-border text-foreground bg-card rounded-md">✏ Edit</button>
-                                            {el.source_tag && (
-                                              <button onClick={async (e) => {
-                                                e.stopPropagation();
-                                                try {
-                                                  await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null, manually_tagged: false } as any).eq("id", el.id);
-                                                  queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                                                  toast.success("Source removed");
-                                                } catch { toast.error("Failed"); }
-                                              }}
-                                                className="px-2.5 py-1.5 text-[11px] font-medium border border-destructive/30 text-destructive rounded-md">🗑 Delete</button>
-                                            )}
-                                            <button onClick={async (e) => {
-                                              e.stopPropagation();
-                                              toast.info("Use the dropdown to select a source — it saves automatically", { duration: 2000 });
-                                            }}
-                                              className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground">Save</button>
-                                          </div>
-                                        </div>
+                                        <SourceSelector
+                                          currentSourceTag={el.source_tag}
+                                          currentTrafficSourceId={el.traffic_source_id}
+                                          trackingLinkId={el.id}
+                                          onSaved={() => {
+                                            queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                                          }}
+                                        />
                                       </div>
                                       {/* Notes */}
                                       <div>
