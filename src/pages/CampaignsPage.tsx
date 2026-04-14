@@ -62,6 +62,7 @@ const ALL_COLUMNS = [
   { id: "status", label: "Status", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
   { id: "created", label: "Created", defaultOn: false },
+  { id: "last_synced", label: "Last Synced", defaultOn: true },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
