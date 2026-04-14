@@ -69,9 +69,9 @@ export function TrafficSourceDropdown({ value, trafficSourceId, onSave, classNam
         .from("traffic_sources")
         .insert({
           name: newName.trim(),
-          category: newCategory,
+          category: "Manual",
           keywords,
-          color: newCategory === "OnlyTraffic" ? "#7c3aed" : "#0891b2",
+          color: "#0891b2",
         })
         .select()
         .single();
@@ -146,21 +146,6 @@ export function TrafficSourceDropdown({ value, trafficSourceId, onSave, classNam
             className="w-full px-2.5 py-1.5 bg-secondary border border-border rounded-md text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
             autoFocus
           />
-          <div className="flex gap-1">
-            {(["Direct", "OnlyTraffic"] as const).map(cat => (
-              <button
-                key={cat}
-                onClick={() => setNewCategory(cat)}
-                className={`flex-1 px-2 py-1 rounded text-[10px] font-bold transition-colors ${
-                  newCategory === cat
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
           <input
             type="text"
             value={newKeywords}
