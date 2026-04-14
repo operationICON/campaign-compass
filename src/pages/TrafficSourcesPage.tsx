@@ -567,7 +567,7 @@ export default function TrafficSourcesPage() {
     try {
       const oldName = (selectedSource as any)?.name;
       const { error } = await supabase.from("traffic_sources").update({
-        name: formName.trim(), category: formCategory,
+        name: formName.trim(), category: "Manual",
       } as any).eq("id", editSourceId);
       if (error) throw error;
       if (oldName && oldName !== formName.trim()) {
@@ -600,7 +600,7 @@ export default function TrafficSourcesPage() {
     setSaving(true);
     try {
       const { error } = await supabase.from("traffic_sources").insert({
-        name: newName.trim(), category: newCategory, color: nextColor,
+        name: newName.trim(), category: "Manual", color: nextColor,
       });
       if (error) throw error;
       toast.success("Source created");
