@@ -378,6 +378,19 @@ function DrawerBodyInner({
             <DataRow label="Traffic Category" value={d.traffic_category || "—"} />
             <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
             <DataRow label="Days Running" value={daysRunning != null ? String(daysRunning) : "—"} />
+            <DataRow label="Last Synced" value={d.updated_at ? (() => {
+              const updated = new Date(d.updated_at);
+              const diffHours = Math.floor((Date.now() - updated.getTime()) / 3600000);
+              const diffDays = Math.floor(diffHours / 24);
+              const relative = diffHours < 1 ? "Just now"
+                : diffHours < 24 ? `${diffHours}h ago`
+                : `${diffDays}d ago`;
+              const exact = updated.toLocaleString("en-US", {
+                month: "short", day: "numeric", year: "numeric",
+                hour: "2-digit", minute: "2-digit"
+              });
+              return `${relative} (${exact})`;
+            })() : "—"} />
             <DataRow label="Status" value={
               d.status
                 ? <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span>
