@@ -5,7 +5,7 @@ import {
   ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
   Pencil,
 } from "lucide-react";
-import { SourceTagDropdown } from "@/components/SourceTagDropdown";
+
 import { format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import {
@@ -70,6 +70,35 @@ function DrawerBodyInner({
 
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
+  const [sourceVal, setSourceVal] = useState(d.source_tag || "");
+
+  const { data: sourceTags = [] } = useQuery({
+    queryKey: ["traffic_sources"],
+    queryFn: async () => {
+      const { data } = await supabase.from("traffic_sources")
+        .select("id, name, color").order("name");
+      return data || [];
+    },
+  });
+
+  const saveSource = async () => {
+    setActionSaving(true);
+    try {
+      const selected = sourceTags.find((t: any) => t.name === sourceVal);
+      const { error } = await supabase.from("tracking_links").update({
+        source_tag: sourceVal || null,
+        traffic_source_id: selected?.id || null,
+        manually_tagged: true,
+        traffic_category: "Manual"
+      }).eq("id", d.id);
+      if (error) throw error;
+      d.source_tag = sourceVal;
+      toast.success("Source saved");
+      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      setActiveAction(null);
+    } catch { toast.error("Failed to save source"); }
+    setActionSaving(false);
+  };
 
   // ─── FIX 1: FINANCIALS — always from tracking_links ───
   const cost = Number(d.cost_total ?? 0);
@@ -285,47 +314,19 @@ function DrawerBodyInner({
               {/* RIGHT — SOURCE */}
               <div className="p-3 space-y-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
-                <p className="text-xs font-semibold text-foreground">{d.source_tag || <span className="italic text-muted-foreground">Untagged</span>}</p>
-                <SourceTagDropdown
-                  value={d.source_tag || ""}
-                  onChange={() => {}}
-                  onSave={async (tag) => {
-                    try {
-                      const { data: ts } = await supabase
-                        .from("traffic_sources")
-                        .select("id")
-                        .eq("name", tag)
-                        .single();
-                      await supabase.from("tracking_links").update({
-                        source_tag: tag,
-                        traffic_source_id: ts?.id || null,
-                        manually_tagged: true,
-                        traffic_category: "Manual",
-                      }).eq("id", d.id);
-                      d.source_tag = tag;
-                      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                      toast.success("Source saved");
-                    } catch {
-                      toast.error("Failed to save source");
-                    }
-                  }}
-                  trackingLinkId={d.id}
-                />
-                <button
-                  onClick={async () => {
-                    await supabase.from("tracking_links").update({
-                      source_tag: null,
-                      traffic_source_id: null,
-                      manually_tagged: false,
-                    }).eq("id", d.id);
-                    d.source_tag = null;
-                    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-                    toast.success("Source cleared");
-                  }}
-                  className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                <select
+                  value={sourceVal}
+                  onChange={e => setSourceVal(e.target.value)}
+                  className="w-full h-8 rounded-md border border-border bg-card px-2 text-sm text-foreground"
                 >
-                  Clear selection
-                </button>
+                  <option value="">— Untagged —</option>
+                  {sourceTags.map((t: any) => (
+                    <option key={t.id} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+                <Button size="sm" className="w-full h-8 text-xs" onClick={saveSource} disabled={actionSaving}>
+                  {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                </Button>
               </div>
             </div>
           </div>
