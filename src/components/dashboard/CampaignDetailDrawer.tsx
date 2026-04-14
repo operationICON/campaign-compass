@@ -341,12 +341,17 @@ function DrawerBodyInner({
                     className="flex-1 h-8 text-[11px]"
                     disabled={!sourceVal.trim() || actionSaving}
                     onClick={async () => {
+                      if (!sourceVal.trim()) return;
                       setActionSaving(true);
                       try {
-                        await supabase.from("traffic_sources").upsert({ name: sourceVal.trim() }, { onConflict: "name" });
-                        queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                        const { error } = await supabase.from("traffic_sources").upsert(
+                          { name: sourceVal.trim() },
+                          { onConflict: "name" }
+                        );
+                        if (error) throw error;
+                        await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
                         toast.success("Source created");
-                      } catch { toast.error("Failed to create"); }
+                      } catch (err) { console.error(err); toast.error("Failed to create"); }
                       setActionSaving(false);
                     }}
                   >
