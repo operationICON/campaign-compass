@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
@@ -11,7 +12,13 @@ import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLink
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 
-import { format, differenceInDays, subDays } from "date-fns";
+import { format, differenceInDays, subDays, isValid } from "date-fns";
+
+function safeFormat(dateStr: string | null | undefined, fmt: string, fallback = "—"): string {
+  if (!dateStr) return fallback;
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : fallback;
+}
 import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X, UserPlus, Loader2 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -455,7 +462,7 @@ export default function AccountsPage() {
                 <div className="w-full border-t border-border mt-5 pt-4 space-y-3 text-left text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Gender</span><span className="text-foreground font-medium">{category}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={`font-medium ${acc.is_active ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>{acc.is_active ? "Active" : "Inactive"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Date added</span><span className="text-foreground">{format(new Date(acc.created_at), "MMM d, yyyy")}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Date added</span><span className="text-foreground">{safeFormat(acc.created_at, "MMM d, yyyy")}</span></div>
                   {acc.subscribe_price != null && acc.subscribe_price > 0 && (
                     <div className="flex justify-between"><span className="text-muted-foreground">Sub price</span><span className="text-foreground">${Number(acc.subscribe_price).toFixed(2)}</span></div>
                   )}
@@ -587,7 +594,7 @@ export default function AccountsPage() {
                                   <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${status.cls}`}>{status.label}</span>
                                 </td>
                                 <td className="text-right py-3 px-3 text-[11px] text-muted-foreground">
-                                  {l.created_at ? format(new Date(l.created_at), "MMM d, yyyy") : "—"}
+                                  {safeFormat(l.created_at, "MMM d, yyyy")}
                                 </td>
                               </tr>
                             );
@@ -643,9 +650,9 @@ export default function AccountsPage() {
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={perfData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => format(new Date(d), "MMM d")} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => safeFormat(d, "MMM d")} />
                                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${v}`} />
-                                <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} labelFormatter={(l) => format(new Date(l), "MMM d, yyyy")} />
+                                <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} labelFormatter={(l) => safeFormat(String(l), "MMM d, yyyy")} />
                                 <Line type="monotone" dataKey="ltv" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                               </LineChart>
                             </ResponsiveContainer>
@@ -657,9 +664,9 @@ export default function AccountsPage() {
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={perfData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => format(new Date(d), "MMM d")} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => safeFormat(d, "MMM d")} />
                                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
-                                <Tooltip formatter={(v: number) => [v, "Subs"]} labelFormatter={(l) => format(new Date(l), "MMM d, yyyy")} />
+                                <Tooltip formatter={(v: number) => [v, "Subs"]} labelFormatter={(l) => safeFormat(String(l), "MMM d, yyyy")} />
                                 <Bar dataKey="subs" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                               </BarChart>
                             </ResponsiveContainer>
