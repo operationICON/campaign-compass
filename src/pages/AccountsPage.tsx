@@ -862,10 +862,18 @@ export default function AccountsPage() {
                     <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
-                        const ltvTotal = Number(acc.ltv_total || 0) * revMultiplier;
+                        // Use tracked LTV (from tracking_link_ltv) / tracked new subs for accurate LTV/Sub
+                        const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
+                        const trackedLtv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
+                        const trackedNewSubs = accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+                        // Fallback to account-level if no LTV data
+                        if (trackedNewSubs > 0 && trackedLtv > 0) {
+                          return fmtCurrency((trackedLtv / trackedNewSubs) * revMultiplier);
+                        }
+                        // Fallback: ltv_total / subscribers_count
                         const subsCount = Number(acc.subscribers_count || 0);
-                        const val = subsCount > 0 ? ltvTotal / subsCount : null;
-                        return val != null ? fmtCurrency(val) : "—";
+                        const ltvTotal = Number(acc.ltv_total || 0);
+                        return subsCount > 0 && ltvTotal > 0 ? fmtCurrency((ltvTotal / subsCount) * revMultiplier) : "—";
                       })()}
                     </span>
                   </div>
