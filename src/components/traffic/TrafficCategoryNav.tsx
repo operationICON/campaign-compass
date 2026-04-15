@@ -580,21 +580,21 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <Table>
           <TableHeader>
             <TableRow className="border-border">
-              <TableHead className={thClass}>Campaign</TableHead>
-              <TableHead className={thClass}>Model</TableHead>
-              <TableHead className={thClass}>Source</TableHead>
-              <TableHead className={thClass}>Marketer</TableHead>
-              {isOT && <TableHead className={thClass}>Order ID</TableHead>}
-              <TableHead className={`${thClass} text-right`}>Clicks</TableHead>
-              <TableHead className={`${thClass} text-right`}>Subs</TableHead>
-              <TableHead className={`${thClass} text-right`}>Spend</TableHead>
-              <TableHead className={`${thClass} text-right`}>Revenue</TableHead>
-              <TableHead className={`${thClass} text-right`}>Profit</TableHead>
-              <TableHead className={`${thClass} text-right`}>Profit/Sub</TableHead>
-              <TableHead className={`${thClass} text-right`}>LTV/Sub</TableHead>
-              <TableHead className={`${thClass} text-right`}>ROI</TableHead>
-              <TableHead className={thClass}>Created</TableHead>
-              <TableHead className={`${thClass} text-center`}>Status</TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("campaign")}>Campaign <SortIcon active={colSortKey === "campaign"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("model")}>Model <SortIcon active={colSortKey === "model"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("source")}>Source <SortIcon active={colSortKey === "source"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("marketer")}>Marketer <SortIcon active={colSortKey === "marketer"} asc={colSortAsc} /></TableHead>
+              {isOT && <TableHead className={thClass} onClick={() => handleColSort("orderId")}>Order ID <SortIcon active={colSortKey === "orderId"} asc={colSortAsc} /></TableHead>}
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("clicks")}>Clicks <SortIcon active={colSortKey === "clicks"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("subs")}>Subs <SortIcon active={colSortKey === "subs"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("spend")}>Spend <SortIcon active={colSortKey === "spend"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("revenue")}>Revenue <SortIcon active={colSortKey === "revenue"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("profit")}>Profit <SortIcon active={colSortKey === "profit"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("profitSub")}>Profit/Sub <SortIcon active={colSortKey === "profitSub"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("ltvSub")}>LTV/Sub <SortIcon active={colSortKey === "ltvSub"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("roi")}>ROI <SortIcon active={colSortKey === "roi"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("created")}>Created <SortIcon active={colSortKey === "created"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-center`} onClick={() => handleColSort("status")}>Status <SortIcon active={colSortKey === "status"} asc={colSortAsc} /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
