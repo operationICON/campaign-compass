@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle, Search, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle, Search, X, ChevronUp, ChevronDown } from "lucide-react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays, format } from "date-fns";
@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calcStatus, STATUS_STYLES, STATUS_LABELS } from "@/lib/calc-helpers";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
+import { ModelAvatar } from "@/components/ModelAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -27,6 +29,7 @@ interface Props {
 }
 
 type Category = "OnlyTraffic" | "Manual";
+type TableSortPreset = "highest_revenue" | "highest_profit" | "most_spend" | "highest_roi" | "most_campaigns";
 
 function isOnlyTraffic(link: any): boolean {
   return link.traffic_category === "OnlyTraffic";
@@ -68,52 +71,49 @@ function calcCategoryMetrics(catLinks: any[]) {
   return { spend, revenue, profit, roi, avgCpl, profitPerSub, ltvPerSub, subsDay, campaigns, activeSources, subs };
 }
 
-function calcSourceMetrics(sourceLinks: any[]) {
-  const spend = sourceLinks
-    .filter(l => Number(l.cost_total || 0) > 0)
-    .reduce((s, l) => s + Number(l.cost_total || 0), 0);
-  const revenue = sourceLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
-  const profit = revenue - spend;
-  const subs = sourceLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-  const roi = spend > 0 ? (profit / spend) * 100 : null;
-
-  // Subs/Day: subs / avg age in days
-  const ages = sourceLinks.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
-  const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
-  const subsDay = avgAge > 0 ? subs / avgAge : 0;
-
-  // Avg CPL (CPL only)
-  const cplLinks = sourceLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
-  const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
-  const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-  const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
-
-  const profitPerSub = subs > 0 ? profit / subs : null;
-  const ltvPerSub = subs > 0 ? revenue / subs : null;
-
-  const cpcLinks = sourceLinks.filter(l => l.payment_type === "CPC" && Number(l.cost_total || 0) > 0);
-  const cpcSpend = cpcLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
-
-  return { spend, revenue, profit, subs, roi, subsDay, avgCpl, profitPerSub, ltvPerSub, campaigns: sourceLinks.length, cplSpend, cpcSpend };
-}
-
-function getRoiBadge(roi: number | null): { label: string; bg: string; text: string } {
-  if (roi === null) return { label: "NO SPEND", bg: "hsl(220 9% 46% / 0.15)", text: "hsl(220 9% 46%)" };
+function getStatusBadge(link: any): { label: string; bg: string; text: string } {
+  const spend = Number(link.cost_total || 0);
+  if (spend <= 0) return { label: "NO SPEND", bg: "hsl(220 9% 46% / 0.15)", text: "hsl(220 9% 46%)" };
+  const revenue = Number(link.revenue || 0);
+  const roi = (revenue - spend) / spend * 100;
   if (roi > 150) return { label: "SCALE", bg: "hsl(142 71% 45% / 0.15)", text: "hsl(142 71% 45%)" };
   if (roi >= 50) return { label: "WATCH", bg: "hsl(199 89% 48% / 0.15)", text: "hsl(199 89% 48%)" };
   if (roi >= 0) return { label: "LOW", bg: "hsl(38 92% 50% / 0.15)", text: "hsl(38 92% 50%)" };
   return { label: "KILL", bg: "hsl(0 84% 60% / 0.15)", text: "hsl(0 84% 60%)" };
 }
 
+function getAgePill(days: number): { label: string; bg: string; text: string } {
+  if (days <= 30) return { label: `${days}d`, bg: "hsl(142 71% 45% / 0.15)", text: "hsl(142 71% 45%)" };
+  if (days <= 90) return { label: `${days}d`, bg: "hsl(199 89% 48% / 0.15)", text: "hsl(199 89% 48%)" };
+  if (days <= 180) return { label: `${days}d`, bg: "hsl(38 92% 50% / 0.15)", text: "hsl(38 92% 50%)" };
+  return { label: `${days}d`, bg: "hsl(220 9% 46% / 0.15)", text: "hsl(220 9% 46%)" };
+}
+
+const PAGE_SIZE = 25;
+
 export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders, onLevelChange }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const [activeSource, setActiveSource] = useState<string | null>(null);
+  const [activeUnmatched, setActiveUnmatched] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
+  const [sourceFilterL2, setSourceFilterL2] = useState<string>("__all__");
+  const [accountFilterL2, setAccountFilterL2] = useState<string>("__all__");
+  const [tableSortPreset, setTableSortPreset] = useState<TableSortPreset>("highest_revenue");
+  const [page, setPage] = useState(0);
+  const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const colorMap = useTagColors();
 
-  // Fetch distinct marketer+source+offer_id combos from onlytraffic_orders
-  const { data: orderMarketerCombos = [], data: rawOrderData } = useQuery({
+  // Fetch accounts for dropdown
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("accounts").select("id, username, display_name, avatar_thumb_url").order("display_name");
+      return data || [];
+    },
+  });
+
+  // Fetch distinct marketer combos
+  const { data: orderMarketerCombos = [] } = useQuery({
     queryKey: ["onlytraffic_orders_marketer_combos"],
     queryFn: async () => {
       const { data } = await supabase
@@ -121,7 +121,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         .select("marketer, source, tracking_link_id, offer_id")
         .not("marketer", "is", null);
       if (!data) return [];
-      // Build distinct marketer names with their tracking_link_ids
       const comboMap: Record<string, Set<string>> = {};
       data.forEach((o: any) => {
         const key = o.marketer;
@@ -134,169 +133,207 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     },
   });
 
-  // FIX 5: Build marketer+offer_id lookup per source name
-  const { data: sourceMarketerData = [] } = useQuery({
-    queryKey: ["onlytraffic_orders_source_marketers"],
+  // Fetch marketer+offer_id per tracking_link_id
+  const { data: linkMarketerMap = {} } = useQuery({
+    queryKey: ["onlytraffic_orders_link_marketer_map"],
     queryFn: async () => {
       const { data } = await supabase
         .from("onlytraffic_orders")
-        .select("marketer, source, offer_id")
+        .select("tracking_link_id, marketer, offer_id")
         .not("marketer", "is", null);
-      return data || [];
+      if (!data) return {};
+      const marketerOffers: Record<string, Set<number>> = {};
+      data.forEach((o: any) => {
+        if (!o.marketer) return;
+        if (!marketerOffers[o.marketer]) marketerOffers[o.marketer] = new Set();
+        if (o.offer_id != null) marketerOffers[o.marketer].add(o.offer_id);
+      });
+      const multiOffer = new Set<string>();
+      Object.entries(marketerOffers).forEach(([m, offers]) => {
+        if (offers.size > 1) multiOffer.add(m);
+      });
+      const map: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean }> = {};
+      data.forEach((o: any) => {
+        if (!o.tracking_link_id || map[o.tracking_link_id]) return;
+        map[o.tracking_link_id] = {
+          marketer: o.marketer,
+          offer_id: o.offer_id,
+          showOfferId: multiOffer.has(o.marketer) && o.offer_id != null,
+        };
+      });
+      return map;
     },
   });
 
-  // Map: source name → array of { marketer, offer_id }
-  const sourceMarketerMap = useMemo(() => {
-    const map: Record<string, { marketer: string; offer_id: number | null }[]> = {};
-    const seen: Record<string, Set<string>> = {};
-    sourceMarketerData.forEach((o: any) => {
-      const src = o.source;
-      if (!src) return;
-      if (!map[src]) { map[src] = []; seen[src] = new Set(); }
-      const key = `${o.marketer}_${o.offer_id ?? ''}`;
-      if (!seen[src].has(key)) {
-        seen[src].add(key);
-        map[src].push({ marketer: o.marketer, offer_id: o.offer_id });
-      }
-    });
-    return map;
-  }, [sourceMarketerData]);
-
-  // Notify parent of level changes
   const setCategoryAndNotify = (cat: Category | null) => {
     setActiveCategory(cat);
+    setActiveUnmatched(false);
+    setSearchQuery("");
+    setSelectedMarketer("__all__");
+    setSourceFilterL2("__all__");
+    setAccountFilterL2("__all__");
+    setTableSortPreset("highest_revenue");
+    setPage(0);
     if (!cat) onLevelChange?.(1);
     else onLevelChange?.(2);
-  };
-  const setSourceAndNotify = (src: string | null) => {
-    setActiveSource(src);
-    if (src) onLevelChange?.(3);
-    else if (activeCategory) onLevelChange?.(2);
-    else onLevelChange?.(1);
   };
 
   const otLinks = useMemo(() => allLinks.filter(l => isOnlyTraffic(l) && l.deleted_at == null), [allLinks]);
   const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
-
-  // No Source: null traffic_category, not deleted, has activity
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
     l.traffic_category == null &&
     l.deleted_at == null &&
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
   ), [allLinks]);
   const noSourceCount = noSourceLinks.length;
-
-  // Manual = Manual tagged + No Source links (so user can see/edit them)
   const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
   const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
   const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
 
-  // Apply marketer filter to category links
+  // Category links (all campaigns in the selected category)
   const categoryLinksRaw = activeCategory === "OnlyTraffic" ? otLinks : manualLinks;
-  const categoryLinks = useMemo(() => {
-    if (selectedMarketer === "__all__") return categoryLinksRaw;
-    // Find the selected combo's tracking_link_ids
-    const combo = orderMarketerCombos.find(c => c.label === selectedMarketer);
-    if (!combo) return categoryLinksRaw;
-    const idSet = new Set(combo.trackingLinkIds);
-    return categoryLinksRaw.filter(l => idSet.has(l.id));
-  }, [categoryLinksRaw, selectedMarketer, orderMarketerCombos]);
 
-  const categoryMetrics = useMemo(() => calcCategoryMetrics(categoryLinks), [categoryLinks]);
+  // Apply all filters
+  const filteredLinks = useMemo(() => {
+    let result = categoryLinksRaw;
 
-  // Search results
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim() || !activeCategory) return [];
-    const q = searchQuery.trim().toLowerCase();
-    return categoryLinks.filter(l => {
-      const name = (l.campaign_name || "").toLowerCase();
-      const url = (l.url || "").toLowerCase();
-      if (name.includes(q) || url.includes(q)) return true;
-      if (activeCategory === "OnlyTraffic") {
-        const orderId = (l.onlytraffic_order_id || "").toLowerCase();
-        if (orderId.includes(q)) return true;
+    // Marketer filter
+    if (selectedMarketer !== "__all__") {
+      const combo = orderMarketerCombos.find(c => c.label === selectedMarketer);
+      if (combo) {
+        const idSet = new Set(combo.trackingLinkIds);
+        result = result.filter(l => idSet.has(l.id));
       }
-      return false;
-    });
-  }, [searchQuery, activeCategory, categoryLinks]);
-
-  const isSearching = searchQuery.trim().length > 0;
-
-  const sourceCards = useMemo(() => {
-    if (!activeCategory) return [];
-    const bySource: Record<string, any[]> = {};
-    categoryLinks.forEach(l => {
-      const tag = getEffectiveSource(l) || "Untagged";
-      if (!bySource[tag]) bySource[tag] = [];
-      bySource[tag].push(l);
-    });
-
-    return Object.entries(bySource)
-      .map(([name, sLinks]) => ({
-        name,
-        ...calcSourceMetrics(sLinks),
-      }))
-      .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0));
-  }, [activeCategory, categoryLinks]);
-
-  // Level 3: links for active source
-  const sourceLinks = useMemo(() => {
-    if (!activeSource || !activeCategory) return [];
-    return categoryLinks.filter(l => {
-      const tag = getEffectiveSource(l) || "Untagged";
-      return tag === activeSource;
-    });
-  }, [activeSource, activeCategory, categoryLinks]);
-
-  // Collect all unique source tags for the dropdown
-  const sourceTagOptions = useMemo(() => {
-    const tags = new Set<string>();
-    allLinks.forEach(l => {
-      if (l.source_tag) tags.add(l.source_tag);
-    });
-    return Array.from(tags).sort((a, b) => a.localeCompare(b));
-  }, [allLinks]);
-
-  // ═══ LEVEL 3 ═══
-  if (activeCategory && activeSource) {
-    // Unmatched Orders as a "source"
-    if (activeSource === "__unmatched__") {
-      return (
-        <div className="space-y-4">
-          <button
-            onClick={() => setSourceAndNotify(null)}
-            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            style={{ fontSize: "13px", fontWeight: 500 }}
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to {activeCategory}
-          </button>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
-              <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched Orders</span>
-            </div>
-            <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
-              Orders that could not be matched to any tracking link
-            </span>
-          </div>
-          <UnmatchedOrdersCard />
-        </div>
-      );
     }
 
-    const dotColor = colorMap[activeSource] || "#94a3b8";
+    // Source filter
+    if (sourceFilterL2 !== "__all__") {
+      if (sourceFilterL2 === "__untagged__") {
+        result = result.filter(l => !getEffectiveSource(l));
+      } else {
+        result = result.filter(l => getEffectiveSource(l) === sourceFilterL2);
+      }
+    }
+
+    // Account filter
+    if (accountFilterL2 !== "__all__") {
+      result = result.filter(l => l.account_id === accountFilterL2);
+    }
+
+    // Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(l => {
+        const name = (l.campaign_name || "").toLowerCase();
+        const url = (l.url || "").toLowerCase();
+        const orderId = (l.onlytraffic_order_id || "").toLowerCase();
+        return name.includes(q) || url.includes(q) || orderId.includes(q);
+      });
+    }
+
+    return result;
+  }, [categoryLinksRaw, selectedMarketer, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos]);
+
+  // Sort by preset
+  const sorted = useMemo(() => {
+    return [...filteredLinks].sort((a, b) => {
+      switch (tableSortPreset) {
+        case "highest_revenue":
+          return Number(b.revenue || 0) - Number(a.revenue || 0);
+        case "highest_profit": {
+          const pa = Number(a.revenue || 0) - Number(a.cost_total || 0);
+          const pb = Number(b.revenue || 0) - Number(b.cost_total || 0);
+          return pb - pa;
+        }
+        case "most_spend":
+          return Number(b.cost_total || 0) - Number(a.cost_total || 0);
+        case "highest_roi": {
+          const roiA = Number(a.cost_total || 0) > 0 ? ((Number(a.revenue || 0) - Number(a.cost_total || 0)) / Number(a.cost_total || 0)) * 100 : -Infinity;
+          const roiB = Number(b.cost_total || 0) > 0 ? ((Number(b.revenue || 0) - Number(b.cost_total || 0)) / Number(b.cost_total || 0)) * 100 : -Infinity;
+          return roiB - roiA;
+        }
+        case "most_campaigns":
+          // Group by source, sort sources by campaign count desc — but since we show individual campaigns, sort by source frequency
+          return 0; // Keep original order for this preset (sorted by source count below)
+        default:
+          return 0;
+      }
+    });
+  }, [filteredLinks, tableSortPreset]);
+
+  // For "most_campaigns" preset, sort by source campaign count
+  const finalSorted = useMemo(() => {
+    if (tableSortPreset !== "most_campaigns") return sorted;
+    // Count campaigns per source
+    const sourceCounts: Record<string, number> = {};
+    filteredLinks.forEach(l => {
+      const src = getEffectiveSource(l) || "Untagged";
+      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+    });
+    return [...sorted].sort((a, b) => {
+      const srcA = getEffectiveSource(a) || "Untagged";
+      const srcB = getEffectiveSource(b) || "Untagged";
+      return (sourceCounts[srcB] || 0) - (sourceCounts[srcA] || 0);
+    });
+  }, [sorted, tableSortPreset, filteredLinks]);
+
+  const totalPages = Math.ceil(finalSorted.length / PAGE_SIZE);
+  const pageRows = finalSorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // Build source options for the dropdown
+  const sourceOptions = useMemo(() => {
+    const tags = new Set<string>();
+    categoryLinksRaw.forEach(l => {
+      const es = getEffectiveSource(l);
+      if (es) tags.add(es);
+    });
+    return [...tags].sort();
+  }, [categoryLinksRaw]);
+
+  // KPIs for filtered view
+  const kpis = useMemo(() => {
+    const spend = filteredLinks.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+    const revenue = filteredLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
+    const profit = revenue - spend;
+    const subs = filteredLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+    const roi = spend > 0 ? (profit / spend) * 100 : null;
+    const cplLinks = filteredLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
+    const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
+    const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+    const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
+    const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
+    const ltvPerSub = subs > 0 ? revenue / subs : null;
+    const ages = filteredLinks.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
+    const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
+    const subsDay = avgAge > 0 ? subs / avgAge : 0;
+    return { spend, revenue, profit, avgCpl, profitPerSub, ltvPerSub, subsDay, roi };
+  }, [filteredLinks]);
+
+  const isOT = activeCategory === "OnlyTraffic";
+
+  // ═══ UNMATCHED ORDERS VIEW ═══
+  if (activeUnmatched) {
     return (
-      <TrafficSourceDetail
-        sourceName={activeSource}
-        sourceColor={dotColor}
-        categoryName={activeCategory}
-        links={sourceLinks}
-        onBack={() => setSourceAndNotify(null)}
-        sourceTagOptions={sourceTagOptions}
-        onTagLink={onTagLink || (() => {})}
-      />
+      <div className="space-y-4">
+        <button
+          onClick={() => { setActiveUnmatched(false); setCategoryAndNotify("OnlyTraffic"); }}
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+          style={{ fontSize: "13px", fontWeight: 500 }}
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to OnlyTraffic
+        </button>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
+            <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched Orders</span>
+          </div>
+          <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
+            Orders that could not be matched to any tracking link
+          </span>
+        </div>
+        <UnmatchedOrdersCard />
+      </div>
     );
   }
 
@@ -326,7 +363,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
-            {/* Unmatched Orders summary */}
             {unmatchedOrders && unmatchedOrders.count > 0 && (
               <TooltipProvider>
                 <Tooltip>
@@ -352,7 +388,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{otMetrics.activeSources} active sources</span>
               <span className="text-emerald-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
-                View sources <ChevronRight className="h-3.5 w-3.5" />
+                View campaigns <ChevronRight className="h-3.5 w-3.5" />
               </span>
             </div>
           </button>
@@ -388,7 +424,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{manualMetrics.activeSources} active sources</span>
               <span className="text-blue-500 font-semibold flex items-center gap-0.5 group-hover:gap-1.5 transition-all" style={{ fontSize: "12px" }}>
-                View sources <ChevronRight className="h-3.5 w-3.5" />
+                View campaigns <ChevronRight className="h-3.5 w-3.5" />
               </span>
             </div>
           </button>
@@ -397,22 +433,19 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     );
   }
 
-  // ═══ LEVEL 2 ═══
+  // ═══ CAMPAIGN TABLE VIEW (was Level 2 + 3, now merged) ═══
   const catColor = activeCategory === "OnlyTraffic" ? "text-emerald-500" : "text-blue-500";
   const catBadgeBg = activeCategory === "OnlyTraffic" ? "bg-emerald-500/15 text-emerald-500" : "bg-blue-500/15 text-blue-500";
   const catBadgeLabel = activeCategory === "OnlyTraffic" ? "API" : "Direct";
   const CatIcon = activeCategory === "OnlyTraffic" ? Zap : Globe;
 
-  const isOT = activeCategory === "OnlyTraffic";
-  const searchPlaceholder = isOT
-    ? "Search by campaign name, URL or Order ID..."
-    : "Search by campaign name or URL...";
+  const thClass = "cursor-pointer select-none whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors";
 
   return (
     <div className="space-y-4">
       {/* Back button */}
       <button
-        onClick={() => { setCategoryAndNotify(null); setSearchQuery(""); setSelectedMarketer("__all__"); }}
+        onClick={() => setCategoryAndNotify(null)}
         className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         style={{ fontSize: "13px", fontWeight: 500 }}
       >
@@ -424,40 +457,85 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <CatIcon className={`h-5 w-5 ${catColor}`} />
         <span className="text-foreground font-bold text-lg">{activeCategory}</span>
         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${catBadgeBg}`}>{catBadgeLabel}</span>
+        <span className="text-muted-foreground" style={{ fontSize: "12px", marginLeft: "4px" }}>
+          {filteredLinks.length} campaign{filteredLinks.length !== 1 ? "s" : ""}
+          {filteredLinks.length !== categoryLinksRaw.length ? ` (of ${categoryLinksRaw.length})` : ""}
+        </span>
       </div>
 
       {/* Sub-KPI row */}
       <div className="grid grid-cols-8 gap-2">
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(categoryMetrics.spend)} color="#dc2626" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(categoryMetrics.revenue)} color="#16a34a" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(categoryMetrics.profit)} color={categoryMetrics.profit >= 0 ? "#16a34a" : "#dc2626"} />
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={categoryMetrics.avgCpl !== null ? fmtC(categoryMetrics.avgCpl) : "—"} color="#0891b2" />
-        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={categoryMetrics.profitPerSub !== null ? fmtC(categoryMetrics.profitPerSub) : "—"} color={categoryMetrics.profitPerSub !== null ? (categoryMetrics.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={categoryMetrics.subsDay > 0 ? categoryMetrics.subsDay.toFixed(1) : "0"} color="#d97706" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={categoryMetrics.ltvPerSub !== null ? fmtC(categoryMetrics.ltvPerSub) : "—"} color="#0891b2" />
-        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={categoryMetrics.roi !== null ? fmtPct(categoryMetrics.roi) : "—"} color={categoryMetrics.roi !== null ? (categoryMetrics.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(kpis.spend)} color="#dc2626" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(kpis.revenue)} color="#16a34a" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(kpis.profit)} color={kpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} color="#0891b2" />
+        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} color={kpis.profitPerSub !== null ? (kpis.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={kpis.subsDay > 0 ? kpis.subsDay.toFixed(1) : "0"} color="#d97706" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={kpis.ltvPerSub !== null ? fmtC(kpis.ltvPerSub) : "—"} color="#0891b2" />
+        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
-      {/* Search bar + Marketer filter */}
+      {/* Filter row 1: All Sources, All Accounts, Sort */}
+      <div className="grid grid-cols-3 gap-3">
+        <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All Sources" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Sources</SelectItem>
+            {sourceOptions.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+            <SelectItem value="__untagged__">Untagged</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={accountFilterL2} onValueChange={v => { setAccountFilterL2(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All Accounts" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Accounts</SelectItem>
+            {accounts.map((a: any) => (
+              <SelectItem key={a.id} value={a.id}>@{(a.username || "").replace("@", "")} — {a.display_name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={tableSortPreset} onValueChange={v => { setTableSortPreset(v as TableSortPreset); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Sort by..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="highest_revenue">Highest Revenue</SelectItem>
+            <SelectItem value="highest_profit">Highest Profit</SelectItem>
+            <SelectItem value="most_spend">Most Spend</SelectItem>
+            <SelectItem value="highest_roi">Highest ROI</SelectItem>
+            <SelectItem value="most_campaigns">Most Campaigns</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Filter row 2: Search + Marketer */}
       <div className="grid grid-cols-2 gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder={searchPlaceholder}
+            onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
+            placeholder={isOT ? "Search campaign name, URL or Order ID..." : "Search campaign name or URL..."}
             className="pl-9 pr-8 h-9 text-sm"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery("")}
+              onClick={() => { setSearchQuery(""); setPage(0); }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
-        <Select value={selectedMarketer} onValueChange={setSelectedMarketer}>
+        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="All Marketers" />
           </SelectTrigger>
@@ -470,191 +548,168 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         </Select>
       </div>
 
-      {/* Search results table OR source cards */}
-      {isSearching ? (
-        <div className="space-y-2">
-          <p className="text-muted-foreground" style={{ fontSize: "12px", fontWeight: 600 }}>
-            {searchResults.length} campaign{searchResults.length !== 1 ? "s" : ""} found
-          </p>
-          {searchResults.length > 0 ? (
-            <div className="border border-border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead style={{ fontSize: "11px" }}>Campaign</TableHead>
-                    <TableHead style={{ fontSize: "11px" }}>Model</TableHead>
-                    <TableHead style={{ fontSize: "11px" }}>Source</TableHead>
-                    <TableHead style={{ fontSize: "11px" }}>Marketer</TableHead>
-                    {isOT && <TableHead style={{ fontSize: "11px" }}>Order ID</TableHead>}
-                    <TableHead className="text-right" style={{ fontSize: "11px" }}>Spend</TableHead>
-                    <TableHead className="text-right" style={{ fontSize: "11px" }}>Revenue</TableHead>
-                    <TableHead className="text-right" style={{ fontSize: "11px" }}>Profit</TableHead>
-                    <TableHead className="text-right" style={{ fontSize: "11px" }}>ROI</TableHead>
-                    <TableHead style={{ fontSize: "11px" }}>Status</TableHead>
-                    <TableHead style={{ fontSize: "11px" }}>Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {searchResults.map(link => {
-                    const cost = Number(link.cost_total || 0);
-                    const rev = Number(link.revenue || 0);
-                    const profit = rev - cost;
-                    const roi = cost > 0 ? (profit / cost) * 100 : null;
-                    const status = calcStatus(link);
-                    const sStyle = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
-                    const sLabel = STATUS_LABELS[status] || status;
-                    const source = getEffectiveSource(link) || "Untagged";
-                    return (
-                      <TableRow key={link.id}>
-                        <TableCell className="max-w-[200px] truncate" style={{ fontSize: "12px" }}>
-                          {link.campaign_name || link.url}
-                        </TableCell>
-                        <TableCell style={{ fontSize: "12px" }}>{link.account_id?.slice(0, 8) || "—"}</TableCell>
-                        <TableCell style={{ fontSize: "12px" }}>{source}</TableCell>
-                        <TableCell style={{ fontSize: "12px" }}>
-                          {(() => {
-                            // Find marketer info from sourceMarketerData for this link
-                            const orderInfo = sourceMarketerData.find((o: any) => o.source && link.onlytraffic_marketer === o.marketer);
-                            const m = link.onlytraffic_marketer;
-                            if (!m) return "—";
-                            // Check if this marketer has multiple offer_ids
-                            const offerIds = new Set<number>();
-                            sourceMarketerData.forEach((o: any) => {
-                              if (o.marketer === m && o.offer_id != null) offerIds.add(o.offer_id);
-                            });
-                            if (offerIds.size > 1 && orderInfo?.offer_id != null) {
-                              return <>{m} <span className="text-muted-foreground text-[10px]">#{orderInfo.offer_id}</span></>;
-                            }
-                            return m;
-                          })()}
-                        </TableCell>
-                        {isOT && <TableCell style={{ fontSize: "12px" }}>{link.onlytraffic_order_id || "—"}</TableCell>}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{cost > 0 ? fmtC(cost) : "—"}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(rev)}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: cost > 0 ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>
-                          {cost > 0 ? fmtC(profit) : "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>
-                          {roi !== null ? fmtPct(roi) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: sStyle.bg, color: sStyle.text }}>
-                            {sLabel}
-                          </span>
-                        </TableCell>
-                        <TableCell style={{ fontSize: "12px" }}>
-                          <div className="flex items-center gap-1.5">
-                            {format(new Date(link.created_at), "MMM d, yyyy")}
-                            <CampaignAgePill createdAt={link.created_at} />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
-              No campaigns match your search
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-3">
-          {sourceCards.map(src => {
-            const badge = getRoiBadge(src.roi);
-            const dotColor = colorMap[src.name] || "#94a3b8";
-            return (
-              <button key={src.name} onClick={() => setSourceAndNotify(src.name)} className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors">
-                <div className="mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                    <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{src.name}</span>
-                  </div>
-                  <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{src.campaigns} campaigns</span>
-                  {/* FIX 5: Show marketer+offer_id below source name for OnlyTraffic */}
-                  {isOT && (() => {
-                    const marketers = sourceMarketerMap[src.name] || [];
-                    if (marketers.length === 0) return null;
-                    // Format: "Owen #521 · Matt #766" — max 3 then "+ X more"
-                    const display = marketers.slice(0, 3).map(m => {
-                      if (m.offer_id != null) return `${m.marketer} #${m.offer_id}`;
-                      return m.marketer;
-                    });
-                    const extra = marketers.length > 3 ? ` + ${marketers.length - 3} more` : "";
-                    return (
-                      <p className="text-muted-foreground truncate" style={{ fontSize: "11px", marginTop: "2px" }}>
-                        {display.join(" · ")}{extra}
-                      </p>
-                    );
-                  })()}
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                  <div>
-                    <MetricRow label="Spend" value={fmtC(src.spend)} />
-                    {isOT && (src.cplSpend > 0 || src.cpcSpend > 0) && (
-                      <div className="flex gap-1 mt-0.5 justify-end">
-                        {src.cplSpend > 0 && (
-                          <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(174 60% 51% / 0.2)", color: "hsl(174 60% 41%)" }}>
-                            CPL: {fmtC(src.cplSpend)}
-                          </span>
-                        )}
-                        {src.cpcSpend > 0 && (
-                          <span className="px-1.5 py-0 rounded-full font-semibold" style={{ fontSize: "10px", backgroundColor: "hsl(38 92% 50% / 0.2)", color: "hsl(38 92% 40%)" }}>
-                            CPC: {fmtC(src.cpcSpend)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <MetricRow label="Revenue" value={fmtC(src.revenue)} />
-                  <MetricRow label="Profit" value={fmtC(src.profit)} color={src.spend > 0 ? (src.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
-                  <MetricRow label="Avg CPL" value={src.avgCpl !== null ? fmtC(src.avgCpl) : "—"} />
-                  <MetricRow label="Profit/Sub" value={src.profitPerSub !== null ? fmtC(src.profitPerSub) : "—"} color={src.profitPerSub !== null ? (src.profitPerSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
-                  <MetricRow label="Subs/Day" value={src.subsDay > 0 ? src.subsDay.toFixed(1) : "0"} />
-                  <MetricRow label="LTV/Sub" value={src.ltvPerSub !== null ? fmtC(src.ltvPerSub) : "—"} color="#0891b2" />
-                  <MetricRow label="ROI" value={src.roi !== null ? fmtPct(src.roi) : "—"} color={src.roi !== null ? (src.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
-                </div>
-                <div className="flex items-center justify-end pt-2 border-t border-border">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
-                    {badge.label}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-          {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
-            <button
-              onClick={() => setSourceAndNotify("__unmatched__")}
-              className="bg-card border border-border rounded-xl p-4 space-y-3 text-left hover:border-primary/40 transition-colors"
-              style={{ borderColor: "hsl(38 92% 50% / 0.3)" }}
-            >
-              <div className="mb-2">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" style={{ color: "#d97706" }} />
-                  <span className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Unmatched</span>
-                </div>
-                <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{fmtN(unmatchedOrders.count)} orders</span>
-              </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                <MetricRow label="Total Spend" value={fmtC(unmatchedOrders.spend)} />
-                <MetricRow label="Orders" value={fmtN(unmatchedOrders.count)} />
-              </div>
-              <div className="flex items-center justify-end pt-2 border-t border-border">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: "hsl(38 92% 50% / 0.15)", color: "#d97706" }}>
-                  UNMATCHED
-                </span>
-              </div>
-            </button>
-          )}
-          {sourceCards.length === 0 && (!unmatchedOrders || unmatchedOrders.count === 0) && (
-            <div className="col-span-3 text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
-              No sources found in this category
-            </div>
-          )}
-        </div>
+      {/* Unmatched Orders link (OnlyTraffic only) */}
+      {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
+        <button
+          onClick={() => { setActiveUnmatched(true); }}
+          className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg hover:border-primary/40 transition-colors w-fit"
+        >
+          <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
+          <span className="font-semibold" style={{ fontSize: "12px", color: "#d97706" }}>
+            {fmtN(unmatchedOrders.count)} Unmatched Orders · {fmtC(unmatchedOrders.spend)}
+          </span>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
       )}
+
+      {/* Campaign table */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border">
+              <TableHead className={thClass}>Campaign</TableHead>
+              <TableHead className={thClass}>Model</TableHead>
+              <TableHead className={thClass}>Source</TableHead>
+              <TableHead className={thClass}>Marketer</TableHead>
+              {isOT && <TableHead className={thClass}>Order ID</TableHead>}
+              <TableHead className={`${thClass} text-right`}>Clicks</TableHead>
+              <TableHead className={`${thClass} text-right`}>Subs</TableHead>
+              <TableHead className={`${thClass} text-right`}>Spend</TableHead>
+              <TableHead className={`${thClass} text-right`}>Revenue</TableHead>
+              <TableHead className={`${thClass} text-right`}>Profit</TableHead>
+              <TableHead className={`${thClass} text-right`}>Profit/Sub</TableHead>
+              <TableHead className={`${thClass} text-right`}>LTV/Sub</TableHead>
+              <TableHead className={`${thClass} text-right`}>ROI</TableHead>
+              <TableHead className={thClass}>Created</TableHead>
+              <TableHead className={`${thClass} text-center`}>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pageRows.map(link => {
+              const spend = Number(link.cost_total || 0);
+              const rev = Number(link.revenue || 0);
+              const profit = spend > 0 ? rev - spend : null;
+              const roi = spend > 0 ? ((rev - spend) / spend) * 100 : null;
+              const subs = link.subscribers || 0;
+              const profitSub = spend > 0 && subs > 0 ? (rev - spend) / subs : null;
+              const ltvSub = subs > 0 ? rev / subs : null;
+              const badge = getStatusBadge(link);
+              const username = link.accounts?.username || null;
+              const displayName = link.accounts?.display_name || username || "Unknown";
+              const avatarUrl = link.accounts?.avatar_thumb_url || null;
+              const profitColor = profit !== null ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
+              const roiColor = roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
+              const source = getEffectiveSource(link) || "Untagged";
+
+              return (
+                <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setDrawerCampaign(link)}>
+                  <TableCell className="max-w-[220px]">
+                    <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
+                    <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{link.url}</p>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <ModelAvatar avatarUrl={avatarUrl} name={displayName} size={20} />
+                      <span className="text-foreground" style={{ fontSize: "12px" }}>@{username || "unknown"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-foreground" style={{ fontSize: "12px" }}>{source}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-foreground" style={{ fontSize: "12px" }}>
+                      {(() => {
+                        const info = (linkMarketerMap as any)[link.id];
+                        if (info) {
+                          return info.showOfferId
+                            ? <>{info.marketer} <span className="text-muted-foreground text-[10px]">#{info.offer_id}</span></>
+                            : info.marketer;
+                        }
+                        return link.onlytraffic_marketer || "—";
+                      })()}
+                    </span>
+                  </TableCell>
+                  {isOT && (
+                    <TableCell>
+                      <span className="text-foreground font-mono" style={{ fontSize: "11px" }}>{link.onlytraffic_order_id || "—"}</span>
+                    </TableCell>
+                  )}
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>
+                    {fmtC(spend)}
+                    {link.payment_type === "CPL" && (
+                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#0891b2", width: "fit-content", marginLeft: "auto" }}>CPL</span>
+                    )}
+                    {link.payment_type === "CPC" && (
+                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#d97706", width: "fit-content", marginLeft: "auto" }}>CPC</span>
+                    )}
+                    {link.payment_type === "Fixed" && (
+                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#64748b", width: "fit-content", marginLeft: "auto" }}>Fixed</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profit !== null ? fmtC(profit) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "#0891b2" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const ageDays = Math.max(0, differenceInDays(new Date(), new Date(link.created_at)));
+                      const pill = getAgePill(ageDays);
+                      return (
+                        <div>
+                          <p className="text-foreground" style={{ fontSize: "11px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
+                          <span className="inline-block mt-0.5 rounded-full font-bold" style={{ fontSize: "9px", padding: "1px 6px", backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
+                      {badge.label}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {pageRows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={isOT ? 15 : 14} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
+                  No campaigns found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, finalSorted.length)} of {finalSorted.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={page === 0}
+                onClick={() => setPage(p => p - 1)}
+                className="px-2 py-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <span className="text-foreground font-mono" style={{ fontSize: "12px" }}>{page + 1} / {totalPages}</span>
+              <button
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage(p => p + 1)}
+                className="px-2 py-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4 rotate-180" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
     </div>
   );
 }
