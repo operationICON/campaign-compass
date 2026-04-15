@@ -302,8 +302,17 @@ function DrawerBodyInner({
                       cpc_real: null,
                       status: 'NO_SPEND',
                     }).eq("id", d.id);
+                    d.cost_type = null;
+                    d.cost_value = null;
+                    d.cost_total = 0;
+                    d.profit = null;
+                    d.roi = null;
+                    d.status = 'NO_SPEND';
+                    setCostType("CPL");
+                    setCostValue("");
                     toast.success("Spend cleared");
                     refreshAll();
+                    setActiveAction(null);
                   } catch { toast.error("Failed to clear"); }
                   setActionSaving(false);
                 }} disabled={actionSaving}>Clear</Button>
@@ -382,9 +391,20 @@ function DrawerBodyInner({
                     if (!src) { toast.error("Source not found in list"); return; }
                     setActionSaving(true);
                     try {
+                      // Clear source from any tracking links referencing this source
+                      await supabase.from("tracking_links").update({
+                        source_tag: null,
+                        traffic_source_id: null,
+                        manually_tagged: false,
+                      }).eq("traffic_source_id", src.id);
                       const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
                       if (error) throw error;
+                      if (d.traffic_source_id === src.id || d.source_tag === src.name) {
+                        d.source_tag = null;
+                        d.traffic_source_id = null;
+                      }
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                       setSourceVal("");
                       toast.success(`Deleted "${src.name}"`);
                     } catch { toast.error("Failed to delete"); }
