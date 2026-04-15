@@ -774,6 +774,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </div>
         )}
       </div>
+      </>
+      )}
       <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
     </div>
   );
