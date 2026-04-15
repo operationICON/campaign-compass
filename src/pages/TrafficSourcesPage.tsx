@@ -809,7 +809,8 @@ export default function TrafficSourcesPage() {
           accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
         />
 
-        {/* TOP SECTION — KPIs left + Source Card right */}
+        {/* TOP SECTION — KPIs left + Source Card right (Level 1 only) */}
+        {navLevel === 1 && (
         <div className="flex gap-4 items-start mb-4">
           {/* Left — KPI Cards */}
           <div style={{ flex: showSidePanel ? "0 0 60%" : "1 1 100%" }}>
@@ -963,6 +964,7 @@ export default function TrafficSourcesPage() {
           </div>
           )}
         </div>
+        )}
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
         <TrafficCategoryNav
@@ -970,7 +972,7 @@ export default function TrafficSourcesPage() {
           allLinks={dateAccountFiltered}
           onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })}
           unmatchedOrders={unmatchedOrdersData}
-          onLevelChange={() => {}}
+          onLevelChange={(level) => setNavLevel(level)}
         />
       </div>
     </DashboardLayout>
