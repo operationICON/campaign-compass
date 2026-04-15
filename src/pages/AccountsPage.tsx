@@ -295,7 +295,6 @@ export default function AccountsPage() {
     }
     return stats;
   }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime]);
-  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime]);
 
   // FIX 8 — Account filter
   const afterAccountFilter = useMemo(() => {
