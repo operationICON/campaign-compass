@@ -138,7 +138,7 @@ export default function CampaignsPage() {
   const [groupFilter, setGroupFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
   
-  const [sortKey, setSortKey] = useState<SortKey>("ltv");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
