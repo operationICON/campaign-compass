@@ -100,6 +100,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
   const [sourceFilterL2, setSourceFilterL2] = useState<string>("__all__");
   const [accountFilterL2, setAccountFilterL2] = useState<string>("__all__");
+  const [offerIdFilter, setOfferIdFilter] = useState<string>("__all__");
   const [tableSortPreset, setTableSortPreset] = useState<TableSortPreset>("highest_revenue");
   const [colSortKey, setColSortKey] = useState<ColSortKey>("revenue");
   const [colSortAsc, setColSortAsc] = useState(false);
@@ -176,6 +177,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     setSelectedMarketer("__all__");
     setSourceFilterL2("__all__");
     setAccountFilterL2("__all__");
+    setOfferIdFilter("__all__");
     setTableSortPreset("highest_revenue");
     setPage(0);
     if (!cat) onLevelChange?.(1);
@@ -211,6 +213,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       }
     }
 
+    // Offer ID filter
+    if (offerIdFilter !== "__all__") {
+      result = result.filter(l => {
+        const linkInfo = linkMarketerMap[l.id];
+        if (!linkInfo) return false;
+        return offerIdFilter === "__with_offer__" 
+          ? linkInfo.offer_id != null 
+          : String(linkInfo.offer_id) === offerIdFilter;
+      });
+    }
+
     // Source filter
     if (sourceFilterL2 !== "__all__") {
       if (sourceFilterL2 === "__untagged__") {
@@ -237,7 +250,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     }
 
     return result;
-  }, [categoryLinksRaw, selectedMarketer, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos]);
+  }, [categoryLinksRaw, selectedMarketer, offerIdFilter, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos, linkMarketerMap]);
 
   // Column sort handler
   const handleColSort = (key: ColSortKey) => {
@@ -304,6 +317,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     });
     return [...tags].sort();
   }, [categoryLinksRaw]);
+
+  // Build offer ID options from linkMarketerMap
+  const offerIdOptions = useMemo(() => {
+    const offers = new Set<number>();
+    Object.values(linkMarketerMap).forEach(info => {
+      if (info.offer_id != null) offers.add(info.offer_id);
+    });
+    return [...offers].sort((a, b) => a - b);
+  }, [linkMarketerMap]);
 
   // KPIs for filtered view
   const kpis = useMemo(() => {
@@ -490,7 +512,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       </div>
 
       {/* Filters — single row, equal columns */}
-      <div className="grid grid-cols-5 gap-3 items-center">
+      <div className="grid grid-cols-6 gap-3 items-center">
         <AccountFilterDropdown
           value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
           onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
@@ -518,6 +540,21 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <SelectItem value="__all__">All Marketers</SelectItem>
             {orderMarketerCombos.map(c => (
               <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={offerIdFilter} onValueChange={v => { setOfferIdFilter(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All Offer IDs" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Offer IDs</SelectItem>
+            {offerIdOptions.length > 0 && (
+              <SelectItem value="__with_offer__">Has Offer ID</SelectItem>
+            )}
+            {offerIdOptions.map(id => (
+              <SelectItem key={id} value={String(id)}>Offer {id}</SelectItem>
             ))}
           </SelectContent>
         </Select>
