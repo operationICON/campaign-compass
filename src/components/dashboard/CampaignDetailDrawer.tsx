@@ -116,6 +116,7 @@ function DrawerBodyInner({
 
   // ─── FIX 1: FINANCIALS — always from tracking_links ───
   const cost = Number(d.cost_total ?? 0);
+  const hasSpendConfig = !!d.cost_type;
   const costInputValue = Number(d.cost_value ?? 0);
   const totalClicks = Number(d.clicks ?? 0);
   const tlSubscribers = Number(d.subscribers ?? 0);
