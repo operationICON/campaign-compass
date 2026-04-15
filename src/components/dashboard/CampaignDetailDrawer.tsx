@@ -63,11 +63,12 @@ export function CampaignDetailDrawer({ campaign, onClose }: CampaignDetailDrawer
 }
 
 function DrawerBodyInner({
-  campaign: d, activeAction, setActiveAction, actionSaving, setActionSaving, onClose,
+  campaign: initialCampaign, activeAction, setActiveAction, actionSaving, setActionSaving, onClose,
 }: any) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  const [d, setD] = useState(initialCampaign);
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
