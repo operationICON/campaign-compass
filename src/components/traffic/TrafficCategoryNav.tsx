@@ -517,57 +517,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
       {/* Filters — single row, equal columns */}
       <div className="grid grid-cols-5 gap-3 items-center">
-        <AccountFilterDropdown
-          value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
-          onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
-          accounts={accounts}
-        />
-
-        <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="All Sources" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All Sources</SelectItem>
-            {sourceOptions.map(s => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-            <SelectItem value="__untagged__">Untagged</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="All Marketers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All Marketers</SelectItem>
-            {orderMarketerCombos.map(c => (
-              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="Sort by..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="highest_revenue">Highest Revenue</SelectItem>
-            <SelectItem value="highest_profit">Highest Profit</SelectItem>
-            <SelectItem value="most_spend">Most Spend</SelectItem>
-            <SelectItem value="highest_roi">Highest ROI</SelectItem>
-            <SelectItem value="most_campaigns">Most Campaigns</SelectItem>
-          </SelectContent>
-        </Select>
-
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
             placeholder={isOT ? "Search campaign, URL or Order ID..." : "Search campaign or URL..."}
-            className="pl-9 pr-8 h-9 text-sm"
+            className="pl-9 pr-8 h-9 text-sm bg-card border-border rounded-lg"
           />
           {searchQuery && (
             <button
@@ -578,6 +534,51 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </button>
           )}
         </div>
+
+        <AccountFilterDropdown
+          value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
+          onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
+          accounts={accounts}
+        />
+
+        <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm bg-card border-border rounded-lg">
+            <SelectValue placeholder="All Sources" />
+          </SelectTrigger>
+          <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+            <SelectItem value="__all__">All Sources</SelectItem>
+            {sourceOptions.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+            <SelectItem value="__untagged__">Untagged</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm bg-card border-border rounded-lg">
+            <SelectValue placeholder="All Marketers" />
+          </SelectTrigger>
+          <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+            <SelectItem value="__all__">All Marketers</SelectItem>
+            {orderMarketerCombos.map(c => (
+              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
+          <SelectTrigger className="h-9 text-sm bg-card border-border rounded-lg">
+            <SelectValue placeholder="Sort by..." />
+          </SelectTrigger>
+          <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+            <SelectItem value="highest_revenue">Highest Revenue</SelectItem>
+            <SelectItem value="highest_profit">Highest Profit</SelectItem>
+            <SelectItem value="most_spend">Most Spend</SelectItem>
+            <SelectItem value="highest_roi">Highest ROI</SelectItem>
+            <SelectItem value="most_campaigns">Most Campaigns</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       </div>
 
       {/* Unmatched Orders link (OnlyTraffic only) */}
