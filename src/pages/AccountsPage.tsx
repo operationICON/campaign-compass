@@ -594,7 +594,7 @@ export default function AccountsPage() {
                                   <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${status.cls}`}>{status.label}</span>
                                 </td>
                                 <td className="text-right py-3 px-3 text-[11px] text-muted-foreground">
-                                  {l.created_at ? format(new Date(l.created_at), "MMM d, yyyy") : "—"}
+                                  {safeFormat(l.created_at, "MMM d, yyyy")}
                                 </td>
                               </tr>
                             );
@@ -650,9 +650,9 @@ export default function AccountsPage() {
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={perfData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => format(new Date(d), "MMM d")} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => safeFormat(d, "MMM d")} />
                                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${v}`} />
-                                <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} labelFormatter={(l) => format(new Date(l), "MMM d, yyyy")} />
+                                <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} labelFormatter={(l) => safeFormat(String(l), "MMM d, yyyy")} />
                                 <Line type="monotone" dataKey="ltv" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                               </LineChart>
                             </ResponsiveContainer>
@@ -664,9 +664,9 @@ export default function AccountsPage() {
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={perfData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => format(new Date(d), "MMM d")} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => safeFormat(d, "MMM d")} />
                                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
-                                <Tooltip formatter={(v: number) => [v, "Subs"]} labelFormatter={(l) => format(new Date(l), "MMM d, yyyy")} />
+                                <Tooltip formatter={(v: number) => [v, "Subs"]} labelFormatter={(l) => safeFormat(String(l), "MMM d, yyyy")} />
                                 <Bar dataKey="subs" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                               </BarChart>
                             </ResponsiveContainer>
