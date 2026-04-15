@@ -342,15 +342,21 @@ function DrawerBodyInner({
                     disabled={!sourceVal.trim() || actionSaving}
                     onClick={async () => {
                       if (!sourceVal.trim()) return;
+                      const trimmed = sourceVal.trim();
+                      const exists = sourceTags.find((t: any) => t.name.toLowerCase() === trimmed.toLowerCase());
+                      if (exists) { toast.info(`"${trimmed}" already exists`); return; }
                       setActionSaving(true);
                       try {
-                        const { error } = await supabase.from("traffic_sources").upsert(
-                          { name: sourceVal.trim() },
-                          { onConflict: "name" }
-                        );
+                        const { data, error } = await supabase.from("traffic_sources").insert({
+                          name: trimmed,
+                          category: "Manual",
+                          color: "#0891b2",
+                          keywords: [],
+                        }).select().single();
                         if (error) throw error;
                         await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                        toast.success("Source created");
+                        setSourceVal(data.name);
+                        toast.success(`Source "${trimmed}" created`);
                       } catch (err) { console.error(err); toast.error("Failed to create"); }
                       setActionSaving(false);
                     }}
@@ -364,11 +370,12 @@ function DrawerBodyInner({
                     disabled={!sourceVal.trim() || actionSaving}
                     onClick={async () => {
                       const src = sourceTags.find((t: any) => t.name === sourceVal);
-                      if (!src) { toast.error("Source not found"); return; }
+                      if (!src) { toast.error("Source not found in list"); return; }
                       setActionSaving(true);
                       try {
-                        await supabase.from("traffic_sources").delete().eq("id", src.id);
-                        queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                        const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
+                        if (error) throw error;
+                        await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
                         setSourceVal("");
                         toast.success(`Deleted "${src.name}"`);
                       } catch { toast.error("Failed to delete"); }
