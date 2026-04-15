@@ -900,11 +900,18 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
                     <TableRow className="border-border">
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Campaign</TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Model</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Source</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Offer ID</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Order ID</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Clicks</TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Subs</TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Spend</TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Revenue</TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Profit</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Profit/Sub</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">LTV/Sub</TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">ROI</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Created</TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-center">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -914,10 +921,15 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
                       const rv = Number(link.revenue || 0);
                       const pr = sp > 0 ? rv - sp : null;
                       const ro = sp > 0 ? ((rv - sp) / sp) * 100 : null;
+                      const subs = link.subscribers || 0;
+                      const profitSub = sp > 0 && subs > 0 ? (rv - sp) / subs : null;
+                      const ltvSub = subs > 0 ? rv / subs : null;
                       const badge = getStatusBadge(link);
                       const username = link.accounts?.username || "unknown";
                       const avatarUrl = link.accounts?.avatar_thumb_url || null;
                       const displayName = link.accounts?.display_name || username;
+                      const info = linkMarketerMap[link.id];
+                      const createdDate = link.created_at ? new Date(link.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—";
                       return (
                         <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50" onClick={() => onCampaignClick(link)}>
                           <TableCell className="max-w-[180px]">
@@ -929,11 +941,18 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
                               <span className="text-foreground" style={{ fontSize: "11px" }}>@{username}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.subscribers || 0)}</TableCell>
+                          <TableCell><span className="text-foreground" style={{ fontSize: "11px" }}>{link.source_tag || link.source || "—"}</span></TableCell>
+                          <TableCell><span className="text-foreground font-mono" style={{ fontSize: "11px" }}>{info?.offer_id ?? "—"}</span></TableCell>
+                          <TableCell><span className="text-foreground font-mono" style={{ fontSize: "11px" }}>{link.onlytraffic_order_id || "—"}</span></TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
                           <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(sp)}</TableCell>
                           <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rv)}</TableCell>
                           <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: pr !== null ? (pr >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>{pr !== null ? fmtC(pr) : "—"}</TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitSub !== null ? (profitSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
                           <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: ro !== null ? (ro >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>{ro !== null ? fmtPct(ro) : "—"}</TableCell>
+                          <TableCell><span className="text-muted-foreground" style={{ fontSize: "11px" }}>{createdDate}</span></TableCell>
                           <TableCell className="text-center">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>{badge.label}</span>
                           </TableCell>
