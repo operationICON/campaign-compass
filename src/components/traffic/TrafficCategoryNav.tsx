@@ -857,67 +857,77 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
 
   return (
     <div className="space-y-4">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-        style={{ fontSize: "13px", fontWeight: 500 }}
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to Campaigns
-      </button>
+      {!expandedMarketer ? (
+        <>
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            style={{ fontSize: "13px", fontWeight: 500 }}
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Campaigns
+          </button>
 
-      <div className="grid grid-cols-3 gap-4">
-        {marketerData.map(m => (
-          <div key={m.name}>
-            <button
-              onClick={() => setExpandedMarketer(expandedMarketer === m.name ? null : m.name)}
-              className={`w-full text-left bg-card border rounded-xl p-4 transition-colors ${expandedMarketer === m.name ? "border-primary/50" : "border-border hover:border-primary/30"}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-foreground font-bold" style={{ fontSize: "14px" }}>{m.name}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-mono" style={{ fontSize: "11px" }}>{m.campaigns} campaign{m.campaigns !== 1 ? "s" : ""}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: m.statusBg, color: m.statusText }}>
-                    {m.statusLabel}
-                  </span>
-                </div>
+          <div className="grid grid-cols-3 gap-4">
+            {marketerData.map(m => (
+              <div key={m.name}>
+                <button
+                  onClick={() => setExpandedMarketer(m.name)}
+                  className="w-full text-left bg-card border rounded-xl p-4 transition-colors border-border hover:border-primary/30"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-foreground font-bold" style={{ fontSize: "14px" }}>{m.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground font-mono" style={{ fontSize: "11px" }}>{m.campaigns} campaign{m.campaigns !== 1 ? "s" : ""}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: m.statusBg, color: m.statusText }}>
+                        {m.statusLabel}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    <MetricRow label="Spend" value={fmtC(m.spend)} />
+                    <MetricRow label="Revenue" value={fmtC(m.revenue)} />
+                    <MetricRow label="Profit" value={fmtC(m.profit)} color={m.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"} />
+                    <MetricRow label="Avg CPL" value={m.avgCpl !== null ? fmtC(m.avgCpl) : "—"} />
+                    <MetricRow label="Profit/Sub" value={m.profitSub !== null ? fmtC(m.profitSub) : "—"} color={m.profitSub !== null ? (m.profitSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                    <MetricRow label="LTV/Sub" value={m.ltvSub !== null ? fmtC(m.ltvSub) : "—"} />
+                    <MetricRow label="ROI" value={m.roi !== null ? fmtPct(m.roi) : "—"} color={m.roi !== null ? (m.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                    <MetricRow label="Subscribers" value={fmtN(m.subs)} />
+                  </div>
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                <MetricRow label="Spend" value={fmtC(m.spend)} />
-                <MetricRow label="Revenue" value={fmtC(m.revenue)} />
-                <MetricRow label="Profit" value={fmtC(m.profit)} color={m.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"} />
-                <MetricRow label="Avg CPL" value={m.avgCpl !== null ? fmtC(m.avgCpl) : "—"} />
-                <MetricRow label="Profit/Sub" value={m.profitSub !== null ? fmtC(m.profitSub) : "—"} color={m.profitSub !== null ? (m.profitSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
-                <MetricRow label="LTV/Sub" value={m.ltvSub !== null ? fmtC(m.ltvSub) : "—"} />
-                <MetricRow label="ROI" value={m.roi !== null ? fmtPct(m.roi) : "—"} color={m.roi !== null ? (m.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
-                <MetricRow label="Subscribers" value={fmtN(m.subs)} />
-              </div>
-            </button>
+            ))}
           </div>
-        ))}
-      </div>
-
-      {/* Full-width expanded table below cards */}
-      {expandedMarketer && (() => {
+          {marketerData.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No marketer data found</div>
+          )}
+        </>
+      ) : (() => {
         const m = marketerData.find(d => d.name === expandedMarketer);
         if (!m) return null;
         return (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <button onClick={() => setExpandedMarketer(null)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-4 w-4" />
-              </button>
-              <span className="text-foreground font-bold" style={{ fontSize: "14px" }}>{m.name}</span>
-              <span className="text-muted-foreground font-mono" style={{ fontSize: "11px" }}>— {m.campaigns} campaigns</span>
+          <>
+            <button
+              onClick={() => setExpandedMarketer(null)}
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              style={{ fontSize: "13px", fontWeight: 500 }}
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to Marketers
+            </button>
+            <div className="flex items-center gap-3">
+              <span className="text-foreground font-bold" style={{ fontSize: "16px" }}>{m.name}</span>
+              <span className="text-muted-foreground font-mono" style={{ fontSize: "12px" }}>{m.campaigns} campaigns</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: m.statusBg, color: m.statusText }}>
+                {m.statusLabel}
+              </span>
             </div>
             <MarketerExpandedTable
               links={m.links}
               linkMarketerMap={linkMarketerMap}
               onCampaignClick={onCampaignClick}
             />
-          </div>
+          </>
         );
       })()}
-      {marketerData.length === 0 && (
         <div className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No marketer data found</div>
       )}
     </div>
