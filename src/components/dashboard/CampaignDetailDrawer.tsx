@@ -63,11 +63,12 @@ export function CampaignDetailDrawer({ campaign, onClose }: CampaignDetailDrawer
 }
 
 function DrawerBodyInner({
-  campaign: d, activeAction, setActiveAction, actionSaving, setActionSaving, onClose,
+  campaign: initialCampaign, activeAction, setActiveAction, actionSaving, setActionSaving, onClose,
 }: any) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  const [d, setD] = useState(initialCampaign);
   const [costType, setCostType] = useState(d.cost_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
@@ -92,7 +93,7 @@ function DrawerBodyInner({
         traffic_category: "Manual"
       }).eq("id", d.id);
       if (error) throw error;
-      d.source_tag = sourceVal;
+      setD((prev: any) => ({ ...prev, source_tag: sourceVal }));
       toast.success("Source saved");
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       setActiveAction(null);
@@ -161,15 +162,7 @@ function DrawerBodyInner({
         .eq("id", d.id)
         .single();
       if (refreshed) {
-        d.cost_total = refreshed.cost_total;
-        d.profit = refreshed.profit;
-        d.roi = refreshed.roi;
-        d.cpl_real = refreshed.cpl_real;
-        d.cvr = refreshed.cvr;
-        d.status = refreshed.status;
-        d.cost_type = refreshed.cost_type;
-        d.cost_value = refreshed.cost_value;
-        d.payment_type = refreshed.payment_type;
+        setD((prev: any) => ({ ...prev, ...refreshed }));
       }
       toast.success("Spend saved");
       refreshAll();
@@ -302,12 +295,7 @@ function DrawerBodyInner({
                       cpc_real: null,
                       status: 'NO_SPEND',
                     }).eq("id", d.id);
-                    d.cost_type = null;
-                    d.cost_value = null;
-                    d.cost_total = 0;
-                    d.profit = null;
-                    d.roi = null;
-                    d.status = 'NO_SPEND';
+                    setD((prev: any) => ({ ...prev, cost_type: null, cost_value: null, cost_total: 0, profit: null, roi: null, status: 'NO_SPEND' }));
                     setCostType("CPL");
                     setCostValue("");
                     toast.success("Spend cleared");
@@ -370,7 +358,7 @@ function DrawerBodyInner({
                         manually_tagged: true,
                         traffic_category: "Manual",
                       }).eq("id", d.id);
-                      d.source_tag = data.name;
+                      setD((prev: any) => ({ ...prev, source_tag: data.name, traffic_source_id: data.id }));
                       setSourceVal(data.name);
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
                       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
@@ -400,8 +388,7 @@ function DrawerBodyInner({
                       const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
                       if (error) throw error;
                       if (d.traffic_source_id === src.id || d.source_tag === src.name) {
-                        d.source_tag = null;
-                        d.traffic_source_id = null;
+                        setD((prev: any) => ({ ...prev, source_tag: null, traffic_source_id: null }));
                       }
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
                       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
