@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle, Search, X, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle, Search, X, ChevronUp, ChevronDown, LayoutGrid } from "lucide-react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays, format } from "date-fns";
