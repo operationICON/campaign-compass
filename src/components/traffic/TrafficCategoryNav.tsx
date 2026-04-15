@@ -579,7 +579,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </SelectContent>
         </Select>
       </div>
-      </div>
 
       {/* Unmatched Orders link (OnlyTraffic only) */}
       {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
