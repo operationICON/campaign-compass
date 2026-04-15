@@ -234,59 +234,63 @@ export async function triggerSync(
     throw new Error('A sync is already in progress. Please wait.');
   }
 
-  // Step 1: Sync accounts (fast — avatars, metadata)
-  onProgress?.('Syncing accounts...');
-  const orchestratorRes = await supabase.functions.invoke("sync-orchestrator", {
-    body: { force },
+  onProgress?.('Starting sync orchestrator...');
+
+  // Use raw fetch for streaming SSE response from orchestrator
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/sync-orchestrator`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseKey}`,
+      'apikey': supabaseKey,
+    },
+    body: JSON.stringify({ force, triggered_by: 'manual' }),
   });
-  if (orchestratorRes.error) throw orchestratorRes.error;
 
-  const accounts = orchestratorRes.data?.accounts ?? [];
-  onProgress?.(`Accounts synced (${accounts.length}). Starting link sync...`);
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Sync failed: ${errText}`);
+  }
 
-  // Step 2: Sync tracking links per account in parallel batches of 3
-  const results: any[] = [];
-  const accountsToSync = accountId
-    ? accounts.filter((a: any) => a.id === accountId)
-    : accounts;
+  // Read the SSE stream for progress updates
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let lastData: any = null;
 
-  const BATCH_SIZE = 3;
+  if (reader) {
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-  async function syncOneAccount(acc: any, index: number) {
-    const label = `${acc.display_name} (${index + 1}/${accountsToSync.length})`;
-    onProgress?.(`Syncing ${label}${testLinkId ? ` [test link]` : ''}...`);
+      // Parse SSE lines
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await supabase.functions.invoke("sync-tracking", {
-          body: {
-            account_id: acc.id,
-            onlyfans_account_id: acc.onlyfans_account_id,
-            display_name: acc.display_name,
-            ...(testLinkId ? { test_link_id: testLinkId } : {}),
-          },
-        });
-        results.push({ account: acc.display_name, status: 'success', data: res.data });
-        return;
-      } catch (err: any) {
-        if (attempt === 0) {
-          onProgress?.(`Retrying ${acc.display_name}...`);
-          continue;
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            lastData = data;
+            if (data.message) {
+              onProgress?.(data.message);
+            }
+          } catch {}
         }
-        results.push({ account: acc.display_name, status: 'error', error: err.message });
       }
     }
   }
 
-  for (let i = 0; i < accountsToSync.length; i += BATCH_SIZE) {
-    const batch = accountsToSync.slice(i, i + BATCH_SIZE);
-    const names = batch.map((a: any) => a.display_name).join(', ');
-    onProgress?.(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${names}`);
-    await Promise.all(batch.map((acc: any, j: number) => syncOneAccount(acc, i + j)));
-  }
-
   onProgress?.('Sync complete!');
-  return { results, accounts_synced: accounts.length };
+  return {
+    accounts_synced: lastData?.accounts_synced ?? 0,
+    tracking_links_synced: lastData?.tracking_links_synced ?? 0,
+    errors: lastData?.errors,
+  };
 }
 
 export async function addAdSpend(entry: {
