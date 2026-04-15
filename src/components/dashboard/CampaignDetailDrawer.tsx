@@ -227,7 +227,8 @@ function DrawerBodyInner({
       <div className="px-6 py-2.5 border-b border-border">
         <div className="flex gap-1.5">
           {[
-            { key: "spend_source", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend & Source" },
+            { key: "spend", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend" },
+            { key: "source", icon: <DollarSign className="h-3.5 w-3.5" />, label: "Source" },
             { key: "delete", icon: <Trash2 className="h-3.5 w-3.5" />, label: "Delete" },
             { key: "details", icon: <ArrowUpRight className="h-3.5 w-3.5" />, label: "Details" },
           ].map(btn => (
