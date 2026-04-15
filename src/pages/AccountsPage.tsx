@@ -251,13 +251,17 @@ export default function AccountsPage() {
       const totalClicks = accLinksFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
 
-      // FIX 9 — Active links = clicks > 0 in last 30 days AND deleted_at IS NULL
+      // FIX 9 — Active links = clicks > 0 AND calculated_at within last 30 days
       const activeLinks = accLinks.filter((l: any) => {
         if (l.deleted_at) return false;
-        // Check if link had clicks recently (use created_at as proxy, or clicks > 0)
+        if (l.clicks <= 0) return false;
+        const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
+        if (calcDate && calcDate >= thirtyDaysAgo) return true;
+        // Fallback: check snapshot data
+        if (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0) return true;
+        // Fallback: created recently with clicks
         const created = l.created_at ? new Date(l.created_at) : null;
-        const daysSinceCreated = created ? differenceInDays(now, created) : 999;
-        return l.clicks > 0 && daysSinceCreated <= 30 || (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0);
+        return created ? created >= thirtyDaysAgo : false;
       });
 
       // FIX 3 — Subs/Day = total subs across links / days since earliest link created_at
@@ -858,20 +862,25 @@ export default function AccountsPage() {
                     <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
-                        const ltvTotal = Number(acc.ltv_total || 0) * revMultiplier;
+                        // Use tracked LTV (from tracking_link_ltv) / tracked new subs for accurate LTV/Sub
+                        const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
+                        const trackedLtv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
+                        const trackedNewSubs = accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+                        // Fallback to account-level if no LTV data
+                        if (trackedNewSubs > 0 && trackedLtv > 0) {
+                          return fmtCurrency((trackedLtv / trackedNewSubs) * revMultiplier);
+                        }
+                        // Fallback: ltv_total / subscribers_count
                         const subsCount = Number(acc.subscribers_count || 0);
-                        const val = subsCount > 0 ? ltvTotal / subsCount : null;
-                        return val != null ? fmtCurrency(val) : "—";
+                        const ltvTotal = Number(acc.ltv_total || 0);
+                        return subsCount > 0 && ltvTotal > 0 ? fmtCurrency((ltvTotal / subsCount) * revMultiplier) : "—";
                       })()}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Campaign Rev</span>
                     <span className="font-mono font-semibold text-foreground">
-                      {(() => {
-                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                        return fmtCurrency(accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier);
-                      })()}
+                      {fmtCurrency((stats.totalRevenue || 0) * revMultiplier)}
                     </span>
                   </div>
                   <div className="flex justify-between">
