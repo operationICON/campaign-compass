@@ -515,7 +515,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </SelectContent>
         </Select>
 
-        <Select value={tableSortPreset} onValueChange={v => { setTableSortPreset(v as TableSortPreset); setPage(0); }}>
+        <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Sort by..." />
           </SelectTrigger>
