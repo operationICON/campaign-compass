@@ -98,6 +98,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [activeUnmatched, setActiveUnmatched] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
+  const [selectedCostType, setSelectedCostType] = useState<string>("__all__");
   const [sourceFilterL2, setSourceFilterL2] = useState<string>("__all__");
   const [accountFilterL2, setAccountFilterL2] = useState<string>("__all__");
   const [offerIdFilter, setOfferIdFilter] = useState<string>("__all__");
@@ -177,6 +178,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     setActiveUnmatched(false);
     setSearchQuery("");
     setSelectedMarketer("__all__");
+    setSelectedCostType("__all__");
     setSourceFilterL2("__all__");
     setAccountFilterL2("__all__");
     setOfferIdFilter("__all__");
@@ -213,6 +215,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         const idSet = new Set(combo.trackingLinkIds);
         result = result.filter(l => idSet.has(l.id));
       }
+    }
+
+    // Cost Type filter
+    if (selectedCostType !== "__all__") {
+      result = result.filter(l => l.payment_type === selectedCostType);
     }
 
     // Offer ID filter
@@ -252,7 +259,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     }
 
     return result;
-  }, [categoryLinksRaw, selectedMarketer, offerIdFilter, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos, linkMarketerMap]);
+  }, [categoryLinksRaw, selectedMarketer, selectedCostType, offerIdFilter, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos, linkMarketerMap]);
 
   // Column sort handler
   const handleColSort = (key: ColSortKey) => {
@@ -538,7 +545,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           )}
         </div>
 
-        <div className="flex-1 grid grid-cols-4 gap-3">
+        <div className="flex-1 grid grid-cols-5 gap-3">
           <AccountFilterDropdown
             value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
             onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
@@ -568,6 +575,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               {orderMarketerCombos.map(c => (
                 <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedCostType} onValueChange={v => { setSelectedCostType(v); setPage(0); }}>
+            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+              <SelectItem value="__all__">All Types</SelectItem>
+              <SelectItem value="CPL">CPL</SelectItem>
+              <SelectItem value="CPC">CPC</SelectItem>
             </SelectContent>
           </Select>
 
