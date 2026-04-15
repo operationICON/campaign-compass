@@ -892,17 +892,31 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
                 <MetricRow label="Subscribers" value={fmtN(m.subs)} />
               </div>
             </button>
-
-            {expandedMarketer === m.name && (
-              <MarketerExpandedTable
-                links={m.links}
-                linkMarketerMap={linkMarketerMap}
-                onCampaignClick={onCampaignClick}
-              />
-            )}
           </div>
         ))}
       </div>
+
+      {/* Full-width expanded table below cards */}
+      {expandedMarketer && (() => {
+        const m = marketerData.find(d => d.name === expandedMarketer);
+        if (!m) return null;
+        return (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <button onClick={() => setExpandedMarketer(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+              <span className="text-foreground font-bold" style={{ fontSize: "14px" }}>{m.name}</span>
+              <span className="text-muted-foreground font-mono" style={{ fontSize: "11px" }}>— {m.campaigns} campaigns</span>
+            </div>
+            <MarketerExpandedTable
+              links={m.links}
+              linkMarketerMap={linkMarketerMap}
+              onCampaignClick={onCampaignClick}
+            />
+          </div>
+        );
+      })()}
       {marketerData.length === 0 && (
         <div className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No marketer data found</div>
       )}
