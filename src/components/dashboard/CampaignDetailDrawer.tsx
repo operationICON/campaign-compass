@@ -388,8 +388,7 @@ function DrawerBodyInner({
                       const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
                       if (error) throw error;
                       if (d.traffic_source_id === src.id || d.source_tag === src.name) {
-                        d.source_tag = null;
-                        d.traffic_source_id = null;
+                        setD((prev: any) => ({ ...prev, source_tag: null, traffic_source_id: null }));
                       }
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
                       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
