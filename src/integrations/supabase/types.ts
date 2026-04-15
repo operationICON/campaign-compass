@@ -989,6 +989,7 @@ export type Database = {
         Row: {
           id: string
           marketer: string | null
+          of_account_id: number | null
           offer_id: number | null
           offer_marketer_uuid: string | null
           order_completed_at: string | null
@@ -1008,6 +1009,7 @@ export type Database = {
         Insert: {
           id?: string
           marketer?: string | null
+          of_account_id?: number | null
           offer_id?: number | null
           offer_marketer_uuid?: string | null
           order_completed_at?: string | null
@@ -1027,6 +1029,7 @@ export type Database = {
         Update: {
           id?: string
           marketer?: string | null
+          of_account_id?: number | null
           offer_id?: number | null
           offer_marketer_uuid?: string | null
           order_completed_at?: string | null
@@ -1302,6 +1305,7 @@ export type Database = {
           calculated_at: string | null
           campaign_id: string
           campaign_name: string | null
+          capped_spend: number | null
           clicks: number
           conversion_rate: number
           cost_per_click: number | null
@@ -1353,6 +1357,7 @@ export type Database = {
           calculated_at?: string | null
           campaign_id: string
           campaign_name?: string | null
+          capped_spend?: number | null
           clicks?: number
           conversion_rate?: number
           cost_per_click?: number | null
@@ -1404,6 +1409,7 @@ export type Database = {
           calculated_at?: string | null
           campaign_id?: string
           campaign_name?: string | null
+          capped_spend?: number | null
           clicks?: number
           conversion_rate?: number
           cost_per_click?: number | null
