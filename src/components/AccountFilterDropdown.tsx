@@ -44,7 +44,7 @@ export function AccountFilterDropdown({ value, onChange, accounts, className }: 
     <div ref={ref} className={`relative ${className || ""}`}>
       <button
         onClick={() => setOpen(!open)}
-        className="h-9 min-w-[200px] px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer flex items-center gap-2"
+        className="h-10 min-w-0 w-full px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer flex items-center gap-2"
       >
         {selected ? (
           <>
