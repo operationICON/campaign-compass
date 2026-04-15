@@ -31,7 +31,7 @@ interface Props {
 
 type Category = "OnlyTraffic" | "Manual";
 type TableSortPreset = "highest_revenue" | "highest_profit" | "most_spend" | "highest_roi" | "most_campaigns";
-type ColSortKey = "campaign" | "model" | "source" | "marketer" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
+type ColSortKey = "campaign" | "model" | "source" | "marketer" | "offerId" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
 
 function isOnlyTraffic(link: any): boolean {
   return link.traffic_category === "OnlyTraffic";
@@ -283,6 +283,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         case "model": return (l.accounts?.username || "").toLowerCase();
         case "source": return (getEffectiveSource(l) || "zzz").toLowerCase();
         case "marketer": return (l.onlytraffic_marketer || "zzz").toLowerCase();
+        case "offerId": {
+          const info = (linkMarketerMap as any)[l.id];
+          return info?.offer_id != null ? info.offer_id : -Infinity;
+        }
         case "orderId": return (l.onlytraffic_order_id || "").toLowerCase();
         case "clicks": return l.clicks || 0;
         case "subs": return subs;
@@ -512,7 +516,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       </div>
 
       {/* Filters — single row, equal columns */}
-      <div className="grid grid-cols-6 gap-3 items-center">
+      <div className="grid grid-cols-5 gap-3 items-center">
         <AccountFilterDropdown
           value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
           onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
@@ -540,21 +544,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <SelectItem value="__all__">All Marketers</SelectItem>
             {orderMarketerCombos.map(c => (
               <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={offerIdFilter} onValueChange={v => { setOfferIdFilter(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="All Offer IDs" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All Offer IDs</SelectItem>
-            {offerIdOptions.length > 0 && (
-              <SelectItem value="__with_offer__">Has Offer ID</SelectItem>
-            )}
-            {offerIdOptions.map(id => (
-              <SelectItem key={id} value={String(id)}>Offer {id}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -614,6 +603,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <TableHead className={thClass} onClick={() => handleColSort("model")}>Model <SortIcon active={colSortKey === "model"} asc={colSortAsc} /></TableHead>
               <TableHead className={thClass} onClick={() => handleColSort("source")}>Source <SortIcon active={colSortKey === "source"} asc={colSortAsc} /></TableHead>
               <TableHead className={thClass} onClick={() => handleColSort("marketer")}>Marketer <SortIcon active={colSortKey === "marketer"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("offerId")}>Offer ID <SortIcon active={colSortKey === "offerId"} asc={colSortAsc} /></TableHead>
               {isOT && <TableHead className={thClass} onClick={() => handleColSort("orderId")}>Order ID <SortIcon active={colSortKey === "orderId"} asc={colSortAsc} /></TableHead>}
               <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("clicks")}>Clicks <SortIcon active={colSortKey === "clicks"} asc={colSortAsc} /></TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("subs")}>Subs <SortIcon active={colSortKey === "subs"} asc={colSortAsc} /></TableHead>
@@ -663,12 +653,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                     <span className="text-foreground" style={{ fontSize: "12px" }}>
                       {(() => {
                         const info = (linkMarketerMap as any)[link.id];
-                        if (info) {
-                          return info.showOfferId
-                            ? <>{info.marketer} <span className="text-muted-foreground text-[10px]">#{info.offer_id}</span></>
-                            : info.marketer;
-                        }
-                        return link.onlytraffic_marketer || "—";
+                        return info?.marketer || link.onlytraffic_marketer || "—";
+                      })()}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-foreground font-mono" style={{ fontSize: "11px" }}>
+                      {(() => {
+                        const info = (linkMarketerMap as any)[link.id];
+                        return info?.offer_id != null ? info.offer_id : "—";
                       })()}
                     </span>
                   </TableCell>
