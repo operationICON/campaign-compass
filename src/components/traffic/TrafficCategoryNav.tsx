@@ -727,6 +727,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   );
 }
 
+function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
+  if (!active) return <ChevronDown className="h-3 w-3 inline ml-0.5 opacity-20" />;
+  return asc ? <ChevronUp className="h-3 w-3 inline ml-0.5 text-primary" /> : <ChevronDown className="h-3 w-3 inline ml-0.5 text-primary" />;
+}
+
 function MetricRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between">
