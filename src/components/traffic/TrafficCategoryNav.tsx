@@ -100,6 +100,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [sourceFilterL2, setSourceFilterL2] = useState<string>("__all__");
   const [accountFilterL2, setAccountFilterL2] = useState<string>("__all__");
   const [tableSortPreset, setTableSortPreset] = useState<TableSortPreset>("highest_revenue");
+  const [colSortKey, setColSortKey] = useState<ColSortKey>("revenue");
+  const [colSortAsc, setColSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const colorMap = useTagColors();
