@@ -354,9 +354,18 @@ function DrawerBodyInner({
                         keywords: [],
                       }).select().single();
                       if (error) throw error;
-                      await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                      // Also assign to the tracking link
+                      await supabase.from("tracking_links").update({
+                        source_tag: data.name,
+                        traffic_source_id: data.id,
+                        manually_tagged: true,
+                        traffic_category: "Manual",
+                      }).eq("id", d.id);
+                      d.source_tag = data.name;
                       setSourceVal(data.name);
-                      toast.success(`Source "${trimmed}" created`);
+                      await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                      toast.success(`Source "${trimmed}" created & assigned`);
                     } catch (err) { console.error(err); toast.error("Failed to create"); }
                     setActionSaving(false);
                   }}
