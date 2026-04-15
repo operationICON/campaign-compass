@@ -116,6 +116,7 @@ function DrawerBodyInner({
 
   // ─── FIX 1: FINANCIALS — always from tracking_links ───
   const cost = Number(d.cost_total ?? 0);
+  const hasSpendConfig = !!d.cost_type;
   const costInputValue = Number(d.cost_value ?? 0);
   const totalClicks = Number(d.clicks ?? 0);
   const tlSubscribers = Number(d.subscribers ?? 0);
@@ -171,11 +172,13 @@ function DrawerBodyInner({
       if (error) throw error;
       const { data: refreshed } = await supabase
         .from("tracking_links")
-        .select("*")
+        .select("*, accounts(display_name, username, avatar_thumb_url)")
         .eq("id", d.id)
         .single();
       if (refreshed) {
         setD((prev: any) => ({ ...prev, ...refreshed }));
+        setCostType(refreshed.cost_type || "CPL");
+        setCostValue(String(refreshed.cost_value || ""));
       }
       toast.success("Spend saved");
       refreshAll();
@@ -259,7 +262,9 @@ function DrawerBodyInner({
                 <DollarSign className="h-3 w-3 text-muted-foreground" />
                 {cost > 0
                   ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{fmtC2(cost)}</span>
-                  : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
+                  : hasSpendConfig
+                    ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{d.cost_type} @ {fmtC2(Number(d.cost_value || 0))}</span>
+                    : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
                 }
               </div>
               <div className="flex gap-1">
@@ -490,7 +495,7 @@ function DrawerBodyInner({
                     if (error) throw error;
 
                     const { data: refreshed } = await supabase
-                      .from("tracking_links").select("*").eq("id", d.id).single();
+                      .from("tracking_links").select("*, accounts(display_name, username, avatar_thumb_url)").eq("id", d.id).single();
                     if (refreshed) setD((prev: any) => ({ ...prev, ...refreshed }));
 
                     toast.success("Tracking link updated");
@@ -515,8 +520,8 @@ function DrawerBodyInner({
             <div className="px-3 py-1 border-b border-border">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Financials</span>
             </div>
-            <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
-            <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
+            <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : hasSpendConfig ? fmtC2(cost) : "—"} />
+            <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : hasSpendConfig ? fmtC2(0) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
             <DataRow label="Profit/Sub" value={cost > 0 && profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
             <DataRow label="Subs/Day" value={subsPerDay} />
             <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
