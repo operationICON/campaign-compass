@@ -909,3 +909,152 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
     </div>
   );
 }
+
+// ═══ MARKETER EXPANDED TABLE ═══
+type METSortKey = "campaign" | "model" | "source" | "marketer" | "offerId" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
+
+function MarketerExpandedTable({ links, linkMarketerMap, onCampaignClick }: { links: any[]; linkMarketerMap: Record<string, any>; onCampaignClick: (l: any) => void }) {
+  const [sortKey, setSortKey] = useState<METSortKey>("created");
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const toggleSort = (key: METSortKey) => {
+    if (sortKey === key) setSortAsc(!sortAsc);
+    else { setSortKey(key); setSortAsc(key === "campaign"); }
+  };
+
+  const rows = useMemo(() => {
+    const enriched = links.map((link: any) => {
+      const sp = Number(link.cost_total || 0);
+      const rv = Number(link.revenue || 0);
+      const subs = link.subscribers || 0;
+      const profit = sp > 0 ? rv - sp : null;
+      const roi = sp > 0 ? ((rv - sp) / sp) * 100 : null;
+      const profitSub = sp > 0 && subs > 0 ? (rv - sp) / subs : null;
+      const ltvSub = subs > 0 ? rv / subs : null;
+      const info = linkMarketerMap[link.id];
+      const username = link.accounts?.username || "unknown";
+      const badge = getStatusBadge(link);
+      const statusOrder = { SCALE: 4, WATCH: 3, LOW: 2, KILL: 1, "NO SPEND": 0 };
+      return { link, sp, rv, subs, profit, roi, profitSub, ltvSub, info, username, badge, statusOrder: (statusOrder as any)[badge.label] ?? 0 };
+    });
+
+    const dir = sortAsc ? 1 : -1;
+    return enriched.sort((a, b) => {
+      let av: any, bv: any;
+      switch (sortKey) {
+        case "campaign": av = a.link.campaign_name || ""; bv = b.link.campaign_name || ""; return dir * av.localeCompare(bv);
+        case "model": av = a.username; bv = b.username; return dir * av.localeCompare(bv);
+        case "source": av = a.link.source_tag || a.link.source || ""; bv = b.link.source_tag || b.link.source || ""; return dir * av.localeCompare(bv);
+        case "marketer": av = a.info?.marketer || a.link.onlytraffic_marketer || ""; bv = b.info?.marketer || b.link.onlytraffic_marketer || ""; return dir * av.localeCompare(bv);
+        case "offerId": av = a.info?.offer_id ?? -1; bv = b.info?.offer_id ?? -1; return dir * (av - bv);
+        case "orderId": av = a.link.onlytraffic_order_id || ""; bv = b.link.onlytraffic_order_id || ""; return dir * av.localeCompare(bv);
+        case "clicks": return dir * ((a.link.clicks || 0) - (b.link.clicks || 0));
+        case "subs": return dir * (a.subs - b.subs);
+        case "spend": return dir * (a.sp - b.sp);
+        case "revenue": return dir * (a.rv - b.rv);
+        case "profit": return dir * ((a.profit ?? -Infinity) - (b.profit ?? -Infinity));
+        case "profitSub": return dir * ((a.profitSub ?? -Infinity) - (b.profitSub ?? -Infinity));
+        case "ltvSub": return dir * ((a.ltvSub ?? -Infinity) - (b.ltvSub ?? -Infinity));
+        case "roi": return dir * ((a.roi ?? -Infinity) - (b.roi ?? -Infinity));
+        case "created": return dir * (new Date(a.link.created_at || 0).getTime() - new Date(b.link.created_at || 0).getTime());
+        case "status": return dir * (a.statusOrder - b.statusOrder);
+        default: return 0;
+      }
+    });
+  }, [links, linkMarketerMap, sortKey, sortAsc]);
+
+  const SH = ({ k, label, align }: { k: METSortKey; label: string; align?: string }) => (
+    <TableHead
+      className={`text-[11px] font-semibold uppercase text-muted-foreground cursor-pointer select-none whitespace-nowrap ${align === "right" ? "text-right" : align === "center" ? "text-center" : ""}`}
+      onClick={() => toggleSort(k)}
+    >
+      {label}<SortIcon active={sortKey === k} asc={sortAsc} />
+    </TableHead>
+  );
+
+  return (
+    <div className="mt-2 bg-card border border-border rounded-xl overflow-x-auto">
+      <Table className="min-w-[1400px]">
+        <TableHeader>
+          <TableRow className="border-border">
+            <SH k="campaign" label="Campaign" />
+            <SH k="model" label="Model" />
+            <SH k="source" label="Source" />
+            <SH k="marketer" label="Marketer" />
+            <SH k="offerId" label="Offer ID" />
+            <SH k="orderId" label="Order ID" />
+            <SH k="clicks" label="Clicks" align="right" />
+            <SH k="subs" label="Subs" align="right" />
+            <SH k="spend" label="Spend" align="right" />
+            <SH k="revenue" label="Revenue" align="right" />
+            <SH k="profit" label="Profit" align="right" />
+            <SH k="profitSub" label="Profit/Sub" align="right" />
+            <SH k="ltvSub" label="LTV/Sub" align="right" />
+            <SH k="roi" label="ROI" align="right" />
+            <SH k="created" label="Created" />
+            <SH k="status" label="Status" align="center" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map(({ link, sp, rv, subs, profit, roi, profitSub, ltvSub, info, username, badge }) => {
+            const avatarUrl = link.accounts?.avatar_thumb_url || null;
+            const displayName = link.accounts?.display_name || username;
+            const profitColor = profit !== null ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
+            const roiColor = roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
+            const ageDays = link.created_at ? Math.max(0, differenceInDays(new Date(), new Date(link.created_at))) : 0;
+            const pill = getAgePill(ageDays);
+            const marketerName = info?.marketer || link.onlytraffic_marketer || "—";
+
+            return (
+              <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50" onClick={() => onCampaignClick(link)}>
+                <TableCell className="min-w-[200px] max-w-[260px]">
+                  <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
+                  <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{link.url || ""}</p>
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <ModelAvatar avatarUrl={avatarUrl} name={displayName} size={18} />
+                    <span className="text-foreground" style={{ fontSize: "11px" }}>@{username}</span>
+                  </div>
+                </TableCell>
+                <TableCell><span className="text-foreground" style={{ fontSize: "11px" }}>{link.source_tag || link.source || "—"}</span></TableCell>
+                <TableCell><span className="text-foreground" style={{ fontSize: "11px" }}>{marketerName}</span></TableCell>
+                <TableCell><span className="text-foreground font-mono" style={{ fontSize: "11px" }}>{info?.offer_id ?? "—"}</span></TableCell>
+                <TableCell><span className="text-foreground font-mono" style={{ fontSize: "11px" }}>{link.onlytraffic_order_id || "—"}</span></TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>
+                  {fmtC(sp)}
+                  {sp > 0 && subs > 0 && (
+                    <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#0891b2", width: "fit-content", marginLeft: "auto" }}>
+                      CPL {fmtC(sp / subs)}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rv)}</TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profit !== null ? fmtC(profit) : "—"}</TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "#0891b2" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
+                <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {link.created_at ? (
+                    <div>
+                      <p className="text-foreground" style={{ fontSize: "11px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
+                      <span className="inline-block mt-0.5 rounded-full font-bold" style={{ fontSize: "9px", padding: "1px 6px", backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                    </div>
+                  ) : <span className="text-muted-foreground" style={{ fontSize: "11px" }}>—</span>}
+                </TableCell>
+                <TableCell className="text-center">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>{badge.label}</span>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {rows.length === 0 && (
+            <TableRow><TableCell colSpan={16} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No campaigns found</TableCell></TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
