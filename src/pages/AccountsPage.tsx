@@ -12,7 +12,13 @@ import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLink
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 
-import { format, differenceInDays, subDays } from "date-fns";
+import { format, differenceInDays, subDays, isValid } from "date-fns";
+
+function safeFormat(dateStr: string | null | undefined, fmt: string, fallback = "—"): string {
+  if (!dateStr) return fallback;
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : fallback;
+}
 import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X, UserPlus, Loader2 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
