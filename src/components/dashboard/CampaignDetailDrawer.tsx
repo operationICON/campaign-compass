@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { calcStatusFromRoi } from "@/lib/calc-helpers";
 
 /* ─── Data Row helper ─── */
 function DataRow({ label, value, tone = "neutral" }: { label: string; value: string | React.ReactNode; tone?: "positive" | "negative" | "neutral" }) {
@@ -38,9 +39,10 @@ const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 interface CampaignDetailDrawerProps {
   campaign: any | null;
   onClose: () => void;
+  onCampaignUpdated?: (campaign: any) => void;
 }
 
-export function CampaignDetailDrawer({ campaign, onClose }: CampaignDetailDrawerProps) {
+export function CampaignDetailDrawer({ campaign, onClose, onCampaignUpdated }: CampaignDetailDrawerProps) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [actionSaving, setActionSaving] = useState(false);
 
@@ -54,6 +56,7 @@ export function CampaignDetailDrawer({ campaign, onClose }: CampaignDetailDrawer
             setActiveAction={setActiveAction}
             actionSaving={actionSaving}
             setActionSaving={setActionSaving}
+            onCampaignUpdated={onCampaignUpdated}
             onClose={onClose}
           />
         )}
@@ -63,7 +66,7 @@ export function CampaignDetailDrawer({ campaign, onClose }: CampaignDetailDrawer
 }
 
 function DrawerBodyInner({
-  campaign: initialCampaign, activeAction, setActiveAction, actionSaving, setActionSaving, onClose,
+  campaign: initialCampaign, activeAction, setActiveAction, actionSaving, setActionSaving, onClose, onCampaignUpdated,
 }: any) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -96,6 +99,16 @@ function DrawerBodyInner({
     },
   });
 
+  const syncDrawerState = (nextCampaign: any) => {
+    setD(nextCampaign);
+    setCostType(nextCampaign.cost_type || nextCampaign.payment_type || "CPL");
+    setCostValue(nextCampaign.cost_value != null ? String(nextCampaign.cost_value) : "");
+    setSourceVal(nextCampaign.source_tag || "");
+    setEditCampaignName(nextCampaign.campaign_name || "");
+    setEditUrl(nextCampaign.url || "");
+    setEditAccountId(nextCampaign.account_id || "");
+  };
+
   const mergeDrawerCampaign = (baseCampaign: any, rawLink: any) => ({
     ...baseCampaign,
     ...rawLink,
@@ -118,13 +131,7 @@ function DrawerBodyInner({
   useEffect(() => {
     let cancelled = false;
 
-    setD(initialCampaign);
-    setCostType(initialCampaign.cost_type || initialCampaign.payment_type || "CPL");
-    setCostValue(initialCampaign.cost_value != null ? String(initialCampaign.cost_value) : "");
-    setSourceVal(initialCampaign.source_tag || "");
-    setEditCampaignName(initialCampaign.campaign_name || "");
-    setEditUrl(initialCampaign.url || "");
-    setEditAccountId(initialCampaign.account_id || "");
+    syncDrawerState(initialCampaign);
 
     if (!initialCampaign?.id) return () => {
       cancelled = true;
@@ -138,13 +145,7 @@ function DrawerBodyInner({
         if (cancelled) return;
 
         const merged = mergeDrawerCampaign(initialCampaign, rawLink);
-        setD(merged);
-        setCostType(rawLink.cost_type || rawLink.payment_type || "CPL");
-        setCostValue(rawLink.cost_value != null ? String(rawLink.cost_value) : "");
-        setSourceVal(rawLink.source_tag || "");
-        setEditCampaignName(rawLink.campaign_name || "");
-        setEditUrl(rawLink.url || "");
-        setEditAccountId(rawLink.account_id || "");
+        syncDrawerState(merged);
       } catch (error) {
         console.error("Failed to hydrate campaign drawer", error);
       } finally {
@@ -162,8 +163,8 @@ function DrawerBodyInner({
       ? prev.map((link: any) => (link.id === updatedLink.id ? { ...link, ...updatedLink } : link))
       : prev;
 
-    queryClient.setQueryData(["tracking_links"], mergeLink);
-    queryClient.setQueryData(["tracking_links_ts"], mergeLink);
+    queryClient.setQueriesData({ queryKey: ["tracking_links"] }, mergeLink);
+    queryClient.setQueriesData({ queryKey: ["tracking_links_ts"] }, mergeLink);
   };
 
   const removeCachedLink = (linkId: string) => {
@@ -171,18 +172,31 @@ function DrawerBodyInner({
       ? prev.filter((link: any) => link.id !== linkId)
       : prev;
 
-    queryClient.setQueryData(["tracking_links"], removeLink);
-    queryClient.setQueryData(["tracking_links_ts"], removeLink);
+    queryClient.setQueriesData({ queryKey: ["tracking_links"] }, removeLink);
+    queryClient.setQueriesData({ queryKey: ["tracking_links_ts"] }, removeLink);
   };
 
-  const refreshTrackingQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-    queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] });
+  const refreshTrackingQueries = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["tracking_links"] }),
+    queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] }),
+  ]);
+
+  const refreshAll = () => Promise.all([
+    refreshTrackingQueries(),
+    queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] }),
+  ]);
+
+  const applyFreshTrackingLink = (rawLink: any, baseCampaign: any = d) => {
+    const merged = mergeDrawerCampaign(baseCampaign, rawLink);
+    syncDrawerState(merged);
+    updateCachedLink(merged);
+    onCampaignUpdated?.(merged);
+    return merged;
   };
 
-  const refreshAll = () => {
-    refreshTrackingQueries();
-    queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
+  const refetchTrackingLinkAndSync = async (baseCampaign: any = d) => {
+    const refreshed = await fetchTrackingLink(baseCampaign?.id || d.id);
+    return applyFreshTrackingLink(refreshed, baseCampaign);
   };
 
   const saveSource = async () => {
@@ -197,12 +211,10 @@ function DrawerBodyInner({
       }).eq("id", d.id);
       if (error) throw error;
 
-      const refreshed = await fetchTrackingLink(d.id);
-      setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
-      updateCachedLink(refreshed);
+      await refetchTrackingLinkAndSync();
 
       toast.success("Source saved");
-      refreshTrackingQueries();
+      await refreshTrackingQueries();
       setActiveAction(null);
     } catch { toast.error("Failed to save source"); }
     setActionSaving(false);
@@ -280,14 +292,7 @@ function DrawerBodyInner({
       ? round((linkSpenders / linkSubscribers) * 100, 4)
       : null;
 
-    let statusValue = "NO_SPEND";
-    if (total > 0) {
-      if (linkRevenue <= 0) statusValue = "NO_DATA";
-      else if ((roiValue ?? 0) > 150) statusValue = "SCALE";
-      else if ((roiValue ?? 0) >= 50) statusValue = "WATCH";
-      else if ((roiValue ?? 0) >= 0) statusValue = "LOW";
-      else statusValue = "KILL";
-    }
+    const statusValue = total > 0 && roiValue !== null ? calcStatusFromRoi(roiValue) : "NO_SPEND";
 
     return {
       cost_type: costType,
@@ -316,15 +321,9 @@ function DrawerBodyInner({
       const { error } = await supabase.from("tracking_links").update(spendPayload).eq("id", d.id);
       if (error) throw error;
 
-      const refreshed = await fetchTrackingLink(d.id);
-      if (refreshed) {
-        setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
-        setCostType(refreshed.cost_type || refreshed.payment_type || "CPL");
-        setCostValue(refreshed.cost_value != null ? String(refreshed.cost_value) : "");
-        updateCachedLink(refreshed);
-      }
+      await refetchTrackingLinkAndSync(baseLink);
       toast.success("Spend saved");
-      refreshAll();
+      await refreshAll();
       setActiveAction(null);
     } catch { toast.error("Failed to save spend"); }
     setActionSaving(false);
@@ -455,14 +454,9 @@ function DrawerBodyInner({
                       status: 'NO_SPEND',
                     };
                     await supabase.from("tracking_links").update(clearedSpend).eq("id", d.id);
-                      const refreshed = await fetchTrackingLink(d.id);
-                      const nextLink = mergeDrawerCampaign(d, refreshed);
-                      setD(nextLink);
-                      updateCachedLink(refreshed);
-                    setCostType("CPL");
-                    setCostValue("");
+                    await refetchTrackingLinkAndSync();
                     toast.success("Spend cleared");
-                    refreshAll();
+                    await refreshAll();
                     setActiveAction(null);
                   } catch { toast.error("Failed to clear"); }
                   setActionSaving(false);
@@ -522,13 +516,9 @@ function DrawerBodyInner({
                         traffic_category: "Manual",
                       }).eq("id", d.id);
 
-                      const refreshed = await fetchTrackingLink(d.id);
-                      setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
-                      updateCachedLink(refreshed);
-
-                      setSourceVal(data.name);
+                      await refetchTrackingLinkAndSync();
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                      refreshTrackingQueries();
+                      await refreshTrackingQueries();
                       toast.success(`Source "${trimmed}" created & assigned`);
                     } catch (err) { console.error(err); toast.error("Failed to create"); }
                     setActionSaving(false);
@@ -554,13 +544,9 @@ function DrawerBodyInner({
                       }).eq("traffic_source_id", src.id);
                       const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
                       if (error) throw error;
-                      if (d.traffic_source_id === src.id || d.source_tag === src.name) {
-                        const nextLink = { ...d, source_tag: null, traffic_source_id: null, manually_tagged: false };
-                        setD(nextLink);
-                        updateCachedLink(nextLink);
-                      }
+                      if (d.traffic_source_id === src.id || d.source_tag === src.name) await refetchTrackingLinkAndSync();
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                      refreshTrackingQueries();
+                      await refreshTrackingQueries();
                       setSourceVal("");
                       toast.success(`Deleted "${src.name}"`);
                     } catch { toast.error("Failed to delete"); }
@@ -651,14 +637,10 @@ function DrawerBodyInner({
                     } as any).eq("id", d.id);
                     if (error) throw error;
 
-                    const refreshed = await fetchTrackingLink(d.id);
-                    if (refreshed) {
-                      setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
-                      updateCachedLink(refreshed);
-                    }
+                    await refetchTrackingLinkAndSync();
 
                     toast.success("Tracking link updated");
-                    refreshAll();
+                    await refreshAll();
                     setActiveAction(null);
                   } catch { toast.error("Failed to save"); }
                   setActionSaving(false);
@@ -694,8 +676,12 @@ function DrawerBodyInner({
             <DataRow label="Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "$0.00"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
             <DataRow label="ROI" value={roi != null ? `${roi.toFixed(0)}%` : "—"} tone={roi != null ? profitTone(roi) : "neutral"} />
             <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
-            {paymentType === "CPL" && <DataRow label="CPL" value={configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerLead > 0 ? fmtC2(costPerLead) : "—"} />}
-            {paymentType === "CPC" && <DataRow label="CPC" value={configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />}
+            <DataRow
+              label="Payment Type"
+              value={paymentType ? <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold">{paymentType === "FIXED" ? "Fixed" : paymentType}</span> : "—"}
+            />
+            <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
+            {paymentType === "CPC" && <DataRow label="Cost Per Click" value={configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />}
             <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
             <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
             <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
