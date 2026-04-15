@@ -100,6 +100,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
   const [sourceFilterL2, setSourceFilterL2] = useState<string>("__all__");
   const [accountFilterL2, setAccountFilterL2] = useState<string>("__all__");
+  const [offerIdFilter, setOfferIdFilter] = useState<string>("__all__");
   const [tableSortPreset, setTableSortPreset] = useState<TableSortPreset>("highest_revenue");
   const [colSortKey, setColSortKey] = useState<ColSortKey>("revenue");
   const [colSortAsc, setColSortAsc] = useState(false);
@@ -176,6 +177,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     setSelectedMarketer("__all__");
     setSourceFilterL2("__all__");
     setAccountFilterL2("__all__");
+    setOfferIdFilter("__all__");
     setTableSortPreset("highest_revenue");
     setPage(0);
     if (!cat) onLevelChange?.(1);
@@ -211,6 +213,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       }
     }
 
+    // Offer ID filter
+    if (offerIdFilter !== "__all__") {
+      result = result.filter(l => {
+        const linkInfo = linkMarketerMap[l.id];
+        if (!linkInfo) return false;
+        return offerIdFilter === "__with_offer__" 
+          ? linkInfo.offer_id != null 
+          : String(linkInfo.offer_id) === offerIdFilter;
+      });
+    }
+
     // Source filter
     if (sourceFilterL2 !== "__all__") {
       if (sourceFilterL2 === "__untagged__") {
@@ -237,7 +250,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     }
 
     return result;
-  }, [categoryLinksRaw, selectedMarketer, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos]);
+  }, [categoryLinksRaw, selectedMarketer, offerIdFilter, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos, linkMarketerMap]);
 
   // Column sort handler
   const handleColSort = (key: ColSortKey) => {
