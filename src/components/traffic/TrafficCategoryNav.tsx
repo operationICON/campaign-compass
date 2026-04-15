@@ -517,15 +517,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
-      {/* Filters — single row, equal columns */}
-      <div className="grid grid-cols-5 gap-3 items-center">
-        <div className="relative">
+      {/* Filters — search takes 40%, dropdowns share rest */}
+      <div className="flex gap-3 items-center">
+        <div className="relative" style={{ flex: "0 0 40%" }}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
             placeholder={isOT ? "Search campaign, URL or Order ID..." : "Search campaign or URL..."}
-            className="pl-9 pr-8 h-9 text-sm bg-card border-border rounded-lg"
+            className="pl-9 pr-8 h-10 text-sm bg-card border-border rounded-lg"
           />
           {searchQuery && (
             <button
@@ -537,64 +537,91 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           )}
         </div>
 
-        <AccountFilterDropdown
-          value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
-          onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
-          accounts={accounts}
-        />
+        <div className="flex-1 grid grid-cols-4 gap-3">
+          <AccountFilterDropdown
+            value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
+            onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
+            accounts={accounts}
+            className="w-full"
+          />
 
-        <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm bg-card border-border rounded-lg">
-            <SelectValue placeholder="All Sources" />
-          </SelectTrigger>
-          <SelectContent className="bg-card border-border rounded-lg shadow-lg">
-            <SelectItem value="__all__">All Sources</SelectItem>
-            {sourceOptions.map(s => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-            <SelectItem value="__untagged__">Untagged</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
+            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
+              <SelectValue placeholder="All Sources" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+              <SelectItem value="__all__">All Sources</SelectItem>
+              {sourceOptions.map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+              <SelectItem value="__untagged__">Untagged</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm bg-card border-border rounded-lg">
-            <SelectValue placeholder="All Marketers" />
-          </SelectTrigger>
-          <SelectContent className="bg-card border-border rounded-lg shadow-lg">
-            <SelectItem value="__all__">All Marketers</SelectItem>
-            {orderMarketerCombos.map(c => (
-              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
+            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
+              <SelectValue placeholder="All Marketers" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+              <SelectItem value="__all__">All Marketers</SelectItem>
+              {orderMarketerCombos.map(c => (
+                <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
-          <SelectTrigger className="h-9 text-sm bg-card border-border rounded-lg">
-            <SelectValue placeholder="Sort by..." />
-          </SelectTrigger>
-          <SelectContent className="bg-card border-border rounded-lg shadow-lg">
-            <SelectItem value="highest_revenue">Highest Revenue</SelectItem>
-            <SelectItem value="highest_profit">Highest Profit</SelectItem>
-            <SelectItem value="most_spend">Most Spend</SelectItem>
-            <SelectItem value="highest_roi">Highest ROI</SelectItem>
-            <SelectItem value="most_campaigns">Most Campaigns</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
+            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+              <SelectItem value="highest_revenue">Highest Revenue</SelectItem>
+              <SelectItem value="highest_profit">Highest Profit</SelectItem>
+              <SelectItem value="most_spend">Most Spend</SelectItem>
+              <SelectItem value="highest_roi">Highest ROI</SelectItem>
+              <SelectItem value="most_campaigns">Most Campaigns</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Unmatched Orders link (OnlyTraffic only) */}
-      {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
-        <button
-          onClick={() => { setActiveUnmatched(true); }}
-          className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg hover:border-primary/40 transition-colors w-fit"
-        >
-          <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
-          <span className="font-semibold" style={{ fontSize: "12px", color: "#d97706" }}>
-            {fmtN(unmatchedOrders.count)} Unmatched Orders · {fmtC(unmatchedOrders.spend)}
-          </span>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      )}
+      {/* Action buttons row */}
+      <div className="flex items-center gap-2">
+        {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
+          <button
+            onClick={() => { setActiveUnmatched(true); }}
+            className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg hover:border-primary/40 transition-colors"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
+            <span className="font-semibold" style={{ fontSize: "12px", color: "#d97706" }}>
+              {fmtN(unmatchedOrders.count)} Unmatched Orders · {fmtC(unmatchedOrders.spend)}
+            </span>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
+        {isOT && (
+          <button
+            onClick={() => { setShowMarketerAnalytics(!showMarketerAnalytics); setExpandedMarketer(null); }}
+            className={`flex items-center gap-2 px-3 py-2 border rounded-lg transition-colors ${showMarketerAnalytics ? "bg-primary/10 border-primary/40 text-primary" : "bg-card border-border hover:border-primary/40 text-foreground"}`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span className="font-semibold" style={{ fontSize: "12px" }}>Marketer Analytics</span>
+          </button>
+        )}
+      </div>
+
+      {/* ═══ MARKETER ANALYTICS VIEW ═══ */}
+      {showMarketerAnalytics && isOT ? (
+        <MarketerAnalyticsView
+          links={filteredLinks}
+          linkMarketerMap={linkMarketerMap}
+          expandedMarketer={expandedMarketer}
+          setExpandedMarketer={setExpandedMarketer}
+          onBack={() => { setShowMarketerAnalytics(false); setExpandedMarketer(null); }}
+          onCampaignClick={setDrawerCampaign}
+          accounts={accounts}
+        />
+      ) : (
 
       {/* Campaign table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
