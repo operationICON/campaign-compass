@@ -75,9 +75,16 @@ function DrawerBodyInner({
 
   // Edit panel state
   const [editCampaignName, setEditCampaignName] = useState(d.campaign_name || "");
-  const [editCpc, setEditCpc] = useState(d.cost_type === "CPC" && d.cost_value ? String(d.cost_value) : "");
-  const [editCpl, setEditCpl] = useState(d.cost_type === "CPL" && d.cost_value ? String(d.cost_value) : "");
-  const [editTotalSpend, setEditTotalSpend] = useState(d.cost_type === "FIXED" && d.cost_value ? String(d.cost_value) : "");
+  const [editUrl, setEditUrl] = useState(d.url || "");
+  const [editAccountId, setEditAccountId] = useState(d.account_id || "");
+
+  const { data: allAccounts = [] } = useQuery({
+    queryKey: ["accounts_list"],
+    queryFn: async () => {
+      const { data } = await supabase.from("accounts").select("id, display_name, avatar_thumb_url, username").eq("is_active", true).order("display_name");
+      return data || [];
+    },
+  });
 
   const { data: sourceTags = [] } = useQuery({
     queryKey: ["traffic_sources"],
