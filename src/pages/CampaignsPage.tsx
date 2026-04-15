@@ -35,7 +35,6 @@ import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { useColumnOrder } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
-import { TrackingLinkPanel } from "@/components/dashboard/TrackingLinkPanel";
 import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
 
@@ -155,8 +154,6 @@ export default function CampaignsPage() {
   
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [editingLink, setEditingLink] = useState<any>(null);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
 
   // ─── Snapshot-based time filtering (shared hook) ───
@@ -615,12 +612,6 @@ export default function CampaignsPage() {
             </button>
             <RefreshButton queryKeys={["tracking_links", "campaigns_tracking_link_ltv", "ad_spend", "accounts"]} />
             <button
-              onClick={() => { setEditingLink(null); setPanelOpen(true); }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold text-primary-foreground hover:opacity-90 transition-colors bg-primary"
-            >
-              <Plus className="h-4 w-4" /> New
-            </button>
-            <button
               onClick={() => syncMutation.mutate(undefined)}
               disabled={syncMutation.isPending}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
@@ -790,16 +781,6 @@ export default function CampaignsPage() {
           )}
         </div>
 
-
-        {/* ═══ NEW/EDIT TRACKING LINK PANEL (inline) ═══ */}
-        {panelOpen && (
-          <TrackingLinkPanel
-            open={panelOpen}
-            onClose={() => { setPanelOpen(false); setEditingLink(null); }}
-            editLink={editingLink}
-            accounts={accounts}
-          />
-        )}
 
         {/* ═══ CAMPAIGN TABLE ═══ */}
         <div className="flex gap-0">
