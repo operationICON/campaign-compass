@@ -162,15 +162,7 @@ function DrawerBodyInner({
         .eq("id", d.id)
         .single();
       if (refreshed) {
-        d.cost_total = refreshed.cost_total;
-        d.profit = refreshed.profit;
-        d.roi = refreshed.roi;
-        d.cpl_real = refreshed.cpl_real;
-        d.cvr = refreshed.cvr;
-        d.status = refreshed.status;
-        d.cost_type = refreshed.cost_type;
-        d.cost_value = refreshed.cost_value;
-        d.payment_type = refreshed.payment_type;
+        setD((prev: any) => ({ ...prev, ...refreshed }));
       }
       toast.success("Spend saved");
       refreshAll();
