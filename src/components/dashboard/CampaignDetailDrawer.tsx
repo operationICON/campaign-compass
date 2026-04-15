@@ -227,7 +227,8 @@ function DrawerBodyInner({
       <div className="px-6 py-2.5 border-b border-border">
         <div className="flex gap-1.5">
           {[
-            { key: "spend_source", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend & Source" },
+            { key: "spend", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend" },
+            { key: "source", icon: <DollarSign className="h-3.5 w-3.5" />, label: "Source" },
             { key: "delete", icon: <Trash2 className="h-3.5 w-3.5" />, label: "Delete" },
             { key: "details", icon: <ArrowUpRight className="h-3.5 w-3.5" />, label: "Details" },
           ].map(btn => (
@@ -249,145 +250,143 @@ function DrawerBodyInner({
           ))}
         </div>
 
-        {/* COMBINED SPEND + SOURCE PANEL */}
-        {activeAction === "spend_source" && (
+        {/* SPEND PANEL */}
+        {activeAction === "spend" && (
           <div className="mt-2 rounded-lg border border-border overflow-hidden" style={{ background: "#0D1117" }}>
-            <div className="grid grid-cols-2 divide-x divide-border">
-              {/* LEFT — SPEND */}
-              <div className="p-3 space-y-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Spend</span>
-                  <DollarSign className="h-3 w-3 text-muted-foreground" />
-                  {cost > 0
-                    ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{fmtC2(cost)}</span>
-                    : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
-                  }
-                </div>
-                <div className="flex gap-1">
-                  {(["CPL", "CPC", "FIXED"] as const).map(t => (
-                    <button
-                      key={t}
-                      onClick={() => setCostType(t)}
-                      className={`flex-1 h-7 rounded-md text-[11px] font-bold transition-colors ${
-                        costType === t
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary border border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                <Input
-                  type="number"
-                  value={costValue}
-                  onChange={e => setCostValue(e.target.value)}
-                  placeholder="Cost value..."
-                  className="h-8 text-sm font-mono bg-card border-border"
-                />
-                <p className="text-[11px] text-muted-foreground">Total: <span className="font-mono font-semibold text-foreground">{fmtC2(calcCostTotal())}</span></p>
-                <div className="flex gap-1.5">
-                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={saveSpend} disabled={actionSaving}>
-                    {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
+            <div className="p-3 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Spend</span>
+                <DollarSign className="h-3 w-3 text-muted-foreground" />
+                {cost > 0
+                  ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{fmtC2(cost)}</span>
+                  : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
+                }
+              </div>
+              <div className="flex gap-1">
+                {(["CPL", "CPC", "FIXED"] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setCostType(t)}
+                    className={`flex-1 h-7 rounded-md text-[11px] font-bold transition-colors ${
+                      costType === t
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary border border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                value={costValue}
+                onChange={e => setCostValue(e.target.value)}
+                placeholder="Cost value..."
+                className="h-8 text-sm font-mono bg-card border-border"
+              />
+              <p className="text-[11px] text-muted-foreground">Total: <span className="font-mono font-semibold text-foreground">{fmtC2(calcCostTotal())}</span></p>
+              <div className="flex gap-1.5">
+                <Button size="sm" className="flex-1 h-8 text-xs" onClick={saveSpend} disabled={actionSaving}>
+                  {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
+                  setActionSaving(true);
+                  try {
+                    await supabase.from("tracking_links").update({
+                      cost_type: null,
+                      cost_value: null,
+                      cost_total: 0,
+                      profit: null,
+                      roi: null,
+                      cpl_real: null,
+                      cpc_real: null,
+                      status: 'NO_SPEND',
+                    }).eq("id", d.id);
+                    toast.success("Spend cleared");
+                    refreshAll();
+                  } catch { toast.error("Failed to clear"); }
+                  setActionSaving(false);
+                }} disabled={actionSaving}>Clear</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SOURCE PANEL */}
+        {activeAction === "source" && (
+          <div className="mt-2 rounded-lg border border-border overflow-hidden" style={{ background: "#0D1117" }}>
+            <div className="p-3 space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
+              <select
+                value={sourceVal}
+                onChange={e => setSourceVal(e.target.value)}
+                className="w-full h-8 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+              >
+                <option value="">— Select source —</option>
+                {sourceTags.map((t: any) => (
+                  <option key={t.id} value={t.name}>{t.name}</option>
+                ))}
+              </select>
+              <Input
+                type="text"
+                value={sourceVal}
+                onChange={e => setSourceVal(e.target.value)}
+                placeholder="CREATE NEW SOURCE NAME"
+                className="h-8 text-sm bg-card border-border"
+              />
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-8 text-[11px]"
+                  disabled={!sourceVal.trim() || actionSaving}
+                  onClick={async () => {
+                    if (!sourceVal.trim()) return;
+                    const trimmed = sourceVal.trim();
+                    const exists = sourceTags.find((t: any) => t.name.toLowerCase() === trimmed.toLowerCase());
+                    if (exists) { toast.info(`"${trimmed}" already exists`); return; }
                     setActionSaving(true);
                     try {
-                      await supabase.from("tracking_links").update({
-                        cost_type: null,
-                        cost_value: null,
-                        cost_total: 0,
-                        profit: null,
-                        roi: null,
-                        cpl_real: null,
-                        cpc_real: null,
-                        status: 'NO_SPEND',
-                      }).eq("id", d.id);
-                      toast.success("Spend cleared");
-                      refreshAll();
-                    } catch { toast.error("Failed to clear"); }
+                      const { data, error } = await supabase.from("traffic_sources").insert({
+                        name: trimmed,
+                        category: "Manual",
+                        color: "#0891b2",
+                        keywords: [],
+                      }).select().single();
+                      if (error) throw error;
+                      await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                      setSourceVal(data.name);
+                      toast.success(`Source "${trimmed}" created`);
+                    } catch (err) { console.error(err); toast.error("Failed to create"); }
                     setActionSaving(false);
-                  }} disabled={actionSaving}>Clear</Button>
-                </div>
-              </div>
-
-              {/* RIGHT — SOURCE */}
-              <div className="p-3 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
-                {/* Row 1 — Dropdown */}
-                <select
-                  value={sourceVal}
-                  onChange={e => setSourceVal(e.target.value)}
-                  className="w-full h-8 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                  }}
                 >
-                  <option value="">— Select source —</option>
-                  {sourceTags.map((t: any) => (
-                    <option key={t.id} value={t.name}>{t.name}</option>
-                  ))}
-                </select>
-                {/* Row 2 — Text input */}
-                <Input
-                  type="text"
-                  value={sourceVal}
-                  onChange={e => setSourceVal(e.target.value)}
-                  placeholder="CREATE NEW SOURCE NAME"
-                  className="h-8 text-sm bg-card border-border"
-                />
-                {/* Row 3 — Three buttons */}
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-8 text-[11px]"
-                    disabled={!sourceVal.trim() || actionSaving}
-                    onClick={async () => {
-                      if (!sourceVal.trim()) return;
-                      const trimmed = sourceVal.trim();
-                      const exists = sourceTags.find((t: any) => t.name.toLowerCase() === trimmed.toLowerCase());
-                      if (exists) { toast.info(`"${trimmed}" already exists`); return; }
-                      setActionSaving(true);
-                      try {
-                        const { data, error } = await supabase.from("traffic_sources").insert({
-                          name: trimmed,
-                          category: "Manual",
-                          color: "#0891b2",
-                          keywords: [],
-                        }).select().single();
-                        if (error) throw error;
-                        await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                        setSourceVal(data.name);
-                        toast.success(`Source "${trimmed}" created`);
-                      } catch (err) { console.error(err); toast.error("Failed to create"); }
-                      setActionSaving(false);
-                    }}
-                  >
-                    Create
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-8 text-[11px] text-destructive hover:text-destructive"
-                    disabled={!sourceVal.trim() || actionSaving}
-                    onClick={async () => {
-                      const src = sourceTags.find((t: any) => t.name === sourceVal);
-                      if (!src) { toast.error("Source not found in list"); return; }
-                      setActionSaving(true);
-                      try {
-                        const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
-                        if (error) throw error;
-                        await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                        setSourceVal("");
-                        toast.success(`Deleted "${src.name}"`);
-                      } catch { toast.error("Failed to delete"); }
-                      setActionSaving(false);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                  <Button size="sm" className="flex-1 h-8 text-[11px]" onClick={saveSource} disabled={actionSaving}>
-                    {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-                  </Button>
-                </div>
+                  Create
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-8 text-[11px] text-destructive hover:text-destructive"
+                  disabled={!sourceVal.trim() || actionSaving}
+                  onClick={async () => {
+                    const src = sourceTags.find((t: any) => t.name === sourceVal);
+                    if (!src) { toast.error("Source not found in list"); return; }
+                    setActionSaving(true);
+                    try {
+                      const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
+                      if (error) throw error;
+                      await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+                      setSourceVal("");
+                      toast.success(`Deleted "${src.name}"`);
+                    } catch { toast.error("Failed to delete"); }
+                    setActionSaving(false);
+                  }}
+                >
+                  Delete
+                </Button>
+                <Button size="sm" className="flex-1 h-8 text-[11px]" onClick={saveSource} disabled={actionSaving}>
+                  {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                </Button>
               </div>
             </div>
           </div>
