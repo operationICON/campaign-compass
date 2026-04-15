@@ -806,3 +806,150 @@ function SubKpi({ icon, label, value, color }: { icon: React.ReactNode; label: s
     </div>
   );
 }
+
+// ═══ MARKETER ANALYTICS VIEW ═══
+interface MarketerAnalyticsProps {
+  links: any[];
+  linkMarketerMap: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean }>;
+  expandedMarketer: string | null;
+  setExpandedMarketer: (m: string | null) => void;
+  onBack: () => void;
+  onCampaignClick: (link: any) => void;
+  accounts: any[];
+}
+
+function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setExpandedMarketer, onBack, onCampaignClick, accounts }: MarketerAnalyticsProps) {
+  const marketerData = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    links.forEach(l => {
+      const info = linkMarketerMap[l.id];
+      const name = info?.marketer || l.onlytraffic_marketer || "Unknown";
+      if (!map[name]) map[name] = [];
+      map[name].push(l);
+    });
+
+    return Object.entries(map).map(([name, mLinks]) => {
+      const spend = mLinks.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+      const revenue = mLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
+      const profit = revenue - spend;
+      const subs = mLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+      const roi = spend > 0 ? (profit / spend) * 100 : null;
+      const cplLinks = mLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
+      const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
+      const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+      const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
+      const profitSub = spend > 0 && subs > 0 ? profit / subs : null;
+      const ltvSub = subs > 0 ? revenue / subs : null;
+
+      let statusLabel = "NO SPEND";
+      let statusBg = "hsl(220 9% 46% / 0.15)";
+      let statusText = "hsl(220 9% 46%)";
+      if (spend > 0 && roi !== null) {
+        if (roi > 150) { statusLabel = "SCALE"; statusBg = "hsl(142 71% 45% / 0.15)"; statusText = "hsl(142 71% 45%)"; }
+        else if (roi >= 50) { statusLabel = "WATCH"; statusBg = "hsl(199 89% 48% / 0.15)"; statusText = "hsl(199 89% 48%)"; }
+        else if (roi >= 0) { statusLabel = "LOW"; statusBg = "hsl(38 92% 50% / 0.15)"; statusText = "hsl(38 92% 50%)"; }
+        else { statusLabel = "KILL"; statusBg = "hsl(0 84% 60% / 0.15)"; statusText = "hsl(0 84% 60%)"; }
+      }
+
+      return { name, links: mLinks, spend, revenue, profit, roi, avgCpl, profitSub, ltvSub, subs, campaigns: mLinks.length, statusLabel, statusBg, statusText };
+    }).sort((a, b) => b.revenue - a.revenue);
+  }, [links, linkMarketerMap]);
+
+  return (
+    <div className="space-y-4">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+        style={{ fontSize: "13px", fontWeight: 500 }}
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to Campaigns
+      </button>
+
+      <div className="grid grid-cols-3 gap-4">
+        {marketerData.map(m => (
+          <div key={m.name}>
+            <button
+              onClick={() => setExpandedMarketer(expandedMarketer === m.name ? null : m.name)}
+              className={`w-full text-left bg-card border rounded-xl p-4 transition-colors ${expandedMarketer === m.name ? "border-primary/50" : "border-border hover:border-primary/30"}`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-foreground font-bold" style={{ fontSize: "14px" }}>{m.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground font-mono" style={{ fontSize: "11px" }}>{m.campaigns} campaign{m.campaigns !== 1 ? "s" : ""}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: m.statusBg, color: m.statusText }}>
+                    {m.statusLabel}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                <MetricRow label="Spend" value={fmtC(m.spend)} />
+                <MetricRow label="Revenue" value={fmtC(m.revenue)} />
+                <MetricRow label="Profit" value={fmtC(m.profit)} color={m.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"} />
+                <MetricRow label="Avg CPL" value={m.avgCpl !== null ? fmtC(m.avgCpl) : "—"} />
+                <MetricRow label="Profit/Sub" value={m.profitSub !== null ? fmtC(m.profitSub) : "—"} color={m.profitSub !== null ? (m.profitSub >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                <MetricRow label="LTV/Sub" value={m.ltvSub !== null ? fmtC(m.ltvSub) : "—"} />
+                <MetricRow label="ROI" value={m.roi !== null ? fmtPct(m.roi) : "—"} color={m.roi !== null ? (m.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined} />
+                <MetricRow label="Subscribers" value={fmtN(m.subs)} />
+              </div>
+            </button>
+
+            {expandedMarketer === m.name && (
+              <div className="mt-2 bg-card border border-border rounded-xl overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border">
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Campaign</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground">Model</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Subs</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Spend</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Revenue</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">Profit</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-right">ROI</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase text-muted-foreground text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {m.links.map((link: any) => {
+                      const sp = Number(link.cost_total || 0);
+                      const rv = Number(link.revenue || 0);
+                      const pr = sp > 0 ? rv - sp : null;
+                      const ro = sp > 0 ? ((rv - sp) / sp) * 100 : null;
+                      const badge = getStatusBadge(link);
+                      const username = link.accounts?.username || "unknown";
+                      const avatarUrl = link.accounts?.avatar_thumb_url || null;
+                      const displayName = link.accounts?.display_name || username;
+                      return (
+                        <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50" onClick={() => onCampaignClick(link)}>
+                          <TableCell className="max-w-[180px]">
+                            <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <ModelAvatar avatarUrl={avatarUrl} name={displayName} size={18} />
+                              <span className="text-foreground" style={{ fontSize: "11px" }}>@{username}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.subscribers || 0)}</TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(sp)}</TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rv)}</TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: pr !== null ? (pr >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>{pr !== null ? fmtC(pr) : "—"}</TableCell>
+                          <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: ro !== null ? (ro >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined }}>{ro !== null ? fmtPct(ro) : "—"}</TableCell>
+                          <TableCell className="text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>{badge.label}</span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {marketerData.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No marketer data found</div>
+      )}
+    </div>
+  );
+}
