@@ -93,7 +93,7 @@ function DrawerBodyInner({
         traffic_category: "Manual"
       }).eq("id", d.id);
       if (error) throw error;
-      d.source_tag = sourceVal;
+      setD((prev: any) => ({ ...prev, source_tag: sourceVal }));
       toast.success("Source saved");
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
       setActiveAction(null);
@@ -295,12 +295,7 @@ function DrawerBodyInner({
                       cpc_real: null,
                       status: 'NO_SPEND',
                     }).eq("id", d.id);
-                    d.cost_type = null;
-                    d.cost_value = null;
-                    d.cost_total = 0;
-                    d.profit = null;
-                    d.roi = null;
-                    d.status = 'NO_SPEND';
+                    setD((prev: any) => ({ ...prev, cost_type: null, cost_value: null, cost_total: 0, profit: null, roi: null, status: 'NO_SPEND' }));
                     setCostType("CPL");
                     setCostValue("");
                     toast.success("Spend cleared");
@@ -363,7 +358,7 @@ function DrawerBodyInner({
                         manually_tagged: true,
                         traffic_category: "Manual",
                       }).eq("id", d.id);
-                      d.source_tag = data.name;
+                      setD((prev: any) => ({ ...prev, source_tag: data.name, traffic_source_id: data.id }));
                       setSourceVal(data.name);
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
                       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
