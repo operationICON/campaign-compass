@@ -489,8 +489,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
-      {/* Filter row: all filters in one row */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Filters — single row, equal columns */}
+      <div className="grid grid-cols-5 gap-3 items-center">
         <AccountFilterDropdown
           value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
           onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
@@ -498,7 +498,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         />
 
         <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
-          <SelectTrigger className="h-9 min-w-[180px] text-sm">
+          <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="All Sources" />
           </SelectTrigger>
           <SelectContent>
@@ -510,8 +510,20 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </SelectContent>
         </Select>
 
+        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All Marketers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Marketers</SelectItem>
+            {orderMarketerCombos.map(c => (
+              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
-          <SelectTrigger className="h-9 min-w-[160px] text-sm">
+          <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Sort by..." />
           </SelectTrigger>
           <SelectContent>
@@ -523,19 +535,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </SelectContent>
         </Select>
 
-        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-          <SelectTrigger className="h-9 min-w-[160px] text-sm">
-            <SelectValue placeholder="All Marketers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All Marketers</SelectItem>
-            {orderMarketerCombos.map(c => (
-              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
