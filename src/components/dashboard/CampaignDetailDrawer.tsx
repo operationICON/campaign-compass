@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Copy, ExternalLink, XCircle, Coins, Trash2,
@@ -69,7 +69,7 @@ function DrawerBodyInner({
   const navigate = useNavigate();
 
   const [d, setD] = useState(initialCampaign);
-  const [costType, setCostType] = useState(d.cost_type || "CPL");
+  const [costType, setCostType] = useState(d.cost_type || d.payment_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
 
@@ -95,6 +95,55 @@ function DrawerBodyInner({
     },
   });
 
+  useEffect(() => {
+    setD(initialCampaign);
+    setCostType(initialCampaign.cost_type || initialCampaign.payment_type || "CPL");
+    setCostValue(initialCampaign.cost_value != null ? String(initialCampaign.cost_value) : "");
+    setSourceVal(initialCampaign.source_tag || "");
+    setEditCampaignName(initialCampaign.campaign_name || "");
+    setEditUrl(initialCampaign.url || "");
+    setEditAccountId(initialCampaign.account_id || "");
+  }, [initialCampaign]);
+
+  const updateCachedLink = (updatedLink: any) => {
+    const mergeLink = (prev: any) => Array.isArray(prev)
+      ? prev.map((link: any) => (link.id === updatedLink.id ? { ...link, ...updatedLink } : link))
+      : prev;
+
+    queryClient.setQueryData(["tracking_links"], mergeLink);
+    queryClient.setQueryData(["tracking_links_ts"], mergeLink);
+  };
+
+  const removeCachedLink = (linkId: string) => {
+    const removeLink = (prev: any) => Array.isArray(prev)
+      ? prev.filter((link: any) => link.id !== linkId)
+      : prev;
+
+    queryClient.setQueryData(["tracking_links"], removeLink);
+    queryClient.setQueryData(["tracking_links_ts"], removeLink);
+  };
+
+  const refreshTrackingQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+    queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] });
+  };
+
+  const refreshAll = () => {
+    refreshTrackingQueries();
+    queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
+  };
+
+  const fetchTrackingLink = async (linkId: string) => {
+    const { data, error } = await supabase
+      .from("tracking_links")
+      .select("*, accounts(display_name, username, avatar_thumb_url)")
+      .eq("id", linkId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  };
+
   const saveSource = async () => {
     setActionSaving(true);
     try {
@@ -106,9 +155,13 @@ function DrawerBodyInner({
         traffic_category: "Manual"
       }).eq("id", d.id);
       if (error) throw error;
-      setD((prev: any) => ({ ...prev, source_tag: sourceVal }));
+
+      const refreshed = await fetchTrackingLink(d.id);
+      setD((prev: any) => ({ ...prev, ...refreshed }));
+      updateCachedLink(refreshed);
+
       toast.success("Source saved");
-      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+      refreshTrackingQueries();
       setActiveAction(null);
     } catch { toast.error("Failed to save source"); }
     setActionSaving(false);
@@ -116,7 +169,8 @@ function DrawerBodyInner({
 
   // ─── FIX 1: FINANCIALS — always from tracking_links ───
   const cost = Number(d.cost_total ?? 0);
-  const hasSpendConfig = !!d.cost_type;
+  const configuredCostType = d.cost_type || d.payment_type || null;
+  const hasSpendConfig = !!configuredCostType;
   const costInputValue = Number(d.cost_value ?? 0);
   const totalClicks = Number(d.clicks ?? 0);
   const tlSubscribers = Number(d.subscribers ?? 0);
@@ -130,7 +184,7 @@ function DrawerBodyInner({
   const cvr = d.cvr != null ? Number(d.cvr) : (totalClicks > 100 ? (tlSubscribers / totalClicks) * 100 : null);
   const costPerLead = Number(d.cost_per_lead ?? 0);
   const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
-  const paymentType = d.payment_type || d.cost_type || null;
+  const paymentType = configuredCostType;
 
   const daysRunning = d.created_at
     ? Math.max(1, Math.round((Date.now() - new Date(d.created_at).getTime()) / 86400000))
@@ -151,34 +205,72 @@ function DrawerBodyInner({
     return v;
   };
 
-  const refreshAll = () => {
-    queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-    queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
-  };
-
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard");
+  };
+
+  const round = (value: number, decimals = 2) => Number(value.toFixed(decimals));
+
+  const getSpendPayload = () => {
+    const unitValue = Number(costValue) || 0;
+    const total = calcCostTotal();
+    const costPerLead = costType === "CPL"
+      ? unitValue
+      : (total > 0 && tlSubscribers > 0 ? round(total / tlSubscribers, 4) : null);
+    const costPerClick = costType === "CPC"
+      ? unitValue
+      : (total > 0 && totalClicks > 0 ? round(total / totalClicks, 4) : null);
+    const profitValue = total > 0 ? round(campaignRevenue - total, 2) : null;
+    const roiValue = total > 0 ? round(((campaignRevenue - total) / total) * 100, 2) : null;
+    const cvrValue = totalClicks > 0 && tlSubscribers > 0 && totalClicks >= tlSubscribers
+      ? round((tlSubscribers / totalClicks) * 100, 4)
+      : null;
+    const spenderRateValue = tlSubscribers > 0 && tlSpenders > 0
+      ? round((tlSpenders / tlSubscribers) * 100, 4)
+      : null;
+
+    let statusValue = "NO_SPEND";
+    if (total > 0) {
+      if (campaignRevenue <= 0) statusValue = "NO_DATA";
+      else if ((roiValue ?? 0) > 150) statusValue = "SCALE";
+      else if ((roiValue ?? 0) >= 50) statusValue = "WATCH";
+      else if ((roiValue ?? 0) >= 0) statusValue = "LOW";
+      else statusValue = "KILL";
+    }
+
+    return {
+      cost_type: costType,
+      payment_type: costType,
+      cost_value: unitValue,
+      cost_total: total,
+      cost_per_lead: costPerLead,
+      cost_per_click: costPerClick,
+      cpl_real: costPerLead,
+      cpc_real: costPerClick,
+      profit: profitValue,
+      roi: roiValue,
+      cvr: cvrValue,
+      spender_rate: spenderRateValue,
+      arpu: tlSubscribers > 0 ? round(campaignRevenue / tlSubscribers, 4) : 0,
+      status: statusValue,
+    };
   };
 
 
   const saveSpend = async () => {
     setActionSaving(true);
     try {
-      const total = calcCostTotal();
-      const { error } = await supabase.from("tracking_links").update({
-        cost_type: costType, cost_value: Number(costValue) || 0, cost_total: total,
-      }).eq("id", d.id);
+      const spendPayload = getSpendPayload();
+      const { error } = await supabase.from("tracking_links").update(spendPayload).eq("id", d.id);
       if (error) throw error;
-      const { data: refreshed } = await supabase
-        .from("tracking_links")
-        .select("*, accounts(display_name, username, avatar_thumb_url)")
-        .eq("id", d.id)
-        .single();
+
+      const refreshed = await fetchTrackingLink(d.id);
       if (refreshed) {
         setD((prev: any) => ({ ...prev, ...refreshed }));
-        setCostType(refreshed.cost_type || "CPL");
-        setCostValue(String(refreshed.cost_value || ""));
+        setCostType(refreshed.cost_type || refreshed.payment_type || "CPL");
+        setCostValue(refreshed.cost_value != null ? String(refreshed.cost_value) : "");
+        updateCachedLink(refreshed);
       }
       toast.success("Spend saved");
       refreshAll();
@@ -192,6 +284,7 @@ function DrawerBodyInner({
     try {
       const { error } = await supabase.from("tracking_links").update({ deleted_at: new Date().toISOString() }).eq("id", d.id);
       if (error) throw error;
+      removeCachedLink(d.id);
       toast.success("Campaign deleted");
       refreshAll();
       onClose();
@@ -263,7 +356,7 @@ function DrawerBodyInner({
                 {cost > 0
                   ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{fmtC2(cost)}</span>
                   : hasSpendConfig
-                    ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{d.cost_type} @ {fmtC2(Number(d.cost_value || 0))}</span>
+                    ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{configuredCostType} @ {fmtC2(Number(d.cost_value || 0))}</span>
                     : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
                 }
               </div>
@@ -297,17 +390,23 @@ function DrawerBodyInner({
                 <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
                   setActionSaving(true);
                   try {
-                    await supabase.from("tracking_links").update({
+                    const clearedSpend = {
                       cost_type: null,
+                      payment_type: null,
                       cost_value: null,
                       cost_total: 0,
+                      cost_per_lead: null,
+                      cost_per_click: null,
                       profit: null,
                       roi: null,
                       cpl_real: null,
                       cpc_real: null,
                       status: 'NO_SPEND',
-                    }).eq("id", d.id);
-                    setD((prev: any) => ({ ...prev, cost_type: null, cost_value: null, cost_total: 0, profit: null, roi: null, status: 'NO_SPEND' }));
+                    };
+                    await supabase.from("tracking_links").update(clearedSpend).eq("id", d.id);
+                    const nextLink = { ...d, ...clearedSpend };
+                    setD(nextLink);
+                    updateCachedLink(nextLink);
                     setCostType("CPL");
                     setCostValue("");
                     toast.success("Spend cleared");
@@ -370,10 +469,14 @@ function DrawerBodyInner({
                         manually_tagged: true,
                         traffic_category: "Manual",
                       }).eq("id", d.id);
-                      setD((prev: any) => ({ ...prev, source_tag: data.name, traffic_source_id: data.id }));
+
+                      const refreshed = await fetchTrackingLink(d.id);
+                      setD((prev: any) => ({ ...prev, ...refreshed }));
+                      updateCachedLink(refreshed);
+
                       setSourceVal(data.name);
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                      refreshTrackingQueries();
                       toast.success(`Source "${trimmed}" created & assigned`);
                     } catch (err) { console.error(err); toast.error("Failed to create"); }
                     setActionSaving(false);
@@ -400,10 +503,12 @@ function DrawerBodyInner({
                       const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
                       if (error) throw error;
                       if (d.traffic_source_id === src.id || d.source_tag === src.name) {
-                        setD((prev: any) => ({ ...prev, source_tag: null, traffic_source_id: null }));
+                        const nextLink = { ...d, source_tag: null, traffic_source_id: null, manually_tagged: false };
+                        setD(nextLink);
+                        updateCachedLink(nextLink);
                       }
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                      queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
+                      refreshTrackingQueries();
                       setSourceVal("");
                       toast.success(`Deleted "${src.name}"`);
                     } catch { toast.error("Failed to delete"); }
@@ -494,9 +599,11 @@ function DrawerBodyInner({
                     } as any).eq("id", d.id);
                     if (error) throw error;
 
-                    const { data: refreshed } = await supabase
-                      .from("tracking_links").select("*, accounts(display_name, username, avatar_thumb_url)").eq("id", d.id).single();
-                    if (refreshed) setD((prev: any) => ({ ...prev, ...refreshed }));
+                    const refreshed = await fetchTrackingLink(d.id);
+                    if (refreshed) {
+                      setD((prev: any) => ({ ...prev, ...refreshed }));
+                      updateCachedLink(refreshed);
+                    }
 
                     toast.success("Tracking link updated");
                     refreshAll();
