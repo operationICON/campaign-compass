@@ -495,7 +495,7 @@ function DrawerBodyInner({
                     if (error) throw error;
 
                     const { data: refreshed } = await supabase
-                      .from("tracking_links").select("*").eq("id", d.id).single();
+                      .from("tracking_links").select("*, accounts(display_name, username, avatar_thumb_url)").eq("id", d.id).single();
                     if (refreshed) setD((prev: any) => ({ ...prev, ...refreshed }));
 
                     toast.success("Tracking link updated");
