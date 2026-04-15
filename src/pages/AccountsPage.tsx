@@ -880,10 +880,7 @@ export default function AccountsPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Campaign Rev</span>
                     <span className="font-mono font-semibold text-foreground">
-                      {(() => {
-                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                        return fmtCurrency(accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier);
-                      })()}
+                      {fmtCurrency((stats.totalRevenue || 0) * revMultiplier)}
                     </span>
                   </div>
                   <div className="flex justify-between">
