@@ -928,8 +928,6 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
           </>
         );
       })()}
-        <div className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No marketer data found</div>
-      )}
     </div>
   );
 }
