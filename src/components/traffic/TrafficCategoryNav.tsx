@@ -106,6 +106,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [colSortAsc, setColSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
+  const [showMarketerAnalytics, setShowMarketerAnalytics] = useState(false);
+  const [expandedMarketer, setExpandedMarketer] = useState<string | null>(null);
   const colorMap = useTagColors();
 
   // Fetch accounts for dropdown
