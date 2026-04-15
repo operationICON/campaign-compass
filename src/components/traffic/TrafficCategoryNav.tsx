@@ -30,7 +30,7 @@ interface Props {
 }
 
 type Category = "OnlyTraffic" | "Manual";
-type TableSortPreset = "highest_revenue" | "highest_profit" | "most_spend" | "highest_roi" | "most_campaigns";
+type TableSortPreset = "newest_first" | "highest_revenue" | "highest_profit" | "most_spend" | "highest_roi" | "most_campaigns";
 type ColSortKey = "campaign" | "model" | "source" | "marketer" | "offerId" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
 
 function isOnlyTraffic(link: any): boolean {
@@ -101,8 +101,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [sourceFilterL2, setSourceFilterL2] = useState<string>("__all__");
   const [accountFilterL2, setAccountFilterL2] = useState<string>("__all__");
   const [offerIdFilter, setOfferIdFilter] = useState<string>("__all__");
-  const [tableSortPreset, setTableSortPreset] = useState<TableSortPreset>("highest_revenue");
-  const [colSortKey, setColSortKey] = useState<ColSortKey>("revenue");
+  const [tableSortPreset, setTableSortPreset] = useState<TableSortPreset>("newest_first");
+  const [colSortKey, setColSortKey] = useState<ColSortKey>("created");
   const [colSortAsc, setColSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
@@ -180,7 +180,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     setSourceFilterL2("__all__");
     setAccountFilterL2("__all__");
     setOfferIdFilter("__all__");
-    setTableSortPreset("highest_revenue");
+    setTableSortPreset("newest_first");
     setPage(0);
     if (!cat) onLevelChange?.(1);
     else onLevelChange?.(2);
@@ -265,6 +265,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const applyPreset = (preset: TableSortPreset) => {
     setTableSortPreset(preset);
     switch (preset) {
+      case "newest_first": setColSortKey("created"); setColSortAsc(false); break;
       case "highest_revenue": setColSortKey("revenue"); setColSortAsc(false); break;
       case "highest_profit": setColSortKey("profit"); setColSortAsc(false); break;
       case "most_spend": setColSortKey("spend"); setColSortAsc(false); break;
@@ -575,6 +576,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
             <SelectContent className="bg-card border-border rounded-lg shadow-lg">
+              <SelectItem value="newest_first">Newest First</SelectItem>
               <SelectItem value="highest_revenue">Highest Revenue</SelectItem>
               <SelectItem value="highest_profit">Highest Profit</SelectItem>
               <SelectItem value="most_spend">Most Spend</SelectItem>
