@@ -73,6 +73,12 @@ function DrawerBodyInner({
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
 
+  // Edit panel state
+  const [editCampaignName, setEditCampaignName] = useState(d.campaign_name || "");
+  const [editCpc, setEditCpc] = useState(d.cost_type === "CPC" && d.cost_value ? String(d.cost_value) : "");
+  const [editCpl, setEditCpl] = useState(d.cost_type === "CPL" && d.cost_value ? String(d.cost_value) : "");
+  const [editTotalSpend, setEditTotalSpend] = useState(d.cost_type === "FIXED" && d.cost_value ? String(d.cost_value) : "");
+
   const { data: sourceTags = [] } = useQuery({
     queryKey: ["traffic_sources"],
     queryFn: async () => {
