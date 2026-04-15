@@ -30,6 +30,7 @@ interface Props {
 
 type Category = "OnlyTraffic" | "Manual";
 type TableSortPreset = "highest_revenue" | "highest_profit" | "most_spend" | "highest_roi" | "most_campaigns";
+type ColSortKey = "campaign" | "model" | "source" | "marketer" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
 
 function isOnlyTraffic(link: any): boolean {
   return link.traffic_category === "OnlyTraffic";
