@@ -572,7 +572,7 @@ export default function AccountsPage() {
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
                             <th className="text-right py-2 px-3">Subs/Day</th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>LTV <SortIcon col="revenue" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>Revenue <SortIcon col="revenue" /></th>
                             <th className="text-right py-2 px-3">Cross-Poll</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
@@ -585,11 +585,9 @@ export default function AccountsPage() {
                             const status = getStatus(l);
                             const hasSpend = Number(l.cost_total || 0) > 0;
                             const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
-                            const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
                             const crossPoll = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
-                            const hasLtv = ltvVal !== null && ltvVal > 0;
-                            const effectiveRevL = hasLtv ? ltvVal : Number(l.revenue || 0);
-                            const profit = effectiveRevL - Number(l.cost_total || 0);
+                            const revVal = Number(l.revenue || 0);
+                            const profit = revVal - Number(l.cost_total || 0);
                             const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
                             const subsPerDay = daysActive && daysActive > 0 && l.subscribers > 0 ? (l.subscribers / daysActive).toFixed(0) : null;
                             return (
@@ -605,10 +603,9 @@ export default function AccountsPage() {
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.subscribers)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{subsPerDay ? `${subsPerDay}/day` : "—"}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  <span className={hasLtv ? "text-primary font-semibold" : "text-muted-foreground"}>
-                                    {hasLtv ? fmtCurrency(ltvVal) : ltvVal === 0 ? "$0.00" : "—"}
+                                  <span className="font-semibold text-foreground">
+                                    {fmtCurrency(revVal)}
                                   </span>
-                                  {!hasLtv && ltvVal === null && <span className="ml-1 px-1 py-0.5 rounded text-[9px] font-bold bg-muted text-muted-foreground leading-none">No data</span>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {crossPoll !== null && crossPoll > 0 ? (
@@ -647,7 +644,7 @@ export default function AccountsPage() {
                             <th className="text-left py-2 px-3">Source</th>
                             <th className="text-right py-2 px-3">Active Links</th>
                             <th className="text-right py-2 px-3">Total Spend</th>
-                            <th className="text-right py-2 px-3">Total LTV</th>
+                            <th className="text-right py-2 px-3">Total Revenue</th>
                             <th className="text-right py-2 px-3">Profit</th>
                             <th className="text-right py-2 px-3">ROI</th>
                           </tr>
@@ -658,7 +655,7 @@ export default function AccountsPage() {
                               <td className="py-3 px-3 font-medium text-[12px]"><TagBadge tagName={g.source} /></td>
                               <td className="text-right py-3 px-3 font-mono text-[12px]">{g.links}</td>
                               <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtCurrency(g.spend)}</td>
-                              <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.ltv)}</td>
+                              <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.revenue)}</td>
                               <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>{fmtCurrency(g.profit)}</td>
                               <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.roi != null ? (g.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>{g.roi != null ? fmtPct(g.roi) : "—"}</td>
                             </tr>
@@ -676,14 +673,14 @@ export default function AccountsPage() {
                     ) : (
                       <>
                         <div>
-                          <p className="text-xs font-semibold text-foreground mb-3">LTV Over Time</p>
+                          <p className="text-xs font-semibold text-foreground mb-3">Revenue Over Time</p>
                           <div className="h-[200px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={perfData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                                 <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => format(new Date(d), "MMM d")} />
                                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${v}`} />
-                                <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "LTV"]} labelFormatter={(l) => format(new Date(l), "MMM d, yyyy")} />
+                                <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} labelFormatter={(l) => format(new Date(l), "MMM d, yyyy")} />
                                 <Line type="monotone" dataKey="ltv" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                               </LineChart>
                             </ResponsiveContainer>
