@@ -13,6 +13,7 @@ import { calcStatus, STATUS_STYLES, STATUS_LABELS } from "@/lib/calc-helpers";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ModelAvatar } from "@/components/ModelAvatar";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
