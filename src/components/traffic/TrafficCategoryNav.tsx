@@ -13,6 +13,7 @@ import { calcStatus, STATUS_STYLES, STATUS_LABELS } from "@/lib/calc-helpers";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ModelAvatar } from "@/components/ModelAvatar";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -488,10 +489,16 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
-      {/* Filter row 1: All Sources, All Accounts, Sort */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Filter row: all filters in one row */}
+      <div className="flex flex-wrap items-center gap-3">
+        <AccountFilterDropdown
+          value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
+          onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
+          accounts={accounts}
+        />
+
         <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-9 min-w-[180px] text-sm">
             <SelectValue placeholder="All Sources" />
           </SelectTrigger>
           <SelectContent>
@@ -503,20 +510,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </SelectContent>
         </Select>
 
-        <Select value={accountFilterL2} onValueChange={v => { setAccountFilterL2(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="All Accounts" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All Accounts</SelectItem>
-            {accounts.map((a: any) => (
-              <SelectItem key={a.id} value={a.id}>@{(a.username || "").replace("@", "")} — {a.display_name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-9 min-w-[160px] text-sm">
             <SelectValue placeholder="Sort by..." />
           </SelectTrigger>
           <SelectContent>
@@ -527,16 +522,25 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <SelectItem value="most_campaigns">Most Campaigns</SelectItem>
           </SelectContent>
         </Select>
-      </div>
 
-      {/* Filter row 2: Search + Marketer */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="relative">
+        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
+          <SelectTrigger className="h-9 min-w-[160px] text-sm">
+            <SelectValue placeholder="All Marketers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Marketers</SelectItem>
+            {orderMarketerCombos.map(c => (
+              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
-            placeholder={isOT ? "Search campaign name, URL or Order ID..." : "Search campaign name or URL..."}
+            placeholder={isOT ? "Search campaign, URL or Order ID..." : "Search campaign or URL..."}
             className="pl-9 pr-8 h-9 text-sm"
           />
           {searchQuery && (
@@ -548,17 +552,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </button>
           )}
         </div>
-        <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="All Marketers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All Marketers</SelectItem>
-            {orderMarketerCombos.map(c => (
-              <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Unmatched Orders link (OnlyTraffic only) */}
