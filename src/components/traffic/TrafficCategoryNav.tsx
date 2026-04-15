@@ -622,7 +622,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           accounts={accounts}
         />
       ) : (
-
+      <>
       {/* Campaign table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
