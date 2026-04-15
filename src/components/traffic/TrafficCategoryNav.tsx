@@ -238,48 +238,58 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     return result;
   }, [categoryLinksRaw, selectedMarketer, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos]);
 
-  // Sort by preset
-  const sorted = useMemo(() => {
-    return [...filteredLinks].sort((a, b) => {
-      switch (tableSortPreset) {
-        case "highest_revenue":
-          return Number(b.revenue || 0) - Number(a.revenue || 0);
-        case "highest_profit": {
-          const pa = Number(a.revenue || 0) - Number(a.cost_total || 0);
-          const pb = Number(b.revenue || 0) - Number(b.cost_total || 0);
-          return pb - pa;
-        }
-        case "most_spend":
-          return Number(b.cost_total || 0) - Number(a.cost_total || 0);
-        case "highest_roi": {
-          const roiA = Number(a.cost_total || 0) > 0 ? ((Number(a.revenue || 0) - Number(a.cost_total || 0)) / Number(a.cost_total || 0)) * 100 : -Infinity;
-          const roiB = Number(b.cost_total || 0) > 0 ? ((Number(b.revenue || 0) - Number(b.cost_total || 0)) / Number(b.cost_total || 0)) * 100 : -Infinity;
-          return roiB - roiA;
-        }
-        case "most_campaigns":
-          // Group by source, sort sources by campaign count desc — but since we show individual campaigns, sort by source frequency
-          return 0; // Keep original order for this preset (sorted by source count below)
-        default:
-          return 0;
-      }
-    });
-  }, [filteredLinks, tableSortPreset]);
+  // Column sort handler
+  const handleColSort = (key: ColSortKey) => {
+    if (colSortKey === key) setColSortAsc(!colSortAsc);
+    else { setColSortKey(key); setColSortAsc(false); }
+    setPage(0);
+  };
 
-  // For "most_campaigns" preset, sort by source campaign count
+  // Apply preset → sets colSortKey/colSortAsc
+  const applyPreset = (preset: TableSortPreset) => {
+    setTableSortPreset(preset);
+    switch (preset) {
+      case "highest_revenue": setColSortKey("revenue"); setColSortAsc(false); break;
+      case "highest_profit": setColSortKey("profit"); setColSortAsc(false); break;
+      case "most_spend": setColSortKey("spend"); setColSortAsc(false); break;
+      case "highest_roi": setColSortKey("roi"); setColSortAsc(false); break;
+      case "most_campaigns": setColSortKey("source"); setColSortAsc(false); break;
+    }
+    setPage(0);
+  };
+
+  // Sort by column
   const finalSorted = useMemo(() => {
-    if (tableSortPreset !== "most_campaigns") return sorted;
-    // Count campaigns per source
-    const sourceCounts: Record<string, number> = {};
-    filteredLinks.forEach(l => {
-      const src = getEffectiveSource(l) || "Untagged";
-      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+    const getValue = (l: any): number | string => {
+      const spend = Number(l.cost_total || 0);
+      const rev = Number(l.revenue || 0);
+      const subs = l.subscribers || 0;
+      switch (colSortKey) {
+        case "campaign": return (l.campaign_name || "").toLowerCase();
+        case "model": return (l.accounts?.username || "").toLowerCase();
+        case "source": return (getEffectiveSource(l) || "zzz").toLowerCase();
+        case "marketer": return (l.onlytraffic_marketer || "zzz").toLowerCase();
+        case "orderId": return (l.onlytraffic_order_id || "").toLowerCase();
+        case "clicks": return l.clicks || 0;
+        case "subs": return subs;
+        case "spend": return spend;
+        case "revenue": return rev;
+        case "profit": return spend > 0 ? rev - spend : -Infinity;
+        case "profitSub": return spend > 0 && subs > 0 ? (rev - spend) / subs : -Infinity;
+        case "ltvSub": return subs > 0 ? rev / subs : -Infinity;
+        case "roi": return spend > 0 ? ((rev - spend) / spend) * 100 : -Infinity;
+        case "created": return new Date(l.created_at).getTime();
+        case "status": return spend <= 0 ? -2 : ((rev - spend) / spend) * 100;
+        default: return 0;
+      }
+    };
+    return [...filteredLinks].sort((a, b) => {
+      const va = getValue(a);
+      const vb = getValue(b);
+      if (typeof va === "string" && typeof vb === "string") return colSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return colSortAsc ? (va as number) - (vb as number) : (vb as number) - (va as number);
     });
-    return [...sorted].sort((a, b) => {
-      const srcA = getEffectiveSource(a) || "Untagged";
-      const srcB = getEffectiveSource(b) || "Untagged";
-      return (sourceCounts[srcB] || 0) - (sourceCounts[srcA] || 0);
-    });
-  }, [sorted, tableSortPreset, filteredLinks]);
+  }, [filteredLinks, colSortKey, colSortAsc]);
 
   const totalPages = Math.ceil(finalSorted.length / PAGE_SIZE);
   const pageRows = finalSorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
