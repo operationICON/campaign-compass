@@ -251,13 +251,17 @@ export default function AccountsPage() {
       const totalClicks = accLinksFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
 
-      // FIX 9 — Active links = clicks > 0 in last 30 days AND deleted_at IS NULL
+      // FIX 9 — Active links = clicks > 0 AND calculated_at within last 30 days
       const activeLinks = accLinks.filter((l: any) => {
         if (l.deleted_at) return false;
-        // Check if link had clicks recently (use created_at as proxy, or clicks > 0)
+        if (l.clicks <= 0) return false;
+        const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
+        if (calcDate && calcDate >= thirtyDaysAgo) return true;
+        // Fallback: check snapshot data
+        if (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0) return true;
+        // Fallback: created recently with clicks
         const created = l.created_at ? new Date(l.created_at) : null;
-        const daysSinceCreated = created ? differenceInDays(now, created) : 999;
-        return l.clicks > 0 && daysSinceCreated <= 30 || (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0);
+        return created ? created >= thirtyDaysAgo : false;
       });
 
       // FIX 3 — Subs/Day = total subs across links / days since earliest link created_at
