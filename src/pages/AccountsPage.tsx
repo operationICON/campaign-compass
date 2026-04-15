@@ -483,8 +483,8 @@ export default function AccountsPage() {
                     { label: "Active Tracking Links", value: String(stats.activeCampaigns || 0) },
                     { label: "Subs/Day", value: stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—" },
                     { label: "ROI %", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
-                    { label: "Untracked %", value: stats.untrackedPct != null ? fmtPct(stats.untrackedPct) : "—",
-                      colored: true, pctVal: stats.untrackedPct },
+                    { label: "Unattributed %", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
+                      colored: true, pctVal: stats.unattributedPct },
                   ].map((s: any) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
