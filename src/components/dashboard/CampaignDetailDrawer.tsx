@@ -262,7 +262,10 @@ function DrawerBodyInner({
                 <DollarSign className="h-3 w-3 text-muted-foreground" />
                 {cost > 0
                   ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{fmtC2(cost)}</span>
-                  : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
+                  : hasSpendConfig
+                    ? <span className="text-[10px] font-semibold text-primary rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5">{d.cost_type} @ {fmtC2(Number(d.cost_value || 0))}</span>
+                    : <span className="flex items-center gap-1 text-[10px] text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Not set</span>
+                }
                 }
               </div>
               <div className="flex gap-1">
