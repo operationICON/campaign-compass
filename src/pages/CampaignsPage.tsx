@@ -323,13 +323,13 @@ export default function CampaignsPage() {
       // STEP 4: Fixed status logic
       let computedStatus: string;
       const linkClicks = l.clicks || 0;
-      if (linkClicks === 0 && daysSinceCreated > 3) {
-        computedStatus = "DEAD";
-      } else if (costTotalVal > 0 && computedRoi !== null) {
+      if (costTotalVal > 0 && computedRoi !== null) {
         if (computedRoi > 150) computedStatus = "SCALE";
         else if (computedRoi >= 50) computedStatus = "WATCH";
         else if (computedRoi >= 0) computedStatus = "LOW";
         else computedStatus = "KILL";
+      } else if (linkClicks === 0 && daysSinceCreated > 3) {
+        computedStatus = "DEAD";
       } else if (costTotalVal <= 0) {
         if (ltvFromTable !== null && ltvFromTable > 0) computedStatus = "NO_SPEND";
         else if (!hasLtvData) computedStatus = "NO_DATA";
@@ -1463,7 +1463,7 @@ export default function CampaignsPage() {
         </div>
 
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
-        <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
+        <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} onCampaignUpdated={setDrawerCampaign} />
       </div>
     </DashboardLayout>
   );
