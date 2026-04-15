@@ -200,71 +200,39 @@ export default function AccountsPage() {
       const accLinks = allLinks.filter((l: any) => l.account_id === acc.id);
       const accLinksFiltered = links.filter((l: any) => l.account_id === acc.id);
 
-      // Revenue from filtered links (period-aware via snapshots)
-      const totalRevenue = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      // Campaign Revenue = SUM(tracking_links.revenue) — always all-time from raw links
+      const campaignRevAllTime = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+      // Period-aware campaign revenue from snapshot-filtered links
+      const campaignRevFiltered = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
-      // LTV from tracking_link_ltv table (always all-time source)
+      // LTV from tracking_link_ltv table
       const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
       const totalLtvAllTime = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
-      const crossPollAllTime = accLtvRecords.reduce((s: number, r: any) => s + Number(r.cross_poll_revenue || 0), 0);
       const hasLtvData = accLtvRecords.length > 0;
 
-      // FIX 1 — Tracked Subs from tracking_link_ltv.new_subs_total
-      const trackedSubs = hasLtvData
+      // Tracked Subs from tracking_link_ltv.new_subs_total (fan-sync verified)
+      const trackedSubsLtv = hasLtvData
         ? accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0)
         : null;
 
-      // Total spend (always all-time)
+      // Total spend (always all-time from raw links)
       const totalSpendAllTime = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
-      // Period-aware values
-      let periodLtv: number | null = null;
-      let periodSpend: number | null = null;
-      let periodSubs: number | null = null;
-
-      if (isAllTime) {
-        periodLtv = totalLtvAllTime + crossPollAllTime;
-        periodSpend = totalSpendAllTime;
-        // Period subs = tracked subs for all time
-        periodSubs = trackedSubs;
-      } else {
-        // Period LTV = sum of snapshot revenue
-        const snapshotRev = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-        const snapshotSubs = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-        const hasSnapData = snapshotRev > 0 || snapshotSubs > 0;
-        periodLtv = hasSnapData ? snapshotRev : null;
-        periodSubs = hasSnapData ? snapshotSubs : null;
-        // Proportional spend
-        if (hasSnapData) {
-          const snapshotDays = (snapshotLookup ? Object.values(snapshotLookup).reduce((m, v) => Math.max(m, v.days), 0) : 0) || 1;
-          periodSpend = accLinks.reduce((s: number, l: any) => {
-            const cost = Number(l.cost_total || 0);
-            if (cost <= 0) return s;
-            const daysRunning = Math.max(1, l.created_at ? differenceInDays(now, new Date(l.created_at)) : 1);
-            return s + (cost / daysRunning) * snapshotDays;
-          }, 0);
-        } else {
-          periodSpend = null;
-        }
-      }
-
-      const totalClicks = accLinksFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
+      // Total subscribers from tracking links
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
 
-      // FIX 9 — Active links = clicks > 0 AND calculated_at within last 30 days
+      // Active links = clicks > 0 AND calculated_at within last 30 days
       const activeLinks = accLinks.filter((l: any) => {
         if (l.deleted_at) return false;
         if (l.clicks <= 0) return false;
         const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
         if (calcDate && calcDate >= thirtyDaysAgo) return true;
-        // Fallback: check snapshot data
         if (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0) return true;
-        // Fallback: created recently with clicks
         const created = l.created_at ? new Date(l.created_at) : null;
         return created ? created >= thirtyDaysAgo : false;
       });
 
-      // FIX 3 — Subs/Day = total subs across links / days since earliest link created_at
+      // Subs/Day = total subs / days since earliest link
       const earliestCreated = accLinks.reduce((earliest: Date | null, l: any) => {
         if (!l.created_at) return earliest;
         const d = new Date(l.created_at);
@@ -273,21 +241,23 @@ export default function AccountsPage() {
       const daysSinceEarliest = earliestCreated ? Math.max(1, differenceInDays(now, earliestCreated)) : 0;
       const subsPerDay = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
 
-      // FIX 2 — Untracked %
+      // Unattributed % — uses LTV table new_subs if available, else tracking_links.subscribers capped at API subs
       const apiSubs = acc.subscribers_count || 0;
-      const untrackedPct = apiSubs > 0 && trackedSubs !== null
-        ? Math.max(0, ((apiSubs - trackedSubs) / apiSubs) * 100)
-        : null;
+      let unattributedPct: number | null = null;
+      if (apiSubs > 0) {
+        if (trackedSubsLtv !== null && trackedSubsLtv > 0) {
+          // Fan-sync verified subs
+          unattributedPct = Math.max(0, ((apiSubs - trackedSubsLtv) / apiSubs) * 100);
+        } else {
+          // Fallback: tracking_links.subscribers capped at apiSubs
+          const cappedSubs = Math.min(totalSubs, apiSubs);
+          unattributedPct = Math.max(0, ((apiSubs - cappedSubs) / apiSubs) * 100);
+        }
+      }
 
-      // LTV/Sub
-      const ltvPerSub = isAllTime
-        ? (trackedSubs && trackedSubs > 0 && totalLtvAllTime > 0 ? totalLtvAllTime / trackedSubs : null)
-        : (periodSubs && periodSubs > 0 && periodLtv !== null && periodLtv > 0 ? periodLtv / periodSubs : null);
-
-      // Profit/Sub
-      const profit = periodLtv !== null && periodSpend !== null ? periodLtv - periodSpend : null;
-      const profitPerSub = profit !== null && ((isAllTime ? trackedSubs : periodSubs) || 0) > 0
-        ? profit / ((isAllTime ? trackedSubs : periodSubs) || 1)
+      // ROI — based on Campaign Revenue vs Spend (consistent with per-link ROI)
+      const blendedRoi = totalSpendAllTime > 0
+        ? ((campaignRevAllTime - totalSpendAllTime) / totalSpendAllTime) * 100
         : null;
 
       // Model CVR
@@ -297,33 +267,28 @@ export default function AccountsPage() {
       const avgCvr = qClicks > 0 ? (qSubs / qClicks) * 100 : null;
       const cvrDiff = avgCvr !== null && agencyAvgCvr !== null ? avgCvr - agencyAvgCvr : null;
 
-      const blendedRoi = periodSpend && periodSpend > 0 && periodLtv !== null ? ((periodLtv - periodSpend) / periodSpend) * 100 : null;
-
-      // Last 30d LTV
-      const thirtyAgo = format(subDays(now, 30), "yyyy-MM-dd");
-      const accMetrics30d = dailyMetrics.filter((m: any) => m.account_id === acc.id && m.date >= thirtyAgo);
-      const ltv30d = accLtvRecords.reduce((s: number, r: any) => s + Number(r.ltv_last_30d || 0), 0) || (accMetrics30d.length > 0 ? accMetrics30d.reduce((s: number, m: any) => s + Number(m.revenue || 0), 0) : null);
+      // LTV/Sub from LTV table
+      const ltvPerSub = trackedSubsLtv && trackedSubsLtv > 0 && totalLtvAllTime > 0
+        ? totalLtvAllTime / trackedSubsLtv
+        : null;
 
       stats[acc.id] = {
-        totalRevenue,
-        totalLtv: periodLtv,
+        totalRevenue: isAllTime ? campaignRevAllTime : campaignRevFiltered,
+        campaignRevAllTime,
         totalLtvAllTime,
-        totalSpend: periodSpend,
         totalSpendAllTime,
-        totalProfit: profit,
+        totalProfit: campaignRevAllTime - totalSpendAllTime,
         totalCampaigns: accLinks.length,
         activeCampaigns: activeLinks.length,
         subsPerDay,
-        ltv30d,
-        totalClicks,
+        totalClicks: accLinksFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0),
         totalSubs,
-        trackedSubs,
+        trackedSubs: trackedSubsLtv,
         apiSubs,
         blendedRoi,
         avgCvr,
         cvrDiff,
-        untrackedPct,
-        profitPerSub,
+        unattributedPct,
         ltvPerSub,
         hasLtvData,
       };
@@ -501,10 +466,10 @@ export default function AccountsPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   {[
                     { label: "Total Revenue", value: fmtCurrency(Number(acc.ltv_total || 0) * revMultiplier) },
-                    { label: "Campaign Rev", value: fmtCurrency(stats.totalRevenue * revMultiplier || 0) },
+                    { label: "Campaign Rev", value: fmtCurrency((stats.campaignRevAllTime || 0) * revMultiplier) },
                     
                     { label: "Total Spend", value: fmtCurrency(stats.totalSpendAllTime || 0) },
-                    { label: "Total Profit", value: (() => { const p = Number(acc.ltv_total || 0) * revMultiplier - (stats.totalSpendAllTime || 0); return fmtCurrency(p); })(), positive: (Number(acc.ltv_total || 0) * revMultiplier - (stats.totalSpendAllTime || 0)) >= 0 },
+                    { label: "Total Profit", value: (() => { const p = (stats.campaignRevAllTime || 0) * revMultiplier - (stats.totalSpendAllTime || 0); return fmtCurrency(p); })(), positive: ((stats.campaignRevAllTime || 0) * revMultiplier - (stats.totalSpendAllTime || 0)) >= 0 },
                   ].map((s) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
@@ -518,8 +483,8 @@ export default function AccountsPage() {
                     { label: "Active Tracking Links", value: String(stats.activeCampaigns || 0) },
                     { label: "Subs/Day", value: stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—" },
                     { label: "ROI %", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
-                    { label: "Untracked %", value: stats.untrackedPct != null ? fmtPct(stats.untrackedPct) : "—",
-                      colored: true, pctVal: stats.untrackedPct },
+                    { label: "Unattributed %", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
+                      colored: true, pctVal: stats.unattributedPct },
                   ].map((s: any) => (
                     <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
