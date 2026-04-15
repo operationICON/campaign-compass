@@ -172,11 +172,13 @@ function DrawerBodyInner({
       if (error) throw error;
       const { data: refreshed } = await supabase
         .from("tracking_links")
-        .select("*")
+        .select("*, accounts(display_name, username, avatar_thumb_url)")
         .eq("id", d.id)
         .single();
       if (refreshed) {
         setD((prev: any) => ({ ...prev, ...refreshed }));
+        setCostType(refreshed.cost_type || "CPL");
+        setCostValue(String(refreshed.cost_value || ""));
       }
       toast.success("Spend saved");
       refreshAll();
