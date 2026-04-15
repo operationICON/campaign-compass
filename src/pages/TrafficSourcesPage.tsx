@@ -352,7 +352,7 @@ export default function TrafficSourcesPage() {
       };
     },
   });
-  
+  const [navLevel, setNavLevel] = useState<1 | 2 | 3>(1);
 
   // LTV lookup map — normalize keys for UUID↔TEXT matching
   const ltvLookup = useMemo(() => {
