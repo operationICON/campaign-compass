@@ -250,9 +250,9 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{filteredLinks.length} campaigns{filteredLinks.length !== links.length ? ` (of ${links.length})` : ""}</span>
       </div>
 
-      {/* Search + Marketer filter */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="relative">
+      {/* Search + Marketer filter + Sort */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
@@ -267,7 +267,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
           )}
         </div>
         <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-9 text-sm w-[160px]">
             <SelectValue placeholder="All Marketers" />
           </SelectTrigger>
           <SelectContent>
@@ -275,6 +275,27 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
             {orderMarketerCombos.map(c => (
               <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={`${sortKey}__${sortAsc ? "asc" : "desc"}`} onValueChange={v => {
+          const [k, d] = v.split("__") as [SortKey, string];
+          setSortKey(k);
+          setSortAsc(d === "asc");
+          setPage(0);
+        }}>
+          <SelectTrigger className="h-9 text-sm w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created__desc">Newest First</SelectItem>
+            <SelectItem value="created__asc">Oldest First</SelectItem>
+            <SelectItem value="revenue__desc">Highest Revenue</SelectItem>
+            <SelectItem value="spend__desc">Highest Spend</SelectItem>
+            <SelectItem value="profit__desc">Highest Profit</SelectItem>
+            <SelectItem value="roi__desc">Highest ROI</SelectItem>
+            <SelectItem value="subs__desc">Most Subs</SelectItem>
+            <SelectItem value="clicks__desc">Most Clicks</SelectItem>
+            <SelectItem value="ltvSub__desc">Highest LTV/Sub</SelectItem>
           </SelectContent>
         </Select>
       </div>
