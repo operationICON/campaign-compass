@@ -318,6 +318,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     return [...tags].sort();
   }, [categoryLinksRaw]);
 
+  // Build offer ID options from linkMarketerMap
+  const offerIdOptions = useMemo(() => {
+    const offers = new Set<number>();
+    Object.values(linkMarketerMap).forEach(info => {
+      if (info.offer_id != null) offers.add(info.offer_id);
+    });
+    return [...offers].sort((a, b) => a - b);
+  }, [linkMarketerMap]);
+
   // KPIs for filtered view
   const kpis = useMemo(() => {
     const spend = filteredLinks.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
@@ -503,7 +512,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       </div>
 
       {/* Filters — single row, equal columns */}
-      <div className="grid grid-cols-5 gap-3 items-center">
+      <div className="grid grid-cols-6 gap-3 items-center">
         <AccountFilterDropdown
           value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
           onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
@@ -531,6 +540,21 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <SelectItem value="__all__">All Marketers</SelectItem>
             {orderMarketerCombos.map(c => (
               <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={offerIdFilter} onValueChange={v => { setOfferIdFilter(v); setPage(0); }}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All Offer IDs" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Offer IDs</SelectItem>
+            {offerIdOptions.length > 0 && (
+              <SelectItem value="__with_offer__">Has Offer ID</SelectItem>
+            )}
+            {offerIdOptions.map(id => (
+              <SelectItem key={id} value={String(id)}>Offer {id}</SelectItem>
             ))}
           </SelectContent>
         </Select>
