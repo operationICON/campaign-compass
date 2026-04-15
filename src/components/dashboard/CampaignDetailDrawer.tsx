@@ -73,6 +73,12 @@ function DrawerBodyInner({
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
 
+  // Edit panel state
+  const [editCampaignName, setEditCampaignName] = useState(d.campaign_name || "");
+  const [editCpc, setEditCpc] = useState(d.cost_type === "CPC" && d.cost_value ? String(d.cost_value) : "");
+  const [editCpl, setEditCpl] = useState(d.cost_type === "CPL" && d.cost_value ? String(d.cost_value) : "");
+  const [editTotalSpend, setEditTotalSpend] = useState(d.cost_type === "FIXED" && d.cost_value ? String(d.cost_value) : "");
+
   const { data: sourceTags = [] } = useQuery({
     queryKey: ["traffic_sources"],
     queryFn: async () => {
@@ -220,23 +226,17 @@ function DrawerBodyInner({
       <div className="px-6 py-2.5 border-b border-border">
         <div className="flex gap-1.5">
           {[
+            { key: "edit", icon: <Pencil className="h-3.5 w-3.5" />, label: "Edit" },
             { key: "spend", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend" },
             { key: "source", icon: <DollarSign className="h-3.5 w-3.5" />, label: "Source" },
             { key: "delete", icon: <Trash2 className="h-3.5 w-3.5" />, label: "Delete" },
-            { key: "details", icon: <ArrowUpRight className="h-3.5 w-3.5" />, label: "Details" },
           ].map(btn => (
             <Button
               key={btn.key}
               variant={activeAction === btn.key ? "default" : "outline"}
               size="sm"
               className="flex-1 h-9 text-[13px] gap-1.5"
-              onClick={() => {
-                if (btn.key === "details") {
-                  navigate(`/campaigns?link=${d.id}`);
-                  return;
-                }
-                setActiveAction(activeAction === btn.key ? null : btn.key);
-              }}
+              onClick={() => setActiveAction(activeAction === btn.key ? null : btn.key)}
             >
               {btn.icon}{btn.label}
             </Button>
@@ -414,6 +414,125 @@ function DrawerBodyInner({
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setActiveAction(null)}>Cancel</Button>
               <Button size="sm" variant="destructive" className="h-8 text-xs flex-1" onClick={confirmDelete} disabled={actionSaving}>
                 {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm Delete"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT PANEL */}
+        {activeAction === "edit" && (
+          <div className="mt-2 rounded-lg border border-border overflow-hidden" style={{ background: "#0D1117" }}>
+            <div className="p-3 space-y-2.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Edit Tracking Link</span>
+              
+              {/* URL (read-only) */}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">URL</label>
+                <p className="text-xs font-mono text-foreground/70 mt-0.5 break-all">{d.url}</p>
+              </div>
+
+              {/* Campaign Name & Model */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Campaign Name</label>
+                  <Input
+                    value={editCampaignName}
+                    onChange={e => setEditCampaignName(e.target.value)}
+                    placeholder="Campaign name..."
+                    className="h-8 text-sm bg-card border-border mt-0.5"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Model</label>
+                  <p className="text-sm text-foreground mt-1.5 flex items-center gap-1.5">
+                    <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url} name={d.modelName || d.accounts?.display_name || ""} size={20} />
+                    {d.modelName || d.accounts?.display_name || "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* CPC, CPL, Total Spend */}
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">CPC</label>
+                  <Input
+                    type="number"
+                    value={editCpc}
+                    onChange={e => { setEditCpc(e.target.value); setEditCpl(""); setEditTotalSpend(""); }}
+                    placeholder="0.00"
+                    className="h-8 text-sm font-mono bg-card border-border mt-0.5"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">CPL</label>
+                  <Input
+                    type="number"
+                    value={editCpl}
+                    onChange={e => { setEditCpl(e.target.value); setEditCpc(""); setEditTotalSpend(""); }}
+                    placeholder="0.00"
+                    className="h-8 text-sm font-mono bg-card border-border mt-0.5"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Spend</label>
+                  <Input
+                    type="number"
+                    value={editTotalSpend}
+                    onChange={e => { setEditTotalSpend(e.target.value); setEditCpc(""); setEditCpl(""); }}
+                    placeholder="0.00"
+                    className="h-8 text-sm font-mono bg-card border-border mt-0.5"
+                  />
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                className="w-full h-8 text-xs"
+                disabled={actionSaving || !editCampaignName.trim()}
+                onClick={async () => {
+                  setActionSaving(true);
+                  try {
+                    let newCostType: string | null = null;
+                    let newCostValue = 0;
+                    let newCostTotal = 0;
+                    if (editCpl && parseFloat(editCpl) > 0) {
+                      newCostType = "CPL";
+                      newCostValue = parseFloat(editCpl);
+                      newCostTotal = newCostValue * tlSubscribers;
+                    } else if (editCpc && parseFloat(editCpc) > 0) {
+                      newCostType = "CPC";
+                      newCostValue = parseFloat(editCpc);
+                      newCostTotal = newCostValue * totalClicks;
+                    } else if (editTotalSpend && parseFloat(editTotalSpend) > 0) {
+                      newCostType = "FIXED";
+                      newCostValue = parseFloat(editTotalSpend);
+                      newCostTotal = newCostValue;
+                    }
+
+                    const { error } = await supabase.from("tracking_links").update({
+                      campaign_name: editCampaignName.trim(),
+                      cost_type: newCostType,
+                      cost_value: newCostValue,
+                      cost_total: newCostTotal,
+                    } as any).eq("id", d.id);
+                    if (error) throw error;
+
+                    const { data: refreshed } = await supabase
+                      .from("tracking_links").select("*").eq("id", d.id).single();
+                    if (refreshed) setD((prev: any) => ({ ...prev, ...refreshed }));
+
+                    // Also sync cost state for the spend panel
+                    setCostType(newCostType || "CPL");
+                    setCostValue(String(newCostValue || ""));
+
+                    toast.success("Tracking link updated");
+                    refreshAll();
+                    setActiveAction(null);
+                  } catch { toast.error("Failed to save"); }
+                  setActionSaving(false);
+                }}
+              >
+                {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save Changes"}
               </Button>
             </div>
           </div>

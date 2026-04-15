@@ -1219,7 +1219,7 @@ export default function CampaignsPage() {
                               })()}
                             </td>
                             <td className="w-7 text-center" style={{ padding: "8px 4px" }} onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => { setEditingLink(link); setPanelOpen(true); }}
+                              <button onClick={() => setDrawerCampaign(link)}
                                 className="p-1 rounded hover:bg-secondary transition-colors opacity-0 group-hover:opacity-100">
                                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                               </button>
