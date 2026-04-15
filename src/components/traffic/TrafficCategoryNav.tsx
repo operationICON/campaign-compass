@@ -30,6 +30,7 @@ interface Props {
 
 type Category = "OnlyTraffic" | "Manual";
 type TableSortPreset = "highest_revenue" | "highest_profit" | "most_spend" | "highest_roi" | "most_campaigns";
+type ColSortKey = "campaign" | "model" | "source" | "marketer" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
 
 function isOnlyTraffic(link: any): boolean {
   return link.traffic_category === "OnlyTraffic";
@@ -99,6 +100,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [sourceFilterL2, setSourceFilterL2] = useState<string>("__all__");
   const [accountFilterL2, setAccountFilterL2] = useState<string>("__all__");
   const [tableSortPreset, setTableSortPreset] = useState<TableSortPreset>("highest_revenue");
+  const [colSortKey, setColSortKey] = useState<ColSortKey>("revenue");
+  const [colSortAsc, setColSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const colorMap = useTagColors();
@@ -235,48 +238,58 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     return result;
   }, [categoryLinksRaw, selectedMarketer, sourceFilterL2, accountFilterL2, searchQuery, orderMarketerCombos]);
 
-  // Sort by preset
-  const sorted = useMemo(() => {
-    return [...filteredLinks].sort((a, b) => {
-      switch (tableSortPreset) {
-        case "highest_revenue":
-          return Number(b.revenue || 0) - Number(a.revenue || 0);
-        case "highest_profit": {
-          const pa = Number(a.revenue || 0) - Number(a.cost_total || 0);
-          const pb = Number(b.revenue || 0) - Number(b.cost_total || 0);
-          return pb - pa;
-        }
-        case "most_spend":
-          return Number(b.cost_total || 0) - Number(a.cost_total || 0);
-        case "highest_roi": {
-          const roiA = Number(a.cost_total || 0) > 0 ? ((Number(a.revenue || 0) - Number(a.cost_total || 0)) / Number(a.cost_total || 0)) * 100 : -Infinity;
-          const roiB = Number(b.cost_total || 0) > 0 ? ((Number(b.revenue || 0) - Number(b.cost_total || 0)) / Number(b.cost_total || 0)) * 100 : -Infinity;
-          return roiB - roiA;
-        }
-        case "most_campaigns":
-          // Group by source, sort sources by campaign count desc — but since we show individual campaigns, sort by source frequency
-          return 0; // Keep original order for this preset (sorted by source count below)
-        default:
-          return 0;
-      }
-    });
-  }, [filteredLinks, tableSortPreset]);
+  // Column sort handler
+  const handleColSort = (key: ColSortKey) => {
+    if (colSortKey === key) setColSortAsc(!colSortAsc);
+    else { setColSortKey(key); setColSortAsc(false); }
+    setPage(0);
+  };
 
-  // For "most_campaigns" preset, sort by source campaign count
+  // Apply preset → sets colSortKey/colSortAsc
+  const applyPreset = (preset: TableSortPreset) => {
+    setTableSortPreset(preset);
+    switch (preset) {
+      case "highest_revenue": setColSortKey("revenue"); setColSortAsc(false); break;
+      case "highest_profit": setColSortKey("profit"); setColSortAsc(false); break;
+      case "most_spend": setColSortKey("spend"); setColSortAsc(false); break;
+      case "highest_roi": setColSortKey("roi"); setColSortAsc(false); break;
+      case "most_campaigns": setColSortKey("source"); setColSortAsc(false); break;
+    }
+    setPage(0);
+  };
+
+  // Sort by column
   const finalSorted = useMemo(() => {
-    if (tableSortPreset !== "most_campaigns") return sorted;
-    // Count campaigns per source
-    const sourceCounts: Record<string, number> = {};
-    filteredLinks.forEach(l => {
-      const src = getEffectiveSource(l) || "Untagged";
-      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+    const getValue = (l: any): number | string => {
+      const spend = Number(l.cost_total || 0);
+      const rev = Number(l.revenue || 0);
+      const subs = l.subscribers || 0;
+      switch (colSortKey) {
+        case "campaign": return (l.campaign_name || "").toLowerCase();
+        case "model": return (l.accounts?.username || "").toLowerCase();
+        case "source": return (getEffectiveSource(l) || "zzz").toLowerCase();
+        case "marketer": return (l.onlytraffic_marketer || "zzz").toLowerCase();
+        case "orderId": return (l.onlytraffic_order_id || "").toLowerCase();
+        case "clicks": return l.clicks || 0;
+        case "subs": return subs;
+        case "spend": return spend;
+        case "revenue": return rev;
+        case "profit": return spend > 0 ? rev - spend : -Infinity;
+        case "profitSub": return spend > 0 && subs > 0 ? (rev - spend) / subs : -Infinity;
+        case "ltvSub": return subs > 0 ? rev / subs : -Infinity;
+        case "roi": return spend > 0 ? ((rev - spend) / spend) * 100 : -Infinity;
+        case "created": return new Date(l.created_at).getTime();
+        case "status": return spend <= 0 ? -2 : ((rev - spend) / spend) * 100;
+        default: return 0;
+      }
+    };
+    return [...filteredLinks].sort((a, b) => {
+      const va = getValue(a);
+      const vb = getValue(b);
+      if (typeof va === "string" && typeof vb === "string") return colSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return colSortAsc ? (va as number) - (vb as number) : (vb as number) - (va as number);
     });
-    return [...sorted].sort((a, b) => {
-      const srcA = getEffectiveSource(a) || "Untagged";
-      const srcB = getEffectiveSource(b) || "Untagged";
-      return (sourceCounts[srcB] || 0) - (sourceCounts[srcA] || 0);
-    });
-  }, [sorted, tableSortPreset, filteredLinks]);
+  }, [filteredLinks, colSortKey, colSortAsc]);
 
   const totalPages = Math.ceil(finalSorted.length / PAGE_SIZE);
   const pageRows = finalSorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -502,7 +515,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </SelectContent>
         </Select>
 
-        <Select value={tableSortPreset} onValueChange={v => { setTableSortPreset(v as TableSortPreset); setPage(0); }}>
+        <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Sort by..." />
           </SelectTrigger>
@@ -567,21 +580,21 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <Table>
           <TableHeader>
             <TableRow className="border-border">
-              <TableHead className={thClass}>Campaign</TableHead>
-              <TableHead className={thClass}>Model</TableHead>
-              <TableHead className={thClass}>Source</TableHead>
-              <TableHead className={thClass}>Marketer</TableHead>
-              {isOT && <TableHead className={thClass}>Order ID</TableHead>}
-              <TableHead className={`${thClass} text-right`}>Clicks</TableHead>
-              <TableHead className={`${thClass} text-right`}>Subs</TableHead>
-              <TableHead className={`${thClass} text-right`}>Spend</TableHead>
-              <TableHead className={`${thClass} text-right`}>Revenue</TableHead>
-              <TableHead className={`${thClass} text-right`}>Profit</TableHead>
-              <TableHead className={`${thClass} text-right`}>Profit/Sub</TableHead>
-              <TableHead className={`${thClass} text-right`}>LTV/Sub</TableHead>
-              <TableHead className={`${thClass} text-right`}>ROI</TableHead>
-              <TableHead className={thClass}>Created</TableHead>
-              <TableHead className={`${thClass} text-center`}>Status</TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("campaign")}>Campaign <SortIcon active={colSortKey === "campaign"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("model")}>Model <SortIcon active={colSortKey === "model"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("source")}>Source <SortIcon active={colSortKey === "source"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("marketer")}>Marketer <SortIcon active={colSortKey === "marketer"} asc={colSortAsc} /></TableHead>
+              {isOT && <TableHead className={thClass} onClick={() => handleColSort("orderId")}>Order ID <SortIcon active={colSortKey === "orderId"} asc={colSortAsc} /></TableHead>}
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("clicks")}>Clicks <SortIcon active={colSortKey === "clicks"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("subs")}>Subs <SortIcon active={colSortKey === "subs"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("spend")}>Spend <SortIcon active={colSortKey === "spend"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("revenue")}>Revenue <SortIcon active={colSortKey === "revenue"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("profit")}>Profit <SortIcon active={colSortKey === "profit"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("profitSub")}>Profit/Sub <SortIcon active={colSortKey === "profitSub"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("ltvSub")}>LTV/Sub <SortIcon active={colSortKey === "ltvSub"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("roi")}>ROI <SortIcon active={colSortKey === "roi"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleColSort("created")}>Created <SortIcon active={colSortKey === "created"} asc={colSortAsc} /></TableHead>
+              <TableHead className={`${thClass} text-center`} onClick={() => handleColSort("status")}>Status <SortIcon active={colSortKey === "status"} asc={colSortAsc} /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -712,6 +725,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
     </div>
   );
+}
+
+function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
+  if (!active) return <ChevronDown className="h-3 w-3 inline ml-0.5 opacity-20" />;
+  return asc ? <ChevronUp className="h-3 w-3 inline ml-0.5 text-primary" /> : <ChevronDown className="h-3 w-3 inline ml-0.5 text-primary" />;
 }
 
 function MetricRow({ label, value, color }: { label: string; value: string; color?: string }) {
