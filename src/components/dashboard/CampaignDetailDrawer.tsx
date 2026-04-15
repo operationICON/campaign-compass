@@ -520,8 +520,8 @@ function DrawerBodyInner({
             <div className="px-3 py-1 border-b border-border">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Financials</span>
             </div>
-            <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : "—"} />
-            <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
+            <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : hasSpendConfig ? fmtC2(cost) : "—"} />
+            <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : hasSpendConfig ? fmtC2(0) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
             <DataRow label="Profit/Sub" value={cost > 0 && profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
             <DataRow label="Subs/Day" value={subsPerDay} />
             <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
