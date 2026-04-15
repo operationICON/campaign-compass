@@ -69,7 +69,7 @@ function DrawerBodyInner({
   const navigate = useNavigate();
 
   const [d, setD] = useState(initialCampaign);
-  const [isHydratingLink, setIsHydratingLink] = useState(false);
+  const [, setIsHydratingLink] = useState(false);
   const [costType, setCostType] = useState(d.cost_type || d.payment_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
