@@ -219,7 +219,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
     // Cost Type filter
     if (selectedCostType !== "__all__") {
-      result = result.filter(l => l.payment_type === selectedCostType);
+      result = result.filter(l => (l.payment_type || l.cost_type) === selectedCostType);
     }
 
     // Offer ID filter
@@ -723,13 +723,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>
                     {fmtC(spend)}
-                    {link.payment_type === "CPL" && (
+                    {(link.payment_type || link.cost_type) === "CPL" && (
                       <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#0891b2", width: "fit-content", marginLeft: "auto" }}>CPL</span>
                     )}
-                    {link.payment_type === "CPC" && (
+                    {(link.payment_type || link.cost_type) === "CPC" && (
                       <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#d97706", width: "fit-content", marginLeft: "auto" }}>CPC</span>
                     )}
-                    {link.payment_type === "Fixed" && (
+                    {(link.payment_type || link.cost_type) === "FIXED" && (
                       <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#64748b", width: "fit-content", marginLeft: "auto" }}>Fixed</span>
                     )}
                   </TableCell>
