@@ -69,6 +69,7 @@ function DrawerBodyInner({
   const navigate = useNavigate();
 
   const [d, setD] = useState(initialCampaign);
+  const [isHydratingLink, setIsHydratingLink] = useState(false);
   const [costType, setCostType] = useState(d.cost_type || d.payment_type || "CPL");
   const [costValue, setCostValue] = useState(String(d.cost_value || ""));
   const [sourceVal, setSourceVal] = useState(d.source_tag || "");
@@ -95,7 +96,28 @@ function DrawerBodyInner({
     },
   });
 
+  const mergeDrawerCampaign = (baseCampaign: any, rawLink: any) => ({
+    ...baseCampaign,
+    ...rawLink,
+    accounts: rawLink?.accounts ?? baseCampaign?.accounts,
+    modelName: baseCampaign?.modelName || rawLink?.accounts?.display_name || rawLink?.accounts?.username || "",
+    avatarUrl: baseCampaign?.avatarUrl || rawLink?.accounts?.avatar_thumb_url || null,
+  });
+
+  const fetchTrackingLink = async (linkId: string) => {
+    const { data, error } = await supabase
+      .from("tracking_links")
+      .select("*, accounts(display_name, username, avatar_thumb_url)")
+      .eq("id", linkId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  };
+
   useEffect(() => {
+    let cancelled = false;
+
     setD(initialCampaign);
     setCostType(initialCampaign.cost_type || initialCampaign.payment_type || "CPL");
     setCostValue(initialCampaign.cost_value != null ? String(initialCampaign.cost_value) : "");
@@ -103,6 +125,36 @@ function DrawerBodyInner({
     setEditCampaignName(initialCampaign.campaign_name || "");
     setEditUrl(initialCampaign.url || "");
     setEditAccountId(initialCampaign.account_id || "");
+
+    if (!initialCampaign?.id) return () => {
+      cancelled = true;
+    };
+
+    setIsHydratingLink(true);
+
+    void (async () => {
+      try {
+        const rawLink = await fetchTrackingLink(initialCampaign.id);
+        if (cancelled) return;
+
+        const merged = mergeDrawerCampaign(initialCampaign, rawLink);
+        setD(merged);
+        setCostType(rawLink.cost_type || rawLink.payment_type || "CPL");
+        setCostValue(rawLink.cost_value != null ? String(rawLink.cost_value) : "");
+        setSourceVal(rawLink.source_tag || "");
+        setEditCampaignName(rawLink.campaign_name || "");
+        setEditUrl(rawLink.url || "");
+        setEditAccountId(rawLink.account_id || "");
+      } catch (error) {
+        console.error("Failed to hydrate campaign drawer", error);
+      } finally {
+        if (!cancelled) setIsHydratingLink(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [initialCampaign]);
 
   const updateCachedLink = (updatedLink: any) => {
@@ -133,17 +185,6 @@ function DrawerBodyInner({
     queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
   };
 
-  const fetchTrackingLink = async (linkId: string) => {
-    const { data, error } = await supabase
-      .from("tracking_links")
-      .select("*, accounts(display_name, username, avatar_thumb_url)")
-      .eq("id", linkId)
-      .single();
-
-    if (error) throw error;
-    return data;
-  };
-
   const saveSource = async () => {
     setActionSaving(true);
     try {
@@ -157,7 +198,7 @@ function DrawerBodyInner({
       if (error) throw error;
 
       const refreshed = await fetchTrackingLink(d.id);
-      setD((prev: any) => ({ ...prev, ...refreshed }));
+      setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
       updateCachedLink(refreshed);
 
       toast.success("Source saved");
@@ -182,8 +223,9 @@ function DrawerBodyInner({
   const ltvPerSub = tlSubscribers > 0 ? campaignRevenue / tlSubscribers : null;
   const profitPerSub = cost > 0 && tlSubscribers > 0 && profit != null ? profit / tlSubscribers : null;
   const cvr = d.cvr != null ? Number(d.cvr) : (totalClicks > 100 ? (tlSubscribers / totalClicks) * 100 : null);
-  const costPerLead = Number(d.cost_per_lead ?? 0);
+  const costPerLead = Number(d.cost_per_lead ?? d.cpl_real ?? 0);
   const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
+  const configuredUnitCost = Number(d.cost_value ?? 0);
   const paymentType = configuredCostType;
 
   const daysRunning = d.created_at
@@ -212,27 +254,35 @@ function DrawerBodyInner({
 
   const round = (value: number, decimals = 2) => Number(value.toFixed(decimals));
 
-  const getSpendPayload = () => {
+  const getSpendPayload = (linkData: any) => {
     const unitValue = Number(costValue) || 0;
-    const total = calcCostTotal();
+    const linkClicks = Number(linkData?.clicks ?? 0);
+    const linkSubscribers = Number(linkData?.subscribers ?? 0);
+    const linkSpenders = Number(linkData?.spenders_count ?? linkData?.spenders ?? 0);
+    const linkRevenue = Number(linkData?.revenue ?? 0);
+    const total = costType === "CPC"
+      ? unitValue * linkClicks
+      : costType === "CPL"
+        ? unitValue * linkSubscribers
+        : unitValue;
     const costPerLead = costType === "CPL"
       ? unitValue
-      : (total > 0 && tlSubscribers > 0 ? round(total / tlSubscribers, 4) : null);
+      : (total > 0 && linkSubscribers > 0 ? round(total / linkSubscribers, 4) : null);
     const costPerClick = costType === "CPC"
       ? unitValue
-      : (total > 0 && totalClicks > 0 ? round(total / totalClicks, 4) : null);
-    const profitValue = total > 0 ? round(campaignRevenue - total, 2) : null;
-    const roiValue = total > 0 ? round(((campaignRevenue - total) / total) * 100, 2) : null;
-    const cvrValue = totalClicks > 0 && tlSubscribers > 0 && totalClicks >= tlSubscribers
-      ? round((tlSubscribers / totalClicks) * 100, 4)
+      : (total > 0 && linkClicks > 0 ? round(total / linkClicks, 4) : null);
+    const profitValue = total > 0 ? round(linkRevenue - total, 2) : null;
+    const roiValue = total > 0 ? round(((linkRevenue - total) / total) * 100, 2) : null;
+    const cvrValue = linkClicks > 0 && linkSubscribers > 0 && linkClicks >= linkSubscribers
+      ? round((linkSubscribers / linkClicks) * 100, 4)
       : null;
-    const spenderRateValue = tlSubscribers > 0 && tlSpenders > 0
-      ? round((tlSpenders / tlSubscribers) * 100, 4)
+    const spenderRateValue = linkSubscribers > 0 && linkSpenders > 0
+      ? round((linkSpenders / linkSubscribers) * 100, 4)
       : null;
 
     let statusValue = "NO_SPEND";
     if (total > 0) {
-      if (campaignRevenue <= 0) statusValue = "NO_DATA";
+      if (linkRevenue <= 0) statusValue = "NO_DATA";
       else if ((roiValue ?? 0) > 150) statusValue = "SCALE";
       else if ((roiValue ?? 0) >= 50) statusValue = "WATCH";
       else if ((roiValue ?? 0) >= 0) statusValue = "LOW";
@@ -252,7 +302,7 @@ function DrawerBodyInner({
       roi: roiValue,
       cvr: cvrValue,
       spender_rate: spenderRateValue,
-      arpu: tlSubscribers > 0 ? round(campaignRevenue / tlSubscribers, 4) : 0,
+      arpu: linkSubscribers > 0 ? round(linkRevenue / linkSubscribers, 4) : 0,
       status: statusValue,
     };
   };
@@ -261,13 +311,14 @@ function DrawerBodyInner({
   const saveSpend = async () => {
     setActionSaving(true);
     try {
-      const spendPayload = getSpendPayload();
+      const baseLink = await fetchTrackingLink(d.id);
+      const spendPayload = getSpendPayload(baseLink);
       const { error } = await supabase.from("tracking_links").update(spendPayload).eq("id", d.id);
       if (error) throw error;
 
       const refreshed = await fetchTrackingLink(d.id);
       if (refreshed) {
-        setD((prev: any) => ({ ...prev, ...refreshed }));
+        setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
         setCostType(refreshed.cost_type || refreshed.payment_type || "CPL");
         setCostValue(refreshed.cost_value != null ? String(refreshed.cost_value) : "");
         updateCachedLink(refreshed);
@@ -404,9 +455,10 @@ function DrawerBodyInner({
                       status: 'NO_SPEND',
                     };
                     await supabase.from("tracking_links").update(clearedSpend).eq("id", d.id);
-                    const nextLink = { ...d, ...clearedSpend };
-                    setD(nextLink);
-                    updateCachedLink(nextLink);
+                      const refreshed = await fetchTrackingLink(d.id);
+                      const nextLink = mergeDrawerCampaign(d, refreshed);
+                      setD(nextLink);
+                      updateCachedLink(refreshed);
                     setCostType("CPL");
                     setCostValue("");
                     toast.success("Spend cleared");
@@ -471,7 +523,7 @@ function DrawerBodyInner({
                       }).eq("id", d.id);
 
                       const refreshed = await fetchTrackingLink(d.id);
-                      setD((prev: any) => ({ ...prev, ...refreshed }));
+                      setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
                       updateCachedLink(refreshed);
 
                       setSourceVal(data.name);
@@ -601,7 +653,7 @@ function DrawerBodyInner({
 
                     const refreshed = await fetchTrackingLink(d.id);
                     if (refreshed) {
-                      setD((prev: any) => ({ ...prev, ...refreshed }));
+                      setD((prev: any) => mergeDrawerCampaign(prev, refreshed));
                       updateCachedLink(refreshed);
                     }
 
@@ -642,8 +694,8 @@ function DrawerBodyInner({
             <DataRow label="Revenue" value={campaignRevenue > 0 ? fmtC2(campaignRevenue) : "$0.00"} tone={campaignRevenue > 0 ? "positive" : "neutral"} />
             <DataRow label="ROI" value={roi != null ? `${roi.toFixed(0)}%` : "—"} tone={roi != null ? profitTone(roi) : "neutral"} />
             <DataRow label="LTV/Sub" value={ltvPerSub != null ? fmtC2(ltvPerSub) : "—"} tone={ltvPerSub != null && ltvPerSub > 0 ? "positive" : "neutral"} />
-            {paymentType === "CPL" && <DataRow label="CPL" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />}
-            {paymentType === "CPC" && <DataRow label="CPC" value={costPerClick > 0 ? fmtC2(costPerClick) : "—"} />}
+            {paymentType === "CPL" && <DataRow label="CPL" value={configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerLead > 0 ? fmtC2(costPerLead) : "—"} />}
+            {paymentType === "CPC" && <DataRow label="CPC" value={configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />}
             <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
             <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
             <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
