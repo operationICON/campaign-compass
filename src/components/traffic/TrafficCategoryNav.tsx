@@ -10,7 +10,7 @@ import { UnmatchedOrdersCard } from "./UnmatchedOrdersCard";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { calcStatus, STATUS_STYLES, STATUS_LABELS } from "@/lib/calc-helpers";
+import { calcStatus, STATUS_STYLES, STATUS_LABELS, getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ModelAvatar } from "@/components/ModelAvatar";
