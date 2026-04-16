@@ -160,7 +160,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     queryFn: async () => {
       const { data } = await supabase
         .from("onlytraffic_orders")
-        .select("tracking_link_id, marketer, offer_id")
+        .select("tracking_link_id, marketer, offer_id, order_id")
         .not("marketer", "is", null);
       if (!data) return {};
       const marketerOffers: Record<string, Set<number>> = {};
@@ -173,14 +173,18 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       Object.entries(marketerOffers).forEach(([m, offers]) => {
         if (offers.size > 1) multiOffer.add(m);
       });
-      const map: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean }> = {};
+      const map: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean; order_ids: string[] }> = {};
       data.forEach((o: any) => {
-        if (!o.tracking_link_id || map[o.tracking_link_id]) return;
-        map[o.tracking_link_id] = {
-          marketer: o.marketer,
-          offer_id: o.offer_id,
-          showOfferId: multiOffer.has(o.marketer) && o.offer_id != null,
-        };
+        if (!o.tracking_link_id) return;
+        if (!map[o.tracking_link_id]) {
+          map[o.tracking_link_id] = {
+            marketer: o.marketer,
+            offer_id: o.offer_id,
+            showOfferId: multiOffer.has(o.marketer) && o.offer_id != null,
+            order_ids: [],
+          };
+        }
+        if (o.order_id) map[o.tracking_link_id].order_ids.push(o.order_id);
       });
       return map;
     },
