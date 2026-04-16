@@ -6,10 +6,10 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
-import { ArrowLeft, Search, X, Info, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
+import { ArrowLeft, Info, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
