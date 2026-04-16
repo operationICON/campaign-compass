@@ -6,10 +6,10 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
-import { ArrowLeft, Search, X, Info, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
+import { ArrowLeft, Info, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -38,7 +38,7 @@ function StatDivider() {
 export default function MarketerDrilldownPage() {
   const { marketer, offer_id } = useParams<{ marketer: string; offer_id: string }>();
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [modelFilter, setModelFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("profit");
   const [sortAsc, setSortAsc] = useState(false);
   const [profitableFilter, setProfitableFilter] = useState(false);
@@ -157,16 +157,15 @@ export default function MarketerDrilldownPage() {
   // Filters
   const filtered = useMemo(() => {
     let rows = modelRows;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      rows = rows.filter(r => (r.username || "").toLowerCase().includes(q) || (r.displayName || "").toLowerCase().includes(q));
+    if (modelFilter !== "all") {
+      rows = rows.filter(r => r.accountId === modelFilter);
     }
     if (profitableFilter) rows = rows.filter(r => r.profit > 0);
     if (losingFilter) rows = rows.filter(r => r.profit < 0);
     if (scaleFilter) rows = rows.filter(r => r.profit > 0 && r.roi !== null && r.roi > 50);
     if (highVolFilter) rows = rows.filter(r => r.campaignCount > 10);
     return rows;
-  }, [modelRows, search, profitableFilter, losingFilter, scaleFilter, highVolFilter]);
+  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -339,20 +338,12 @@ export default function MarketerDrilldownPage() {
 
         {/* Filters */}
         <div className="flex gap-3 items-center flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Filter models..."
-              className="pl-9 pr-8 h-9 text-sm bg-card border-border rounded-lg"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <AccountFilterDropdown
+            value={modelFilter}
+            onChange={setModelFilter}
+            accounts={accounts.filter(a => modelRows.some(r => r.accountId === a.id))}
+            className="min-w-[200px]"
+          />
           <div className="flex items-center gap-1.5 flex-wrap">
             <button onClick={() => setProfitableFilter(!profitableFilter)} className={chipClass(profitableFilter)}>Profitable</button>
             <button onClick={() => setLosingFilter(!losingFilter)} className={chipClass(losingFilter)}>Losing money</button>
