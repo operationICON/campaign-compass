@@ -147,6 +147,59 @@ export function calcAgencyTotals(links: any[]): AgencyTotals {
   return { totalLtv, totalSpend, totalProfit, avgProfitPerSub, hasSpend, paidSubscribers, avgCpl, roiPct, isEstimate: anyEstimate };
 }
 
+// ─── Cost Type from Order ID ───
+export type CostTypeFromOrder = "CPL" | "CPC";
+
+export function getCostTypeFromOrderId(orderId: string | null | undefined): CostTypeFromOrder | null {
+  if (!orderId) return null;
+  if (orderId.startsWith("cplo_")) return "CPL";
+  if (orderId.startsWith("cpco_")) return "CPC";
+  return null;
+}
+
+/**
+ * Given a set of cost types derived from order IDs, return a display label.
+ * - All CPL → "CPL"
+ * - All CPC → "CPC"
+ * - Mixed → "Mixed"
+ * - Empty → null
+ */
+export function deriveCostLabel(types: Set<CostTypeFromOrder>): "CPL" | "CPC" | "Mixed" | null {
+  if (types.size === 0) return null;
+  if (types.size === 1) return [...types][0];
+  return "Mixed";
+}
+
+/**
+ * Compute CPL or CPC value based on the derived cost type.
+ * CPL = spend / subs, CPC = spend / clicks.
+ * For mixed, returns both formatted or null.
+ */
+export function calcCostMetric(
+  costLabel: "CPL" | "CPC" | "Mixed" | null,
+  spend: number,
+  subs: number,
+  clicks: number
+): { value: number | null; display: string; label: string } {
+  if (!costLabel || spend <= 0) return { value: null, display: "—", label: costLabel || "CPL" };
+  const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (costLabel === "CPL") {
+    const v = subs > 0 ? spend / subs : null;
+    return { value: v, display: v !== null ? fmtC(v) : "—", label: "CPL" };
+  }
+  if (costLabel === "CPC") {
+    const v = clicks > 0 ? spend / clicks : null;
+    return { value: v, display: v !== null ? fmtC(v) : "—", label: "CPC" };
+  }
+  // Mixed: show both if possible
+  const cpl = subs > 0 ? spend / subs : null;
+  const cpc = clicks > 0 ? spend / clicks : null;
+  if (cpl !== null && cpc !== null) return { value: cpl, display: `${fmtC(cpl)} CPL / ${fmtC(cpc)} CPC`, label: "CPL/CPC" };
+  if (cpl !== null) return { value: cpl, display: fmtC(cpl), label: "CPL/CPC" };
+  if (cpc !== null) return { value: cpc, display: fmtC(cpc), label: "CPL/CPC" };
+  return { value: null, display: "—", label: "CPL/CPC" };
+}
+
 // ─── Est. Badge component helper (use inline) ───
 // Usage: {isEstimate && <EstBadge />}
 // The component is defined in React files that import this.
