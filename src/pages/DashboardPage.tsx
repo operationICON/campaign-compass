@@ -386,19 +386,21 @@ export default function DashboardPage() {
     }
     const totalLtv = ltv + crossPoll;
 
-    // Expenses, subs (all tracked), clicks from tracking_links
+    // Expenses, subs, clicks, revenue from tracking_links
     let expenses = 0;
     let subs = 0;
     let clicks = 0;
+    let trackingRevenue = 0;
     for (const l of filteredLinksForKpi) {
       expenses += Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0;
       subs += Number(l.subscribers || 0);
       clicks += Number(l.clicks || 0);
+      trackingRevenue += Number(l.revenue || 0);
     }
 
     const totalProfit = totalLtv - expenses;
     // LTV/Sub: tracking_links.revenue / subscribers (consistent across all pages)
-    const ltvPerSub = subs > 0 ? (ltv + crossPoll) / subs : null;
+    const ltvPerSub = subs > 0 ? trackingRevenue / subs : null;
     const avgCpl = subs > 0 ? expenses / subs : null;
     const roi = expenses > 0 ? (totalProfit / expenses) * 100 : null;
 
