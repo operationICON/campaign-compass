@@ -286,7 +286,7 @@ export default function MarketerDrilldownPage() {
       <div className="p-6 space-y-5">
         {/* Breadcrumb */}
         <button
-          onClick={() => navigate("/traffic-sources")}
+          onClick={() => navigate("/traffic-sources", { state: { openCategory: "OnlyTraffic" } })}
           className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
           style={{ fontSize: "13px", fontWeight: 500 }}
         >
