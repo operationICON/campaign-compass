@@ -935,8 +935,8 @@ function KpiCards({
         let ltvPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const totalRev2 = filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-          const totalSubs2 = filteredLinksForKpi.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+          const totalRev2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+          const totalSubs2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
           ltvPerSub = totalSubs2 > 0 ? (totalRev2 * revMultiplier) / totalSubs2 : null;
           subtitle = "All time · revenue per subscriber";
         } else if (noDataForPeriod) {
