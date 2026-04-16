@@ -306,7 +306,7 @@ export default function MarketerDrilldownPage() {
 
         {/* Stats Bar */}
         <div className="bg-card border border-border rounded-xl p-4 space-y-2 mb-1">
-          <span className="text-muted-foreground uppercase tracking-widest" style={{ fontSize: "9px", fontWeight: 400 }}>{statsLabel}</span>
+          <span className="text-muted-foreground uppercase tracking-widest" style={{ fontSize: "12px", fontWeight: 500, letterSpacing: "0.08em" }}>{statsLabel}</span>
           {/* Row 1 — 5 items */}
           <div className="flex items-center gap-3">
             <StatItem label="Total Spend" value={fmtC(stats.spend)} />
@@ -372,7 +372,20 @@ export default function MarketerDrilldownPage() {
               {modelRows.length === 0 ? "No orders found for this marketer" : "No models match your filters"}
             </div>
           ) : (
-            <Table>
+            <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "6.5%" }} />
+                <col style={{ width: "6.5%" }} />
+              </colgroup>
               <TableHeader>
                 <TableRow className="border-border">
                   <TableHead className={thClass} onClick={() => handleSort("model")}>Model <SortIcon active={sortKey === "model"} asc={sortAsc} /></TableHead>
@@ -443,20 +456,20 @@ export default function MarketerDrilldownPage() {
                           <TableCell colSpan={11} className="p-0">
                             <div className="bg-background/50 border-t border-border">
                               <table className="w-full table-fixed text-sm">
-                                <colgroup>
-                                  <col style={{ width: "18%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "10%" }} />
-                                  <col style={{ width: "10%" }} />
-                                  <col style={{ width: "10%" }} />
-                                  <col style={{ width: "9%" }} />
-                                  <col style={{ width: "8%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "7%" }} />
-                                </colgroup>
-                                <thead>
+                                 <colgroup>
+                                   <col style={{ width: "18%" }} />
+                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "10%" }} />
+                                   <col style={{ width: "11%" }} />
+                                   <col style={{ width: "10%" }} />
+                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "6.5%" }} />
+                                   <col style={{ width: "6.5%" }} />
+                                 </colgroup>
+                                 <thead>
                                   <tr className="border-b border-border">
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap text-left py-1.5 pl-12 pr-2">Campaigns ({expandedModelData.length})</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Orders</th>
@@ -512,7 +525,7 @@ export default function MarketerDrilldownPage() {
                   );
                 })}
               </TableBody>
-            </Table>
+            </table>
           )}
 
           {/* Footer */}
