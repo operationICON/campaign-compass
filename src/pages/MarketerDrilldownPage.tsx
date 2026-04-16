@@ -525,7 +525,7 @@ export default function MarketerDrilldownPage() {
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: "hsl(var(--primary))" }}>{fmtC(c.revenue)}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cProfitColor }}>{c.profit !== null ? (c.profit >= 0 ? `+${fmtC(c.profit)}` : fmtC(c.profit)) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.ltv !== null ? fmtC(c.ltv) : "—"}</td>
-                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.cplCpc !== null ? fmtC(c.cplCpc) : "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.costDisplay || "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cCvrColor }}>{c.cvr !== null ? fmtPct(c.cvr) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cRoiColor }}>{c.roi !== null ? fmtPct(c.roi) : "—"}</td>
                                       </tr>
