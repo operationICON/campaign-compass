@@ -397,8 +397,8 @@ export default function DashboardPage() {
     }
 
     const totalProfit = totalLtv - expenses;
-    // Use ltvSubs (new_subs_total) for per-sub metrics — these are the fans who generated LTV
-    const ltvPerSub = ltvSubs > 0 ? totalLtv / ltvSubs : null;
+    // LTV/Sub: tracking_links.revenue / subscribers (consistent across all pages)
+    const ltvPerSub = subs > 0 ? (ltv + crossPoll) / subs : null;
     const avgCpl = subs > 0 ? expenses / subs : null;
     const roi = expenses > 0 ? (totalProfit / expenses) * 100 : null;
 
