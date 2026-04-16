@@ -268,129 +268,69 @@ export default function MarketerModelCampaignsPage() {
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border">
-                    <TableHead className={thClass} onClick={() => handleSort("campaign")}>Campaign <SortIcon active={sortKey === "campaign"} asc={sortAsc} /></TableHead>
-                    <TableHead className={thClass} onClick={() => handleSort("created")}>Created <SortIcon active={sortKey === "created"} asc={sortAsc} /></TableHead>
-                    <TableHead className={thClass} onClick={() => handleSort("model")}>Model <SortIcon active={sortKey === "model"} asc={sortAsc} /></TableHead>
-                    <TableHead className={thClass} onClick={() => handleSort("source")}>Source <SortIcon active={sortKey === "source"} asc={sortAsc} /></TableHead>
-                    <TableHead className={thClass} onClick={() => handleSort("marketer")}>Marketer <SortIcon active={sortKey === "marketer"} asc={sortAsc} /></TableHead>
-                    <TableHead className={thClass} onClick={() => handleSort("offerId")}>Offer ID <SortIcon active={sortKey === "offerId"} asc={sortAsc} /></TableHead>
-                    <TableHead className={thClass} onClick={() => handleSort("orderId")}>Order ID <SortIcon active={sortKey === "orderId"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("clicks")}>Clicks <SortIcon active={sortKey === "clicks"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("subs")}>Subs <SortIcon active={sortKey === "subs"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("spend")}>Spend <SortIcon active={sortKey === "spend"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("revenue")}>Revenue <SortIcon active={sortKey === "revenue"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profit")}>Profit <SortIcon active={sortKey === "profit"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profitSub")}>Profit/Sub <SortIcon active={sortKey === "profitSub"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltvSub")}>LTV/Sub <SortIcon active={sortKey === "ltvSub"} asc={sortAsc} /></TableHead>
-                    <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon active={sortKey === "roi"} asc={sortAsc} /></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sorted.map((row, i) => {
-                    const rowBg = i % 2 === 1 ? "bg-muted/30" : "";
-                    return (
-                      <TableRow
-                        key={row.id}
-                        className={`border-border cursor-pointer hover:bg-muted/50 transition-colors ${rowBg}`}
-                        style={{ borderLeft: "3px solid transparent", minHeight: "52px" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "hsl(var(--primary))"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "transparent"; }}
-                        onClick={() => setSelectedLink(row.rawLink)}
-                      >
-                        {/* Campaign */}
-                        <TableCell className="min-w-[200px]">
-                          <p className="text-foreground font-semibold truncate max-w-[220px]" style={{ fontSize: "13px" }}>
-                            {row.campaignName || "Unnamed"}
-                          </p>
-                          <p className="text-muted-foreground truncate max-w-[220px]" style={{ fontSize: "11px" }}>
-                            {row.url}
-                          </p>
-                        </TableCell>
-
-                        {/* Created + Age Pill */}
-                        <TableCell className="min-w-[120px]">
-                          <CampaignAgePill createdAt={row.createdAt} clicks={row.clicks} revenue={row.revenue} />
-                        </TableCell>
-
-                        {/* Model */}
-                        <TableCell className="min-w-[150px]">
-                          <div className="flex items-center gap-2">
-                            <ModelAvatar avatarUrl={row.avatarUrl} name={row.username || row.displayName || ""} size={24} />
-                            <div>
-                              <p className="text-foreground" style={{ fontSize: "12px" }}>@{row.username}</p>
-                              {row.displayName && row.displayName !== row.username && (
-                                <p className="text-muted-foreground" style={{ fontSize: "10px" }}>{row.displayName}</p>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        {/* Source */}
-                        <TableCell>
-                          {row.sourceTag ? (
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted text-foreground">
-                              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                              {row.sourceTag}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                        </TableCell>
-
-                        {/* Marketer */}
-                        <TableCell style={{ fontSize: "13px" }}>{row.marketer || "—"}</TableCell>
-
-                        {/* Offer ID */}
-                        <TableCell style={{ fontSize: "13px" }}>{row.offerId != null ? row.offerId : "—"}</TableCell>
-
-                        {/* Order ID */}
-                        <TableCell style={{ fontSize: "12px" }} className="text-muted-foreground">{row.orderId || "—"}</TableCell>
-
-                        {/* Clicks */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtN(row.clicks)}</TableCell>
-
-                        {/* Subs */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtN(row.subs)}</TableCell>
-
-                        {/* Spend */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>
-                          {row.costTotal != null ? fmtC(row.costTotal) : "—"}
-                        </TableCell>
-
-                        {/* Revenue */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: "hsl(var(--primary))" }}>
-                          {fmtC(row.revenue)}
-                        </TableCell>
-
-                        {/* Profit */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: profitColor(row.profit) }}>
-                          {row.profit != null ? (row.profit >= 0 ? `+${fmtC(row.profit)}` : fmtC(row.profit)) : "—"}
-                        </TableCell>
-
-                        {/* Profit/Sub */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: profitColor(row.profitSub) }}>
-                          {row.profitSub != null ? fmtC(row.profitSub) : "—"}
-                        </TableCell>
-
-                        {/* LTV/Sub */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: "hsl(var(--primary))" }}>
-                          {row.ltvSub != null ? fmtC(row.ltvSub) : "—"}
-                        </TableCell>
-
-                        {/* ROI */}
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor(row.roi) }}>
-                          {row.roi != null ? fmtPct(row.roi) : "—"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border">
+                  <TableHead className={thClass} onClick={() => handleSort("campaign")}>Campaign <SortIcon active={sortKey === "campaign"} asc={sortAsc} /></TableHead>
+                  <TableHead className={thClass} onClick={() => handleSort("created")}>Created <SortIcon active={sortKey === "created"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("clicks")}>Clicks <SortIcon active={sortKey === "clicks"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("subs")}>Subs <SortIcon active={sortKey === "subs"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("spend")}>Spend <SortIcon active={sortKey === "spend"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("revenue")}>Revenue <SortIcon active={sortKey === "revenue"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profit")}>Profit <SortIcon active={sortKey === "profit"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profitSub")}>Profit/Sub <SortIcon active={sortKey === "profitSub"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltvSub")}>LTV/Sub <SortIcon active={sortKey === "ltvSub"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon active={sortKey === "roi"} asc={sortAsc} /></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map((row, i) => {
+                  const rowBg = i % 2 === 1 ? "bg-muted/30" : "";
+                  return (
+                    <TableRow
+                      key={row.id}
+                      className={`border-border cursor-pointer hover:bg-muted/50 transition-colors ${rowBg}`}
+                      style={{ borderLeft: "3px solid transparent", minHeight: "52px" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "hsl(var(--primary))"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "transparent"; }}
+                      onClick={() => setSelectedLink(row.rawLink)}
+                    >
+                      <TableCell>
+                        <p className="text-foreground font-semibold truncate max-w-[280px]" style={{ fontSize: "13px" }}>
+                          {row.campaignName || "Unnamed"}
+                        </p>
+                        <p className="text-muted-foreground truncate max-w-[280px]" style={{ fontSize: "11px" }}>
+                          {row.url}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <CampaignAgePill createdAt={row.createdAt} clicks={row.clicks} revenue={row.revenue} />
+                      </TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtN(row.clicks)}</TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtN(row.subs)}</TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>
+                        {row.costTotal != null ? fmtC(row.costTotal) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: "hsl(var(--primary))" }}>
+                        {fmtC(row.revenue)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: profitColor(row.profit) }}>
+                        {row.profit != null ? (row.profit >= 0 ? `+${fmtC(row.profit)}` : fmtC(row.profit)) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: profitColor(row.profitSub) }}>
+                        {row.profitSub != null ? fmtC(row.profitSub) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: "hsl(var(--primary))" }}>
+                        {row.ltvSub != null ? fmtC(row.ltvSub) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor(row.roi) }}>
+                        {row.roi != null ? fmtPct(row.roi) : "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
 
           {sorted.length > 0 && (
