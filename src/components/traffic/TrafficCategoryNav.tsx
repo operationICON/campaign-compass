@@ -573,7 +573,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
               <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
               <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
-              <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
+              <MetricRow label={`Avg ${otMetrics.avgCplLabel || "CPL"}`} value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
               <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
@@ -620,7 +620,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="Spend" value={fmtC(manualMetrics.spend)} />
               <MetricRow label="Revenue" value={fmtC(manualMetrics.revenue)} />
               <MetricRow label="Profit" value={fmtC(manualMetrics.profit)} color={manualMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
-              <MetricRow label="Avg CPL" value={manualMetrics.avgCpl !== null ? fmtC(manualMetrics.avgCpl) : "—"} />
+              <MetricRow label={`Avg ${manualMetrics.avgCplLabel || "CPL"}`} value={manualMetrics.avgCpl !== null ? fmtC(manualMetrics.avgCpl) : "—"} />
               <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
             </div>
@@ -722,7 +722,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Total spend" value={fmtC(catKpis.spend)} color="#dc2626" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total revenue" value={fmtC(catKpis.revenue)} color="#16a34a" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total profit" value={catKpis.profit >= 0 ? `+${fmtC(catKpis.profit)}` : fmtC(catKpis.profit)} color={catKpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={catKpis.cpl !== null ? fmtC(catKpis.cpl) : "—"} color="#0891b2" />
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label={catKpis.cplLabel} value={catKpis.cpl !== null ? fmtC(catKpis.cpl) : "—"} color="#0891b2" />
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="Avg CVR" value={catKpis.cvr !== null ? fmtPct(catKpis.cvr) : "—"} color="#d97706" />
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="Avg ROI" value={catKpis.roi !== null ? fmtPct(catKpis.roi) : "—"} color={catKpis.roi !== null ? (catKpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
