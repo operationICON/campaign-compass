@@ -461,7 +461,7 @@ export default function MarketerDrilldownPage() {
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(row.revenue)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: pColor }}>{row.profit >= 0 ? `+${fmtC(row.profit)}` : fmtC(row.profit)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.ltv !== null ? fmtC(row.ltv) : "—"}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.cplCpc !== null ? fmtC(row.cplCpc) : "—"}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.costDisplay || "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: cvrColor }}>{row.cvr !== null ? fmtPct(row.cvr) : "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor }}>{row.roi !== null ? fmtPct(row.roi) : "—"}</TableCell>
                       </TableRow>
