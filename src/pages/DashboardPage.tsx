@@ -923,9 +923,9 @@ function KpiCards({
               <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
             </div>
             {showDash ? (
-              <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+              <p className="text-[20px] font-medium font-mono text-white/40">—</p>
             ) : (
-              <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-white" : "text-red-300"}`}>{fmtC(profitPerSub!)}</p>
+              <p className={`text-[20px] font-medium font-mono ${isPositive ? "text-white" : "text-red-300"}`}>{fmtC(profitPerSub!)}</p>
             )}
             <p className="text-[11px] text-white/60 mt-1">{subtitle}</p>
           </div>
@@ -958,9 +958,9 @@ function KpiCards({
               <RevenueModeBadge mode={revenueMode} />
             </div>
             {showDash ? (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-primary">{fmtC(ltvPerSub!)}</p>
+              <p className="text-[20px] font-medium font-mono text-primary">{fmtC(ltvPerSub!)}</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">{subtitle}</p>
           </div>
@@ -979,9 +979,9 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">CPL</span>
             </div>
             {cplVal !== null ? (
-              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(cplVal)}</p>
+              <p className="text-[20px] font-medium font-mono text-foreground">{fmtC(cplVal)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">Cost per lead · All time</p>
           </div>
@@ -1015,9 +1015,9 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
             </div>
             {subsPerDay !== null && subsPerDay > 0 ? (
-              <p className="text-[22px] font-bold font-mono text-primary">{Math.round(subsPerDay)}/day</p>
+              <p className="text-[20px] font-medium font-mono text-primary">{Math.round(subsPerDay)}/day</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">{label}</p>
           </div>
@@ -1112,7 +1112,7 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Total Subs</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
+            <p className="text-[20px] font-medium font-mono text-foreground">{totalSubsVal.toLocaleString("en-US")}</p>
             <p className="text-[11px] text-muted-foreground mt-1">{subsSubtitle}</p>
           </div>
         );
@@ -1132,9 +1132,9 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Expenses</span>
             </div>
             {expShowDash ? (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(expVal)}</p>
+              <p className="text-[20px] font-medium font-mono text-foreground">{fmtC(expVal)}</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">{expSubtitle}</p>
           </div>
@@ -1163,9 +1163,9 @@ function KpiCards({
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Avg Expenses</span>
             </div>
             {avgExp !== null ? (
-              <p className="text-[22px] font-bold font-mono text-foreground">{fmtC(avgExp)}</p>
+              <p className="text-[20px] font-medium font-mono text-foreground">{fmtC(avgExp)}</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">Average spend per paid campaign · All time</p>
           </div>
@@ -1190,9 +1190,9 @@ function KpiCards({
               <RevenueModeBadge mode={revenueMode} />
             </div>
             {showDash ? (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             ) : (
-              <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{fmtC(tpVal)}</p>
+              <p className={`text-[20px] font-medium font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{fmtC(tpVal)}</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · revenue minus spend" : periodLabel}</p>
           </div>
@@ -1217,9 +1217,9 @@ function KpiCards({
               <RevenueModeBadge mode={revenueMode} />
             </div>
             {roiVal !== null ? (
-              <p className={`text-[22px] font-bold font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{roiVal.toFixed(1)}%</p>
+              <p className={`text-[20px] font-medium font-mono ${isPositive ? "text-primary" : "text-destructive"}`}>{roiVal.toFixed(1)}%</p>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">{isAllTime ? "All time · blended ROI" : periodLabel}</p>
           </div>
@@ -1244,7 +1244,7 @@ function KpiCards({
               </div>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Active Tracking Links</span>
             </div>
-            <p className="text-[22px] font-bold font-mono text-foreground">{activeCount}</p>
+            <p className="text-[20px] font-medium font-mono text-foreground">{activeCount}</p>
             <p className="text-[11px] text-muted-foreground mt-1">Tracking links with data</p>
           </div>
         );
@@ -1280,11 +1280,11 @@ function KpiCards({
             </div>
             {bestSrc ? (
               <>
-                <p className="text-[22px] font-bold font-mono text-foreground truncate">{bestSrc[0]}</p>
+                <p className="text-[20px] font-medium font-mono text-foreground truncate">{bestSrc[0]}</p>
                 <p className="text-[11px] text-muted-foreground mt-1">Profit: {fmtC(bestSrc[1])} · All time</p>
               </>
             ) : (
-              <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+              <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             )}
           </div>
         );
@@ -1321,9 +1321,9 @@ function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, bkTo
         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${revenueMode === "net" ? "bg-white/20 text-white" : "bg-white/10 text-white/60"}`}>{revenueMode === "net" ? "NET" : "GROSS"}</span>
       </div>
       {revVal !== null ? (
-        <p className="text-[22px] font-bold font-mono text-white">{fmtC(revVal)}</p>
+        <p className="text-[20px] font-medium font-mono text-white">{fmtC(revVal)}</p>
       ) : (
-        <p className="text-[22px] font-bold font-mono text-white/40">—</p>
+        <p className="text-[20px] font-medium font-mono text-white/40">—</p>
       )}
       <p className="text-[11px] text-white/60 mt-1">{subtitle}</p>
 
@@ -1395,9 +1395,9 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
         <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Unattributed %</span>
       </div>
       {pct !== null ? (
-        <p className={`text-[22px] font-bold font-mono ${colorClass}`}>{pct.toFixed(1)}%</p>
+        <p className={`text-[20px] font-medium font-mono ${colorClass}`}>{pct.toFixed(1)}%</p>
       ) : (
-        <p className="text-[22px] font-bold font-mono text-muted-foreground">—</p>
+        <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
       )}
       <p className="text-[11px] text-muted-foreground mt-1">Revenue not attributed to tracking links · All time</p>
 

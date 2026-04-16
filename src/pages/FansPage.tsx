@@ -691,7 +691,7 @@ function KpiCard({ icon: Icon, label, value, subtitle, color, iconBg }: {
     <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
       <div className={`p-2.5 rounded-lg ${iconBg}`}><Icon className={`h-5 w-5 ${color}`} /></div>
       <div>
-        <div className={`text-[22px] font-bold ${color}`}>{value.toLocaleString()}</div>
+        <div className={`text-[20px] font-medium ${color}`}>{value.toLocaleString()}</div>
         <div className="text-[12px] font-medium text-foreground">{label}</div>
         <div className="text-[11px] text-muted-foreground">{subtitle}</div>
       </div>
