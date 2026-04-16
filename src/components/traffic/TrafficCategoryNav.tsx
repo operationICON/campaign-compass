@@ -119,6 +119,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [sourceSortKey, setSourceSortKey] = useState<string>("profit");
   const [sourceSortAsc, setSourceSortAsc] = useState(false);
 
+  // Notify parent if starting with an initial category
+  React.useEffect(() => {
+    if (initialCategory) onLevelChange?.(2);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch accounts for dropdown
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
