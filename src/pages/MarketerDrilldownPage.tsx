@@ -127,21 +127,23 @@ export default function MarketerDrilldownPage() {
       const spend = g.orders.reduce((s, o) => s + Number(o.total_spent || 0), 0);
 
       let clicks = 0, revenue = 0;
-      const costTypes: Record<string, number> = {};
+      const costTypes = new Set<CostTypeFromOrder>();
+      g.orders.forEach(o => {
+        const ct = getCostTypeFromOrderId(o.order_id);
+        if (ct) costTypes.add(ct);
+      });
       g.tlIds.forEach(tlId => {
         const tl = tlMap[tlId];
         if (tl) {
           clicks += tl.clicks || 0;
           revenue += Number(tl.revenue || 0);
-          const ct = tl.cost_type || "CPL";
-          costTypes[ct] = (costTypes[ct] || 0) + 1;
         }
       });
 
-      const majorCostType = Object.entries(costTypes).sort((a, b) => b[1] - a[1])[0]?.[0] || "CPL";
+      const costLabel = deriveCostLabel(costTypes);
+      const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
       const profit = revenue - spend;
       const ltv = subs > 0 ? revenue / subs : null;
-      const cplCpc = majorCostType === "CPC" ? (clicks > 0 ? spend / clicks : null) : (subs > 0 ? spend / subs : null);
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const roi = spend > 0 ? (profit / spend) * 100 : null;
 
@@ -150,7 +152,7 @@ export default function MarketerDrilldownPage() {
         username: acc?.username || null,
         displayName: acc?.display_name || "Unknown",
         avatarUrl: acc?.avatar_thumb_url || acc?.avatar_url || null,
-        campaignCount, subs, clicks, spend, revenue, profit, ltv, cplCpc, cvr, roi, majorCostType,
+        campaignCount, subs, clicks, spend, revenue, profit, ltv, cplCpc: costMetric.value, cvr, roi, costLabel, costDisplay: costMetric.display,
       };
     });
   }, [orders, trackingLinks, accounts]);
