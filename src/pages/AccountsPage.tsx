@@ -314,8 +314,8 @@ export default function AccountsPage() {
       // CVR for KPI (all links, not just qualified)
       const allCvr = totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
 
-      const ltvPerSub = trackedSubsLtv && trackedSubsLtv > 0 && totalLtvAllTime > 0
-        ? totalLtvAllTime / trackedSubsLtv
+      const ltvPerSub = totalSubs > 0 && campaignRevAllTime > 0
+        ? campaignRevAllTime / totalSubs
         : null;
 
       stats[acc.id] = {
@@ -1071,15 +1071,10 @@ export default function AccountsPage() {
                     <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
-                        const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
-                        const trackedLtv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
-                        const trackedNewSubs = accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
-                        if (trackedNewSubs > 0 && trackedLtv > 0) {
-                          return fmtCurrency((trackedLtv / trackedNewSubs) * revMultiplier);
-                        }
-                        const subsCount = Number(acc.subscribers_count || 0);
-                        const ltvTotal = Number(acc.ltv_total || 0);
-                        return subsCount > 0 && ltvTotal > 0 ? fmtCurrency((ltvTotal / subsCount) * revMultiplier) : "—";
+                        const accLinks = allLinks.filter((l: any) => l.account_id === acc.id);
+                        const totalRev = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+                        const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+                        return totalSubs > 0 && totalRev > 0 ? fmtCurrency((totalRev / totalSubs) * revMultiplier) : "—";
                       })()}
                     </span>
                   </div>

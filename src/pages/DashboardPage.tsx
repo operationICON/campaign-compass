@@ -935,10 +935,10 @@ function KpiCards({
         let ltvPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtv2 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-          const totalSubsCount2 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-          ltvPerSub = totalSubsCount2 > 0 ? (accountsLtv2 * revMultiplier) / totalSubsCount2 : null;
-          subtitle = "All time · accounts revenue per subscriber";
+          const totalRev2 = filteredLinksForKpi.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+          const totalSubs2 = filteredLinksForKpi.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+          ltvPerSub = totalSubs2 > 0 ? (totalRev2 * revMultiplier) / totalSubs2 : null;
+          subtitle = "All time · revenue per subscriber";
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
         } else {
