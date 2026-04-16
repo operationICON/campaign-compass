@@ -374,13 +374,14 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
   // ═══ LEVEL 2 HOOKS — must be before early returns ═══
   const groupedSources = useMemo(() => {
-    const groups: Record<string, { marketer: string; sourceTag: string; accountId: string; links: any[] }> = {};
+    const groups: Record<string, { marketer: string; sourceTag: string; offerIds: Set<number>; links: any[] }> = {};
     for (const link of categoryLinksRaw) {
       const info = (linkMarketerMap as any)[link.id];
       const marketer = info?.marketer || link.onlytraffic_marketer || "In-house";
       const sourceTag = getEffectiveSource(link) || link.source || "Direct";
-      const key = `${marketer}__${sourceTag}__${link.account_id}`;
-      if (!groups[key]) groups[key] = { marketer, sourceTag, accountId: link.account_id, links: [] };
+      const key = `${marketer}__${sourceTag}`;
+      if (!groups[key]) groups[key] = { marketer, sourceTag, offerIds: new Set(), links: [] };
+      if (info?.offer_id != null) groups[key].offerIds.add(info.offer_id);
       groups[key].links.push(link);
     }
     return Object.entries(groups).map(([key, g]) => {
@@ -393,9 +394,14 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const cpl = subs > 0 && spend > 0 ? spend / subs : null;
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const ltvSub = subs > 0 ? revenue / subs : null;
-      const account = accounts.find((a: any) => a.id === g.accountId);
-      const genderLabel = account?.gender_identity || null;
-      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel };
+      const genderLabels = new Set<string>();
+      g.links.forEach((l: any) => {
+        const acc = accounts.find((a: any) => a.id === l.account_id);
+        if (acc?.gender_identity) genderLabels.add(acc.gender_identity);
+      });
+      const genderLabel = genderLabels.size > 0 ? [...genderLabels].join(", ") : null;
+      const offerIdStr = g.offerIds.size > 0 ? [...g.offerIds].sort((a, b) => a - b).map(id => `#${id}`).join(", ") : null;
+      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel, offerIdStr };
     });
   }, [categoryLinksRaw, linkMarketerMap, accounts]);
 
@@ -417,6 +423,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     return [...quickFiltered].sort((a, b) => {
       switch (sourceSortKey) {
         case "marketer": return dir * a.marketer.localeCompare(b.marketer);
+        case "offerId": return dir * ((a.offerIdStr || "zzz").localeCompare(b.offerIdStr || "zzz"));
         case "camps": return dir * (a.campaigns - b.campaigns);
         case "spend": return dir * (a.spend - b.spend);
         case "revenue": return dir * (a.revenue - b.revenue);
@@ -715,10 +722,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           <TableHeader>
             <TableRow className="border-border">
               <TableHead className={thClass} onClick={() => handleSourceColSort("marketer")}>
-                Marketer / {activeCategory} <SortIcon active={sourceSortKey === "marketer"} asc={sourceSortAsc} />
+                Source <SortIcon active={sourceSortKey === "marketer"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={thClass} onClick={() => handleSourceColSort("offerId")}>
+                Offer ID <SortIcon active={sourceSortKey === "offerId"} asc={sourceSortAsc} />
               </TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("camps")}>
-                Camps <SortIcon active={sourceSortKey === "camps"} asc={sourceSortAsc} />
+                Campaigns <SortIcon active={sourceSortKey === "camps"} asc={sourceSortAsc} />
               </TableHead>
               <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("spend")}>
                 Spend <SortIcon active={sourceSortKey === "spend"} asc={sourceSortAsc} />
@@ -761,6 +771,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                       <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{g.genderLabel}</p>
                     )}
                   </TableCell>
+                  <TableCell><span className="text-foreground font-mono" style={{ fontSize: "12px" }}>{g.offerIdStr || "—"}</span></TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.campaigns}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.spend)}</TableCell>
                   <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.revenue)}</TableCell>
@@ -776,7 +787,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             })}
             {sourcePageRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No sources found</TableCell>
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No sources found</TableCell>
               </TableRow>
             )}
           </TableBody>
