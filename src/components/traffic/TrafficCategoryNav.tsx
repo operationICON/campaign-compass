@@ -376,15 +376,22 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
   // ═══ LEVEL 2 HOOKS — must be before early returns ═══
   const groupedSources = useMemo(() => {
-    const groups: Record<string, { marketer: string; sourceTag: string; offerId: number | null; links: any[] }> = {};
+    const groups: Record<string, { marketer: string; sourceTag: string; offerId: number | null; links: any[]; isUnknown: boolean }> = {};
+    const UNKNOWN_KEY = "__unknown__";
     for (const link of categoryLinksRaw) {
       const info = (linkMarketerMap as any)[link.id];
-      const marketer = info?.marketer || link.onlytraffic_marketer || "In-house";
-      const sourceTag = getEffectiveSource(link) || link.source || "Direct";
-      const offerId = info?.offer_id ?? null;
-      const key = `${marketer}__${sourceTag}__${offerId ?? "none"}`;
-      if (!groups[key]) groups[key] = { marketer, sourceTag, offerId, links: [] };
-      groups[key].links.push(link);
+      const rawMarketer = info?.marketer || link.onlytraffic_marketer || "";
+      const rawSource = getEffectiveSource(link) || link.source || "";
+      const isUnknown = !rawMarketer.trim() || !rawSource.trim();
+      if (isUnknown) {
+        if (!groups[UNKNOWN_KEY]) groups[UNKNOWN_KEY] = { marketer: "Unknown", sourceTag: "Untagged", offerId: null, links: [], isUnknown: true };
+        groups[UNKNOWN_KEY].links.push(link);
+      } else {
+        const offerId = info?.offer_id ?? null;
+        const key = `${rawMarketer}__${rawSource}__${offerId ?? "none"}`;
+        if (!groups[key]) groups[key] = { marketer: rawMarketer, sourceTag: rawSource, offerId, links: [], isUnknown: false };
+        groups[key].links.push(link);
+      }
     }
     return Object.entries(groups).map(([key, g]) => {
       const spend = g.links.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
@@ -396,16 +403,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const cpl = subs > 0 && spend > 0 ? spend / subs : null;
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const ltvSub = subs > 0 ? revenue / subs : null;
-      const genderLabels = new Set<string>();
-      g.links.forEach((l: any) => {
-        const acc = accounts.find((a: any) => a.id === l.account_id);
-        if (acc?.gender_identity) genderLabels.add(acc.gender_identity);
-      });
-      const genderLabel = genderLabels.size > 0 ? [...genderLabels].join(", ") : null;
       const offerIdStr = g.offerId != null ? `#${g.offerId}` : null;
-      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel, offerIdStr };
+      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, offerIdStr };
     });
-  }, [categoryLinksRaw, linkMarketerMap, accounts]);
+  }, [categoryLinksRaw, linkMarketerMap]);
 
   const quickFiltered = useMemo(() => {
     let result = groupedSources;
