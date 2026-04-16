@@ -498,11 +498,24 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     const profit = revenue - spend;
     const subs = categoryLinksRaw.reduce((s, l) => s + (l.subscribers || 0), 0);
     const clicks = categoryLinksRaw.reduce((s, l) => s + (l.clicks || 0), 0);
-    const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+
+    const costTypes = new Set<CostTypeFromOrder>();
+    categoryLinksRaw.forEach(l => {
+      const info = (linkMarketerMap as any)[l.id];
+      if (info?.order_ids) {
+        info.order_ids.forEach((oid: string) => {
+          const ct = getCostTypeFromOrderId(oid);
+          if (ct) costTypes.add(ct);
+        });
+      }
+    });
+    const costLabel = deriveCostLabel(costTypes);
+    const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+
     const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
     const roi = spend > 0 ? (profit / spend) * 100 : null;
-    return { spend, revenue, profit, cpl, cvr, roi };
-  }, [categoryLinksRaw]);
+    return { spend, revenue, profit, cpl: costMetric.value, cplLabel: `Avg ${costMetric.label}`, cvr, roi };
+  }, [categoryLinksRaw, linkMarketerMap]);
 
   const uniqueSources = useMemo(() => {
     const tags = new Set<string>();
