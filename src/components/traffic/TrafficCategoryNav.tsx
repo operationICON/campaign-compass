@@ -716,50 +716,61 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
       {/* Grouped source table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead className={thClass} onClick={() => handleSourceColSort("marketer")}>
+        <table className="w-full" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "35%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "7%" }} />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-border">
+              <th className={thClass} style={{ padding: "8px 12px", textAlign: "left" }} onClick={() => handleSourceColSort("marketer")}>
                 Source <SortIcon active={sourceSortKey === "marketer"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={thClass} onClick={() => handleSourceColSort("offerId")}>
-                Offer ID <SortIcon active={sourceSortKey === "offerId"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("camps")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("camps")}>
                 Campaigns <SortIcon active={sourceSortKey === "camps"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("spend")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("spend")}>
                 Spend <SortIcon active={sourceSortKey === "spend"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("revenue")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("revenue")}>
                 Revenue <SortIcon active={sourceSortKey === "revenue"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("profit")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("profit")}>
                 Profit <SortIcon active={sourceSortKey === "profit"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("cpl")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cpl")}>
                 CPL <SortIcon active={sourceSortKey === "cpl"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("cvr")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cvr")}>
                 CVR <SortIcon active={sourceSortKey === "cvr"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("ltvSub")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("ltvSub")}>
                 LTV/Sub <SortIcon active={sourceSortKey === "ltvSub"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("roi")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("roi")}>
                 ROI <SortIcon active={sourceSortKey === "roi"} asc={sourceSortAsc} />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
             {sourcePageRows.map(g => {
               const profitColor = g.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)";
               const roiColor = g.roi !== null ? (g.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
+              const mutedRow = g.isUnknown;
               return (
-                <TableRow
+                <tr
                   key={g.key}
-                  className="border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                  style={{ height: "48px" }}
                   onClick={() => {
+                    if (g.isUnknown) return;
                     if (g.offerId != null) {
                       navigate(`/sources/onlytraffic/${encodeURIComponent(g.marketer)}/${g.offerId}`);
                     } else {
@@ -767,35 +778,38 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                     }
                   }}
                 >
-                  <TableCell className="min-w-[200px]">
-                    <p className="text-foreground font-semibold" style={{ fontSize: "13px" }}>
-                      {g.marketer} — {g.sourceTag}
-                    </p>
-                    {g.genderLabel && (
-                      <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{g.genderLabel}</p>
-                    )}
-                  </TableCell>
-                  <TableCell><span className="text-foreground font-mono" style={{ fontSize: "12px" }}>{g.offerIdStr || "—"}</span></TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.campaigns}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.spend)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.revenue)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: profitColor }}>
+                  <td style={{ padding: "8px 12px" }}>
+                    <div className="flex items-center gap-3">
+                      <ModelAvatar name={g.marketer} size={32} />
+                      <div className="min-w-0">
+                        <p className={`font-medium truncate ${mutedRow ? "text-muted-foreground" : "text-foreground"}`} style={{ fontSize: "13px", fontWeight: 500 }}>
+                          {g.marketer}
+                          {g.offerIdStr && <span className="text-muted-foreground ml-1.5" style={{ fontSize: "11px", fontWeight: 400 }}>· {g.offerIdStr}</span>}
+                        </p>
+                        <p className="text-muted-foreground truncate" style={{ fontSize: "11px" }}>{g.sourceTag}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.campaigns}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{fmtC(g.spend)}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{fmtC(g.revenue)}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: profitColor }}>
                     {g.profit >= 0 ? `+${fmtC(g.profit)}` : fmtC(g.profit)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.cpl !== null ? fmtC(g.cpl) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.cvr !== null ? fmtPct(g.cvr) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.ltvSub !== null ? fmtC(g.ltvSub) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor }}>{g.roi !== null ? fmtPct(g.roi) : "—"}</TableCell>
-                </TableRow>
+                  </td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cpl !== null ? fmtC(g.cpl) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cvr !== null ? fmtPct(g.cvr) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.ltvSub !== null ? fmtC(g.ltvSub) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: roiColor }}>{g.roi !== null ? fmtPct(g.roi) : "—"}</td>
+                </tr>
               );
             })}
             {sourcePageRows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No sources found</TableCell>
-              </TableRow>
+              <tr>
+                <td colSpan={9} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No sources found</td>
+              </tr>
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
 
         {/* Pagination + hint */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">
