@@ -14,6 +14,7 @@ import SettingsPage from "./pages/SettingsPage";
 import LogsPage from "./pages/LogsPage";
 import DebugPage from "./pages/DebugPage";
 import TrafficSourcesPage from "./pages/TrafficSourcesPage";
+import MarketerDrilldownPage from "./pages/MarketerDrilldownPage";
 import CrossPollPage from "./pages/CrossPollPage";
 import FansPage from "./pages/FansPage";
 import NotFound from "./pages/NotFound";
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/debug" element={<DebugPage />} />
           <Route path="/traffic-sources" element={<TrafficSourcesPage />} />
+          <Route path="/sources/onlytraffic/:marketer/:offer_id" element={<MarketerDrilldownPage />} />
           <Route path="/cross-poll" element={<CrossPollPage />} />
           <Route path="/fans" element={<FansPage />} />
           <Route path="*" element={<NotFound />} />
