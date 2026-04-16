@@ -667,7 +667,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(group.spend)} color="#dc2626" />
             <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(group.revenue)} color="#16a34a" />
             <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(group.profit)} color={group.profit >= 0 ? "#16a34a" : "#dc2626"} />
-            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="CPL" value={group.cpl !== null ? fmtC(group.cpl) : "—"} color="#0891b2" />
+            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label={group.costLabel || "CPL"} value={group.cplDisplay || "—"} color="#0891b2" />
             <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="CVR" value={group.cvr !== null ? fmtPct(group.cvr) : "—"} color="#d97706" />
             <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={group.roi !== null ? fmtPct(group.roi) : "—"} color={group.roi !== null ? (group.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
           </div>
@@ -807,7 +807,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                 Profit <SortIcon active={sourceSortKey === "profit"} asc={sourceSortAsc} />
               </th>
               <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cpl")}>
-                CPL <SortIcon active={sourceSortKey === "cpl"} asc={sourceSortAsc} />
+                CPL/CPC <SortIcon active={sourceSortKey === "cpl"} asc={sourceSortAsc} />
               </th>
               <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cvr")}>
                 CVR <SortIcon active={sourceSortKey === "cvr"} asc={sourceSortAsc} />
@@ -857,7 +857,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: profitColor }}>
                     {g.profit >= 0 ? `+${fmtC(g.profit)}` : fmtC(g.profit)}
                   </td>
-                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cpl !== null ? fmtC(g.cpl) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cplDisplay || "—"}</td>
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cvr !== null ? fmtPct(g.cvr) : "—"}</td>
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.ltvSub !== null ? fmtC(g.ltvSub) : "—"}</td>
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: roiColor }}>{g.roi !== null ? fmtPct(g.roi) : "—"}</td>
