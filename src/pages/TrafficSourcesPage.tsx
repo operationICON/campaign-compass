@@ -138,8 +138,10 @@ function KpiCard({ label, value, sub, icon, color, children }: { label: string; 
 
 export default function TrafficSourcesPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
   const [navLevel, setNavLevel] = useState<1 | 2 | 3>(1);
+  const openCategory = (location.state as any)?.openCategory as string | undefined;
 
   // KPI visibility
   const [visibleKpis, setVisibleKpis] = useState<Set<KpiId>>(loadKpiVisibility);
