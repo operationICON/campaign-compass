@@ -469,6 +469,7 @@ export default function MarketerDrilldownPage() {
                                    <col style={{ width: "6.5%" }} />
                                    <col style={{ width: "6.5%" }} />
                                  </colgroup>
+                                 <thead>
                                   <tr className="border-b border-border">
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap text-left py-1.5 pl-12 pr-2">Campaigns ({expandedModelData.length})</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Orders</th>
