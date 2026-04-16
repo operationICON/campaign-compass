@@ -11,6 +11,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 import { format, differenceInDays, subDays, isValid } from "date-fns";
 
@@ -19,7 +21,7 @@ function safeFormat(dateStr: string | null | undefined, fmt: string, fallback = 
   const d = new Date(dateStr);
   return isValid(d) ? format(d, fmt) : fallback;
 }
-import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X, UserPlus, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X, UserPlus, Loader2, Info } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
@@ -55,6 +57,8 @@ const CARD_SORT_OPTIONS: { key: CardSortKey; label: string }[] = [
   { key: "alpha", label: "Alphabetical" },
 ];
 
+type PerfRange = "7d" | "30d" | "90d" | "all";
+
 export default function AccountsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -69,6 +73,8 @@ export default function AccountsPage() {
   const [cardSort, setCardSort] = useState<CardSortKey>("ltv_per_sub");
   const [expandedBreakdown, setExpandedBreakdown] = useState<Set<string>>(new Set());
   const [discovering, setDiscovering] = useState(false);
+  const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
+  const [perfRange, setPerfRange] = useState<PerfRange>("30d");
 
   const handleDiscoverAccounts = async () => {
     setDiscovering(true);
@@ -114,6 +120,47 @@ export default function AccountsPage() {
   const { data: trackingLinkLtv = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
     queryFn: fetchTrackingLinkLtv,
+  });
+
+  // Fetch daily_snapshots for performance charts
+  const { data: dailySnapshots = [] } = useQuery({
+    queryKey: ["daily_snapshots_perf", selectedAccount?.id, perfRange],
+    queryFn: async () => {
+      if (!selectedAccount) return [];
+      let fromDate: string | null = null;
+      const now = new Date();
+      if (perfRange === "7d") fromDate = subDays(now, 7).toISOString().slice(0, 10);
+      else if (perfRange === "30d") fromDate = subDays(now, 30).toISOString().slice(0, 10);
+      else if (perfRange === "90d") fromDate = subDays(now, 90).toISOString().slice(0, 10);
+
+      let query = supabase
+        .from("daily_snapshots")
+        .select("tracking_link_id, snapshot_date, clicks, subscribers, revenue")
+        .eq("account_id", selectedAccount.id)
+        .order("snapshot_date", { ascending: true });
+      if (fromDate) query = query.gte("snapshot_date", fromDate);
+
+      const allRows: any[] = [];
+      let rangeFrom = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await query.range(rangeFrom, rangeFrom + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < batchSize) break;
+        rangeFrom += batchSize;
+        // Re-create query for next batch
+        query = supabase
+          .from("daily_snapshots")
+          .select("tracking_link_id, snapshot_date, clicks, subscribers, revenue")
+          .eq("account_id", selectedAccount.id)
+          .order("snapshot_date", { ascending: true });
+        if (fromDate) query = query.gte("snapshot_date", fromDate);
+      }
+      return allRows;
+    },
+    enabled: !!selectedAccount,
   });
 
   // Fetch transaction breakdowns per account for revenue breakdown
@@ -191,11 +238,21 @@ export default function AccountsPage() {
     return totalC > 0 ? (totalS / totalC) * 100 : null;
   }, [links]);
 
-  // FIX 6 — helper for safe username display
   const displayUsername = (acc: any) => {
     const u = acc.username;
     if (!u || u === "—" || u.trim() === "") return null;
     return `@${u.replace("@", "")}`;
+  };
+
+  // Unattributed % calculation used on OVERVIEW cards — reuse everywhere
+  const calcUnattributedPct = (acc: any) => {
+    const ltvT = Number(acc.ltv_total || 0);
+    const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
+    const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    if (ltvT <= 0) return { pct: null, totalRev: ltvT, campRev, unattributed: 0 };
+    const unattributed = Math.max(0, ltvT - campRev);
+    const pct = (unattributed / ltvT) * 100;
+    return { pct, totalRev: ltvT, campRev, unattributed };
   };
 
   const accountStats = useMemo(() => {
@@ -207,28 +264,21 @@ export default function AccountsPage() {
       const accLinks = allLinks.filter((l: any) => l.account_id === acc.id);
       const accLinksFiltered = links.filter((l: any) => l.account_id === acc.id);
 
-      // Campaign Revenue = SUM(tracking_links.revenue) — always all-time from raw links
       const campaignRevAllTime = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      // Period-aware campaign revenue from snapshot-filtered links
       const campaignRevFiltered = accLinksFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
-      // LTV from tracking_link_ltv table
       const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
       const totalLtvAllTime = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
       const hasLtvData = accLtvRecords.length > 0;
 
-      // Tracked Subs from tracking_link_ltv.new_subs_total (fan-sync verified)
       const trackedSubsLtv = hasLtvData
         ? accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0)
         : null;
 
-      // Total spend (always all-time from raw links)
       const totalSpendAllTime = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-
-      // Total subscribers from tracking links
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+      const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
-      // Active links = clicks > 0 AND calculated_at within last 30 days
       const activeLinks = accLinks.filter((l: any) => {
         if (l.deleted_at) return false;
         if (l.clicks <= 0) return false;
@@ -239,7 +289,6 @@ export default function AccountsPage() {
         return created ? created >= thirtyDaysAgo : false;
       });
 
-      // Subs/Day = total subs / days since earliest link
       const earliestCreated = accLinks.reduce((earliest: Date | null, l: any) => {
         if (!l.created_at) return earliest;
         const d = new Date(l.created_at);
@@ -248,33 +297,23 @@ export default function AccountsPage() {
       const daysSinceEarliest = earliestCreated ? Math.max(1, differenceInDays(now, earliestCreated)) : 0;
       const subsPerDay = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
 
-      // Unattributed % — uses LTV table new_subs if available, else tracking_links.subscribers capped at API subs
       const apiSubs = acc.subscribers_count || 0;
-      let unattributedPct: number | null = null;
-      if (apiSubs > 0) {
-        if (trackedSubsLtv !== null && trackedSubsLtv > 0) {
-          // Fan-sync verified subs
-          unattributedPct = Math.max(0, ((apiSubs - trackedSubsLtv) / apiSubs) * 100);
-        } else {
-          // Fallback: tracking_links.subscribers capped at apiSubs
-          const cappedSubs = Math.min(totalSubs, apiSubs);
-          unattributedPct = Math.max(0, ((apiSubs - cappedSubs) / apiSubs) * 100);
-        }
-      }
+      const ua = calcUnattributedPct(acc);
+      const unattributedPct = ua.pct;
 
-      // ROI — based on Campaign Revenue vs Spend (consistent with per-link ROI)
       const blendedRoi = totalSpendAllTime > 0
         ? ((campaignRevAllTime - totalSpendAllTime) / totalSpendAllTime) * 100
         : null;
 
-      // Model CVR
       const qualifiedLinks = accLinksFiltered.filter((l: any) => l.clicks > 100);
       const qSubs = qualifiedLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
       const qClicks = qualifiedLinks.reduce((s: number, l: any) => s + l.clicks, 0);
       const avgCvr = qClicks > 0 ? (qSubs / qClicks) * 100 : null;
       const cvrDiff = avgCvr !== null && agencyAvgCvr !== null ? avgCvr - agencyAvgCvr : null;
 
-      // LTV/Sub from LTV table
+      // CVR for KPI (all links, not just qualified)
+      const allCvr = totalClicks > 0 ? (totalSubs / totalClicks) * 100 : null;
+
       const ltvPerSub = trackedSubsLtv && trackedSubsLtv > 0 && totalLtvAllTime > 0
         ? totalLtvAllTime / trackedSubsLtv
         : null;
@@ -288,14 +327,16 @@ export default function AccountsPage() {
         totalCampaigns: accLinks.length,
         activeCampaigns: activeLinks.length,
         subsPerDay,
-        totalClicks: accLinksFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0),
+        totalClicks,
         totalSubs,
         trackedSubs: trackedSubsLtv,
         apiSubs,
         blendedRoi,
         avgCvr,
+        allCvr,
         cvrDiff,
         unattributedPct,
+        unattributedBreakdown: ua,
         ltvPerSub,
         hasLtvData,
       };
@@ -303,7 +344,6 @@ export default function AccountsPage() {
     return stats;
   }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime]);
 
-  // FIX 8 — Account filter
   const afterAccountFilter = useMemo(() => {
     if (pageModelFilter === "all") return accounts;
     return accounts.filter((a: any) => a.id === pageModelFilter);
@@ -317,14 +357,12 @@ export default function AccountsPage() {
     return list;
   }, [afterAccountFilter, categoryFilter]);
 
-  // FIX 4 — Sort model cards
   const sortedAccounts = useMemo(() => {
     return [...filteredAccounts].sort((a: any, b: any) => {
       const sa = accountStats[a.id] || {};
       const sb = accountStats[b.id] || {};
       switch (cardSort) {
         case "spend":
-          // Primary: spend DESC, secondary: ltvPerSub DESC
           if ((sb.totalSpendAllTime || 0) !== (sa.totalSpendAllTime || 0))
             return (sb.totalSpendAllTime || 0) - (sa.totalSpendAllTime || 0);
           return (sb.ltvPerSub || 0) - (sa.ltvPerSub || 0);
@@ -342,7 +380,6 @@ export default function AccountsPage() {
     });
   }, [filteredAccounts, accountStats, cardSort]);
 
-  // Account options for dropdown — FIX 8: no @unknown
   const accountOptions = useMemo(() => {
     const accountIdsWithLinks = new Set(allLinks.map((l: any) => l.account_id));
     return accounts
@@ -392,33 +429,99 @@ export default function AccountsPage() {
     return links.filter((l: any) => l.account_id === selectedAccount.id);
   }, [selectedAccount, links]);
 
+  // PART 4 — Source groups with 10 columns
   const sourceGroups = useMemo(() => {
-    const groups: Record<string, { source: string; links: number; spend: number; revenue: number; profit: number; roi: number | null }> = {};
+    const groups: Record<string, { source: string; links: any[]; activeLinks: number; subs: number; clicks: number; spend: number; revenue: number; profit: number; roi: number | null; costTypes: Record<string, number> }> = {};
+    const now = new Date();
+    const thirtyDaysAgo = subDays(now, 30);
     for (const l of selectedAccLinks) {
       const src = getEffectiveSource(l) || "Untagged";
-      if (!groups[src]) groups[src] = { source: src, links: 0, spend: 0, revenue: 0, profit: 0, roi: null };
-      groups[src].links++;
+      if (!groups[src]) groups[src] = { source: src, links: [], activeLinks: 0, subs: 0, clicks: 0, spend: 0, revenue: 0, profit: 0, roi: null, costTypes: {} };
+      groups[src].links.push(l);
+      groups[src].subs += (l.subscribers || 0);
+      groups[src].clicks += (l.clicks || 0);
       groups[src].spend += Number(l.cost_total || 0);
       groups[src].revenue += Number(l.revenue || 0);
+      // Count cost types
+      const ct = l.cost_type || l.payment_type;
+      if (ct) groups[src].costTypes[ct] = (groups[src].costTypes[ct] || 0) + 1;
+      // Active check
+      const isActive = !l.deleted_at && l.clicks > 0 && (() => {
+        const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
+        if (calcDate && calcDate >= thirtyDaysAgo) return true;
+        const created = l.created_at ? new Date(l.created_at) : null;
+        return created ? created >= thirtyDaysAgo : false;
+      })();
+      if (isActive) groups[src].activeLinks++;
     }
     for (const g of Object.values(groups)) {
       g.profit = g.revenue - g.spend;
       g.roi = g.spend > 0 ? (g.profit / g.spend) * 100 : null;
     }
-    return Object.values(groups).sort((a, b) => b.profit - a.profit);
+    // Sort by profit desc, Untagged at bottom
+    return Object.values(groups).sort((a, b) => {
+      if (a.source === "Untagged" && b.source !== "Untagged") return 1;
+      if (b.source === "Untagged" && a.source !== "Untagged") return -1;
+      return b.profit - a.profit;
+    });
   }, [selectedAccLinks]);
 
+  // Subs/Day per source from daily_snapshots
+  const sourceSubsPerDay = useMemo(() => {
+    if (!selectedAccount || dailySnapshots.length === 0) return {};
+    // Map link IDs to their source
+    const linkSourceMap: Record<string, string> = {};
+    for (const l of selectedAccLinks) {
+      linkSourceMap[String(l.id).toLowerCase()] = getEffectiveSource(l) || "Untagged";
+    }
+    // Sum subs per source per day
+    const sourceByDate: Record<string, Record<string, number>> = {};
+    for (const row of dailySnapshots) {
+      const lid = String(row.tracking_link_id ?? "").toLowerCase();
+      const src = linkSourceMap[lid];
+      if (!src) continue;
+      if (!sourceByDate[src]) sourceByDate[src] = {};
+      const dt = row.snapshot_date || "";
+      sourceByDate[src][dt] = (sourceByDate[src][dt] || 0) + Number(row.subscribers || 0);
+    }
+    const result: Record<string, number> = {};
+    for (const [src, dates] of Object.entries(sourceByDate)) {
+      const days = Object.keys(dates).length;
+      const totalSubs = Object.values(dates).reduce((s, v) => s + v, 0);
+      result[src] = days > 0 ? totalSubs / days : 0;
+    }
+    return result;
+  }, [selectedAccount, dailySnapshots, selectedAccLinks]);
+
+  // PART 5 — Performance data from daily_snapshots (daily deltas)
   const perfData = useMemo(() => {
-    const linkIds = new Set(selectedAccLinks.map((l: any) => l.id));
-    const byDate: Record<string, { date: string; ltv: number; subs: number }> = {};
-    for (const m of dailyMetrics) {
-      if (!linkIds.has(m.tracking_link_id)) continue;
-      if (!byDate[m.date]) byDate[m.date] = { date: m.date, ltv: 0, subs: 0 };
-      byDate[m.date].ltv += Number(m.revenue || 0);
-      byDate[m.date].subs += (m.subscribers || 0);
+    if (!selectedAccount || dailySnapshots.length === 0) return [];
+    const byDate: Record<string, { date: string; revenue: number; subs: number }> = {};
+    for (const row of dailySnapshots) {
+      const dt = row.snapshot_date || "";
+      if (!dt) continue;
+      if (!byDate[dt]) byDate[dt] = { date: dt, revenue: 0, subs: 0 };
+      byDate[dt].revenue += Number(row.revenue || 0);
+      byDate[dt].subs += Number(row.subscribers || 0);
     }
     return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
-  }, [selectedAccLinks, dailyMetrics]);
+  }, [selectedAccount, dailySnapshots]);
+
+  // CPL/CPC label for a source
+  const getCplCpcLabel = (costTypes: Record<string, number>) => {
+    const entries = Object.entries(costTypes);
+    if (entries.length === 0) return "—";
+    const total = entries.reduce((s, [, c]) => s + c, 0);
+    const cplCount = (costTypes["CPL"] || 0);
+    const cpcCount = (costTypes["CPC"] || 0);
+    if (cplCount > 0 && cpcCount === 0) return "CPL";
+    if (cpcCount > 0 && cplCount === 0) return "CPC";
+    if (cplCount > 0 && cpcCount > 0) return "Mixed";
+    // Fixed or other
+    const fixedCount = (costTypes["Fixed"] || 0) + (costTypes["fixed"] || 0);
+    if (fixedCount > 0) return "Fixed";
+    return "—";
+  };
 
   // ============ VIEW 2 — Individual Model Profile ============
   if (selectedAccount) {
@@ -426,6 +529,7 @@ export default function AccountsPage() {
     const stats = accountStats[acc.id] || {};
     const accLinks = selectedAccLinks;
     const category = getGender(acc);
+    const ua = calcUnattributedPct(acc);
 
     const sortedLinks = [...accLinks].sort((a: any, b: any) => {
       const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
@@ -433,6 +537,24 @@ export default function AccountsPage() {
       if (typeof av === "string") return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
       return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
+
+    // KPI card component
+    const KpiCard = ({ label, value, colored, positive }: { label: string; value: string; colored?: boolean; positive?: boolean }) => (
+      <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{label}</p>
+        <p className={`text-lg font-bold font-mono ${
+          colored ? (positive ? "text-primary" : "text-destructive") : "text-foreground"
+        }`}>{value}</p>
+      </div>
+    );
+
+    const totalRevenue = Number(acc.ltv_total || 0) * revMultiplier;
+    const campaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
+    const totalSpend = stats.totalSpendAllTime || 0;
+    const totalProfit = totalRevenue - totalSpend;
+    const roi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
+    const cpl = totalSpend > 0 && stats.totalSubs > 0 ? totalSpend / stats.totalSubs : null;
+    const cpc = totalSpend > 0 && stats.totalClicks > 0 ? totalSpend / stats.totalClicks : null;
 
     return (
       <DashboardLayout>
@@ -470,51 +592,68 @@ export default function AccountsPage() {
               </div>
 
               <div className="md:w-[70%] p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  {[
-                    { label: "Total Revenue", value: fmtCurrency(Number(acc.ltv_total || 0) * revMultiplier) },
-                    { label: "Campaign Rev", value: fmtCurrency((stats.campaignRevAllTime || 0) * revMultiplier) },
-                    
-                    { label: "Total Spend", value: fmtCurrency(stats.totalSpendAllTime || 0) },
-                    { label: "Total Profit", value: (() => { const p = (stats.campaignRevAllTime || 0) * revMultiplier - (stats.totalSpendAllTime || 0); return fmtCurrency(p); })(), positive: ((stats.campaignRevAllTime || 0) * revMultiplier - (stats.totalSpendAllTime || 0)) >= 0 },
-                  ].map((s) => (
-                    <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
-                      <p className={`text-lg font-bold font-mono ${(s as any).accent ? "text-primary" : s.positive === false ? "text-destructive" : "text-foreground"}`}>{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                  {[
-                    { label: "Total Tracking Links", value: String(stats.totalCampaigns || 0) },
-                    { label: "Active Tracking Links", value: String(stats.activeCampaigns || 0) },
-                    { label: "Subs/Day", value: stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—" },
-                    { label: "ROI %", value: stats.blendedRoi != null ? fmtPct(stats.blendedRoi) : "—" },
-                    { label: "Unattributed %", value: stats.unattributedPct != null ? fmtPct(stats.unattributedPct) : "—",
-                      colored: true, pctVal: stats.unattributedPct },
-                  ].map((s: any) => (
-                    <div key={s.label} className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{s.label}</p>
-                      <p className={`text-lg font-bold font-mono ${
-                        s.colored
-                          ? ((s.pctVal ?? 0) <= 30 ? "text-primary" : (s.pctVal ?? 0) <= 40 ? "text-[hsl(38_92%_50%)]" : "text-destructive")
-                          : "text-foreground"
-                      }`}>{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-                {stats.avgCvr !== null && (
-                  <div className="flex items-center gap-3 mb-6 px-1">
-                    <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Avg CVR:</span>
-                    <span className="font-mono text-sm font-bold text-foreground">{stats.avgCvr.toFixed(1)}%</span>
-                    {stats.cvrDiff !== null && (
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${stats.cvrDiff >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
-                        {stats.cvrDiff >= 0 ? "+" : ""}{stats.cvrDiff.toFixed(1)}% vs agency avg
-                      </span>
-                    )}
-                  </div>
-                )}
+                {/* PART 2 — 5×5 KPI Grid (13 cards, rows 4-5 empty) */}
+                <div className="grid grid-cols-5 gap-3 mb-4">
+                  {/* Row 1: Primary financials */}
+                  <KpiCard label="Total Revenue" value={fmtCurrency(totalRevenue)} />
+                  <KpiCard label="Campaign Rev" value={fmtCurrency(campaignRev)} />
+                  <KpiCard label="Total Spend" value={fmtCurrency(totalSpend)} />
+                  <KpiCard label="Total Profit" value={fmtCurrency(totalProfit)} colored positive={totalProfit >= 0} />
+                  <KpiCard label="ROI %" value={roi != null ? fmtPct(roi) : "—"} colored positive={roi != null && roi >= 0} />
 
+                  {/* Row 2: Scale/subs */}
+                  <KpiCard label="Subscribers" value={fmtNum(stats.apiSubs || stats.totalSubs || 0)} />
+                  <KpiCard label="Subs/Day" value={stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—"} />
+                  <KpiCard label="CVR" value={stats.allCvr != null ? fmtPct(stats.allCvr) : "—"} />
+                  <KpiCard label="CPL" value={cpl != null ? fmtCurrency(cpl) : "—"} />
+                  <KpiCard label="CPC" value={cpc != null ? `$${cpc.toFixed(4)}` : "—"} />
+
+                  {/* Row 3: Traffic health */}
+                  <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
+                  <KpiCard label="Active Tracking Links" value={String(stats.activeCampaigns || 0)} />
+                  {/* Unattributed % — clickable with popover (PART 6) */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-all">
+                        <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                          Unattributed % <Info className="h-3 w-3" />
+                        </p>
+                        <p className={`text-lg font-bold font-mono ${
+                          ua.pct == null ? "text-foreground"
+                            : ua.pct > 50 ? "text-destructive"
+                            : ua.pct >= 30 ? "text-[hsl(38_92%_50%)]"
+                            : "text-primary"
+                        }`}>{ua.pct != null ? fmtPct(ua.pct) : "—"}</p>
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 text-sm space-y-2" side="bottom">
+                      <p className="font-semibold text-foreground">Unattributed Breakdown</p>
+                      <div className="space-y-1 text-[12px]">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total Revenue (account)</span>
+                          <span className="font-mono font-semibold">{fmtCurrency(ua.totalRev)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Campaign Revenue (tracked)</span>
+                          <span className="font-mono font-semibold">{fmtCurrency(ua.campRev)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Unattributed</span>
+                          <span className="font-mono font-semibold">{fmtCurrency(ua.unattributed)} ({ua.pct != null ? fmtPct(ua.pct) : "—"})</span>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground border-t border-border pt-2">
+                        Calculation: Account Revenue − Tracked Campaign Revenue<br />
+                        Filter: sync_enabled accounts only
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {/* 2 empty slots in row 3 */}
+                  <div />
+                  <div />
+                </div>
+
+                {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
                     {(["campaigns", "sources", "performance"] as const).map((tab) => (
@@ -531,6 +670,7 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
+                {/* PART 3 — Tracking Links tab with clickable rows */}
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
                     {sortedLinks.length === 0 ? (
@@ -563,7 +703,11 @@ export default function AccountsPage() {
                             const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
                             const subsPerDay = daysActive && daysActive > 0 && l.subscribers > 0 ? (l.subscribers / daysActive).toFixed(0) : null;
                             return (
-                              <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                              <tr
+                                key={l.id}
+                                className="border-b border-border/50 hover:bg-muted/30 hover:border-l-2 hover:border-l-primary transition-colors cursor-pointer"
+                                onClick={() => setDrawerCampaign({ ...l, avatarUrl: acc.avatar_thumb_url, modelName: acc.display_name })}
+                              >
                                 <td className="py-3 px-3">
                                   <p className="font-medium text-foreground text-[12px] truncate max-w-[200px]">{l.campaign_name || "—"}</p>
                                   <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{l.url}</p>
@@ -605,6 +749,7 @@ export default function AccountsPage() {
                   </div>
                 )}
 
+                {/* PART 4 — Traffic Sources tab with 10 columns */}
                 {activeTab === "sources" && (
                   <div className="overflow-x-auto">
                     {sourceGroups.length === 0 ? (
@@ -615,31 +760,77 @@ export default function AccountsPage() {
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                             <th className="text-left py-2 px-3">Source</th>
                             <th className="text-right py-2 px-3">Active Links</th>
+                            <th className="text-right py-2 px-3">Subs</th>
+                            <th className="text-right py-2 px-3">Subs/Day</th>
                             <th className="text-right py-2 px-3">Total Spend</th>
-                            <th className="text-right py-2 px-3">Total Revenue</th>
+                            <th className="text-right py-2 px-3">Revenue</th>
+                            <th className="text-right py-2 px-3">CPL/CPC</th>
+                            <th className="text-right py-2 px-3">CVR</th>
                             <th className="text-right py-2 px-3">Profit</th>
                             <th className="text-right py-2 px-3">ROI</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {sourceGroups.map((g) => (
-                            <tr key={g.source} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                              <td className="py-3 px-3 font-medium text-[12px]"><TagBadge tagName={g.source} /></td>
-                              <td className="text-right py-3 px-3 font-mono text-[12px]">{g.links}</td>
-                              <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtCurrency(g.spend)}</td>
-                              <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.revenue)}</td>
-                              <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>{fmtCurrency(g.profit)}</td>
-                              <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.roi != null ? (g.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>{g.roi != null ? fmtPct(g.roi) : "—"}</td>
-                            </tr>
-                          ))}
+                          {sourceGroups.map((g) => {
+                            const cvr = g.clicks > 0 ? (g.subs / g.clicks) * 100 : null;
+                            const cplCpcType = getCplCpcLabel(g.costTypes);
+                            let cplCpcValue = "—";
+                            if (cplCpcType === "CPL" && g.subs > 0 && g.spend > 0) {
+                              cplCpcValue = `$${(g.spend / g.subs).toFixed(2)} CPL`;
+                            } else if (cplCpcType === "CPC" && g.clicks > 0 && g.spend > 0) {
+                              cplCpcValue = `$${(g.spend / g.clicks).toFixed(2)} CPC`;
+                            } else if (cplCpcType === "Mixed") {
+                              cplCpcValue = "Mixed";
+                            } else if (cplCpcType === "Fixed" && g.spend > 0) {
+                              cplCpcValue = `$${g.spend.toFixed(2)} Fixed`;
+                            }
+                            const spd = sourceSubsPerDay[g.source];
+                            return (
+                              <tr key={g.source} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                                <td className="py-3 px-3 font-medium text-[12px]"><TagBadge tagName={g.source} /></td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">{g.activeLinks}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(g.subs)}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{spd != null && spd > 0 ? `${spd.toFixed(1)}/day` : "—"}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtCurrency(g.spend)}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.revenue)}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{cplCpcValue}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">{cvr != null ? fmtPct(cvr) : "—"}</td>
+                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>{fmtCurrency(g.profit)}</td>
+                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.roi != null ? (g.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>{g.roi != null ? fmtPct(g.roi) : "—"}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
                   </div>
                 )}
 
+                {/* PART 5 — Performance tab with fixed charts */}
                 {activeTab === "performance" && (
                   <div className="space-y-6">
+                    {/* Date range selector */}
+                    <div className="flex gap-2">
+                      {([
+                        { key: "7d", label: "Last 7 Days" },
+                        { key: "30d", label: "Last 30 Days" },
+                        { key: "90d", label: "Last 90 Days" },
+                        { key: "all", label: "All Time" },
+                      ] as { key: PerfRange; label: string }[]).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => setPerfRange(key)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                            perfRange === key
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
                     {perfData.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-8 text-center">Performance data builds after multiple syncs</p>
                     ) : (
@@ -653,7 +844,7 @@ export default function AccountsPage() {
                                 <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(d) => safeFormat(d, "MMM d")} />
                                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${v}`} />
                                 <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenue"]} labelFormatter={(l) => safeFormat(String(l), "MMM d, yyyy")} />
-                                <Line type="monotone" dataKey="ltv" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                               </LineChart>
                             </ResponsiveContainer>
                           </div>
@@ -680,6 +871,9 @@ export default function AccountsPage() {
             </div>
           </div>
         </div>
+
+        {/* Campaign drawer for clickable rows */}
+        <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} onCampaignUpdated={setDrawerCampaign} />
       </DashboardLayout>
     );
   }
@@ -706,7 +900,6 @@ export default function AccountsPage() {
           </div>
         </div>
 
-        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
         <PageFilterBar
           timePeriod={timePeriod}
           onTimePeriodChange={setTimePeriod}
@@ -719,7 +912,6 @@ export default function AccountsPage() {
           onRevenueModeChange={setRevenueMode}
         />
 
-        {/* Filter pills + sort dropdown */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex gap-2 flex-wrap">
             <button
@@ -750,7 +942,6 @@ export default function AccountsPage() {
             })}
           </div>
 
-          {/* FIX 4 — Sort dropdown */}
           <select
             value={cardSort}
             onChange={(e) => setCardSort(e.target.value as CardSortKey)}
@@ -762,7 +953,7 @@ export default function AccountsPage() {
           </select>
         </div>
 
-        {/* Model cards grid */}
+        {/* Model cards grid — PART 1: added total subs */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedAccounts.map((acc: any) => {
             const stats = accountStats[acc.id] || {};
@@ -778,7 +969,6 @@ export default function AccountsPage() {
                   <AvatarCircle account={acc} size={72} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
-                    {/* FIX 6 — No @— */}
                     {displayUsername(acc) && (
                       <p className="text-[13px] text-muted-foreground">{displayUsername(acc)}</p>
                     )}
@@ -829,15 +1019,12 @@ export default function AccountsPage() {
                     <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
                     <span className="font-mono font-semibold text-primary">
                       {(() => {
-                        // Use tracked LTV (from tracking_link_ltv) / tracked new subs for accurate LTV/Sub
                         const accLtvRecords = trackingLinkLtv.filter((r: any) => r.account_id === acc.id);
                         const trackedLtv = accLtvRecords.reduce((s: number, r: any) => s + Number(r.total_ltv || 0), 0);
                         const trackedNewSubs = accLtvRecords.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
-                        // Fallback to account-level if no LTV data
                         if (trackedNewSubs > 0 && trackedLtv > 0) {
                           return fmtCurrency((trackedLtv / trackedNewSubs) * revMultiplier);
                         }
-                        // Fallback: ltv_total / subscribers_count
                         const subsCount = Number(acc.subscribers_count || 0);
                         const ltvTotal = Number(acc.ltv_total || 0);
                         return subsCount > 0 && ltvTotal > 0 ? fmtCurrency((ltvTotal / subsCount) * revMultiplier) : "—";
@@ -858,22 +1045,16 @@ export default function AccountsPage() {
                     <span className="text-muted-foreground">Unattributed</span>
                     <span className={`font-mono font-semibold ${
                       (() => {
-                        const ltvT = Number(acc.ltv_total || 0);
-                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                        const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-                        const pct = ltvT > 0 ? ((ltvT - campRev) / ltvT) * 100 : null;
-                        return pct == null ? "text-muted-foreground"
-                          : pct > 50 ? "text-destructive"
-                          : pct >= 30 ? "text-[hsl(38_92%_50%)]"
+                        const ua = calcUnattributedPct(acc);
+                        return ua.pct == null ? "text-muted-foreground"
+                          : ua.pct > 50 ? "text-destructive"
+                          : ua.pct >= 30 ? "text-[hsl(38_92%_50%)]"
                           : "text-primary";
                       })()
                     }`}>
                       {(() => {
-                        const ltvT = Number(acc.ltv_total || 0);
-                        const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                        const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-                        const pct = ltvT > 0 ? ((ltvT - campRev) / ltvT) * 100 : null;
-                        return pct != null ? fmtPct(pct) : "—";
+                        const ua = calcUnattributedPct(acc);
+                        return ua.pct != null ? fmtPct(ua.pct) : "—";
                       })()}
                     </span>
                   </div>
@@ -887,7 +1068,6 @@ export default function AccountsPage() {
                   const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
                   const unattributed = Math.max(0, ltvT - campRev);
 
-                  // Type breakdown from accounts fields or transactions
                   const accMsg = Number(acc.ltv_messages || 0);
                   const accTips = Number(acc.ltv_tips || 0);
                   const accSubs = Number(acc.ltv_subscriptions || 0);
@@ -927,7 +1107,6 @@ export default function AccountsPage() {
                       </button>
                       {isExp && (
                         <div className="mt-1.5 space-y-1.5 text-[12px]">
-                          {/* Attribution split */}
                           <div className="space-y-1 pb-1.5 border-b border-border/50">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1.5">
@@ -948,7 +1127,6 @@ export default function AccountsPage() {
                               </span>
                             </div>
                           </div>
-                          {/* Type breakdown */}
                           {typeRows.length > 0 && (
                             <div className="space-y-1">
                               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">By Type</span>
@@ -971,7 +1149,10 @@ export default function AccountsPage() {
                   );
                 })()}
 
+                {/* PART 1: Added total subs count */}
                 <div className="flex items-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border">
+                  <span>{fmtNum(stats.totalSubs || 0)} subs</span>
+                  <span className="text-border">·</span>
                   <span>{stats.activeCampaigns || 0} active links</span>
                   <span className="text-border">·</span>
                   <span>{stats.totalCampaigns || 0} total</span>
