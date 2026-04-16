@@ -763,7 +763,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                 <TableRow
                   key={g.key}
                   className="border-border cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => { setActiveSourceKey(g.key); onLevelChange?.(3); }}
+                  onClick={() => {
+                    if (g.offerId != null) {
+                      navigate(`/sources/onlytraffic/${encodeURIComponent(g.marketer)}/${g.offerId}`);
+                    } else {
+                      setActiveSourceKey(g.key); onLevelChange?.(3);
+                    }
+                  }}
                 >
                   <TableCell className="min-w-[200px]">
                     <p className="text-foreground font-semibold" style={{ fontSize: "13px" }}>
