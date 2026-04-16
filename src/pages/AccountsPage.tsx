@@ -611,43 +611,21 @@ export default function AccountsPage() {
                   {/* Row 3: Traffic health */}
                   <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
                   <KpiCard label="Active Tracking Links" value={String(stats.activeCampaigns || 0)} />
-                  {/* Unattributed % — clickable with popover (PART 6) */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-all">
-                        <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
-                          Unattributed % <Info className="h-3 w-3" />
-                        </p>
-                        <p className={`text-lg font-bold font-mono ${
-                          ua.pct == null ? "text-foreground"
-                            : ua.pct > 50 ? "text-destructive"
-                            : ua.pct >= 30 ? "text-[hsl(38_92%_50%)]"
-                            : "text-primary"
-                        }`}>{ua.pct != null ? fmtPct(ua.pct) : "—"}</p>
-                      </div>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 text-sm space-y-2" side="bottom">
-                      <p className="font-semibold text-foreground">Unattributed Breakdown</p>
-                      <div className="space-y-1 text-[12px]">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total Revenue (account)</span>
-                          <span className="font-mono font-semibold">{fmtCurrency(ua.totalRev)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Campaign Revenue (tracked)</span>
-                          <span className="font-mono font-semibold">{fmtCurrency(ua.campRev)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Unattributed</span>
-                          <span className="font-mono font-semibold">{fmtCurrency(ua.unattributed)} ({ua.pct != null ? fmtPct(ua.pct) : "—"})</span>
-                        </div>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground border-t border-border pt-2">
-                        Calculation: Account Revenue − Tracked Campaign Revenue<br />
-                        Filter: sync_enabled accounts only
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  {/* Unattributed % — clicks scroll to breakdown section below */}
+                  <div
+                    className="bg-secondary/50 dark:bg-secondary rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-all"
+                    onClick={() => document.getElementById("revenue-breakdown-detail")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  >
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                      Unattributed % <Info className="h-3 w-3" />
+                    </p>
+                    <p className={`text-lg font-bold font-mono ${
+                      ua.pct == null ? "text-foreground"
+                        : ua.pct > 50 ? "text-destructive"
+                        : ua.pct >= 30 ? "text-[hsl(38_92%_50%)]"
+                        : "text-primary"
+                    }`}>{ua.pct != null ? fmtPct(ua.pct) : "—"}</p>
+                  </div>
                   {/* 2 empty slots in row 3 */}
                   <div />
                   <div />
