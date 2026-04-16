@@ -372,7 +372,20 @@ export default function MarketerDrilldownPage() {
               {modelRows.length === 0 ? "No orders found for this marketer" : "No models match your filters"}
             </div>
           ) : (
-            <Table>
+            <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "6.5%" }} />
+                <col style={{ width: "6.5%" }} />
+              </colgroup>
               <TableHeader>
                 <TableRow className="border-border">
                   <TableHead className={thClass} onClick={() => handleSort("model")}>Model <SortIcon active={sortKey === "model"} asc={sortAsc} /></TableHead>
