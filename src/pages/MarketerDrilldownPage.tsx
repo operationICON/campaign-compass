@@ -24,7 +24,7 @@ function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
 
 function StatItem({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex flex-col items-center px-4 py-1">
+    <div className="flex flex-col items-start py-1" style={{ flex: "1 1 0", minWidth: 0 }}>
       <span className="text-muted-foreground uppercase tracking-wider" style={{ fontSize: "10px" }}>{label}</span>
       <span className="font-mono font-bold" style={{ fontSize: "14px", color: color || "hsl(var(--foreground))" }}>{value}</span>
     </div>
@@ -32,7 +32,7 @@ function StatItem({ label, value, color }: { label: string; value: string; color
 }
 
 function StatDivider() {
-  return <div className="w-px h-8 bg-border" />;
+  return <div className="w-px h-8 bg-border shrink-0" />;
 }
 
 export default function MarketerDrilldownPage() {
