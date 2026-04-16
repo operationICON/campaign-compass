@@ -110,12 +110,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [showMarketerAnalytics, setShowMarketerAnalytics] = useState(false);
   const [expandedMarketer, setExpandedMarketer] = useState<string | null>(null);
   const colorMap = useTagColors();
+  const [activeSourceKey, setActiveSourceKey] = useState<string | null>(null);
+  const [quickFilter, setQuickFilter] = useState<string>("__all__");
+  const [sourcePage, setSourcePage] = useState(0);
+  const [sourceSortKey, setSourceSortKey] = useState<string>("profit");
+  const [sourceSortAsc, setSourceSortAsc] = useState(false);
 
   // Fetch accounts for dropdown
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
-      const { data } = await supabase.from("accounts").select("id, username, display_name, avatar_thumb_url").order("display_name");
+      const { data } = await supabase.from("accounts").select("id, username, display_name, avatar_thumb_url, onlyfans_account_id, gender_identity").order("display_name");
       return data || [];
     },
   });
@@ -184,6 +189,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     setOfferIdFilter("__all__");
     setTableSortPreset("newest_first");
     setPage(0);
+    setActiveSourceKey(null);
+    setQuickFilter("__all__");
+    setSourcePage(0);
+    setSourceSortKey("profit");
+    setSourceSortAsc(false);
     if (!cat) onLevelChange?.(1);
     else onLevelChange?.(2);
   };
