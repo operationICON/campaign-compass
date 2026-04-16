@@ -405,11 +405,9 @@ export default function MarketerModelCampaignsPage() {
 
       {/* Campaign Detail Drawer */}
       {selectedLink && (
-        <CampaignDetailSlideIn
-          link={selectedLink}
-          cost={Number(selectedLink.cost_total || 0)}
+        <CampaignDetailDrawer
+          campaign={selectedLink}
           onClose={() => setSelectedLink(null)}
-          onSetCost={() => {}}
         />
       )}
     </DashboardLayout>
