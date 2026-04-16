@@ -952,7 +952,7 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
       const roi = spend > 0 ? (profit / spend) * 100 : null;
       const costTypes = new Set<CostTypeFromOrder>();
       mLinks.forEach(l => {
-        const info = linkMarketerMap[l.id];
+        const info = (linkMarketerMap as any)[l.id];
         if (info?.order_ids) {
           info.order_ids.forEach((oid: string) => {
             const ct = getCostTypeFromOrderId(oid);
