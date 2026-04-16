@@ -524,7 +524,7 @@ export default function DashboardPage() {
         {/* ═══ HEADER ═══ */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[22px] font-bold text-foreground">Overview</h1>
+            <h1 className="text-[22px] font-medium text-foreground">Overview</h1>
             <div className="flex items-center gap-2 mt-1">
               {lastSynced && (
                 <span className="text-xs text-muted-foreground">

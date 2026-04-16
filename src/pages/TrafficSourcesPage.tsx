@@ -816,7 +816,7 @@ export default function TrafficSourcesPage() {
           <div style={{ flex: showSidePanel ? "0 0 60%" : "1 1 100%" }}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h1 className="text-xl font-bold text-foreground">Traffic Sources</h1>
+                <h1 className="text-[22px] font-medium text-foreground">Traffic Sources</h1>
                 <p className="text-muted-foreground" style={{ fontSize: "13px" }}>Manage sources and view tracking link performance by source</p>
               </div>
               <div className="flex items-center gap-2">

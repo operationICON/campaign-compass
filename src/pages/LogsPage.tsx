@@ -229,7 +229,7 @@ export default function LogsPage() {
         {/* ═══ Header ═══ */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Sync Center</h1>
+            <h1 className="text-[22px] font-medium text-foreground">Sync Center</h1>
             <p className="text-sm text-muted-foreground">{logs.length.toLocaleString()} sync runs recorded</p>
           </div>
           <RefreshButton queryKeys={["sync_logs", "accounts"]} />

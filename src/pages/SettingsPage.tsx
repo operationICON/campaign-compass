@@ -50,7 +50,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-3">
             <Settings className="h-5 w-5 text-primary" />
             <div>
-              <h1 className="text-xl font-bold text-foreground">Settings</h1>
+              <h1 className="text-[22px] font-medium text-foreground">Settings</h1>
               <p className="text-sm text-muted-foreground">Configure sync schedule</p>
             </div>
           </div>

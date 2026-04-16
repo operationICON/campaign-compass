@@ -936,7 +936,7 @@ export default function AccountsPage() {
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[22px] font-bold text-foreground">Models</h1>
+            <h1 className="text-[22px] font-medium text-foreground">Models</h1>
             <p className="text-sm text-muted-foreground">All accounts connected to Campaign Tracker</p>
           </div>
           <div className="flex items-center gap-2">

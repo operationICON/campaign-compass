@@ -194,7 +194,7 @@ export default function FansPage() {
         {/* HEADER */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-[20px] font-bold text-foreground">Fans</h1>
+            <h1 className="text-[22px] font-medium text-foreground">Fans</h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">Daily fan lists for the chatting team</p>
           </div>
           <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
