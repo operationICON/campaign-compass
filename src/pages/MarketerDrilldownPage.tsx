@@ -26,7 +26,7 @@ function StatItem({ label, value, color }: { label: string; value: string; color
   return (
     <div className="flex flex-col items-start py-1" style={{ flex: "1 1 0", minWidth: 0 }}>
       <span className="text-muted-foreground uppercase tracking-wider" style={{ fontSize: "10px" }}>{label}</span>
-      <span className="font-mono font-bold" style={{ fontSize: "14px", color: color || "hsl(var(--foreground))" }}>{value}</span>
+      <span className="font-mono" style={{ fontSize: "18px", fontWeight: 500, color: color || "hsl(var(--foreground))" }}>{value}</span>
     </div>
   );
 }
@@ -284,7 +284,7 @@ export default function MarketerDrilldownPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
+      <div className="p-6 space-y-5">
         {/* Breadcrumb */}
         <button
           onClick={() => navigate("/traffic-sources")}
@@ -442,21 +442,33 @@ export default function MarketerDrilldownPage() {
                         <TableRow className="border-border">
                           <TableCell colSpan={11} className="p-0">
                             <div className="bg-background/50 border-t border-border">
-                              <table className="w-full text-sm">
+                              <table className="w-full table-fixed text-sm">
+                                <colgroup>
+                                  <col style={{ width: "18%" }} />
+                                  <col style={{ width: "7%" }} />
+                                  <col style={{ width: "7%" }} />
+                                  <col style={{ width: "7%" }} />
+                                  <col style={{ width: "10%" }} />
+                                  <col style={{ width: "10%" }} />
+                                  <col style={{ width: "10%" }} />
+                                  <col style={{ width: "9%" }} />
+                                  <col style={{ width: "8%" }} />
+                                  <col style={{ width: "7%" }} />
+                                  <col style={{ width: "7%" }} />
+                                </colgroup>
                                 <thead>
                                   <tr className="border-b border-border">
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap text-left py-2 pl-12 pr-2" style={{ width: "180px" }}>Campaigns ({expandedModelData.length})</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Orders</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Subs</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Clicks</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Spend</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Revenue</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Profit</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">LTV</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">CPL/CPC</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">CVR</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">ROI</th>
-                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Status</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap text-left py-1.5 pl-12 pr-2">Campaigns ({expandedModelData.length})</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Orders</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Subs</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Clicks</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Spend</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Revenue</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Profit</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">LTV</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CPL/CPC</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CVR</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">ROI</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -468,12 +480,12 @@ export default function MarketerDrilldownPage() {
                                       <tr
                                         key={c.id}
                                         className="border-b border-border cursor-pointer hover:bg-muted/40 transition-colors"
-                                        style={{ borderLeft: "3px solid transparent", height: "40px" }}
+                                        style={{ borderLeft: "3px solid transparent", height: "38px" }}
                                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "hsl(var(--primary))"; }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "transparent"; }}
                                         onClick={e => { e.stopPropagation(); setSelectedCampaign(c); }}
                                       >
-                                        <td className="max-w-[220px] pl-12 pr-2 py-1.5">
+                                        <td className="pl-12 pr-2 py-1 overflow-hidden">
                                           <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{c.campaignName || "Unnamed"}</p>
                                           <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{c.url}</p>
                                         </td>
@@ -487,11 +499,6 @@ export default function MarketerDrilldownPage() {
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.cplCpc !== null ? fmtC(c.cplCpc) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cCvrColor }}>{c.cvr !== null ? fmtPct(c.cvr) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cRoiColor }}>{c.roi !== null ? fmtPct(c.roi) : "—"}</td>
-                                        <td className="text-right px-2" style={{ fontSize: "11px" }}>
-                                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === "active" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
-                                            {c.status || "—"}
-                                          </span>
-                                        </td>
                                       </tr>
                                     );
                                   })}
