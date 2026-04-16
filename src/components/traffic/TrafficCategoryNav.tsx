@@ -402,6 +402,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const genderLabel = genderLabels.size > 0 ? [...genderLabels].join(", ") : null;
       const offerIdStr = g.offerIds.size > 0 ? [...g.offerIds].sort((a, b) => a - b).map(id => `#${id}`).join(", ") : null;
       return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel, offerIdStr };
+    });
   }, [categoryLinksRaw, linkMarketerMap, accounts]);
 
   const quickFiltered = useMemo(() => {
