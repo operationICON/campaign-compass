@@ -232,8 +232,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const noSourceCount = noSourceLinks.length;
   const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
-  const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
-  const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
+  const otMetrics = useMemo(() => calcCategoryMetrics(otLinks, linkMarketerMap), [otLinks, linkMarketerMap]);
+  const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks, linkMarketerMap), [manualLinks, linkMarketerMap]);
 
   // Category links (all campaigns in the selected category)
   const categoryLinksRaw = activeCategory === "OnlyTraffic" ? otLinks : manualLinks;
