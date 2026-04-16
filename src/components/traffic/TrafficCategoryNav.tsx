@@ -43,19 +43,31 @@ function isManual(link: any): boolean {
   return link.traffic_category === "Manual";
 }
 
-function calcCategoryMetrics(catLinks: any[]) {
+function calcCategoryMetrics(catLinks: any[], linkMarketerMapData?: Record<string, any>) {
   const spend = catLinks
     .filter(l => Number(l.cost_total || 0) > 0)
     .reduce((s, l) => s + Number(l.cost_total || 0), 0);
   const revenue = catLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
   const profit = revenue - spend;
   const subs = catLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+  const clicks = catLinks.reduce((s, l) => s + (l.clicks || 0), 0);
   const roi = spend > 0 ? (profit / spend) * 100 : null;
 
-  const cplLinks = catLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
-  const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
-  const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-  const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
+  // Derive cost type from order_id prefixes
+  const costTypes = new Set<CostTypeFromOrder>();
+  if (linkMarketerMapData) {
+    catLinks.forEach(l => {
+      const info = linkMarketerMapData[l.id];
+      if (info?.order_ids) {
+        info.order_ids.forEach((oid: string) => {
+          const ct = getCostTypeFromOrderId(oid);
+          if (ct) costTypes.add(ct);
+        });
+      }
+    });
+  }
+  const costLabel = deriveCostLabel(costTypes);
+  const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
 
   const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
   const ltvPerSub = subs > 0 ? revenue / subs : null;
@@ -72,7 +84,7 @@ function calcCategoryMetrics(catLinks: any[]) {
   });
   const activeSources = sourceTags.size;
 
-  return { spend, revenue, profit, roi, avgCpl, profitPerSub, ltvPerSub, subsDay, campaigns, activeSources, subs };
+  return { spend, revenue, profit, roi, avgCpl: costMetric.value, avgCplLabel: costMetric.label, profitPerSub, ltvPerSub, subsDay, campaigns, activeSources, subs };
 }
 
 function getStatusBadge(link: any): { label: string; bg: string; text: string } {
