@@ -165,7 +165,7 @@ export default function MarketerDrilldownPage() {
     if (scaleFilter) rows = rows.filter(r => r.profit > 0 && r.roi !== null && r.roi > 50);
     if (highVolFilter) rows = rows.filter(r => r.campaignCount > 10);
     return rows;
-  }, [modelRows, search, profitableFilter, losingFilter, scaleFilter, highVolFilter]);
+  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter]);
 
   // Sort
   const sorted = useMemo(() => {
