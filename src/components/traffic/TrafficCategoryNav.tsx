@@ -687,8 +687,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           {[
             { key: "__all__", label: "All" },
             { key: "profitable", label: "Profitable only" },
-            { key: "trans", label: "Trans" },
-            { key: "females", label: "Females" },
             { key: "manual", label: "Manual" },
           ].map(f => (
             <button
