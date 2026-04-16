@@ -24,7 +24,7 @@ function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
 
 function StatItem({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex flex-col items-center px-4 py-1">
+    <div className="flex flex-col items-start py-1" style={{ flex: "1 1 0", minWidth: 0 }}>
       <span className="text-muted-foreground uppercase tracking-wider" style={{ fontSize: "10px" }}>{label}</span>
       <span className="font-mono font-bold" style={{ fontSize: "14px", color: color || "hsl(var(--foreground))" }}>{value}</span>
     </div>
@@ -32,7 +32,7 @@ function StatItem({ label, value, color }: { label: string; value: string; color
 }
 
 function StatDivider() {
-  return <div className="w-px h-8 bg-border" />;
+  return <div className="w-px h-8 bg-border shrink-0" />;
 }
 
 export default function MarketerDrilldownPage() {
@@ -305,10 +305,10 @@ export default function MarketerDrilldownPage() {
         </div>
 
         {/* Stats Bar */}
-        <div className="bg-card border border-border rounded-xl p-3 space-y-1">
-          <span className="text-muted-foreground uppercase tracking-widest px-4" style={{ fontSize: "9px", fontWeight: 600 }}>{statsLabel}</span>
-          {/* Row 1 */}
-          <div className="flex items-center justify-center flex-wrap">
+        <div className="bg-card border border-border rounded-xl p-4 space-y-2 mb-1">
+          <span className="text-muted-foreground uppercase tracking-widest" style={{ fontSize: "9px", fontWeight: 400 }}>{statsLabel}</span>
+          {/* Row 1 — 5 items */}
+          <div className="flex items-center gap-3">
             <StatItem label="Total Spend" value={fmtC(stats.spend)} />
             <StatDivider />
             <StatItem label="Total Revenue" value={fmtC(stats.revenue)} color="hsl(var(--primary))" />
@@ -319,8 +319,8 @@ export default function MarketerDrilldownPage() {
             <StatDivider />
             <StatItem label="Campaigns" value={fmtN(stats.orders)} />
           </div>
-          {/* Row 2 */}
-          <div className="flex items-center justify-center flex-wrap">
+          {/* Row 2 — 6 items: pad last item to keep 5-col alignment */}
+          <div className="flex items-center gap-3">
             <StatItem label="Subs" value={fmtN(stats.subs)} />
             <StatDivider />
             <StatItem label="Clicks" value={fmtN(stats.clicks)} />
@@ -329,9 +329,11 @@ export default function MarketerDrilldownPage() {
             <StatDivider />
             <StatItem label="Avg LTV/Sub" value={stats.ltv !== null ? fmtC(stats.ltv) : "—"} />
             <StatDivider />
-            <StatItem label="Profit/Sub" value={profitSub !== null ? fmtC(profitSub) : "—"} color={profitSub !== null ? profitColor(profitSub) : undefined} />
-            <StatDivider />
-            <StatItem label="Avg CVR" value={stats.cvr !== null ? fmtPct(stats.cvr) : "—"} />
+            <div className="flex gap-3" style={{ flex: "1 1 0", minWidth: 0 }}>
+              <StatItem label="Profit/Sub" value={profitSub !== null ? fmtC(profitSub) : "—"} color={profitSub !== null ? profitColor(profitSub) : undefined} />
+              <StatDivider />
+              <StatItem label="Avg CVR" value={stats.cvr !== null ? fmtPct(stats.cvr) : "—"} />
+            </div>
           </div>
         </div>
 
@@ -342,8 +344,8 @@ export default function MarketerDrilldownPage() {
             <Input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search model..."
-              className="pl-9 pr-8 h-10 text-sm bg-card border-border rounded-lg"
+              placeholder="Filter models..."
+              className="pl-9 pr-8 h-9 text-sm bg-card border-border rounded-lg"
             />
             {search && (
               <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -423,7 +425,7 @@ export default function MarketerDrilldownPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtN(row.campaignCount)}</TableCell>
+                        <TableCell className="text-right font-mono text-foreground" style={{ fontSize: "13px" }}>{fmtN(row.campaignCount)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtN(row.subs)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtN(row.clicks)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(row.spend)}</TableCell>
@@ -440,61 +442,61 @@ export default function MarketerDrilldownPage() {
                         <TableRow className="border-border">
                           <TableCell colSpan={11} className="p-0">
                             <div className="bg-background/50 border-t border-border">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="border-border">
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Campaigns ({expandedModelData.length})</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Orders</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Subs</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Clicks</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Spend</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Revenue</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Profit</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">LTV</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">CPL/CPC</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">CVR</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">ROI</TableHead>
-                                    <TableHead className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Status</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-border">
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap text-left py-2 pl-12 pr-2" style={{ width: "180px" }}>Campaigns ({expandedModelData.length})</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Orders</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Subs</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Clicks</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Spend</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Revenue</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Profit</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">LTV</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">CPL/CPC</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">CVR</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">ROI</th>
+                                    <th className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-2 px-2">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
                                   {expandedModelData.map((c: any) => {
                                     const cProfitColor = c.profit !== null ? profitColor(c.profit) : undefined;
                                     const cRoiColor = c.roi !== null ? profitColor(c.roi) : undefined;
                                     const cCvrColor = c.cvr !== null ? (c.cvr > 51.17 ? "hsl(142 71% 45%)" : c.cvr < 16.69 ? "hsl(0 84% 60%)" : undefined) : undefined;
                                     return (
-                                      <TableRow
+                                      <tr
                                         key={c.id}
-                                        className="border-border cursor-pointer hover:bg-muted/40 transition-colors"
-                                        style={{ borderLeft: "3px solid transparent", height: "44px" }}
+                                        className="border-b border-border cursor-pointer hover:bg-muted/40 transition-colors"
+                                        style={{ borderLeft: "3px solid transparent", height: "40px" }}
                                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "hsl(var(--primary))"; }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "transparent"; }}
                                         onClick={e => { e.stopPropagation(); setSelectedCampaign(c); }}
                                       >
-                                        <TableCell className="max-w-[220px]">
+                                        <td className="max-w-[220px] pl-12 pr-2 py-1.5">
                                           <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{c.campaignName || "Unnamed"}</p>
                                           <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{c.url}</p>
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(c.orderCount)}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(c.subs)}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(c.clicks)}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtC(c.costTotal)}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(var(--primary))" }}>{fmtC(c.revenue)}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: cProfitColor }}>{c.profit !== null ? (c.profit >= 0 ? `+${fmtC(c.profit)}` : fmtC(c.profit)) : "—"}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{c.ltv !== null ? fmtC(c.ltv) : "—"}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{c.cplCpc !== null ? fmtC(c.cplCpc) : "—"}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: cCvrColor }}>{c.cvr !== null ? fmtPct(c.cvr) : "—"}</TableCell>
-                                        <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: cRoiColor }}>{c.roi !== null ? fmtPct(c.roi) : "—"}</TableCell>
-                                        <TableCell className="text-right" style={{ fontSize: "11px" }}>
+                                        </td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{fmtN(c.orderCount)}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{fmtN(c.subs)}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{fmtN(c.clicks)}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{fmtC(c.costTotal)}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: "hsl(var(--primary))" }}>{fmtC(c.revenue)}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cProfitColor }}>{c.profit !== null ? (c.profit >= 0 ? `+${fmtC(c.profit)}` : fmtC(c.profit)) : "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.ltv !== null ? fmtC(c.ltv) : "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.cplCpc !== null ? fmtC(c.cplCpc) : "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cCvrColor }}>{c.cvr !== null ? fmtPct(c.cvr) : "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cRoiColor }}>{c.roi !== null ? fmtPct(c.roi) : "—"}</td>
+                                        <td className="text-right px-2" style={{ fontSize: "11px" }}>
                                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === "active" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                                             {c.status || "—"}
                                           </span>
-                                        </TableCell>
-                                      </TableRow>
+                                        </td>
+                                      </tr>
                                     );
                                   })}
-                                </TableBody>
-                              </Table>
+                                </tbody>
+                              </table>
                             </div>
                           </TableCell>
                         </TableRow>
