@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Zap, Globe, DollarSign, TrendingUp, Users, Percent, BarChart3, AlertTriangle, Search, X, ChevronUp, ChevronDown, LayoutGrid } from "lucide-react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
@@ -94,6 +95,7 @@ function getAgePill(days: number): { label: string; bg: string; text: string } {
 const PAGE_SIZE = 25;
 
 export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders, onLevelChange }: Props) {
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeUnmatched, setActiveUnmatched] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -761,7 +763,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                 <TableRow
                   key={g.key}
                   className="border-border cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => { setActiveSourceKey(g.key); onLevelChange?.(3); }}
+                  onClick={() => {
+                    if (g.offerId != null) {
+                      navigate(`/sources/onlytraffic/${encodeURIComponent(g.marketer)}/${g.offerId}`);
+                    } else {
+                      setActiveSourceKey(g.key); onLevelChange?.(3);
+                    }
+                  }}
                 >
                   <TableCell className="min-w-[200px]">
                     <p className="text-foreground font-semibold" style={{ fontSize: "13px" }}>
