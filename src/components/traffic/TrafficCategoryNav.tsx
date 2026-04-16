@@ -423,6 +423,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     return [...quickFiltered].sort((a, b) => {
       switch (sourceSortKey) {
         case "marketer": return dir * a.marketer.localeCompare(b.marketer);
+        case "offerId": return dir * ((a.offerIdStr || "zzz").localeCompare(b.offerIdStr || "zzz"));
         case "camps": return dir * (a.campaigns - b.campaigns);
         case "spend": return dir * (a.spend - b.spend);
         case "revenue": return dir * (a.revenue - b.revenue);
