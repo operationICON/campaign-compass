@@ -95,6 +95,7 @@ function getAgePill(days: number): { label: string; bg: string; text: string } {
 const PAGE_SIZE = 25;
 
 export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders, onLevelChange }: Props) {
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeUnmatched, setActiveUnmatched] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
