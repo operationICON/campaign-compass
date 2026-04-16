@@ -585,8 +585,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const catBadgeBg = activeCategory === "OnlyTraffic" ? "bg-emerald-500/15 text-emerald-500" : "bg-blue-500/15 text-blue-500";
   const catBadgeLabel = activeCategory === "OnlyTraffic" ? "API" : "Direct";
   const CatIcon = activeCategory === "OnlyTraffic" ? Zap : Globe;
-  const isOT = activeCategory === "OnlyTraffic";
-
   // If a source group is selected, drill into its campaigns
   if (activeSourceKey) {
     const group = groupedSources.find(g => g.key === activeSourceKey);
