@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
-import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
