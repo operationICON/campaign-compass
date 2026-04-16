@@ -422,9 +422,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const sortedSources = useMemo(() => {
     const dir = sourceSortAsc ? 1 : -1;
     return [...quickFiltered].sort((a, b) => {
+      // Unknown always sorts to bottom
+      if (a.isUnknown && !b.isUnknown) return 1;
+      if (!a.isUnknown && b.isUnknown) return -1;
       switch (sourceSortKey) {
         case "marketer": return dir * a.marketer.localeCompare(b.marketer);
-        case "offerId": return dir * ((a.offerIdStr || "zzz").localeCompare(b.offerIdStr || "zzz"));
         case "camps": return dir * (a.campaigns - b.campaigns);
         case "spend": return dir * (a.spend - b.spend);
         case "revenue": return dir * (a.revenue - b.revenue);
