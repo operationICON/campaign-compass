@@ -349,7 +349,7 @@ export default function MarketerDrilldownPage() {
             <StatDivider />
             <StatItem label="Clicks" value={fmtN(stats.clicks)} />
             <StatDivider />
-            <StatItem label="Avg CPL" value={stats.cpl !== null ? fmtC(stats.cpl) : "—"} />
+            <StatItem label={`Avg ${statsCostLabel || "CPL"}`} value={stats.cpl !== null ? fmtC(stats.cpl) : "—"} />
             <StatDivider />
             <StatItem label="Avg LTV/Sub" value={stats.ltv !== null ? fmtC(stats.ltv) : "—"} />
             <StatDivider />
