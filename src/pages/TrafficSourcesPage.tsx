@@ -976,6 +976,7 @@ export default function TrafficSourcesPage() {
           onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })}
           unmatchedOrders={unmatchedOrdersData}
           onLevelChange={(level) => setNavLevel(level)}
+          initialCategory={openCategory as "OnlyTraffic" | "Manual" | undefined}
         />
       </div>
     </DashboardLayout>
