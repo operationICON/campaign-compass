@@ -306,7 +306,7 @@ export default function MarketerDrilldownPage() {
 
         {/* Stats Bar */}
         <div className="bg-card border border-border rounded-xl p-4 space-y-2 mb-1">
-          <span className="text-muted-foreground uppercase tracking-widest" style={{ fontSize: "9px", fontWeight: 400 }}>{statsLabel}</span>
+          <span className="text-muted-foreground uppercase tracking-widest" style={{ fontSize: "12px", fontWeight: 500, letterSpacing: "0.08em" }}>{statsLabel}</span>
           {/* Row 1 — 5 items */}
           <div className="flex items-center gap-3">
             <StatItem label="Total Spend" value={fmtC(stats.spend)} />
