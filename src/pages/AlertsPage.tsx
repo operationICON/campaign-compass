@@ -93,7 +93,7 @@ export default function AlertsPage() {
           <div className="flex items-center gap-3">
             <Bell className="h-5 w-5 text-primary" />
             <div>
-              <h1 className="text-xl font-bold text-foreground">Alerts</h1>
+              <h1 className="text-[22px] font-medium text-foreground">Alerts</h1>
               <p className="text-sm text-muted-foreground">{unresolvedAlerts.length} unresolved alert{unresolvedAlerts.length !== 1 ? "s" : ""}</p>
             </div>
           </div>

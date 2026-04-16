@@ -239,7 +239,7 @@ export default function MarketerModelCampaignsPage() {
 
         {/* Title */}
         <div>
-          <h1 className="text-foreground font-bold" style={{ fontSize: "22px" }}>
+          <h1 className="text-foreground font-medium" style={{ fontSize: "22px" }}>
             {decodedMarketer} — {sourceLabel} {offerId != null ? offerId : ""} × @{decodedUsername}
           </h1>
           <p className="text-muted-foreground" style={{ fontSize: "13px", marginTop: "2px" }}>

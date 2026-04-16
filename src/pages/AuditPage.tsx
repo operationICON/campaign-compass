@@ -542,7 +542,7 @@ export default function AuditPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="text-[22px] font-medium text-foreground flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" /> Tracking Link Audit
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Review, clean up, and manage your tracking links</p>
