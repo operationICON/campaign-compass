@@ -374,14 +374,14 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
   // ═══ LEVEL 2 HOOKS — must be before early returns ═══
   const groupedSources = useMemo(() => {
-    const groups: Record<string, { marketer: string; sourceTag: string; offerIds: Set<number>; links: any[] }> = {};
+    const groups: Record<string, { marketer: string; sourceTag: string; offerId: number | null; links: any[] }> = {};
     for (const link of categoryLinksRaw) {
       const info = (linkMarketerMap as any)[link.id];
       const marketer = info?.marketer || link.onlytraffic_marketer || "In-house";
       const sourceTag = getEffectiveSource(link) || link.source || "Direct";
-      const key = `${marketer}__${sourceTag}`;
-      if (!groups[key]) groups[key] = { marketer, sourceTag, offerIds: new Set(), links: [] };
-      if (info?.offer_id != null) groups[key].offerIds.add(info.offer_id);
+      const offerId = info?.offer_id ?? null;
+      const key = `${marketer}__${sourceTag}__${offerId ?? "none"}`;
+      if (!groups[key]) groups[key] = { marketer, sourceTag, offerId, links: [] };
       groups[key].links.push(link);
     }
     return Object.entries(groups).map(([key, g]) => {
@@ -400,7 +400,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         if (acc?.gender_identity) genderLabels.add(acc.gender_identity);
       });
       const genderLabel = genderLabels.size > 0 ? [...genderLabels].join(", ") : null;
-      const offerIdStr = g.offerIds.size > 0 ? [...g.offerIds].sort((a, b) => a - b).map(id => `#${id}`).join(", ") : null;
+      const offerIdStr = g.offerId != null ? `#${g.offerId}` : null;
       return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel, offerIdStr };
     });
   }, [categoryLinksRaw, linkMarketerMap, accounts]);
