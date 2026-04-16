@@ -338,20 +338,12 @@ export default function MarketerDrilldownPage() {
 
         {/* Filters */}
         <div className="flex gap-3 items-center flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Filter models..."
-              className="pl-9 pr-8 h-9 text-sm bg-card border-border rounded-lg"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <AccountFilterDropdown
+            value={modelFilter}
+            onChange={setModelFilter}
+            accounts={accounts.filter(a => modelRows.some(r => r.accountId === a.id))}
+            className="min-w-[200px]"
+          />
           <div className="flex items-center gap-1.5 flex-wrap">
             <button onClick={() => setProfitableFilter(!profitableFilter)} className={chipClass(profitableFilter)}>Profitable</button>
             <button onClick={() => setLosingFilter(!losingFilter)} className={chipClass(losingFilter)}>Losing money</button>
