@@ -411,8 +411,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const quickFiltered = useMemo(() => {
     let result = groupedSources;
     if (quickFilter === "profitable") result = result.filter(g => g.profit > 0);
-    else if (quickFilter === "trans") result = result.filter(g => g.genderLabel?.toLowerCase() === "trans");
-    else if (quickFilter === "females") result = result.filter(g => g.genderLabel?.toLowerCase() === "female");
     else if (quickFilter === "manual") result = result.filter(g => g.marketer === "In-house");
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
