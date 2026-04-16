@@ -253,18 +253,33 @@ export default function MarketerDrilldownPage() {
   const expandedRow = expandedModel ? modelRows.find(r => r.accountId === expandedModel) : null;
   const statsSource = expandedRow ? expandedRow : null;
 
+  // Derive agency-wide cost type from all orders
+  const agencyCostLabel = useMemo(() => {
+    const types = new Set<CostTypeFromOrder>();
+    orders.forEach(o => {
+      const ct = getCostTypeFromOrderId(o.order_id);
+      if (ct) types.add(ct);
+    });
+    return deriveCostLabel(types);
+  }, [orders]);
+
   const agencyTotals = useMemo(() => {
     const t = { spend: 0, revenue: 0, profit: 0, orders: 0, subs: 0, clicks: 0 };
     modelRows.forEach(r => { t.spend += r.spend; t.revenue += r.revenue; t.profit += r.profit; t.orders += r.campaignCount; t.subs += r.subs; t.clicks += r.clicks; });
     return t;
   }, [modelRows]);
 
+  const statsCostLabel = statsSource ? statsSource.costLabel : agencyCostLabel;
+  const statsCostMetric = statsSource
+    ? { value: statsSource.cplCpc, display: statsSource.costDisplay }
+    : calcCostMetric(agencyCostLabel, agencyTotals.spend, agencyTotals.subs, agencyTotals.clicks);
+
   const stats = statsSource
-    ? { spend: statsSource.spend, revenue: statsSource.revenue, profit: statsSource.profit, orders: statsSource.campaignCount, subs: statsSource.subs, clicks: statsSource.clicks, ltv: statsSource.ltv, cpl: statsSource.cplCpc, cvr: statsSource.cvr, roi: statsSource.roi }
+    ? { spend: statsSource.spend, revenue: statsSource.revenue, profit: statsSource.profit, orders: statsSource.campaignCount, subs: statsSource.subs, clicks: statsSource.clicks, ltv: statsSource.ltv, cpl: statsCostMetric.value, cvr: statsSource.cvr, roi: statsSource.roi }
     : {
       spend: agencyTotals.spend, revenue: agencyTotals.revenue, profit: agencyTotals.profit, orders: agencyTotals.orders, subs: agencyTotals.subs, clicks: agencyTotals.clicks,
       ltv: agencyTotals.subs > 0 ? agencyTotals.revenue / agencyTotals.subs : null,
-      cpl: agencyTotals.subs > 0 ? agencyTotals.spend / agencyTotals.subs : null,
+      cpl: statsCostMetric.value,
       cvr: agencyTotals.clicks > 0 ? (agencyTotals.subs / agencyTotals.clicks) * 100 : null,
       roi: agencyTotals.spend > 0 ? (agencyTotals.profit / agencyTotals.spend) * 100 : null,
     };
