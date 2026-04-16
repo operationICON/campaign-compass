@@ -38,7 +38,7 @@ function StatDivider() {
 export default function MarketerDrilldownPage() {
   const { marketer, offer_id } = useParams<{ marketer: string; offer_id: string }>();
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [modelFilter, setModelFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("profit");
   const [sortAsc, setSortAsc] = useState(false);
   const [profitableFilter, setProfitableFilter] = useState(false);
