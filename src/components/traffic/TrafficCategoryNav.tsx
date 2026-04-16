@@ -598,9 +598,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </button>
           <div className="flex items-center gap-2">
             <span className="text-foreground font-bold text-lg">{group.marketer} — {group.sourceTag}</span>
-            {group.genderLabel && (
-              <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{group.genderLabel}</span>
-            )}
             <span className="text-muted-foreground" style={{ fontSize: "12px" }}>· {group.campaigns} campaigns</span>
           </div>
           <div className="grid grid-cols-6 gap-2">
