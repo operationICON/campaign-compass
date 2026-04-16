@@ -28,6 +28,7 @@ interface Props {
   onTagLink?: (linkId: string, sourceTag: string) => void;
   unmatchedOrders?: { count: number; spend: number };
   onLevelChange?: (level: 1 | 2 | 3) => void;
+  initialCategory?: Category;
 }
 
 type Category = "OnlyTraffic" | "Manual";
@@ -94,9 +95,9 @@ function getAgePill(days: number): { label: string; bg: string; text: string } {
 
 const PAGE_SIZE = 25;
 
-export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders, onLevelChange }: Props) {
+export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders, onLevelChange, initialCategory }: Props) {
   const navigate = useNavigate();
-  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+  const [activeCategory, setActiveCategory] = useState<Category | null>(initialCategory || null);
   const [activeUnmatched, setActiveUnmatched] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
@@ -117,6 +118,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [sourcePage, setSourcePage] = useState(0);
   const [sourceSortKey, setSourceSortKey] = useState<string>("profit");
   const [sourceSortAsc, setSourceSortAsc] = useState(false);
+
+  // Notify parent if starting with an initial category
+  React.useEffect(() => {
+    if (initialCategory) onLevelChange?.(2);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch accounts for dropdown
   const { data: accounts = [] } = useQuery({
@@ -376,15 +382,22 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
   // ═══ LEVEL 2 HOOKS — must be before early returns ═══
   const groupedSources = useMemo(() => {
-    const groups: Record<string, { marketer: string; sourceTag: string; offerId: number | null; links: any[] }> = {};
+    const groups: Record<string, { marketer: string; sourceTag: string; offerId: number | null; links: any[]; isUnknown: boolean }> = {};
+    const UNKNOWN_KEY = "__unknown__";
     for (const link of categoryLinksRaw) {
       const info = (linkMarketerMap as any)[link.id];
-      const marketer = info?.marketer || link.onlytraffic_marketer || "In-house";
-      const sourceTag = getEffectiveSource(link) || link.source || "Direct";
-      const offerId = info?.offer_id ?? null;
-      const key = `${marketer}__${sourceTag}__${offerId ?? "none"}`;
-      if (!groups[key]) groups[key] = { marketer, sourceTag, offerId, links: [] };
-      groups[key].links.push(link);
+      const rawMarketer = info?.marketer || link.onlytraffic_marketer || "";
+      const rawSource = getEffectiveSource(link) || link.source || "";
+      const isUnknown = !rawMarketer.trim() || !rawSource.trim();
+      if (isUnknown) {
+        if (!groups[UNKNOWN_KEY]) groups[UNKNOWN_KEY] = { marketer: "Unknown", sourceTag: "Untagged", offerId: null, links: [], isUnknown: true };
+        groups[UNKNOWN_KEY].links.push(link);
+      } else {
+        const offerId = info?.offer_id ?? null;
+        const key = `${rawMarketer}__${rawSource}__${offerId ?? "none"}`;
+        if (!groups[key]) groups[key] = { marketer: rawMarketer, sourceTag: rawSource, offerId, links: [], isUnknown: false };
+        groups[key].links.push(link);
+      }
     }
     return Object.entries(groups).map(([key, g]) => {
       const spend = g.links.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
@@ -396,22 +409,14 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const cpl = subs > 0 && spend > 0 ? spend / subs : null;
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const ltvSub = subs > 0 ? revenue / subs : null;
-      const genderLabels = new Set<string>();
-      g.links.forEach((l: any) => {
-        const acc = accounts.find((a: any) => a.id === l.account_id);
-        if (acc?.gender_identity) genderLabels.add(acc.gender_identity);
-      });
-      const genderLabel = genderLabels.size > 0 ? [...genderLabels].join(", ") : null;
       const offerIdStr = g.offerId != null ? `#${g.offerId}` : null;
-      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel, offerIdStr };
+      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, offerIdStr };
     });
-  }, [categoryLinksRaw, linkMarketerMap, accounts]);
+  }, [categoryLinksRaw, linkMarketerMap]);
 
   const quickFiltered = useMemo(() => {
     let result = groupedSources;
     if (quickFilter === "profitable") result = result.filter(g => g.profit > 0);
-    else if (quickFilter === "trans") result = result.filter(g => g.genderLabel?.toLowerCase() === "trans");
-    else if (quickFilter === "females") result = result.filter(g => g.genderLabel?.toLowerCase() === "female");
     else if (quickFilter === "manual") result = result.filter(g => g.marketer === "In-house");
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -423,9 +428,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const sortedSources = useMemo(() => {
     const dir = sourceSortAsc ? 1 : -1;
     return [...quickFiltered].sort((a, b) => {
+      // Unknown always sorts to bottom
+      if (a.isUnknown && !b.isUnknown) return 1;
+      if (!a.isUnknown && b.isUnknown) return -1;
       switch (sourceSortKey) {
         case "marketer": return dir * a.marketer.localeCompare(b.marketer);
-        case "offerId": return dir * ((a.offerIdStr || "zzz").localeCompare(b.offerIdStr || "zzz"));
         case "camps": return dir * (a.campaigns - b.campaigns);
         case "spend": return dir * (a.spend - b.spend);
         case "revenue": return dir * (a.revenue - b.revenue);
@@ -599,9 +606,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           </button>
           <div className="flex items-center gap-2">
             <span className="text-foreground font-bold text-lg">{group.marketer} — {group.sourceTag}</span>
-            {group.genderLabel && (
-              <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{group.genderLabel}</span>
-            )}
             <span className="text-muted-foreground" style={{ fontSize: "12px" }}>· {group.campaigns} campaigns</span>
           </div>
           <div className="grid grid-cols-6 gap-2">
@@ -689,8 +693,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           {[
             { key: "__all__", label: "All" },
             { key: "profitable", label: "Profitable only" },
-            { key: "trans", label: "Trans" },
-            { key: "females", label: "Females" },
             { key: "manual", label: "Manual" },
           ].map(f => (
             <button
@@ -720,50 +722,61 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
       {/* Grouped source table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead className={thClass} onClick={() => handleSourceColSort("marketer")}>
+        <table className="w-full" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "35%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "7%" }} />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-border">
+              <th className={thClass} style={{ padding: "8px 12px", textAlign: "left" }} onClick={() => handleSourceColSort("marketer")}>
                 Source <SortIcon active={sourceSortKey === "marketer"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={thClass} onClick={() => handleSourceColSort("offerId")}>
-                Offer ID <SortIcon active={sourceSortKey === "offerId"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("camps")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("camps")}>
                 Campaigns <SortIcon active={sourceSortKey === "camps"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("spend")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("spend")}>
                 Spend <SortIcon active={sourceSortKey === "spend"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("revenue")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("revenue")}>
                 Revenue <SortIcon active={sourceSortKey === "revenue"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("profit")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("profit")}>
                 Profit <SortIcon active={sourceSortKey === "profit"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("cpl")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cpl")}>
                 CPL <SortIcon active={sourceSortKey === "cpl"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("cvr")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cvr")}>
                 CVR <SortIcon active={sourceSortKey === "cvr"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("ltvSub")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("ltvSub")}>
                 LTV/Sub <SortIcon active={sourceSortKey === "ltvSub"} asc={sourceSortAsc} />
-              </TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("roi")}>
+              </th>
+              <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("roi")}>
                 ROI <SortIcon active={sourceSortKey === "roi"} asc={sourceSortAsc} />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
             {sourcePageRows.map(g => {
               const profitColor = g.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)";
               const roiColor = g.roi !== null ? (g.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
+              const mutedRow = g.isUnknown;
               return (
-                <TableRow
+                <tr
                   key={g.key}
-                  className="border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                  style={{ height: "48px" }}
                   onClick={() => {
+                    if (g.isUnknown) return;
                     if (g.offerId != null) {
                       navigate(`/sources/onlytraffic/${encodeURIComponent(g.marketer)}/${g.offerId}`);
                     } else {
@@ -771,35 +784,38 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                     }
                   }}
                 >
-                  <TableCell className="min-w-[200px]">
-                    <p className="text-foreground font-semibold" style={{ fontSize: "13px" }}>
-                      {g.marketer} — {g.sourceTag}
-                    </p>
-                    {g.genderLabel && (
-                      <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{g.genderLabel}</p>
-                    )}
-                  </TableCell>
-                  <TableCell><span className="text-foreground font-mono" style={{ fontSize: "12px" }}>{g.offerIdStr || "—"}</span></TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.campaigns}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.spend)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.revenue)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: profitColor }}>
+                  <td style={{ padding: "8px 12px" }}>
+                    <div className="flex items-center gap-3">
+                      <ModelAvatar name={g.marketer} size={32} />
+                      <div className="min-w-0">
+                        <p className={`font-medium truncate ${mutedRow ? "text-muted-foreground" : "text-foreground"}`} style={{ fontSize: "13px", fontWeight: 500 }}>
+                          {g.marketer}
+                          {g.offerIdStr && <span className="text-muted-foreground ml-1.5" style={{ fontSize: "11px", fontWeight: 400 }}>· {g.offerIdStr}</span>}
+                        </p>
+                        <p className="text-muted-foreground truncate" style={{ fontSize: "11px" }}>{g.sourceTag}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.campaigns}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{fmtC(g.spend)}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{fmtC(g.revenue)}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: profitColor }}>
                     {g.profit >= 0 ? `+${fmtC(g.profit)}` : fmtC(g.profit)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.cpl !== null ? fmtC(g.cpl) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.cvr !== null ? fmtPct(g.cvr) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.ltvSub !== null ? fmtC(g.ltvSub) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor }}>{g.roi !== null ? fmtPct(g.roi) : "—"}</TableCell>
-                </TableRow>
+                  </td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cpl !== null ? fmtC(g.cpl) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cvr !== null ? fmtPct(g.cvr) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.ltvSub !== null ? fmtC(g.ltvSub) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: roiColor }}>{g.roi !== null ? fmtPct(g.roi) : "—"}</td>
+                </tr>
               );
             })}
             {sourcePageRows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No sources found</TableCell>
-              </TableRow>
+              <tr>
+                <td colSpan={9} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No sources found</td>
+              </tr>
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
 
         {/* Pagination + hint */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">

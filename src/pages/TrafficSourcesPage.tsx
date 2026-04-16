@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { TrafficCategoryNav } from "@/components/traffic/TrafficCategoryNav";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
@@ -137,8 +138,10 @@ function KpiCard({ label, value, sub, icon, color, children }: { label: string; 
 
 export default function TrafficSourcesPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
   const [navLevel, setNavLevel] = useState<1 | 2 | 3>(1);
+  const openCategory = (location.state as any)?.openCategory as string | undefined;
 
   // KPI visibility
   const [visibleKpis, setVisibleKpis] = useState<Set<KpiId>>(loadKpiVisibility);
@@ -973,6 +976,7 @@ export default function TrafficSourcesPage() {
           onTagLink={() => queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] })}
           unmatchedOrders={unmatchedOrdersData}
           onLevelChange={(level) => setNavLevel(level)}
+          initialCategory={openCategory as "OnlyTraffic" | "Manual" | undefined}
         />
       </div>
     </DashboardLayout>
