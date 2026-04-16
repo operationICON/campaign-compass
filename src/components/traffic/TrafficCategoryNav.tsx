@@ -371,8 +371,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   }, [filteredLinks]);
 
   const isOT = activeCategory === "OnlyTraffic";
-
-  // ═══ UNMATCHED ORDERS VIEW ═══
   if (activeUnmatched) {
     return (
       <div className="space-y-4">
