@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,21 +127,23 @@ export default function MarketerDrilldownPage() {
       const spend = g.orders.reduce((s, o) => s + Number(o.total_spent || 0), 0);
 
       let clicks = 0, revenue = 0;
-      const costTypes: Record<string, number> = {};
+      const costTypes = new Set<CostTypeFromOrder>();
+      g.orders.forEach(o => {
+        const ct = getCostTypeFromOrderId(o.order_id);
+        if (ct) costTypes.add(ct);
+      });
       g.tlIds.forEach(tlId => {
         const tl = tlMap[tlId];
         if (tl) {
           clicks += tl.clicks || 0;
           revenue += Number(tl.revenue || 0);
-          const ct = tl.cost_type || "CPL";
-          costTypes[ct] = (costTypes[ct] || 0) + 1;
         }
       });
 
-      const majorCostType = Object.entries(costTypes).sort((a, b) => b[1] - a[1])[0]?.[0] || "CPL";
+      const costLabel = deriveCostLabel(costTypes);
+      const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
       const profit = revenue - spend;
       const ltv = subs > 0 ? revenue / subs : null;
-      const cplCpc = majorCostType === "CPC" ? (clicks > 0 ? spend / clicks : null) : (subs > 0 ? spend / subs : null);
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const roi = spend > 0 ? (profit / spend) * 100 : null;
 
@@ -149,7 +152,7 @@ export default function MarketerDrilldownPage() {
         username: acc?.username || null,
         displayName: acc?.display_name || "Unknown",
         avatarUrl: acc?.avatar_thumb_url || acc?.avatar_url || null,
-        campaignCount, subs, clicks, spend, revenue, profit, ltv, cplCpc, cvr, roi, majorCostType,
+        campaignCount, subs, clicks, spend, revenue, profit, ltv, cplCpc: costMetric.value, cvr, roi, costLabel, costDisplay: costMetric.display,
       };
     });
   }, [orders, trackingLinks, accounts]);
@@ -230,12 +233,19 @@ export default function MarketerDrilldownPage() {
       const hasSpend = costTotal > 0;
       const profit = hasSpend ? revenue - costTotal : null;
       const ltv = subs > 0 ? revenue / subs : null;
-      const costType = tl.cost_type || "CPL";
-      const cplCpc = costType === "CPC" ? (clicks > 0 ? costTotal / clicks : null) : (subs > 0 ? costTotal / subs : null);
+
+      const costTypes = new Set<CostTypeFromOrder>();
+      tlOrders.forEach(o => {
+        const ct = getCostTypeFromOrderId(o.order_id);
+        if (ct) costTypes.add(ct);
+      });
+      const costLabel = deriveCostLabel(costTypes);
+      const costMetric = calcCostMetric(costLabel, costTotal, subs, clicks);
+
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const roi = hasSpend ? ((revenue - costTotal) / costTotal) * 100 : null;
 
-      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc, cvr, roi, costType, campaignName: tl.campaign_name, url: tl.url };
+      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc: costMetric.value, costDisplay: costMetric.display, costLabel, cvr, roi, campaignName: tl.campaign_name, url: tl.url };
     }).filter(Boolean).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [expandedModel, orders, trackingLinks, modelRows]);
 
@@ -243,18 +253,33 @@ export default function MarketerDrilldownPage() {
   const expandedRow = expandedModel ? modelRows.find(r => r.accountId === expandedModel) : null;
   const statsSource = expandedRow ? expandedRow : null;
 
+  // Derive agency-wide cost type from all orders
+  const agencyCostLabel = useMemo(() => {
+    const types = new Set<CostTypeFromOrder>();
+    orders.forEach(o => {
+      const ct = getCostTypeFromOrderId(o.order_id);
+      if (ct) types.add(ct);
+    });
+    return deriveCostLabel(types);
+  }, [orders]);
+
   const agencyTotals = useMemo(() => {
     const t = { spend: 0, revenue: 0, profit: 0, orders: 0, subs: 0, clicks: 0 };
     modelRows.forEach(r => { t.spend += r.spend; t.revenue += r.revenue; t.profit += r.profit; t.orders += r.campaignCount; t.subs += r.subs; t.clicks += r.clicks; });
     return t;
   }, [modelRows]);
 
+  const statsCostLabel = statsSource ? statsSource.costLabel : agencyCostLabel;
+  const statsCostMetric = statsSource
+    ? { value: statsSource.cplCpc, display: statsSource.costDisplay }
+    : calcCostMetric(agencyCostLabel, agencyTotals.spend, agencyTotals.subs, agencyTotals.clicks);
+
   const stats = statsSource
-    ? { spend: statsSource.spend, revenue: statsSource.revenue, profit: statsSource.profit, orders: statsSource.campaignCount, subs: statsSource.subs, clicks: statsSource.clicks, ltv: statsSource.ltv, cpl: statsSource.cplCpc, cvr: statsSource.cvr, roi: statsSource.roi }
+    ? { spend: statsSource.spend, revenue: statsSource.revenue, profit: statsSource.profit, orders: statsSource.campaignCount, subs: statsSource.subs, clicks: statsSource.clicks, ltv: statsSource.ltv, cpl: statsCostMetric.value, cvr: statsSource.cvr, roi: statsSource.roi }
     : {
       spend: agencyTotals.spend, revenue: agencyTotals.revenue, profit: agencyTotals.profit, orders: agencyTotals.orders, subs: agencyTotals.subs, clicks: agencyTotals.clicks,
       ltv: agencyTotals.subs > 0 ? agencyTotals.revenue / agencyTotals.subs : null,
-      cpl: agencyTotals.subs > 0 ? agencyTotals.spend / agencyTotals.subs : null,
+      cpl: statsCostMetric.value,
       cvr: agencyTotals.clicks > 0 ? (agencyTotals.subs / agencyTotals.clicks) * 100 : null,
       roi: agencyTotals.spend > 0 ? (agencyTotals.profit / agencyTotals.spend) * 100 : null,
     };
@@ -324,7 +349,7 @@ export default function MarketerDrilldownPage() {
             <StatDivider />
             <StatItem label="Clicks" value={fmtN(stats.clicks)} />
             <StatDivider />
-            <StatItem label="Avg CPL" value={stats.cpl !== null ? fmtC(stats.cpl) : "—"} />
+            <StatItem label={`Avg ${statsCostLabel || "CPL"}`} value={stats.cpl !== null ? fmtC(stats.cpl) : "—"} />
             <StatDivider />
             <StatItem label="Avg LTV/Sub" value={stats.ltv !== null ? fmtC(stats.ltv) : "—"} />
             <StatDivider />
@@ -436,7 +461,7 @@ export default function MarketerDrilldownPage() {
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(row.revenue)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: pColor }}>{row.profit >= 0 ? `+${fmtC(row.profit)}` : fmtC(row.profit)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.ltv !== null ? fmtC(row.ltv) : "—"}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.cplCpc !== null ? fmtC(row.cplCpc) : "—"}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.costDisplay || "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: cvrColor }}>{row.cvr !== null ? fmtPct(row.cvr) : "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor }}>{row.roi !== null ? fmtPct(row.roi) : "—"}</TableCell>
                       </TableRow>
@@ -500,7 +525,7 @@ export default function MarketerDrilldownPage() {
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: "hsl(var(--primary))" }}>{fmtC(c.revenue)}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cProfitColor }}>{c.profit !== null ? (c.profit >= 0 ? `+${fmtC(c.profit)}` : fmtC(c.profit)) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.ltv !== null ? fmtC(c.ltv) : "—"}</td>
-                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.cplCpc !== null ? fmtC(c.cplCpc) : "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.costDisplay || "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cCvrColor }}>{c.cvr !== null ? fmtPct(c.cvr) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cRoiColor }}>{c.roi !== null ? fmtPct(c.roi) : "—"}</td>
                                       </tr>

@@ -10,7 +10,7 @@ import { UnmatchedOrdersCard } from "./UnmatchedOrdersCard";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { calcStatus, STATUS_STYLES, STATUS_LABELS } from "@/lib/calc-helpers";
+import { calcStatus, STATUS_STYLES, STATUS_LABELS, getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ModelAvatar } from "@/components/ModelAvatar";
@@ -43,19 +43,31 @@ function isManual(link: any): boolean {
   return link.traffic_category === "Manual";
 }
 
-function calcCategoryMetrics(catLinks: any[]) {
+function calcCategoryMetrics(catLinks: any[], linkMarketerMapData?: Record<string, any>) {
   const spend = catLinks
     .filter(l => Number(l.cost_total || 0) > 0)
     .reduce((s, l) => s + Number(l.cost_total || 0), 0);
   const revenue = catLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
   const profit = revenue - spend;
   const subs = catLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+  const clicks = catLinks.reduce((s, l) => s + (l.clicks || 0), 0);
   const roi = spend > 0 ? (profit / spend) * 100 : null;
 
-  const cplLinks = catLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
-  const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
-  const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-  const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
+  // Derive cost type from order_id prefixes
+  const costTypes = new Set<CostTypeFromOrder>();
+  if (linkMarketerMapData) {
+    catLinks.forEach(l => {
+      const info = linkMarketerMapData[l.id];
+      if (info?.order_ids) {
+        info.order_ids.forEach((oid: string) => {
+          const ct = getCostTypeFromOrderId(oid);
+          if (ct) costTypes.add(ct);
+        });
+      }
+    });
+  }
+  const costLabel = deriveCostLabel(costTypes);
+  const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
 
   const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
   const ltvPerSub = subs > 0 ? revenue / subs : null;
@@ -72,7 +84,7 @@ function calcCategoryMetrics(catLinks: any[]) {
   });
   const activeSources = sourceTags.size;
 
-  return { spend, revenue, profit, roi, avgCpl, profitPerSub, ltvPerSub, subsDay, campaigns, activeSources, subs };
+  return { spend, revenue, profit, roi, avgCpl: costMetric.value, avgCplLabel: costMetric.label, profitPerSub, ltvPerSub, subsDay, campaigns, activeSources, subs };
 }
 
 function getStatusBadge(link: any): { label: string; bg: string; text: string } {
@@ -160,7 +172,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     queryFn: async () => {
       const { data } = await supabase
         .from("onlytraffic_orders")
-        .select("tracking_link_id, marketer, offer_id")
+        .select("tracking_link_id, marketer, offer_id, order_id")
         .not("marketer", "is", null);
       if (!data) return {};
       const marketerOffers: Record<string, Set<number>> = {};
@@ -173,14 +185,18 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       Object.entries(marketerOffers).forEach(([m, offers]) => {
         if (offers.size > 1) multiOffer.add(m);
       });
-      const map: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean }> = {};
+      const map: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean; order_ids: string[] }> = {};
       data.forEach((o: any) => {
-        if (!o.tracking_link_id || map[o.tracking_link_id]) return;
-        map[o.tracking_link_id] = {
-          marketer: o.marketer,
-          offer_id: o.offer_id,
-          showOfferId: multiOffer.has(o.marketer) && o.offer_id != null,
-        };
+        if (!o.tracking_link_id) return;
+        if (!map[o.tracking_link_id]) {
+          map[o.tracking_link_id] = {
+            marketer: o.marketer,
+            offer_id: o.offer_id,
+            showOfferId: multiOffer.has(o.marketer) && o.offer_id != null,
+            order_ids: [],
+          };
+        }
+        if (o.order_id) map[o.tracking_link_id].order_ids.push(o.order_id);
       });
       return map;
     },
@@ -216,8 +232,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const noSourceCount = noSourceLinks.length;
   const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
-  const otMetrics = useMemo(() => calcCategoryMetrics(otLinks), [otLinks]);
-  const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks), [manualLinks]);
+  const otMetrics = useMemo(() => calcCategoryMetrics(otLinks, linkMarketerMap), [otLinks, linkMarketerMap]);
+  const manualMetrics = useMemo(() => calcCategoryMetrics(manualLinks, linkMarketerMap), [manualLinks, linkMarketerMap]);
 
   // Category links (all campaigns in the selected category)
   const categoryLinksRaw = activeCategory === "OnlyTraffic" ? otLinks : manualLinks;
@@ -365,18 +381,30 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     const revenue = filteredLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
     const profit = revenue - spend;
     const subs = filteredLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+    const clicks = filteredLinks.reduce((s, l) => s + (l.clicks || 0), 0);
     const roi = spend > 0 ? (profit / spend) * 100 : null;
-    const cplLinks = filteredLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
-    const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
-    const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-    const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
+
+    // Derive cost type from order_id prefixes
+    const costTypes = new Set<CostTypeFromOrder>();
+    filteredLinks.forEach(l => {
+      const info = (linkMarketerMap as any)[l.id];
+      if (info?.order_ids) {
+        info.order_ids.forEach((oid: string) => {
+          const ct = getCostTypeFromOrderId(oid);
+          if (ct) costTypes.add(ct);
+        });
+      }
+    });
+    const costLabel = deriveCostLabel(costTypes);
+    const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+
     const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
     const ltvPerSub = subs > 0 ? revenue / subs : null;
     const ages = filteredLinks.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
     const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
     const subsDay = avgAge > 0 ? subs / avgAge : 0;
-    return { spend, revenue, profit, avgCpl, profitPerSub, ltvPerSub, subsDay, roi };
-  }, [filteredLinks]);
+    return { spend, revenue, profit, avgCpl: costMetric.value, avgCplLabel: costMetric.label, profitPerSub, ltvPerSub, subsDay, roi };
+  }, [filteredLinks, linkMarketerMap]);
 
   const isOT = activeCategory === "OnlyTraffic";
 
@@ -406,11 +434,25 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const subs = g.links.reduce((s, l) => s + (l.subscribers || 0), 0);
       const clicks = g.links.reduce((s, l) => s + (l.clicks || 0), 0);
       const roi = spend > 0 ? (profit / spend) * 100 : null;
-      const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+
+      // Derive cost type from order_id prefixes
+      const costTypes = new Set<CostTypeFromOrder>();
+      g.links.forEach(l => {
+        const info = (linkMarketerMap as any)[l.id];
+        if (info?.order_ids) {
+          info.order_ids.forEach((oid: string) => {
+            const ct = getCostTypeFromOrderId(oid);
+            if (ct) costTypes.add(ct);
+          });
+        }
+      });
+      const costLabel = deriveCostLabel(costTypes);
+      const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const ltvSub = subs > 0 ? revenue / subs : null;
       const offerIdStr = g.offerId != null ? `#${g.offerId}` : null;
-      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, offerIdStr };
+      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl: costMetric.value, cplDisplay: costMetric.display, costLabel: costMetric.label, cvr, ltvSub, campaigns: g.links.length, offerIdStr };
     });
   }, [categoryLinksRaw, linkMarketerMap]);
 
@@ -456,11 +498,24 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     const profit = revenue - spend;
     const subs = categoryLinksRaw.reduce((s, l) => s + (l.subscribers || 0), 0);
     const clicks = categoryLinksRaw.reduce((s, l) => s + (l.clicks || 0), 0);
-    const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+
+    const costTypes = new Set<CostTypeFromOrder>();
+    categoryLinksRaw.forEach(l => {
+      const info = (linkMarketerMap as any)[l.id];
+      if (info?.order_ids) {
+        info.order_ids.forEach((oid: string) => {
+          const ct = getCostTypeFromOrderId(oid);
+          if (ct) costTypes.add(ct);
+        });
+      }
+    });
+    const costLabel = deriveCostLabel(costTypes);
+    const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+
     const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
     const roi = spend > 0 ? (profit / spend) * 100 : null;
-    return { spend, revenue, profit, cpl, cvr, roi };
-  }, [categoryLinksRaw]);
+    return { spend, revenue, profit, cpl: costMetric.value, cplLabel: `Avg ${costMetric.label}`, cvr, roi };
+  }, [categoryLinksRaw, linkMarketerMap]);
 
   const uniqueSources = useMemo(() => {
     const tags = new Set<string>();
@@ -518,7 +573,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="Spend" value={fmtC(otMetrics.spend)} />
               <MetricRow label="Revenue" value={fmtC(otMetrics.revenue)} />
               <MetricRow label="Profit" value={fmtC(otMetrics.profit)} color={otMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
-              <MetricRow label="Avg CPL" value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
+              <MetricRow label={`Avg ${otMetrics.avgCplLabel || "CPL"}`} value={otMetrics.avgCpl !== null ? fmtC(otMetrics.avgCpl) : "—"} />
               <MetricRow label="ROI" value={otMetrics.roi !== null ? fmtPct(otMetrics.roi) : "—"} color={otMetrics.roi !== null ? (otMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(otMetrics.campaigns)} />
             </div>
@@ -565,7 +620,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
               <MetricRow label="Spend" value={fmtC(manualMetrics.spend)} />
               <MetricRow label="Revenue" value={fmtC(manualMetrics.revenue)} />
               <MetricRow label="Profit" value={fmtC(manualMetrics.profit)} color={manualMetrics.profit >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))"} />
-              <MetricRow label="Avg CPL" value={manualMetrics.avgCpl !== null ? fmtC(manualMetrics.avgCpl) : "—"} />
+              <MetricRow label={`Avg ${manualMetrics.avgCplLabel || "CPL"}`} value={manualMetrics.avgCpl !== null ? fmtC(manualMetrics.avgCpl) : "—"} />
               <MetricRow label="ROI" value={manualMetrics.spend > 0 && manualMetrics.roi !== null ? fmtPct(manualMetrics.roi) : "—"} color={manualMetrics.spend > 0 && manualMetrics.roi !== null ? (manualMetrics.roi >= 0 ? "hsl(var(--success, 142 71% 45%))" : "hsl(var(--destructive))") : undefined} />
               <MetricRow label="Campaigns" value={fmtN(manualMetrics.campaigns)} />
             </div>
@@ -612,7 +667,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(group.spend)} color="#dc2626" />
             <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(group.revenue)} color="#16a34a" />
             <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(group.profit)} color={group.profit >= 0 ? "#16a34a" : "#dc2626"} />
-            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="CPL" value={group.cpl !== null ? fmtC(group.cpl) : "—"} color="#0891b2" />
+            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label={group.costLabel || "CPL"} value={group.cplDisplay || "—"} color="#0891b2" />
             <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="CVR" value={group.cvr !== null ? fmtPct(group.cvr) : "—"} color="#d97706" />
             <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={group.roi !== null ? fmtPct(group.roi) : "—"} color={group.roi !== null ? (group.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
           </div>
@@ -667,7 +722,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Total spend" value={fmtC(catKpis.spend)} color="#dc2626" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total revenue" value={fmtC(catKpis.revenue)} color="#16a34a" />
         <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total profit" value={catKpis.profit >= 0 ? `+${fmtC(catKpis.profit)}` : fmtC(catKpis.profit)} color={catKpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={catKpis.cpl !== null ? fmtC(catKpis.cpl) : "—"} color="#0891b2" />
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label={catKpis.cplLabel} value={catKpis.cpl !== null ? fmtC(catKpis.cpl) : "—"} color="#0891b2" />
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="Avg CVR" value={catKpis.cvr !== null ? fmtPct(catKpis.cvr) : "—"} color="#d97706" />
         <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="Avg ROI" value={catKpis.roi !== null ? fmtPct(catKpis.roi) : "—"} color={catKpis.roi !== null ? (catKpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
@@ -752,7 +807,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                 Profit <SortIcon active={sourceSortKey === "profit"} asc={sourceSortAsc} />
               </th>
               <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cpl")}>
-                CPL <SortIcon active={sourceSortKey === "cpl"} asc={sourceSortAsc} />
+                CPL/CPC <SortIcon active={sourceSortKey === "cpl"} asc={sourceSortAsc} />
               </th>
               <th className={`${thClass} text-right`} style={{ padding: "8px 12px" }} onClick={() => handleSourceColSort("cvr")}>
                 CVR <SortIcon active={sourceSortKey === "cvr"} asc={sourceSortAsc} />
@@ -802,7 +857,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: profitColor }}>
                     {g.profit >= 0 ? `+${fmtC(g.profit)}` : fmtC(g.profit)}
                   </td>
-                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cpl !== null ? fmtC(g.cpl) : "—"}</td>
+                  <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cplDisplay || "—"}</td>
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.cvr !== null ? fmtPct(g.cvr) : "—"}</td>
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px" }}>{g.ltvSub !== null ? fmtC(g.ltvSub) : "—"}</td>
                   <td className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "13px", color: roiColor }}>{g.roi !== null ? fmtPct(g.roi) : "—"}</td>
@@ -893,11 +948,21 @@ function MarketerAnalyticsView({ links, linkMarketerMap, expandedMarketer, setEx
       const revenue = mLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
       const profit = revenue - spend;
       const subs = mLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
+      const clicks = mLinks.reduce((s, l) => s + (l.clicks || 0), 0);
       const roi = spend > 0 ? (profit / spend) * 100 : null;
-      const cplLinks = mLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
-      const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
-      const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-      const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
+      const costTypes = new Set<CostTypeFromOrder>();
+      mLinks.forEach(l => {
+        const info = (linkMarketerMap as any)[l.id];
+        if (info?.order_ids) {
+          info.order_ids.forEach((oid: string) => {
+            const ct = getCostTypeFromOrderId(oid);
+            if (ct) costTypes.add(ct);
+          });
+        }
+      });
+      const costLabel = deriveCostLabel(costTypes);
+      const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+      const avgCpl = costMetric.value;
       const profitSub = spend > 0 && subs > 0 ? profit / subs : null;
       const ltvSub = subs > 0 ? revenue / subs : null;
 
