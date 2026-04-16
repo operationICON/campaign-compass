@@ -371,6 +371,93 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   }, [filteredLinks]);
 
   const isOT = activeCategory === "OnlyTraffic";
+
+  // ═══ LEVEL 2 HOOKS — must be before early returns ═══
+  const groupedSources = useMemo(() => {
+    const groups: Record<string, { marketer: string; sourceTag: string; accountId: string; links: any[] }> = {};
+    for (const link of categoryLinksRaw) {
+      const info = (linkMarketerMap as any)[link.id];
+      const marketer = info?.marketer || link.onlytraffic_marketer || "In-house";
+      const sourceTag = getEffectiveSource(link) || link.source || "Direct";
+      const key = `${marketer}__${sourceTag}__${link.account_id}`;
+      if (!groups[key]) groups[key] = { marketer, sourceTag, accountId: link.account_id, links: [] };
+      groups[key].links.push(link);
+    }
+    return Object.entries(groups).map(([key, g]) => {
+      const spend = g.links.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+      const revenue = g.links.reduce((s, l) => s + Number(l.revenue || 0), 0);
+      const profit = revenue - spend;
+      const subs = g.links.reduce((s, l) => s + (l.subscribers || 0), 0);
+      const clicks = g.links.reduce((s, l) => s + (l.clicks || 0), 0);
+      const roi = spend > 0 ? (profit / spend) * 100 : null;
+      const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+      const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
+      const ltvSub = subs > 0 ? revenue / subs : null;
+      const account = accounts.find((a: any) => a.id === g.accountId);
+      const genderLabel = account?.gender_identity || null;
+      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel };
+    });
+  }, [categoryLinksRaw, linkMarketerMap, accounts]);
+
+  const quickFiltered = useMemo(() => {
+    let result = groupedSources;
+    if (quickFilter === "profitable") result = result.filter(g => g.profit > 0);
+    else if (quickFilter === "trans") result = result.filter(g => g.genderLabel?.toLowerCase() === "trans");
+    else if (quickFilter === "females") result = result.filter(g => g.genderLabel?.toLowerCase() === "female");
+    else if (quickFilter === "manual") result = result.filter(g => g.marketer === "In-house");
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(g => g.marketer.toLowerCase().includes(q) || g.sourceTag.toLowerCase().includes(q));
+    }
+    return result;
+  }, [groupedSources, quickFilter, searchQuery]);
+
+  const sortedSources = useMemo(() => {
+    const dir = sourceSortAsc ? 1 : -1;
+    return [...quickFiltered].sort((a, b) => {
+      switch (sourceSortKey) {
+        case "marketer": return dir * a.marketer.localeCompare(b.marketer);
+        case "camps": return dir * (a.campaigns - b.campaigns);
+        case "spend": return dir * (a.spend - b.spend);
+        case "revenue": return dir * (a.revenue - b.revenue);
+        case "profit": return dir * (a.profit - b.profit);
+        case "cpl": return dir * ((a.cpl ?? -Infinity) - (b.cpl ?? -Infinity));
+        case "cvr": return dir * ((a.cvr ?? -Infinity) - (b.cvr ?? -Infinity));
+        case "ltvSub": return dir * ((a.ltvSub ?? -Infinity) - (b.ltvSub ?? -Infinity));
+        case "roi": return dir * ((a.roi ?? -Infinity) - (b.roi ?? -Infinity));
+        default: return dir * (a.profit - b.profit);
+      }
+    });
+  }, [quickFiltered, sourceSortKey, sourceSortAsc]);
+
+  const SOURCE_PAGE_SIZE = 25;
+  const sourceTotalPages = Math.ceil(sortedSources.length / SOURCE_PAGE_SIZE);
+  const sourcePageRows = sortedSources.slice(sourcePage * SOURCE_PAGE_SIZE, (sourcePage + 1) * SOURCE_PAGE_SIZE);
+
+  const catKpis = useMemo(() => {
+    const spend = categoryLinksRaw.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+    const revenue = categoryLinksRaw.reduce((s, l) => s + Number(l.revenue || 0), 0);
+    const profit = revenue - spend;
+    const subs = categoryLinksRaw.reduce((s, l) => s + (l.subscribers || 0), 0);
+    const clicks = categoryLinksRaw.reduce((s, l) => s + (l.clicks || 0), 0);
+    const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+    const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
+    const roi = spend > 0 ? (profit / spend) * 100 : null;
+    return { spend, revenue, profit, cpl, cvr, roi };
+  }, [categoryLinksRaw]);
+
+  const uniqueSources = useMemo(() => {
+    const tags = new Set<string>();
+    categoryLinksRaw.forEach(l => { const es = getEffectiveSource(l) || l.source; if (es) tags.add(es); });
+    return tags.size;
+  }, [categoryLinksRaw]);
+
+  const catColor = activeCategory === "OnlyTraffic" ? "text-emerald-500" : "text-blue-500";
+  const catBadgeBg = activeCategory === "OnlyTraffic" ? "bg-emerald-500/15 text-emerald-500" : "bg-blue-500/15 text-blue-500";
+  const catBadgeLabel = activeCategory === "OnlyTraffic" ? "API" : "Direct";
+  const CatIcon = activeCategory === "OnlyTraffic" ? Zap : Globe;
+
+  // ═══ EARLY RETURNS ═══
   if (activeUnmatched) {
     return (
       <div className="space-y-4">
@@ -395,7 +482,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     );
   }
 
-  // ═══ LEVEL 1 ═══
   if (!activeCategory) {
     return (
       <div className="space-y-3">
@@ -403,7 +489,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           Traffic Categories
         </p>
         <div className="grid grid-cols-2 gap-4">
-          {/* OnlyTraffic Card */}
           <button
             onClick={() => setCategoryAndNotify("OnlyTraffic")}
             className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
@@ -451,7 +536,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             </div>
           </button>
 
-          {/* Manual Card */}
           <button
             onClick={() => setCategoryAndNotify("Manual")}
             className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/40 transition-colors group"
@@ -492,100 +576,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   }
 
   // ═══ LEVEL 2 — GROUPED SOURCE VIEW ═══
-
-  // Build grouped sources: marketer + source + account
-  const groupedSources = useMemo(() => {
-    const groups: Record<string, { marketer: string; sourceTag: string; accountId: string; links: any[] }> = {};
-    for (const link of categoryLinksRaw) {
-      const info = (linkMarketerMap as any)[link.id];
-      const marketer = info?.marketer || link.onlytraffic_marketer || "In-house";
-      const sourceTag = getEffectiveSource(link) || link.source || "Direct";
-      const key = `${marketer}__${sourceTag}__${link.account_id}`;
-      if (!groups[key]) groups[key] = { marketer, sourceTag, accountId: link.account_id, links: [] };
-      groups[key].links.push(link);
-    }
-
-    return Object.entries(groups).map(([key, g]) => {
-      const spend = g.links.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
-      const revenue = g.links.reduce((s, l) => s + Number(l.revenue || 0), 0);
-      const profit = revenue - spend;
-      const subs = g.links.reduce((s, l) => s + (l.subscribers || 0), 0);
-      const clicks = g.links.reduce((s, l) => s + (l.clicks || 0), 0);
-      const roi = spend > 0 ? (profit / spend) * 100 : null;
-      const cpl = subs > 0 && spend > 0 ? spend / subs : null;
-      const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
-      const ltvSub = subs > 0 ? revenue / subs : null;
-      const account = accounts.find((a: any) => a.id === g.accountId);
-      const genderLabel = account?.gender_identity || null;
-      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel };
-    });
-  }, [categoryLinksRaw, linkMarketerMap, accounts]);
-
-  // Quick filter logic
-  const quickFiltered = useMemo(() => {
-    let result = groupedSources;
-    if (quickFilter === "profitable") result = result.filter(g => g.profit > 0);
-    else if (quickFilter === "trans") result = result.filter(g => g.genderLabel?.toLowerCase() === "trans");
-    else if (quickFilter === "females") result = result.filter(g => g.genderLabel?.toLowerCase() === "female");
-    else if (quickFilter === "manual") result = result.filter(g => g.marketer === "In-house");
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter(g =>
-        g.marketer.toLowerCase().includes(q) ||
-        g.sourceTag.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [groupedSources, quickFilter, searchQuery]);
-
-  // Sort grouped sources
-  const sortedSources = useMemo(() => {
-    const dir = sourceSortAsc ? 1 : -1;
-    return [...quickFiltered].sort((a, b) => {
-      switch (sourceSortKey) {
-        case "marketer": return dir * a.marketer.localeCompare(b.marketer);
-        case "camps": return dir * (a.campaigns - b.campaigns);
-        case "spend": return dir * (a.spend - b.spend);
-        case "revenue": return dir * (a.revenue - b.revenue);
-        case "profit": return dir * (a.profit - b.profit);
-        case "cpl": return dir * ((a.cpl ?? -Infinity) - (b.cpl ?? -Infinity));
-        case "cvr": return dir * ((a.cvr ?? -Infinity) - (b.cvr ?? -Infinity));
-        case "ltvSub": return dir * ((a.ltvSub ?? -Infinity) - (b.ltvSub ?? -Infinity));
-        case "roi": return dir * ((a.roi ?? -Infinity) - (b.roi ?? -Infinity));
-        default: return dir * (a.profit - b.profit);
-      }
-    });
-  }, [quickFiltered, sourceSortKey, sourceSortAsc]);
-
-  const SOURCE_PAGE_SIZE = 25;
-  const sourceTotalPages = Math.ceil(sortedSources.length / SOURCE_PAGE_SIZE);
-  const sourcePageRows = sortedSources.slice(sourcePage * SOURCE_PAGE_SIZE, (sourcePage + 1) * SOURCE_PAGE_SIZE);
-
-  // Aggregate KPIs for this category
-  const catKpis = useMemo(() => {
-    const spend = categoryLinksRaw.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
-    const revenue = categoryLinksRaw.reduce((s, l) => s + Number(l.revenue || 0), 0);
-    const profit = revenue - spend;
-    const subs = categoryLinksRaw.reduce((s, l) => s + (l.subscribers || 0), 0);
-    const clicks = categoryLinksRaw.reduce((s, l) => s + (l.clicks || 0), 0);
-    const cpl = subs > 0 && spend > 0 ? spend / subs : null;
-    const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
-    const roi = spend > 0 ? (profit / spend) * 100 : null;
-    return { spend, revenue, profit, cpl, cvr, roi };
-  }, [categoryLinksRaw]);
-
-  const uniqueSources = useMemo(() => {
-    const tags = new Set<string>();
-    categoryLinksRaw.forEach(l => { const es = getEffectiveSource(l) || l.source; if (es) tags.add(es); });
-    return tags.size;
-  }, [categoryLinksRaw]);
-
-  const catColor = activeCategory === "OnlyTraffic" ? "text-emerald-500" : "text-blue-500";
-  const catBadgeBg = activeCategory === "OnlyTraffic" ? "bg-emerald-500/15 text-emerald-500" : "bg-blue-500/15 text-blue-500";
-  const catBadgeLabel = activeCategory === "OnlyTraffic" ? "API" : "Direct";
-  const CatIcon = activeCategory === "OnlyTraffic" ? Zap : Globe;
-  // If a source group is selected, drill into its campaigns
   if (activeSourceKey) {
     const group = groupedSources.find(g => g.key === activeSourceKey);
     if (group) {
