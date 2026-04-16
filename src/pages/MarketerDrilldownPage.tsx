@@ -233,12 +233,19 @@ export default function MarketerDrilldownPage() {
       const hasSpend = costTotal > 0;
       const profit = hasSpend ? revenue - costTotal : null;
       const ltv = subs > 0 ? revenue / subs : null;
-      const costType = tl.cost_type || "CPL";
-      const cplCpc = costType === "CPC" ? (clicks > 0 ? costTotal / clicks : null) : (subs > 0 ? costTotal / subs : null);
+
+      const costTypes = new Set<CostTypeFromOrder>();
+      tlOrders.forEach(o => {
+        const ct = getCostTypeFromOrderId(o.order_id);
+        if (ct) costTypes.add(ct);
+      });
+      const costLabel = deriveCostLabel(costTypes);
+      const costMetric = calcCostMetric(costLabel, costTotal, subs, clicks);
+
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const roi = hasSpend ? ((revenue - costTotal) / costTotal) * 100 : null;
 
-      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc, cvr, roi, costType, campaignName: tl.campaign_name, url: tl.url };
+      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc: costMetric.value, costDisplay: costMetric.display, costLabel, cvr, roi, campaignName: tl.campaign_name, url: tl.url };
     }).filter(Boolean).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [expandedModel, orders, trackingLinks, modelRows]);
 
