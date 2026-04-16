@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { TrafficCategoryNav } from "@/components/traffic/TrafficCategoryNav";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
