@@ -525,7 +525,7 @@ export default function MarketerDrilldownPage() {
                   );
                 })}
               </TableBody>
-            </Table>
+            </table>
           )}
 
           {/* Footer */}
