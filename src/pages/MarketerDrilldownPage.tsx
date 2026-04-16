@@ -191,9 +191,8 @@ export default function MarketerDrilldownPage() {
   const thClass = "cursor-pointer select-none whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors";
 
   const handleRowClick = (row: typeof sorted[0]) => {
-    // Navigate to existing Level 4 (source detail) with filters
-    const activeSourceKey = `${decodedMarketer}__${sourceLabel}__${offerId ?? "none"}`;
-    navigate(`/traffic-sources?marketer=${encodeURIComponent(decodedMarketer)}&model=${encodeURIComponent(row.username || row.displayName)}&offer_id=${offerId ?? ""}&source_key=${encodeURIComponent(activeSourceKey)}`);
+    const modelParam = row.username || row.displayName;
+    navigate(`/sources/onlytraffic/${encodeURIComponent(decodedMarketer)}/${offerId ?? ""}/${encodeURIComponent(modelParam)}`);
   };
 
   return (
