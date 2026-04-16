@@ -49,23 +49,28 @@ export default function MarketerDrilldownPage() {
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
 
-  const decodedMarketer = decodeURIComponent(marketer || "");
-  const offerId = offer_id ? Number(offer_id) : null;
+  const isUnknown = marketer === "__unknown__";
+  const decodedMarketer = isUnknown ? "Unknown" : decodeURIComponent(marketer || "");
+  const offerId = (!isUnknown && offer_id) ? Number(offer_id) : null;
 
   // Fetch orders
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ["marketer_orders", decodedMarketer, offerId],
+    queryKey: ["marketer_orders", decodedMarketer, offerId, isUnknown],
     queryFn: async () => {
       let q = supabase
         .from("onlytraffic_orders")
         .select("id, tracking_link_id, quantity_delivered, total_spent, marketer, offer_id, source, status, order_id")
-        .eq("marketer", decodedMarketer)
         .in("status", ["completed", "accepted", "active", "waiting"]);
-      if (offerId != null) q = q.eq("offer_id", offerId);
+      if (isUnknown) {
+        q = q.or("marketer.is.null,marketer.eq.");
+      } else {
+        q = q.eq("marketer", decodedMarketer);
+        if (offerId != null) q = q.eq("offer_id", offerId);
+      }
       const { data } = await q;
       return data || [];
     },
-    enabled: !!decodedMarketer,
+    enabled: isUnknown || !!decodedMarketer,
   });
 
   const trackingLinkIds = useMemo(() => {
