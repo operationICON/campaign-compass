@@ -371,8 +371,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   }, [filteredLinks]);
 
   const isOT = activeCategory === "OnlyTraffic";
-
-  // ═══ UNMATCHED ORDERS VIEW ═══
   if (activeUnmatched) {
     return (
       <div className="space-y-4">
@@ -493,11 +491,144 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     );
   }
 
-  // ═══ CAMPAIGN TABLE VIEW (was Level 2 + 3, now merged) ═══
+  // ═══ LEVEL 2 — GROUPED SOURCE VIEW ═══
+
+  // Build grouped sources: marketer + source + account
+  const groupedSources = useMemo(() => {
+    const groups: Record<string, { marketer: string; sourceTag: string; accountId: string; links: any[] }> = {};
+    for (const link of categoryLinksRaw) {
+      const info = (linkMarketerMap as any)[link.id];
+      const marketer = info?.marketer || link.onlytraffic_marketer || "In-house";
+      const sourceTag = getEffectiveSource(link) || link.source || "Direct";
+      const key = `${marketer}__${sourceTag}__${link.account_id}`;
+      if (!groups[key]) groups[key] = { marketer, sourceTag, accountId: link.account_id, links: [] };
+      groups[key].links.push(link);
+    }
+
+    return Object.entries(groups).map(([key, g]) => {
+      const spend = g.links.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+      const revenue = g.links.reduce((s, l) => s + Number(l.revenue || 0), 0);
+      const profit = revenue - spend;
+      const subs = g.links.reduce((s, l) => s + (l.subscribers || 0), 0);
+      const clicks = g.links.reduce((s, l) => s + (l.clicks || 0), 0);
+      const roi = spend > 0 ? (profit / spend) * 100 : null;
+      const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+      const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
+      const ltvSub = subs > 0 ? revenue / subs : null;
+      const account = accounts.find((a: any) => a.id === g.accountId);
+      const genderLabel = account?.gender_identity || null;
+      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, genderLabel };
+    });
+  }, [categoryLinksRaw, linkMarketerMap, accounts]);
+
+  // Quick filter logic
+  const quickFiltered = useMemo(() => {
+    let result = groupedSources;
+    if (quickFilter === "profitable") result = result.filter(g => g.profit > 0);
+    else if (quickFilter === "trans") result = result.filter(g => g.genderLabel?.toLowerCase() === "trans");
+    else if (quickFilter === "females") result = result.filter(g => g.genderLabel?.toLowerCase() === "female");
+    else if (quickFilter === "manual") result = result.filter(g => g.marketer === "In-house");
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(g =>
+        g.marketer.toLowerCase().includes(q) ||
+        g.sourceTag.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [groupedSources, quickFilter, searchQuery]);
+
+  // Sort grouped sources
+  const sortedSources = useMemo(() => {
+    const dir = sourceSortAsc ? 1 : -1;
+    return [...quickFiltered].sort((a, b) => {
+      switch (sourceSortKey) {
+        case "marketer": return dir * a.marketer.localeCompare(b.marketer);
+        case "camps": return dir * (a.campaigns - b.campaigns);
+        case "spend": return dir * (a.spend - b.spend);
+        case "revenue": return dir * (a.revenue - b.revenue);
+        case "profit": return dir * (a.profit - b.profit);
+        case "cpl": return dir * ((a.cpl ?? -Infinity) - (b.cpl ?? -Infinity));
+        case "cvr": return dir * ((a.cvr ?? -Infinity) - (b.cvr ?? -Infinity));
+        case "ltvSub": return dir * ((a.ltvSub ?? -Infinity) - (b.ltvSub ?? -Infinity));
+        case "roi": return dir * ((a.roi ?? -Infinity) - (b.roi ?? -Infinity));
+        default: return dir * (a.profit - b.profit);
+      }
+    });
+  }, [quickFiltered, sourceSortKey, sourceSortAsc]);
+
+  const SOURCE_PAGE_SIZE = 25;
+  const sourceTotalPages = Math.ceil(sortedSources.length / SOURCE_PAGE_SIZE);
+  const sourcePageRows = sortedSources.slice(sourcePage * SOURCE_PAGE_SIZE, (sourcePage + 1) * SOURCE_PAGE_SIZE);
+
+  // Aggregate KPIs for this category
+  const catKpis = useMemo(() => {
+    const spend = categoryLinksRaw.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
+    const revenue = categoryLinksRaw.reduce((s, l) => s + Number(l.revenue || 0), 0);
+    const profit = revenue - spend;
+    const subs = categoryLinksRaw.reduce((s, l) => s + (l.subscribers || 0), 0);
+    const clicks = categoryLinksRaw.reduce((s, l) => s + (l.clicks || 0), 0);
+    const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+    const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
+    const roi = spend > 0 ? (profit / spend) * 100 : null;
+    return { spend, revenue, profit, cpl, cvr, roi };
+  }, [categoryLinksRaw]);
+
+  const uniqueSources = useMemo(() => {
+    const tags = new Set<string>();
+    categoryLinksRaw.forEach(l => { const es = getEffectiveSource(l) || l.source; if (es) tags.add(es); });
+    return tags.size;
+  }, [categoryLinksRaw]);
+
   const catColor = activeCategory === "OnlyTraffic" ? "text-emerald-500" : "text-blue-500";
   const catBadgeBg = activeCategory === "OnlyTraffic" ? "bg-emerald-500/15 text-emerald-500" : "bg-blue-500/15 text-blue-500";
   const catBadgeLabel = activeCategory === "OnlyTraffic" ? "API" : "Direct";
   const CatIcon = activeCategory === "OnlyTraffic" ? Zap : Globe;
+  // If a source group is selected, drill into its campaigns
+  if (activeSourceKey) {
+    const group = groupedSources.find(g => g.key === activeSourceKey);
+    if (group) {
+      return (
+        <div className="space-y-4">
+          <button
+            onClick={() => { setActiveSourceKey(null); onLevelChange?.(2); }}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            style={{ fontSize: "13px", fontWeight: 500 }}
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to {activeCategory}
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-foreground font-bold text-lg">{group.marketer} — {group.sourceTag}</span>
+            {group.genderLabel && (
+              <span className="text-muted-foreground" style={{ fontSize: "12px" }}>{group.genderLabel}</span>
+            )}
+            <span className="text-muted-foreground" style={{ fontSize: "12px" }}>· {group.campaigns} campaigns</span>
+          </div>
+          <div className="grid grid-cols-6 gap-2">
+            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(group.spend)} color="#dc2626" />
+            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(group.revenue)} color="#16a34a" />
+            <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(group.profit)} color={group.profit >= 0 ? "#16a34a" : "#dc2626"} />
+            <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="CPL" value={group.cpl !== null ? fmtC(group.cpl) : "—"} color="#0891b2" />
+            <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="CVR" value={group.cvr !== null ? fmtPct(group.cvr) : "—"} color="#d97706" />
+            <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={group.roi !== null ? fmtPct(group.roi) : "—"} color={group.roi !== null ? (group.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+          </div>
+          <MarketerExpandedTable
+            links={group.links}
+            linkMarketerMap={linkMarketerMap}
+            onCampaignClick={setDrawerCampaign}
+          />
+          <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
+        </div>
+      );
+    }
+  }
+
+  const handleSourceColSort = (key: string) => {
+    if (sourceSortKey === key) setSourceSortAsc(!sourceSortAsc);
+    else { setSourceSortKey(key); setSourceSortAsc(false); }
+    setSourcePage(0);
+  };
 
   const thClass = "cursor-pointer select-none whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors";
 
@@ -509,303 +640,177 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         style={{ fontSize: "13px", fontWeight: 500 }}
       >
-        <ArrowLeft className="h-4 w-4" /> Back to Sources
+        <ArrowLeft className="h-4 w-4" /> Back to dashboard
       </button>
 
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <CatIcon className={`h-5 w-5 ${catColor}`} />
-        <span className="text-foreground font-bold text-lg">{activeCategory}</span>
-        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${catBadgeBg}`}>{catBadgeLabel}</span>
-        <span className="text-muted-foreground" style={{ fontSize: "12px", marginLeft: "4px" }}>
-          {filteredLinks.length} campaign{filteredLinks.length !== 1 ? "s" : ""}
-          {filteredLinks.length !== categoryLinksRaw.length ? ` (of ${categoryLinksRaw.length})` : ""}
-        </span>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-foreground font-bold text-lg">{activeCategory}</span>
+            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${catBadgeBg}`}>{catBadgeLabel}</span>
+          </div>
+          <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
+            {uniqueSources} sources · {categoryLinksRaw.length} campaigns
+          </span>
+        </div>
+        <button className="px-3 py-1.5 rounded-lg border border-border text-foreground hover:border-primary/40 transition-colors" style={{ fontSize: "12px" }}>
+          + Add new source
+        </button>
       </div>
 
-      {/* Sub-KPI row */}
-      <div className="grid grid-cols-8 gap-2">
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(kpis.spend)} color="#dc2626" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(kpis.revenue)} color="#16a34a" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(kpis.profit)} color={kpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} color="#0891b2" />
-        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} color={kpis.profitPerSub !== null ? (kpis.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={kpis.subsDay > 0 ? kpis.subsDay.toFixed(1) : "0"} color="#d97706" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={kpis.ltvPerSub !== null ? fmtC(kpis.ltvPerSub) : "—"} color="#0891b2" />
-        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
+      {/* KPI row — 6 cards */}
+      <div className="grid grid-cols-6 gap-2">
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Total spend" value={fmtC(catKpis.spend)} color="#dc2626" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total revenue" value={fmtC(catKpis.revenue)} color="#16a34a" />
+        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total profit" value={catKpis.profit >= 0 ? `+${fmtC(catKpis.profit)}` : fmtC(catKpis.profit)} color={catKpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
+        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={catKpis.cpl !== null ? fmtC(catKpis.cpl) : "—"} color="#0891b2" />
+        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="Avg CVR" value={catKpis.cvr !== null ? fmtPct(catKpis.cvr) : "—"} color="#d97706" />
+        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="Avg ROI" value={catKpis.roi !== null ? fmtPct(catKpis.roi) : "—"} color={catKpis.roi !== null ? (catKpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
       </div>
 
-      {/* Filters — search takes 40%, dropdowns share rest */}
+      {/* Search + Quick filters */}
       <div className="flex gap-3 items-center">
-        <div className="relative" style={{ flex: "0 0 40%" }}>
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
-            placeholder={isOT ? "Search campaign, URL or Order ID..." : "Search campaign or URL..."}
+            onChange={e => { setSearchQuery(e.target.value); setSourcePage(0); }}
+            placeholder="Search marketer, OnlyTraffic, offer, or type..."
             className="pl-9 pr-8 h-10 text-sm bg-card border-border rounded-lg"
           />
           {searchQuery && (
-            <button
-              onClick={() => { setSearchQuery(""); setPage(0); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
+            <button onClick={() => { setSearchQuery(""); setSourcePage(0); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
-
-        <div className="flex-1 grid grid-cols-5 gap-3">
-          <AccountFilterDropdown
-            value={accountFilterL2 === "__all__" ? "all" : accountFilterL2}
-            onChange={v => { setAccountFilterL2(v === "all" ? "__all__" : v); setPage(0); }}
-            accounts={accounts}
-            className="w-full"
-          />
-
-          <Select value={sourceFilterL2} onValueChange={v => { setSourceFilterL2(v); setPage(0); }}>
-            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
-              <SelectValue placeholder="All Sources" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
-              <SelectItem value="__all__">All Sources</SelectItem>
-              {sourceOptions.map(s => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-              <SelectItem value="__untagged__">Untagged</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedMarketer} onValueChange={v => { setSelectedMarketer(v); setPage(0); }}>
-            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
-              <SelectValue placeholder="All Marketers" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
-              <SelectItem value="__all__">All Marketers</SelectItem>
-              {orderMarketerCombos.map(c => (
-                <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedCostType} onValueChange={v => { setSelectedCostType(v); setPage(0); }}>
-            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
-              <SelectItem value="__all__">All Types</SelectItem>
-              <SelectItem value="CPL">CPL</SelectItem>
-              <SelectItem value="CPC">CPC</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={tableSortPreset} onValueChange={v => applyPreset(v as TableSortPreset)}>
-            <SelectTrigger className="h-10 text-sm bg-card border-border rounded-lg">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border rounded-lg shadow-lg">
-              <SelectItem value="newest_first">Newest First</SelectItem>
-              <SelectItem value="highest_revenue">Highest Revenue</SelectItem>
-              <SelectItem value="highest_profit">Highest Profit</SelectItem>
-              <SelectItem value="most_spend">Most Spend</SelectItem>
-              <SelectItem value="highest_roi">Highest ROI</SelectItem>
-              <SelectItem value="most_campaigns">Most Campaigns</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground whitespace-nowrap" style={{ fontSize: "12px" }}>Quick filter:</span>
+          {[
+            { key: "__all__", label: "All" },
+            { key: "profitable", label: "Profitable only" },
+            { key: "trans", label: "Trans" },
+            { key: "females", label: "Females" },
+            { key: "manual", label: "Manual" },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => { setQuickFilter(quickFilter === f.key ? "__all__" : f.key); setSourcePage(0); }}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${quickFilter === f.key ? "bg-primary/10 border-primary/40 text-primary" : "border-border text-foreground hover:border-primary/30"}`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Action buttons row */}
-      <div className="flex items-center gap-2">
-        {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
-          <button
-            onClick={() => { setActiveUnmatched(true); }}
-            className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg hover:border-primary/40 transition-colors"
-          >
-            <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
-            <span className="font-semibold" style={{ fontSize: "12px", color: "#d97706" }}>
-              {fmtN(unmatchedOrders.count)} Unmatched Orders · {fmtC(unmatchedOrders.spend)}
-            </span>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        )}
-        {isOT && (
-          <button
-            onClick={() => { setShowMarketerAnalytics(!showMarketerAnalytics); setExpandedMarketer(null); }}
-            className={`flex items-center gap-2 px-3 py-2 border rounded-lg transition-colors ${showMarketerAnalytics ? "bg-primary/10 border-primary/40 text-primary" : "bg-card border-border hover:border-primary/40 text-foreground"}`}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span className="font-semibold" style={{ fontSize: "12px" }}>Marketer Analytics</span>
-          </button>
-        )}
-      </div>
+      {/* Unmatched orders button */}
+      {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
+        <button
+          onClick={() => setActiveUnmatched(true)}
+          className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg hover:border-primary/40 transition-colors"
+        >
+          <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#d97706" }} />
+          <span className="font-semibold" style={{ fontSize: "12px", color: "#d97706" }}>
+            {fmtN(unmatchedOrders.count)} Unmatched Orders · {fmtC(unmatchedOrders.spend)}
+          </span>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      )}
 
-      {/* ═══ MARKETER ANALYTICS VIEW ═══ */}
-      {showMarketerAnalytics && isOT ? (
-        <MarketerAnalyticsView
-          links={filteredLinks}
-          linkMarketerMap={linkMarketerMap}
-          expandedMarketer={expandedMarketer}
-          setExpandedMarketer={setExpandedMarketer}
-          onBack={() => { setShowMarketerAnalytics(false); setExpandedMarketer(null); }}
-          onCampaignClick={setDrawerCampaign}
-          accounts={accounts}
-        />
-      ) : (
-      <>
-      {/* Campaign table */}
+      {/* Grouped source table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="border-border">
-              <TableHead className={thClass} onClick={() => handleColSort("campaign")}>Campaign <SortIcon active={colSortKey === "campaign"} asc={colSortAsc} /></TableHead>
-              <TableHead className={thClass} onClick={() => handleColSort("model")}>Model <SortIcon active={colSortKey === "model"} asc={colSortAsc} /></TableHead>
-              <TableHead className={thClass} onClick={() => handleColSort("source")}>Source <SortIcon active={colSortKey === "source"} asc={colSortAsc} /></TableHead>
-              <TableHead className={thClass} onClick={() => handleColSort("marketer")}>Marketer <SortIcon active={colSortKey === "marketer"} asc={colSortAsc} /></TableHead>
-              <TableHead className={thClass} onClick={() => handleColSort("offerId")}>Offer ID <SortIcon active={colSortKey === "offerId"} asc={colSortAsc} /></TableHead>
-              {isOT && <TableHead className={thClass} onClick={() => handleColSort("orderId")}>Order ID <SortIcon active={colSortKey === "orderId"} asc={colSortAsc} /></TableHead>}
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("clicks")}>Clicks <SortIcon active={colSortKey === "clicks"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("subs")}>Subs <SortIcon active={colSortKey === "subs"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("spend")}>Spend <SortIcon active={colSortKey === "spend"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("revenue")}>Revenue <SortIcon active={colSortKey === "revenue"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("profit")}>Profit <SortIcon active={colSortKey === "profit"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("profitSub")}>Profit/Sub <SortIcon active={colSortKey === "profitSub"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("ltvSub")}>LTV/Sub <SortIcon active={colSortKey === "ltvSub"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-right`} onClick={() => handleColSort("roi")}>ROI <SortIcon active={colSortKey === "roi"} asc={colSortAsc} /></TableHead>
-              <TableHead className={thClass} onClick={() => handleColSort("created")}>Created <SortIcon active={colSortKey === "created"} asc={colSortAsc} /></TableHead>
-              <TableHead className={`${thClass} text-center`} onClick={() => handleColSort("status")}>Status <SortIcon active={colSortKey === "status"} asc={colSortAsc} /></TableHead>
+              <TableHead className={thClass} onClick={() => handleSourceColSort("marketer")}>
+                Marketer / {activeCategory} <SortIcon active={sourceSortKey === "marketer"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("camps")}>
+                Camps <SortIcon active={sourceSortKey === "camps"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("spend")}>
+                Spend <SortIcon active={sourceSortKey === "spend"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("revenue")}>
+                Revenue <SortIcon active={sourceSortKey === "revenue"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("profit")}>
+                Profit <SortIcon active={sourceSortKey === "profit"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("cpl")}>
+                CPL <SortIcon active={sourceSortKey === "cpl"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("cvr")}>
+                CVR <SortIcon active={sourceSortKey === "cvr"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("ltvSub")}>
+                LTV/Sub <SortIcon active={sourceSortKey === "ltvSub"} asc={sourceSortAsc} />
+              </TableHead>
+              <TableHead className={`${thClass} text-right`} onClick={() => handleSourceColSort("roi")}>
+                ROI <SortIcon active={sourceSortKey === "roi"} asc={sourceSortAsc} />
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pageRows.map(link => {
-              const spend = Number(link.cost_total || 0);
-              const rev = Number(link.revenue || 0);
-              const profit = spend > 0 ? rev - spend : null;
-              const roi = spend > 0 ? ((rev - spend) / spend) * 100 : null;
-              const subs = link.subscribers || 0;
-              const profitSub = spend > 0 && subs > 0 ? (rev - spend) / subs : null;
-              const ltvSub = subs > 0 ? rev / subs : null;
-              const badge = getStatusBadge(link);
-              const username = link.accounts?.username || null;
-              const displayName = link.accounts?.display_name || username || "Unknown";
-              const avatarUrl = link.accounts?.avatar_thumb_url || null;
-              const profitColor = profit !== null ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
-              const roiColor = roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
-              const source = getEffectiveSource(link) || "Untagged";
-
+            {sourcePageRows.map(g => {
+              const profitColor = g.profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)";
+              const roiColor = g.roi !== null ? (g.roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
               return (
-                <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setDrawerCampaign(link)}>
-                  <TableCell className="max-w-[220px]">
-                    <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
-                    <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{link.url}</p>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <ModelAvatar avatarUrl={avatarUrl} name={displayName} size={20} />
-                      <span className="text-foreground" style={{ fontSize: "12px" }}>@{username || "unknown"}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-foreground" style={{ fontSize: "12px" }}>{source}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-foreground" style={{ fontSize: "12px" }}>
-                      {(() => {
-                        const info = (linkMarketerMap as any)[link.id];
-                        return info?.marketer || link.onlytraffic_marketer || "—";
-                      })()}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-foreground font-mono" style={{ fontSize: "11px" }}>
-                      {(() => {
-                        const info = (linkMarketerMap as any)[link.id];
-                        return info?.offer_id != null ? info.offer_id : "—";
-                      })()}
-                    </span>
-                  </TableCell>
-                  {isOT && (
-                    <TableCell>
-                      <span className="text-foreground font-mono" style={{ fontSize: "11px" }}>{link.onlytraffic_order_id || "—"}</span>
-                    </TableCell>
-                  )}
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(link.clicks || 0)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>{fmtN(subs)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px" }}>
-                    {fmtC(spend)}
-                    {(link.payment_type || link.cost_type) === "CPL" && (
-                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#0891b2", width: "fit-content", marginLeft: "auto" }}>CPL</span>
-                    )}
-                    {(link.payment_type || link.cost_type) === "CPC" && (
-                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#d97706", width: "fit-content", marginLeft: "auto" }}>CPC</span>
-                    )}
-                    {(link.payment_type || link.cost_type) === "FIXED" && (
-                      <span className="block mt-0.5 rounded-full font-bold text-white" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "#64748b", width: "fit-content", marginLeft: "auto" }}>Fixed</span>
+                <TableRow
+                  key={g.key}
+                  className="border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => { setActiveSourceKey(g.key); onLevelChange?.(3); }}
+                >
+                  <TableCell className="min-w-[200px]">
+                    <p className="text-foreground font-semibold" style={{ fontSize: "13px" }}>
+                      {g.marketer} — {g.sourceTag}
+                    </p>
+                    {g.genderLabel && (
+                      <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{g.genderLabel}</p>
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "hsl(173 80% 36%)" }}>{fmtC(rev)}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profit !== null ? fmtC(profit) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: profitColor }}>{profitSub !== null ? fmtC(profitSub) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: "#0891b2" }}>{ltvSub !== null ? fmtC(ltvSub) : "—"}</TableCell>
-                  <TableCell className="text-right font-mono" style={{ fontSize: "12px", color: roiColor }}>{roi !== null ? fmtPct(roi) : "—"}</TableCell>
-                  <TableCell>
-                    {(() => {
-                      const ageDays = Math.max(0, differenceInDays(new Date(), new Date(link.created_at)));
-                      const pill = getAgePill(ageDays);
-                      return (
-                        <div>
-                          <p className="text-foreground" style={{ fontSize: "11px" }}>{format(new Date(link.created_at), "MMM d, yyyy")}</p>
-                          <span className="inline-block mt-0.5 rounded-full font-bold" style={{ fontSize: "9px", padding: "1px 6px", backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
-                        </div>
-                      );
-                    })()}
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.campaigns}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.spend)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(g.revenue)}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: profitColor }}>
+                    {g.profit >= 0 ? `+${fmtC(g.profit)}` : fmtC(g.profit)}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
-                      {badge.label}
-                    </span>
-                  </TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.cpl !== null ? fmtC(g.cpl) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.cvr !== null ? fmtPct(g.cvr) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{g.ltvSub !== null ? fmtC(g.ltvSub) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor }}>{g.roi !== null ? fmtPct(g.roi) : "—"}</TableCell>
                 </TableRow>
               );
             })}
-            {pageRows.length === 0 && (
+            {sourcePageRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isOT ? 15 : 14} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>
-                  No campaigns found
-                </TableCell>
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>No sources found</TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-            <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
-              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, finalSorted.length)} of {finalSorted.length}
-            </span>
+        {/* Pagination + hint */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+          <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
+            Showing {sourcePageRows.length} of {sortedSources.length} · Click any row to see its campaigns
+          </span>
+          {sourceTotalPages > 1 && (
             <div className="flex items-center gap-1">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage(p => p - 1)}
-                className="px-2 py-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
-              >
+              <button disabled={sourcePage === 0} onClick={() => setSourcePage(p => p - 1)} className="px-2 py-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors">
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <span className="text-foreground font-mono" style={{ fontSize: "12px" }}>{page + 1} / {totalPages}</span>
-              <button
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage(p => p + 1)}
-                className="px-2 py-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
-              >
+              <span className="text-foreground font-mono" style={{ fontSize: "12px" }}>{sourcePage + 1} / {sourceTotalPages}</span>
+              <button disabled={sourcePage >= sourceTotalPages - 1} onClick={() => setSourcePage(p => p + 1)} className="px-2 py-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors">
                 <ArrowLeft className="h-4 w-4 rotate-180" />
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-      </>
-      )}
+
       <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} />
     </div>
   );
