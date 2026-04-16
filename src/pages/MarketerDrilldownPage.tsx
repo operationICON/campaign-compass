@@ -456,20 +456,19 @@ export default function MarketerDrilldownPage() {
                           <TableCell colSpan={11} className="p-0">
                             <div className="bg-background/50 border-t border-border">
                               <table className="w-full table-fixed text-sm">
-                                <colgroup>
-                                  <col style={{ width: "18%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "10%" }} />
-                                  <col style={{ width: "10%" }} />
-                                  <col style={{ width: "10%" }} />
-                                  <col style={{ width: "9%" }} />
-                                  <col style={{ width: "8%" }} />
-                                  <col style={{ width: "7%" }} />
-                                  <col style={{ width: "7%" }} />
-                                </colgroup>
-                                <thead>
+                                 <colgroup>
+                                   <col style={{ width: "18%" }} />
+                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "10%" }} />
+                                   <col style={{ width: "11%" }} />
+                                   <col style={{ width: "10%" }} />
+                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "6.5%" }} />
+                                   <col style={{ width: "6.5%" }} />
+                                 </colgroup>
                                   <tr className="border-b border-border">
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap text-left py-1.5 pl-12 pr-2">Campaigns ({expandedModelData.length})</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Orders</th>
