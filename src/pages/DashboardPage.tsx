@@ -386,19 +386,21 @@ export default function DashboardPage() {
     }
     const totalLtv = ltv + crossPoll;
 
-    // Expenses, subs (all tracked), clicks from tracking_links
+    // Expenses, subs, clicks, revenue from tracking_links
     let expenses = 0;
     let subs = 0;
     let clicks = 0;
+    let trackingRevenue = 0;
     for (const l of filteredLinksForKpi) {
       expenses += Number(l.cost_total || 0) > 0 ? Number(l.cost_total) : 0;
       subs += Number(l.subscribers || 0);
       clicks += Number(l.clicks || 0);
+      trackingRevenue += Number(l.revenue || 0);
     }
 
     const totalProfit = totalLtv - expenses;
-    // Use ltvSubs (new_subs_total) for per-sub metrics — these are the fans who generated LTV
-    const ltvPerSub = ltvSubs > 0 ? totalLtv / ltvSubs : null;
+    // LTV/Sub: tracking_links.revenue / subscribers (consistent across all pages)
+    const ltvPerSub = subs > 0 ? trackingRevenue / subs : null;
     const avgCpl = subs > 0 ? expenses / subs : null;
     const roi = expenses > 0 ? (totalProfit / expenses) * 100 : null;
 
@@ -935,10 +937,10 @@ function KpiCards({
         let ltvPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtv2 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-          const totalSubsCount2 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-          ltvPerSub = totalSubsCount2 > 0 ? (accountsLtv2 * revMultiplier) / totalSubsCount2 : null;
-          subtitle = "All time · accounts revenue per subscriber";
+          const totalRev2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+          const totalSubs2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+          ltvPerSub = totalSubs2 > 0 ? (totalRev2 * revMultiplier) / totalSubs2 : null;
+          subtitle = "All time · revenue per subscriber";
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
         } else {
