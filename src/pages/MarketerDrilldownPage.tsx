@@ -157,9 +157,8 @@ export default function MarketerDrilldownPage() {
   // Filters
   const filtered = useMemo(() => {
     let rows = modelRows;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      rows = rows.filter(r => (r.username || "").toLowerCase().includes(q) || (r.displayName || "").toLowerCase().includes(q));
+    if (modelFilter !== "all") {
+      rows = rows.filter(r => r.accountId === modelFilter);
     }
     if (profitableFilter) rows = rows.filter(r => r.profit > 0);
     if (losingFilter) rows = rows.filter(r => r.profit < 0);
