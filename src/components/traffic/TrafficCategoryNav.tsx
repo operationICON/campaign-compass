@@ -410,11 +410,25 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const subs = g.links.reduce((s, l) => s + (l.subscribers || 0), 0);
       const clicks = g.links.reduce((s, l) => s + (l.clicks || 0), 0);
       const roi = spend > 0 ? (profit / spend) * 100 : null;
-      const cpl = subs > 0 && spend > 0 ? spend / subs : null;
+
+      // Derive cost type from order_id prefixes
+      const costTypes = new Set<CostTypeFromOrder>();
+      g.links.forEach(l => {
+        const info = (linkMarketerMap as any)[l.id];
+        if (info?.order_ids) {
+          info.order_ids.forEach((oid: string) => {
+            const ct = getCostTypeFromOrderId(oid);
+            if (ct) costTypes.add(ct);
+          });
+        }
+      });
+      const costLabel = deriveCostLabel(costTypes);
+      const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const ltvSub = subs > 0 ? revenue / subs : null;
       const offerIdStr = g.offerId != null ? `#${g.offerId}` : null;
-      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl, cvr, ltvSub, campaigns: g.links.length, offerIdStr };
+      return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl: costMetric.value, cplDisplay: costMetric.display, costLabel: costMetric.label, cvr, ltvSub, campaigns: g.links.length, offerIdStr };
     });
   }, [categoryLinksRaw, linkMarketerMap]);
 
