@@ -128,10 +128,19 @@ export default function CalculationsPage() {
   // Apply snapshot metrics to links (replaces clicks/subscribers/revenue for non-All-Time)
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
-  const { data: ltvRows = [] as any[], isLoading: ltvLoading } = useQuery({
+  const { data: ltvRowsRaw = [] as any[], isLoading: ltvLoading } = useQuery({
     queryKey: ["calc_ltv"],
     queryFn: () => fetchAllLtv(),
   });
+  // RULE: exclude LTV rows whose tracking_links.deleted_at IS NOT NULL.
+  // `allLinks` is already fetched with .is("deleted_at", null), so we scope by its IDs.
+  const ltvRows = useMemo(() => {
+    if (allLinks.length === 0) return ltvRowsRaw;
+    const ids = new Set(allLinks.map((l: any) => String(l.id).toLowerCase()));
+    return ltvRowsRaw.filter((r: any) =>
+      ids.has(String(r.tracking_link_id ?? "").toLowerCase())
+    );
+  }, [ltvRowsRaw, allLinks]);
   const { data: accounts = [] as any[] } = useQuery({
     queryKey: ["calc_accounts"],
     queryFn: fetchAccounts,

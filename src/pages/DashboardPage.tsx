@@ -100,10 +100,22 @@ export default function DashboardPage() {
   });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
-  const { data: trackingLinkLtv = [] } = useQuery({
+  const { data: trackingLinkLtvRaw = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
     queryFn: fetchTrackingLinkLtv,
   });
+  // RULE: exclude LTV rows tied to deleted tracking links (deleted_at IS NOT NULL).
+  const activeLinkIdSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const l of allLinks) s.add(String(l.id).toLowerCase());
+    return s;
+  }, [allLinks]);
+  const trackingLinkLtv = useMemo(() => {
+    if (activeLinkIdSet.size === 0) return trackingLinkLtvRaw;
+    return trackingLinkLtvRaw.filter((r: any) =>
+      activeLinkIdSet.has(String(r.tracking_link_id ?? "").toLowerCase())
+    );
+  }, [trackingLinkLtvRaw, activeLinkIdSet]);
 
 
   // Category mapping for group filter
