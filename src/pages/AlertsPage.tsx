@@ -118,7 +118,37 @@ export default function AlertsPage() {
               <p className="text-sm text-muted-foreground">{unresolvedAlerts.length} unresolved alert{unresolvedAlerts.length !== 1 ? "s" : ""}</p>
             </div>
           </div>
-          <RefreshButton queryKeys={["all_alerts", "alerts", "alerts_unresolved"]} />
+          <div className="flex items-center gap-2">
+            {unresolvedAlerts.length > 0 && (
+              confirmDismissAll ? (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-secondary border border-border">
+                  <span className="text-xs text-foreground">Dismiss all {unresolvedAlerts.length}?</span>
+                  <button
+                    onClick={dismissAll}
+                    disabled={dismissingAll}
+                    className="px-2 py-1 rounded bg-destructive text-destructive-foreground text-[11px] font-bold hover:bg-destructive/90 disabled:opacity-50"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setConfirmDismissAll(false)}
+                    disabled={dismissingAll}
+                    className="px-2 py-1 rounded bg-background text-foreground text-[11px] hover:bg-secondary"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDismissAll(true)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-secondary text-foreground hover:bg-secondary/70 transition-colors flex items-center gap-1.5 border border-border"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" /> Dismiss all
+                </button>
+              )
+            )}
+            <RefreshButton queryKeys={["all_alerts", "alerts", "alerts_unresolved"]} />
+          </div>
         </div>
 
         {isLoading ? (
