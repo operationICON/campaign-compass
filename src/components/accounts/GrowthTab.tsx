@@ -56,7 +56,7 @@ interface LinkRow {
   prev: PeriodAgg;
 }
 
-type SortKey = "subs" | "subsDay" | "rev" | "clicks" | "cvr" | "cpl" | "campaign" | "source";
+type SortKey = "subs" | "subsDay" | "rev" | "clicks" | "cvr" | "cpl" | "campaign" | "source" | "created";
 
 function pctChange(cur: number, prev: number): number | null {
   if (!prev || prev <= 0) return null;
@@ -83,7 +83,7 @@ function TrendChip({ value, reverse = false, size = "xs" }: { value: number | nu
 
 export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClick }: GrowthTabProps) {
   const [period, setPeriod] = useState<GrowthPeriod>("since_last_sync");
-  const [sortKey, setSortKey] = useState<SortKey>("subs");
+  const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortAsc, setSortAsc] = useState(false);
 
   const handleSort = (k: SortKey) => {
@@ -257,6 +257,7 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
       switch (sortKey) {
         case "campaign": return (r.link.campaign_name || "").toLowerCase();
         case "source": return (r.source || "").toLowerCase();
+        case "created": return r.link.created_at ? new Date(r.link.created_at).getTime() : 0;
         case "subs": return r.cur.subs;
         case "subsDay": return r.cur.days > 0 ? r.cur.subs / r.cur.days : 0;
         case "rev": return r.cur.rev;
@@ -419,6 +420,7 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
                     <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                       <SortHeader label="Campaign" k="campaign" sortKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" />
                       <SortHeader label="Source" k="source" sortKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" />
+                      <SortHeader label="Created" k="created" sortKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" />
                       <SortHeader label="Subs Gained" k="subs" sortKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" hero />
                       <SortHeader label="Subs/Day" k="subsDay" sortKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" hero />
                       <SortHeader label="Revenue" k="rev" sortKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" />
@@ -451,6 +453,12 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
                           {/* Source */}
                           <td className="py-3 px-3 text-[12px]">
                             <TagBadge tagName={r.source} />
+                          </td>
+                          {/* Created */}
+                          <td className="py-3 px-3 text-[11px] text-muted-foreground whitespace-nowrap">
+                            {r.link.created_at
+                              ? formatDistanceToNow(new Date(r.link.created_at), { addSuffix: true })
+                              : "—"}
                           </td>
                           {/* HERO: Subs Gained */}
                           <td className="text-right py-3 px-3 font-mono">
@@ -497,7 +505,7 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
                 </table>
               </div>
               <p className="text-[11px] text-muted-foreground mt-2">
-                Showing {sortedRows.length} of {accLinks.length} campaigns · Sorted by subs gained · Data from daily snapshots
+                Showing {sortedRows.length} of {accLinks.length} campaigns · Sorted by {sortKey === "created" ? "newest first" : "subs gained"} · Data from daily snapshots
               </p>
             </div>
           )}
