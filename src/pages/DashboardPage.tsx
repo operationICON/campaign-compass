@@ -23,6 +23,8 @@ import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } fro
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import { usePageFilters, TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
+import { DateAvailabilityNote } from "@/components/DateAvailabilityNote";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
