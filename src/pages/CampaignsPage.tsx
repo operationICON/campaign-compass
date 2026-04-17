@@ -39,7 +39,7 @@ import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "status" | "last_synced" | "avg_expenses";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
@@ -455,6 +455,27 @@ export default function CampaignsPage() {
           const bR = Number(b.revenue || 0), bS = Number(b.subscribers || 0);
           aVal = aS > 0 ? aR / aS : -Infinity; bVal = bS > 0 ? bR / bS : -Infinity; break;
         }
+        case "model": {
+          aVal = (a.accounts?.username || a.accounts?.display_name || "zzz").toLowerCase();
+          bVal = (b.accounts?.username || b.accounts?.display_name || "zzz").toLowerCase();
+          return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        case "cross_poll": aVal = a.crossPollRevenue ?? -Infinity; bVal = b.crossPollRevenue ?? -Infinity; break;
+        case "spender_rate": aVal = Number(a.spender_rate ?? -Infinity); bVal = Number(b.spender_rate ?? -Infinity); break;
+        case "cpl": aVal = Number(a.cpl_real ?? a.cost_per_lead ?? -Infinity); bVal = Number(b.cpl_real ?? b.cost_per_lead ?? -Infinity); break;
+        case "status": {
+          aVal = (a.computedStatus || "zzz").toLowerCase();
+          bVal = (b.computedStatus || "zzz").toLowerCase();
+          return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        case "last_synced": {
+          const at = a.fans_last_synced_at || a.accounts?.last_synced_at;
+          const bt = b.fans_last_synced_at || b.accounts?.last_synced_at;
+          aVal = at ? new Date(at).getTime() : -Infinity;
+          bVal = bt ? new Date(bt).getTime() : -Infinity;
+          break;
+        }
+        case "avg_expenses": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
         default: aVal = 0; bVal = 0;
       }
       return sortAsc ? aVal - bVal : bVal - aVal;
@@ -876,44 +897,30 @@ export default function CampaignsPage() {
                         {columnOrder.visibleOrderedColumns.map(c => {
                           const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, textTransform: "uppercase" as const, letterSpacing: "0.04em" };
                           switch (c.id) {
-                            case "model": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "100px" }}>Model</th>;
+                            case "model": return <SortHeader key={c.id} label="Model" sortKeyName="model" width="100px" />;
                             case "source": return <SortHeader key={c.id} label="Source" sortKeyName="source_tag" width="100px" />;
                             case "clicks": return <SortHeader key={c.id} label="Clicks" sortKeyName="clicks" width="70px" />;
                             case "subscribers": return <SortHeader key={c.id} label="Subs" sortKeyName="subscribers" width="70px" />;
                             case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
                             case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
                             case "cross_poll": return (
-                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "85px" }}>
-                                <div className="flex items-center justify-end gap-1">
-                                  Cross-Poll
-                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Revenue those fans generated on other models after their entry date</TooltipContent></Tooltip>
-                                </div>
-                              </th>
+                              <SortHeader key={c.id} label="Cross-Poll" sortKeyName="cross_poll" width="85px" />
                             );
                             case "ltv_sub_all": return (
-                              <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>
-                                <div className="flex items-center justify-end gap-1">
-                                  LTV/Sub
-                                  <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold cursor-help shrink-0">i</span></TooltipTrigger><TooltipContent className="max-w-[220px]">Total revenue divided by all subscribers for the selected period</TooltipContent></Tooltip>
-                                </div>
-                              </th>
+                              <SortHeader key={c.id} label="LTV/Sub" sortKeyName="ltv_sub_all" width="75px" />
                             );
-                            case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
+                            case "spender_rate": return <SortHeader key={c.id} label="Spender %" sortKeyName="spender_rate" width="75px" />;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
-                            case "cpl": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>CPL</th>;
+                            case "cpl": return <SortHeader key={c.id} label="CPL" sortKeyName="cpl" width="90px" />;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
-                            case "status": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "80px" }}>Status</th>;
+                            case "status": return <SortHeader key={c.id} label="Status" sortKeyName="status" width="80px" />;
                             case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
-                            case "last_synced": return (
-                              <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>
-                                Last Synced
-                              </th>
-                            );
+                            case "last_synced": return <SortHeader key={c.id} label="Last Synced" sortKeyName="last_synced" width="90px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
-                            case "avg_expenses": return <th key={c.id} className="text-left whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>Avg Expenses</th>;
+                            case "avg_expenses": return <SortHeader key={c.id} label="Avg Expenses" sortKeyName="avg_expenses" width="90px" />;
                             default: return null;
                           }
                         })}
