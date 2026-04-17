@@ -113,6 +113,7 @@ export default function MarketerModelCampaignsPage() {
         const { data } = await supabase
           .from("tracking_links")
           .select("*")
+          .is("deleted_at", null)
           .in("id", chunk)
           .eq("account_id", account.id);
         if (data) all.push(...data);
