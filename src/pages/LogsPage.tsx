@@ -389,6 +389,11 @@ export default function LogsPage() {
           })}
         </div>
 
+        {/* ═══ MANUAL SYNC NOTE ═══ */}
+        <p className="text-center text-muted-foreground" style={{ fontSize: 11 }}>
+          ⓘ Syncs are run manually by ERN. Contact ERN to trigger a sync outside of the regular schedule.
+        </p>
+
         {/* ═══ SYNC HISTORY TABLE ═══ */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
