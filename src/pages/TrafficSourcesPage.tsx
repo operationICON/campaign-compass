@@ -14,6 +14,7 @@ import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearTrackingLinkSpend, setTrackingLinkSourceTag, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import { isActiveAccount } from "@/lib/calc-helpers";
 import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
