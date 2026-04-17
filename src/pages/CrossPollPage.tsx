@@ -12,6 +12,7 @@ import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
 import { GitBranch, Users, DollarSign, Award, Percent, ChevronDown, ChevronUp } from "lucide-react";
 import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
+import { filterLtvByActiveLinks, buildActiveLinkIdSet } from "@/lib/calc-helpers";
 
 type CampSortKey =
   | "campaignName" | "modelName" | "new_subs_total" | "directLtv"
@@ -91,12 +92,10 @@ export default function CrossPollPage() {
 
   // Filter LTV data: exclude rows tied to deleted tracking_links (deleted_at IS NOT NULL)
   // and apply snapshot/model filters.
+  const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(trackingLinks), [trackingLinks]);
   const ltvData = useMemo(() => {
-    // RULE: only keep LTV rows whose tracking_link is non-deleted (in `linkLookup`).
-    let data = allLtvData.filter((r: any) => {
-      const tlId = String(r.tracking_link_id ?? "").trim().toLowerCase();
-      return !!linkLookup[tlId];
-    });
+    // RULE: only keep LTV rows whose tracking_link is non-deleted (shared helper).
+    let data = filterLtvByActiveLinks(allLtvData, activeLinkIdSet);
     if (!isAllTime && snapshotLookup) {
       data = data.filter((r: any) => {
         const tlId = String(r.tracking_link_id ?? "").trim().toLowerCase();
@@ -107,7 +106,7 @@ export default function CrossPollPage() {
       data = data.filter((r: any) => String(r.account_id).toLowerCase() === String(modelFilter).toLowerCase());
     }
     return data;
-  }, [allLtvData, modelFilter, isAllTime, snapshotLookup, linkLookup]);
+  }, [allLtvData, modelFilter, isAllTime, snapshotLookup, activeLinkIdSet]);
 
   const filteredLtv = ltvData;
 
