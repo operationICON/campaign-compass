@@ -48,7 +48,7 @@ const AVATAR_COLORS = [
 ];
 
 type SortKey = "campaign_name" | "source_tag" | "revenue" | "clicks" | "subscribers" | "subs_day" | "cross_poll" | "profit" | "roi" | "status" | "created_at";
-type SourceSortKey = "source" | "activeLinks" | "subs" | "subsDay" | "spend" | "revenue" | "cplCpc" | "cvr" | "profit" | "roi";
+type SourceSortKey = "source" | "activeLinks" | "subs" | "subsDay" | "spend" | "revenue" | "cpl" | "cpc" | "cvr" | "profit" | "roi";
 type CardSortKey = "spend" | "ltv_per_sub" | "subscribers" | "active_links" | "alpha";
 
 const CARD_SORT_OPTIONS: { key: CardSortKey; label: string }[] = [
@@ -478,7 +478,8 @@ export default function AccountsPage() {
           case "subs": return g.subs;
           case "subsDay": return g.subs; // proxy: subs/day correlates with raw subs in same period
           case "cvr": return g.clicks > 0 ? (g.subs / g.clicks) : -Infinity;
-          case "cplCpc": return getCplCpcLabel(g.costTypes).toLowerCase();
+          case "cpl": return g.subs > 0 && g.spend > 0 ? g.spend / g.subs : -Infinity;
+          case "cpc": return g.clicks > 0 && g.spend > 0 ? g.spend / g.clicks : -Infinity;
           case "spend": return g.spend;
           case "revenue": return g.revenue;
           case "profit": return g.profit;
@@ -871,7 +872,8 @@ export default function AccountsPage() {
                               { k: "subsDay", l: "Subs/Day", a: "right" },
                               { k: "spend", l: "Total Spend", a: "right" },
                               { k: "revenue", l: "Revenue", a: "right" },
-                              { k: "cplCpc", l: "CPL/CPC", a: "right" },
+                              { k: "cpl", l: "CPL", a: "right" },
+                              { k: "cpc", l: "CPC", a: "right" },
                               { k: "cvr", l: "CVR", a: "right" },
                               { k: "profit", l: "Profit", a: "right" },
                               { k: "roi", l: "ROI", a: "right" },
@@ -889,16 +891,12 @@ export default function AccountsPage() {
                           {sourceGroups.map((g) => {
                             const cvr = g.clicks > 0 ? (g.subs / g.clicks) * 100 : null;
                             const cplCpcType = getCplCpcLabel(g.costTypes);
-                            let cplCpcValue = "—";
-                            if (cplCpcType === "CPL" && g.subs > 0 && g.spend > 0) {
-                              cplCpcValue = `$${(g.spend / g.subs).toFixed(2)} CPL`;
-                            } else if (cplCpcType === "CPC" && g.clicks > 0 && g.spend > 0) {
-                              cplCpcValue = `$${(g.spend / g.clicks).toFixed(2)} CPC`;
-                            } else if (cplCpcType === "Mixed") {
-                              cplCpcValue = "Mixed";
-                            } else if (cplCpcType === "Fixed" && g.spend > 0) {
-                              cplCpcValue = `$${g.spend.toFixed(2)} Fixed`;
-                            }
+                            // CPL = spend per sub; shown when source primarily uses CPL/Fixed pricing
+                            const cplShow = (cplCpcType === "CPL" || cplCpcType === "Fixed" || cplCpcType === "Mixed") && g.subs > 0 && g.spend > 0;
+                            const cplValue = cplShow ? `$${(g.spend / g.subs).toFixed(2)}` : "—";
+                            // CPC = spend per click; shown when source primarily uses CPC/Fixed pricing
+                            const cpcShow = (cplCpcType === "CPC" || cplCpcType === "Fixed" || cplCpcType === "Mixed") && g.clicks > 0 && g.spend > 0;
+                            const cpcValue = cpcShow ? `$${(g.spend / g.clicks).toFixed(2)}` : "—";
                             const spd = sourceSubsPerDay[g.source];
                             return (
                               <tr key={g.source} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
@@ -908,7 +906,8 @@ export default function AccountsPage() {
                                 <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{spd != null && spd > 0 ? `${spd.toFixed(1)}/day` : "—"}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtCurrency(g.spend)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.revenue)}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{cplCpcValue}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{cplValue}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{cpcValue}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{cvr != null ? fmtPct(cvr) : "—"}</td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>{fmtCurrency(g.profit)}</td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.roi != null ? (g.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>{g.roi != null ? fmtPct(g.roi) : "—"}</td>
