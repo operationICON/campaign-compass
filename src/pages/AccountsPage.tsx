@@ -474,11 +474,11 @@ export default function AccountsPage() {
       const getVal = (g: typeof a): number | string => {
         switch (srcSortKey) {
           case "source": return g.source.toLowerCase();
-          case "links": return g.links.length;
-          case "active": return g.activeLinks;
+          case "activeLinks": return g.activeLinks;
           case "subs": return g.subs;
-          case "clicks": return g.clicks;
+          case "subsDay": return sourceSubsPerDay[g.source] ?? 0;
           case "cvr": return g.clicks > 0 ? (g.subs / g.clicks) : -Infinity;
+          case "cplCpc": return getCplCpcLabel(g.costTypes).toLowerCase();
           case "spend": return g.spend;
           case "revenue": return g.revenue;
           case "profit": return g.profit;
