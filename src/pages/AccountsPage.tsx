@@ -13,6 +13,7 @@ import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { SubsTab } from "@/components/accounts/SubsTab";
 
 import { format, differenceInDays, subDays, isValid } from "date-fns";
 
@@ -66,7 +67,7 @@ export default function AccountsPage() {
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
+  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "subs">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
@@ -712,7 +713,7 @@ export default function AccountsPage() {
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
-                    {(["campaigns", "sources", "performance"] as const).map((tab) => (
+                    {(["campaigns", "sources", "performance", "subs"] as const).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -720,7 +721,13 @@ export default function AccountsPage() {
                           activeTab === tab ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        {tab === "campaigns" ? "Tracking Links" : tab === "sources" ? "Traffic Sources" : "Performance"}
+                        {tab === "campaigns"
+                          ? "Tracking Links"
+                          : tab === "sources"
+                            ? "Traffic Sources"
+                            : tab === "performance"
+                              ? "Performance"
+                              : "Subs"}
                       </button>
                     ))}
                   </div>
@@ -922,6 +929,16 @@ export default function AccountsPage() {
                       </>
                     )}
                   </div>
+                )}
+
+                {activeTab === "subs" && (
+                  <SubsTab
+                    accountId={acc.id}
+                    accLinks={accLinks}
+                    modelName={acc.display_name}
+                    avatarUrl={acc.avatar_thumb_url}
+                    onRowClick={(link) => setDrawerCampaign(link)}
+                  />
                 )}
         </div>
 
