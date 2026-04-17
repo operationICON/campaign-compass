@@ -56,6 +56,7 @@ const ALL_COLUMNS = [
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
+  { id: "cpl", label: "CPL/CPC", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
