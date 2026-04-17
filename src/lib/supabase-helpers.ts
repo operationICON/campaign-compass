@@ -6,6 +6,44 @@ export async function fetchAccounts() {
   return data;
 }
 
+/**
+ * Sums transactions.revenue grouped by type for the given account IDs.
+ * Returns { messages, tips, subscriptions, posts } in dollars.
+ *
+ * Mapping: 'message' → messages, 'tip' → tips,
+ * 'new_subscription' + 'recurring_subscription' → subscriptions,
+ * 'post' → posts. Unknown types are ignored.
+ */
+export async function fetchTransactionTypeTotals(accountIds: string[]): Promise<{
+  messages: number; tips: number; subscriptions: number; posts: number;
+}> {
+  const totals = { messages: 0, tips: 0, subscriptions: 0, posts: 0 };
+  if (!accountIds || accountIds.length === 0) return totals;
+
+  const pageSize = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("type, revenue")
+      .in("account_id", accountIds)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      const rev = Number((row as any).revenue || 0);
+      const type = (row as any).type as string | null;
+      if (type === "message") totals.messages += rev;
+      else if (type === "tip") totals.tips += rev;
+      else if (type === "new_subscription" || type === "recurring_subscription") totals.subscriptions += rev;
+      else if (type === "post") totals.posts += rev;
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return totals;
+}
+
 export async function fetchCampaigns() {
   const { data, error } = await supabase
     .from("campaigns")
