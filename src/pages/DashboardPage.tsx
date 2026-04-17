@@ -827,6 +827,7 @@ function KpiCards({
   revenueMode: "gross" | "net";
   snapshotSpend: number;
   snapshotSubs: number;
+  txTypeTotalsByAccount: Record<string, { messages: number; tips: number; subscriptions: number; posts: number }>;
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
