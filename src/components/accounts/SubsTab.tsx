@@ -34,13 +34,16 @@ interface LinkDelta {
   clicksGained: number;
   revenueGained: number;
   days: number;
-  hasDelta: boolean; // ≥ 2 snapshots
+  hasDelta: boolean;
 }
 
 export function SubsTab({ accountId, accLinks, modelName, avatarUrl, onRowClick }: SubsTabProps) {
   const [period, setPeriod] = useState<SubsPeriod>("since_last_sync");
 
-  // Fetch ALL snapshots for this account (cumulative). We compute deltas client-side.
+  // Fetch ALL snapshots for this account. Snapshots store DAILY DELTAS
+  // (incremental gains per day) — NOT cumulative totals — per
+  // mem://infrastructure/sync-optimization. So per-period totals are
+  // computed by SUMMING rows whose snapshot_date falls inside the window.
   const { data: snapshots = [], isLoading } = useQuery({
     queryKey: ["subs_tab_snapshots", accountId],
     queryFn: async () => {
@@ -65,143 +68,79 @@ export function SubsTab({ accountId, accLinks, modelName, avatarUrl, onRowClick 
     enabled: !!accountId,
   });
 
-  // Group snapshots per link (sorted ascending by date). Note: daily_snapshots
-  // currently store DAILY DELTAS (per memory note in useSnapshotMetrics), but
-  // the spec asks us to treat them as cumulative. We accumulate them into
-  // cumulative values to match the spec ("cumulative per day").
-  const cumulativeByLink = useMemo(() => {
-    const grouped: Record<string, { date: string; clicks: number; subs: number; rev: number }[]> = {};
-    for (const r of snapshots) {
-      const lid = String(r.tracking_link_id ?? "");
-      if (!lid || !r.snapshot_date) continue;
-      if (!grouped[lid]) grouped[lid] = [];
-      grouped[lid].push({
-        date: r.snapshot_date as string,
-        clicks: Number(r.clicks || 0),
-        subs: Number(r.subscribers || 0),
-        rev: Number(r.revenue || 0),
-      });
-    }
-    // Sort + accumulate
-    const out: Record<string, { date: string; clicks: number; subs: number; rev: number }[]> = {};
-    for (const [lid, rows] of Object.entries(grouped)) {
-      rows.sort((a, b) => a.date.localeCompare(b.date));
-      let cClicks = 0, cSubs = 0, cRev = 0;
-      out[lid] = rows.map((r) => {
-        cClicks += r.clicks;
-        cSubs += r.subs;
-        cRev += r.rev;
-        return { date: r.date, clicks: cClicks, subs: cSubs, rev: cRev };
-      });
-    }
-    return out;
-  }, [snapshots]);
-
-  // Determine the period date window based on selection
+  // Determine the period window using actual snapshot dates available.
   const periodWindow = useMemo(() => {
     if (snapshots.length === 0) return null;
-    // Find global max snapshot_date for this account
     const allDates = Array.from(new Set(snapshots.map((s: any) => s.snapshot_date as string))).sort();
     if (allDates.length === 0) return null;
     const maxDate = allDates[allDates.length - 1];
 
     if (period === "since_last_sync") {
-      if (allDates.length < 2) return { fromDate: null, toDate: maxDate, mode: "since_last_sync" as const, needsTwo: true };
-      const prevDate = allDates[allDates.length - 2];
-      return { fromDate: prevDate, toDate: maxDate, mode: "since_last_sync" as const, needsTwo: false };
+      // Just the latest snapshot date — that day's deltas = "what was gained
+      // since the previous sync".
+      if (allDates.length < 1) return { fromDate: maxDate, toDate: maxDate, days: 1, needsTwo: true };
+      return { fromDate: maxDate, toDate: maxDate, days: 1, needsTwo: false };
     }
 
     const days = period === "3d" ? 3 : period === "7d" ? 7 : period === "14d" ? 14 : 30;
-    const cutoff = subDays(new Date(maxDate + "T00:00:00Z"), days).toISOString().slice(0, 10);
-    return { fromDate: cutoff, toDate: maxDate, mode: "rolling" as const, needsTwo: false };
+    const cutoff = subDays(new Date(maxDate + "T00:00:00Z"), days - 1).toISOString().slice(0, 10);
+    return { fromDate: cutoff, toDate: maxDate, days, needsTwo: false };
   }, [snapshots, period]);
 
-  // Calculate deltas per link for selected period
+  // Sum incremental deltas per link within the selected window.
   const linkDeltas = useMemo<LinkDelta[]>(() => {
     if (!periodWindow || periodWindow.needsTwo) return [];
-    const { fromDate, toDate } = periodWindow;
+    const { fromDate, toDate, days } = periodWindow;
+
+    // Build per-link sums for snapshots inside [fromDate, toDate]
+    const sums: Record<string, { subs: number; clicks: number; rev: number; dates: Set<string> }> = {};
+    for (const r of snapshots) {
+      const lid = String(r.tracking_link_id ?? "");
+      if (!lid || !r.snapshot_date) continue;
+      const d = r.snapshot_date as string;
+      if (d < fromDate || d > toDate) continue;
+      if (!sums[lid]) sums[lid] = { subs: 0, clicks: 0, rev: 0, dates: new Set() };
+      sums[lid].subs += Math.max(0, Number(r.subscribers || 0));
+      sums[lid].clicks += Math.max(0, Number(r.clicks || 0));
+      sums[lid].rev += Math.max(0, Number(r.revenue || 0));
+      sums[lid].dates.add(d);
+    }
+
     const result: LinkDelta[] = [];
     for (const link of accLinks) {
       const lid = String(link.id);
-      const series = cumulativeByLink[lid];
-      if (!series || series.length === 0) continue;
-
-      // latest = most recent <= toDate
-      const inRange = series.filter((s) => s.date <= toDate!);
-      if (inRange.length === 0) continue;
-      const latest = inRange[inRange.length - 1];
-
-      // earliest = most recent <= fromDate (baseline BEFORE the period),
-      // OR if none, the first snapshot in the series within the window.
-      let earliest: typeof latest | null = null;
-      if (fromDate) {
-        const baseline = series.filter((s) => s.date <= fromDate);
-        if (baseline.length > 0) earliest = baseline[baseline.length - 1];
-      }
-      if (!earliest) {
-        // fall back to the earliest snapshot we have (≤ toDate)
-        earliest = inRange[0];
-      }
-
-      if (earliest.date === latest.date) {
-        // Only a single data point — cannot compute delta
-        result.push({
-          link,
-          source: getEffectiveSource(link) || "Untagged",
-          subsGained: 0,
-          clicksGained: 0,
-          revenueGained: 0,
-          days: 0,
-          hasDelta: false,
-        });
-        continue;
-      }
-
-      const subsGained = Math.max(0, latest.subs - earliest.subs);
-      const clicksGained = Math.max(0, latest.clicks - earliest.clicks);
-      const revenueGained = Math.max(0, latest.rev - earliest.rev);
-      const days = Math.max(
-        1,
-        Math.round(
-          (new Date(latest.date + "T00:00:00Z").getTime() -
-            new Date(earliest.date + "T00:00:00Z").getTime()) /
-            86400000
-        )
-      );
+      const s = sums[lid];
+      if (!s) continue;
       result.push({
         link,
         source: getEffectiveSource(link) || "Untagged",
-        subsGained,
-        clicksGained,
-        revenueGained,
+        subsGained: s.subs,
+        clicksGained: s.clicks,
+        revenueGained: s.rev,
         days,
         hasDelta: true,
       });
     }
     return result;
-  }, [accLinks, cumulativeByLink, periodWindow]);
+  }, [accLinks, snapshots, periodWindow]);
 
   const totals = useMemo(() => {
-    let totalSubs = 0, totalClicks = 0, totalRev = 0, maxDays = 0;
+    let totalSubs = 0, totalClicks = 0, totalRev = 0;
     for (const d of linkDeltas) {
-      if (!d.hasDelta) continue;
       totalSubs += d.subsGained;
       totalClicks += d.clicksGained;
       totalRev += d.revenueGained;
-      if (d.days > maxDays) maxDays = d.days;
     }
-    return { totalSubs, totalClicks, totalRev, days: maxDays };
-  }, [linkDeltas]);
+    return { totalSubs, totalClicks, totalRev, days: periodWindow?.days || 0 };
+  }, [linkDeltas, periodWindow]);
 
   const sourceAgg = useMemo(() => {
     const map: Record<string, { source: string; subs: number; clicks: number; rev: number; days: number }> = {};
     for (const d of linkDeltas) {
-      if (!d.hasDelta) continue;
-      if (!map[d.source]) map[d.source] = { source: d.source, subs: 0, clicks: 0, rev: 0, days: 0 };
+      if (!map[d.source]) map[d.source] = { source: d.source, subs: 0, clicks: 0, rev: 0, days: d.days };
       map[d.source].subs += d.subsGained;
       map[d.source].clicks += d.clicksGained;
       map[d.source].rev += d.revenueGained;
-      if (d.days > map[d.source].days) map[d.source].days = d.days;
     }
     return Object.values(map).sort((a, b) => {
       if (a.source === "Untagged" && b.source !== "Untagged") return 1;
@@ -210,14 +149,16 @@ export function SubsTab({ accountId, accLinks, modelName, avatarUrl, onRowClick 
     });
   }, [linkDeltas]);
 
-  const topSource = sourceAgg.length > 0 ? sourceAgg[0] : null;
+  const topSource = sourceAgg.find((s) => s.source !== "Untagged" && s.subs > 0) || sourceAgg[0] || null;
 
   const sortedLinkDeltas = useMemo(
     () => [...linkDeltas].sort((a, b) => b.subsGained - a.subsGained),
     [linkDeltas]
   );
 
-  const visibleLinkDeltas = sortedLinkDeltas.filter((d) => d.hasDelta);
+  const visibleLinkDeltas = sortedLinkDeltas.filter(
+    (d) => d.subsGained > 0 || d.clicksGained > 0 || d.revenueGained > 0
+  );
 
   return (
     <div className="space-y-5">
