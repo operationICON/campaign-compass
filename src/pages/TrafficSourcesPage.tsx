@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { TrafficCategoryNav } from "@/components/traffic/TrafficCategoryNav";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";

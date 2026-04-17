@@ -5,6 +5,7 @@ import { usePageFilters } from "@/hooks/usePageFilters";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
@@ -161,6 +162,10 @@ export default function CampaignsPage() {
 
   // ─── Snapshot-based time filtering (shared hook) ───
   const { snapshotLookup, isLoading: snapshotsLoading } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator — available for KPI cards on this page.
+  // Tables/sorting continue to use applySnapshotToLinks for per-link metrics.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
+  void dateScoped;
 
   // ─── Data fetching (always fetch all links) ───
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({

@@ -12,6 +12,7 @@ import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
 import { GitBranch, Users, DollarSign, Award, Percent, ChevronDown, ChevronUp } from "lucide-react";
 import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { filterLtvByActiveLinks, buildActiveLinkIdSet } from "@/lib/calc-helpers";
 
 type CampSortKey =
@@ -51,6 +52,9 @@ export default function CrossPollPage() {
 
   // Snapshot-based time filtering
   const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator — available for KPI cards.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, modelFilter !== "all" ? [modelFilter] : null);
+  void dateScoped;
 
   // Cross-poll LTV data (cumulative)
   const { data: allLtvData = [], isLoading: ltvLoading } = useQuery({

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
@@ -111,6 +112,10 @@ export default function AccountsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator (subs/clicks/revenue/spend/profit/roi/cpl/cvr/ltvSub/subsPerDay).
+  // Available for KPI cards on this page; tables continue to use applySnapshotToLinks.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
+  void dateScoped;
   const isAllTime = timePeriod === "all" && !customRange;
 
   const { data: allLinks = [] } = useQuery({

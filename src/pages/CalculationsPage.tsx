@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -121,6 +122,9 @@ export default function CalculationsPage() {
 
   // Snapshot-based time filtering
   const { snapshotLookup, isAllTime, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator — available for KPI cards.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, modelFilter !== "all" ? [modelFilter] : null);
+  void dateScoped;
 
   const { data: allLinks = [] as any[], isLoading: linksLoading } = useQuery({
     queryKey: ["calc_tracking_links"],

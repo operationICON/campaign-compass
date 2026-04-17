@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchDailyMetrics, fetchTrackingLinks, fetchAccounts, fetchTransactions } from "@/lib/supabase-helpers";
 import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -24,6 +25,9 @@ const tooltipStyle = {
 export default function ChartsPage() {
   const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange } = usePageFilters();
   const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator — available for KPI cards.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, modelFilter !== "all" ? [modelFilter] : null);
+  void dateScoped;
 
   const { data: metrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: rawLinks = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => fetchTrackingLinks() });
