@@ -411,6 +411,7 @@ export default function LogsPage() {
                   <option value="snapshot">Snapshots</option>
                   <option value="ltv">LTV</option>
                   <option value="onlytraffic">OnlyTraffic</option>
+                  <option value="ot_snapshot">OT Snapshots</option>
                 </select>
                 <select
                   value={statusFilter}
