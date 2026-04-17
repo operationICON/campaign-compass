@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount } from "@/lib/supabase-helpers";
+import { isActiveAccount } from "@/lib/calc-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -510,20 +511,25 @@ export default function DashboardPage() {
     : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
-    let accts = [...accounts];
+    // Rule definition: Unattributed = max(0, accounts.ltv_total - SUM(tracking_links.revenue))
+    // Unattributed % = unattributed / ltv_total × 100  (NULL when ltv_total <= 0)
+    let accts = accounts.filter(isActiveAccount);
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
-    const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    // Attributed = new_subs_total from tracking_link_ltv for filtered accounts
+
+    const accountTotalLtv = accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+    const accountTotalSubs = accts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const acctIds = new Set(accts.map((a: any) => a.id));
-    const attributedSubs = (trackingLinkLtv || [])
-      .filter((r: any) => acctIds.has(r.account_id))
-      .reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
-    const attributedPct = accountTotalSubs > 0 ? (attributedSubs / accountTotalSubs) * 100 : 0;
-    const pct = Math.max(0, 100 - attributedPct);
-    const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
-    return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow: false };
-  }, [accounts, modelParam, groupFilter, trackingLinkLtv]);
+
+    // Tracked revenue from non-deleted tracking_links scoped to filtered accounts
+    const trackedRevenue = (allLinks || [])
+      .filter((l: any) => acctIds.has(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+
+    const unattributed = Math.max(0, accountTotalLtv - trackedRevenue);
+    const pct = accountTotalLtv > 0 ? (unattributed / accountTotalLtv) * 100 : 0;
+    return { accountTotalLtv, accountTotalSubs, trackedRevenue, unattributed, pct, isOverflow: false };
+  }, [accounts, modelParam, groupFilter, allLinks]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
