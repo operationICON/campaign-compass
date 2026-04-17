@@ -94,10 +94,6 @@ export default function FansPage() {
     return dates.reduce((a, b) => (a > b ? a : b));
   }, [newFans]);
 
-  const isStale = useMemo(() => {
-    if (!lastUpdated) return false;
-    return Date.now() - new Date(lastUpdated).getTime() > 2 * 3600_000;
-  }, [lastUpdated]);
 
   const kpiFans = useMemo(() => selectedModelId ? newFans.filter(x => x.account_id === selectedModelId) : newFans, [newFans, selectedModelId]);
   const kpiChats = useMemo(() => selectedModelId ? chats.filter(x => x.account_id === selectedModelId) : chats, [chats, selectedModelId]);
