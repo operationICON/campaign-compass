@@ -3,7 +3,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Eye, X, Bell } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Eye, X, Bell, CheckCheck } from "lucide-react";
+import { useState } from "react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -31,10 +32,30 @@ export default function AlertsPage() {
   const unresolvedAlerts = allAlerts.filter((a: any) => !a.resolved);
   const resolvedAlerts = allAlerts.filter((a: any) => a.resolved);
 
+  const [dismissingAll, setDismissingAll] = useState(false);
+  const [confirmDismissAll, setConfirmDismissAll] = useState(false);
+
   const dismissAlert = async (id: string) => {
     const { error } = await supabase.from("alerts").update({ resolved: true, resolved_at: new Date().toISOString() }).eq("id", id);
     if (error) { toast.error("Failed to dismiss"); return; }
     toast.success("Alert dismissed");
+    queryClient.invalidateQueries({ queryKey: ["all_alerts"] });
+    queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    queryClient.invalidateQueries({ queryKey: ["alerts_unresolved"] });
+  };
+
+  const dismissAll = async () => {
+    if (!unresolvedAlerts.length) return;
+    setDismissingAll(true);
+    const ids = unresolvedAlerts.map((a: any) => a.id);
+    const { error } = await supabase
+      .from("alerts")
+      .update({ resolved: true, resolved_at: new Date().toISOString() })
+      .in("id", ids);
+    setDismissingAll(false);
+    setConfirmDismissAll(false);
+    if (error) { toast.error("Failed to dismiss all"); return; }
+    toast.success(`${ids.length} alert${ids.length !== 1 ? "s" : ""} dismissed`);
     queryClient.invalidateQueries({ queryKey: ["all_alerts"] });
     queryClient.invalidateQueries({ queryKey: ["alerts"] });
     queryClient.invalidateQueries({ queryKey: ["alerts_unresolved"] });
@@ -97,7 +118,37 @@ export default function AlertsPage() {
               <p className="text-sm text-muted-foreground">{unresolvedAlerts.length} unresolved alert{unresolvedAlerts.length !== 1 ? "s" : ""}</p>
             </div>
           </div>
-          <RefreshButton queryKeys={["all_alerts", "alerts", "alerts_unresolved"]} />
+          <div className="flex items-center gap-2">
+            {unresolvedAlerts.length > 0 && (
+              confirmDismissAll ? (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-secondary border border-border">
+                  <span className="text-xs text-foreground">Dismiss all {unresolvedAlerts.length}?</span>
+                  <button
+                    onClick={dismissAll}
+                    disabled={dismissingAll}
+                    className="px-2 py-1 rounded bg-destructive text-destructive-foreground text-[11px] font-bold hover:bg-destructive/90 disabled:opacity-50"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setConfirmDismissAll(false)}
+                    disabled={dismissingAll}
+                    className="px-2 py-1 rounded bg-background text-foreground text-[11px] hover:bg-secondary"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDismissAll(true)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-secondary text-foreground hover:bg-secondary/70 transition-colors flex items-center gap-1.5 border border-border"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" /> Dismiss all
+                </button>
+              )
+            )}
+            <RefreshButton queryKeys={["all_alerts", "alerts", "alerts_unresolved"]} />
+          </div>
         </div>
 
         {isLoading ? (
