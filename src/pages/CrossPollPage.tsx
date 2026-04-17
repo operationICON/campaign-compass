@@ -10,8 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
-import { GitBranch, Users, DollarSign, Award, Percent } from "lucide-react";
+import { GitBranch, Users, DollarSign, Award, Percent, ChevronDown, ChevronUp } from "lucide-react";
 import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
+
+type CampSortKey =
+  | "campaignName" | "modelName" | "new_subs_total" | "directLtv"
+  | "cross_poll_revenue" | "totalLtv" | "cross_poll_fans" | "cross_poll_conversion_pct";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -21,6 +25,26 @@ const fmtP = (v: number | null) =>
 
 export default function CrossPollPage() {
   const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+
+  const [sortKey, setSortKey] = useState<CampSortKey>("cross_poll_revenue");
+  const [sortAsc, setSortAsc] = useState(false);
+  const handleSort = (k: CampSortKey) => {
+    if (k === sortKey) setSortAsc(!sortAsc);
+    else { setSortKey(k); setSortAsc(false); }
+  };
+  const SortHead = ({ label, k, align = "left" }: { label: string; k: CampSortKey; align?: "left" | "right" }) => (
+    <TableHead
+      className={`text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors ${align === "right" ? "text-right" : ""}`}
+      onClick={() => handleSort(k)}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
+        {label}
+        {sortKey === k ? (
+          sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
+        ) : <ChevronDown className="h-3 w-3 opacity-30" />}
+      </span>
+    </TableHead>
+  );
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
