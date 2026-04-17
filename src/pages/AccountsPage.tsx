@@ -927,8 +927,16 @@ export default function AccountsPage() {
                           </div>
                         </div>
                       </>
-                    )}
-                  </div>
+                {activeTab === "subs" && (
+                  <SubsTab
+                    accountId={acc.id}
+                    accLinks={accLinks}
+                    modelName={acc.display_name}
+                    avatarUrl={acc.avatar_thumb_url}
+                    onRowClick={(link) => setDrawerCampaign(link)}
+                  />
+                )}
+        </div>
                 )}
         </div>
 
