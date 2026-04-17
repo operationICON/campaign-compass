@@ -318,23 +318,28 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
   return (
     <div className="space-y-5">
       {/* Date filter pills */}
-      <div className="flex flex-wrap gap-2">
-        {PERIOD_OPTIONS.map((opt) => {
-          const active = period === opt.key;
-          return (
-            <button
-              key={opt.key}
-              onClick={() => setPeriod(opt.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                active
-                  ? "border-primary text-primary bg-primary/10"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-              }`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-2">
+          {PERIOD_OPTIONS.map((opt) => {
+            const active = period === opt.key;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setPeriod(opt.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  active
+                    ? "border-primary text-primary bg-primary/10"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Extended date ranges will be available once daily sync is fully established.
+        </p>
       </div>
 
       {isLoading ? (
