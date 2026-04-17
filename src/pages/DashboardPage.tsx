@@ -25,6 +25,7 @@ import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMe
 import { usePageFilters, TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { DateAvailabilityNote } from "@/components/DateAvailabilityNote";
+import { SnapshotAccuracyNote } from "@/components/SnapshotAccuracyNote";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -665,6 +666,7 @@ export default function DashboardPage() {
 
         {/* Data availability note */}
         <DateAvailabilityNote earliestSnapshotDate={dateScoped.earliestSnapshotDate} />
+        <SnapshotAccuracyNote show={!isAllTime} />
 
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
