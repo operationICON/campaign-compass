@@ -391,7 +391,7 @@ export default function LogsPage() {
 
         {/* ═══ MANUAL SYNC NOTE ═══ */}
         <p className="text-center text-muted-foreground" style={{ fontSize: 11 }}>
-          ⓘ Syncs are run manually by ERN. Contact ERN to trigger a sync outside of the regular schedule.
+          ⓘ Syncs are run manually by LIZA. Contact LIZA to trigger a sync outside of the regular schedule.
         </p>
 
         {/* ═══ SYNC HISTORY TABLE ═══ */}
