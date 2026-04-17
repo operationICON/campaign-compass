@@ -266,13 +266,16 @@ export default function CalculationsPage() {
     },
     {
       name: "Unattributed %",
-      formula: "(Account total subs − Tracked subs) ÷ Account total subs × 100",
-      source: "accounts.subscribers_count vs SUM(tracking_links.subscribers)",
+      formula: "(Total Revenue − Tracked Revenue) ÷ Total Revenue × 100",
+      source: "(SUM(accounts.ltv_total) − SUM(tracking_links.revenue WHERE deleted_at IS NULL)) ÷ SUM(accounts.ltv_total)",
       example: (() => {
-        const apiSubs = accounts.reduce((s, a: any) => s + Number(a.subscribers_count || 0), 0);
-        const trackedSubs = links.reduce((s, l: any) => s + Number(l.subscribers || 0), 0);
-        const pct = apiSubs > 0 ? Math.max(0, ((apiSubs - trackedSubs) / apiSubs) * 100) : 0;
-        return `(${fmtN(apiSubs)} − ${fmtN(trackedSubs)}) ÷ ${fmtN(apiSubs)} = ${fmtP(pct)}`;
+        // Rule 4: only count active accounts (ltv_total>0 AND subscribers_count>0)
+        const activeAccts = accounts.filter((a: any) => Number(a.ltv_total || 0) > 0 && Number(a.subscribers_count || 0) > 0);
+        const totalRev = activeAccts.reduce((s, a: any) => s + Number(a.ltv_total || 0), 0);
+        const trackedRev = links.reduce((s, l: any) => s + Number(l.revenue || 0), 0);
+        const unattr = Math.max(0, totalRev - trackedRev);
+        const pct = totalRev > 0 ? (unattr / totalRev) * 100 : 0;
+        return `(${fmtC(totalRev)} − ${fmtC(trackedRev)}) ÷ ${fmtC(totalRev)} = ${fmtP(pct)}`;
       })(),
     },
   ];
