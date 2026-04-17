@@ -580,17 +580,51 @@ export default function AccountsPage() {
         switch (sortKey) {
           case "campaign_name": return (l.campaign_name || "").toLowerCase();
           case "source_tag": return (getEffectiveSource(l) || "zzz").toLowerCase();
+          case "marketer": return (l.onlytraffic_marketer || "zzz").toLowerCase();
           case "status": return (l.status || "zzz").toLowerCase();
           case "created_at": return l.created_at ? new Date(l.created_at).getTime() : 0;
           case "subs_day": {
             const days = l.created_at ? Math.max(1, differenceInDays(new Date(), new Date(l.created_at))) : 1;
             return Number(l.subscribers || 0) / days;
           }
+          case "cvr": {
+            const c = Number(l.clicks || 0);
+            return c > 0 ? (Number(l.subscribers || 0) / c) * 100 : -Infinity;
+          }
+          case "spend": return Number(l.cost_total || 0);
           case "cross_poll": {
             const ltvR = ltvLookup[String(l.id).toLowerCase()];
             return ltvR ? Number(ltvR.cross_poll_revenue || 0) : -1;
           }
-          case "profit": return Number(l.revenue || 0) - Number(l.cost_total || 0);
+          case "profit": {
+            const sp = Number(l.cost_total || 0);
+            return sp > 0 ? Number(l.revenue || 0) - sp : -Infinity;
+          }
+          case "profit_sub": {
+            const sp = Number(l.cost_total || 0);
+            const subs = Number(l.subscribers || 0);
+            return sp > 0 && subs > 0 ? (Number(l.revenue || 0) - sp) / subs : -Infinity;
+          }
+          case "ltv_sub": {
+            const subs = Number(l.subscribers || 0);
+            return subs > 0 ? Number(l.revenue || 0) / subs : -Infinity;
+          }
+          case "cpl": {
+            const sp = Number(l.cost_total || 0);
+            const subs = Number(l.subscribers || 0);
+            const pt = (l.payment_type || "").toUpperCase();
+            return pt === "CPL" && sp > 0 && subs > 0 ? sp / subs : -Infinity;
+          }
+          case "cpc": {
+            const sp = Number(l.cost_total || 0);
+            const c = Number(l.clicks || 0);
+            const pt = (l.payment_type || "").toUpperCase();
+            return pt === "CPC" && sp > 0 && c > 0 ? sp / c : -Infinity;
+          }
+          case "roi": {
+            const sp = Number(l.cost_total || 0);
+            return sp > 0 ? ((Number(l.revenue || 0) - sp) / sp) * 100 : -Infinity;
+          }
           default: return Number(l[sortKey] || 0);
         }
       };
