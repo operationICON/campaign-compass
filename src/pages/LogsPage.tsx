@@ -391,7 +391,7 @@ export default function LogsPage() {
 
         {/* ═══ MANUAL SYNC NOTE ═══ */}
         <p className="text-center text-muted-foreground" style={{ fontSize: 11 }}>
-          ⓘ Syncs are run manually by ERN. Contact ERN to trigger a sync outside of the regular schedule.
+          ⓘ Syncs are run manually by LIZA. Contact LIZA to trigger a sync outside of the regular schedule.
         </p>
 
         {/* ═══ SYNC HISTORY TABLE ═══ */}
@@ -516,7 +516,7 @@ export default function LogsPage() {
                               </span>
                             </td>
                             <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
-                              {log.triggered_by ? (log.triggered_by === "manual" ? "ERN (manual)" : log.triggered_by) : "—"}
+                              {log.triggered_by ? (log.triggered_by === "manual" ? "LIZA (manual)" : log.triggered_by) : "—"}
                             </td>
                             <td className="py-2.5 px-4 text-muted-foreground max-w-[250px] truncate">
                               {status === "error" ? (
