@@ -137,7 +137,7 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
     return deduped;
   }, [spenders, newFanSet, linkLookup, accountLookup]);
 
-  // Apply filters
+  // Apply filters + sort
   const filteredRows = useMemo(() => {
     let rows = detailRows;
     if (globalModelFilter !== "all") {
@@ -149,8 +149,14 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
     if (destFilter !== "all") {
       rows = rows.filter(r => r.destAccountId === destFilter);
     }
-    return rows.slice(0, 200);
-  }, [detailRows, globalModelFilter, sourceFilter, destFilter]);
+    const dir = sortAsc ? 1 : -1;
+    const sorted = [...rows].sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey];
+      if (typeof va === "string" && typeof vb === "string") return dir * va.localeCompare(vb);
+      return dir * ((Number(va) || 0) - (Number(vb) || 0));
+    });
+    return sorted.slice(0, 200);
+  }, [detailRows, globalModelFilter, sourceFilter, destFilter, sortKey, sortAsc]);
 
   return (
     <Card className="bg-card border-border">
@@ -187,12 +193,12 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
         <Table>
           <TableHeader>
             <TableRow className="border-border">
-              <TableHead className="text-muted-foreground">Source Campaign</TableHead>
-              <TableHead className="text-muted-foreground">Source Model</TableHead>
-              <TableHead className="text-muted-foreground">Fan ID</TableHead>
-              <TableHead className="text-muted-foreground">Spent On Model</TableHead>
-              <TableHead className="text-muted-foreground">Spent On Campaign</TableHead>
-              <TableHead className="text-muted-foreground text-right">Revenue</TableHead>
+              <SortHead label="Source Campaign" k="sourceCampaign" />
+              <SortHead label="Source Model" k="sourceModel" />
+              <SortHead label="Fan ID" k="fanId" />
+              <SortHead label="Spent On Model" k="spentOnModel" />
+              <SortHead label="Spent On Campaign" k="spentOnCampaign" />
+              <SortHead label="Revenue" k="revenue" align="right" />
             </TableRow>
           </TableHeader>
           <TableBody>
