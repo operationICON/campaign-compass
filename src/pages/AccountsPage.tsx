@@ -631,8 +631,17 @@ export default function AccountsPage() {
                   <div />
                   <div />
                 </div>
+              </div>
+            </div>
+          </div>
 
-                {/* PART 6 — Revenue Breakdown (reuses overview card logic, expanded by default) */}
+          {/* Row 2: Revenue Breakdown (full width) */}
+          {(() => {
+            const _placeholder = null;
+            return null;
+          })()}
+
+          {/* PART 6 — Revenue Breakdown (reuses overview card logic, expanded by default) */}
                 {Number(acc.ltv_total || 0) > 0 && (() => {
                   const ltvT = Number(acc.ltv_total || 0);
                   const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
