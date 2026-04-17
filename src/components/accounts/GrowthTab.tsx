@@ -18,11 +18,14 @@ import { ArrowDown, ArrowUp, Zap, Trophy } from "lucide-react";
 
 type GrowthPeriod = "since_last_sync" | "7d" | "14d" | "30d";
 
+// NOTE: Extended ranges (7d/14d/30d) are temporarily hidden from the UI until
+// daily sync is fully established. The filter logic is preserved — just unhide
+// the entries below to re-enable.
 const PERIOD_OPTIONS: { key: GrowthPeriod; label: string }[] = [
   { key: "since_last_sync", label: "Since last sync" },
-  { key: "7d", label: "Last 7 days" },
-  { key: "14d", label: "Last 14 days" },
-  { key: "30d", label: "Last 30 days" },
+  // { key: "7d", label: "Last 7 days" },
+  // { key: "14d", label: "Last 14 days" },
+  // { key: "30d", label: "Last 30 days" },
 ];
 
 const fmtCurrency = (v: number) =>
@@ -315,23 +318,28 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
   return (
     <div className="space-y-5">
       {/* Date filter pills */}
-      <div className="flex flex-wrap gap-2">
-        {PERIOD_OPTIONS.map((opt) => {
-          const active = period === opt.key;
-          return (
-            <button
-              key={opt.key}
-              onClick={() => setPeriod(opt.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                active
-                  ? "border-primary text-primary bg-primary/10"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-              }`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-2">
+          {PERIOD_OPTIONS.map((opt) => {
+            const active = period === opt.key;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setPeriod(opt.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  active
+                    ? "border-primary text-primary bg-primary/10"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Extended date ranges will be available once daily sync is fully established.
+        </p>
       </div>
 
       {isLoading ? (
