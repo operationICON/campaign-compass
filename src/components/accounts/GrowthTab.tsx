@@ -5,6 +5,7 @@ import { TagBadge } from "@/components/TagBadge";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { subDays } from "date-fns";
 import { ArrowDown, ArrowUp, Zap, Trophy } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 /**
  * Growth tab — replaces Subs tab.

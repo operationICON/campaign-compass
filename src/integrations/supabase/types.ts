@@ -35,6 +35,7 @@ export type Database = {
           ltv_tips: number | null
           ltv_total: number | null
           ltv_updated_at: string | null
+          numeric_of_id: number | null
           onlyfans_account_id: string
           performer_top: number | null
           subscribe_price: number | null
@@ -63,6 +64,7 @@ export type Database = {
           ltv_tips?: number | null
           ltv_total?: number | null
           ltv_updated_at?: string | null
+          numeric_of_id?: number | null
           onlyfans_account_id: string
           performer_top?: number | null
           subscribe_price?: number | null
@@ -91,6 +93,7 @@ export type Database = {
           ltv_tips?: number | null
           ltv_total?: number | null
           ltv_updated_at?: string | null
+          numeric_of_id?: number | null
           onlyfans_account_id?: string
           performer_top?: number | null
           subscribe_price?: number | null
