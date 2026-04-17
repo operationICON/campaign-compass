@@ -917,8 +917,8 @@ function KpiCards({
         let profitPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtvTotal = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-          const totalSubsCount = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          const accountsLtvTotal = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const totalSubsCount = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
@@ -1044,7 +1044,7 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        const accountsLtv5 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const accountsLtv5 = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         const campaignRevenue5 = allTimeRevenue;
         const unattribVal = Math.max(0, accountsLtv5 - campaignRevenue5);
         const pct = accountsLtv5 > 0
@@ -1084,7 +1084,7 @@ function KpiCards({
       case "total_revenue": {
         let revVal: number | null = null;
         let subtitle = "";
-        const activeAccts = filtAccounts.filter((a: any) => a.is_active !== false);
+        const activeAccts = filtAccounts.filter(isActiveAccount);
         const accountsLtvTotal = activeAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         if (isAllTime) {
           revVal = accountsLtvTotal * revMultiplier;
@@ -1119,7 +1119,7 @@ function KpiCards({
       // ═══ TOTAL SUBS (always accounts.subscribers_count) ═══
       case "total_subs": {
         const totalSubsVal = filtAccounts
-          .filter((a: any) => a.is_active !== false)
+          .filter(isActiveAccount)
           .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
         const subsSubtitle = "Active subscribers across all models · All time";
         return (
@@ -1192,7 +1192,7 @@ function KpiCards({
 
       // ═══ TOTAL PROFIT ═══
       case "total_profit": {
-        const activeAcctsTP = filtAccounts.filter((a: any) => a.is_active !== false);
+        const activeAcctsTP = filtAccounts.filter(isActiveAccount);
         const tpRev = isAllTime ? activeAcctsTP.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
         const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const tpVal = tpRev - tpSpend;
@@ -1219,7 +1219,7 @@ function KpiCards({
 
       // ═══ ROI ═══
       case "blended_roi": {
-        const activeAcctsROI = filtAccounts.filter((a: any) => a.is_active !== false);
+        const activeAcctsROI = filtAccounts.filter(isActiveAccount);
         const roiRev = isAllTime ? activeAcctsROI.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
         const roiSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const roiProfit = roiRev - roiSpend;
