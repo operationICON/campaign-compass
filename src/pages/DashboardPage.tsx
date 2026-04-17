@@ -23,6 +23,8 @@ import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } fro
 import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import { usePageFilters, TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
+import { DateAvailabilityNote } from "@/components/DateAvailabilityNote";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -150,6 +152,9 @@ export default function DashboardPage() {
     () => getOverviewSnapshotRange(timePeriod, customRange),
     [timePeriod, customRange]
   );
+
+  // Shared date-scoped metrics (subs/clicks/revenue/spend/profit/roi/cpl/cvr/ltvSub/subsPerDay)
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, agencyAccountIds);
 
   const {
     data: overviewSnapshotRows = [],
@@ -657,6 +662,9 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
+
+        {/* Data availability note */}
+        <DateAvailabilityNote earliestSnapshotDate={dateScoped.earliestSnapshotDate} />
 
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
