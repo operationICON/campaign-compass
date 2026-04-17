@@ -663,6 +663,9 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* Data availability note */}
+        <DateAvailabilityNote earliestSnapshotDate={dateScoped.earliestSnapshotDate} />
+
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
           isLoading={isLoading}
