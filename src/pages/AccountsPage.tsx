@@ -563,6 +563,7 @@ export default function AccountsPage() {
             <ArrowLeft className="h-4 w-4" /> All Models
           </button>
 
+          {/* Row 1: Profile sidebar + KPI grid */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex flex-col md:flex-row">
               <div className="md:w-[30%] p-6 border-b md:border-b-0 md:border-r border-border flex flex-col items-center text-center">
