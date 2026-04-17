@@ -1,0 +1,1 @@
+UPDATE public.alerts SET resolved = true, resolved_at = now() WHERE resolved = false;
