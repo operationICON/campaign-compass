@@ -59,7 +59,7 @@ export function PageFilterBar({
             <Tooltip key={tp.key}>
               <TooltipTrigger asChild>{btn}</TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
-                ⓘ Figures for this period may not be fully accurate. All Time data is always reliable.
+                ⓘ Figures for this period are preliminary and updating.
               </TooltipContent>
             </Tooltip>
           );
