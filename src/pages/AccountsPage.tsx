@@ -929,9 +929,6 @@ export default function AccountsPage() {
                     )}
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Campaign drawer for clickable rows */}
