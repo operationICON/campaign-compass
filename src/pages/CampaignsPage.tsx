@@ -1083,6 +1083,27 @@ export default function CampaignsPage() {
                                   </td>
                                   );
                                 }
+                                case "cpl": {
+                                  const types = costTypeMap[link.id];
+                                  const label = deriveCostLabel(types || new Set());
+                                  const subs = link.subscribers || 0;
+                                  const clicks = link.clicks || 0;
+                                  const metric = calcCostMetric(label, costTotal, subs, clicks);
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {label && metric.value !== null ? (
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold leading-none bg-muted text-muted-foreground">
+                                            {metric.label}
+                                          </span>
+                                          <span className="text-foreground">{metric.display}</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                      )}
+                                    </td>
+                                  );
+                                }
                                 case "profit": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {hasCost ? (
