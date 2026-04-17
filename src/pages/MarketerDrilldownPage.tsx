@@ -208,7 +208,8 @@ export default function MarketerDrilldownPage() {
           case "revenue": return r.revenue;
           case "profit": return r.profit;
           case "ltv": return r.ltv ?? -Infinity;
-          case "cpl": return r.cplCpc ?? -Infinity;
+          case "cpl": return r.cplValue ?? -Infinity;
+          case "cpc": return r.cpcValue ?? -Infinity;
           case "cvr": return r.cvr ?? -Infinity;
           case "roi": return r.roi ?? -Infinity;
           default: return 0;
@@ -259,17 +260,28 @@ export default function MarketerDrilldownPage() {
       const ltv = subs > 0 ? revenue / subs : null;
 
       const costTypes = new Set<CostTypeFromOrder>();
+      let cplSpend = 0, cplSubs = 0, cpcSpend = 0;
+      let hasCpc = false;
       tlOrders.forEach(o => {
         const ct = getCostTypeFromOrderId(o.order_id);
         if (ct) costTypes.add(ct);
+        if (ct === "CPL") {
+          cplSpend += Number(o.total_spent || 0);
+          cplSubs += o.quantity_delivered || 0;
+        } else if (ct === "CPC") {
+          cpcSpend += Number(o.total_spent || 0);
+          hasCpc = true;
+        }
       });
       const costLabel = deriveCostLabel(costTypes);
       const costMetric = calcCostMetric(costLabel, costTotal, subs, clicks);
+      const cplValue = cplSubs > 0 ? cplSpend / cplSubs : null;
+      const cpcValue = hasCpc && clicks > 0 ? cpcSpend / clicks : null;
 
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const roi = hasSpend ? ((revenue - costTotal) / costTotal) * 100 : null;
 
-      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc: costMetric.value, costDisplay: costMetric.display, costLabel, cvr, roi, campaignName: tl.campaign_name, url: tl.url };
+      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc: costMetric.value, costDisplay: costMetric.display, costLabel, cplValue, cpcValue, cvr, roi, campaignName: tl.campaign_name, url: tl.url };
     }).filter(Boolean).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [expandedModel, orders, trackingLinks, modelRows]);
 
