@@ -16,7 +16,7 @@ const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigit
 const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
-type SortKey = "model" | "campaigns" | "subs" | "clicks" | "spend" | "revenue" | "profit" | "ltv" | "cpl" | "cvr" | "roi";
+type SortKey = "model" | "campaigns" | "subs" | "clicks" | "spend" | "revenue" | "profit" | "ltv" | "cpl" | "cpc" | "cvr" | "roi";
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
   if (!active) return <ChevronDown className="h-3 w-3 inline ml-0.5 opacity-20" />;
