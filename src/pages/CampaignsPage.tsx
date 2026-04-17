@@ -205,6 +205,43 @@ export default function CampaignsPage() {
     },
   });
 
+  // ─── OnlyTraffic orders for CPL/CPC derivation ───
+  const { data: otOrders = [] } = useQuery({
+    queryKey: ["ot_orders_for_cost_type"],
+    queryFn: async () => {
+      const all: any[] = [];
+      let from = 0;
+      const batch = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("onlytraffic_orders")
+          .select("tracking_link_id, order_id")
+          .not("tracking_link_id", "is", null)
+          .range(from, from + batch - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < batch) break;
+        from += batch;
+      }
+      return all;
+    },
+  });
+
+  // tracking_link_id → Set of CPL|CPC types derived from order_id prefix
+  const costTypeMap = useMemo(() => {
+    const m: Record<string, Set<CostTypeFromOrder>> = {};
+    for (const o of otOrders) {
+      const tlId = o.tracking_link_id;
+      if (!tlId) continue;
+      const t = getCostTypeFromOrderId(o.order_id);
+      if (!t) continue;
+      if (!m[tlId]) m[tlId] = new Set();
+      m[tlId].add(t);
+    }
+    return m;
+  }, [otOrders]);
+
   
   const tagColorMap = useTagColors();
 
