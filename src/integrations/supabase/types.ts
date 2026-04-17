@@ -1331,6 +1331,7 @@ export type Database = {
           media_buyer: string | null
           needs_full_sync: boolean | null
           needs_spend: boolean | null
+          offer_id: number | null
           onlytraffic_marketer: string | null
           onlytraffic_order_id: string | null
           onlytraffic_order_type: string | null
@@ -1383,6 +1384,7 @@ export type Database = {
           media_buyer?: string | null
           needs_full_sync?: boolean | null
           needs_spend?: boolean | null
+          offer_id?: number | null
           onlytraffic_marketer?: string | null
           onlytraffic_order_id?: string | null
           onlytraffic_order_type?: string | null
@@ -1435,6 +1437,7 @@ export type Database = {
           media_buyer?: string | null
           needs_full_sync?: boolean | null
           needs_spend?: boolean | null
+          offer_id?: number | null
           onlytraffic_marketer?: string | null
           onlytraffic_order_id?: string | null
           onlytraffic_order_type?: string | null
