@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  UserPlus, DollarSign, MessageCircle, Bell, RefreshCw, Info, X,
+  UserPlus, DollarSign, MessageCircle, Bell, RefreshCw, X,
   ArrowLeft, Copy, ExternalLink, ChevronDown, Check,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,7 +41,6 @@ export default function FansPage() {
   const queryClient = useQueryClient();
   const { timePeriod, setTimePeriod, customRange, setCustomRange } = usePageFilters();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 
@@ -95,10 +94,6 @@ export default function FansPage() {
     return dates.reduce((a, b) => (a > b ? a : b));
   }, [newFans]);
 
-  const isStale = useMemo(() => {
-    if (!lastUpdated) return false;
-    return Date.now() - new Date(lastUpdated).getTime() > 2 * 3600_000;
-  }, [lastUpdated]);
 
   const kpiFans = useMemo(() => selectedModelId ? newFans.filter(x => x.account_id === selectedModelId) : newFans, [newFans, selectedModelId]);
   const kpiChats = useMemo(() => selectedModelId ? chats.filter(x => x.account_id === selectedModelId) : chats, [chats, selectedModelId]);
@@ -206,13 +201,6 @@ export default function FansPage() {
           </div>
         </div>
 
-        {isStale && !bannerDismissed && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[12px] text-blue-300">
-            <Info className="h-4 w-4 shrink-0 text-blue-400" />
-            <span className="flex-1">Fan data is cached and updated manually. Click refresh to reload.</span>
-            <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-blue-500/20 rounded"><X className="h-3.5 w-3.5" /></button>
-          </div>
-        )}
 
         {/* FILTER ROW */}
         <div className="flex items-center justify-between flex-wrap gap-3">
