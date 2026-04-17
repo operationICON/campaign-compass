@@ -689,7 +689,7 @@ export default function DashboardPage() {
           hasSnapshotData={hasSnapshotData}
           organicRevenue={(() => {
             // Filter accounts by agency/model selection
-            let accts = [...accounts];
+            let accts = accounts.filter(isActiveAccount);
             if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
             else if (groupFilter !== "all") accts = accts.filter((a: any) => {
               const username = (a.username || "").replace("@", "");
@@ -824,9 +824,11 @@ function KpiCards({
   const noDataForPeriod = !hasSnapshotData && !isAllTime;
 
   // ── Filter accounts by model/group selection ──
-  const filtAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam)
-    : groupFilter !== "all" ? accounts.filter((a: any) => getAccountCategory(a) === groupFilter)
-    : accounts;
+  // Rule 4: globally exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
+  const activeAccounts = useMemo(() => accounts.filter(isActiveAccount), [accounts]);
+  const filtAccounts = modelParam ? activeAccounts.filter((a: any) => a.id === modelParam)
+    : groupFilter !== "all" ? activeAccounts.filter((a: any) => getAccountCategory(a) === groupFilter)
+    : activeAccounts;
 
   // ── All Time base values from tracking_links ──
   const allTimeRevenue = allLinks
