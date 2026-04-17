@@ -259,6 +259,21 @@ export default function CampaignsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
+  // ─── Deep-link from /campaigns?id=<tracking_link_id> (e.g. AlertsPage View button) ───
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id || !allLinks.length) return;
+    const link = allLinks.find((l: any) => String(l.id) === String(id));
+    if (link) {
+      setDrawerCampaign(link);
+      // Clear the param so re-opens of the page don't re-trigger.
+      const next = new URLSearchParams(searchParams);
+      next.delete("id");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, allLinks, setSearchParams]);
+
+
   const deleteSpendMutation = useMutation({
     mutationFn: deleteAdSpend,
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["ad_spend"] }); toast.success("Spend deleted"); },
