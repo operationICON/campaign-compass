@@ -128,8 +128,8 @@ export default function CampaignsPage() {
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
 
-  // ─── Column order + visibility ───
-  const columnOrder = useColumnOrder("campaigns_columns", ALL_COLUMNS);
+  // ─── Column order + visibility (v2 = standard order rolled out) ───
+  const columnOrder = useColumnOrder("campaigns_columns_v2", ALL_COLUMNS);
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
   const col = (id: string) => columnOrder.isVisible(id);
 
