@@ -56,7 +56,7 @@ const ALL_COLUMNS = [
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
-  { id: "cpl", label: "CPL/CPC", defaultOn: true },
+  { id: "cpl", label: "CPL", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
@@ -900,7 +900,7 @@ export default function CampaignsPage() {
                             );
                             case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
-                            case "cpl": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>CPL/CPC</th>;
+                            case "cpl": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>CPL</th>;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
