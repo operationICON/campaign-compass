@@ -26,18 +26,19 @@ interface ItemDef<T extends string> {
 }
 
 const KPI_CARDS: ItemDef<OverviewKpiCardId>[] = [
-  // Default visible cards
+  // Row 1 — defaults (5 cards)
   { id: "profit_per_sub", label: "Profit/Sub", defaultOn: true },
   { id: "ltv_per_sub", label: "LTV/Sub", defaultOn: true },
   { id: "cpl", label: "CPL", defaultOn: true },
   { id: "subs_per_day", label: "Subs/Day", defaultOn: true },
+  { id: "unattributed_pct", label: "Unattributed %", defaultOn: true },
+  // Row 2 — defaults (5 cards)
+  { id: "total_revenue", label: "Total Revenue", defaultOn: true },
+  { id: "expenses", label: "Expenses", defaultOn: true },
+  { id: "total_profit", label: "Total Profit", defaultOn: true },
+  { id: "avg_expenses", label: "Avg Expenses", defaultOn: true },
+  { id: "blended_roi", label: "ROI", defaultOn: true },
   // Hidden by default (in Customize panel)
-  { id: "total_revenue", label: "Total Revenue", defaultOn: false },
-  { id: "unattributed_pct", label: "Unattributed %", defaultOn: false },
-  { id: "expenses", label: "Expenses", defaultOn: false },
-  { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
-  { id: "total_profit", label: "Total Profit", defaultOn: false },
-  { id: "blended_roi", label: "ROI", defaultOn: false },
   { id: "active_campaigns", label: "Active Tracking Links", defaultOn: false },
   { id: "best_source", label: "Best Source", defaultOn: false },
   { id: "total_subs", label: "Total Subs", defaultOn: false },
@@ -61,7 +62,7 @@ const MODEL_COMP_COLS: ItemDef<ModelCompColId>[] = [
 
 const CT_PREFS_KEY = "ct_kpi_preferences";
 const CT_PREFS_VERSION_KEY = "ct_kpi_prefs_version";
-const CT_PREFS_CURRENT_VERSION = 2;
+const CT_PREFS_CURRENT_VERSION = 3;
 
 interface CtPrefs {
   overview_kpi?: string[];

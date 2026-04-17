@@ -41,31 +41,37 @@ import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "status" | "last_synced" | "avg_expenses";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
+// Standard column order: Tracking Link is rendered as a fixed column.
+// Order below: Source | Marketer | Clicks | Subs | Subs/Day | CVR | Spend |
+//              Revenue | Cross-Poll | Profit | Profit/Sub | LTV/Sub | CPL |
+//              CPC | ROI | Status | Created
 const ALL_COLUMNS = [
-  { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
-  { id: "clicks", label: "Clicks", defaultOn: false },
-  { id: "subscribers", label: "Subscribers", defaultOn: false },
-  { id: "cvr", label: "CVR", defaultOn: false },
+  { id: "marketer", label: "Marketer", defaultOn: true },
+  { id: "clicks", label: "Clicks", defaultOn: true },
+  { id: "subscribers", label: "Subs", defaultOn: true },
+  { id: "subs_day", label: "Subs/Day", defaultOn: true },
+  { id: "cvr", label: "CVR", defaultOn: true },
+  { id: "expenses", label: "Spend", defaultOn: true },
   { id: "revenue", label: "Revenue", defaultOn: true },
-  
-  { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
-  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
-  { id: "spender_rate", label: "Spender %", defaultOn: false },
-  { id: "expenses", label: "Expenses", defaultOn: true },
-  { id: "cpl", label: "CPL", defaultOn: true },
+  { id: "cross_poll", label: "Cross-Poll", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
+  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
+  { id: "cpl", label: "CPL", defaultOn: true },
+  { id: "cpc", label: "CPC", defaultOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
   { id: "status", label: "Status", defaultOn: true },
-  { id: "subs_day", label: "Subs/Day", defaultOn: true },
-  { id: "created", label: "Created", defaultOn: false },
-  { id: "last_synced", label: "Last Synced", defaultOn: true },
+  { id: "created", label: "Created", defaultOn: true },
+  // Optional / hidden by default
+  { id: "model", label: "Model", defaultOn: false },
+  { id: "spender_rate", label: "Spender %", defaultOn: false },
+  { id: "last_synced", label: "Last Synced", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
@@ -122,8 +128,8 @@ export default function CampaignsPage() {
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
 
-  // ─── Column order + visibility ───
-  const columnOrder = useColumnOrder("campaigns_columns", ALL_COLUMNS);
+  // ─── Column order + visibility (v2 = standard order rolled out) ───
+  const columnOrder = useColumnOrder("campaigns_columns_v2", ALL_COLUMNS);
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
   const col = (id: string) => columnOrder.isVisible(id);
 
@@ -485,6 +491,14 @@ export default function CampaignsPage() {
         case "cross_poll": aVal = a.crossPollRevenue ?? -Infinity; bVal = b.crossPollRevenue ?? -Infinity; break;
         case "spender_rate": aVal = Number(a.spender_rate ?? -Infinity); bVal = Number(b.spender_rate ?? -Infinity); break;
         case "cpl": aVal = Number(a.cpl_real ?? a.cost_per_lead ?? -Infinity); bVal = Number(b.cpl_real ?? b.cost_per_lead ?? -Infinity); break;
+        case "cpc": {
+          const aSpend = Number(a.cost_total || 0); const aClk = Number(a.clicks || 0);
+          const bSpend = Number(b.cost_total || 0); const bClk = Number(b.clicks || 0);
+          aVal = aSpend > 0 && aClk > 0 ? aSpend / aClk : -Infinity;
+          bVal = bSpend > 0 && bClk > 0 ? bSpend / bClk : -Infinity;
+          break;
+        }
+        case "marketer": aVal = (a.onlytraffic_marketer || "zzz").toLowerCase(); bVal = (b.onlytraffic_marketer || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "status": {
           aVal = (a.computedStatus || "zzz").toLowerCase();
           bVal = (b.computedStatus || "zzz").toLowerCase();
@@ -932,8 +946,10 @@ export default function CampaignsPage() {
                               <SortHeader key={c.id} label="LTV/Sub" sortKeyName="ltv_sub_all" width="75px" />
                             );
                             case "spender_rate": return <SortHeader key={c.id} label="Spender %" sortKeyName="spender_rate" width="75px" />;
-                            case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
+                            case "marketer": return <SortHeader key={c.id} label="Marketer" sortKeyName="marketer" width="100px" />;
+                            case "expenses": return <SortHeader key={c.id} label="Spend" sortKeyName="cost_total" width="90px" />;
                             case "cpl": return <SortHeader key={c.id} label="CPL" sortKeyName="cpl" width="90px" />;
+                            case "cpc": return <SortHeader key={c.id} label="CPC" sortKeyName="cpc" width="80px" />;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
@@ -1250,6 +1266,20 @@ export default function CampaignsPage() {
                                     })()}
                                   </td>
                                 );
+                                case "marketer": return (
+                                  <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.onlytraffic_marketer ? <span className="text-foreground/80">{link.onlytraffic_marketer}</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "cpc": {
+                                  const clk = Number(link.clicks || 0);
+                                  const cpcVal = hasCost && clk > 0 ? costTotal / clk : null;
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {cpcVal !== null ? <span className="text-foreground">${cpcVal.toFixed(4)}</span> : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                  );
+                                }
                                 case "media_buyer": return (
                                   <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
