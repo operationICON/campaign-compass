@@ -14,6 +14,7 @@ import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearTrackingLinkSpend, setTrackingLinkSourceTag, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import { isActiveAccount } from "@/lib/calc-helpers";
 import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
@@ -67,7 +68,7 @@ const KPI_CARDS: KpiDef[] = [
   { id: "tagged", label: "Tagged Campaigns", defaultOn: true },
   { id: "untagged", label: "Untagged", defaultOn: true },
   { id: "total_spend", label: "Total Spend", defaultOn: true },
-  { id: "total_revenue", label: "Total Revenue", defaultOn: true },
+  { id: "total_revenue", label: "Tracked Revenue", defaultOn: true },
   { id: "blended_roi", label: "ROI %", defaultOn: true },
   { id: "total_profit", label: "Total Profit", defaultOn: false },
   { id: "avg_cpl", label: "Avg CPL", defaultOn: false },
@@ -402,7 +403,7 @@ export default function TrafficSourcesPage() {
     const untaggedNoActivity = untaggedLinks.filter((l: any) => Number(l.revenue || 0) === 0 && Number(l.cost_total || 0) === 0).length;
 
     const totalRevenue = dateAccountFiltered.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    const totalSubscribers = accounts.filter((a: any) => a.is_active).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    const totalSubscribers = accounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const totalClicks = dateAccountFiltered.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
     // Active Sources = distinct source_tag from OnlyTraffic links
@@ -785,7 +786,7 @@ export default function TrafficSourcesPage() {
       icon: <DollarSign className="h-4 w-4" />,
       color: "#dc2626",
     },
-    total_revenue: { label: "Total Revenue", value: fmtC(kpis.totalRevenue), sub: "All time · campaign revenue", icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
+    total_revenue: { label: "Tracked Revenue", value: fmtC(kpis.totalRevenue), sub: "Revenue from tracking links · all time", icon: <TrendingUp className="h-4 w-4" />, color: "#16a34a" },
     blended_roi: { label: "ROI %", value: kpis.totalSpend > 0 ? fmtPct(kpis.blendedRoi) : "—", sub: kpis.totalSpend > 0 ? (kpis.blendedRoi > 0 ? "Profitable" : "Negative") : "No spend data", icon: <Percent className="h-4 w-4" />, color: kpis.blendedRoi > 0 ? "#16a34a" : kpis.totalSpend > 0 ? "#dc2626" : "#94a3b8" },
     total_profit: { label: "Total Profit", value: kpis.totalSpend > 0 ? fmtC(kpis.totalProfit) : "—", icon: <TrendingUp className="h-4 w-4" />, color: kpis.totalProfit > 0 ? "#16a34a" : "#dc2626" },
     avg_cpl: { label: "Avg CPL", value: kpis.avgCpl > 0 ? fmtC(kpis.avgCpl) : "—", icon: <DollarSign className="h-4 w-4" />, color: "#0891b2" },

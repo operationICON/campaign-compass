@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount } from "@/lib/supabase-helpers";
+import { isActiveAccount } from "@/lib/calc-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -510,20 +511,25 @@ export default function DashboardPage() {
     : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
-    let accts = [...accounts];
+    // Rule definition: Unattributed = max(0, accounts.ltv_total - SUM(tracking_links.revenue))
+    // Unattributed % = unattributed / ltv_total × 100  (NULL when ltv_total <= 0)
+    let accts = accounts.filter(isActiveAccount);
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
-    const accountTotalSubs = accts.reduce((s: number, a: any) => s + (a.subscribers_count || 0), 0);
-    // Attributed = new_subs_total from tracking_link_ltv for filtered accounts
+
+    const accountTotalLtv = accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+    const accountTotalSubs = accts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const acctIds = new Set(accts.map((a: any) => a.id));
-    const attributedSubs = (trackingLinkLtv || [])
-      .filter((r: any) => acctIds.has(r.account_id))
-      .reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
-    const attributedPct = accountTotalSubs > 0 ? (attributedSubs / accountTotalSubs) * 100 : 0;
-    const pct = Math.max(0, 100 - attributedPct);
-    const unattributed = Math.max(0, accountTotalSubs - attributedSubs);
-    return { accountTotalSubs, attributedSubs, unattributed, pct, isOverflow: false };
-  }, [accounts, modelParam, groupFilter, trackingLinkLtv]);
+
+    // Tracked revenue from non-deleted tracking_links scoped to filtered accounts
+    const trackedRevenue = (allLinks || [])
+      .filter((l: any) => acctIds.has(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+
+    const unattributed = Math.max(0, accountTotalLtv - trackedRevenue);
+    const pct = accountTotalLtv > 0 ? (unattributed / accountTotalLtv) * 100 : 0;
+    return { accountTotalLtv, accountTotalSubs, trackedRevenue, unattributed, pct, isOverflow: false };
+  }, [accounts, modelParam, groupFilter, allLinks]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -683,7 +689,7 @@ export default function DashboardPage() {
           hasSnapshotData={hasSnapshotData}
           organicRevenue={(() => {
             // Filter accounts by agency/model selection
-            let accts = [...accounts];
+            let accts = accounts.filter(isActiveAccount);
             if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
             else if (groupFilter !== "all") accts = accts.filter((a: any) => {
               const username = (a.username || "").replace("@", "");
@@ -818,9 +824,11 @@ function KpiCards({
   const noDataForPeriod = !hasSnapshotData && !isAllTime;
 
   // ── Filter accounts by model/group selection ──
-  const filtAccounts = modelParam ? accounts.filter((a: any) => a.id === modelParam)
-    : groupFilter !== "all" ? accounts.filter((a: any) => getAccountCategory(a) === groupFilter)
-    : accounts;
+  // Rule 4: globally exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
+  const activeAccounts = useMemo(() => accounts.filter(isActiveAccount), [accounts]);
+  const filtAccounts = modelParam ? activeAccounts.filter((a: any) => a.id === modelParam)
+    : groupFilter !== "all" ? activeAccounts.filter((a: any) => getAccountCategory(a) === groupFilter)
+    : activeAccounts;
 
   // ── All Time base values from tracking_links ──
   const allTimeRevenue = allLinks
@@ -911,8 +919,8 @@ function KpiCards({
         let profitPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtvTotal = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-          const totalSubsCount = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          const accountsLtvTotal = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const totalSubsCount = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
@@ -1038,7 +1046,7 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        const accountsLtv5 = filtAccounts.filter((a: any) => a.is_active !== false).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const accountsLtv5 = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         const campaignRevenue5 = allTimeRevenue;
         const unattribVal = Math.max(0, accountsLtv5 - campaignRevenue5);
         const pct = accountsLtv5 > 0
@@ -1078,7 +1086,7 @@ function KpiCards({
       case "total_revenue": {
         let revVal: number | null = null;
         let subtitle = "";
-        const activeAccts = filtAccounts.filter((a: any) => a.is_active !== false);
+        const activeAccts = filtAccounts.filter(isActiveAccount);
         const accountsLtvTotal = activeAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         if (isAllTime) {
           revVal = accountsLtvTotal * revMultiplier;
@@ -1113,7 +1121,7 @@ function KpiCards({
       // ═══ TOTAL SUBS (always accounts.subscribers_count) ═══
       case "total_subs": {
         const totalSubsVal = filtAccounts
-          .filter((a: any) => a.is_active !== false)
+          .filter(isActiveAccount)
           .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
         const subsSubtitle = "Active subscribers across all models · All time";
         return (
@@ -1186,7 +1194,7 @@ function KpiCards({
 
       // ═══ TOTAL PROFIT ═══
       case "total_profit": {
-        const activeAcctsTP = filtAccounts.filter((a: any) => a.is_active !== false);
+        const activeAcctsTP = filtAccounts.filter(isActiveAccount);
         const tpRev = isAllTime ? activeAcctsTP.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
         const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const tpVal = tpRev - tpSpend;
@@ -1213,7 +1221,7 @@ function KpiCards({
 
       // ═══ ROI ═══
       case "blended_roi": {
-        const activeAcctsROI = filtAccounts.filter((a: any) => a.is_active !== false);
+        const activeAcctsROI = filtAccounts.filter(isActiveAccount);
         const roiRev = isAllTime ? activeAcctsROI.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
         const roiSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const roiProfit = roiRev - roiSpend;
