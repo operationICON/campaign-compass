@@ -82,8 +82,8 @@ export default function LogsPage() {
   
 
   // Running state per sync type
-  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false });
-  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "" });
+  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false, ot_snapshot: false });
+  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "", ot_snapshot: "" });
   const abortRefs = useRef<Record<string, AbortController>>({});
 
   useEffect(() => {
