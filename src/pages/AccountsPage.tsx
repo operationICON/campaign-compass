@@ -48,7 +48,7 @@ const AVATAR_COLORS = [
   "from-purple-400 to-violet-500",
 ];
 
-type SortKey = "campaign_name" | "source_tag" | "revenue" | "clicks" | "subscribers" | "subs_day" | "cross_poll" | "profit" | "roi" | "status" | "created_at";
+type SortKey = "campaign_name" | "source_tag" | "marketer" | "revenue" | "clicks" | "subscribers" | "subs_day" | "cvr" | "spend" | "cross_poll" | "profit" | "profit_sub" | "ltv_sub" | "cpl" | "cpc" | "roi" | "status" | "created_at";
 type SourceSortKey = "source" | "activeLinks" | "subs" | "subsDay" | "spend" | "revenue" | "cpl" | "cpc" | "cvr" | "profit" | "roi";
 type CardSortKey = "spend" | "ltv_per_sub" | "subscribers" | "active_links" | "alpha";
 
