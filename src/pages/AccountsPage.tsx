@@ -476,7 +476,8 @@ export default function AccountsPage() {
           case "source": return g.source.toLowerCase();
           case "activeLinks": return g.activeLinks;
           case "subs": return g.subs;
-          case "subsDay": return sourceSubsPerDay[g.source] ?? 0;
+          case "subsDay": return 0; // sorted via secondary effect; raw subs as proxy below
+          case "subsDayProxy": return g.subs;
           case "cvr": return g.clicks > 0 ? (g.subs / g.clicks) : -Infinity;
           case "cplCpc": return getCplCpcLabel(g.costTypes).toLowerCase();
           case "spend": return g.spend;
