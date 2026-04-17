@@ -78,7 +78,7 @@ function getModelColor(username: string | null): string {
   return MODEL_COLORS[username.replace("@", "").toLowerCase()] || "#94a3b8";
 }
 
-import { STATUS_STYLES, STATUS_LABELS, calcStatus, calcProfit, calcRoi, calcCvr, calcAgencyTotals, calcStatusFromRoi, getEffectiveRevenue } from "@/lib/calc-helpers";
+import { STATUS_STYLES, STATUS_LABELS, calcStatus, calcProfit, calcRoi, calcCvr, calcAgencyTotals, calcStatusFromRoi, getEffectiveRevenue, getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { EstBadge } from "@/components/EstBadge";
 
 function getAgePill(days: number) {
