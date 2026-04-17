@@ -741,6 +741,7 @@ export default function DashboardPage() {
           revenueMode={revenueMode}
           snapshotSpend={snapshotSpend}
           snapshotSubs={snapshotSubs}
+          txTypeTotalsByAccount={txTypeTotalsByAccount}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
@@ -794,6 +795,7 @@ function KpiCards({
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
   trackingLinkLtv, revMultiplier, revenueMode,
   snapshotSpend, snapshotSubs,
+  txTypeTotalsByAccount,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
