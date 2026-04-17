@@ -105,7 +105,7 @@ export default function LogsPage() {
 
   // Build status cards from last log per type
   const statusCards = useMemo(() => {
-    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, ltv: null, onlytraffic: null };
+    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, ltv: null, onlytraffic: null, ot_snapshot: null };
     for (const log of classifiedLogs) {
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
