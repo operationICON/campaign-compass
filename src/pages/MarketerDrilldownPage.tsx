@@ -430,17 +430,18 @@ export default function MarketerDrilldownPage() {
           ) : (
             <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
               <colgroup>
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "8%" }} />
+                <col style={{ width: "17%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "9%" }} />
                 <col style={{ width: "7%" }} />
                 <col style={{ width: "7%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "6.5%" }} />
-                <col style={{ width: "6.5%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "5%" }} />
               </colgroup>
               <TableHeader>
                 <TableRow className="border-border">
@@ -460,7 +461,8 @@ export default function MarketerDrilldownPage() {
                   </TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profit")}>Profit <SortIcon active={sortKey === "profit"} asc={sortAsc} /></TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltv")}>LTV <SortIcon active={sortKey === "ltv"} asc={sortAsc} /></TableHead>
-                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cpl")}>CPL/CPC <SortIcon active={sortKey === "cpl"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cpl")}>CPL <SortIcon active={sortKey === "cpl"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cpc")}>CPC <SortIcon active={sortKey === "cpc"} asc={sortAsc} /></TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cvr")}>CVR <SortIcon active={sortKey === "cvr"} asc={sortAsc} /></TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon active={sortKey === "roi"} asc={sortAsc} /></TableHead>
                 </TableRow>
