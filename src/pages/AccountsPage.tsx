@@ -13,6 +13,7 @@ import { isActiveAccount } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
+import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { GrowthTab } from "@/components/accounts/GrowthTab";
 
@@ -48,7 +49,7 @@ const AVATAR_COLORS = [
   "from-purple-400 to-violet-500",
 ];
 
-type SortKey = "campaign_name" | "source_tag" | "revenue" | "clicks" | "subscribers" | "subs_day" | "cross_poll" | "profit" | "roi" | "status" | "created_at";
+type SortKey = "campaign_name" | "source_tag" | "marketer" | "revenue" | "clicks" | "subscribers" | "subs_day" | "cvr" | "spend" | "cross_poll" | "profit" | "profit_sub" | "ltv_sub" | "cpl" | "cpc" | "roi" | "status" | "created_at";
 type SourceSortKey = "source" | "activeLinks" | "subs" | "subsDay" | "spend" | "revenue" | "cpl" | "cpc" | "cvr" | "profit" | "roi";
 type CardSortKey = "spend" | "ltv_per_sub" | "subscribers" | "active_links" | "alpha";
 
@@ -580,17 +581,51 @@ export default function AccountsPage() {
         switch (sortKey) {
           case "campaign_name": return (l.campaign_name || "").toLowerCase();
           case "source_tag": return (getEffectiveSource(l) || "zzz").toLowerCase();
+          case "marketer": return (l.onlytraffic_marketer || "zzz").toLowerCase();
           case "status": return (l.status || "zzz").toLowerCase();
           case "created_at": return l.created_at ? new Date(l.created_at).getTime() : 0;
           case "subs_day": {
             const days = l.created_at ? Math.max(1, differenceInDays(new Date(), new Date(l.created_at))) : 1;
             return Number(l.subscribers || 0) / days;
           }
+          case "cvr": {
+            const c = Number(l.clicks || 0);
+            return c > 0 ? (Number(l.subscribers || 0) / c) * 100 : -Infinity;
+          }
+          case "spend": return Number(l.cost_total || 0);
           case "cross_poll": {
             const ltvR = ltvLookup[String(l.id).toLowerCase()];
             return ltvR ? Number(ltvR.cross_poll_revenue || 0) : -1;
           }
-          case "profit": return Number(l.revenue || 0) - Number(l.cost_total || 0);
+          case "profit": {
+            const sp = Number(l.cost_total || 0);
+            return sp > 0 ? Number(l.revenue || 0) - sp : -Infinity;
+          }
+          case "profit_sub": {
+            const sp = Number(l.cost_total || 0);
+            const subs = Number(l.subscribers || 0);
+            return sp > 0 && subs > 0 ? (Number(l.revenue || 0) - sp) / subs : -Infinity;
+          }
+          case "ltv_sub": {
+            const subs = Number(l.subscribers || 0);
+            return subs > 0 ? Number(l.revenue || 0) / subs : -Infinity;
+          }
+          case "cpl": {
+            const sp = Number(l.cost_total || 0);
+            const subs = Number(l.subscribers || 0);
+            const pt = (l.payment_type || "").toUpperCase();
+            return pt === "CPL" && sp > 0 && subs > 0 ? sp / subs : -Infinity;
+          }
+          case "cpc": {
+            const sp = Number(l.cost_total || 0);
+            const c = Number(l.clicks || 0);
+            const pt = (l.payment_type || "").toUpperCase();
+            return pt === "CPC" && sp > 0 && c > 0 ? sp / c : -Infinity;
+          }
+          case "roi": {
+            const sp = Number(l.cost_total || 0);
+            return sp > 0 ? ((Number(l.revenue || 0) - sp) / sp) * 100 : -Infinity;
+          }
           default: return Number(l[sortKey] || 0);
         }
       };
@@ -804,12 +839,19 @@ export default function AccountsPage() {
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Tracking Link <SortIcon col="campaign_name" /></th>
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("source_tag")}>Source <SortIcon col="source_tag" /></th>
+                            <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("marketer")}>Marketer <SortIcon col="marketer" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>Subs/Day <SortIcon col="subs_day" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>CVR <SortIcon col="cvr" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>Spend <SortIcon col="spend" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>Revenue <SortIcon col="revenue" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cross_poll")}>Cross-Poll <SortIcon col="cross_poll" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit_sub")}>Profit/Sub <SortIcon col="profit_sub" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("ltv_sub")}>LTV/Sub <SortIcon col="ltv_sub" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpl")}>CPL <SortIcon col="cpl" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpc")}>CPC <SortIcon col="cpc" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
                             <th className="text-center py-2 px-3 cursor-pointer" onClick={() => toggleSort("status")}>Status <SortIcon col="status" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("created_at")}>Created <SortIcon col="created_at" /></th>
@@ -818,13 +860,23 @@ export default function AccountsPage() {
                         <tbody>
                           {sortedLinks.map((l: any) => {
                             const status = getStatus(l);
-                            const hasSpend = Number(l.cost_total || 0) > 0;
+                            const spend = Number(l.cost_total || 0);
+                            const hasSpend = spend > 0;
                             const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
                             const crossPoll = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
                             const revVal = Number(l.revenue || 0);
-                            const profit = revVal - Number(l.cost_total || 0);
+                            const subsVal = Number(l.subscribers || 0);
+                            const clicksVal = Number(l.clicks || 0);
+                            const profit = revVal - spend;
+                            const profitSub = hasSpend && subsVal > 0 ? profit / subsVal : null;
+                            const ltvSub = subsVal > 0 ? revVal / subsVal : null;
+                            const cvr = clicksVal > 0 ? (subsVal / clicksVal) * 100 : null;
+                            const paymentType = (l.payment_type || "").toUpperCase();
+                            const cplVal = paymentType === "CPL" && hasSpend && subsVal > 0 ? spend / subsVal : null;
+                            const cpcVal = paymentType === "CPC" && hasSpend && clicksVal > 0 ? spend / clicksVal : null;
+                            const roiVal = hasSpend ? (profit / spend) * 100 : null;
                             const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
-                            const subsPerDay = daysActive && daysActive > 0 && l.subscribers > 0 ? (l.subscribers / daysActive).toFixed(0) : null;
+                            const subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;
                             return (
                               <tr
                                 key={l.id}
@@ -832,19 +884,28 @@ export default function AccountsPage() {
                                 onClick={() => setDrawerCampaign({ ...l, avatarUrl: acc.avatar_thumb_url, modelName: acc.display_name })}
                               >
                                 <td className="py-3 px-3">
-                                  <p className="font-medium text-foreground text-[12px] truncate max-w-[200px]">{l.campaign_name || "—"}</p>
-                                  <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{l.url}</p>
+                                  <p className="font-bold text-foreground text-[12px] truncate max-w-[220px]">{l.campaign_name || "—"}</p>
+                                  <p className="text-[10px] text-muted-foreground truncate max-w-[220px]">{l.url}</p>
                                 </td>
                                 <td className="py-3 px-3 text-[12px]">
-                                  <TagBadge tagName={l.source_tag} />
+                                  <TagBadge tagName={getEffectiveSource(l)} />
                                 </td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.clicks)}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(l.subscribers)}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{subsPerDay ? `${subsPerDay}/day` : "—"}</td>
+                                <td className="py-3 px-3 text-[12px] text-foreground/80">
+                                  {l.onlytraffic_marketer || <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(clicksVal)}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(subsVal)}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">
+                                  {subsPerDay != null ? `${subsPerDay.toFixed(1)}/day` : "—"}
+                                </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  <span className="font-semibold text-foreground">
-                                    {fmtCurrency(revVal)}
-                                  </span>
+                                  {cvr != null ? fmtPct(cvr) : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {hasSpend ? fmtCurrency(spend) : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  <span className="font-semibold text-primary">{fmtCurrency(revVal)}</span>
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {crossPoll !== null && crossPoll > 0 ? (
@@ -854,14 +915,26 @@ export default function AccountsPage() {
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend ? (profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
                                   {hasSpend ? fmtCurrency(profit) : "—"}
                                 </td>
-                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend && l.roi != null ? (l.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                                  {hasSpend && l.roi != null ? fmtPct(l.roi) : "—"}
+                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${profitSub != null ? (profitSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
+                                  {profitSub != null ? fmtCurrency(profitSub) : "—"}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {ltvSub != null ? <span className="text-primary font-semibold">{fmtCurrency(ltvSub)}</span> : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {cplVal != null ? fmtCurrency(cplVal) : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {cpcVal != null ? `$${cpcVal.toFixed(4)}` : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${roiVal != null ? (roiVal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
+                                  {roiVal != null ? fmtPct(roiVal) : "—"}
                                 </td>
                                 <td className="text-center py-3 px-3">
                                   <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${status.cls}`}>{status.label}</span>
                                 </td>
-                                <td className="text-right py-3 px-3 text-[11px] text-muted-foreground">
-                                  {safeFormat(l.created_at, "MMM d, yyyy")}
+                                <td className="text-right py-3 px-3">
+                                  <CampaignAgePill createdAt={l.created_at} clicks={clicksVal} revenue={revVal} />
                                 </td>
                               </tr>
                             );
