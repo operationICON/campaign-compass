@@ -631,13 +631,8 @@ export default function AccountsPage() {
                   <div />
                   <div />
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Row 2: Revenue Breakdown (full width) */}
-
-          {/* PART 6 — Revenue Breakdown (reuses overview card logic, expanded by default) */}
+                {/* PART 6 — Revenue Breakdown (compact, borderless, inside KPI area) */}
                 {Number(acc.ltv_total || 0) > 0 && (() => {
                   const ltvT = Number(acc.ltv_total || 0);
                   const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
@@ -667,8 +662,8 @@ export default function AccountsPage() {
                       : [];
 
                   return (
-                    <div id="revenue-breakdown-detail" className="bg-card border border-border rounded-xl p-4 mb-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Revenue Breakdown</p>
+                    <div id="revenue-breakdown-detail" className="mt-3 pt-3 border-t border-border/50">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Revenue Breakdown</p>
                       <div className="space-y-2 text-[12px]">
                         <div className="space-y-1.5 pb-2 border-b border-border/50">
                           <div className="flex items-center justify-between">
@@ -710,6 +705,9 @@ export default function AccountsPage() {
                     </div>
                   );
                 })()}
+              </div>
+            </div>
+          </div>
 
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
