@@ -48,3 +48,4 @@ Statistics: Require minimum 5 subscribers for campaign performance rankings to e
 - [Table details](mem://features/traffic-source-management/level-3-table-details) — Age pills and payment type badges
 - [Side panel](mem://features/traffic-source-management/side-panel-behavior) — Persistently visible source panel
 - [Consolidated nav](mem://features/traffic-source-management/sources-navigation-consolidated) — 'Manual' category consolidation
+- [Unattributed breakdown](mem://features/dashboard/unattributed-breakdown) — By-type breakdown sourced from transactions, not accounts.ltv_*
