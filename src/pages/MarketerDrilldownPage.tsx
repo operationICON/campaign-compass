@@ -16,7 +16,7 @@ const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigit
 const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
-type SortKey = "model" | "campaigns" | "subs" | "clicks" | "spend" | "revenue" | "profit" | "ltv" | "cpl" | "cvr" | "roi";
+type SortKey = "model" | "campaigns" | "subs" | "clicks" | "spend" | "revenue" | "profit" | "ltv" | "cpl" | "cpc" | "cvr" | "roi";
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
   if (!active) return <ChevronDown className="h-3 w-3 inline ml-0.5 opacity-20" />;
@@ -133,9 +133,19 @@ export default function MarketerDrilldownPage() {
 
       let clicks = 0, revenue = 0;
       const costTypes = new Set<CostTypeFromOrder>();
+      // Split spend/subs by order type for separate CPL/CPC
+      let cplSpend = 0, cplSubs = 0, cpcSpend = 0;
+      const cpcLinkIds = new Set<string>();
       g.orders.forEach(o => {
         const ct = getCostTypeFromOrderId(o.order_id);
         if (ct) costTypes.add(ct);
+        if (ct === "CPL") {
+          cplSpend += Number(o.total_spent || 0);
+          cplSubs += o.quantity_delivered || 0;
+        } else if (ct === "CPC") {
+          cpcSpend += Number(o.total_spent || 0);
+          if (o.tracking_link_id) cpcLinkIds.add(o.tracking_link_id);
+        }
       });
       g.tlIds.forEach(tlId => {
         const tl = tlMap[tlId];
@@ -144,9 +154,16 @@ export default function MarketerDrilldownPage() {
           revenue += Number(tl.revenue || 0);
         }
       });
+      let cpcClicks = 0;
+      cpcLinkIds.forEach(tlId => {
+        const tl = tlMap[tlId];
+        if (tl) cpcClicks += tl.clicks || 0;
+      });
 
       const costLabel = deriveCostLabel(costTypes);
       const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+      const cplValue = cplSubs > 0 ? cplSpend / cplSubs : null;
+      const cpcValue = cpcClicks > 0 ? cpcSpend / cpcClicks : null;
       const profit = revenue - spend;
       const ltv = subs > 0 ? revenue / subs : null;
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
@@ -157,7 +174,9 @@ export default function MarketerDrilldownPage() {
         username: acc?.username || null,
         displayName: acc?.display_name || "Unknown",
         avatarUrl: acc?.avatar_thumb_url || acc?.avatar_url || null,
-        campaignCount, subs, clicks, spend, revenue, profit, ltv, cplCpc: costMetric.value, cvr, roi, costLabel, costDisplay: costMetric.display,
+        campaignCount, subs, clicks, spend, revenue, profit, ltv,
+        cplCpc: costMetric.value, cvr, roi, costLabel, costDisplay: costMetric.display,
+        cplValue, cpcValue,
       };
     });
   }, [orders, trackingLinks, accounts]);
@@ -189,7 +208,8 @@ export default function MarketerDrilldownPage() {
           case "revenue": return r.revenue;
           case "profit": return r.profit;
           case "ltv": return r.ltv ?? -Infinity;
-          case "cpl": return r.cplCpc ?? -Infinity;
+          case "cpl": return r.cplValue ?? -Infinity;
+          case "cpc": return r.cpcValue ?? -Infinity;
           case "cvr": return r.cvr ?? -Infinity;
           case "roi": return r.roi ?? -Infinity;
           default: return 0;
@@ -240,17 +260,28 @@ export default function MarketerDrilldownPage() {
       const ltv = subs > 0 ? revenue / subs : null;
 
       const costTypes = new Set<CostTypeFromOrder>();
+      let cplSpend = 0, cplSubs = 0, cpcSpend = 0;
+      let hasCpc = false;
       tlOrders.forEach(o => {
         const ct = getCostTypeFromOrderId(o.order_id);
         if (ct) costTypes.add(ct);
+        if (ct === "CPL") {
+          cplSpend += Number(o.total_spent || 0);
+          cplSubs += o.quantity_delivered || 0;
+        } else if (ct === "CPC") {
+          cpcSpend += Number(o.total_spent || 0);
+          hasCpc = true;
+        }
       });
       const costLabel = deriveCostLabel(costTypes);
       const costMetric = calcCostMetric(costLabel, costTotal, subs, clicks);
+      const cplValue = cplSubs > 0 ? cplSpend / cplSubs : null;
+      const cpcValue = hasCpc && clicks > 0 ? cpcSpend / clicks : null;
 
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
       const roi = hasSpend ? ((revenue - costTotal) / costTotal) * 100 : null;
 
-      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc: costMetric.value, costDisplay: costMetric.display, costLabel, cvr, roi, campaignName: tl.campaign_name, url: tl.url };
+      return { ...tl, orderCount, subs, clicks: tl.clicks, costTotal, revenue, profit, ltv, cplCpc: costMetric.value, costDisplay: costMetric.display, costLabel, cplValue, cpcValue, cvr, roi, campaignName: tl.campaign_name, url: tl.url };
     }).filter(Boolean).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [expandedModel, orders, trackingLinks, modelRows]);
 
@@ -399,17 +430,18 @@ export default function MarketerDrilldownPage() {
           ) : (
             <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
               <colgroup>
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "8%" }} />
+                <col style={{ width: "17%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "9%" }} />
                 <col style={{ width: "7%" }} />
                 <col style={{ width: "7%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "6.5%" }} />
-                <col style={{ width: "6.5%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "5%" }} />
               </colgroup>
               <TableHeader>
                 <TableRow className="border-border">
@@ -429,7 +461,8 @@ export default function MarketerDrilldownPage() {
                   </TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("profit")}>Profit <SortIcon active={sortKey === "profit"} asc={sortAsc} /></TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("ltv")}>LTV <SortIcon active={sortKey === "ltv"} asc={sortAsc} /></TableHead>
-                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cpl")}>CPL/CPC <SortIcon active={sortKey === "cpl"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cpl")}>CPL <SortIcon active={sortKey === "cpl"} asc={sortAsc} /></TableHead>
+                  <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cpc")}>CPC <SortIcon active={sortKey === "cpc"} asc={sortAsc} /></TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("cvr")}>CVR <SortIcon active={sortKey === "cvr"} asc={sortAsc} /></TableHead>
                   <TableHead className={`${thClass} text-right`} onClick={() => handleSort("roi")}>ROI <SortIcon active={sortKey === "roi"} asc={sortAsc} /></TableHead>
                 </TableRow>
@@ -470,7 +503,8 @@ export default function MarketerDrilldownPage() {
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(row.revenue)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: pColor }}>{row.profit >= 0 ? `+${fmtC(row.profit)}` : fmtC(row.profit)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.ltv !== null ? fmtC(row.ltv) : "—"}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.costDisplay || "—"}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.cplValue !== null ? fmtC(row.cplValue) : "—"}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.cpcValue !== null ? fmtC(row.cpcValue) : "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: cvrColor }}>{row.cvr !== null ? fmtPct(row.cvr) : "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor }}>{row.roi !== null ? fmtPct(row.roi) : "—"}</TableCell>
                       </TableRow>
@@ -478,21 +512,22 @@ export default function MarketerDrilldownPage() {
                       {/* Expanded sub-table */}
                       {isExpanded && (
                         <TableRow className="border-border">
-                          <TableCell colSpan={11} className="p-0">
+                          <TableCell colSpan={12} className="p-0">
                             <div className="bg-background/50 border-t border-border">
                               <table className="w-full table-fixed text-sm">
                                  <colgroup>
-                                   <col style={{ width: "18%" }} />
-                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "17%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "6%" }} />
+                                   <col style={{ width: "6%" }} />
+                                   <col style={{ width: "9%" }} />
+                                   <col style={{ width: "10%" }} />
+                                   <col style={{ width: "9%" }} />
                                    <col style={{ width: "7%" }} />
                                    <col style={{ width: "7%" }} />
-                                   <col style={{ width: "10%" }} />
-                                   <col style={{ width: "11%" }} />
-                                   <col style={{ width: "10%" }} />
-                                   <col style={{ width: "8%" }} />
-                                   <col style={{ width: "8%" }} />
-                                   <col style={{ width: "6.5%" }} />
-                                   <col style={{ width: "6.5%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "5%" }} />
+                                   <col style={{ width: "5%" }} />
                                  </colgroup>
                                  <thead>
                                   <tr className="border-b border-border">
@@ -504,7 +539,8 @@ export default function MarketerDrilldownPage() {
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Revenue</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Profit</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">LTV</th>
-                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CPL/CPC</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CPL</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CPC</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CVR</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">ROI</th>
                                   </tr>
@@ -534,7 +570,8 @@ export default function MarketerDrilldownPage() {
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: "hsl(var(--primary))" }}>{fmtC(c.revenue)}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cProfitColor }}>{c.profit !== null ? (c.profit >= 0 ? `+${fmtC(c.profit)}` : fmtC(c.profit)) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.ltv !== null ? fmtC(c.ltv) : "—"}</td>
-                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.costDisplay || "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.cplValue !== null ? fmtC(c.cplValue) : "—"}</td>
+                                        <td className="text-right font-mono px-2" style={{ fontSize: "11px" }}>{c.cpcValue !== null ? fmtC(c.cpcValue) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cCvrColor }}>{c.cvr !== null ? fmtPct(c.cvr) : "—"}</td>
                                         <td className="text-right font-mono px-2" style={{ fontSize: "11px", color: cRoiColor }}>{c.roi !== null ? fmtPct(c.roi) : "—"}</td>
                                       </tr>
