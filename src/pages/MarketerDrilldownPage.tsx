@@ -503,7 +503,8 @@ export default function MarketerDrilldownPage() {
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{fmtC(row.revenue)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: pColor }}>{row.profit >= 0 ? `+${fmtC(row.profit)}` : fmtC(row.profit)}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.ltv !== null ? fmtC(row.ltv) : "—"}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.costDisplay || "—"}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.cplValue !== null ? fmtC(row.cplValue) : "—"}</TableCell>
+                        <TableCell className="text-right font-mono" style={{ fontSize: "13px" }}>{row.cpcValue !== null ? fmtC(row.cpcValue) : "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: cvrColor }}>{row.cvr !== null ? fmtPct(row.cvr) : "—"}</TableCell>
                         <TableCell className="text-right font-mono" style={{ fontSize: "13px", color: roiColor }}>{row.roi !== null ? fmtPct(row.roi) : "—"}</TableCell>
                       </TableRow>
@@ -511,21 +512,22 @@ export default function MarketerDrilldownPage() {
                       {/* Expanded sub-table */}
                       {isExpanded && (
                         <TableRow className="border-border">
-                          <TableCell colSpan={11} className="p-0">
+                          <TableCell colSpan={12} className="p-0">
                             <div className="bg-background/50 border-t border-border">
                               <table className="w-full table-fixed text-sm">
                                  <colgroup>
-                                   <col style={{ width: "18%" }} />
-                                   <col style={{ width: "8%" }} />
+                                   <col style={{ width: "17%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "6%" }} />
+                                   <col style={{ width: "6%" }} />
+                                   <col style={{ width: "9%" }} />
+                                   <col style={{ width: "10%" }} />
+                                   <col style={{ width: "9%" }} />
                                    <col style={{ width: "7%" }} />
                                    <col style={{ width: "7%" }} />
-                                   <col style={{ width: "10%" }} />
-                                   <col style={{ width: "11%" }} />
-                                   <col style={{ width: "10%" }} />
-                                   <col style={{ width: "8%" }} />
-                                   <col style={{ width: "8%" }} />
-                                   <col style={{ width: "6.5%" }} />
-                                   <col style={{ width: "6.5%" }} />
+                                   <col style={{ width: "7%" }} />
+                                   <col style={{ width: "5%" }} />
+                                   <col style={{ width: "5%" }} />
                                  </colgroup>
                                  <thead>
                                   <tr className="border-b border-border">
@@ -537,7 +539,8 @@ export default function MarketerDrilldownPage() {
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Revenue</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">Profit</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">LTV</th>
-                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CPL/CPC</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CPL</th>
+                                    <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CPC</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">CVR</th>
                                     <th className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap py-1.5 px-2">ROI</th>
                                   </tr>
