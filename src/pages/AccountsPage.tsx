@@ -125,10 +125,23 @@ export default function AccountsPage() {
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
-  const { data: trackingLinkLtv = [] } = useQuery({
+  const { data: trackingLinkLtvRaw = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
     queryFn: fetchTrackingLinkLtv,
   });
+  // RULE: exclude tracking_link_ltv rows whose tracking link has deleted_at IS NOT NULL.
+  // We scope by the set of non-deleted link IDs from `allLinks` (already filtered).
+  const activeLinkIdSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const l of allLinks) s.add(String(l.id).toLowerCase());
+    return s;
+  }, [allLinks]);
+  const trackingLinkLtv = useMemo(() => {
+    if (activeLinkIdSet.size === 0) return trackingLinkLtvRaw;
+    return trackingLinkLtvRaw.filter((r: any) =>
+      activeLinkIdSet.has(String(r.tracking_link_id ?? "").toLowerCase())
+    );
+  }, [trackingLinkLtvRaw, activeLinkIdSet]);
 
   // Fetch daily_snapshots for performance charts
   const { data: dailySnapshots = [] } = useQuery({
