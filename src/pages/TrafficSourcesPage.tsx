@@ -4,7 +4,7 @@ import { usePageFilters } from "@/hooks/usePageFilters";
 import { TrafficCategoryNav } from "@/components/traffic/TrafficCategoryNav";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
-import { SnapshotAccuracyNote } from "@/components/SnapshotAccuracyNote";
+import { DateAccuracyBanner } from "@/components/DateAccuracyBanner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
@@ -813,7 +813,7 @@ export default function TrafficSourcesPage() {
           onModelFilterChange={setPageModelFilter}
           accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
         />
-        <SnapshotAccuracyNote show={!(timePeriod === "all" && !customRange)} />
+        <DateAccuracyBanner show={!(timePeriod === "all" && !customRange)} />
 
         {/* TOP SECTION — KPIs left + Source Card right (Level 1 only) */}
         {navLevel === 1 && (

@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
-import { SnapshotAccuracyNote } from "@/components/SnapshotAccuracyNote";
+import { DateAccuracyBanner } from "@/components/DateAccuracyBanner";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -1122,7 +1122,7 @@ export default function AccountsPage() {
           revenueMode={revenueMode}
           onRevenueModeChange={setRevenueMode}
         />
-        <SnapshotAccuracyNote show={!isAllTime} />
+        <DateAccuracyBanner show={!isAllTime} />
 
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex gap-2 flex-wrap">

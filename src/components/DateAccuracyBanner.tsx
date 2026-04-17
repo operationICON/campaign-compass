@@ -47,7 +47,7 @@ export function DateAccuracyBanner({ show }: Props) {
     >
       <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
       <span className="flex-1 leading-snug">
-        Date filtered metrics are being improved. Subs/Day and Revenue figures for date ranges may be inaccurate until the next sync. All Time figures are fully accurate.
+        Date filtered figures use daily snapshot data and may be incomplete. All Time is fully accurate.
       </span>
       <button
         onClick={handleDismiss}

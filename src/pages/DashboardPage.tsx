@@ -24,8 +24,6 @@ import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import { usePageFilters, TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
-import { DateAvailabilityNote } from "@/components/DateAvailabilityNote";
-import { SnapshotAccuracyNote } from "@/components/SnapshotAccuracyNote";
 import { DateAccuracyBanner } from "@/components/DateAccuracyBanner";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -665,9 +663,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Data availability note */}
-        <DateAvailabilityNote earliestSnapshotDate={dateScoped.earliestSnapshotDate} />
-        <SnapshotAccuracyNote show={!isAllTime} />
+        {/* Data availability / accuracy note */}
         <DateAccuracyBanner show={!isAllTime} />
 
         {/* ═══ KPI CARDS ═══ */}
