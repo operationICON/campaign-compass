@@ -153,6 +153,9 @@ export default function DashboardPage() {
     [timePeriod, customRange]
   );
 
+  // Shared date-scoped metrics (subs/clicks/revenue/spend/profit/roi/cpl/cvr/ltvSub/subsPerDay)
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, agencyAccountIds);
+
   const {
     data: overviewSnapshotRows = [],
     isLoading: overviewSnapshotsLoading,
