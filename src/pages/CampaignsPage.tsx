@@ -56,6 +56,7 @@ const ALL_COLUMNS = [
   { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
   { id: "expenses", label: "Expenses", defaultOn: true },
+  { id: "cpl", label: "CPL/CPC", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
@@ -77,7 +78,7 @@ function getModelColor(username: string | null): string {
   return MODEL_COLORS[username.replace("@", "").toLowerCase()] || "#94a3b8";
 }
 
-import { STATUS_STYLES, STATUS_LABELS, calcStatus, calcProfit, calcRoi, calcCvr, calcAgencyTotals, calcStatusFromRoi, getEffectiveRevenue } from "@/lib/calc-helpers";
+import { STATUS_STYLES, STATUS_LABELS, calcStatus, calcProfit, calcRoi, calcCvr, calcAgencyTotals, calcStatusFromRoi, getEffectiveRevenue, getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { EstBadge } from "@/components/EstBadge";
 
 function getAgePill(days: number) {
@@ -203,6 +204,43 @@ export default function CampaignsPage() {
       return data || [];
     },
   });
+
+  // ─── OnlyTraffic orders for CPL/CPC derivation ───
+  const { data: otOrders = [] } = useQuery({
+    queryKey: ["ot_orders_for_cost_type"],
+    queryFn: async () => {
+      const all: any[] = [];
+      let from = 0;
+      const batch = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("onlytraffic_orders")
+          .select("tracking_link_id, order_id")
+          .not("tracking_link_id", "is", null)
+          .range(from, from + batch - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < batch) break;
+        from += batch;
+      }
+      return all;
+    },
+  });
+
+  // tracking_link_id → Set of CPL|CPC types derived from order_id prefix
+  const costTypeMap = useMemo(() => {
+    const m: Record<string, Set<CostTypeFromOrder>> = {};
+    for (const o of otOrders) {
+      const tlId = o.tracking_link_id;
+      if (!tlId) continue;
+      const t = getCostTypeFromOrderId(o.order_id);
+      if (!t) continue;
+      if (!m[tlId]) m[tlId] = new Set();
+      m[tlId].add(t);
+    }
+    return m;
+  }, [otOrders]);
 
   
   const tagColorMap = useTagColors();
@@ -862,6 +900,7 @@ export default function CampaignsPage() {
                             );
                             case "spender_rate": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "75px" }}>Spender %</th>;
                             case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
+                            case "cpl": return <th key={c.id} className="text-right whitespace-nowrap bg-card text-muted-foreground" style={{ ...thStyle, width: "90px" }}>CPL/CPC</th>;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
@@ -1042,6 +1081,27 @@ export default function CampaignsPage() {
                                       )}
                                     </div>
                                   </td>
+                                  );
+                                }
+                                case "cpl": {
+                                  const types = costTypeMap[link.id];
+                                  const label = deriveCostLabel(types || new Set());
+                                  const subs = link.subscribers || 0;
+                                  const clicks = link.clicks || 0;
+                                  const metric = calcCostMetric(label, costTotal, subs, clicks);
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {label && metric.value !== null ? (
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold leading-none bg-muted text-muted-foreground">
+                                            {metric.label}
+                                          </span>
+                                          <span className="text-foreground">{metric.display}</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                      )}
+                                    </td>
                                   );
                                 }
                                 case "profit": return (
