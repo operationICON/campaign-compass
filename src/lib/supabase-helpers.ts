@@ -6,6 +6,44 @@ export async function fetchAccounts() {
   return data;
 }
 
+/**
+ * Sums transactions.revenue grouped by (account_id, type).
+ * Returns a map: account_id → { messages, tips, subscriptions, posts } in dollars.
+ *
+ * Mapping: 'message' → messages, 'tip' → tips,
+ * 'new_subscription' + 'recurring_subscription' → subscriptions,
+ * 'post' → posts. Unknown types are ignored.
+ */
+export type TxTypeTotals = { messages: number; tips: number; subscriptions: number; posts: number };
+
+export async function fetchTransactionTypeTotalsByAccount(): Promise<Record<string, TxTypeTotals>> {
+  const totals: Record<string, TxTypeTotals> = {};
+  const pageSize = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("account_id, type, revenue")
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      const acctId = (row as any).account_id as string | null;
+      if (!acctId) continue;
+      const rev = Number((row as any).revenue || 0);
+      const type = (row as any).type as string | null;
+      if (!totals[acctId]) totals[acctId] = { messages: 0, tips: 0, subscriptions: 0, posts: 0 };
+      if (type === "message") totals[acctId].messages += rev;
+      else if (type === "tip") totals[acctId].tips += rev;
+      else if (type === "new_subscription" || type === "recurring_subscription") totals[acctId].subscriptions += rev;
+      else if (type === "post") totals[acctId].posts += rev;
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return totals;
+}
+
 export async function fetchCampaigns() {
   const { data, error } = await supabase
     .from("campaigns")

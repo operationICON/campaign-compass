@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount } from "@/lib/calc-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -79,6 +79,11 @@ export default function DashboardPage() {
   } = useOverviewCustomizer();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
+  const { data: txTypeTotalsByAccount = {} } = useQuery({
+    queryKey: ["transaction_type_totals_by_account"],
+    queryFn: fetchTransactionTypeTotalsByAccount,
+    staleTime: 5 * 60 * 1000,
+  });
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links"],
     queryFn: async () => {
@@ -736,6 +741,7 @@ export default function DashboardPage() {
           revenueMode={revenueMode}
           snapshotSpend={snapshotSpend}
           snapshotSubs={snapshotSubs}
+          txTypeTotalsByAccount={txTypeTotalsByAccount}
         />
 
         {/* ═══ DAILY DECISION VIEW ═══ */}
@@ -789,6 +795,7 @@ function KpiCards({
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
   trackingLinkLtv, revMultiplier, revenueMode,
   snapshotSpend, snapshotSubs,
+  txTypeTotalsByAccount,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
@@ -820,6 +827,7 @@ function KpiCards({
   revenueMode: "gross" | "net";
   snapshotSpend: number;
   snapshotSubs: number;
+  txTypeTotalsByAccount: Record<string, { messages: number; tips: number; subscriptions: number; posts: number }>;
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
@@ -1062,13 +1070,23 @@ function KpiCards({
           : pct >= 30 ? "text-[hsl(38_92%_50%)]"
           : "text-primary";
 
-        // Breakdown: unattributed by type
-        const uaMessages = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0);
-        const uaTips = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0);
-        const uaSubs = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0);
-        const uaPosts = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0);
-        // Messages untracked = ltv_messages - campaign revenue (campaigns are mostly messages)
-        const uaMessagesUntracked = Math.max(0, uaMessages - campaignRevenue5);
+        // Breakdown: revenue by transaction type, scoped to sync_enabled accounts within current filter.
+        // Source: transactions.revenue grouped by type (accounts.ltv_messages/tips/subscriptions/posts
+        // columns are not populated upstream — we aggregate from the transactions table instead).
+        const syncEnabledAccts = filtAccounts.filter((a: any) => a.sync_enabled === true);
+        const breakdown = syncEnabledAccts.reduce(
+          (acc: { messages: number; tips: number; subscriptions: number; posts: number }, a: any) => {
+            const t = txTypeTotalsByAccount[a.id];
+            if (t) {
+              acc.messages += t.messages;
+              acc.tips += t.tips;
+              acc.subscriptions += t.subscriptions;
+              acc.posts += t.posts;
+            }
+            return acc;
+          },
+          { messages: 0, tips: 0, subscriptions: 0, posts: 0 },
+        );
 
         return (
           <UnattributedCard
@@ -1077,10 +1095,11 @@ function KpiCards({
             colorClass={colorClass}
             cardStyle={cardStyle}
             unattribVal={unattribVal}
-            uaMessagesUntracked={uaMessagesUntracked}
-            uaTips={uaTips}
-            uaSubs={uaSubs}
-            uaPosts={uaPosts}
+            ltvTotal={accountsLtv5}
+            uaMessages={breakdown.messages}
+            uaTips={breakdown.tips}
+            uaSubs={breakdown.subscriptions}
+            uaPosts={breakdown.posts}
             fmtC={fmtC}
             revMultiplier={revMultiplier}
           />
@@ -1387,9 +1406,10 @@ function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, bkTo
 }
 
 /* ── Unattributed % Card with expandable breakdown ── */
-function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesUntracked, uaTips, uaSubs, uaPosts, fmtC, revMultiplier }: {
+function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, ltvTotal, uaMessages, uaTips, uaSubs, uaPosts, fmtC, revMultiplier }: {
   pct: number | null; colorClass: string; cardStyle: any;
-  unattribVal: number; uaMessagesUntracked: number; uaTips: number; uaSubs: number; uaPosts: number;
+  unattribVal: number; ltvTotal: number;
+  uaMessages: number; uaTips: number; uaSubs: number; uaPosts: number;
   fmtC: (v: number) => string; revMultiplier: number;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1397,12 +1417,14 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
 
   // Apply rev multiplier
   const mUnattr = unattribVal * revMultiplier;
-  const mMsg = uaMessagesUntracked * revMultiplier;
+  const mLtvTotal = ltvTotal * revMultiplier;
+  const mMsg = uaMessages * revMultiplier;
   const mTips = uaTips * revMultiplier;
   const mSubs = uaSubs * revMultiplier;
   const mPosts = uaPosts * revMultiplier;
 
-  const uaPct = (v: number) => mUnattr > 0 ? `${((v / mUnattr) * 100).toFixed(1)}%` : "0%";
+  // % is computed against total ltv_total (not unattributed total).
+  const pctOfLtv = (v: number) => mLtvTotal > 0 ? `${((v / mLtvTotal) * 100).toFixed(1)}%` : "0%";
 
   const rows = [
     { label: "Messages / PPV", value: mMsg, color: "hsl(var(--primary))" },
@@ -1410,6 +1432,8 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
     { label: "Subscriptions", value: mSubs, color: "hsl(280 60% 55%)" },
     { label: "Posts", value: mPosts, color: "hsl(210 80% 55%)" },
   ];
+
+  const hasBreakdown = (mMsg + mTips + mSubs + mPosts) > 0;
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
@@ -1426,7 +1450,7 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
       )}
       <p className="text-[11px] text-muted-foreground mt-1">Revenue not attributed to tracking links · All time</p>
 
-      {mUnattr > 0 && (
+      {hasBreakdown && (
         <>
           <button
             onClick={() => setExpanded(!expanded)}
@@ -1439,17 +1463,16 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
           {expanded && (
             <div className="mt-2 pt-2 border-t border-border space-y-1.5">
               <p className="text-[11px] font-medium text-foreground">Unattributed: {fmtBk(mUnattr)}</p>
-              <p className="text-[10px] text-muted-foreground">Revenue not from tracking links · by type</p>
+              <p className="text-[10px] text-muted-foreground">By type · % of total revenue</p>
               {rows.map(row => (
                 <div key={row.label} className="flex items-center justify-between text-[12px]">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: row.color }} />
                     <span className="text-muted-foreground">{row.label}</span>
                   </div>
-                  <span className="font-mono text-foreground/80">{fmtBk(row.value)} · {uaPct(row.value)}</span>
+                  <span className="font-mono text-foreground/80">{fmtBk(row.value)} · {pctOfLtv(row.value)}</span>
                 </div>
               ))}
-              <p className="text-[10px] text-muted-foreground/60 mt-1">Messages shown minus tracked campaign revenue</p>
             </div>
           )}
         </>
