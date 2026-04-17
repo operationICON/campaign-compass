@@ -10,6 +10,7 @@ import {
   BarChart3, Camera, Users, Truck, Play, Square,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
+import { SortableTh } from "@/components/SortableTh";
 
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,6 +62,7 @@ function getEffectiveStatus(log: any) {
 
 type StatusFilter = "all" | "success" | "error" | "running";
 type TypeFilter = "all" | SyncType;
+type LogSortKey = "date" | "type" | "account" | "records" | "duration" | "status";
 
 export default function LogsPage() {
   const queryClient = useQueryClient();
@@ -69,6 +71,8 @@ export default function LogsPage() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [sortKey, setSortKey] = useState<LogSortKey>("date");
+  const [sortAsc, setSortAsc] = useState(false);
   const [syncPage, setSyncPage] = useState(1);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   
@@ -114,10 +118,40 @@ export default function LogsPage() {
     });
   }, [classifiedLogs, statusFilter, typeFilter]);
 
-  const syncTotalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
-  const syncPageLogs = filteredLogs.slice((syncPage - 1) * PAGE_SIZE, syncPage * PAGE_SIZE);
+  // Sort logs
+  const sortedLogs = useMemo(() => {
+    const dir = sortAsc ? 1 : -1;
+    const dur = (log: any) => {
+      const end = log.completed_at || log.finished_at;
+      if (!end) return -1;
+      return new Date(end).getTime() - new Date(log.started_at).getTime();
+    };
+    const getVal = (log: any): number | string => {
+      switch (sortKey) {
+        case "date": return new Date(log.started_at).getTime();
+        case "type": return SYNC_LABELS[log.syncType as SyncType] || "";
+        case "account": return (log.accounts?.display_name || "").toLowerCase();
+        case "records": return Number(log.records_processed || 0);
+        case "duration": return dur(log);
+        case "status": return log.effectiveStatus || "";
+      }
+    };
+    return [...filteredLogs].sort((a, b) => {
+      const va = getVal(a), vb = getVal(b);
+      if (typeof va === "string" && typeof vb === "string") return dir * va.localeCompare(vb);
+      return dir * ((va as number) - (vb as number));
+    });
+  }, [filteredLogs, sortKey, sortAsc]);
 
-  useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter]);
+  const handleSort = (k: LogSortKey) => {
+    if (k === sortKey) setSortAsc(!sortAsc);
+    else { setSortKey(k); setSortAsc(false); }
+  };
+
+  const syncTotalPages = Math.max(1, Math.ceil(sortedLogs.length / PAGE_SIZE));
+  const syncPageLogs = sortedLogs.slice((syncPage - 1) * PAGE_SIZE, syncPage * PAGE_SIZE);
+
+  useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter, sortKey, sortAsc]);
 
   // Stop handler
   const stopSync = useCallback((type: string) => {
@@ -409,12 +443,12 @@ export default function LogsPage() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border bg-secondary/30">
-                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Date & Time</th>
-                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Type</th>
-                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Account</th>
-                        <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Records</th>
-                        <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Duration</th>
-                        <th className="text-center py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Status</th>
+                        <SortableTh<LogSortKey> label="Date & Time" sortKey="date" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
+                        <SortableTh<LogSortKey> label="Type" sortKey="type" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
+                        <SortableTh<LogSortKey> label="Account" sortKey="account" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
+                        <SortableTh<LogSortKey> label="Records" sortKey="records" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
+                        <SortableTh<LogSortKey> label="Duration" sortKey="duration" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
+                        <SortableTh<LogSortKey> label="Status" sortKey="status" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="center" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Message</th>
                       </tr>
                     </thead>
