@@ -2,8 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TagBadge } from "@/components/TagBadge";
+import { SortableTh } from "@/components/SortableTh";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { subDays } from "date-fns";
+
+type SubsSortKey = "campaign" | "source" | "subs" | "subsDay" | "clicks" | "cvr" | "rev";
 
 type SubsPeriod = "since_last_sync" | "3d" | "7d" | "14d" | "30d";
 
@@ -39,6 +42,12 @@ interface LinkDelta {
 
 export function SubsTab({ accountId, accLinks, modelName, avatarUrl, onRowClick }: SubsTabProps) {
   const [period, setPeriod] = useState<SubsPeriod>("since_last_sync");
+  const [sortKey, setSortKey] = useState<SubsSortKey>("subs");
+  const [sortAsc, setSortAsc] = useState(false);
+  const handleSort = (k: SubsSortKey) => {
+    if (k === sortKey) setSortAsc(!sortAsc);
+    else { setSortKey(k); setSortAsc(false); }
+  };
 
   // Fetch ALL snapshots for this account. Snapshots store DAILY DELTAS
   // (incremental gains per day) — NOT cumulative totals — per
@@ -151,10 +160,25 @@ export function SubsTab({ accountId, accLinks, modelName, avatarUrl, onRowClick 
 
   const topSource = sourceAgg.find((s) => s.source !== "Untagged" && s.subs > 0) || sourceAgg[0] || null;
 
-  const sortedLinkDeltas = useMemo(
-    () => [...linkDeltas].sort((a, b) => b.subsGained - a.subsGained),
-    [linkDeltas]
-  );
+  const sortedLinkDeltas = useMemo(() => {
+    const dir = sortAsc ? 1 : -1;
+    const getVal = (d: LinkDelta): number | string => {
+      switch (sortKey) {
+        case "campaign": return (d.link.campaign_name || "").toLowerCase();
+        case "source": return (d.source || "").toLowerCase();
+        case "subs": return d.subsGained;
+        case "subsDay": return d.days > 0 ? d.subsGained / d.days : 0;
+        case "clicks": return d.clicksGained;
+        case "cvr": return d.clicksGained > 0 ? (d.subsGained / d.clicksGained) * 100 : -Infinity;
+        case "rev": return d.revenueGained;
+      }
+    };
+    return [...linkDeltas].sort((a, b) => {
+      const va = getVal(a), vb = getVal(b);
+      if (typeof va === "string" && typeof vb === "string") return dir * va.localeCompare(vb);
+      return dir * ((va as number) - (vb as number));
+    });
+  }, [linkDeltas, sortKey, sortAsc]);
 
   const visibleLinkDeltas = sortedLinkDeltas.filter(
     (d) => d.subsGained > 0 || d.clicksGained > 0 || d.revenueGained > 0
@@ -246,13 +270,13 @@ export function SubsTab({ accountId, accLinks, modelName, avatarUrl, onRowClick 
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                        <th className="text-left py-2 px-3">Tracking Link</th>
-                        <th className="text-left py-2 px-3">Source</th>
-                        <th className="text-right py-2 px-3">Subs Gained</th>
-                        <th className="text-right py-2 px-3">Subs/Day</th>
-                        <th className="text-right py-2 px-3">Clicks Gained</th>
-                        <th className="text-right py-2 px-3">CVR</th>
-                        <th className="text-right py-2 px-3">Revenue Gained</th>
+                        <SortableTh<SubsSortKey> label="Tracking Link" sortKey="campaign" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" className="py-2 px-3" />
+                        <SortableTh<SubsSortKey> label="Source" sortKey="source" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" className="py-2 px-3" />
+                        <SortableTh<SubsSortKey> label="Subs Gained" sortKey="subs" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2 px-3" />
+                        <SortableTh<SubsSortKey> label="Subs/Day" sortKey="subsDay" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2 px-3" />
+                        <SortableTh<SubsSortKey> label="Clicks Gained" sortKey="clicks" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2 px-3" />
+                        <SortableTh<SubsSortKey> label="CVR" sortKey="cvr" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2 px-3" />
+                        <SortableTh<SubsSortKey> label="Revenue Gained" sortKey="rev" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2 px-3" />
                       </tr>
                     </thead>
                     <tbody>

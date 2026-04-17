@@ -10,8 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
-import { GitBranch, Users, DollarSign, Award, Percent } from "lucide-react";
+import { GitBranch, Users, DollarSign, Award, Percent, ChevronDown, ChevronUp } from "lucide-react";
 import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
+
+type CampSortKey =
+  | "campaignName" | "modelName" | "new_subs_total" | "directLtv"
+  | "cross_poll_revenue" | "totalLtv" | "cross_poll_fans" | "cross_poll_conversion_pct";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -21,6 +25,26 @@ const fmtP = (v: number | null) =>
 
 export default function CrossPollPage() {
   const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
+
+  const [sortKey, setSortKey] = useState<CampSortKey>("cross_poll_revenue");
+  const [sortAsc, setSortAsc] = useState(false);
+  const handleSort = (k: CampSortKey) => {
+    if (k === sortKey) setSortAsc(!sortAsc);
+    else { setSortKey(k); setSortAsc(false); }
+  };
+  const SortHead = ({ label, k, align = "left" }: { label: string; k: CampSortKey; align?: "left" | "right" }) => (
+    <TableHead
+      className={`text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors ${align === "right" ? "text-right" : ""}`}
+      onClick={() => handleSort(k)}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
+        {label}
+        {sortKey === k ? (
+          sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
+        ) : <ChevronDown className="h-3 w-3 opacity-30" />}
+      </span>
+    </TableHead>
+  );
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
@@ -104,17 +128,13 @@ export default function CrossPollPage() {
     return { totalRevenue, totalFans, avgPerFan, topModel, topAccId, conversionPct };
   }, [filteredLtv, accountLookup]);
 
-  // Campaign table with new columns
+  // Campaign table with new columns + sorting
   const topCampaigns = useMemo(() => {
-    return filteredLtv.slice(0, 50).map((r: any) => {
+    const enriched = filteredLtv.map((r: any) => {
       const link = linkLookup[String(r.tracking_link_id ?? "").toLowerCase()];
       const acc = accountLookup[String(r.account_id ?? "").toLowerCase()];
       const directLtv = Number(r.total_ltv || 0);
       const crossPollRev = Number(r.cross_poll_revenue || 0);
-
-      // Determine "received by" — the model(s) that got the cross-poll revenue
-      // This is the opposite of the source model
-      // We don't have per-row dest info in tracking_link_ltv, so we show "Other Models"
       return {
         ...r,
         campaignName: link?.campaign_name || r.tracking_link_id,
@@ -124,7 +144,26 @@ export default function CrossPollPage() {
         totalLtv: directLtv + crossPollRev,
       };
     });
-  }, [filteredLtv, linkLookup, accountLookup]);
+    const dir = sortAsc ? 1 : -1;
+    const getVal = (r: any): number | string => {
+      switch (sortKey) {
+        case "campaignName": return String(r.campaignName || "").toLowerCase();
+        case "modelName": return String(r.modelName || "").toLowerCase();
+        case "new_subs_total": return Number(r.new_subs_total || 0);
+        case "directLtv": return Number(r.directLtv || 0);
+        case "cross_poll_revenue": return Number(r.cross_poll_revenue || 0);
+        case "totalLtv": return Number(r.totalLtv || 0);
+        case "cross_poll_fans": return Number(r.cross_poll_fans || 0);
+        case "cross_poll_conversion_pct": return Number(r.cross_poll_conversion_pct || 0);
+      }
+    };
+    enriched.sort((a, b) => {
+      const va = getVal(a), vb = getVal(b);
+      if (typeof va === "string" && typeof vb === "string") return dir * va.localeCompare(vb);
+      return dir * ((va as number) - (vb as number));
+    });
+    return enriched.slice(0, 50);
+  }, [filteredLtv, linkLookup, accountLookup, sortKey, sortAsc]);
 
   return (
     <DashboardLayout>
@@ -215,14 +254,14 @@ export default function CrossPollPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
-                  <TableHead className="text-muted-foreground">Campaign</TableHead>
-                  <TableHead className="text-muted-foreground">Source Model</TableHead>
-                  <TableHead className="text-muted-foreground text-right">New Fans</TableHead>
-                  <TableHead className="text-muted-foreground text-right">LTV</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Cross-Poll Revenue</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Total LTV</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Cross-Poll Fans</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Conversion %</TableHead>
+                  <SortHead label="Campaign" k="campaignName" />
+                  <SortHead label="Source Model" k="modelName" />
+                  <SortHead label="New Fans" k="new_subs_total" align="right" />
+                  <SortHead label="LTV" k="directLtv" align="right" />
+                  <SortHead label="Cross-Poll Revenue" k="cross_poll_revenue" align="right" />
+                  <SortHead label="Total LTV" k="totalLtv" align="right" />
+                  <SortHead label="Cross-Poll Fans" k="cross_poll_fans" align="right" />
+                  <SortHead label="Conversion %" k="cross_poll_conversion_pct" align="right" />
                   <TableHead className="text-muted-foreground">Received By</TableHead>
                 </TableRow>
               </TableHeader>

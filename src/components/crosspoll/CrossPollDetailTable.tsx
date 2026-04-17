@@ -5,9 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ModelAvatar } from "@/components/ModelAvatar";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+type CpSortKey = "sourceCampaign" | "sourceModel" | "fanId" | "spentOnModel" | "spentOnCampaign" | "revenue";
 
 interface Props {
   accounts: any[];
@@ -19,6 +22,25 @@ interface Props {
 export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, globalModelFilter }: Props) {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [destFilter, setDestFilter] = useState("all");
+  const [sortKey, setSortKey] = useState<CpSortKey>("revenue");
+  const [sortAsc, setSortAsc] = useState(false);
+  const handleSort = (k: CpSortKey) => {
+    if (k === sortKey) setSortAsc(!sortAsc);
+    else { setSortKey(k); setSortAsc(false); }
+  };
+  const SortHead = ({ label, k, align = "left" }: { label: string; k: CpSortKey; align?: "left" | "right" }) => (
+    <TableHead
+      className={`text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors ${align === "right" ? "text-right" : ""}`}
+      onClick={() => handleSort(k)}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
+        {label}
+        {sortKey === k ? (
+          sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
+        ) : <ChevronDown className="h-3 w-3 opacity-30" />}
+      </span>
+    </TableHead>
+  );
 
   // Fetch fan_spenders with revenue
   const { data: spenders = [], isLoading } = useQuery({
@@ -115,7 +137,7 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
     return deduped;
   }, [spenders, newFanSet, linkLookup, accountLookup]);
 
-  // Apply filters
+  // Apply filters + sort
   const filteredRows = useMemo(() => {
     let rows = detailRows;
     if (globalModelFilter !== "all") {
@@ -127,8 +149,14 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
     if (destFilter !== "all") {
       rows = rows.filter(r => r.destAccountId === destFilter);
     }
-    return rows.slice(0, 200);
-  }, [detailRows, globalModelFilter, sourceFilter, destFilter]);
+    const dir = sortAsc ? 1 : -1;
+    const sorted = [...rows].sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey];
+      if (typeof va === "string" && typeof vb === "string") return dir * va.localeCompare(vb);
+      return dir * ((Number(va) || 0) - (Number(vb) || 0));
+    });
+    return sorted.slice(0, 200);
+  }, [detailRows, globalModelFilter, sourceFilter, destFilter, sortKey, sortAsc]);
 
   return (
     <Card className="bg-card border-border">
@@ -165,12 +193,12 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
         <Table>
           <TableHeader>
             <TableRow className="border-border">
-              <TableHead className="text-muted-foreground">Source Campaign</TableHead>
-              <TableHead className="text-muted-foreground">Source Model</TableHead>
-              <TableHead className="text-muted-foreground">Fan ID</TableHead>
-              <TableHead className="text-muted-foreground">Spent On Model</TableHead>
-              <TableHead className="text-muted-foreground">Spent On Campaign</TableHead>
-              <TableHead className="text-muted-foreground text-right">Revenue</TableHead>
+              <SortHead label="Source Campaign" k="sourceCampaign" />
+              <SortHead label="Source Model" k="sourceModel" />
+              <SortHead label="Fan ID" k="fanId" />
+              <SortHead label="Spent On Model" k="spentOnModel" />
+              <SortHead label="Spent On Campaign" k="spentOnCampaign" />
+              <SortHead label="Revenue" k="revenue" align="right" />
             </TableRow>
           </TableHeader>
           <TableBody>

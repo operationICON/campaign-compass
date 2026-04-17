@@ -47,7 +47,8 @@ const AVATAR_COLORS = [
   "from-purple-400 to-violet-500",
 ];
 
-type SortKey = "campaign_name" | "revenue" | "clicks" | "subscribers" | "profit" | "roi" | "created_at";
+type SortKey = "campaign_name" | "source_tag" | "revenue" | "clicks" | "subscribers" | "subs_day" | "cross_poll" | "profit" | "roi" | "status" | "created_at";
+type SourceSortKey = "source" | "activeLinks" | "subs" | "subsDay" | "spend" | "revenue" | "cplCpc" | "cvr" | "profit" | "roi";
 type CardSortKey = "spend" | "ltv_per_sub" | "subscribers" | "active_links" | "alpha";
 
 const CARD_SORT_OPTIONS: { key: CardSortKey; label: string }[] = [
@@ -70,6 +71,12 @@ export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "subs">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
+  const [srcSortKey, setSrcSortKey] = useState<SourceSortKey>("profit");
+  const [srcSortAsc, setSrcSortAsc] = useState(false);
+  const toggleSrcSort = (k: SourceSortKey) => {
+    if (k === srcSortKey) setSrcSortAsc(!srcSortAsc);
+    else { setSrcSortKey(k); setSrcSortAsc(false); }
+  };
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
   const [cardSort, setCardSort] = useState<CardSortKey>("ltv_per_sub");
   const [expandedBreakdown, setExpandedBreakdown] = useState<Set<string>>(new Set());
@@ -533,10 +540,28 @@ export default function AccountsPage() {
     const ua = calcUnattributedPct(acc);
 
     const sortedLinks = [...accLinks].sort((a: any, b: any) => {
-      const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
-      const bv = sortKey === "campaign_name" ? (b.campaign_name || "") : Number(b[sortKey] || 0);
-      if (typeof av === "string") return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
-      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
+      const dir = sortAsc ? 1 : -1;
+      const getVal = (l: any): number | string => {
+        switch (sortKey) {
+          case "campaign_name": return (l.campaign_name || "").toLowerCase();
+          case "source_tag": return (getEffectiveSource(l) || "zzz").toLowerCase();
+          case "status": return (l.status || "zzz").toLowerCase();
+          case "created_at": return l.created_at ? new Date(l.created_at).getTime() : 0;
+          case "subs_day": {
+            const days = l.created_at ? Math.max(1, differenceInDays(new Date(), new Date(l.created_at))) : 1;
+            return Number(l.subscribers || 0) / days;
+          }
+          case "cross_poll": {
+            const ltvR = ltvLookup[String(l.id).toLowerCase()];
+            return ltvR ? Number(ltvR.cross_poll_revenue || 0) : -1;
+          }
+          case "profit": return Number(l.revenue || 0) - Number(l.cost_total || 0);
+          default: return Number(l[sortKey] || 0);
+        }
+      };
+      const av = getVal(a), bv = getVal(b);
+      if (typeof av === "string" && typeof bv === "string") return dir * av.localeCompare(bv);
+      return dir * ((av as number) - (bv as number));
     });
 
     // KPI card component
@@ -743,15 +768,15 @@ export default function AccountsPage() {
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Tracking Link <SortIcon col="campaign_name" /></th>
-                            <th className="text-left py-2 px-3">Source</th>
+                            <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("source_tag")}>Source <SortIcon col="source_tag" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
-                            <th className="text-right py-2 px-3">Subs/Day</th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>Subs/Day <SortIcon col="subs_day" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>Revenue <SortIcon col="revenue" /></th>
-                            <th className="text-right py-2 px-3">Cross-Poll</th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cross_poll")}>Cross-Poll <SortIcon col="cross_poll" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
-                            <th className="text-center py-2 px-3">Status</th>
+                            <th className="text-center py-2 px-3 cursor-pointer" onClick={() => toggleSort("status")}>Status <SortIcon col="status" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("created_at")}>Created <SortIcon col="created_at" /></th>
                           </tr>
                         </thead>
@@ -821,16 +846,25 @@ export default function AccountsPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                            <th className="text-left py-2 px-3">Source</th>
-                            <th className="text-right py-2 px-3">Active Links</th>
-                            <th className="text-right py-2 px-3">Subs</th>
-                            <th className="text-right py-2 px-3">Subs/Day</th>
-                            <th className="text-right py-2 px-3">Total Spend</th>
-                            <th className="text-right py-2 px-3">Revenue</th>
-                            <th className="text-right py-2 px-3">CPL/CPC</th>
-                            <th className="text-right py-2 px-3">CVR</th>
-                            <th className="text-right py-2 px-3">Profit</th>
-                            <th className="text-right py-2 px-3">ROI</th>
+                            {([
+                              { k: "source", l: "Source", a: "left" },
+                              { k: "activeLinks", l: "Active Links", a: "right" },
+                              { k: "subs", l: "Subs", a: "right" },
+                              { k: "subsDay", l: "Subs/Day", a: "right" },
+                              { k: "spend", l: "Total Spend", a: "right" },
+                              { k: "revenue", l: "Revenue", a: "right" },
+                              { k: "cplCpc", l: "CPL/CPC", a: "right" },
+                              { k: "cvr", l: "CVR", a: "right" },
+                              { k: "profit", l: "Profit", a: "right" },
+                              { k: "roi", l: "ROI", a: "right" },
+                            ] as { k: SourceSortKey; l: string; a: "left" | "right" }[]).map(({ k, l, a }) => (
+                              <th key={k} className={`${a === "right" ? "text-right" : "text-left"} py-2 px-3 cursor-pointer select-none hover:text-foreground transition-colors`} onClick={() => toggleSrcSort(k)}>
+                                <span className={`inline-flex items-center gap-1 ${a === "right" ? "justify-end" : ""}`}>
+                                  {l}
+                                  {srcSortKey === k ? (srcSortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />) : <ChevronDown className="h-3 w-3 opacity-30" />}
+                                </span>
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
