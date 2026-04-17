@@ -515,6 +515,9 @@ export default function LogsPage() {
                                 {status === "error" ? "Failed" : status === "success" ? "Success" : "Running"}
                               </span>
                             </td>
+                            <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
+                              {log.triggered_by ? (log.triggered_by === "manual" ? "ERN (manual)" : log.triggered_by) : "—"}
+                            </td>
                             <td className="py-2.5 px-4 text-muted-foreground max-w-[250px] truncate">
                               {status === "error" ? (
                                 <span className="text-destructive">{displayMessage || "Unknown error"}</span>
