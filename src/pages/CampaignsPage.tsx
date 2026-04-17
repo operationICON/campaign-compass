@@ -41,31 +41,37 @@ import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "status" | "last_synced" | "avg_expenses";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
+// Standard column order: Tracking Link is rendered as a fixed column.
+// Order below: Source | Marketer | Clicks | Subs | Subs/Day | CVR | Spend |
+//              Revenue | Cross-Poll | Profit | Profit/Sub | LTV/Sub | CPL |
+//              CPC | ROI | Status | Created
 const ALL_COLUMNS = [
-  { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
-  { id: "clicks", label: "Clicks", defaultOn: false },
-  { id: "subscribers", label: "Subscribers", defaultOn: false },
-  { id: "cvr", label: "CVR", defaultOn: false },
+  { id: "marketer", label: "Marketer", defaultOn: true },
+  { id: "clicks", label: "Clicks", defaultOn: true },
+  { id: "subscribers", label: "Subs", defaultOn: true },
+  { id: "subs_day", label: "Subs/Day", defaultOn: true },
+  { id: "cvr", label: "CVR", defaultOn: true },
+  { id: "expenses", label: "Spend", defaultOn: true },
   { id: "revenue", label: "Revenue", defaultOn: true },
-  
-  { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
-  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
-  { id: "spender_rate", label: "Spender %", defaultOn: false },
-  { id: "expenses", label: "Expenses", defaultOn: true },
-  { id: "cpl", label: "CPL", defaultOn: true },
+  { id: "cross_poll", label: "Cross-Poll", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
+  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
+  { id: "cpl", label: "CPL", defaultOn: true },
+  { id: "cpc", label: "CPC", defaultOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
   { id: "status", label: "Status", defaultOn: true },
-  { id: "subs_day", label: "Subs/Day", defaultOn: true },
-  { id: "created", label: "Created", defaultOn: false },
-  { id: "last_synced", label: "Last Synced", defaultOn: true },
+  { id: "created", label: "Created", defaultOn: true },
+  // Optional / hidden by default
+  { id: "model", label: "Model", defaultOn: false },
+  { id: "spender_rate", label: "Spender %", defaultOn: false },
+  { id: "last_synced", label: "Last Synced", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
