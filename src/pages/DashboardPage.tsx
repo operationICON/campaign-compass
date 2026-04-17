@@ -7,7 +7,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
-import { isActiveAccount } from "@/lib/calc-helpers";
+import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -113,17 +113,12 @@ export default function DashboardPage() {
     queryFn: fetchTrackingLinkLtv,
   });
   // RULE: exclude LTV rows tied to deleted tracking links (deleted_at IS NOT NULL).
-  const activeLinkIdSet = useMemo(() => {
-    const s = new Set<string>();
-    for (const l of allLinks) s.add(String(l.id).toLowerCase());
-    return s;
-  }, [allLinks]);
-  const trackingLinkLtv = useMemo(() => {
-    if (activeLinkIdSet.size === 0) return trackingLinkLtvRaw;
-    return trackingLinkLtvRaw.filter((r: any) =>
-      activeLinkIdSet.has(String(r.tracking_link_id ?? "").toLowerCase())
-    );
-  }, [trackingLinkLtvRaw, activeLinkIdSet]);
+  // Shared helper — see src/lib/calc-helpers.ts.
+  const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(allLinks), [allLinks]);
+  const trackingLinkLtv = useMemo(
+    () => filterLtvByActiveLinks(trackingLinkLtvRaw, activeLinkIdSet),
+    [trackingLinkLtvRaw, activeLinkIdSet]
+  );
 
 
   // Category mapping for group filter

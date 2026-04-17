@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
@@ -10,7 +11,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
-import { isActiveAccount } from "@/lib/calc-helpers";
+import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
@@ -111,6 +112,10 @@ export default function AccountsPage() {
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator (subs/clicks/revenue/spend/profit/roi/cpl/cvr/ltvSub/subsPerDay).
+  // Available for KPI cards on this page; tables continue to use applySnapshotToLinks.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
+  void dateScoped;
   const isAllTime = timePeriod === "all" && !customRange;
 
   const { data: allLinks = [] } = useQuery({
@@ -133,18 +138,12 @@ export default function AccountsPage() {
     queryFn: fetchTrackingLinkLtv,
   });
   // RULE: exclude tracking_link_ltv rows whose tracking link has deleted_at IS NOT NULL.
-  // We scope by the set of non-deleted link IDs from `allLinks` (already filtered).
-  const activeLinkIdSet = useMemo(() => {
-    const s = new Set<string>();
-    for (const l of allLinks) s.add(String(l.id).toLowerCase());
-    return s;
-  }, [allLinks]);
-  const trackingLinkLtv = useMemo(() => {
-    if (activeLinkIdSet.size === 0) return trackingLinkLtvRaw;
-    return trackingLinkLtvRaw.filter((r: any) =>
-      activeLinkIdSet.has(String(r.tracking_link_id ?? "").toLowerCase())
-    );
-  }, [trackingLinkLtvRaw, activeLinkIdSet]);
+  // Shared helper — see src/lib/calc-helpers.ts.
+  const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(allLinks), [allLinks]);
+  const trackingLinkLtv = useMemo(
+    () => filterLtvByActiveLinks(trackingLinkLtvRaw, activeLinkIdSet),
+    [trackingLinkLtvRaw, activeLinkIdSet]
+  );
 
   // Fetch daily_snapshots for performance charts
   const { data: dailySnapshots = [] } = useQuery({

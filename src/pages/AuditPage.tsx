@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
@@ -114,6 +115,9 @@ export default function AuditPage() {
   const queryClient = useQueryClient();
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
   const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator — available for KPI cards.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
+  void dateScoped;
   const { data: rawLinks = [], isLoading } = useQuery({
     queryKey: ["audit_all_links"],
     queryFn: async () => {

@@ -210,3 +210,30 @@ export function calcCostMetric(
 // ─── Est. Badge component helper (use inline) ───
 // Usage: {isEstimate && <EstBadge />}
 // The component is defined in React files that import this.
+
+// ─── tracking_link_ltv deleted-link filter ───
+// `tracking_link_ltv` has no `deleted_at` column — when a tracking link is
+// soft-deleted its LTV row stays behind and inflates aggregates. Always pass
+// `tracking_link_ltv` rows through this helper, scoped to the set of currently
+// non-deleted tracking_links (which we already fetch via .is("deleted_at", null)).
+//
+// Usage:
+//   const activeIds = buildActiveLinkIdSet(allLinks);
+//   const trackingLinkLtv = filterLtvByActiveLinks(rawLtv, activeIds);
+//
+// See: .lovable/memory/constraints/tracking-links-deleted-filter.md
+export function buildActiveLinkIdSet(activeLinks: Array<{ id: string | number }>): Set<string> {
+  const s = new Set<string>();
+  for (const l of activeLinks) s.add(String(l.id).toLowerCase());
+  return s;
+}
+
+export function filterLtvByActiveLinks<T extends { tracking_link_id?: string | null }>(
+  ltvRows: T[],
+  activeLinkIds: Set<string>
+): T[] {
+  if (activeLinkIds.size === 0) return ltvRows; // nothing to scope against — return raw
+  return ltvRows.filter(r =>
+    activeLinkIds.has(String(r.tracking_link_id ?? "").toLowerCase())
+  );
+}

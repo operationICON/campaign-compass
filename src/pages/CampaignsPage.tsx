@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
@@ -116,6 +118,7 @@ function InfoDot({ title, desc }: { title: string; desc: string }) {
 
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
 
@@ -159,6 +162,10 @@ export default function CampaignsPage() {
 
   // ─── Snapshot-based time filtering (shared hook) ───
   const { snapshotLookup, isLoading: snapshotsLoading } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator — available for KPI cards on this page.
+  // Tables/sorting continue to use applySnapshotToLinks for per-link metrics.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
+  void dateScoped;
 
   // ─── Data fetching (always fetch all links) ───
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
@@ -256,6 +263,21 @@ export default function CampaignsPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
+
+  // ─── Deep-link from /campaigns?id=<tracking_link_id> (e.g. AlertsPage View button) ───
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id || !allLinks.length) return;
+    const link = allLinks.find((l: any) => String(l.id) === String(id));
+    if (link) {
+      setDrawerCampaign(link);
+      // Clear the param so re-opens of the page don't re-trigger.
+      const next = new URLSearchParams(searchParams);
+      next.delete("id");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, allLinks, setSearchParams]);
+
 
   const deleteSpendMutation = useMutation({
     mutationFn: deleteAdSpend,

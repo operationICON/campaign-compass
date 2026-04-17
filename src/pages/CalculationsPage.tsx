@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
+import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,7 @@ import { CheckCircle2, Calculator, DollarSign, TrendingUp, Database, Info } from
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchAccounts as fetchAccountsHelper } from "@/lib/supabase-helpers";
+import { buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 
 const fmtC = (v: number | null | undefined) =>
   v == null ? "—" : `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -120,6 +122,9 @@ export default function CalculationsPage() {
 
   // Snapshot-based time filtering
   const { snapshotLookup, isAllTime, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
+  // Shared date-scoped aggregator — available for KPI cards.
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, modelFilter !== "all" ? [modelFilter] : null);
+  void dateScoped;
 
   const { data: allLinks = [] as any[], isLoading: linksLoading } = useQuery({
     queryKey: ["calc_tracking_links"],
@@ -133,14 +138,12 @@ export default function CalculationsPage() {
     queryFn: () => fetchAllLtv(),
   });
   // RULE: exclude LTV rows whose tracking_links.deleted_at IS NOT NULL.
-  // `allLinks` is already fetched with .is("deleted_at", null), so we scope by its IDs.
-  const ltvRows = useMemo(() => {
-    if (allLinks.length === 0) return ltvRowsRaw;
-    const ids = new Set(allLinks.map((l: any) => String(l.id).toLowerCase()));
-    return ltvRowsRaw.filter((r: any) =>
-      ids.has(String(r.tracking_link_id ?? "").toLowerCase())
-    );
-  }, [ltvRowsRaw, allLinks]);
+  // Shared helper — see src/lib/calc-helpers.ts.
+  const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(allLinks), [allLinks]);
+  const ltvRows = useMemo(
+    () => filterLtvByActiveLinks(ltvRowsRaw, activeLinkIdSet),
+    [ltvRowsRaw, activeLinkIdSet]
+  );
   const { data: accounts = [] as any[] } = useQuery({
     queryKey: ["calc_accounts"],
     queryFn: fetchAccounts,
