@@ -89,9 +89,14 @@ export default function CrossPollPage() {
     return map;
   }, [accounts]);
 
-  // Filter LTV data: for non-All-Time, only show LTV records whose tracking_link had snapshot activity
+  // Filter LTV data: exclude rows tied to deleted tracking_links (deleted_at IS NOT NULL)
+  // and apply snapshot/model filters.
   const ltvData = useMemo(() => {
-    let data = allLtvData;
+    // RULE: only keep LTV rows whose tracking_link is non-deleted (in `linkLookup`).
+    let data = allLtvData.filter((r: any) => {
+      const tlId = String(r.tracking_link_id ?? "").trim().toLowerCase();
+      return !!linkLookup[tlId];
+    });
     if (!isAllTime && snapshotLookup) {
       data = data.filter((r: any) => {
         const tlId = String(r.tracking_link_id ?? "").trim().toLowerCase();
@@ -102,7 +107,7 @@ export default function CrossPollPage() {
       data = data.filter((r: any) => String(r.account_id).toLowerCase() === String(modelFilter).toLowerCase());
     }
     return data;
-  }, [allLtvData, modelFilter, isAllTime, snapshotLookup]);
+  }, [allLtvData, modelFilter, isAllTime, snapshotLookup, linkLookup]);
 
   const filteredLtv = ltvData;
 
