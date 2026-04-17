@@ -603,17 +603,30 @@ export default function DashboardPage() {
 
           {/* Time period pills */}
           <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-            {TIME_PERIODS.map((tp) => (
-              <button
-                key={tp.key}
-                onClick={() => { setTimePeriod(tp.key); setCustomRange(null); }}
-                className={`px-4 py-2 text-xs font-medium transition-colors ${
-                  timePeriod === tp.key && !customRange ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tp.label}
-              </button>
-            ))}
+            {TIME_PERIODS.map((tp) => {
+              const isActive = timePeriod === tp.key && !customRange;
+              const showTooltip = tp.key === "month" || tp.key === "prev_month";
+              const btn = (
+                <button
+                  key={tp.key}
+                  onClick={() => { setTimePeriod(tp.key); setCustomRange(null); }}
+                  className={`px-4 py-2 text-xs font-medium transition-colors ${
+                    isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tp.label}
+                </button>
+              );
+              if (!showTooltip) return btn;
+              return (
+                <UITooltip key={tp.key}>
+                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
+                    ⓘ Figures for this period are preliminary and updating.
+                  </TooltipContent>
+                </UITooltip>
+              );
+            })}
           </div>
 
           {/* Custom date range picker */}
