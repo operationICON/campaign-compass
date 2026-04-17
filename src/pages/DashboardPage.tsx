@@ -24,7 +24,7 @@ import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import { usePageFilters, TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
-import { DateAccuracyBanner } from "@/components/DateAccuracyBanner";
+
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -662,9 +662,6 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
-
-        {/* Data availability / accuracy note */}
-        <DateAccuracyBanner show={!isAllTime} />
 
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
