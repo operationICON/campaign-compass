@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  UserPlus, DollarSign, MessageCircle, Bell, RefreshCw, Info, X,
+  UserPlus, DollarSign, MessageCircle, Bell, RefreshCw, X,
   ArrowLeft, Copy, ExternalLink, ChevronDown, Check,
 } from "lucide-react";
 import { toast } from "sonner";
