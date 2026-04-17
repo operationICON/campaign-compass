@@ -133,9 +133,19 @@ export default function MarketerDrilldownPage() {
 
       let clicks = 0, revenue = 0;
       const costTypes = new Set<CostTypeFromOrder>();
+      // Split spend/subs by order type for separate CPL/CPC
+      let cplSpend = 0, cplSubs = 0, cpcSpend = 0;
+      const cpcLinkIds = new Set<string>();
       g.orders.forEach(o => {
         const ct = getCostTypeFromOrderId(o.order_id);
         if (ct) costTypes.add(ct);
+        if (ct === "CPL") {
+          cplSpend += Number(o.total_spent || 0);
+          cplSubs += o.quantity_delivered || 0;
+        } else if (ct === "CPC") {
+          cpcSpend += Number(o.total_spent || 0);
+          if (o.tracking_link_id) cpcLinkIds.add(o.tracking_link_id);
+        }
       });
       g.tlIds.forEach(tlId => {
         const tl = tlMap[tlId];
@@ -144,9 +154,16 @@ export default function MarketerDrilldownPage() {
           revenue += Number(tl.revenue || 0);
         }
       });
+      let cpcClicks = 0;
+      cpcLinkIds.forEach(tlId => {
+        const tl = tlMap[tlId];
+        if (tl) cpcClicks += tl.clicks || 0;
+      });
 
       const costLabel = deriveCostLabel(costTypes);
       const costMetric = calcCostMetric(costLabel, spend, subs, clicks);
+      const cplValue = cplSubs > 0 ? cplSpend / cplSubs : null;
+      const cpcValue = cpcClicks > 0 ? cpcSpend / cpcClicks : null;
       const profit = revenue - spend;
       const ltv = subs > 0 ? revenue / subs : null;
       const cvr = clicks > 0 ? (subs / clicks) * 100 : null;
@@ -157,7 +174,9 @@ export default function MarketerDrilldownPage() {
         username: acc?.username || null,
         displayName: acc?.display_name || "Unknown",
         avatarUrl: acc?.avatar_thumb_url || acc?.avatar_url || null,
-        campaignCount, subs, clicks, spend, revenue, profit, ltv, cplCpc: costMetric.value, cvr, roi, costLabel, costDisplay: costMetric.display,
+        campaignCount, subs, clicks, spend, revenue, profit, ltv,
+        cplCpc: costMetric.value, cvr, roi, costLabel, costDisplay: costMetric.display,
+        cplValue, cpcValue,
       };
     });
   }, [orders, trackingLinks, accounts]);
