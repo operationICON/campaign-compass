@@ -466,13 +466,31 @@ export default function AccountsPage() {
       g.profit = g.revenue - g.spend;
       g.roi = g.spend > 0 ? (g.profit / g.spend) * 100 : null;
     }
-    // Sort by profit desc, Untagged at bottom
+    // Sort by selected key, Untagged stays at bottom
+    const dir = srcSortAsc ? 1 : -1;
     return Object.values(groups).sort((a, b) => {
       if (a.source === "Untagged" && b.source !== "Untagged") return 1;
       if (b.source === "Untagged" && a.source !== "Untagged") return -1;
-      return b.profit - a.profit;
+      const getVal = (g: typeof a): number | string => {
+        switch (srcSortKey) {
+          case "source": return g.source.toLowerCase();
+          case "links": return g.links.length;
+          case "active": return g.activeLinks;
+          case "subs": return g.subs;
+          case "clicks": return g.clicks;
+          case "cvr": return g.clicks > 0 ? (g.subs / g.clicks) : -Infinity;
+          case "spend": return g.spend;
+          case "revenue": return g.revenue;
+          case "profit": return g.profit;
+          case "roi": return g.roi ?? -Infinity;
+          default: return g.profit;
+        }
+      };
+      const va = getVal(a), vb = getVal(b);
+      if (typeof va === "string" && typeof vb === "string") return dir * va.localeCompare(vb);
+      return dir * ((va as number) - (vb as number));
     });
-  }, [selectedAccLinks]);
+  }, [selectedAccLinks, srcSortKey, srcSortAsc]);
 
   // Subs/Day per source from daily_snapshots
   const sourceSubsPerDay = useMemo(() => {
