@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Eye, X, Bell, CheckCheck } from "lucide-react";
 import { useState } from "react";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -30,7 +30,6 @@ export default function AlertsPage() {
   const navigate = useNavigate();
   const { data: allAlerts = [], isLoading } = useQuery({ queryKey: ["all_alerts"], queryFn: () => fetchAlerts(false) });
   const unresolvedAlerts = allAlerts.filter((a: any) => !a.resolved);
-  const resolvedAlerts = allAlerts.filter((a: any) => a.resolved);
 
   const [dismissingAll, setDismissingAll] = useState(false);
   const [confirmDismissAll, setConfirmDismissAll] = useState(false);
@@ -155,25 +154,15 @@ export default function AlertsPage() {
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => <div key={i} className="skeleton-shimmer h-24 rounded-lg" />)}
           </div>
-        ) : !allAlerts.length ? (
+        ) : !unresolvedAlerts.length ? (
           <div className="bg-card border border-border rounded-lg p-16 text-center text-muted-foreground">
-            No alerts yet. Alerts will appear after syncing.
+            No active alerts.
           </div>
         ) : (
-          <>
-            {unresolvedAlerts.length > 0 && (
-              <div className="space-y-3">
-                <h2 className="text-xs font-bold text-destructive uppercase tracking-wider">Active Alerts</h2>
-                {unresolvedAlerts.map((a: any) => <AlertCard key={a.id} alert={a} />)}
-              </div>
-            )}
-            {resolvedAlerts.length > 0 && (
-              <div className="space-y-3">
-                <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Resolved</h2>
-                {resolvedAlerts.slice(0, 10).map((a: any) => <AlertCard key={a.id} alert={a} />)}
-              </div>
-            )}
-          </>
+          <div className="space-y-3">
+            <h2 className="text-xs font-bold text-destructive uppercase tracking-wider">Active Alerts</h2>
+            {unresolvedAlerts.map((a: any) => <AlertCard key={a.id} alert={a} />)}
+          </div>
         )}
       </div>
     </DashboardLayout>
