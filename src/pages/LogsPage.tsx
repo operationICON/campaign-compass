@@ -516,7 +516,7 @@ export default function LogsPage() {
                               </span>
                             </td>
                             <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
-                              {log.triggered_by ? (log.triggered_by === "manual" ? "ERN (manual)" : log.triggered_by) : "—"}
+                              {log.triggered_by ? (log.triggered_by === "manual" ? "LIZA (manual)" : log.triggered_by) : "—"}
                             </td>
                             <td className="py-2.5 px-4 text-muted-foreground max-w-[250px] truncate">
                               {status === "error" ? (
