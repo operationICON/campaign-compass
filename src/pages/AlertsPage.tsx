@@ -32,10 +32,30 @@ export default function AlertsPage() {
   const unresolvedAlerts = allAlerts.filter((a: any) => !a.resolved);
   const resolvedAlerts = allAlerts.filter((a: any) => a.resolved);
 
+  const [dismissingAll, setDismissingAll] = useState(false);
+  const [confirmDismissAll, setConfirmDismissAll] = useState(false);
+
   const dismissAlert = async (id: string) => {
     const { error } = await supabase.from("alerts").update({ resolved: true, resolved_at: new Date().toISOString() }).eq("id", id);
     if (error) { toast.error("Failed to dismiss"); return; }
     toast.success("Alert dismissed");
+    queryClient.invalidateQueries({ queryKey: ["all_alerts"] });
+    queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    queryClient.invalidateQueries({ queryKey: ["alerts_unresolved"] });
+  };
+
+  const dismissAll = async () => {
+    if (!unresolvedAlerts.length) return;
+    setDismissingAll(true);
+    const ids = unresolvedAlerts.map((a: any) => a.id);
+    const { error } = await supabase
+      .from("alerts")
+      .update({ resolved: true, resolved_at: new Date().toISOString() })
+      .in("id", ids);
+    setDismissingAll(false);
+    setConfirmDismissAll(false);
+    if (error) { toast.error("Failed to dismiss all"); return; }
+    toast.success(`${ids.length} alert${ids.length !== 1 ? "s" : ""} dismissed`);
     queryClient.invalidateQueries({ queryKey: ["all_alerts"] });
     queryClient.invalidateQueries({ queryKey: ["alerts"] });
     queryClient.invalidateQueries({ queryKey: ["alerts_unresolved"] });
