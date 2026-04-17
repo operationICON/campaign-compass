@@ -13,6 +13,7 @@ import { isActiveAccount } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
+import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { GrowthTab } from "@/components/accounts/GrowthTab";
 
