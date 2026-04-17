@@ -71,6 +71,12 @@ export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "subs">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
+  const [srcSortKey, setSrcSortKey] = useState<SourceSortKey>("profit");
+  const [srcSortAsc, setSrcSortAsc] = useState(false);
+  const toggleSrcSort = (k: SourceSortKey) => {
+    if (k === srcSortKey) setSrcSortAsc(!srcSortAsc);
+    else { setSrcSortKey(k); setSrcSortAsc(false); }
+  };
   const [editingGenderFor, setEditingGenderFor] = useState<string | null>(null);
   const [cardSort, setCardSort] = useState<CardSortKey>("ltv_per_sub");
   const [expandedBreakdown, setExpandedBreakdown] = useState<Set<string>>(new Set());
