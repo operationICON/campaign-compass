@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount } from "@/lib/calc-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -79,6 +79,11 @@ export default function DashboardPage() {
   } = useOverviewCustomizer();
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
+  const { data: txTypeTotalsByAccount = {} } = useQuery({
+    queryKey: ["transaction_type_totals_by_account"],
+    queryFn: fetchTransactionTypeTotalsByAccount,
+    staleTime: 5 * 60 * 1000,
+  });
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links"],
     queryFn: async () => {
