@@ -87,7 +87,11 @@ export default function AlertsPage() {
             {!alert.resolved && (
               <>
                 <button
-                  onClick={() => navigate("/")}
+                  onClick={() =>
+                    alert.tracking_link_id
+                      ? navigate(`/campaigns?id=${alert.tracking_link_id}`)
+                      : navigate("/campaigns")
+                  }
                   className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/15 text-primary hover:bg-primary/25 transition-colors flex items-center gap-1"
                 >
                   <Eye className="h-3 w-3" /> View
