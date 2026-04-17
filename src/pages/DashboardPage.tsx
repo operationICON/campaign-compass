@@ -1406,9 +1406,10 @@ function TotalRevenueCard({ revVal, subtitle, revenueMode, fmtC, cardStyle, bkTo
 }
 
 /* ── Unattributed % Card with expandable breakdown ── */
-function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesUntracked, uaTips, uaSubs, uaPosts, fmtC, revMultiplier }: {
+function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, ltvTotal, uaMessages, uaTips, uaSubs, uaPosts, fmtC, revMultiplier }: {
   pct: number | null; colorClass: string; cardStyle: any;
-  unattribVal: number; uaMessagesUntracked: number; uaTips: number; uaSubs: number; uaPosts: number;
+  unattribVal: number; ltvTotal: number;
+  uaMessages: number; uaTips: number; uaSubs: number; uaPosts: number;
   fmtC: (v: number) => string; revMultiplier: number;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1416,12 +1417,14 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
 
   // Apply rev multiplier
   const mUnattr = unattribVal * revMultiplier;
-  const mMsg = uaMessagesUntracked * revMultiplier;
+  const mLtvTotal = ltvTotal * revMultiplier;
+  const mMsg = uaMessages * revMultiplier;
   const mTips = uaTips * revMultiplier;
   const mSubs = uaSubs * revMultiplier;
   const mPosts = uaPosts * revMultiplier;
 
-  const uaPct = (v: number) => mUnattr > 0 ? `${((v / mUnattr) * 100).toFixed(1)}%` : "0%";
+  // % is computed against total ltv_total (not unattributed total).
+  const pctOfLtv = (v: number) => mLtvTotal > 0 ? `${((v / mLtvTotal) * 100).toFixed(1)}%` : "0%";
 
   const rows = [
     { label: "Messages / PPV", value: mMsg, color: "hsl(var(--primary))" },
@@ -1429,6 +1432,8 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
     { label: "Subscriptions", value: mSubs, color: "hsl(280 60% 55%)" },
     { label: "Posts", value: mPosts, color: "hsl(210 80% 55%)" },
   ];
+
+  const hasBreakdown = (mMsg + mTips + mSubs + mPosts) > 0;
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
@@ -1445,7 +1450,7 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
       )}
       <p className="text-[11px] text-muted-foreground mt-1">Revenue not attributed to tracking links · All time</p>
 
-      {mUnattr > 0 && (
+      {hasBreakdown && (
         <>
           <button
             onClick={() => setExpanded(!expanded)}
@@ -1458,17 +1463,16 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, uaMessagesU
           {expanded && (
             <div className="mt-2 pt-2 border-t border-border space-y-1.5">
               <p className="text-[11px] font-medium text-foreground">Unattributed: {fmtBk(mUnattr)}</p>
-              <p className="text-[10px] text-muted-foreground">Revenue not from tracking links · by type</p>
+              <p className="text-[10px] text-muted-foreground">By type · % of total revenue</p>
               {rows.map(row => (
                 <div key={row.label} className="flex items-center justify-between text-[12px]">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: row.color }} />
                     <span className="text-muted-foreground">{row.label}</span>
                   </div>
-                  <span className="font-mono text-foreground/80">{fmtBk(row.value)} · {uaPct(row.value)}</span>
+                  <span className="font-mono text-foreground/80">{fmtBk(row.value)} · {pctOfLtv(row.value)}</span>
                 </div>
               ))}
-              <p className="text-[10px] text-muted-foreground/60 mt-1">Messages shown minus tracked campaign revenue</p>
             </div>
           )}
         </>
