@@ -14,7 +14,7 @@ import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { SubsTab } from "@/components/accounts/SubsTab";
+import { GrowthTab } from "@/components/accounts/GrowthTab";
 
 import { format, differenceInDays, subDays, isValid } from "date-fns";
 
@@ -69,7 +69,7 @@ export default function AccountsPage() {
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "subs">("campaigns");
+  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "growth">("campaigns");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortAsc, setSortAsc] = useState(false);
   const [srcSortKey, setSrcSortKey] = useState<SourceSortKey>("profit");
@@ -773,7 +773,7 @@ export default function AccountsPage() {
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
-                    {(["campaigns", "sources", "performance", "subs"] as const).map((tab) => (
+                    {(["campaigns", "sources", "performance", "growth"] as const).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -787,7 +787,7 @@ export default function AccountsPage() {
                             ? "Traffic Sources"
                             : tab === "performance"
                               ? "Performance"
-                              : "Subs"}
+                              : "Growth"}
                       </button>
                     ))}
                   </div>
@@ -998,8 +998,8 @@ export default function AccountsPage() {
                   </div>
                 )}
 
-                {activeTab === "subs" && (
-                  <SubsTab
+                {activeTab === "growth" && (
+                  <GrowthTab
                     accountId={acc.id}
                     accLinks={accLinks}
                     modelName={acc.display_name}
