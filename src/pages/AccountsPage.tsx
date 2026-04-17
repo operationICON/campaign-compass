@@ -563,6 +563,7 @@ export default function AccountsPage() {
             <ArrowLeft className="h-4 w-4" /> All Models
           </button>
 
+          {/* Row 1: Profile sidebar + KPI grid */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex flex-col md:flex-row">
               <div className="md:w-[30%] p-6 border-b md:border-b-0 md:border-r border-border flex flex-col items-center text-center">
@@ -630,8 +631,13 @@ export default function AccountsPage() {
                   <div />
                   <div />
                 </div>
+              </div>
+            </div>
+          </div>
 
-                {/* PART 6 — Revenue Breakdown (reuses overview card logic, expanded by default) */}
+          {/* Row 2: Revenue Breakdown (full width) */}
+
+          {/* PART 6 — Revenue Breakdown (reuses overview card logic, expanded by default) */}
                 {Number(acc.ltv_total || 0) > 0 && (() => {
                   const ltvT = Number(acc.ltv_total || 0);
                   const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
@@ -919,9 +925,6 @@ export default function AccountsPage() {
                     )}
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Campaign drawer for clickable rows */}
