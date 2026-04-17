@@ -19,13 +19,14 @@ import { Badge } from "@/components/ui/badge";
 
 const PAGE_SIZE = 25;
 
-type SyncType = "dashboard" | "snapshot" | "ltv" | "onlytraffic";
+type SyncType = "dashboard" | "snapshot" | "ltv" | "onlytraffic" | "ot_snapshot";
 
 const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; badge: string }> = {
   dashboard:   { bg: "bg-blue-500/10",   text: "text-blue-600 dark:text-blue-400",     border: "border-blue-500/30",  badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
   snapshot:    { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/30", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
   ltv:         { bg: "bg-purple-500/10",  text: "text-purple-600 dark:text-purple-400",  border: "border-purple-500/30", badge: "bg-purple-500/15 text-purple-700 dark:text-purple-300" },
   onlytraffic: { bg: "bg-orange-500/10",  text: "text-orange-600 dark:text-orange-400",  border: "border-orange-500/30", badge: "bg-orange-500/15 text-orange-700 dark:text-orange-300" },
+  ot_snapshot: { bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",    border: "border-amber-500/30",  badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
 };
 
 const SYNC_LABELS: Record<SyncType, string> = {
@@ -33,6 +34,7 @@ const SYNC_LABELS: Record<SyncType, string> = {
   snapshot: "Snapshots",
   ltv: "LTV",
   onlytraffic: "OnlyTraffic",
+  ot_snapshot: "OT Snapshots",
 };
 
 const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
@@ -40,12 +42,14 @@ const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
   snapshot: Camera,
   ltv: Users,
   onlytraffic: Truck,
+  ot_snapshot: Camera,
 };
 
 function classifySyncType(log: any): SyncType {
   const msg = (log.message || "").toLowerCase();
   const details = JSON.stringify(log.details || {}).toLowerCase();
   const triggered = (log.triggered_by || "").toLowerCase();
+  if (triggered.includes("ot_snapshot") || triggered.includes("onlytraffic_snapshot") || msg.includes("ot snapshot") || msg.includes("onlytraffic snapshot") || details.includes("ot_snapshot")) return "ot_snapshot";
   if (triggered.includes("ltv") || triggered.includes("fan_sync") || msg.includes("ltv") || msg.includes("fan sync") || details.includes("ltv")) return "ltv";
   if (triggered.includes("snapshot") || msg.includes("snapshot") || details.includes("snapshot")) return "snapshot";
   if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || msg.includes("auto-tag") || details.includes("onlytraffic")) return "onlytraffic";
@@ -78,8 +82,8 @@ export default function LogsPage() {
   
 
   // Running state per sync type
-  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false });
-  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "" });
+  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false, ot_snapshot: false });
+  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "", ot_snapshot: "" });
   const abortRefs = useRef<Record<string, AbortController>>({});
 
   useEffect(() => {
@@ -101,7 +105,7 @@ export default function LogsPage() {
 
   // Build status cards from last log per type
   const statusCards = useMemo(() => {
-    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, ltv: null, onlytraffic: null };
+    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, ltv: null, onlytraffic: null, ot_snapshot: null };
     for (const log of classifiedLogs) {
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
@@ -385,6 +389,11 @@ export default function LogsPage() {
           })}
         </div>
 
+        {/* ═══ MANUAL SYNC NOTE ═══ */}
+        <p className="text-center text-muted-foreground" style={{ fontSize: 11 }}>
+          ⓘ Syncs are run manually by ERN. Contact ERN to trigger a sync outside of the regular schedule.
+        </p>
+
         {/* ═══ SYNC HISTORY TABLE ═══ */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -402,6 +411,7 @@ export default function LogsPage() {
                   <option value="snapshot">Snapshots</option>
                   <option value="ltv">LTV</option>
                   <option value="onlytraffic">OnlyTraffic</option>
+                  <option value="ot_snapshot">OT Snapshots</option>
                 </select>
                 <select
                   value={statusFilter}
@@ -449,6 +459,7 @@ export default function LogsPage() {
                         <SortableTh<LogSortKey> label="Records" sortKey="records" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <SortableTh<LogSortKey> label="Duration" sortKey="duration" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <SortableTh<LogSortKey> label="Status" sortKey="status" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="center" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
+                        <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Triggered by</th>
                         <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Message</th>
                       </tr>
                     </thead>
@@ -503,6 +514,9 @@ export default function LogsPage() {
                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />}
                                 {status === "error" ? "Failed" : status === "success" ? "Success" : "Running"}
                               </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
+                              {log.triggered_by ? (log.triggered_by === "manual" ? "ERN (manual)" : log.triggered_by) : "—"}
                             </td>
                             <td className="py-2.5 px-4 text-muted-foreground max-w-[250px] truncate">
                               {status === "error" ? (
