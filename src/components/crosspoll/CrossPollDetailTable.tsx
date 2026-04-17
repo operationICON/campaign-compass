@@ -5,9 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ModelAvatar } from "@/components/ModelAvatar";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const fmtC = (v: number | null) =>
   v == null ? "—" : "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+type CpSortKey = "sourceCampaign" | "sourceModel" | "fanId" | "spentOnModel" | "spentOnCampaign" | "revenue";
 
 interface Props {
   accounts: any[];
@@ -19,6 +22,25 @@ interface Props {
 export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, globalModelFilter }: Props) {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [destFilter, setDestFilter] = useState("all");
+  const [sortKey, setSortKey] = useState<CpSortKey>("revenue");
+  const [sortAsc, setSortAsc] = useState(false);
+  const handleSort = (k: CpSortKey) => {
+    if (k === sortKey) setSortAsc(!sortAsc);
+    else { setSortKey(k); setSortAsc(false); }
+  };
+  const SortHead = ({ label, k, align = "left" }: { label: string; k: CpSortKey; align?: "left" | "right" }) => (
+    <TableHead
+      className={`text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors ${align === "right" ? "text-right" : ""}`}
+      onClick={() => handleSort(k)}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
+        {label}
+        {sortKey === k ? (
+          sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
+        ) : <ChevronDown className="h-3 w-3 opacity-30" />}
+      </span>
+    </TableHead>
+  );
 
   // Fetch fan_spenders with revenue
   const { data: spenders = [], isLoading } = useQuery({
