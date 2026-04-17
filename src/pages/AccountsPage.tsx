@@ -768,15 +768,15 @@ export default function AccountsPage() {
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Tracking Link <SortIcon col="campaign_name" /></th>
-                            <th className="text-left py-2 px-3">Source</th>
+                            <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("source_tag")}>Source <SortIcon col="source_tag" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
-                            <th className="text-right py-2 px-3">Subs/Day</th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>Subs/Day <SortIcon col="subs_day" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>Revenue <SortIcon col="revenue" /></th>
-                            <th className="text-right py-2 px-3">Cross-Poll</th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cross_poll")}>Cross-Poll <SortIcon col="cross_poll" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
-                            <th className="text-center py-2 px-3">Status</th>
+                            <th className="text-center py-2 px-3 cursor-pointer" onClick={() => toggleSort("status")}>Status <SortIcon col="status" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("created_at")}>Created <SortIcon col="created_at" /></th>
                           </tr>
                         </thead>
@@ -846,16 +846,25 @@ export default function AccountsPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                            <th className="text-left py-2 px-3">Source</th>
-                            <th className="text-right py-2 px-3">Active Links</th>
-                            <th className="text-right py-2 px-3">Subs</th>
-                            <th className="text-right py-2 px-3">Subs/Day</th>
-                            <th className="text-right py-2 px-3">Total Spend</th>
-                            <th className="text-right py-2 px-3">Revenue</th>
-                            <th className="text-right py-2 px-3">CPL/CPC</th>
-                            <th className="text-right py-2 px-3">CVR</th>
-                            <th className="text-right py-2 px-3">Profit</th>
-                            <th className="text-right py-2 px-3">ROI</th>
+                            {([
+                              { k: "source", l: "Source", a: "left" },
+                              { k: "activeLinks", l: "Active Links", a: "right" },
+                              { k: "subs", l: "Subs", a: "right" },
+                              { k: "subsDay", l: "Subs/Day", a: "right" },
+                              { k: "spend", l: "Total Spend", a: "right" },
+                              { k: "revenue", l: "Revenue", a: "right" },
+                              { k: "cplCpc", l: "CPL/CPC", a: "right" },
+                              { k: "cvr", l: "CVR", a: "right" },
+                              { k: "profit", l: "Profit", a: "right" },
+                              { k: "roi", l: "ROI", a: "right" },
+                            ] as { k: SourceSortKey; l: string; a: "left" | "right" }[]).map(({ k, l, a }) => (
+                              <th key={k} className={`${a === "right" ? "text-right" : "text-left"} py-2 px-3 cursor-pointer select-none hover:text-foreground transition-colors`} onClick={() => toggleSrcSort(k)}>
+                                <span className={`inline-flex items-center gap-1 ${a === "right" ? "justify-end" : ""}`}>
+                                  {l}
+                                  {srcSortKey === k ? (srcSortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />) : <ChevronDown className="h-3 w-3 opacity-30" />}
+                                </span>
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
