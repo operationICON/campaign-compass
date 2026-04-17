@@ -540,10 +540,28 @@ export default function AccountsPage() {
     const ua = calcUnattributedPct(acc);
 
     const sortedLinks = [...accLinks].sort((a: any, b: any) => {
-      const av = sortKey === "campaign_name" ? (a.campaign_name || "") : Number(a[sortKey] || 0);
-      const bv = sortKey === "campaign_name" ? (b.campaign_name || "") : Number(b[sortKey] || 0);
-      if (typeof av === "string") return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
-      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
+      const dir = sortAsc ? 1 : -1;
+      const getVal = (l: any): number | string => {
+        switch (sortKey) {
+          case "campaign_name": return (l.campaign_name || "").toLowerCase();
+          case "source_tag": return (getEffectiveSource(l) || "zzz").toLowerCase();
+          case "status": return (l.status || "zzz").toLowerCase();
+          case "created_at": return l.created_at ? new Date(l.created_at).getTime() : 0;
+          case "subs_day": {
+            const days = l.created_at ? Math.max(1, differenceInDays(new Date(), new Date(l.created_at))) : 1;
+            return Number(l.subscribers || 0) / days;
+          }
+          case "cross_poll": {
+            const ltvR = ltvLookup[String(l.id).toLowerCase()];
+            return ltvR ? Number(ltvR.cross_poll_revenue || 0) : -1;
+          }
+          case "profit": return Number(l.revenue || 0) - Number(l.cost_total || 0);
+          default: return Number(l[sortKey] || 0);
+        }
+      };
+      const av = getVal(a), bv = getVal(b);
+      if (typeof av === "string" && typeof bv === "string") return dir * av.localeCompare(bv);
+      return dir * ((av as number) - (bv as number));
     });
 
     // KPI card component
