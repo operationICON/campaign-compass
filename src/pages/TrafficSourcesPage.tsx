@@ -813,7 +813,6 @@ export default function TrafficSourcesPage() {
           onModelFilterChange={setPageModelFilter}
           accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
         />
-        <DateAccuracyBanner show={!(timePeriod === "all" && !customRange)} />
 
         {/* TOP SECTION — KPIs left + Source Card right (Level 1 only) */}
         {navLevel === 1 && (

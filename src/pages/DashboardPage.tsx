@@ -663,9 +663,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Data availability / accuracy note */}
-        <DateAccuracyBanner show={!isAllTime} />
-
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
           isLoading={isLoading}
