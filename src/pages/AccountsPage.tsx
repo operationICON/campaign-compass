@@ -927,6 +927,10 @@ export default function AccountsPage() {
                           </div>
                         </div>
                       </>
+                    )}
+                  </div>
+                )}
+
                 {activeTab === "subs" && (
                   <SubsTab
                     accountId={acc.id}
@@ -935,8 +939,6 @@ export default function AccountsPage() {
                     avatarUrl={acc.avatar_thumb_url}
                     onRowClick={(link) => setDrawerCampaign(link)}
                   />
-                )}
-        </div>
                 )}
         </div>
 
