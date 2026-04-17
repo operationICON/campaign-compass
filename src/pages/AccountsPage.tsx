@@ -9,6 +9,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import { isActiveAccount } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
@@ -366,8 +367,10 @@ export default function AccountsPage() {
   }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime]);
 
   const afterAccountFilter = useMemo(() => {
-    if (pageModelFilter === "all") return accounts;
-    return accounts.filter((a: any) => a.id === pageModelFilter);
+    // Rule 4: exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
+    const active = accounts.filter(isActiveAccount);
+    if (pageModelFilter === "all") return active;
+    return active.filter((a: any) => a.id === pageModelFilter);
   }, [accounts, pageModelFilter]);
 
   const filteredAccounts = useMemo(() => {
