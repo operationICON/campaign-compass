@@ -1,0 +1,1 @@
+CREATE POLICY "Allow public update alerts" ON public.alerts FOR UPDATE TO anon USING (true) WITH CHECK (true);
