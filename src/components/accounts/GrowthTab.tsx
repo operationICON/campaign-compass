@@ -18,11 +18,14 @@ import { ArrowDown, ArrowUp, Zap, Trophy } from "lucide-react";
 
 type GrowthPeriod = "since_last_sync" | "7d" | "14d" | "30d";
 
+// NOTE: Extended ranges (7d/14d/30d) are temporarily hidden from the UI until
+// daily sync is fully established. The filter logic is preserved — just unhide
+// the entries below to re-enable.
 const PERIOD_OPTIONS: { key: GrowthPeriod; label: string }[] = [
   { key: "since_last_sync", label: "Since last sync" },
-  { key: "7d", label: "Last 7 days" },
-  { key: "14d", label: "Last 14 days" },
-  { key: "30d", label: "Last 30 days" },
+  // { key: "7d", label: "Last 7 days" },
+  // { key: "14d", label: "Last 14 days" },
+  // { key: "30d", label: "Last 30 days" },
 ];
 
 const fmtCurrency = (v: number) =>
