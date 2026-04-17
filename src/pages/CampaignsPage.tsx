@@ -491,6 +491,14 @@ export default function CampaignsPage() {
         case "cross_poll": aVal = a.crossPollRevenue ?? -Infinity; bVal = b.crossPollRevenue ?? -Infinity; break;
         case "spender_rate": aVal = Number(a.spender_rate ?? -Infinity); bVal = Number(b.spender_rate ?? -Infinity); break;
         case "cpl": aVal = Number(a.cpl_real ?? a.cost_per_lead ?? -Infinity); bVal = Number(b.cpl_real ?? b.cost_per_lead ?? -Infinity); break;
+        case "cpc": {
+          const aSpend = Number(a.cost_total || 0); const aClk = Number(a.clicks || 0);
+          const bSpend = Number(b.cost_total || 0); const bClk = Number(b.clicks || 0);
+          aVal = aSpend > 0 && aClk > 0 ? aSpend / aClk : -Infinity;
+          bVal = bSpend > 0 && bClk > 0 ? bSpend / bClk : -Infinity;
+          break;
+        }
+        case "marketer": aVal = (a.onlytraffic_marketer || "zzz").toLowerCase(); bVal = (b.onlytraffic_marketer || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "status": {
           aVal = (a.computedStatus || "zzz").toLowerCase();
           bVal = (b.computedStatus || "zzz").toLowerCase();
@@ -938,8 +946,10 @@ export default function CampaignsPage() {
                               <SortHeader key={c.id} label="LTV/Sub" sortKeyName="ltv_sub_all" width="75px" />
                             );
                             case "spender_rate": return <SortHeader key={c.id} label="Spender %" sortKeyName="spender_rate" width="75px" />;
-                            case "expenses": return <SortHeader key={c.id} label="Expenses" sortKeyName="cost_total" width="90px" />;
+                            case "marketer": return <SortHeader key={c.id} label="Marketer" sortKeyName="marketer" width="100px" />;
+                            case "expenses": return <SortHeader key={c.id} label="Spend" sortKeyName="cost_total" width="90px" />;
                             case "cpl": return <SortHeader key={c.id} label="CPL" sortKeyName="cpl" width="90px" />;
+                            case "cpc": return <SortHeader key={c.id} label="CPC" sortKeyName="cpc" width="80px" />;
                             case "profit": return <SortHeader key={c.id} label="Profit" sortKeyName="profit" width="80px" />;
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
