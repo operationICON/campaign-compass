@@ -1266,6 +1266,20 @@ export default function CampaignsPage() {
                                     })()}
                                   </td>
                                 );
+                                case "marketer": return (
+                                  <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                    {link.onlytraffic_marketer ? <span className="text-foreground/80">{link.onlytraffic_marketer}</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "cpc": {
+                                  const clk = Number(link.clicks || 0);
+                                  const cpcVal = hasCost && clk > 0 ? costTotal / clk : null;
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {cpcVal !== null ? <span className="text-foreground">${cpcVal.toFixed(4)}</span> : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                  );
+                                }
                                 case "media_buyer": return (
                                   <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {link.media_buyer ? <span className="text-foreground">{link.media_buyer}</span> : <span className="text-muted-foreground italic">—</span>}
