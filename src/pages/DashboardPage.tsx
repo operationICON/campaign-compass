@@ -1070,13 +1070,23 @@ function KpiCards({
           : pct >= 30 ? "text-[hsl(38_92%_50%)]"
           : "text-primary";
 
-        // Breakdown: unattributed by type
-        const uaMessages = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_messages || 0), 0);
-        const uaTips = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_tips || 0), 0);
-        const uaSubs = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_subscriptions || 0), 0);
-        const uaPosts = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_posts || 0), 0);
-        // Messages untracked = ltv_messages - campaign revenue (campaigns are mostly messages)
-        const uaMessagesUntracked = Math.max(0, uaMessages - campaignRevenue5);
+        // Breakdown: revenue by transaction type, scoped to sync_enabled accounts within current filter.
+        // Source: transactions.revenue grouped by type (accounts.ltv_messages/tips/subscriptions/posts
+        // columns are not populated upstream — we aggregate from the transactions table instead).
+        const syncEnabledAccts = filtAccounts.filter((a: any) => a.sync_enabled === true);
+        const breakdown = syncEnabledAccts.reduce(
+          (acc: { messages: number; tips: number; subscriptions: number; posts: number }, a: any) => {
+            const t = txTypeTotalsByAccount[a.id];
+            if (t) {
+              acc.messages += t.messages;
+              acc.tips += t.tips;
+              acc.subscriptions += t.subscriptions;
+              acc.posts += t.posts;
+            }
+            return acc;
+          },
+          { messages: 0, tips: 0, subscriptions: 0, posts: 0 },
+        );
 
         return (
           <UnattributedCard
@@ -1085,10 +1095,11 @@ function KpiCards({
             colorClass={colorClass}
             cardStyle={cardStyle}
             unattribVal={unattribVal}
-            uaMessagesUntracked={uaMessagesUntracked}
-            uaTips={uaTips}
-            uaSubs={uaSubs}
-            uaPosts={uaPosts}
+            ltvTotal={accountsLtv5}
+            uaMessages={breakdown.messages}
+            uaTips={breakdown.tips}
+            uaSubs={breakdown.subscriptions}
+            uaPosts={breakdown.posts}
             fmtC={fmtC}
             revMultiplier={revMultiplier}
           />
