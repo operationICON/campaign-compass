@@ -669,7 +669,7 @@ export default function DashboardPage() {
         {!customRange && (timePeriod === "month" || timePeriod === "prev_month") && (
           <div
             role="status"
-            className="w-full rounded-md border border-amber-500/40 bg-amber-500/15 text-amber-200 px-3 py-1.5 text-[12px] leading-snug"
+            className="w-full rounded-md border border-warning/40 bg-warning/15 text-warning px-3 py-1.5 text-[12px] leading-snug"
           >
             ⚠ Figures for this period are preliminary and updating.
           </div>
