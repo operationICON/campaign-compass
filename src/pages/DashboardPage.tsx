@@ -605,8 +605,7 @@ export default function DashboardPage() {
           <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
             {TIME_PERIODS.map((tp) => {
               const isActive = timePeriod === tp.key && !customRange;
-              const showTooltip = tp.key === "month" || tp.key === "prev_month";
-              const btn = (
+              return (
                 <button
                   key={tp.key}
                   onClick={() => { setTimePeriod(tp.key); setCustomRange(null); }}
@@ -617,64 +616,23 @@ export default function DashboardPage() {
                   {tp.label}
                 </button>
               );
-              if (!showTooltip) return btn;
-              return (
-                <UITooltip key={tp.key}>
-                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
-                    ⓘ Figures for this period are preliminary and updating.
-                  </TooltipContent>
-                </UITooltip>
-              );
             })}
           </div>
-
-          {/* Custom date range picker */}
-          <DateRangePicker
-            value={customRange}
-            onChange={(range) => {
-              setCustomRange(range);
-            }}
-          />
-
-          {/* Gross / Net toggle */}
-          <UITooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setRevenueMode("gross")}
-                  className={`px-3 py-2 text-xs font-medium transition-colors ${
-                    revenueMode === "gross" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Gross
-                </button>
-                <button
-                  onClick={() => setRevenueMode("net")}
-                  className={`px-3 py-2 text-xs font-medium transition-colors ${
-                    revenueMode === "net" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Net
-                </button>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[220px] text-center">
-              OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
-            </TooltipContent>
-          </UITooltip>
-
-          {/* Active filter count */}
-          {activeFilterCount > 0 && (
-            <button
-              onClick={() => { setGroupFilter("all"); setSelectedModel("all"); }}
-              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-secondary border border-border px-2.5 py-1 rounded-full hover:text-foreground transition-colors"
-            >
-              {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} active
+...
               <X className="h-3 w-3" />
             </button>
           )}
         </div>
+
+        {/* Preliminary data warning bar */}
+        {!customRange && (timePeriod === "month" || timePeriod === "prev_month") && (
+          <div
+            role="status"
+            className="w-full rounded-md border border-amber-500/40 bg-amber-500/15 text-amber-200 px-3 py-1.5 text-[12px] leading-snug"
+          >
+            ⚠ Figures for this period are preliminary and updating.
+          </div>
+        )}
 
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
