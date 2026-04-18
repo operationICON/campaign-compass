@@ -618,7 +618,48 @@ export default function DashboardPage() {
               );
             })}
           </div>
-...
+
+          {/* Custom date range picker */}
+          <DateRangePicker
+            value={customRange}
+            onChange={(range) => {
+              setCustomRange(range);
+            }}
+          />
+
+          {/* Gross / Net toggle */}
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setRevenueMode("gross")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "gross" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Gross
+                </button>
+                <button
+                  onClick={() => setRevenueMode("net")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "net" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Net
+                </button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[220px] text-center">
+              OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
+            </TooltipContent>
+          </UITooltip>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={() => { setGroupFilter("all"); setSelectedModel("all"); }}
+              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-secondary border border-border px-2.5 py-1 rounded-full hover:text-foreground transition-colors"
+            >
+              {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} active
               <X className="h-3 w-3" />
             </button>
           )}
