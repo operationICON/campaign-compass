@@ -26,81 +26,85 @@ export function PageFilterBar({
   revenueMode,
   onRevenueModeChange,
 }: PageFilterBarProps) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <AccountFilterDropdown
-        value={modelFilter}
-        onChange={onModelFilterChange}
-        accounts={accounts}
-      />
+  const showPreliminaryWarning =
+    !customRange && (timePeriod === "month" || timePeriod === "prev_month");
 
-      <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-        {TIME_PERIODS.map((tp) => {
-          const isActive = timePeriod === tp.key && !customRange;
-          const showTooltip = tp.key === "month" || tp.key === "prev_month";
-          const btn = (
-            <button
-              key={tp.key}
-              onClick={() => {
-                onTimePeriodChange(tp.key);
-                onCustomRangeChange(null);
-              }}
-              className={`px-4 py-2 text-xs font-medium transition-colors ${
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tp.label}
-            </button>
-          );
-          if (!showTooltip) return btn;
-          return (
-            <Tooltip key={tp.key}>
-              <TooltipTrigger asChild>{btn}</TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
-                ⓘ Figures for this period are preliminary and updating.
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <AccountFilterDropdown
+          value={modelFilter}
+          onChange={onModelFilterChange}
+          accounts={accounts}
+        />
+
+        <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+          {TIME_PERIODS.map((tp) => {
+            const isActive = timePeriod === tp.key && !customRange;
+            return (
+              <button
+                key={tp.key}
+                onClick={() => {
+                  onTimePeriodChange(tp.key);
+                  onCustomRangeChange(null);
+                }}
+                className={`px-4 py-2 text-xs font-medium transition-colors ${
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tp.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <DateRangePicker
+          value={customRange}
+          onChange={(range) => onCustomRangeChange(range)}
+        />
+
+        {revenueMode && onRevenueModeChange && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => onRevenueModeChange("gross")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "gross"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Gross
+                </button>
+                <button
+                  onClick={() => onRevenueModeChange("net")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${
+                    revenueMode === "net"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Net
+                </button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[220px] text-center">
+              OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
-      <DateRangePicker
-        value={customRange}
-        onChange={(range) => onCustomRangeChange(range)}
-      />
-
-      {revenueMode && onRevenueModeChange && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-              <button
-                onClick={() => onRevenueModeChange("gross")}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${
-                  revenueMode === "gross"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Gross
-              </button>
-              <button
-                onClick={() => onRevenueModeChange("net")}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${
-                  revenueMode === "net"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Net
-              </button>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[220px] text-center">
-            OnlyFans takes 20% of all revenue. Net shows your actual earnings after their fee.
-          </TooltipContent>
-        </Tooltip>
+      {showPreliminaryWarning && (
+        <div
+          role="status"
+          className="w-full rounded-md border border-warning/40 bg-warning/15 text-warning px-3 py-1.5 text-[12px] leading-snug"
+        >
+          ⚠ Figures for this period are preliminary and updating.
+        </div>
       )}
     </div>
   );

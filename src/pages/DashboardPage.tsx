@@ -605,8 +605,7 @@ export default function DashboardPage() {
           <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
             {TIME_PERIODS.map((tp) => {
               const isActive = timePeriod === tp.key && !customRange;
-              const showTooltip = tp.key === "month" || tp.key === "prev_month";
-              const btn = (
+              return (
                 <button
                   key={tp.key}
                   onClick={() => { setTimePeriod(tp.key); setCustomRange(null); }}
@@ -616,15 +615,6 @@ export default function DashboardPage() {
                 >
                   {tp.label}
                 </button>
-              );
-              if (!showTooltip) return btn;
-              return (
-                <UITooltip key={tp.key}>
-                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
-                    ⓘ Figures for this period are preliminary and updating.
-                  </TooltipContent>
-                </UITooltip>
               );
             })}
           </div>
@@ -664,7 +654,6 @@ export default function DashboardPage() {
             </TooltipContent>
           </UITooltip>
 
-          {/* Active filter count */}
           {activeFilterCount > 0 && (
             <button
               onClick={() => { setGroupFilter("all"); setSelectedModel("all"); }}
@@ -675,6 +664,16 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
+
+        {/* Preliminary data warning bar */}
+        {!customRange && (timePeriod === "month" || timePeriod === "prev_month") && (
+          <div
+            role="status"
+            className="w-full rounded-md border border-warning/40 bg-warning/15 text-warning px-3 py-1.5 text-[12px] leading-snug"
+          >
+            ⚠ Figures for this period are preliminary and updating.
+          </div>
+        )}
 
         {/* ═══ KPI CARDS ═══ */}
         <KpiCards
