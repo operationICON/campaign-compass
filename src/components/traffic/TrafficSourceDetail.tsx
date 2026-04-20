@@ -63,6 +63,10 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
+  const [activityFilter, setActivityFilter] = usePersistedState<LinkActivityFilterValue>(`${TSD_PREFS}_activityFilter`, "all");
+
+  // Snapshot-derived activity (>= 1 sub/day over last 5 days). No account scope — covers all links shown here.
+  const { activeLookup } = useActiveLinkStatus(null);
 
   const isUntaggedView = sourceName === "Untagged";
   const isOnlyTraffic = categoryName === "OnlyTraffic";
