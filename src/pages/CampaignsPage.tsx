@@ -144,6 +144,7 @@ export default function CampaignsPage() {
   // ─── Filter/sort state ───
   const [searchQuery, setSearchQuery] = useState("");
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
+  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   
   const [groupFilter, setGroupFilter] = useState("all");
