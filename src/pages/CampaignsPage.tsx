@@ -25,7 +25,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
-import type { TimePeriod } from "@/hooks/usePageFilters";
+import { TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, X, Tag,
