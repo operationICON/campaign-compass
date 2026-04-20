@@ -900,7 +900,7 @@ export default function AccountsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {sortedLinks.map((l: any) => {
+                          {displayLinks.map((l: any) => {
                             const status = getStatus(l);
                             const spend = Number(l.cost_total || 0);
                             const hasSpend = spend > 0;
@@ -917,12 +917,26 @@ export default function AccountsPage() {
                             const cplVal = paymentType === "CPL" && hasSpend && subsVal > 0 ? spend / subsVal : null;
                             const cpcVal = paymentType === "CPC" && hasSpend && clicksVal > 0 ? spend / clicksVal : null;
                             const roiVal = hasSpend ? (profit / spend) * 100 : null;
-                            const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
-                            const subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;
+                            const activeInfo = getActiveInfo(l.id, activeLookup);
+                            // When the activity filter is engaged, show snapshot-derived
+                            // subs/day (last 5d). Otherwise keep the lifetime average.
+                            let subsPerDay: number | null;
+                            if (activityFilter !== "all") {
+                              subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
+                            } else {
+                              const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
+                              subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;
+                            }
+                            const rowBorder =
+                              activityFilter === "active"
+                                ? "border-l-2 border-l-primary/70"
+                                : activityFilter === "inactive"
+                                ? "border-l-2 border-l-muted-foreground/40"
+                                : "";
                             return (
                               <tr
                                 key={l.id}
-                                className="border-b border-border/50 hover:bg-muted/30 hover:border-l-2 hover:border-l-primary transition-colors cursor-pointer"
+                                className={`border-b border-border/50 hover:bg-muted/30 hover:border-l-2 hover:border-l-primary transition-colors cursor-pointer ${rowBorder}`}
                                 onClick={() => setDrawerCampaign({ ...l, avatarUrl: acc.avatar_thumb_url, modelName: acc.display_name })}
                               >
                                 <td className="py-3 px-3">
