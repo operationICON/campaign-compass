@@ -1010,19 +1010,20 @@ export default function AccountsPage() {
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Tracking Link <SortIcon col="campaign_name" /></th>
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("source_tag")}>Source <SortIcon col="source_tag" /></th>
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("marketer")}>Marketer <SortIcon col="marketer" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>Subs/Day <SortIcon col="subs_day" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>CVR <SortIcon col="cvr" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>Spend <SortIcon col="spend" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>Revenue <SortIcon col="revenue" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>{headerLabel("Clicks")} <SortIcon col="clicks" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>{headerLabel("Subs")} <SortIcon col="subscribers" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Gained {gainedSuffix}</th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>{headerLabel("Subs/Day")} <SortIcon col="subs_day" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>{headerLabel("CVR")} <SortIcon col="cvr" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>{headerLabel("Spend")} <SortIcon col="spend" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>{headerLabel("Revenue")} <SortIcon col="revenue" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cross_poll")}>Cross-Poll <SortIcon col="cross_poll" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit_sub")}>Profit/Sub <SortIcon col="profit_sub" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("ltv_sub")}>LTV/Sub <SortIcon col="ltv_sub" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpl")}>CPL <SortIcon col="cpl" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpc")}>CPC <SortIcon col="cpc" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>{headerLabel("Profit")} <SortIcon col="profit" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit_sub")}>{headerLabel("Profit/Sub")} <SortIcon col="profit_sub" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("ltv_sub")}>{headerLabel("LTV/Sub")} <SortIcon col="ltv_sub" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpl")}>{headerLabel("CPL")} <SortIcon col="cpl" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpc")}>{headerLabel("CPC")} <SortIcon col="cpc" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>{headerLabel("ROI")} <SortIcon col="roi" /></th>
                             <th className="text-center py-2 px-3 cursor-pointer" onClick={() => toggleSort("status")}>Status <SortIcon col="status" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("created_at")}>Created <SortIcon col="created_at" /></th>
                           </tr>
