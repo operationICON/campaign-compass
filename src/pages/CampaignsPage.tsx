@@ -747,13 +747,7 @@ export default function CampaignsPage() {
             accounts={filteredAccountOptions}
           />
           <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-            {([
-              { key: "day" as TimePeriod, label: "Last Day" },
-              { key: "week" as TimePeriod, label: "Last Week" },
-              { key: "month" as TimePeriod, label: "Last Month" },
-              { key: "prev_month" as TimePeriod, label: "Prev Month" },
-              { key: "all" as TimePeriod, label: "All Time" },
-            ]).map((tp) => (
+            {TIME_PERIODS.map((tp) => (
               <button
                 key={tp.key}
                 onClick={() => {
