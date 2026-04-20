@@ -49,7 +49,7 @@ export function CampaignDetailDrawer({ campaign, onClose, onCampaignUpdated }: C
 
   return (
     <Drawer open={!!campaign} onOpenChange={(v) => { if (!v) { onClose(); } }}>
-      <DrawerContent className="h-[65vh] max-h-[65vh] p-0 overflow-hidden border-t border-border" style={{ background: "#161B22" }}>
+      <DrawerContent className="h-[94vh] max-h-[94vh] p-0 overflow-hidden border-t border-border flex flex-col" style={{ background: "#161B22" }}>
         {campaign && (
           <DrawerBodyInner
             campaign={campaign}
@@ -344,7 +344,7 @@ function DrawerBodyInner({
   };
 
   return (
-    <div className="overflow-y-auto flex-1">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* HEADER */}
       <div className="px-6 pt-3 pb-2 border-b border-border flex items-center gap-4">
         <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url} name={d.modelName || d.accounts?.display_name || ""} size={80} />
@@ -654,9 +654,9 @@ function DrawerBodyInner({
         )}
       </div>
 
-      {/* ROW 1 — 3 columns: Financials Left | Financials Right | Campaign Info */}
-      <div className="px-6 pt-3 pb-1">
-        <div className="grid grid-cols-3 gap-0 border-t-2 border-destructive">
+      {/* ROW 1 — 4 columns: Financials L | Financials R | Campaign Info | Growth */}
+      <div className="px-6 pt-2 pb-1 flex-1 min-h-0 flex flex-col">
+        <div className="grid grid-cols-4 gap-0 border-t-2 border-destructive">
           {/* COL 1 — FINANCIALS LEFT */}
           <div className="border-r border-border">
             <div className="px-3 py-1 border-b border-border">
@@ -688,7 +688,7 @@ function DrawerBodyInner({
             <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
           </div>
           {/* COL 3 — CAMPAIGN INFO */}
-          <div>
+          <div className="border-r border-border">
             <div className="px-3 py-1 border-b border-border">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Campaign Info</span>
             </div>
@@ -716,18 +716,27 @@ function DrawerBodyInner({
                 : "—"
             } />
           </div>
+          {/* COL 4 — GROWTH */}
+          <div>
+            <div className="px-3 py-1 border-b border-border">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Growth</span>
+            </div>
+            <CampaignGrowthTable
+              trackingLinkId={d.id}
+              lifetimeClicks={totalClicks}
+              lifetimeSubs={tlSubscribers}
+              compact
+            />
+          </div>
         </div>
+
+        {/* ORDER HISTORY — OnlyTraffic only, fills remaining space */}
+        {d.traffic_category === "OnlyTraffic" && (
+          <div className="flex-1 min-h-0 overflow-y-auto mt-2">
+            <OrderHistorySection campaignId={d.id} cappedSpend={cost} />
+          </div>
+        )}
       </div>
-
-      {/* GROWTH SECTION */}
-      <CampaignGrowthTable
-        trackingLinkId={d.id}
-        lifetimeClicks={totalClicks}
-        lifetimeSubs={tlSubscribers}
-      />
-
-      {/* ORDER HISTORY — OnlyTraffic only */}
-      {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={cost} />}
     </div>
   );
 }
