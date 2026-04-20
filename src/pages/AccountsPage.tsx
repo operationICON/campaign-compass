@@ -840,19 +840,19 @@ export default function AccountsPage() {
               <div className="md:w-[70%] p-6">
                 {/* PART 2 — 5×5 KPI Grid (13 cards, rows 4-5 empty) */}
                 <div className="grid grid-cols-5 gap-3 mb-4">
-                  {/* Row 1: Primary financials */}
-                  <KpiCard label="Total Revenue" value={fmtCurrency(totalRevenue)} />
-                  <KpiCard label="Campaign Rev" value={fmtCurrency(campaignRev)} />
-                  <KpiCard label="Total Spend" value={fmtCurrency(totalSpend)} />
-                  <KpiCard label="Total Profit" value={fmtCurrency(totalProfit)} colored positive={totalProfit >= 0} />
-                  <KpiCard label="ROI %" value={roi != null ? fmtPct(roi) : "—"} colored positive={roi != null && roi >= 0} />
+                  {/* Row 1: Primary financials — period-aware when filter active */}
+                  <KpiCard label={headerLabel("Total Revenue")} value={fmtCurrency(totalRevenue)} trend={periodActive ? totalRevenueTrend : undefined} />
+                  <KpiCard label={headerLabel("Campaign Rev")} value={fmtCurrency(campaignRev)} trend={periodActive ? campaignRevTrend : undefined} />
+                  <KpiCard label={headerLabel("Total Spend")} value={fmtCurrency(totalSpend)} trend={periodActive ? totalSpendTrend : undefined} reverseTrend />
+                  <KpiCard label={headerLabel("Total Profit")} value={fmtCurrency(totalProfit)} colored positive={totalProfit >= 0} trend={periodActive ? totalProfitTrend : undefined} />
+                  <KpiCard label={headerLabel("ROI %")} value={roi != null ? fmtPct(roi) : "—"} colored positive={roi != null && roi >= 0} trend={periodActive ? roiTrend : undefined} />
 
-                  {/* Row 2: Scale/subs */}
-                  <KpiCard label="Subscribers" value={fmtNum(stats.apiSubs || stats.totalSubs || 0)} />
-                  <KpiCard label="Subs/Day" value={stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—"} />
-                  <KpiCard label="CVR" value={stats.allCvr != null ? fmtPct(stats.allCvr) : "—"} />
-                  <KpiCard label="CPL" value={cpl != null ? fmtCurrency(cpl) : "—"} />
-                  <KpiCard label="CPC" value={cpc != null ? `$${cpc.toFixed(4)}` : "—"} />
+                  {/* Row 2: Scale/subs — period-aware when filter active */}
+                  <KpiCard label={headerLabel("Subscribers")} value={fmtNum(subsKpiValue)} trend={periodActive ? subsKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("Subs/Day")} value={subsPerDayKpiValue != null ? `${subsPerDayKpiValue.toFixed(1)}/day` : "—"} trend={periodActive ? subsPerDayKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("CVR")} value={cvrKpiValue != null ? fmtPct(cvrKpiValue) : "—"} trend={periodActive ? cvrKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("CPL")} value={cpl != null ? fmtCurrency(cpl) : "—"} trend={periodActive ? cplTrend : undefined} reverseTrend />
+                  <KpiCard label={headerLabel("CPC")} value={cpc != null ? `$${cpc.toFixed(4)}` : "—"} trend={periodActive ? cpcTrend : undefined} reverseTrend />
 
                   {/* Row 3: Traffic health */}
                   <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
