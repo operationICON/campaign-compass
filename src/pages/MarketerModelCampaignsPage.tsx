@@ -80,7 +80,8 @@ export default function MarketerModelCampaignsPage() {
     enabled: !!decodedUsername,
   });
 
-  // 2. Fetch orders for marketer + offer_id that link to this account's tracking links
+  // Snapshot-derived activity (>= 1 sub/day over last 5 days), scoped to this account
+  const { activeLookup } = useActiveLinkStatus(account?.id ?? null);
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ["l4_orders", decodedMarketer, offerId, account?.id],
     queryFn: async () => {
