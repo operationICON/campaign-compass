@@ -21,6 +21,7 @@ import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { RefreshButton } from "@/components/RefreshButton";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import {
   Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X,
   AlertTriangle, BarChart3, Settings2, Lock, Info,
@@ -173,17 +174,18 @@ export default function TrafficSourcesPage() {
   const columnOrder = useColumnOrder("ct_traffic_sources_columns", TS_COLUMNS);
   const col = (id: string) => columnOrder.isVisible(id);
 
-  // Filters
+  // Filters (persisted)
+  const TS_PREFS = "ct_table_prefs_traffic_sources_l2";
   const [searchQuery, setSearchQuery] = useState("");
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "OnlyTraffic" | "Manual">("all");
+  const [accountFilter, setAccountFilter] = usePersistedState<string>(`${TS_PREFS}_accountFilter`, "all");
+  const [sourceFilter, setSourceFilter] = usePersistedState<string>(`${TS_PREFS}_sourceFilter`, "all");
+  const [categoryFilter, setCategoryFilter] = usePersistedState<"all" | "OnlyTraffic" | "Manual">(`${TS_PREFS}_categoryFilter`, "all");
 
-  // Sort/page
-  const [sortKey, setSortKey] = useState<SortKey>("created_at");
-  const [sortAsc, setSortAsc] = useState(false);
+  // Sort/page (persisted)
+  const [sortKey, setSortKey] = usePersistedState<SortKey>(`${TS_PREFS}_sortKey`, "created_at");
+  const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${TS_PREFS}_sortAsc`, false);
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
+  const [perPage, setPerPage] = usePersistedState<number>(`${TS_PREFS}_perPage`, 25);
 
   // Selection
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());

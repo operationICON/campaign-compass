@@ -41,6 +41,7 @@ import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
 import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetrics";
 
 // ─── Types ───
@@ -142,19 +143,20 @@ export default function CampaignsPage() {
   });
   useEffect(() => { try { localStorage.setItem(KPI_COLLAPSED_KEY, String(kpiCollapsed)); } catch {} }, [kpiCollapsed]);
 
-  // ─── Filter/sort state ───
+  // ─── Filter/sort state (persisted to localStorage) ───
+  const PREFS = "ct_table_prefs_tracking_links_main";
   const [searchQuery, setSearchQuery] = useState("");
-  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
-  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  
-  const [groupFilter, setGroupFilter] = useState("all");
-  const [accountFilter, setAccountFilter] = useState("all");
-  
-  const [sortKey, setSortKey] = useState<SortKey>("created_at");
-  const [sortAsc, setSortAsc] = useState(false);
+  const [campaignFilter, setCampaignFilter] = usePersistedState<CampaignFilter>(`${PREFS}_campaignFilter`, "all");
+  const [activityFilter, setActivityFilter] = usePersistedState<LinkActivityFilterValue>(`${PREFS}_activityFilter`, "all");
+  const [sourceFilter, setSourceFilter] = usePersistedState<string>(`${PREFS}_sourceFilter`, "all");
+
+  const [groupFilter, setGroupFilter] = usePersistedState<string>(`${PREFS}_groupFilter`, "all");
+  const [accountFilter, setAccountFilter] = usePersistedState<string>(`${PREFS}_accountFilter`, "all");
+
+  const [sortKey, setSortKey] = usePersistedState<SortKey>(`${PREFS}_sortKey`, "created_at");
+  const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${PREFS}_sortAsc`, false);
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
+  const [perPage, setPerPage] = usePersistedState<number>(`${PREFS}_perPage`, 25);
 
   // ─── Selection/interaction state ───
   const [csvOpen, setCsvOpen] = useState(false);

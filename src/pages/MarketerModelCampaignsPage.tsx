@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -57,10 +58,12 @@ export default function MarketerModelCampaignsPage() {
     model_username: string;
   }>();
   const navigate = useNavigate();
-  const [sortKey, setSortKey] = useState<SortKey>("created");
-  const [sortAsc, setSortAsc] = useState(false);
+  // Persisted table prefs — Sources Level 4 (marketer × model campaigns)
+  const MM_PREFS = `ct_table_prefs_marketer_model_${marketer || ""}_${offer_id || ""}_${model_username || ""}`;
+  const [sortKey, setSortKey] = usePersistedState<SortKey>(`${MM_PREFS}_sortKey`, "created");
+  const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${MM_PREFS}_sortAsc`, false);
   const [selectedLink, setSelectedLink] = useState<any>(null);
-  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
+  const [activityFilter, setActivityFilter] = usePersistedState<LinkActivityFilterValue>(`${MM_PREFS}_activityFilter`, "all");
 
   const decodedMarketer = decodeURIComponent(marketer || "");
   const decodedUsername = decodeURIComponent(model_username || "");
