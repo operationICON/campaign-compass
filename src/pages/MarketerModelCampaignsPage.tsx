@@ -276,6 +276,14 @@ export default function MarketerModelCampaignsPage() {
           </p>
         </div>
 
+        {/* Activity filter — All / Active / Inactive (snapshot-derived) */}
+        <LinkActivityFilter
+          value={activityFilter}
+          onChange={setActivityFilter}
+          totalCount={activityCounts.total}
+          activeCount={activityCounts.active}
+        />
+
         {/* Table */}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           {isLoading ? (
