@@ -974,6 +974,29 @@ export default function AccountsPage() {
                 {/* PART 3 — Tracking Links tab with clickable rows */}
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
+                    {/* Date period pills — drives useAccountLinkDeltas window for ALL numeric columns.
+                        Maps to global usePageFilters so KPI cards stay in sync. "2 weeks" uses customRange. */}
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      {([
+                        { key: "all", label: "All time", isActive: !customRange && timePeriod === "all", apply: () => { setCustomRange(null); setTimePeriod("all"); } },
+                        { key: "sync", label: "Since last sync", isActive: !customRange && timePeriod === "day", apply: () => { setCustomRange(null); setTimePeriod("day"); } },
+                        { key: "7d", label: "7 days", isActive: !customRange && timePeriod === "week", apply: () => { setCustomRange(null); setTimePeriod("week"); } },
+                        { key: "14d", label: "2 weeks", isActive: !!customRange && Math.round((customRange.to.getTime() - customRange.from.getTime()) / 86400000) === 14, apply: () => { const to = new Date(); const from = new Date(); from.setDate(from.getDate() - 14); setCustomRange({ from, to }); } },
+                        { key: "30d", label: "30 days", isActive: !customRange && timePeriod === "month", apply: () => { setCustomRange(null); setTimePeriod("month"); } },
+                      ]).map((p) => (
+                        <button
+                          key={p.key}
+                          onClick={p.apply}
+                          className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${
+                            p.isActive
+                              ? "bg-transparent text-primary border-primary"
+                              : "bg-secondary/50 dark:bg-secondary text-foreground/80 border-border hover:bg-secondary"
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
                     {/* Activity filter bar */}
                     <div className="flex items-center gap-2 mb-3">
                       {([
