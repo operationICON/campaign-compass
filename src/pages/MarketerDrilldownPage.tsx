@@ -53,6 +53,10 @@ export default function MarketerDrilldownPage() {
   const [highVolFilter, setHighVolFilter] = usePersistedState<boolean>(`${MD_PREFS}_highVol`, false);
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
+  const [activityFilter, setActivityFilter] = usePersistedState<LinkActivityFilterValue>(`${MD_PREFS}_activityFilter`, "all");
+
+  // Snapshot-derived active status across all links (no account scope here — page spans many models)
+  const { activeLookup } = useActiveLinkStatus(null);
 
   const isUnknown = marketer === "__unknown__";
   const decodedMarketer = isUnknown ? "Unknown" : decodeURIComponent(marketer || "");
