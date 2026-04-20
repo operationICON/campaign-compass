@@ -221,7 +221,9 @@ export default function CampaignsPage() {
     },
   });
 
-  // ─── OnlyTraffic orders for CPL/CPC derivation ───
+  // Snapshot-derived activity (>= 1 sub/day over last 5 days)
+  const { activeLookup } = useActiveLinkStatus();
+
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
     queryFn: async () => {
