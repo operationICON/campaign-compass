@@ -461,6 +461,13 @@ export default function MarketerDrilldownPage() {
             <button onClick={() => setScaleFilter(!scaleFilter)} className={chipClass(scaleFilter)}>Scale candidates</button>
             <button onClick={() => setHighVolFilter(!highVolFilter)} className={chipClass(highVolFilter)}>High Volume Orders</button>
           </div>
+          <LinkActivityFilter
+            value={activityFilter}
+            onChange={setActivityFilter}
+            totalCount={activityCounts.total}
+            activeCount={activityCounts.active}
+            className="ml-auto"
+          />
         </div>
 
         {/* Table */}
