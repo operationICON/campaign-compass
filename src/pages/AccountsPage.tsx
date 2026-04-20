@@ -714,13 +714,79 @@ export default function AccountsPage() {
       </div>
     );
 
-    const totalRevenue = Number(acc.ltv_total || 0) * revMultiplier;
-    const campaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
-    const totalSpend = stats.totalSpendAllTime || 0;
-    const totalProfit = totalRevenue - totalSpend;
-    const roi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
-    const cpl = totalSpend > 0 && stats.totalSubs > 0 ? totalSpend / stats.totalSubs : null;
-    const cpc = totalSpend > 0 && stats.totalClicks > 0 ? totalSpend / stats.totalClicks : null;
+    // ── Period-aware mode (shared by table cells, KPI cards, headers) ──────────
+    // When ANY date filter is active (not "All Time"), every numeric column re-scopes
+    // to the selected window using `accountDeltas`. Trend chips compare to the
+    // previous-period delta. When "All Time" is selected, lifetime values from
+    // tracking_links + accounts are used (current behavior, preserved exactly).
+    const periodActive = !accountDeltas.isAllTime;
+    const periodSuffix = !periodActive
+      ? ""
+      : customRange
+        ? "(custom)"
+        : timePeriod === "day"
+          ? "(sync)"
+          : timePeriod === "week"
+            ? "(7d)"
+            : timePeriod === "month"
+              ? "(30d)"
+              : timePeriod === "prev_month"
+                ? "(prev mo)"
+                : "";
+    const headerLabel = (base: string) => (periodActive ? `${base} ${periodSuffix}` : base);
+    const gainedSuffix = periodActive ? periodSuffix : "(all)";
+
+    // Lifetime KPI values (used when "All Time" or as fallback)
+    const lifetimeRevenue = Number(acc.ltv_total || 0) * revMultiplier;
+    const lifetimeCampaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
+    const lifetimeSpend = stats.totalSpendAllTime || 0;
+    const lifetimeProfit = lifetimeRevenue - lifetimeSpend;
+    const lifetimeRoi = lifetimeSpend > 0 ? (lifetimeProfit / lifetimeSpend) * 100 : null;
+    const lifetimeCpl = lifetimeSpend > 0 && stats.totalSubs > 0 ? lifetimeSpend / stats.totalSubs : null;
+    const lifetimeCpc = lifetimeSpend > 0 && stats.totalClicks > 0 ? lifetimeSpend / stats.totalClicks : null;
+
+    // Period-scoped KPI values (when filter active)
+    const aCur = accountDeltas.accountTotals.cur;
+    const aPrev = accountDeltas.accountTotals.prev;
+    const periodRevenue = aCur.rev * revMultiplier;
+    const periodPrevRevenue = aPrev.rev * revMultiplier;
+    const periodCampaignRev = periodRevenue; // same source: cumulative-snapshot revenue delta
+    const periodSpend = aCur.spend;
+    const periodProfit = periodRevenue - periodSpend;
+    const periodPrevProfit = periodPrevRevenue - aPrev.spend;
+    const periodRoi = periodSpend > 0 ? (periodProfit / periodSpend) * 100 : null;
+    const periodPrevRoi = aPrev.spend > 0 ? (periodPrevProfit / aPrev.spend) * 100 : null;
+    const periodCpl = periodSpend > 0 && aCur.subs > 0 ? periodSpend / aCur.subs : null;
+    const periodPrevCpl = aPrev.spend > 0 && aPrev.subs > 0 ? aPrev.spend / aPrev.subs : null;
+    const periodCpc = periodSpend > 0 && aCur.clicks > 0 ? periodSpend / aCur.clicks : null;
+    const periodPrevCpc = aPrev.spend > 0 && aPrev.clicks > 0 ? aPrev.spend / aPrev.clicks : null;
+    const periodCvr = aCur.clicks > 0 ? (aCur.subs / aCur.clicks) * 100 : null;
+    const periodPrevCvr = aPrev.clicks > 0 ? (aPrev.subs / aPrev.clicks) * 100 : null;
+    const periodSubsPerDay = aCur.days > 0 ? aCur.subs / aCur.days : null;
+    const periodPrevSubsPerDay = aPrev.days > 0 ? aPrev.subs / aPrev.days : null;
+
+    // Active KPI values + trend deltas (consumed by KPI grid and table totals)
+    const totalRevenue = periodActive ? periodRevenue : lifetimeRevenue;
+    const totalRevenueTrend = periodActive ? pctChange(periodRevenue, periodPrevRevenue) : null;
+    const campaignRev = periodActive ? periodCampaignRev : lifetimeCampaignRev;
+    const campaignRevTrend = periodActive ? pctChange(periodCampaignRev, periodPrevRevenue) : null;
+    const totalSpend = periodActive ? periodSpend : lifetimeSpend;
+    const totalSpendTrend = periodActive ? pctChange(periodSpend, aPrev.spend) : null;
+    const totalProfit = periodActive ? periodProfit : lifetimeProfit;
+    const totalProfitTrend = periodActive ? pctChange(periodProfit, periodPrevProfit) : null;
+    const roi = periodActive ? periodRoi : lifetimeRoi;
+    const roiTrend = periodActive ? pctChange(periodRoi ?? 0, periodPrevRoi ?? 0) : null;
+    const cpl = periodActive ? periodCpl : lifetimeCpl;
+    const cplTrend = periodActive ? pctChange(periodCpl ?? 0, periodPrevCpl ?? 0) : null;
+    const cpc = periodActive ? periodCpc : lifetimeCpc;
+    const cpcTrend = periodActive ? pctChange(periodCpc ?? 0, periodPrevCpc ?? 0) : null;
+    const subsKpiValue = periodActive ? aCur.subs : (stats.apiSubs || stats.totalSubs || 0);
+    const subsKpiTrend = periodActive ? pctChange(aCur.subs, aPrev.subs) : null;
+    const subsPerDayKpiValue = periodActive ? periodSubsPerDay : stats.subsPerDay;
+    const subsPerDayKpiTrend = periodActive ? pctChange(periodSubsPerDay ?? 0, periodPrevSubsPerDay ?? 0) : null;
+    const cvrKpiValue = periodActive ? periodCvr : stats.allCvr;
+    const cvrKpiTrend = periodActive ? pctChange(periodCvr ?? 0, periodPrevCvr ?? 0) : null;
+
 
     return (
       <DashboardLayout>
