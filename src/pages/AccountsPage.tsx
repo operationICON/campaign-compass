@@ -923,11 +923,16 @@ export default function AccountsPage() {
                             const cpcVal = paymentType === "CPC" && hasSpend && clicksVal > 0 ? spend / clicksVal : null;
                             const roiVal = hasSpend ? (profit / spend) * 100 : null;
                             const activeInfo = getActiveInfo(l.id, activeLookup);
-                            // When the activity filter is engaged, show snapshot-derived
-                            // subs/day (last 5d). Otherwise keep the lifetime average.
+                            // Subs/Day priority:
+                            //  - Activity filter engaged → 5-day snapshot-derived (always)
+                            //  - Date filter active (not All Time) → window delta from cumulative snapshots
+                            //  - All Time / no data → lifetime average (subs / days_since_created)
                             let subsPerDay: number | null;
                             if (activityFilter !== "all") {
                               subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
+                            } else if (!isDeltaAllTime) {
+                              const d = getDelta(l.id, deltaLookup);
+                              subsPerDay = d?.subsPerDay ?? null;
                             } else {
                               const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
                               subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;
