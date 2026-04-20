@@ -899,6 +899,14 @@ export default function CampaignsPage() {
         </div>
 
 
+        {/* Activity filter — All / Active / Inactive (snapshot-derived) */}
+        <LinkActivityFilter
+          value={activityFilter}
+          onChange={(v) => { setActivityFilter(v); setPage(1); }}
+          totalCount={activityCounts.total}
+          activeCount={activityCounts.active}
+        />
+
         {/* ═══ CAMPAIGN TABLE ═══ */}
         <div className="flex gap-0">
           <div className="flex-1 min-w-0">
