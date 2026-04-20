@@ -340,7 +340,7 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
       curSubs += r.cur.subs;
       prevSubs += r.prev.subs;
     }
-    return { curSubs, prevSubs, pct: pctChange(curSubs, prevSubs), days: windows?.cur.days || 0 };
+    return { curSubs, prevSubs, pct: pctChange(curSubs, prevSubs), days: windows?.days || 0 };
   }, [linkRows, windows]);
 
   const fastest = useMemo(() => {
