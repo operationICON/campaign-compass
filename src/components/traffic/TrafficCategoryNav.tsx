@@ -462,8 +462,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     });
   }, [categoryLinksRaw, linkMarketerMap]);
 
-  const quickFiltered = useMemo(() => {
-    let result = groupedSources;
+  // Tag each group with isActive flag (any link in group is active by snapshot logic)
+  const groupedWithActivity = useMemo(() => {
+    return groupedSources.map(g => {
+      const isActive = (g.links || []).some((l: any) => getActiveInfo(l.id, activeLookup).isActive);
+      return { ...g, isActive };
+    });
+  }, [groupedSources, activeLookup]);
+
+  // Base filter (search + quick filter), used for activity-bar counts
+  const baseFiltered = useMemo(() => {
+    let result = groupedWithActivity;
     if (quickFilter === "profitable") result = result.filter(g => g.profit > 0);
     else if (quickFilter === "manual") result = result.filter(g => g.marketer === "In-house");
     if (searchQuery.trim()) {
@@ -471,7 +480,19 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       result = result.filter(g => g.marketer.toLowerCase().includes(q) || g.sourceTag.toLowerCase().includes(q));
     }
     return result;
-  }, [groupedSources, quickFilter, searchQuery]);
+  }, [groupedWithActivity, quickFilter, searchQuery]);
+
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const g of baseFiltered) if (g.isActive) active++;
+    return { total: baseFiltered.length, active };
+  }, [baseFiltered]);
+
+  const quickFiltered = useMemo(() => {
+    if (activityFilter === "all") return baseFiltered;
+    if (activityFilter === "active") return baseFiltered.filter(g => g.isActive);
+    return baseFiltered.filter(g => !g.isActive);
+  }, [baseFiltered, activityFilter]);
 
   const sortedSources = useMemo(() => {
     const dir = sourceSortAsc ? 1 : -1;
