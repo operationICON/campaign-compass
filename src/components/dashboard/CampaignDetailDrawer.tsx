@@ -668,6 +668,9 @@ function DrawerBodyInner({
             <DataRow label="Subs/Day" value={subsPerDay} />
             <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
             <DataRow label="Subscribers" value={tlSubscribers.toLocaleString()} />
+            <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
+            <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
+            <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
           </div>
           {/* COL 2 — FINANCIALS RIGHT */}
           <div className="border-r border-border">
@@ -682,10 +685,10 @@ function DrawerBodyInner({
               value={paymentType ? <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold">{paymentType === "FIXED" ? "Fixed" : paymentType}</span> : "—"}
             />
             <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
-            {paymentType === "CPC" && <DataRow label="Cost Per Click" value={configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />}
-            <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
-            <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
-            <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
+            <DataRow label="Cost Per Click" value={paymentType === "CPC" && configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
+            <DataRow label="ARPU" value={d.arpu != null && Number(d.arpu) > 0 ? fmtC2(Number(d.arpu)) : "—"} />
+            <DataRow label="Days Running" value={daysRunning != null ? String(daysRunning) : "—"} />
+            <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
           </div>
           {/* COL 3 — CAMPAIGN INFO */}
           <div>
