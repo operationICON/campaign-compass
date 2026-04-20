@@ -437,8 +437,8 @@ export default function CampaignsPage() {
   // ─── All links (no artificial filtering) ───
   const baseLinks = enrichedLinks;
 
-  // ─── Filtering ───
-  const filtered = useMemo(() => {
+  // ─── Filtering (without activity filter — used for activity counts) ───
+  const filteredPreActivity = useMemo(() => {
     let result = baseLinks;
     // Account filter (from top bar)
     if (groupFilter !== "all") {
@@ -463,6 +463,23 @@ export default function CampaignsPage() {
 
     return result;
   }, [baseLinks, searchQuery, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
+
+  // Activity counts (snapshot-derived) scoped to current filters
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const l of filteredPreActivity) {
+      if (getActiveInfo(l.id, activeLookup).isActive) active++;
+    }
+    return { total: filteredPreActivity.length, active };
+  }, [filteredPreActivity, activeLookup]);
+
+  const filtered = useMemo(() => {
+    if (activityFilter === "all") return filteredPreActivity;
+    if (activityFilter === "active")
+      return filteredPreActivity.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive);
+    return filteredPreActivity.filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive);
+  }, [filteredPreActivity, activityFilter, activeLookup]);
+
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
