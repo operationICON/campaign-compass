@@ -9,15 +9,18 @@ import {
 /**
  * Growth section for the Campaign Detail Drawer.
  *
- * IMPORTANT: daily_snapshots stores DAILY DELTAS (incremental gains per day).
- * Same logic as GrowthTab.
+ * IMPORTANT: daily_snapshots stores CUMULATIVE TOTALS (running total as of each
+ * snapshot date) — NOT daily deltas.
  *
  * "Since last sync":
- *   current  = latest snapshot_date for this tracking_link_id
- *   previous = second latest snapshot_date for this tracking_link_id
- *   subs/rev/clicks gained = the value on the latest date
+ *   latest   = snapshot with MAX(snapshot_date) for this tracking_link_id
+ *   earlier  = snapshot with the second highest snapshot_date
+ *   subs/clicks/revenue gained = latest - earlier (clamped >= 0)
  *
- * Charts plot per-snapshot-date deltas directly (no cumulative diffing).
+ * Charts plot the DELTA between consecutive snapshots (latest - previous), so the
+ * series shows actual sync-over-sync gains rather than running totals.
+ *
+ * Duplicate snapshot rows for the same date are deduped by keeping MAX(subscribers).
  */
 
 type GrowthPeriod = "since_last_sync" | "7d" | "14d" | "30d";
