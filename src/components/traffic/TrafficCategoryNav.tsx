@@ -788,7 +788,14 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         </div>
       </div>
 
-      {/* Unmatched orders button */}
+      {/* Activity filter — All / Active / Inactive (snapshot-derived). A source group is Active if any link in it is delivering ≥ 1 sub/day over last 5 days. */}
+      <LinkActivityFilter
+        value={activityFilter}
+        onChange={(v) => { setActivityFilter(v); setSourcePage(0); }}
+        totalCount={activityCounts.total}
+        activeCount={activityCounts.active}
+      />
+
       {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
         <button
           onClick={() => setActiveUnmatched(true)}
