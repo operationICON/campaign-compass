@@ -1017,7 +1017,13 @@ export default function CampaignsPage() {
                           <React.Fragment key={link.id}>
                           <tr
                             onClick={() => handleRowClick(link)}
-                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
+                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"} ${
+                              activityFilter === "active"
+                                ? "border-l-2 border-l-primary/70"
+                                : activityFilter === "inactive"
+                                ? "border-l-2 border-l-muted-foreground/40"
+                                : ""
+                            }`}
                             style={{ height: "46px", opacity: isInactive ? 0.6 : 1 }}
                           >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
