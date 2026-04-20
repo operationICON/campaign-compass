@@ -850,8 +850,31 @@ export default function AccountsPage() {
                 {/* PART 3 — Tracking Links tab with clickable rows */}
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
-                    {sortedLinks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-8 text-center">No tracking links found for this model</p>
+                    {/* Activity filter bar */}
+                    <div className="flex items-center gap-2 mb-3">
+                      {([
+                        { key: "all" as const, label: `All links (${accLinks.length})` },
+                        { key: "active" as const, label: `Active (${accLinksActiveCount})` },
+                        { key: "inactive" as const, label: `Inactive (${accLinksInactiveCount})` },
+                      ]).map((b) => {
+                        const selected = activityFilter === b.key;
+                        return (
+                          <button
+                            key={b.key}
+                            onClick={() => setActivityFilter(b.key)}
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${
+                              selected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-secondary/50 dark:bg-secondary text-foreground/80 border-border hover:bg-secondary"
+                            }`}
+                          >
+                            {b.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {displayLinks.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-8 text-center">No tracking links match this filter</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
