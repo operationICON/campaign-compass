@@ -32,6 +32,7 @@ import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X, UserPlus, Loader2, Info }
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 const GENDER_OPTIONS = ["Female", "Trans", "Male", "Uncategorized"] as const;
 type GenderIdentity = typeof GENDER_OPTIONS[number];
