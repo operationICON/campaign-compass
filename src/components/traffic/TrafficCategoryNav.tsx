@@ -17,6 +17,8 @@ import { ModelAvatar } from "@/components/ModelAvatar";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
+import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -130,6 +132,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [sourcePage, setSourcePage] = useState(0);
   const [sourceSortKey, setSourceSortKey] = useState<string>("profit");
   const [sourceSortAsc, setSourceSortAsc] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
+
+  // Snapshot-derived active status for ALL links (filter applies to the L2 source-group table)
+  const { activeLookup } = useActiveLinkStatus(null);
 
   // Notify parent if starting with an initial category
   React.useEffect(() => {
@@ -456,8 +462,17 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     });
   }, [categoryLinksRaw, linkMarketerMap]);
 
-  const quickFiltered = useMemo(() => {
-    let result = groupedSources;
+  // Tag each group with isActive flag (any link in group is active by snapshot logic)
+  const groupedWithActivity = useMemo(() => {
+    return groupedSources.map(g => {
+      const isActive = (g.links || []).some((l: any) => getActiveInfo(l.id, activeLookup).isActive);
+      return { ...g, isActive };
+    });
+  }, [groupedSources, activeLookup]);
+
+  // Base filter (search + quick filter), used for activity-bar counts
+  const baseFiltered = useMemo(() => {
+    let result = groupedWithActivity;
     if (quickFilter === "profitable") result = result.filter(g => g.profit > 0);
     else if (quickFilter === "manual") result = result.filter(g => g.marketer === "In-house");
     if (searchQuery.trim()) {
@@ -465,7 +480,19 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       result = result.filter(g => g.marketer.toLowerCase().includes(q) || g.sourceTag.toLowerCase().includes(q));
     }
     return result;
-  }, [groupedSources, quickFilter, searchQuery]);
+  }, [groupedWithActivity, quickFilter, searchQuery]);
+
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const g of baseFiltered) if (g.isActive) active++;
+    return { total: baseFiltered.length, active };
+  }, [baseFiltered]);
+
+  const quickFiltered = useMemo(() => {
+    if (activityFilter === "all") return baseFiltered;
+    if (activityFilter === "active") return baseFiltered.filter(g => g.isActive);
+    return baseFiltered.filter(g => !g.isActive);
+  }, [baseFiltered, activityFilter]);
 
   const sortedSources = useMemo(() => {
     const dir = sourceSortAsc ? 1 : -1;
@@ -761,7 +788,14 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         </div>
       </div>
 
-      {/* Unmatched orders button */}
+      {/* Activity filter — All / Active / Inactive (snapshot-derived). A source group is Active if any link in it is delivering ≥ 1 sub/day over last 5 days. */}
+      <LinkActivityFilter
+        value={activityFilter}
+        onChange={(v) => { setActivityFilter(v); setSourcePage(0); }}
+        totalCount={activityCounts.total}
+        activeCount={activityCounts.active}
+      />
+
       {isOT && unmatchedOrders && unmatchedOrders.count > 0 && (
         <button
           onClick={() => setActiveUnmatched(true)}
