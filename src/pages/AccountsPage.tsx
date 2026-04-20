@@ -325,7 +325,24 @@ export default function AccountsPage() {
         return !earliest || d < earliest ? d : earliest;
       }, null as Date | null);
       const daysSinceEarliest = earliestCreated ? Math.max(1, differenceInDays(now, earliestCreated)) : 0;
-      const subsPerDay = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
+      const subsPerDayLifetime = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
+
+      // Delta-based subs/day for the current date filter window — sum each link's
+      // (subsGained / daysBetween) when available, else 0. If All Time selected,
+      // fall back to lifetime average (subs / days_since_earliest_link).
+      let subsPerDay: number | null = subsPerDayLifetime;
+      if (!isDeltaAllTime) {
+        let totalSpd = 0;
+        let anySpd = false;
+        for (const l of accLinks) {
+          const d = getDelta(l.id, deltaLookup);
+          if (d?.subsPerDay != null) {
+            totalSpd += d.subsPerDay;
+            anySpd = true;
+          }
+        }
+        subsPerDay = anySpd ? totalSpd : null;
+      }
 
       const apiSubs = acc.subscribers_count || 0;
       const ua = calcUnattributedPct(acc);
