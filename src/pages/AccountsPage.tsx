@@ -636,6 +636,23 @@ export default function AccountsPage() {
       return dir * ((av as number) - (bv as number));
     });
 
+    // Activity filter (snapshot-derived: >= 1 sub/day over last 5 days)
+    const accLinksActiveCount = accLinks.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive).length;
+    const accLinksInactiveCount = accLinks.length - accLinksActiveCount;
+
+    let displayLinks = sortedLinks;
+    if (activityFilter === "active") {
+      displayLinks = [...accLinks]
+        .filter((l: any) => getActiveInfo(l.id, activeLookup).isActive)
+        .sort((a: any, b: any) =>
+          getActiveInfo(b.id, activeLookup).subsPerDay - getActiveInfo(a.id, activeLookup).subsPerDay
+        );
+    } else if (activityFilter === "inactive") {
+      displayLinks = [...accLinks]
+        .filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive)
+        .sort((a: any, b: any) => Number(b.revenue || 0) - Number(a.revenue || 0));
+    }
+
     // KPI card component
     const KpiCard = ({ label, value, colored, positive }: { label: string; value: string; colored?: boolean; positive?: boolean }) => (
       <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
