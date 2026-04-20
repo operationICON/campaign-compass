@@ -217,6 +217,30 @@ export default function MarketerModelCampaignsPage() {
     });
   }, [rows, sortKey, sortAsc]);
 
+  // Activity counts (snapshot-derived) for this marketer × model scope
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const r of rows) if (getActiveInfo(r.id, activeLookup).isActive) active++;
+    return { total: rows.length, active };
+  }, [rows, activeLookup]);
+
+  // Apply activity filter + override sort when filter is engaged
+  const displayRows = useMemo(() => {
+    if (activityFilter === "all") return sorted;
+    if (activityFilter === "active") {
+      return [...rows]
+        .filter((r) => getActiveInfo(r.id, activeLookup).isActive)
+        .sort((a, b) =>
+          getActiveInfo(b.id, activeLookup).subsPerDay -
+          getActiveInfo(a.id, activeLookup).subsPerDay
+        );
+    }
+    return [...rows]
+      .filter((r) => !getActiveInfo(r.id, activeLookup).isActive)
+      .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0));
+  }, [activityFilter, sorted, rows, activeLookup]);
+
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
