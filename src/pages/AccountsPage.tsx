@@ -134,6 +134,10 @@ export default function AccountsPage() {
   });
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
+  // Active = link delivered >= 1 sub/day over last 5 days (snapshot-derived).
+  // Used for the Tracking Links activity filter and the model overview "active links" footer count.
+  const { activeLookup } = useActiveLinkStatus();
+
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
