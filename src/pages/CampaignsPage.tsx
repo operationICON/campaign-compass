@@ -1232,11 +1232,16 @@ export default function CampaignsPage() {
                                 case "subs_day": {
                                   let subsPerDay: number | null = null;
                                   let subsDayLbl: string | null = null;
-                                  if (!isAllTime && link.snapshotDays !== undefined) {
-                                    const pSubs = Number(link.subscribers || 0);
-                                    const pDays = Number(link.snapshotDays || 0);
-                                    subsPerDay = pDays > 0 ? pSubs / pDays : (pSubs > 0 ? pSubs : null);
-                                    if (pSubs === 0 && pDays === 0) subsDayLbl = "—";
+                                  if (activityFilter !== "all") {
+                                    // Activity filter engaged → always show 5-day snapshot-derived value
+                                    const ai = getActiveInfo(link.id, activeLookup);
+                                    subsPerDay = ai.subsPerDay > 0 ? ai.subsPerDay : null;
+                                    if (subsPerDay === null) subsDayLbl = "—";
+                                  } else if (!isDeltaAllTime) {
+                                    // Date filter active → delta from cumulative snapshots in window
+                                    const d = getDelta(link.id, deltaLookup);
+                                    subsPerDay = d?.subsPerDay ?? null;
+                                    if (subsPerDay === null) subsDayLbl = "—";
                                   } else {
                                     // All Time: subscribers / days since created
                                     const totalSubs = Number(link.subscribers || 0);
