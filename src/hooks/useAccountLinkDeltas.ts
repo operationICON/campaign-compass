@@ -355,8 +355,14 @@ export function useAccountLinkDeltas(
       }
     }
 
-    // Account totals
+    // Account totals.
+    // For range modes, days = window length. For sync mode, each link can span a
+    // different number of days between its last 2 snapshots — use the MAX so the
+    // KPI Subs/Day = totalSubsGained / longestSyncSpan stays sane (lower-bound
+    // average rate). Falls back to rangeDays (=1) if no link reports a span.
     const accountTotals = { cur: empty(), prev: empty() };
+    let maxCurDays = 0;
+    let maxPrevDays = 0;
     for (const d of Object.values(deltas)) {
       accountTotals.cur.subs += d.cur.subs;
       accountTotals.cur.clicks += d.cur.clicks;
@@ -366,9 +372,16 @@ export function useAccountLinkDeltas(
       accountTotals.prev.clicks += d.prev.clicks;
       accountTotals.prev.rev += d.prev.rev;
       accountTotals.prev.spend += d.prev.spend;
+      if (d.cur.days > maxCurDays) maxCurDays = d.cur.days;
+      if (d.prev.days > maxPrevDays) maxPrevDays = d.prev.days;
     }
-    accountTotals.cur.days = windows.rangeDays;
-    accountTotals.prev.days = windows.rangeDays;
+    if (windows.mode === "sync") {
+      accountTotals.cur.days = Math.max(1, maxCurDays);
+      accountTotals.prev.days = Math.max(1, maxPrevDays);
+    } else {
+      accountTotals.cur.days = windows.rangeDays;
+      accountTotals.prev.days = windows.rangeDays;
+    }
 
     return { isAllTime: false, isLoading, windows, deltas, accountTotals };
   }, [data, isAllTime, isLoading, timePeriod, customRange]);
