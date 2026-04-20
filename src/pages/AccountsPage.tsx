@@ -19,7 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { GrowthTab } from "@/components/accounts/GrowthTab";
+import { useAccountLinkDeltas, pctChange } from "@/hooks/useAccountLinkDeltas";
+import { TrendChip } from "@/components/TrendChip";
 
 import { format, differenceInDays, subDays, isValid } from "date-fns";
 
@@ -75,7 +76,7 @@ export default function AccountsPage() {
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "growth">("campaigns");
+  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
   // Persisted table prefs — model detail tracking links + traffic sources tabs
   const A_PREFS = "ct_table_prefs_accounts_campaigns";
   const S_PREFS = "ct_table_prefs_accounts_sources";
@@ -863,7 +864,7 @@ export default function AccountsPage() {
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
-                    {(["campaigns", "sources", "performance", "growth"] as const).map((tab) => (
+                    {(["campaigns", "sources", "performance"] as const).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -875,9 +876,7 @@ export default function AccountsPage() {
                           ? "Tracking Links"
                           : tab === "sources"
                             ? "Traffic Sources"
-                            : tab === "performance"
-                              ? "Performance"
-                              : "Growth"}
+                            : "Performance"}
                       </button>
                     ))}
                   </div>
@@ -1175,15 +1174,6 @@ export default function AccountsPage() {
                   </div>
                 )}
 
-                {activeTab === "growth" && (
-                  <GrowthTab
-                    accountId={acc.id}
-                    accLinks={accLinks}
-                    modelName={acc.display_name}
-                    avatarUrl={acc.avatar_thumb_url}
-                    onRowClick={(link) => setDrawerCampaign(link)}
-                  />
-                )}
         </div>
 
         {/* Campaign drawer for clickable rows */}
