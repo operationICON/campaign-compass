@@ -139,6 +139,10 @@ export default function AccountsPage() {
   // Used for the Tracking Links activity filter and the model overview "active links" footer count.
   const { activeLookup } = useActiveLinkStatus();
 
+  // Per-link delta metrics for the selected date window (cumulative-snapshot deltas).
+  // When All Time / no data → fall back to lifetime tracking_links.subscribers / age.
+  const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
+
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
