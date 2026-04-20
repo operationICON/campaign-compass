@@ -10,6 +10,7 @@ Every tracking_links aggregation must filter `deleted_at IS NULL` (helpers + act
 Revenue Toggle: Default 'Gross'. 'Net' applies a 0.80 multiplier to earnings (after OF 20% platform fee).
 Filtering: 'Last Month' is strictly `CURRENT_DATE - 30` to `CURRENT_DATE - 1` (excluding today).
 Statistics: Require minimum 5 subscribers for campaign performance rankings to ensure significance.
+daily_snapshots store CUMULATIVE TOTALS (running totals as of snapshot_date) — NEVER sum rows; period gains = latest − earliest. Dedup duplicate (link_id,date) by keeping MAX(subscribers).
 
 ## Memories
 - [Calculation source of truth](mem://constraints/calculation-source-of-truth) — Definitive metric formulas, isActiveAccount, reference values
