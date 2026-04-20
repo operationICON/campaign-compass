@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { ArrowLeft, Info, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -39,13 +40,15 @@ function StatDivider() {
 export default function MarketerDrilldownPage() {
   const { marketer, offer_id } = useParams<{ marketer: string; offer_id: string }>();
   const navigate = useNavigate();
-  const [modelFilter, setModelFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("profit");
-  const [sortAsc, setSortAsc] = useState(false);
-  const [profitableFilter, setProfitableFilter] = useState(false);
-  const [losingFilter, setLosingFilter] = useState(false);
-  const [scaleFilter, setScaleFilter] = useState(false);
-  const [highVolFilter, setHighVolFilter] = useState(false);
+  // Persisted table prefs — Sources Level 3 (marketer drilldown)
+  const MD_PREFS = `ct_table_prefs_marketer_drilldown_${marketer || ""}_${offer_id || ""}`;
+  const [modelFilter, setModelFilter] = usePersistedState<string>(`${MD_PREFS}_modelFilter`, "all");
+  const [sortKey, setSortKey] = usePersistedState<SortKey>(`${MD_PREFS}_sortKey`, "profit");
+  const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${MD_PREFS}_sortAsc`, false);
+  const [profitableFilter, setProfitableFilter] = usePersistedState<boolean>(`${MD_PREFS}_profitable`, false);
+  const [losingFilter, setLosingFilter] = usePersistedState<boolean>(`${MD_PREFS}_losing`, false);
+  const [scaleFilter, setScaleFilter] = usePersistedState<boolean>(`${MD_PREFS}_scale`, false);
+  const [highVolFilter, setHighVolFilter] = usePersistedState<boolean>(`${MD_PREFS}_highVol`, false);
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
 

@@ -75,10 +75,13 @@ export default function AccountsPage() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "growth">("campaigns");
-  const [sortKey, setSortKey] = useState<SortKey>("created_at");
-  const [sortAsc, setSortAsc] = useState(false);
-  const [srcSortKey, setSrcSortKey] = useState<SourceSortKey>("profit");
-  const [srcSortAsc, setSrcSortAsc] = useState(false);
+  // Persisted table prefs — model detail tracking links + traffic sources tabs
+  const A_PREFS = "ct_table_prefs_accounts_campaigns";
+  const S_PREFS = "ct_table_prefs_accounts_sources";
+  const [sortKey, setSortKey] = usePersistedState<SortKey>(`${A_PREFS}_sortKey`, "created_at");
+  const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${A_PREFS}_sortAsc`, false);
+  const [srcSortKey, setSrcSortKey] = usePersistedState<SourceSortKey>(`${S_PREFS}_sortKey`, "profit");
+  const [srcSortAsc, setSrcSortAsc] = usePersistedState<boolean>(`${S_PREFS}_sortAsc`, false);
   const toggleSrcSort = (k: SourceSortKey) => {
     if (k === srcSortKey) setSrcSortAsc(!srcSortAsc);
     else { setSrcSortKey(k); setSrcSortAsc(false); }
@@ -89,7 +92,7 @@ export default function AccountsPage() {
   const [discovering, setDiscovering] = useState(false);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const [perfRange, setPerfRange] = useState<PerfRange>("30d");
-  const [activityFilter, setActivityFilter] = useState<"all" | "active" | "inactive">("all");
+  const [activityFilter, setActivityFilter] = usePersistedState<"all" | "active" | "inactive">(`${A_PREFS}_activityFilter`, "all");
 
   const handleDiscoverAccounts = async () => {
     setDiscovering(true);

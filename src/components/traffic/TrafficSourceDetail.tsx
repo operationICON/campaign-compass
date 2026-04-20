@@ -13,6 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -51,8 +52,10 @@ interface Props {
 const PAGE_SIZE = 25;
 
 export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, links, onBack, sourceTagOptions, onTagLink }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>("created");
-  const [sortAsc, setSortAsc] = useState(false);
+  // Persisted prefs — Sources Level 3 (per-source detail). Keyed per-source so each source remembers independently.
+  const TSD_PREFS = `ct_table_prefs_traffic_sources_l3_${sourceName}`;
+  const [sortKey, setSortKey] = usePersistedState<SortKey>(`${TSD_PREFS}_sortKey`, "created");
+  const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${TSD_PREFS}_sortAsc`, false);
   const [page, setPage] = useState(0);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
