@@ -225,6 +225,10 @@ export default function CampaignsPage() {
   // Snapshot-derived activity (>= 1 sub/day over last 5 days)
   const { activeLookup } = useActiveLinkStatus();
 
+  // Per-link delta-from-cumulative metrics for the selected window. Used for
+  // Subs/Day on the table when the activity filter is "all".
+  const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
+
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
     queryFn: async () => {
