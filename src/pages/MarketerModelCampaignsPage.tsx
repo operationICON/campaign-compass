@@ -321,15 +321,21 @@ export default function MarketerModelCampaignsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sorted.map((row, i) => {
+                {displayRows.map((row, i) => {
                   const rowBg = i % 2 === 1 ? "bg-muted/30" : "";
+                  const activityBorder =
+                    activityFilter === "active"
+                      ? "hsl(var(--primary) / 0.7)"
+                      : activityFilter === "inactive"
+                      ? "hsl(var(--muted-foreground) / 0.4)"
+                      : "transparent";
                   return (
                     <TableRow
                       key={row.id}
                       className={`border-border cursor-pointer hover:bg-muted/50 transition-colors ${rowBg}`}
-                      style={{ borderLeft: "3px solid transparent", minHeight: "52px" }}
+                      style={{ borderLeft: `3px solid ${activityBorder}`, minHeight: "52px" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "hsl(var(--primary))"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "transparent"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = activityBorder; }}
                       onClick={() => setSelectedLink(row.rawLink)}
                     >
                       <TableCell>
