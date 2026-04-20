@@ -25,7 +25,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
-import type { TimePeriod } from "@/hooks/usePageFilters";
+import { TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
 import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, X, Tag,
@@ -41,6 +41,7 @@ import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
 import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
+import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetrics";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses";
@@ -223,6 +224,10 @@ export default function CampaignsPage() {
 
   // Snapshot-derived activity (>= 1 sub/day over last 5 days)
   const { activeLookup } = useActiveLinkStatus();
+
+  // Per-link delta-from-cumulative metrics for the selected window. Used for
+  // Subs/Day on the table when the activity filter is "all".
+  const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
 
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
@@ -747,13 +752,7 @@ export default function CampaignsPage() {
             accounts={filteredAccountOptions}
           />
           <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-            {([
-              { key: "day" as TimePeriod, label: "Last Day" },
-              { key: "week" as TimePeriod, label: "Last Week" },
-              { key: "month" as TimePeriod, label: "Last Month" },
-              { key: "prev_month" as TimePeriod, label: "Prev Month" },
-              { key: "all" as TimePeriod, label: "All Time" },
-            ]).map((tp) => (
+            {TIME_PERIODS.map((tp) => (
               <button
                 key={tp.key}
                 onClick={() => {
@@ -1233,11 +1232,16 @@ export default function CampaignsPage() {
                                 case "subs_day": {
                                   let subsPerDay: number | null = null;
                                   let subsDayLbl: string | null = null;
-                                  if (!isAllTime && link.snapshotDays !== undefined) {
-                                    const pSubs = Number(link.subscribers || 0);
-                                    const pDays = Number(link.snapshotDays || 0);
-                                    subsPerDay = pDays > 0 ? pSubs / pDays : (pSubs > 0 ? pSubs : null);
-                                    if (pSubs === 0 && pDays === 0) subsDayLbl = "—";
+                                  if (activityFilter !== "all") {
+                                    // Activity filter engaged → always show 5-day snapshot-derived value
+                                    const ai = getActiveInfo(link.id, activeLookup);
+                                    subsPerDay = ai.subsPerDay > 0 ? ai.subsPerDay : null;
+                                    if (subsPerDay === null) subsDayLbl = "—";
+                                  } else if (!isDeltaAllTime) {
+                                    // Date filter active → delta from cumulative snapshots in window
+                                    const d = getDelta(link.id, deltaLookup);
+                                    subsPerDay = d?.subsPerDay ?? null;
+                                    if (subsPerDay === null) subsDayLbl = "—";
                                   } else {
                                     // All Time: subscribers / days since created
                                     const totalSubs = Number(link.subscribers || 0);

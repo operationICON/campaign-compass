@@ -104,10 +104,27 @@ export function useSnapshotMetrics(
         const serverMaxDate = await fetchServerDate();
 
         switch (timePeriod) {
-          case "day":
-            fromDate = serverMaxDate;
-            toDate = serverMaxDate;
+          case "day": {
+            // "Last Sync" — window between the two most recent DISTINCT snapshot_dates.
+            // Falls back to single-day window if only one sync exists.
+            const { data: distinct } = await supabase
+              .from("daily_snapshots")
+              .select("snapshot_date")
+              .order("snapshot_date", { ascending: false })
+              .limit(500);
+            const seen = new Set<string>();
+            const distinctDates: string[] = [];
+            for (const r of distinct || []) {
+              if (r.snapshot_date && !seen.has(r.snapshot_date)) {
+                seen.add(r.snapshot_date);
+                distinctDates.push(r.snapshot_date);
+                if (distinctDates.length >= 2) break;
+              }
+            }
+            toDate = distinctDates[0] ?? serverMaxDate;
+            fromDate = distinctDates[1] ?? toDate;
             break;
+          }
           case "week": {
             const d = new Date(serverMaxDate + "T00:00:00Z");
             d.setUTCDate(d.getUTCDate() - 7);

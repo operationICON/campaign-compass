@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
+import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetrics";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 import { PageFilterBar } from "@/components/PageFilterBar";
 
@@ -137,6 +138,10 @@ export default function AccountsPage() {
   // Active = link delivered >= 1 sub/day over last 5 days (snapshot-derived).
   // Used for the Tracking Links activity filter and the model overview "active links" footer count.
   const { activeLookup } = useActiveLinkStatus();
+
+  // Per-link delta metrics for the selected date window (cumulative-snapshot deltas).
+  // When All Time / no data → fall back to lifetime tracking_links.subscribers / age.
+  const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
 
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
@@ -320,7 +325,24 @@ export default function AccountsPage() {
         return !earliest || d < earliest ? d : earliest;
       }, null as Date | null);
       const daysSinceEarliest = earliestCreated ? Math.max(1, differenceInDays(now, earliestCreated)) : 0;
-      const subsPerDay = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
+      const subsPerDayLifetime = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
+
+      // Delta-based subs/day for the current date filter window — sum each link's
+      // (subsGained / daysBetween) when available, else 0. If All Time selected,
+      // fall back to lifetime average (subs / days_since_earliest_link).
+      let subsPerDay: number | null = subsPerDayLifetime;
+      if (!isDeltaAllTime) {
+        let totalSpd = 0;
+        let anySpd = false;
+        for (const l of accLinks) {
+          const d = getDelta(l.id, deltaLookup);
+          if (d?.subsPerDay != null) {
+            totalSpd += d.subsPerDay;
+            anySpd = true;
+          }
+        }
+        subsPerDay = anySpd ? totalSpd : null;
+      }
 
       const apiSubs = acc.subscribers_count || 0;
       const ua = calcUnattributedPct(acc);
@@ -367,7 +389,7 @@ export default function AccountsPage() {
       };
     }
     return stats;
-  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime, activeLookup]);
+  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime, activeLookup, deltaLookup, isDeltaAllTime]);
 
   const afterAccountFilter = useMemo(() => {
     // Rule 4: exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
@@ -918,11 +940,16 @@ export default function AccountsPage() {
                             const cpcVal = paymentType === "CPC" && hasSpend && clicksVal > 0 ? spend / clicksVal : null;
                             const roiVal = hasSpend ? (profit / spend) * 100 : null;
                             const activeInfo = getActiveInfo(l.id, activeLookup);
-                            // When the activity filter is engaged, show snapshot-derived
-                            // subs/day (last 5d). Otherwise keep the lifetime average.
+                            // Subs/Day priority:
+                            //  - Activity filter engaged → 5-day snapshot-derived (always)
+                            //  - Date filter active (not All Time) → window delta from cumulative snapshots
+                            //  - All Time / no data → lifetime average (subs / days_since_created)
                             let subsPerDay: number | null;
                             if (activityFilter !== "all") {
                               subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
+                            } else if (!isDeltaAllTime) {
+                              const d = getDelta(l.id, deltaLookup);
+                              subsPerDay = d?.subsPerDay ?? null;
                             } else {
                               const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
                               subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;

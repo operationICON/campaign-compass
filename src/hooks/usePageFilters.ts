@@ -6,7 +6,9 @@ export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month";
 export type RevenueMode = "gross" | "net";
 
 export const TIME_PERIODS: { key: TimePeriod; label: string }[] = [
-  { key: "day", label: "Last Day" },
+  // "day" pill is now labeled "Last Sync" — resolves to the delta between
+  // the two most recent distinct snapshot_dates (see useLastSyncRange + useSnapshotDeltaMetrics).
+  { key: "day", label: "Last Sync" },
   { key: "week", label: "Last Week" },
   { key: "month", label: "Last Month" },
   { key: "prev_month", label: "Prev Month" },
