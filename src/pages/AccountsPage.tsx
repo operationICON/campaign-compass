@@ -19,7 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { GrowthTab } from "@/components/accounts/GrowthTab";
+import { useAccountLinkDeltas, pctChange } from "@/hooks/useAccountLinkDeltas";
+import { TrendChip } from "@/components/TrendChip";
 
 import { format, differenceInDays, subDays, isValid } from "date-fns";
 
@@ -75,7 +76,7 @@ export default function AccountsPage() {
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance" | "growth">("campaigns");
+  const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
   // Persisted table prefs — model detail tracking links + traffic sources tabs
   const A_PREFS = "ct_table_prefs_accounts_campaigns";
   const S_PREFS = "ct_table_prefs_accounts_sources";
@@ -156,6 +157,20 @@ export default function AccountsPage() {
   // Per-link delta metrics for the selected date window (cumulative-snapshot deltas).
   // When All Time / no data → fall back to lifetime tracking_links.subscribers / age.
   const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
+
+  // Per-link cur/prev period aggregates for THIS account (model detail page).
+  // Powers period-scoped table cells, "Gained" column, trend chips, and KPI cards.
+  // Returns isAllTime=true when "All Time" selected → callers fall back to lifetime values.
+  const selectedAccountLinkIds = useMemo(
+    () => (selectedAccount ? allLinks.filter((l: any) => l.account_id === selectedAccount.id).map((l: any) => l.id) : []),
+    [selectedAccount, allLinks]
+  );
+  const accountDeltas = useAccountLinkDeltas(
+    selectedAccount?.id ?? null,
+    selectedAccountLinkIds,
+    timePeriod,
+    customRange
+  );
 
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
@@ -689,23 +704,102 @@ export default function AccountsPage() {
         .sort((a: any, b: any) => Number(b.revenue || 0) - Number(a.revenue || 0));
     }
 
-    // KPI card component
-    const KpiCard = ({ label, value, colored, positive }: { label: string; value: string; colored?: boolean; positive?: boolean }) => (
+    // KPI card component (with optional trend chip when date filter is active)
+    const KpiCard = ({
+      label, value, colored, positive, trend, reverseTrend = false,
+    }: {
+      label: string;
+      value: string;
+      colored?: boolean;
+      positive?: boolean;
+      trend?: number | null;
+      reverseTrend?: boolean;
+    }) => (
       <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
         <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{label}</p>
         <p className={`text-lg font-bold font-mono ${
           colored ? (positive ? "text-primary" : "text-destructive") : "text-foreground"
         }`}>{value}</p>
+        {trend !== undefined && (
+          <div className="mt-1"><TrendChip value={trend ?? null} reverse={reverseTrend} /></div>
+        )}
       </div>
     );
 
-    const totalRevenue = Number(acc.ltv_total || 0) * revMultiplier;
-    const campaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
-    const totalSpend = stats.totalSpendAllTime || 0;
-    const totalProfit = totalRevenue - totalSpend;
-    const roi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
-    const cpl = totalSpend > 0 && stats.totalSubs > 0 ? totalSpend / stats.totalSubs : null;
-    const cpc = totalSpend > 0 && stats.totalClicks > 0 ? totalSpend / stats.totalClicks : null;
+
+    // ── Period-aware mode (shared by table cells, KPI cards, headers) ──────────
+    // When ANY date filter is active (not "All Time"), every numeric column re-scopes
+    // to the selected window using `accountDeltas`. Trend chips compare to the
+    // previous-period delta. When "All Time" is selected, lifetime values from
+    // tracking_links + accounts are used (current behavior, preserved exactly).
+    const periodActive = !accountDeltas.isAllTime;
+    const periodSuffix = !periodActive
+      ? ""
+      : customRange
+        ? "(custom)"
+        : timePeriod === "day"
+          ? "(sync)"
+          : timePeriod === "week"
+            ? "(7d)"
+            : timePeriod === "month"
+              ? "(30d)"
+              : timePeriod === "prev_month"
+                ? "(prev mo)"
+                : "";
+    const headerLabel = (base: string) => (periodActive ? `${base} ${periodSuffix}` : base);
+    const gainedSuffix = periodActive ? periodSuffix : "(all)";
+
+    // Lifetime KPI values (used when "All Time" or as fallback)
+    const lifetimeRevenue = Number(acc.ltv_total || 0) * revMultiplier;
+    const lifetimeCampaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
+    const lifetimeSpend = stats.totalSpendAllTime || 0;
+    const lifetimeProfit = lifetimeRevenue - lifetimeSpend;
+    const lifetimeRoi = lifetimeSpend > 0 ? (lifetimeProfit / lifetimeSpend) * 100 : null;
+    const lifetimeCpl = lifetimeSpend > 0 && stats.totalSubs > 0 ? lifetimeSpend / stats.totalSubs : null;
+    const lifetimeCpc = lifetimeSpend > 0 && stats.totalClicks > 0 ? lifetimeSpend / stats.totalClicks : null;
+
+    // Period-scoped KPI values (when filter active)
+    const aCur = accountDeltas.accountTotals.cur;
+    const aPrev = accountDeltas.accountTotals.prev;
+    const periodRevenue = aCur.rev * revMultiplier;
+    const periodPrevRevenue = aPrev.rev * revMultiplier;
+    const periodCampaignRev = periodRevenue; // same source: cumulative-snapshot revenue delta
+    const periodSpend = aCur.spend;
+    const periodProfit = periodRevenue - periodSpend;
+    const periodPrevProfit = periodPrevRevenue - aPrev.spend;
+    const periodRoi = periodSpend > 0 ? (periodProfit / periodSpend) * 100 : null;
+    const periodPrevRoi = aPrev.spend > 0 ? (periodPrevProfit / aPrev.spend) * 100 : null;
+    const periodCpl = periodSpend > 0 && aCur.subs > 0 ? periodSpend / aCur.subs : null;
+    const periodPrevCpl = aPrev.spend > 0 && aPrev.subs > 0 ? aPrev.spend / aPrev.subs : null;
+    const periodCpc = periodSpend > 0 && aCur.clicks > 0 ? periodSpend / aCur.clicks : null;
+    const periodPrevCpc = aPrev.spend > 0 && aPrev.clicks > 0 ? aPrev.spend / aPrev.clicks : null;
+    const periodCvr = aCur.clicks > 0 ? (aCur.subs / aCur.clicks) * 100 : null;
+    const periodPrevCvr = aPrev.clicks > 0 ? (aPrev.subs / aPrev.clicks) * 100 : null;
+    const periodSubsPerDay = aCur.days > 0 ? aCur.subs / aCur.days : null;
+    const periodPrevSubsPerDay = aPrev.days > 0 ? aPrev.subs / aPrev.days : null;
+
+    // Active KPI values + trend deltas (consumed by KPI grid and table totals)
+    const totalRevenue = periodActive ? periodRevenue : lifetimeRevenue;
+    const totalRevenueTrend = periodActive ? pctChange(periodRevenue, periodPrevRevenue) : null;
+    const campaignRev = periodActive ? periodCampaignRev : lifetimeCampaignRev;
+    const campaignRevTrend = periodActive ? pctChange(periodCampaignRev, periodPrevRevenue) : null;
+    const totalSpend = periodActive ? periodSpend : lifetimeSpend;
+    const totalSpendTrend = periodActive ? pctChange(periodSpend, aPrev.spend) : null;
+    const totalProfit = periodActive ? periodProfit : lifetimeProfit;
+    const totalProfitTrend = periodActive ? pctChange(periodProfit, periodPrevProfit) : null;
+    const roi = periodActive ? periodRoi : lifetimeRoi;
+    const roiTrend = periodActive ? pctChange(periodRoi ?? 0, periodPrevRoi ?? 0) : null;
+    const cpl = periodActive ? periodCpl : lifetimeCpl;
+    const cplTrend = periodActive ? pctChange(periodCpl ?? 0, periodPrevCpl ?? 0) : null;
+    const cpc = periodActive ? periodCpc : lifetimeCpc;
+    const cpcTrend = periodActive ? pctChange(periodCpc ?? 0, periodPrevCpc ?? 0) : null;
+    const subsKpiValue = periodActive ? aCur.subs : (stats.apiSubs || stats.totalSubs || 0);
+    const subsKpiTrend = periodActive ? pctChange(aCur.subs, aPrev.subs) : null;
+    const subsPerDayKpiValue = periodActive ? periodSubsPerDay : stats.subsPerDay;
+    const subsPerDayKpiTrend = periodActive ? pctChange(periodSubsPerDay ?? 0, periodPrevSubsPerDay ?? 0) : null;
+    const cvrKpiValue = periodActive ? periodCvr : stats.allCvr;
+    const cvrKpiTrend = periodActive ? pctChange(periodCvr ?? 0, periodPrevCvr ?? 0) : null;
+
 
     return (
       <DashboardLayout>
@@ -746,19 +840,19 @@ export default function AccountsPage() {
               <div className="md:w-[70%] p-6">
                 {/* PART 2 — 5×5 KPI Grid (13 cards, rows 4-5 empty) */}
                 <div className="grid grid-cols-5 gap-3 mb-4">
-                  {/* Row 1: Primary financials */}
-                  <KpiCard label="Total Revenue" value={fmtCurrency(totalRevenue)} />
-                  <KpiCard label="Campaign Rev" value={fmtCurrency(campaignRev)} />
-                  <KpiCard label="Total Spend" value={fmtCurrency(totalSpend)} />
-                  <KpiCard label="Total Profit" value={fmtCurrency(totalProfit)} colored positive={totalProfit >= 0} />
-                  <KpiCard label="ROI %" value={roi != null ? fmtPct(roi) : "—"} colored positive={roi != null && roi >= 0} />
+                  {/* Row 1: Primary financials — period-aware when filter active */}
+                  <KpiCard label={headerLabel("Total Revenue")} value={fmtCurrency(totalRevenue)} trend={periodActive ? totalRevenueTrend : undefined} />
+                  <KpiCard label={headerLabel("Campaign Rev")} value={fmtCurrency(campaignRev)} trend={periodActive ? campaignRevTrend : undefined} />
+                  <KpiCard label={headerLabel("Total Spend")} value={fmtCurrency(totalSpend)} trend={periodActive ? totalSpendTrend : undefined} reverseTrend />
+                  <KpiCard label={headerLabel("Total Profit")} value={fmtCurrency(totalProfit)} colored positive={totalProfit >= 0} trend={periodActive ? totalProfitTrend : undefined} />
+                  <KpiCard label={headerLabel("ROI %")} value={roi != null ? fmtPct(roi) : "—"} colored positive={roi != null && roi >= 0} trend={periodActive ? roiTrend : undefined} />
 
-                  {/* Row 2: Scale/subs */}
-                  <KpiCard label="Subscribers" value={fmtNum(stats.apiSubs || stats.totalSubs || 0)} />
-                  <KpiCard label="Subs/Day" value={stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—"} />
-                  <KpiCard label="CVR" value={stats.allCvr != null ? fmtPct(stats.allCvr) : "—"} />
-                  <KpiCard label="CPL" value={cpl != null ? fmtCurrency(cpl) : "—"} />
-                  <KpiCard label="CPC" value={cpc != null ? `$${cpc.toFixed(4)}` : "—"} />
+                  {/* Row 2: Scale/subs — period-aware when filter active */}
+                  <KpiCard label={headerLabel("Subscribers")} value={fmtNum(subsKpiValue)} trend={periodActive ? subsKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("Subs/Day")} value={subsPerDayKpiValue != null ? `${subsPerDayKpiValue.toFixed(1)}/day` : "—"} trend={periodActive ? subsPerDayKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("CVR")} value={cvrKpiValue != null ? fmtPct(cvrKpiValue) : "—"} trend={periodActive ? cvrKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("CPL")} value={cpl != null ? fmtCurrency(cpl) : "—"} trend={periodActive ? cplTrend : undefined} reverseTrend />
+                  <KpiCard label={headerLabel("CPC")} value={cpc != null ? `$${cpc.toFixed(4)}` : "—"} trend={periodActive ? cpcTrend : undefined} reverseTrend />
 
                   {/* Row 3: Traffic health */}
                   <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
@@ -863,7 +957,7 @@ export default function AccountsPage() {
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
-                    {(["campaigns", "sources", "performance", "growth"] as const).map((tab) => (
+                    {(["campaigns", "sources", "performance"] as const).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -875,9 +969,7 @@ export default function AccountsPage() {
                           ? "Tracking Links"
                           : tab === "sources"
                             ? "Traffic Sources"
-                            : tab === "performance"
-                              ? "Performance"
-                              : "Growth"}
+                            : "Performance"}
                       </button>
                     ))}
                   </div>
@@ -918,19 +1010,20 @@ export default function AccountsPage() {
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("campaign_name")}>Tracking Link <SortIcon col="campaign_name" /></th>
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("source_tag")}>Source <SortIcon col="source_tag" /></th>
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("marketer")}>Marketer <SortIcon col="marketer" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>Clicks <SortIcon col="clicks" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Subs <SortIcon col="subscribers" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>Subs/Day <SortIcon col="subs_day" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>CVR <SortIcon col="cvr" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>Spend <SortIcon col="spend" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>Revenue <SortIcon col="revenue" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>{headerLabel("Clicks")} <SortIcon col="clicks" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>{headerLabel("Subs")} <SortIcon col="subscribers" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Gained {gainedSuffix}</th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>{headerLabel("Subs/Day")} <SortIcon col="subs_day" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>{headerLabel("CVR")} <SortIcon col="cvr" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>{headerLabel("Spend")} <SortIcon col="spend" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>{headerLabel("Revenue")} <SortIcon col="revenue" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cross_poll")}>Cross-Poll <SortIcon col="cross_poll" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>Profit <SortIcon col="profit" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit_sub")}>Profit/Sub <SortIcon col="profit_sub" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("ltv_sub")}>LTV/Sub <SortIcon col="ltv_sub" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpl")}>CPL <SortIcon col="cpl" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpc")}>CPC <SortIcon col="cpc" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>ROI <SortIcon col="roi" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit")}>{headerLabel("Profit")} <SortIcon col="profit" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("profit_sub")}>{headerLabel("Profit/Sub")} <SortIcon col="profit_sub" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("ltv_sub")}>{headerLabel("LTV/Sub")} <SortIcon col="ltv_sub" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpl")}>{headerLabel("CPL")} <SortIcon col="cpl" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cpc")}>{headerLabel("CPC")} <SortIcon col="cpc" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("roi")}>{headerLabel("ROI")} <SortIcon col="roi" /></th>
                             <th className="text-center py-2 px-3 cursor-pointer" onClick={() => toggleSort("status")}>Status <SortIcon col="status" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("created_at")}>Created <SortIcon col="created_at" /></th>
                           </tr>
@@ -938,35 +1031,64 @@ export default function AccountsPage() {
                         <tbody>
                           {displayLinks.map((l: any) => {
                             const status = getStatus(l);
-                            const spend = Number(l.cost_total || 0);
-                            const hasSpend = spend > 0;
+                            // ── Lifetime values from tracking_links ──
+                            const lifetimeSpend = Number(l.cost_total || 0);
+                            const lifetimeRev = Number(l.revenue || 0);
+                            const lifetimeSubs = Number(l.subscribers || 0);
+                            const lifetimeClicks = Number(l.clicks || 0);
                             const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
                             const crossPoll = ltvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
-                            const revVal = Number(l.revenue || 0);
-                            const subsVal = Number(l.subscribers || 0);
-                            const clicksVal = Number(l.clicks || 0);
+                            const paymentType = (l.payment_type || "").toUpperCase();
+                            const activeInfo = getActiveInfo(l.id, activeLookup);
+
+                            // ── Period vs lifetime resolution ──
+                            // When date filter is active, every numeric column shows the
+                            // delta in that window from useAccountLinkDeltas (snapshots).
+                            // Spend comes from onlytraffic_orders within the window.
+                            const linkD = periodActive ? accountDeltas.deltas[l.id] : null;
+                            const periodHas = !!linkD && linkD.hasCurrent;
+                            const subsVal = periodActive ? (linkD?.cur.subs ?? 0) : lifetimeSubs;
+                            const subsPrev = linkD?.prev.subs ?? 0;
+                            const clicksVal = periodActive ? (linkD?.cur.clicks ?? 0) : lifetimeClicks;
+                            const clicksPrev = linkD?.prev.clicks ?? 0;
+                            const revVal = periodActive ? (linkD?.cur.rev ?? 0) : lifetimeRev;
+                            const revPrev = linkD?.prev.rev ?? 0;
+                            const spend = periodActive ? (linkD?.cur.spend ?? 0) : lifetimeSpend;
+                            const spendPrev = linkD?.prev.spend ?? 0;
+                            const hasSpend = spend > 0;
                             const profit = revVal - spend;
+                            const profitPrev = revPrev - spendPrev;
                             const profitSub = hasSpend && subsVal > 0 ? profit / subsVal : null;
                             const ltvSub = subsVal > 0 ? revVal / subsVal : null;
+                            const ltvSubPrev = subsPrev > 0 ? revPrev / subsPrev : null;
                             const cvr = clicksVal > 0 ? (subsVal / clicksVal) * 100 : null;
-                            const paymentType = (l.payment_type || "").toUpperCase();
-                            const cplVal = paymentType === "CPL" && hasSpend && subsVal > 0 ? spend / subsVal : null;
-                            const cpcVal = paymentType === "CPC" && hasSpend && clicksVal > 0 ? spend / clicksVal : null;
+                            const cvrPrev = clicksPrev > 0 ? (subsPrev / clicksPrev) * 100 : null;
+                            // CPL/CPC: lifetime gates by payment_type; period-mode shows whenever spend exists.
+                            const cplVal = periodActive
+                              ? (hasSpend && subsVal > 0 ? spend / subsVal : null)
+                              : (paymentType === "CPL" && hasSpend && subsVal > 0 ? spend / subsVal : null);
+                            const cplPrev = spendPrev > 0 && subsPrev > 0 ? spendPrev / subsPrev : null;
+                            const cpcVal = periodActive
+                              ? (hasSpend && clicksVal > 0 ? spend / clicksVal : null)
+                              : (paymentType === "CPC" && hasSpend && clicksVal > 0 ? spend / clicksVal : null);
+                            const cpcPrev = spendPrev > 0 && clicksPrev > 0 ? spendPrev / clicksPrev : null;
                             const roiVal = hasSpend ? (profit / spend) * 100 : null;
-                            const activeInfo = getActiveInfo(l.id, activeLookup);
+                            const roiPrev = spendPrev > 0 ? (profitPrev / spendPrev) * 100 : null;
+
                             // Subs/Day priority:
                             //  - Activity filter engaged → 5-day snapshot-derived (always)
-                            //  - Date filter active (not All Time) → window delta from cumulative snapshots
-                            //  - All Time / no data → lifetime average (subs / days_since_created)
+                            //  - Date filter active → period delta from useAccountLinkDeltas
+                            //  - All Time → lifetime average (subs / days_since_created)
                             let subsPerDay: number | null;
+                            let subsPerDayPrev: number | null = null;
                             if (activityFilter !== "all") {
                               subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
-                            } else if (!isDeltaAllTime) {
-                              const d = getDelta(l.id, deltaLookup);
-                              subsPerDay = d?.subsPerDay ?? null;
+                            } else if (periodActive) {
+                              subsPerDay = linkD && linkD.cur.days > 0 ? linkD.cur.subs / linkD.cur.days : null;
+                              subsPerDayPrev = linkD && linkD.prev.days > 0 ? linkD.prev.subs / linkD.prev.days : null;
                             } else {
                               const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
-                              subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;
+                              subsPerDay = daysActive && daysActive > 0 && lifetimeSubs > 0 ? lifetimeSubs / daysActive : null;
                             }
                             const rowBorder =
                               activityFilter === "active"
@@ -974,6 +1096,13 @@ export default function AccountsPage() {
                                 : activityFilter === "inactive"
                                 ? "border-l-2 border-l-muted-foreground/40"
                                 : "";
+
+                            // Gained column: lifetime in All Time mode, delta otherwise
+                            const gainedValue = periodActive
+                              ? (periodHas ? linkD!.cur.subs : null)
+                              : lifetimeSubs;
+                            const gainedTrend = periodActive ? pctChange(linkD?.cur.subs ?? 0, subsPrev) : null;
+
                             return (
                               <tr
                                 key={l.id}
@@ -990,19 +1119,39 @@ export default function AccountsPage() {
                                 <td className="py-3 px-3 text-[12px] text-foreground/80">
                                   {l.onlytraffic_marketer || <span className="text-muted-foreground">—</span>}
                                 </td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(clicksVal)}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(subsVal)}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {fmtNum(clicksVal)}
+                                  {periodActive && <div><TrendChip value={pctChange(clicksVal, clicksPrev)} /></div>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {fmtNum(subsVal)}
+                                  {periodActive && <div><TrendChip value={pctChange(subsVal, subsPrev)} /></div>}
+                                </td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">
+                                  {gainedValue == null ? (
+                                    <span className="text-muted-foreground">—</span>
+                                  ) : (
+                                    <span className="text-emerald-500 font-bold">
+                                      {periodActive ? (gainedValue > 0 ? `+${fmtNum(gainedValue)}` : fmtNum(gainedValue)) : fmtNum(gainedValue)}
+                                    </span>
+                                  )}
+                                  {periodActive && <div><TrendChip value={gainedTrend} /></div>}
+                                </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">
                                   {subsPerDay != null ? `${subsPerDay.toFixed(1)}/day` : "—"}
+                                  {periodActive && subsPerDayPrev !== null && <div><TrendChip value={pctChange(subsPerDay ?? 0, subsPerDayPrev)} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {cvr != null ? fmtPct(cvr) : <span className="text-muted-foreground">—</span>}
+                                  {periodActive && <div><TrendChip value={pctChange(cvr ?? 0, cvrPrev ?? 0)} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {hasSpend ? fmtCurrency(spend) : <span className="text-muted-foreground">—</span>}
+                                  {periodActive && <div><TrendChip value={pctChange(spend, spendPrev)} reverse /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   <span className="font-semibold text-primary">{fmtCurrency(revVal)}</span>
+                                  {periodActive && <div><TrendChip value={pctChange(revVal, revPrev)} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {crossPoll !== null && crossPoll > 0 ? (
@@ -1011,27 +1160,32 @@ export default function AccountsPage() {
                                 </td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend ? (profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
                                   {hasSpend ? fmtCurrency(profit) : "—"}
+                                  {periodActive && <div><TrendChip value={pctChange(profit, profitPrev)} /></div>}
                                 </td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${profitSub != null ? (profitSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
                                   {profitSub != null ? fmtCurrency(profitSub) : "—"}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {ltvSub != null ? <span className="text-primary font-semibold">{fmtCurrency(ltvSub)}</span> : <span className="text-muted-foreground">—</span>}
+                                  {periodActive && <div><TrendChip value={pctChange(ltvSub ?? 0, ltvSubPrev ?? 0)} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {cplVal != null ? fmtCurrency(cplVal) : <span className="text-muted-foreground">—</span>}
+                                  {periodActive && <div><TrendChip value={pctChange(cplVal ?? 0, cplPrev ?? 0)} reverse /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {cpcVal != null ? `$${cpcVal.toFixed(4)}` : <span className="text-muted-foreground">—</span>}
+                                  {periodActive && <div><TrendChip value={pctChange(cpcVal ?? 0, cpcPrev ?? 0)} reverse /></div>}
                                 </td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${roiVal != null ? (roiVal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
                                   {roiVal != null ? fmtPct(roiVal) : "—"}
+                                  {periodActive && <div><TrendChip value={pctChange(roiVal ?? 0, roiPrev ?? 0)} /></div>}
                                 </td>
                                 <td className="text-center py-3 px-3">
                                   <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${status.cls}`}>{status.label}</span>
                                 </td>
                                 <td className="text-right py-3 px-3">
-                                  <CampaignAgePill createdAt={l.created_at} clicks={clicksVal} revenue={revVal} />
+                                  <CampaignAgePill createdAt={l.created_at} clicks={lifetimeClicks} revenue={lifetimeRev} />
                                 </td>
                               </tr>
                             );
@@ -1175,15 +1329,6 @@ export default function AccountsPage() {
                   </div>
                 )}
 
-                {activeTab === "growth" && (
-                  <GrowthTab
-                    accountId={acc.id}
-                    accLinks={accLinks}
-                    modelName={acc.display_name}
-                    avatarUrl={acc.avatar_thumb_url}
-                    onRowClick={(link) => setDrawerCampaign(link)}
-                  />
-                )}
         </div>
 
         {/* Campaign drawer for clickable rows */}
