@@ -60,6 +60,7 @@ export default function MarketerModelCampaignsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedLink, setSelectedLink] = useState<any>(null);
+  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
 
   const decodedMarketer = decodeURIComponent(marketer || "");
   const decodedUsername = decodeURIComponent(model_username || "");
