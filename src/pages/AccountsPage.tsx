@@ -998,6 +998,13 @@ export default function AccountsPage() {
                         </tbody>
                       </table>
                     )}
+                    {activityFilter !== "all" && displayLinks.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-3 px-1">
+                        {activityFilter === "active"
+                          ? `Showing ${displayLinks.length} active link${displayLinks.length === 1 ? "" : "s"} (delivering ≥ 1 sub/day)`
+                          : `Showing ${displayLinks.length} inactive link${displayLinks.length === 1 ? "" : "s"} (< 1 sub/day last 5 days)`}
+                      </p>
+                    )}
                   </div>
                 )}
 
