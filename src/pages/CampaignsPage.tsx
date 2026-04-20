@@ -39,6 +39,8 @@ import { useColumnOrder } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
+import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
+import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses";
@@ -142,6 +144,7 @@ export default function CampaignsPage() {
   // ─── Filter/sort state ───
   const [searchQuery, setSearchQuery] = useState("");
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
+  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   
   const [groupFilter, setGroupFilter] = useState("all");
@@ -218,7 +221,9 @@ export default function CampaignsPage() {
     },
   });
 
-  // ─── OnlyTraffic orders for CPL/CPC derivation ───
+  // Snapshot-derived activity (>= 1 sub/day over last 5 days)
+  const { activeLookup } = useActiveLinkStatus();
+
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
     queryFn: async () => {
@@ -432,8 +437,8 @@ export default function CampaignsPage() {
   // ─── All links (no artificial filtering) ───
   const baseLinks = enrichedLinks;
 
-  // ─── Filtering ───
-  const filtered = useMemo(() => {
+  // ─── Filtering (without activity filter — used for activity counts) ───
+  const filteredPreActivity = useMemo(() => {
     let result = baseLinks;
     // Account filter (from top bar)
     if (groupFilter !== "all") {
@@ -458,6 +463,23 @@ export default function CampaignsPage() {
 
     return result;
   }, [baseLinks, searchQuery, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
+
+  // Activity counts (snapshot-derived) scoped to current filters
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const l of filteredPreActivity) {
+      if (getActiveInfo(l.id, activeLookup).isActive) active++;
+    }
+    return { total: filteredPreActivity.length, active };
+  }, [filteredPreActivity, activeLookup]);
+
+  const filtered = useMemo(() => {
+    if (activityFilter === "all") return filteredPreActivity;
+    if (activityFilter === "active")
+      return filteredPreActivity.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive);
+    return filteredPreActivity.filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive);
+  }, [filteredPreActivity, activityFilter, activeLookup]);
+
 
   // ─── Sorting ───
   const sorted = useMemo(() => {
@@ -877,6 +899,14 @@ export default function CampaignsPage() {
         </div>
 
 
+        {/* Activity filter — All / Active / Inactive (snapshot-derived) */}
+        <LinkActivityFilter
+          value={activityFilter}
+          onChange={(v) => { setActivityFilter(v); setPage(1); }}
+          totalCount={activityCounts.total}
+          activeCount={activityCounts.active}
+        />
+
         {/* ═══ CAMPAIGN TABLE ═══ */}
         <div className="flex gap-0">
           <div className="flex-1 min-w-0">
@@ -987,7 +1017,13 @@ export default function CampaignsPage() {
                           <React.Fragment key={link.id}>
                           <tr
                             onClick={() => handleRowClick(link)}
-                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"}`}
+                            className={`border-b border-border/50 cursor-pointer transition-colors group ${isExpanded ? "" : "hover:bg-secondary/30"} ${
+                              activityFilter === "active"
+                                ? "border-l-2 border-l-primary/70"
+                                : activityFilter === "inactive"
+                                ? "border-l-2 border-l-muted-foreground/40"
+                                : ""
+                            }`}
                             style={{ height: "46px", opacity: isInactive ? 0.6 : 1 }}
                           >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>

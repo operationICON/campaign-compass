@@ -9,6 +9,8 @@ import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawe
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
+import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
+import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -58,6 +60,7 @@ export default function MarketerModelCampaignsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedLink, setSelectedLink] = useState<any>(null);
+  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
 
   const decodedMarketer = decodeURIComponent(marketer || "");
   const decodedUsername = decodeURIComponent(model_username || "");
@@ -77,7 +80,8 @@ export default function MarketerModelCampaignsPage() {
     enabled: !!decodedUsername,
   });
 
-  // 2. Fetch orders for marketer + offer_id that link to this account's tracking links
+  // Snapshot-derived activity (>= 1 sub/day over last 5 days), scoped to this account
+  const { activeLookup } = useActiveLinkStatus(account?.id ?? null);
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ["l4_orders", decodedMarketer, offerId, account?.id],
     queryFn: async () => {
@@ -213,6 +217,30 @@ export default function MarketerModelCampaignsPage() {
     });
   }, [rows, sortKey, sortAsc]);
 
+  // Activity counts (snapshot-derived) for this marketer × model scope
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const r of rows) if (getActiveInfo(r.id, activeLookup).isActive) active++;
+    return { total: rows.length, active };
+  }, [rows, activeLookup]);
+
+  // Apply activity filter + override sort when filter is engaged
+  const displayRows = useMemo(() => {
+    if (activityFilter === "all") return sorted;
+    if (activityFilter === "active") {
+      return [...rows]
+        .filter((r) => getActiveInfo(r.id, activeLookup).isActive)
+        .sort((a, b) =>
+          getActiveInfo(b.id, activeLookup).subsPerDay -
+          getActiveInfo(a.id, activeLookup).subsPerDay
+        );
+    }
+    return [...rows]
+      .filter((r) => !getActiveInfo(r.id, activeLookup).isActive)
+      .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0));
+  }, [activityFilter, sorted, rows, activeLookup]);
+
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
@@ -247,6 +275,14 @@ export default function MarketerModelCampaignsPage() {
             · {fmtN(rows.length)} campaigns
           </p>
         </div>
+
+        {/* Activity filter — All / Active / Inactive (snapshot-derived) */}
+        <LinkActivityFilter
+          value={activityFilter}
+          onChange={setActivityFilter}
+          totalCount={activityCounts.total}
+          activeCount={activityCounts.active}
+        />
 
         {/* Table */}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -285,15 +321,21 @@ export default function MarketerModelCampaignsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sorted.map((row, i) => {
+                {displayRows.map((row, i) => {
                   const rowBg = i % 2 === 1 ? "bg-muted/30" : "";
+                  const activityBorder =
+                    activityFilter === "active"
+                      ? "hsl(var(--primary) / 0.7)"
+                      : activityFilter === "inactive"
+                      ? "hsl(var(--muted-foreground) / 0.4)"
+                      : "transparent";
                   return (
                     <TableRow
                       key={row.id}
                       className={`border-border cursor-pointer hover:bg-muted/50 transition-colors ${rowBg}`}
-                      style={{ borderLeft: "3px solid transparent", minHeight: "52px" }}
+                      style={{ borderLeft: `3px solid ${activityBorder}`, minHeight: "52px" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "hsl(var(--primary))"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = "transparent"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderLeftColor = activityBorder; }}
                       onClick={() => setSelectedLink(row.rawLink)}
                     >
                       <TableCell>
@@ -334,10 +376,14 @@ export default function MarketerModelCampaignsPage() {
             </Table>
           )}
 
-          {sorted.length > 0 && (
+          {displayRows.length > 0 && (
             <div className="px-4 py-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
-                Showing {sorted.length} of {rows.length} campaigns · Click any row to view campaign details
+                {activityFilter === "active"
+                  ? `Showing ${displayRows.length} active links (delivering ≥ 1 sub/day)`
+                  : activityFilter === "inactive"
+                  ? `Showing ${displayRows.length} inactive links (< 1 sub/day last 5 days)`
+                  : `Showing ${displayRows.length} of ${rows.length} campaigns`} · Click any row to view campaign details
               </span>
             </div>
           )}
