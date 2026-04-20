@@ -140,7 +140,40 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
     enabled: !!accountId && linkIds.length > 0,
   });
 
-  // Determine current + previous period windows (inclusive date strings)
+  // Deduplicate snapshots: per (tracking_link_id, snapshot_date), keep MAX(subscribers).
+  // Also build a per-link series sorted ascending by date.
+  const seriesByLink = useMemo(() => {
+    const dedup = new Map<string, any>(); // key = lid|date
+    for (const r of snapshots) {
+      const lid = String(r.tracking_link_id ?? "");
+      const d = r.snapshot_date as string | undefined;
+      if (!lid || !d) continue;
+      const key = `${lid}|${d}`;
+      const existing = dedup.get(key);
+      const subs = Number(r.subscribers || 0);
+      if (!existing || subs > Number(existing.subscribers || 0)) {
+        dedup.set(key, r);
+      }
+    }
+    const map: Record<string, Array<{ date: string; subs: number; clicks: number; rev: number }>> = {};
+    for (const r of dedup.values()) {
+      const lid = String(r.tracking_link_id);
+      (map[lid] ||= []).push({
+        date: r.snapshot_date as string,
+        subs: Math.max(0, Number(r.subscribers || 0)),
+        clicks: Math.max(0, Number(r.clicks || 0)),
+        rev: Math.max(0, Number(r.revenue || 0)),
+      });
+    }
+    for (const lid of Object.keys(map)) {
+      map[lid].sort((a, b) => a.date.localeCompare(b.date));
+    }
+    return map;
+  }, [snapshots]);
+
+  // Determine current + previous period windows + the "earliest boundary" date that
+  // anchors the delta. For since_last_sync, anchor is the previous snapshot_date.
+  // For extended ranges, anchor is the latest snapshot ON OR BEFORE the window start.
   const windows = useMemo(() => {
     if (snapshots.length === 0) return null;
     const allDates = Array.from(new Set(snapshots.map((s: any) => s.snapshot_date as string))).sort();
@@ -148,63 +181,53 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
     const maxDate = allDates[allDates.length - 1];
 
     if (period === "since_last_sync") {
-      // Current = latest snapshot date only.
-      // Previous = the snapshot date immediately before the latest.
-      const cur = { from: maxDate, to: maxDate, days: 1 };
       if (allDates.length < 2) {
-        return { cur, prev: null as null | { from: string; to: string; days: number }, needsTwo: allDates.length < 1 };
+        return { mode: "sync" as const, curTo: maxDate, curAnchor: null as string | null,
+                 prevTo: null as string | null, prevAnchor: null as string | null, days: 1, needsTwo: true };
       }
       const prevDate = allDates[allDates.length - 2];
-      return { cur, prev: { from: prevDate, to: prevDate, days: 1 }, needsTwo: false };
+      const prevPrev = allDates.length >= 3 ? allDates[allDates.length - 3] : null;
+      return {
+        mode: "sync" as const,
+        curTo: maxDate, curAnchor: prevDate,
+        prevTo: prevDate, prevAnchor: prevPrev,
+        days: 1, needsTwo: false,
+      };
     }
 
     const days = period === "7d" ? 7 : period === "14d" ? 14 : 30;
-    const curFrom = subDays(new Date(maxDate + "T00:00:00Z"), days - 1).toISOString().slice(0, 10);
-    const cur = { from: curFrom, to: maxDate, days };
-
-    const prevTo = subDays(new Date(maxDate + "T00:00:00Z"), days).toISOString().slice(0, 10);
-    const prevFrom = subDays(new Date(maxDate + "T00:00:00Z"), days * 2 - 1).toISOString().slice(0, 10);
-    const prev = { from: prevFrom, to: prevTo, days };
-    return { cur, prev, needsTwo: false };
+    const curStart = subDays(new Date(maxDate + "T00:00:00Z"), days).toISOString().slice(0, 10);
+    const prevStart = subDays(new Date(maxDate + "T00:00:00Z"), days * 2).toISOString().slice(0, 10);
+    return {
+      mode: "range" as const,
+      curTo: maxDate, curAnchor: curStart,
+      prevTo: curStart, prevAnchor: prevStart,
+      days, needsTwo: false,
+    };
   }, [snapshots, period]);
 
-  // Aggregate snapshot deltas + orders into per-link, per-period totals
+  // Helper: latest series point with date <= bound (or null)
+  const latestOnOrBefore = (
+    series: Array<{ date: string; subs: number; clicks: number; rev: number }>,
+    bound: string
+  ) => {
+    let pick: typeof series[number] | null = null;
+    for (const p of series) {
+      if (p.date <= bound) pick = p; else break;
+    }
+    return pick;
+  };
+
+  // Per-link, per-period delta aggregates (subs/clicks/rev gained, days, spend).
   const linkRows = useMemo<LinkRow[]>(() => {
     if (!windows || windows.needsTwo) return [];
-    const { cur, prev } = windows;
+    const { curTo, curAnchor, prevTo, prevAnchor } = windows;
 
     const emptyAgg = (): PeriodAgg => ({ subs: 0, clicks: 0, rev: 0, days: 0, spend: 0 });
-    const sumsCur: Record<string, PeriodAgg> = {};
-    const sumsPrev: Record<string, PeriodAgg> = {};
-    const datesCur: Record<string, Set<string>> = {};
-    const datesPrev: Record<string, Set<string>> = {};
 
-    for (const r of snapshots) {
-      const lid = String(r.tracking_link_id ?? "");
-      if (!lid || !r.snapshot_date) continue;
-      const d = r.snapshot_date as string;
-
-      const subs = Math.max(0, Number(r.subscribers || 0));
-      const clicks = Math.max(0, Number(r.clicks || 0));
-      const rev = Math.max(0, Number(r.revenue || 0));
-
-      if (d >= cur.from && d <= cur.to) {
-        if (!sumsCur[lid]) { sumsCur[lid] = emptyAgg(); datesCur[lid] = new Set(); }
-        sumsCur[lid].subs += subs;
-        sumsCur[lid].clicks += clicks;
-        sumsCur[lid].rev += rev;
-        datesCur[lid].add(d);
-      }
-      if (prev && d >= prev.from && d <= prev.to) {
-        if (!sumsPrev[lid]) { sumsPrev[lid] = emptyAgg(); datesPrev[lid] = new Set(); }
-        sumsPrev[lid].subs += subs;
-        sumsPrev[lid].clicks += clicks;
-        sumsPrev[lid].rev += rev;
-        datesPrev[lid].add(d);
-      }
-    }
-
-    // OnlyTraffic spend per link per period (from order_created_at)
+    // OnlyTraffic spend per link per period (window = anchor < date <= to)
+    const spendCur: Record<string, number> = {};
+    const spendPrev: Record<string, number> = {};
     for (const o of orders) {
       const lid = String(o.tracking_link_id ?? "");
       if (!lid || !o.order_created_at) continue;
@@ -212,40 +235,75 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
       if (!["completed", "accepted", "active", "waiting"].includes(status)) continue;
       const dt = (o.order_created_at as string).slice(0, 10);
       const amt = Number(o.total_spent || 0);
-      if (dt >= cur.from && dt <= cur.to) {
-        if (!sumsCur[lid]) { sumsCur[lid] = emptyAgg(); datesCur[lid] = new Set(); }
-        sumsCur[lid].spend += amt;
+      // Current window: (curAnchor, curTo]  (or [curStart, curTo] if no anchor needed)
+      if (curAnchor) {
+        if (dt > curAnchor && dt <= curTo) spendCur[lid] = (spendCur[lid] || 0) + amt;
+      } else {
+        if (dt === curTo) spendCur[lid] = (spendCur[lid] || 0) + amt;
       }
-      if (prev && dt >= prev.from && dt <= prev.to) {
-        if (!sumsPrev[lid]) { sumsPrev[lid] = emptyAgg(); datesPrev[lid] = new Set(); }
-        sumsPrev[lid].spend += amt;
+      if (prevTo && prevAnchor) {
+        if (dt > prevAnchor && dt <= prevTo) spendPrev[lid] = (spendPrev[lid] || 0) + amt;
+      } else if (prevTo) {
+        if (dt === prevTo) spendPrev[lid] = (spendPrev[lid] || 0) + amt;
       }
     }
 
-    // Set days from distinct dates
-    for (const lid of Object.keys(sumsCur)) {
-      sumsCur[lid].days = datesCur[lid]?.size || 0;
-    }
-    for (const lid of Object.keys(sumsPrev)) {
-      sumsPrev[lid].days = datesPrev[lid]?.size || 0;
-    }
+    const dayDiff = (a: string, b: string) =>
+      Math.max(
+        0,
+        Math.round(
+          (new Date(b + "T00:00:00Z").getTime() - new Date(a + "T00:00:00Z").getTime()) /
+            86400000
+        )
+      );
 
     const rows: LinkRow[] = [];
     for (const link of accLinks) {
       const lid = String(link.id);
-      const c = sumsCur[lid];
-      const p = sumsPrev[lid];
-      // include if ANY period has data
-      if (!c && !p) continue;
+      const series = seriesByLink[lid];
+      if (!series || series.length === 0) continue;
+
+      // CURRENT delta
+      const curLatest = latestOnOrBefore(series, curTo);
+      const curEarliest = curAnchor ? latestOnOrBefore(series, curAnchor) : null;
+      const cur: PeriodAgg = emptyAgg();
+      if (curLatest && curEarliest && curLatest.date !== curEarliest.date) {
+        cur.subs = Math.max(0, curLatest.subs - curEarliest.subs);
+        cur.clicks = Math.max(0, curLatest.clicks - curEarliest.clicks);
+        cur.rev = Math.max(0, curLatest.rev - curEarliest.rev);
+        cur.days = Math.max(1, dayDiff(curEarliest.date, curLatest.date));
+      }
+      cur.spend = spendCur[lid] || 0;
+
+      // PREVIOUS delta
+      const prev: PeriodAgg = emptyAgg();
+      if (prevTo) {
+        const prevLatest = latestOnOrBefore(series, prevTo);
+        const prevEarliest = prevAnchor ? latestOnOrBefore(series, prevAnchor) : null;
+        if (prevLatest && prevEarliest && prevLatest.date !== prevEarliest.date) {
+          prev.subs = Math.max(0, prevLatest.subs - prevEarliest.subs);
+          prev.clicks = Math.max(0, prevLatest.clicks - prevEarliest.clicks);
+          prev.rev = Math.max(0, prevLatest.rev - prevEarliest.rev);
+          prev.days = Math.max(1, dayDiff(prevEarliest.date, prevLatest.date));
+        }
+      }
+      prev.spend = spendPrev[lid] || 0;
+
+      // Skip links with no signal in either window
+      if (
+        cur.subs === 0 && cur.clicks === 0 && cur.rev === 0 && cur.spend === 0 &&
+        prev.subs === 0 && prev.clicks === 0 && prev.rev === 0 && prev.spend === 0
+      ) continue;
+
       rows.push({
         link,
         source: getEffectiveSource(link) || "Untagged",
-        cur: c || emptyAgg(),
-        prev: p || emptyAgg(),
+        cur,
+        prev,
       });
     }
     return rows;
-  }, [accLinks, snapshots, orders, windows]);
+  }, [accLinks, seriesByLink, orders, windows]);
 
   // Hide rows where current subs_gained = 0 AND clicks_gained = 0
   const visibleRows = useMemo(
