@@ -18,6 +18,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { calcStatusFromRoi } from "@/lib/calc-helpers";
+import { CampaignGrowthSection } from "./CampaignGrowthSection";
 
 /* ─── Data Row helper ─── */
 function DataRow({ label, value, tone = "neutral" }: { label: string; value: string | React.ReactNode; tone?: "positive" | "negative" | "neutral" }) {
@@ -717,6 +718,9 @@ function DrawerBodyInner({
           </div>
         </div>
       </div>
+
+      {/* GROWTH SECTION */}
+      <CampaignGrowthSection trackingLinkId={d.id} />
 
       {/* ORDER HISTORY — OnlyTraffic only */}
       {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={cost} />}
