@@ -127,8 +127,9 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     },
   });
 
-  // Filtered links by search + marketer
-  const filteredLinks = useMemo(() => {
+  // Base filtered (search + marketer) — used for activity counts so the
+  // All/Active/Inactive numbers always reflect the user's other filters.
+  const baseFilteredLinks = useMemo(() => {
     let result = links;
     if (selectedMarketer !== "__all__") {
       const combo = orderMarketerCombos.find(c => c.label === selectedMarketer);
@@ -148,6 +149,22 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     }
     return result;
   }, [links, selectedMarketer, searchQuery, orderMarketerCombos]);
+
+  // Activity counts (snapshot-derived) over the base-filtered set
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const l of baseFilteredLinks) if (getActiveInfo(l.id, activeLookup).isActive) active++;
+    return { total: baseFilteredLinks.length, active };
+  }, [baseFilteredLinks, activeLookup]);
+
+  // Final filteredLinks — applies activity filter on top of base
+  const filteredLinks = useMemo(() => {
+    if (activityFilter === "all") return baseFilteredLinks;
+    if (activityFilter === "active") {
+      return baseFilteredLinks.filter(l => getActiveInfo(l.id, activeLookup).isActive);
+    }
+    return baseFilteredLinks.filter(l => !getActiveInfo(l.id, activeLookup).isActive);
+  }, [baseFilteredLinks, activityFilter, activeLookup]);
 
   // KPIs
   const kpis = useMemo(() => {
