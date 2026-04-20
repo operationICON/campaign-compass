@@ -158,6 +158,20 @@ export default function AccountsPage() {
   // When All Time / no data → fall back to lifetime tracking_links.subscribers / age.
   const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
 
+  // Per-link cur/prev period aggregates for THIS account (model detail page).
+  // Powers period-scoped table cells, "Gained" column, trend chips, and KPI cards.
+  // Returns isAllTime=true when "All Time" selected → callers fall back to lifetime values.
+  const selectedAccountLinkIds = useMemo(
+    () => (selectedAccount ? allLinks.filter((l: any) => l.account_id === selectedAccount.id).map((l: any) => l.id) : []),
+    [selectedAccount, allLinks]
+  );
+  const accountDeltas = useAccountLinkDeltas(
+    selectedAccount?.id ?? null,
+    selectedAccountLinkIds,
+    timePeriod,
+    customRange
+  );
+
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
