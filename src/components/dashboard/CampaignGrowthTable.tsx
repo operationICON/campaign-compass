@@ -79,10 +79,12 @@ export function CampaignGrowthTable({
   trackingLinkId,
   lifetimeClicks,
   lifetimeSubs,
+  compact = false,
 }: {
   trackingLinkId: string;
   lifetimeClicks: number;
   lifetimeSubs: number;
+  compact?: boolean;
 }) {
   const { data: snaps = [], isLoading } = useQuery({
     queryKey: ["daily_snapshots_growth_table", trackingLinkId],
@@ -159,6 +161,35 @@ export function CampaignGrowthTable({
     { label: "Clicks", render: renderClicks },
     { label: "CVR", render: renderCvr },
   ];
+
+  if (compact) {
+    return (
+      <div>
+        {isLoading ? (
+          <div className="px-3 py-2 text-[11px] text-muted-foreground">Loading…</div>
+        ) : (
+          rows.map((row) => (
+            <div
+              key={row.label}
+              className="flex items-center justify-between py-[4px] px-3 border-b border-border"
+            >
+              <span className="text-[11px] text-muted-foreground leading-tight">{row.label}</span>
+              <span className="text-[12px] font-mono font-bold leading-tight tabular-nums">
+                {row.render(deltas["last_sync"])}
+                <span className="mx-1 text-border">·</span>
+                {row.render(deltas["7d"])}
+                <span className="mx-1 text-border">·</span>
+                {row.render(deltas["30d"])}
+              </span>
+            </div>
+          ))
+        )}
+        <div className="px-3 py-1 text-[9px] text-muted-foreground/70 uppercase tracking-wider text-right">
+          Last Sync · 7d · 30d
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-6 py-4 border-t border-border">
