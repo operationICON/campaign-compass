@@ -346,8 +346,8 @@ function DrawerBodyInner({
   return (
     <div className="overflow-y-auto flex-1">
       {/* HEADER */}
-      <div className="px-6 pt-3 pb-2 border-b border-border flex items-center gap-4">
-        <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url} name={d.modelName || d.accounts?.display_name || ""} size={80} />
+      <div className="px-6 pt-2.5 pb-2 border-b border-border flex items-center gap-4">
+        <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url} name={d.modelName || d.accounts?.display_name || ""} size={64} />
         <div className="flex-1 min-w-0">
           <DrawerHeader className="p-0">
             <DrawerTitle className="truncate text-lg font-bold leading-tight text-foreground">
@@ -377,7 +377,7 @@ function DrawerBodyInner({
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="px-6 py-2.5 border-b border-border">
+      <div className="px-6 py-2 border-b border-border">
         <div className="flex gap-1.5">
           {[
             { key: "edit", icon: <Pencil className="h-3.5 w-3.5" />, label: "Edit" },
@@ -668,6 +668,9 @@ function DrawerBodyInner({
             <DataRow label="Subs/Day" value={subsPerDay} />
             <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
             <DataRow label="Subscribers" value={tlSubscribers.toLocaleString()} />
+            <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
+            <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
+            <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
           </div>
           {/* COL 2 — FINANCIALS RIGHT */}
           <div className="border-r border-border">
@@ -682,10 +685,10 @@ function DrawerBodyInner({
               value={paymentType ? <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold">{paymentType === "FIXED" ? "Fixed" : paymentType}</span> : "—"}
             />
             <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
-            {paymentType === "CPC" && <DataRow label="Cost Per Click" value={configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />}
-            <DataRow label="Clicks" value={totalClicks.toLocaleString()} />
-            <DataRow label="Spenders" value={tlSpenders.toLocaleString()} />
-            <DataRow label="Spender Rate" value={spenderRate != null ? fmtPct(spenderRate) : "—"} tone={spenderRate != null && spenderRate > 0 ? "positive" : "neutral"} />
+            <DataRow label="Cost Per Click" value={paymentType === "CPC" && configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
+            <DataRow label="ARPU" value={d.arpu != null && Number(d.arpu) > 0 ? fmtC2(Number(d.arpu)) : "—"} />
+            <DataRow label="EPC" value={totalClicks > 0 ? fmtC2(campaignRevenue / totalClicks) : "—"} />
+            <DataRow label="Cost/Sub" value={cost > 0 && tlSubscribers > 0 ? fmtC2(cost / tlSubscribers) : "—"} />
           </div>
           {/* COL 3 — CAMPAIGN INFO */}
           <div>
