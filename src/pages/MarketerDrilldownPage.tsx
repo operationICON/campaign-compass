@@ -12,6 +12,8 @@ import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawe
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { ArrowLeft, Info, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
+import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -51,6 +53,10 @@ export default function MarketerDrilldownPage() {
   const [highVolFilter, setHighVolFilter] = usePersistedState<boolean>(`${MD_PREFS}_highVol`, false);
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
+  const [activityFilter, setActivityFilter] = usePersistedState<LinkActivityFilterValue>(`${MD_PREFS}_activityFilter`, "all");
+
+  // Snapshot-derived active status across all links (no account scope here — page spans many models)
+  const { activeLookup } = useActiveLinkStatus(null);
 
   const isUnknown = marketer === "__unknown__";
   const decodedMarketer = isUnknown ? "Unknown" : decodeURIComponent(marketer || "");
@@ -185,6 +191,27 @@ export default function MarketerDrilldownPage() {
     });
   }, [orders, trackingLinks, accounts]);
 
+  // Map of accountId -> tracking link IDs (for activity filter)
+  const modelLinkIds = useMemo(() => {
+    const tlMap: Record<string, any> = {};
+    trackingLinks.forEach(tl => { tlMap[tl.id] = tl; });
+    const out: Record<string, string[]> = {};
+    for (const o of orders) {
+      if (!o.tracking_link_id) continue;
+      const tl = tlMap[o.tracking_link_id];
+      const accountId = tl?.account_id || "__unknown__";
+      if (!out[accountId]) out[accountId] = [];
+      if (!out[accountId].includes(o.tracking_link_id)) out[accountId].push(o.tracking_link_id);
+    }
+    return out;
+  }, [orders, trackingLinks]);
+
+  // A model is "active" if ANY of its links are active (>= 1 sub/day over 5d)
+  const isModelActive = (accountId: string): boolean => {
+    const ids = modelLinkIds[accountId] || [];
+    return ids.some(id => getActiveInfo(id, activeLookup).isActive);
+  };
+
   // Filters
   const filtered = useMemo(() => {
     let rows = modelRows;
@@ -195,8 +222,23 @@ export default function MarketerDrilldownPage() {
     if (losingFilter) rows = rows.filter(r => r.profit < 0);
     if (scaleFilter) rows = rows.filter(r => r.profit > 0 && r.roi !== null && r.roi > 50);
     if (highVolFilter) rows = rows.filter(r => r.campaignCount > 10);
+    if (activityFilter === "active") rows = rows.filter(r => isModelActive(r.accountId));
+    else if (activityFilter === "inactive") rows = rows.filter(r => !isModelActive(r.accountId));
     return rows;
-  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter]);
+  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter, activityFilter, modelLinkIds, activeLookup]);
+
+  // Activity counts — over the base set (before activity filter), respecting other filters
+  const activityCounts = useMemo(() => {
+    let base = modelRows;
+    if (modelFilter !== "all") base = base.filter(r => r.accountId === modelFilter);
+    if (profitableFilter) base = base.filter(r => r.profit > 0);
+    if (losingFilter) base = base.filter(r => r.profit < 0);
+    if (scaleFilter) base = base.filter(r => r.profit > 0 && r.roi !== null && r.roi > 50);
+    if (highVolFilter) base = base.filter(r => r.campaignCount > 10);
+    let active = 0;
+    for (const r of base) if (isModelActive(r.accountId)) active++;
+    return { total: base.length, active };
+  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter, modelLinkIds, activeLookup]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -419,6 +461,13 @@ export default function MarketerDrilldownPage() {
             <button onClick={() => setScaleFilter(!scaleFilter)} className={chipClass(scaleFilter)}>Scale candidates</button>
             <button onClick={() => setHighVolFilter(!highVolFilter)} className={chipClass(highVolFilter)}>High Volume Orders</button>
           </div>
+          <LinkActivityFilter
+            value={activityFilter}
+            onChange={setActivityFilter}
+            totalCount={activityCounts.total}
+            activeCount={activityCounts.active}
+            className="ml-auto"
+          />
         </div>
 
         {/* Table */}
