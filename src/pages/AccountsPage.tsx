@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
+import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 import { PageFilterBar } from "@/components/PageFilterBar";
 
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
@@ -87,6 +88,7 @@ export default function AccountsPage() {
   const [discovering, setDiscovering] = useState(false);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const [perfRange, setPerfRange] = useState<PerfRange>("30d");
+  const [activityFilter, setActivityFilter] = useState<"all" | "active" | "inactive">("all");
 
   const handleDiscoverAccounts = async () => {
     setDiscovering(true);
@@ -131,6 +133,10 @@ export default function AccountsPage() {
     },
   });
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
+
+  // Active = link delivered >= 1 sub/day over last 5 days (snapshot-derived).
+  // Used for the Tracking Links activity filter and the model overview "active links" footer count.
+  const { activeLookup } = useActiveLinkStatus();
 
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
@@ -302,14 +308,10 @@ export default function AccountsPage() {
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
       const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
+      // Active links — snapshot-derived: >= 1 sub/day over last 5 days.
       const activeLinks = accLinks.filter((l: any) => {
         if (l.deleted_at) return false;
-        if (l.clicks <= 0) return false;
-        const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
-        if (calcDate && calcDate >= thirtyDaysAgo) return true;
-        if (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0) return true;
-        const created = l.created_at ? new Date(l.created_at) : null;
-        return created ? created >= thirtyDaysAgo : false;
+        return getActiveInfo(l.id, activeLookup).isActive;
       });
 
       const earliestCreated = accLinks.reduce((earliest: Date | null, l: any) => {
@@ -365,7 +367,7 @@ export default function AccountsPage() {
       };
     }
     return stats;
-  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime]);
+  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime, activeLookup]);
 
   const afterAccountFilter = useMemo(() => {
     // Rule 4: exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
@@ -634,6 +636,23 @@ export default function AccountsPage() {
       return dir * ((av as number) - (bv as number));
     });
 
+    // Activity filter (snapshot-derived: >= 1 sub/day over last 5 days)
+    const accLinksActiveCount = accLinks.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive).length;
+    const accLinksInactiveCount = accLinks.length - accLinksActiveCount;
+
+    let displayLinks = sortedLinks;
+    if (activityFilter === "active") {
+      displayLinks = [...accLinks]
+        .filter((l: any) => getActiveInfo(l.id, activeLookup).isActive)
+        .sort((a: any, b: any) =>
+          getActiveInfo(b.id, activeLookup).subsPerDay - getActiveInfo(a.id, activeLookup).subsPerDay
+        );
+    } else if (activityFilter === "inactive") {
+      displayLinks = [...accLinks]
+        .filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive)
+        .sort((a: any, b: any) => Number(b.revenue || 0) - Number(a.revenue || 0));
+    }
+
     // KPI card component
     const KpiCard = ({ label, value, colored, positive }: { label: string; value: string; colored?: boolean; positive?: boolean }) => (
       <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
@@ -831,8 +850,31 @@ export default function AccountsPage() {
                 {/* PART 3 — Tracking Links tab with clickable rows */}
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
-                    {sortedLinks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-8 text-center">No tracking links found for this model</p>
+                    {/* Activity filter bar */}
+                    <div className="flex items-center gap-2 mb-3">
+                      {([
+                        { key: "all" as const, label: `All links (${accLinks.length})` },
+                        { key: "active" as const, label: `Active (${accLinksActiveCount})` },
+                        { key: "inactive" as const, label: `Inactive (${accLinksInactiveCount})` },
+                      ]).map((b) => {
+                        const selected = activityFilter === b.key;
+                        return (
+                          <button
+                            key={b.key}
+                            onClick={() => setActivityFilter(b.key)}
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${
+                              selected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-secondary/50 dark:bg-secondary text-foreground/80 border-border hover:bg-secondary"
+                            }`}
+                          >
+                            {b.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {displayLinks.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-8 text-center">No tracking links match this filter</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
@@ -858,7 +900,7 @@ export default function AccountsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {sortedLinks.map((l: any) => {
+                          {displayLinks.map((l: any) => {
                             const status = getStatus(l);
                             const spend = Number(l.cost_total || 0);
                             const hasSpend = spend > 0;
@@ -875,12 +917,26 @@ export default function AccountsPage() {
                             const cplVal = paymentType === "CPL" && hasSpend && subsVal > 0 ? spend / subsVal : null;
                             const cpcVal = paymentType === "CPC" && hasSpend && clicksVal > 0 ? spend / clicksVal : null;
                             const roiVal = hasSpend ? (profit / spend) * 100 : null;
-                            const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
-                            const subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;
+                            const activeInfo = getActiveInfo(l.id, activeLookup);
+                            // When the activity filter is engaged, show snapshot-derived
+                            // subs/day (last 5d). Otherwise keep the lifetime average.
+                            let subsPerDay: number | null;
+                            if (activityFilter !== "all") {
+                              subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
+                            } else {
+                              const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
+                              subsPerDay = daysActive && daysActive > 0 && subsVal > 0 ? subsVal / daysActive : null;
+                            }
+                            const rowBorder =
+                              activityFilter === "active"
+                                ? "border-l-2 border-l-primary/70"
+                                : activityFilter === "inactive"
+                                ? "border-l-2 border-l-muted-foreground/40"
+                                : "";
                             return (
                               <tr
                                 key={l.id}
-                                className="border-b border-border/50 hover:bg-muted/30 hover:border-l-2 hover:border-l-primary transition-colors cursor-pointer"
+                                className={`border-b border-border/50 hover:bg-muted/30 hover:border-l-2 hover:border-l-primary transition-colors cursor-pointer ${rowBorder}`}
                                 onClick={() => setDrawerCampaign({ ...l, avatarUrl: acc.avatar_thumb_url, modelName: acc.display_name })}
                               >
                                 <td className="py-3 px-3">
@@ -941,6 +997,13 @@ export default function AccountsPage() {
                           })}
                         </tbody>
                       </table>
+                    )}
+                    {activityFilter !== "all" && displayLinks.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-3 px-1">
+                        {activityFilter === "active"
+                          ? `Showing ${displayLinks.length} active link${displayLinks.length === 1 ? "" : "s"} (delivering ≥ 1 sub/day)`
+                          : `Showing ${displayLinks.length} inactive link${displayLinks.length === 1 ? "" : "s"} (< 1 sub/day last 5 days)`}
+                      </p>
                     )}
                   </div>
                 )}
