@@ -11,10 +11,12 @@ import { formatDistanceToNow } from "date-fns";
  * Growth tab — replaces Subs tab.
  *
  * IMPORTANT data note:
- * Per `mem://infrastructure/sync-optimization`, daily_snapshots store DAILY DELTAS
- * (incremental gains per day) — NOT cumulative totals. So per-period totals are
- * computed by SUMMING rows whose snapshot_date falls inside the window.
- * "Days" used for /day metrics is the count of distinct snapshot dates in the window.
+ * daily_snapshots store CUMULATIVE TOTALS (running total as of each snapshot date).
+ * Per-period gains are computed as DELTA between the latest snapshot in the window
+ * and the earliest applicable snapshot (latest - earliest), NOT by summing rows.
+ *
+ * Duplicates: if a (tracking_link_id, snapshot_date) pair has multiple rows, we keep
+ * the row with MAX(subscribers) and discard the rest before processing.
  */
 
 type GrowthPeriod = "since_last_sync" | "7d" | "14d" | "30d";
