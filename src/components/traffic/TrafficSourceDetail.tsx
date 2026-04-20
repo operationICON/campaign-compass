@@ -14,6 +14,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
+import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -61,6 +63,10 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarketer, setSelectedMarketer] = useState<string>("__all__");
+  const [activityFilter, setActivityFilter] = usePersistedState<LinkActivityFilterValue>(`${TSD_PREFS}_activityFilter`, "all");
+
+  // Snapshot-derived activity (>= 1 sub/day over last 5 days). No account scope — covers all links shown here.
+  const { activeLookup } = useActiveLinkStatus(null);
 
   const isUntaggedView = sourceName === "Untagged";
   const isOnlyTraffic = categoryName === "OnlyTraffic";
@@ -121,8 +127,9 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     },
   });
 
-  // Filtered links by search + marketer
-  const filteredLinks = useMemo(() => {
+  // Base filtered (search + marketer) — used for activity counts so the
+  // All/Active/Inactive numbers always reflect the user's other filters.
+  const baseFilteredLinks = useMemo(() => {
     let result = links;
     if (selectedMarketer !== "__all__") {
       const combo = orderMarketerCombos.find(c => c.label === selectedMarketer);
@@ -142,6 +149,22 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     }
     return result;
   }, [links, selectedMarketer, searchQuery, orderMarketerCombos]);
+
+  // Activity counts (snapshot-derived) over the base-filtered set
+  const activityCounts = useMemo(() => {
+    let active = 0;
+    for (const l of baseFilteredLinks) if (getActiveInfo(l.id, activeLookup).isActive) active++;
+    return { total: baseFilteredLinks.length, active };
+  }, [baseFilteredLinks, activeLookup]);
+
+  // Final filteredLinks — applies activity filter on top of base
+  const filteredLinks = useMemo(() => {
+    if (activityFilter === "all") return baseFilteredLinks;
+    if (activityFilter === "active") {
+      return baseFilteredLinks.filter(l => getActiveInfo(l.id, activeLookup).isActive);
+    }
+    return baseFilteredLinks.filter(l => !getActiveInfo(l.id, activeLookup).isActive);
+  }, [baseFilteredLinks, activityFilter, activeLookup]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -302,6 +325,14 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
           </SelectContent>
         </Select>
       </div>
+
+      {/* Activity filter — All / Active / Inactive (snapshot-derived) */}
+      <LinkActivityFilter
+        value={activityFilter}
+        onChange={(v) => { setActivityFilter(v); setPage(0); }}
+        totalCount={activityCounts.total}
+        activeCount={activityCounts.active}
+      />
 
       {/* Sub-KPI row */}
       <div className="grid grid-cols-8 gap-2">
