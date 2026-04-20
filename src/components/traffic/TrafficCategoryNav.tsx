@@ -132,6 +132,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const [sourcePage, setSourcePage] = useState(0);
   const [sourceSortKey, setSourceSortKey] = useState<string>("profit");
   const [sourceSortAsc, setSourceSortAsc] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
+
+  // Snapshot-derived active status for ALL links (filter applies to the L2 source-group table)
+  const { activeLookup } = useActiveLinkStatus(null);
 
   // Notify parent if starting with an initial category
   React.useEffect(() => {
