@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
+import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetrics";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 import { PageFilterBar } from "@/components/PageFilterBar";
 
