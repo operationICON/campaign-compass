@@ -308,14 +308,10 @@ export default function AccountsPage() {
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
       const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
+      // Active links — snapshot-derived: >= 1 sub/day over last 5 days.
       const activeLinks = accLinks.filter((l: any) => {
         if (l.deleted_at) return false;
-        if (l.clicks <= 0) return false;
-        const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
-        if (calcDate && calcDate >= thirtyDaysAgo) return true;
-        if (snapshotLookup && snapshotLookup[String(l.id).toLowerCase()]?.clicks > 0) return true;
-        const created = l.created_at ? new Date(l.created_at) : null;
-        return created ? created >= thirtyDaysAgo : false;
+        return getActiveInfo(l.id, activeLookup).isActive;
       });
 
       const earliestCreated = accLinks.reduce((earliest: Date | null, l: any) => {
