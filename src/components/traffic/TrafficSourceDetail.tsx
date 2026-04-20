@@ -326,6 +326,14 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         </Select>
       </div>
 
+      {/* Activity filter — All / Active / Inactive (snapshot-derived) */}
+      <LinkActivityFilter
+        value={activityFilter}
+        onChange={(v) => { setActivityFilter(v); setPage(0); }}
+        totalCount={activityCounts.total}
+        activeCount={activityCounts.active}
+      />
+
       {/* Sub-KPI row */}
       <div className="grid grid-cols-8 gap-2">
         <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(kpis.spend)} color="#dc2626" />
