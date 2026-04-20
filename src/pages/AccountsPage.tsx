@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
+import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 import { PageFilterBar } from "@/components/PageFilterBar";
 
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
@@ -87,6 +88,7 @@ export default function AccountsPage() {
   const [discovering, setDiscovering] = useState(false);
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const [perfRange, setPerfRange] = useState<PerfRange>("30d");
+  const [activityFilter, setActivityFilter] = useState<"all" | "active" | "inactive">("all");
 
   const handleDiscoverAccounts = async () => {
     setDiscovering(true);
