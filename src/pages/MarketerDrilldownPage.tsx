@@ -191,6 +191,27 @@ export default function MarketerDrilldownPage() {
     });
   }, [orders, trackingLinks, accounts]);
 
+  // Map of accountId -> tracking link IDs (for activity filter)
+  const modelLinkIds = useMemo(() => {
+    const tlMap: Record<string, any> = {};
+    trackingLinks.forEach(tl => { tlMap[tl.id] = tl; });
+    const out: Record<string, string[]> = {};
+    for (const o of orders) {
+      if (!o.tracking_link_id) continue;
+      const tl = tlMap[o.tracking_link_id];
+      const accountId = tl?.account_id || "__unknown__";
+      if (!out[accountId]) out[accountId] = [];
+      if (!out[accountId].includes(o.tracking_link_id)) out[accountId].push(o.tracking_link_id);
+    }
+    return out;
+  }, [orders, trackingLinks]);
+
+  // A model is "active" if ANY of its links are active (>= 1 sub/day over 5d)
+  const isModelActive = (accountId: string): boolean => {
+    const ids = modelLinkIds[accountId] || [];
+    return ids.some(id => getActiveInfo(id, activeLookup).isActive);
+  };
+
   // Filters
   const filtered = useMemo(() => {
     let rows = modelRows;
@@ -201,8 +222,23 @@ export default function MarketerDrilldownPage() {
     if (losingFilter) rows = rows.filter(r => r.profit < 0);
     if (scaleFilter) rows = rows.filter(r => r.profit > 0 && r.roi !== null && r.roi > 50);
     if (highVolFilter) rows = rows.filter(r => r.campaignCount > 10);
+    if (activityFilter === "active") rows = rows.filter(r => isModelActive(r.accountId));
+    else if (activityFilter === "inactive") rows = rows.filter(r => !isModelActive(r.accountId));
     return rows;
-  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter]);
+  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter, activityFilter, modelLinkIds, activeLookup]);
+
+  // Activity counts — over the base set (before activity filter), respecting other filters
+  const activityCounts = useMemo(() => {
+    let base = modelRows;
+    if (modelFilter !== "all") base = base.filter(r => r.accountId === modelFilter);
+    if (profitableFilter) base = base.filter(r => r.profit > 0);
+    if (losingFilter) base = base.filter(r => r.profit < 0);
+    if (scaleFilter) base = base.filter(r => r.profit > 0 && r.roi !== null && r.roi > 50);
+    if (highVolFilter) base = base.filter(r => r.campaignCount > 10);
+    let active = 0;
+    for (const r of base) if (isModelActive(r.accountId)) active++;
+    return { total: base.length, active };
+  }, [modelRows, modelFilter, profitableFilter, losingFilter, scaleFilter, highVolFilter, modelLinkIds, activeLookup]);
 
   // Sort
   const sorted = useMemo(() => {
