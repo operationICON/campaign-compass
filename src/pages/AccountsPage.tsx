@@ -691,17 +691,13 @@ export default function AccountsPage() {
     const accLinksActiveCount = accLinks.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive).length;
     const accLinksInactiveCount = accLinks.length - accLinksActiveCount;
 
+    // Apply activity filter on top of the user-sorted list so column-header
+    // sorting always controls row order regardless of which activity tab is active.
     let displayLinks = sortedLinks;
     if (activityFilter === "active") {
-      displayLinks = [...accLinks]
-        .filter((l: any) => getActiveInfo(l.id, activeLookup).isActive)
-        .sort((a: any, b: any) =>
-          getActiveInfo(b.id, activeLookup).subsPerDay - getActiveInfo(a.id, activeLookup).subsPerDay
-        );
+      displayLinks = sortedLinks.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive);
     } else if (activityFilter === "inactive") {
-      displayLinks = [...accLinks]
-        .filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive)
-        .sort((a: any, b: any) => Number(b.revenue || 0) - Number(a.revenue || 0));
+      displayLinks = sortedLinks.filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive);
     }
 
     // KPI card component (with optional trend chip when date filter is active)
