@@ -687,8 +687,8 @@ function DrawerBodyInner({
             <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
             <DataRow label="Cost Per Click" value={paymentType === "CPC" && configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
             <DataRow label="ARPU" value={d.arpu != null && Number(d.arpu) > 0 ? fmtC2(Number(d.arpu)) : "—"} />
-            <DataRow label="Days Running" value={daysRunning != null ? String(daysRunning) : "—"} />
-            <DataRow label="Created" value={d.created_at ? format(new Date(d.created_at), "MMM d, yyyy") : "—"} />
+            <DataRow label="EPC" value={totalClicks > 0 ? fmtC2(campaignRevenue / totalClicks) : "—"} />
+            <DataRow label="Cost/Sub" value={cost > 0 && tlSubscribers > 0 ? fmtC2(cost / tlSubscribers) : "—"} />
           </div>
           {/* COL 3 — CAMPAIGN INFO */}
           <div>
