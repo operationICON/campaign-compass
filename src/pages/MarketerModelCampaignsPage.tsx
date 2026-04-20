@@ -376,10 +376,14 @@ export default function MarketerModelCampaignsPage() {
             </Table>
           )}
 
-          {sorted.length > 0 && (
+          {displayRows.length > 0 && (
             <div className="px-4 py-3 border-t border-border">
               <span className="text-muted-foreground" style={{ fontSize: "12px" }}>
-                Showing {sorted.length} of {rows.length} campaigns · Click any row to view campaign details
+                {activityFilter === "active"
+                  ? `Showing ${displayRows.length} active links (delivering ≥ 1 sub/day)`
+                  : activityFilter === "inactive"
+                  ? `Showing ${displayRows.length} inactive links (< 1 sub/day last 5 days)`
+                  : `Showing ${displayRows.length} of ${rows.length} campaigns`} · Click any row to view campaign details
               </span>
             </div>
           )}
