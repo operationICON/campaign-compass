@@ -377,7 +377,7 @@ function DrawerBodyInner({
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="px-6 py-2.5 border-b border-border">
+      <div className="px-6 py-2 border-b border-border">
         <div className="flex gap-1.5">
           {[
             { key: "edit", icon: <Pencil className="h-3.5 w-3.5" />, label: "Edit" },
