@@ -73,12 +73,22 @@ export default function CrossPollPage() {
   const { data: trackingLinks = [] } = useQuery({
     queryKey: ["crosspoll_tracking_links"],
     queryFn: async () => {
-      const { data: tlData, error: tlError } = await supabase
-        .from("tracking_links")
-        .select("id, campaign_name, account_id")
-        .is("deleted_at", null);
-      if (tlError) throw tlError;
-      return tlData;
+      const allRows: any[] = [];
+      let rangeFrom = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("tracking_links")
+          .select("id, campaign_name, account_id")
+          .is("deleted_at", null)
+          .range(rangeFrom, rangeFrom + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < batchSize) break;
+        rangeFrom += batchSize;
+      }
+      return allRows;
     },
   });
 

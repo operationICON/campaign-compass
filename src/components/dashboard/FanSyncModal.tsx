@@ -50,13 +50,23 @@ export function FanSyncModal({ open, onOpenChange }: { open: boolean; onOpenChan
   const loadQueue = async () => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-    // Fetch links needing sync
-    const { data: links } = await supabase
-      .from("tracking_links")
-      .select("id, campaign_name, account_id, subscribers, fans_last_synced_at, needs_full_sync")
-      .is("deleted_at", null)
-      .or("subscribers.gt.0,clicks.gt.0")
-      .order("subscribers", { ascending: false });
+    // Fetch links needing sync (paginated to bypass 1000-row default limit)
+    const links: any[] = [];
+    let rangeFrom = 0;
+    const batchSize = 1000;
+    while (true) {
+      const { data } = await supabase
+        .from("tracking_links")
+        .select("id, campaign_name, account_id, subscribers, fans_last_synced_at, needs_full_sync")
+        .is("deleted_at", null)
+        .or("subscribers.gt.0,clicks.gt.0")
+        .order("subscribers", { ascending: false })
+        .range(rangeFrom, rangeFrom + batchSize - 1);
+      if (!data || data.length === 0) break;
+      links.push(...data);
+      if (data.length < batchSize) break;
+      rangeFrom += batchSize;
+    }
 
     // Filter: needs_full_sync OR never synced OR stale
     const needsSync = (links || []).filter((l: any) =>
