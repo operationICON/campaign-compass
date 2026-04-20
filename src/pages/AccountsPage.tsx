@@ -367,7 +367,7 @@ export default function AccountsPage() {
       };
     }
     return stats;
-  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime]);
+  }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime, activeLookup]);
 
   const afterAccountFilter = useMemo(() => {
     // Rule 4: exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
