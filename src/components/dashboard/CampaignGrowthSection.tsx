@@ -9,15 +9,18 @@ import {
 /**
  * Growth section for the Campaign Detail Drawer.
  *
- * IMPORTANT: daily_snapshots stores DAILY DELTAS (incremental gains per day).
- * Same logic as GrowthTab.
+ * IMPORTANT: daily_snapshots stores CUMULATIVE TOTALS (running total as of each
+ * snapshot date) — NOT daily deltas.
  *
  * "Since last sync":
- *   current  = latest snapshot_date for this tracking_link_id
- *   previous = second latest snapshot_date for this tracking_link_id
- *   subs/rev/clicks gained = the value on the latest date
+ *   latest   = snapshot with MAX(snapshot_date) for this tracking_link_id
+ *   earlier  = snapshot with the second highest snapshot_date
+ *   subs/clicks/revenue gained = latest - earlier (clamped >= 0)
  *
- * Charts plot per-snapshot-date deltas directly (no cumulative diffing).
+ * Charts plot the DELTA between consecutive snapshots (latest - previous), so the
+ * series shows actual sync-over-sync gains rather than running totals.
+ *
+ * Duplicate snapshot rows for the same date are deduped by keeping MAX(subscribers).
  */
 
 type GrowthPeriod = "since_last_sync" | "7d" | "14d" | "30d";
@@ -96,15 +99,11 @@ export function CampaignGrowthSection({ trackingLinkId }: { trackingLinkId: stri
   });
 
   const dedupedByDate = useMemo<Snap[]>(() => {
-    // If multiple rows per snapshot_date, sum them.
+    // If multiple rows per snapshot_date, keep the one with MAX(subscribers).
     const map = new Map<string, Snap>();
     for (const s of snapshots) {
       const ex = map.get(s.snapshot_date);
-      if (ex) {
-        ex.subscribers += s.subscribers;
-        ex.clicks += s.clicks;
-        ex.revenue += s.revenue;
-      } else {
+      if (!ex || s.subscribers > ex.subscribers) {
         map.set(s.snapshot_date, { ...s });
       }
     }
@@ -119,37 +118,53 @@ export function CampaignGrowthSection({ trackingLinkId }: { trackingLinkId: stri
     let curSubs = 0, curClicks = 0, curRev = 0, days = 1;
     let prevSubs = 0, prevClicks = 0, prevRev = 0;
     let hasPrev = false;
+    let hasCurrent = false;
 
     if (period === "since_last_sync") {
+      // Need at least 2 snapshots to compute a delta from cumulative totals.
+      if (dedupedByDate.length < 2) {
+        return null;
+      }
       const latest = dedupedByDate[dedupedByDate.length - 1];
-      curSubs = latest.subscribers;
-      curClicks = latest.clicks;
-      curRev = latest.revenue;
+      const earlier = dedupedByDate[dedupedByDate.length - 2];
+      curSubs = Math.max(0, latest.subscribers - earlier.subscribers);
+      curClicks = Math.max(0, latest.clicks - earlier.clicks);
+      curRev = Math.max(0, latest.revenue - earlier.revenue);
       days = 1;
-      if (dedupedByDate.length >= 2) {
-        const prev = dedupedByDate[dedupedByDate.length - 2];
-        prevSubs = prev.subscribers;
-        prevClicks = prev.clicks;
-        prevRev = prev.revenue;
+      hasCurrent = true;
+      // Trend baseline = the prior delta (earlier vs the one before that).
+      if (dedupedByDate.length >= 3) {
+        const earlier2 = dedupedByDate[dedupedByDate.length - 3];
+        prevSubs = Math.max(0, earlier.subscribers - earlier2.subscribers);
+        prevClicks = Math.max(0, earlier.clicks - earlier2.clicks);
+        prevRev = Math.max(0, earlier.revenue - earlier2.revenue);
         hasPrev = true;
       }
     } else {
+      // Extended ranges (currently hidden in UI). Cumulative deltas across windows.
       const n = period === "7d" ? 7 : period === "14d" ? 14 : 30;
-      const cur = dedupedByDate.slice(-n);
-      const prev = dedupedByDate.slice(-2 * n, -n);
-      days = Math.max(1, cur.length);
-      for (const s of cur) {
-        curSubs += s.subscribers;
-        curClicks += s.clicks;
-        curRev += s.revenue;
+      const curSlice = dedupedByDate.slice(-(n + 1));
+      if (curSlice.length >= 2) {
+        const latest = curSlice[curSlice.length - 1];
+        const earliest = curSlice[0];
+        curSubs = Math.max(0, latest.subscribers - earliest.subscribers);
+        curClicks = Math.max(0, latest.clicks - earliest.clicks);
+        curRev = Math.max(0, latest.revenue - earliest.revenue);
+        days = Math.max(1, curSlice.length - 1);
+        hasCurrent = true;
       }
-      for (const s of prev) {
-        prevSubs += s.subscribers;
-        prevClicks += s.clicks;
-        prevRev += s.revenue;
+      const prevSlice = dedupedByDate.slice(-(2 * n + 1), -n);
+      if (prevSlice.length >= 2) {
+        const latest = prevSlice[prevSlice.length - 1];
+        const earliest = prevSlice[0];
+        prevSubs = Math.max(0, latest.subscribers - earliest.subscribers);
+        prevClicks = Math.max(0, latest.clicks - earliest.clicks);
+        prevRev = Math.max(0, latest.revenue - earliest.revenue);
+        hasPrev = true;
       }
-      hasPrev = prev.length > 0;
     }
+
+    if (!hasCurrent) return null;
 
     const subsTrend = hasPrev ? pctChange(curSubs, prevSubs) : null;
     const revTrend = hasPrev ? pctChange(curRev, prevRev) : null;
@@ -165,13 +180,19 @@ export function CampaignGrowthSection({ trackingLinkId }: { trackingLinkId: stri
     };
   }, [dedupedByDate, period]);
 
+  // Chart data: per-snapshot DELTA (cumulative diff vs previous snapshot), not raw totals.
   const chartData = useMemo(
     () =>
-      dedupedByDate.map((s) => ({
-        date: s.snapshot_date.slice(5), // MM-DD
-        subs: s.subscribers,
-        revenue: Number(s.revenue.toFixed(2)),
-      })),
+      dedupedByDate.map((s, i) => {
+        const prev = i > 0 ? dedupedByDate[i - 1] : null;
+        const subsDelta = prev ? Math.max(0, s.subscribers - prev.subscribers) : 0;
+        const revDelta = prev ? Math.max(0, s.revenue - prev.revenue) : 0;
+        return {
+          date: s.snapshot_date.slice(5), // MM-DD
+          subs: subsDelta,
+          revenue: Number(revDelta.toFixed(2)),
+        };
+      }),
     [dedupedByDate]
   );
 
