@@ -719,6 +719,9 @@ function DrawerBodyInner({
         </div>
       </div>
 
+      {/* GROWTH SECTION */}
+      <CampaignGrowthSection trackingLinkId={d.id} />
+
       {/* ORDER HISTORY — OnlyTraffic only */}
       {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={cost} />}
     </div>
