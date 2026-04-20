@@ -704,15 +704,28 @@ export default function AccountsPage() {
         .sort((a: any, b: any) => Number(b.revenue || 0) - Number(a.revenue || 0));
     }
 
-    // KPI card component
-    const KpiCard = ({ label, value, colored, positive }: { label: string; value: string; colored?: boolean; positive?: boolean }) => (
+    // KPI card component (with optional trend chip when date filter is active)
+    const KpiCard = ({
+      label, value, colored, positive, trend, reverseTrend = false,
+    }: {
+      label: string;
+      value: string;
+      colored?: boolean;
+      positive?: boolean;
+      trend?: number | null;
+      reverseTrend?: boolean;
+    }) => (
       <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
         <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{label}</p>
         <p className={`text-lg font-bold font-mono ${
           colored ? (positive ? "text-primary" : "text-destructive") : "text-foreground"
         }`}>{value}</p>
+        {trend !== undefined && (
+          <div className="mt-1"><TrendChip value={trend ?? null} reverse={reverseTrend} /></div>
+        )}
       </div>
     );
+
 
     // ── Period-aware mode (shared by table cells, KPI cards, headers) ──────────
     // When ANY date filter is active (not "All Time"), every numeric column re-scopes
