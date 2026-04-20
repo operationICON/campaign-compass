@@ -272,30 +272,63 @@ export function useAccountLinkDeltas(
       return pick;
     };
 
-    // Build per-link deltas
+    // Build per-link deltas.
+    //
+    // BUG FIX: For "since last sync" (windows.mode === "sync"), we MUST anchor on
+    // each link's own 2nd-most-recent snapshot (not the account's 2nd-most-recent
+    // global date). Otherwise links whose previous snap is days/weeks before the
+    // global anchor would inflate the delta with all the cumulative growth in
+    // between — producing numbers near the lifetime cumulative total.
+    //
+    // For range modes (week/month/custom), `latestOnOrBefore` is correct: the
+    // baseline is the cumulative value at (or before) the window start, so the
+    // delta covers exactly the window length.
     const deltas: Record<string, LinkDelta> = {};
     for (const lid of Object.keys(seriesByLink)) {
       const s = seriesByLink[lid];
       const cur = empty();
       const prev = empty();
-      const curLatest = latestOnOrBefore(s, windows.curTo);
-      const curEarliest = windows.curAnchor ? latestOnOrBefore(s, windows.curAnchor) : null;
       let hasCurrent = false;
-      if (curLatest && curEarliest && curLatest.date !== curEarliest.date) {
-        cur.subs = Math.max(0, curLatest.subs - curEarliest.subs);
-        cur.clicks = Math.max(0, curLatest.clicks - curEarliest.clicks);
-        cur.rev = Math.max(0, curLatest.rev - curEarliest.rev);
-        cur.days = Math.max(1, dayDiff(curEarliest.date, curLatest.date));
-        hasCurrent = true;
-      }
-      if (windows.prevTo) {
-        const pl = latestOnOrBefore(s, windows.prevTo);
-        const pe = windows.prevAnchor ? latestOnOrBefore(s, windows.prevAnchor) : null;
+
+      if (windows.mode === "sync") {
+        // Per-link snapshot pairs: latest = s[n-1], previous = s[n-2], prev-prev = s[n-3].
+        const n = s.length;
+        const curLatest = n >= 1 ? s[n - 1] : null;
+        const curEarliest = n >= 2 ? s[n - 2] : null;
+        if (curLatest && curEarliest && curLatest.date !== curEarliest.date) {
+          cur.subs = Math.max(0, curLatest.subs - curEarliest.subs);
+          cur.clicks = Math.max(0, curLatest.clicks - curEarliest.clicks);
+          cur.rev = Math.max(0, curLatest.rev - curEarliest.rev);
+          cur.days = Math.max(1, dayDiff(curEarliest.date, curLatest.date));
+          hasCurrent = true;
+        }
+        const pl = curEarliest;
+        const pe = n >= 3 ? s[n - 3] : null;
         if (pl && pe && pl.date !== pe.date) {
           prev.subs = Math.max(0, pl.subs - pe.subs);
           prev.clicks = Math.max(0, pl.clicks - pe.clicks);
           prev.rev = Math.max(0, pl.rev - pe.rev);
           prev.days = Math.max(1, dayDiff(pe.date, pl.date));
+        }
+      } else {
+        const curLatest = latestOnOrBefore(s, windows.curTo);
+        const curEarliest = windows.curAnchor ? latestOnOrBefore(s, windows.curAnchor) : null;
+        if (curLatest && curEarliest && curLatest.date !== curEarliest.date) {
+          cur.subs = Math.max(0, curLatest.subs - curEarliest.subs);
+          cur.clicks = Math.max(0, curLatest.clicks - curEarliest.clicks);
+          cur.rev = Math.max(0, curLatest.rev - curEarliest.rev);
+          cur.days = Math.max(1, dayDiff(curEarliest.date, curLatest.date));
+          hasCurrent = true;
+        }
+        if (windows.prevTo) {
+          const pl = latestOnOrBefore(s, windows.prevTo);
+          const pe = windows.prevAnchor ? latestOnOrBefore(s, windows.prevAnchor) : null;
+          if (pl && pe && pl.date !== pe.date) {
+            prev.subs = Math.max(0, pl.subs - pe.subs);
+            prev.clicks = Math.max(0, pl.clicks - pe.clicks);
+            prev.rev = Math.max(0, pl.rev - pe.rev);
+            prev.days = Math.max(1, dayDiff(pe.date, pl.date));
+          }
         }
       }
       deltas[lid] = { cur, prev, hasCurrent };
@@ -322,8 +355,14 @@ export function useAccountLinkDeltas(
       }
     }
 
-    // Account totals
+    // Account totals.
+    // For range modes, days = window length. For sync mode, each link can span a
+    // different number of days between its last 2 snapshots — use the MAX so the
+    // KPI Subs/Day = totalSubsGained / longestSyncSpan stays sane (lower-bound
+    // average rate). Falls back to rangeDays (=1) if no link reports a span.
     const accountTotals = { cur: empty(), prev: empty() };
+    let maxCurDays = 0;
+    let maxPrevDays = 0;
     for (const d of Object.values(deltas)) {
       accountTotals.cur.subs += d.cur.subs;
       accountTotals.cur.clicks += d.cur.clicks;
@@ -333,9 +372,16 @@ export function useAccountLinkDeltas(
       accountTotals.prev.clicks += d.prev.clicks;
       accountTotals.prev.rev += d.prev.rev;
       accountTotals.prev.spend += d.prev.spend;
+      if (d.cur.days > maxCurDays) maxCurDays = d.cur.days;
+      if (d.prev.days > maxPrevDays) maxPrevDays = d.prev.days;
     }
-    accountTotals.cur.days = windows.rangeDays;
-    accountTotals.prev.days = windows.rangeDays;
+    if (windows.mode === "sync") {
+      accountTotals.cur.days = Math.max(1, maxCurDays);
+      accountTotals.prev.days = Math.max(1, maxPrevDays);
+    } else {
+      accountTotals.cur.days = windows.rangeDays;
+      accountTotals.prev.days = windows.rangeDays;
+    }
 
     return { isAllTime: false, isLoading, windows, deltas, accountTotals };
   }, [data, isAllTime, isLoading, timePeriod, customRange]);
