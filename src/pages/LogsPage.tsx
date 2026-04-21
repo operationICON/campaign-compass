@@ -199,19 +199,53 @@ export default function LogsPage() {
     const ctrl = new AbortController();
     abortRefs.current.snapshot = ctrl;
     setRunning(r => ({ ...r, snapshot: true }));
-    setProgress(p => ({ ...p, snapshot: "Saving snapshots..." }));
+    setProgress(p => ({ ...p, snapshot: "Starting..." }));
     try {
-      await supabase.from("sync_logs").insert({
-        status: "running", triggered_by: "snapshot_sync", message: "Snapshot sync started",
-        records_processed: 0,
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/sync-snapshots`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey,
+        },
+        body: JSON.stringify({ triggered_by: "manual" }),
+        signal: ctrl.signal,
       });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Snapshot sync failed: ${errText}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let lastData: any = null;
+
+      if (reader) {
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                lastData = data;
+                if (data.message) setProgress(p => ({ ...p, snapshot: data.message }));
+              } catch {}
+            }
+          }
+        }
+      }
+
       if (ctrl.signal.aborted) return;
-      const res = await supabase.functions.invoke("sync-account", {
-        body: { snapshot_only: true },
-      });
-      if (ctrl.signal.aborted) return;
-      if (res.error) throw res.error;
-      toast.success(`Snapshot sync complete — ${res.data?.snapshots_saved ?? 0} snapshots saved`);
+      toast.success(`Snapshot sync complete — ${lastData?.snapshots_saved ?? 0} snapshots saved`);
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
     } catch (err: any) {
@@ -228,19 +262,55 @@ export default function LogsPage() {
     const ctrl = new AbortController();
     abortRefs.current.onlytraffic = ctrl;
     setRunning(r => ({ ...r, onlytraffic: true }));
-    setProgress(p => ({ ...p, onlytraffic: "Syncing OnlyTraffic..." }));
+    setProgress(p => ({ ...p, onlytraffic: "Starting..." }));
     try {
-      await supabase.from("sync_logs").insert({
-        status: "running", triggered_by: "onlytraffic_sync", message: "OnlyTraffic sync started",
-        records_processed: 0,
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/sync-onlytraffic`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey,
+        },
+        body: JSON.stringify({ triggered_by: "manual" }),
+        signal: ctrl.signal,
       });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OnlyTraffic sync failed: ${errText}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let lastData: any = null;
+
+      if (reader) {
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                lastData = data;
+                if (data.message) setProgress(p => ({ ...p, onlytraffic: data.message }));
+              } catch {}
+            }
+          }
+        }
+      }
+
       if (ctrl.signal.aborted) return;
-      const res = await supabase.functions.invoke("auto-tag-campaigns", {
-        body: {},
-      });
-      if (ctrl.signal.aborted) return;
-      if (res.error) throw res.error;
-      toast.success(`OnlyTraffic sync complete — ${res.data?.tagged ?? 0} campaigns tagged`);
+      const linksUpdated = lastData?.links_updated ?? 0;
+      const unmatched = lastData?.unmatched ?? 0;
+      toast.success(`OnlyTraffic sync complete — ${linksUpdated} links updated${unmatched > 0 ? `, ${unmatched} unmatched` : ""}`);
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
     } catch (err: any) {
@@ -391,7 +461,7 @@ export default function LogsPage() {
 
         {/* ═══ MANUAL SYNC NOTE ═══ */}
         <p className="text-center text-muted-foreground" style={{ fontSize: 11 }}>
-          ⓘ Syncs are run manually by LIZA. Contact LIZA to trigger a sync outside of the regular schedule.
+          ⓘ Snapshot sync saves today's incremental stats for all active tracking links. Dashboard sync updates accounts, links, and transactions.
         </p>
 
         {/* ═══ SYNC HISTORY TABLE ═══ */}

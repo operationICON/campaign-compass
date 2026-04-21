@@ -29,14 +29,7 @@ Deno.serve(async (req) => {
     try { body = await req.json() } catch { body = null }
   }
 
-  // Return API key for direct browser calls (internal debug tool only)
-  if (body?.action === 'get_api_key') {
-    return new Response(JSON.stringify({ key: apiKey }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-
-  // Generic endpoint proxy
+  // Generic endpoint proxy — API key stays server-side, never returned to browser
   if (body?.action === 'call_endpoint') {
     const { url } = body
     if (!url) {
@@ -47,6 +40,14 @@ Deno.serve(async (req) => {
     }
 
     const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`
+
+    // Only allow calls to the OnlyFans API — prevent SSRF to internal/arbitrary hosts
+    if (!fullUrl.startsWith('https://app.onlyfansapi.com/')) {
+      return new Response(JSON.stringify({ error: 'URL not allowed — only https://app.onlyfansapi.com/ endpoints are permitted' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     try {
       const start = Date.now()
