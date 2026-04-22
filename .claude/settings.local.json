@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/Ern/Downloads/campaign-tracker-sync/**)"
+      "Read(//c/Users/Ern/Downloads/campaign-tracker-sync/**)",
+      "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/debug\" -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"call_endpoint\",\"url\":\"https://app.onlyfansapi.com/api/522999231/tracking-links?limit=5\"}')",
+      "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/debug\" -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"call_endpoint\",\"url\":\"https://app.onlyfansapi.com/api/acct_1a8303b5bf3d48a9a1dd4042c18b8ab5/tracking-links?limit=5\"}')",
+      "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/sync-logs?limit=10\")",
+      "Bash(node -e \"const chunks=[]; process.stdin.on\\('data',d=>chunks.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const data=JSON.parse\\(chunks.join\\(''\\)\\); const list=Array.isArray\\(data\\)?data:data.data||data.logs||[]; list.forEach\\(l=>console.log\\(JSON.stringify\\({status:l.status,message:l.message,error:l.error_message,links:l.tracking_links_synced,accounts:l.accounts_synced,triggered:l.triggered_by,started:l.started_at}\\)\\)\\); }\\)\")",
+      "Bash(node -e \"const API_BASE='https://app.onlyfansapi.com/api'; const nextPage='https://app.onlyfansapi.com/api/acct_1a8303b5bf3d48a9a1dd4042c18b8ab5/tracking-links?limit=50&offset=50'; const p=new URL\\(nextPage\\); const url=p.pathname+p.search; console.log\\('url:',url\\); console.log\\('full:',API_BASE+url\\);\")"
     ]
   }
 }
