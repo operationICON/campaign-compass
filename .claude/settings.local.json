@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Ern/Downloads/campaign-tracker-sync/**)"
+    ]
+  }
+}

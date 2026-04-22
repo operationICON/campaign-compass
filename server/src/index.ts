@@ -26,6 +26,7 @@ import syncOrchestratorRouter from "./routes/sync/orchestrator.js";
 import syncAccountRouter from "./routes/sync/account.js";
 import syncSnapshotsRouter from "./routes/sync/snapshots.js";
 import syncOnlytrafficRouter from "./routes/sync/onlytraffic.js";
+import syncCrosspollRouter from "./routes/sync/crosspoll.js";
 import { startScheduler } from "./scheduler.js";
 
 const app = new Hono();
@@ -65,6 +66,7 @@ app.route("/sync/orchestrate", syncOrchestratorRouter);
 app.route("/sync/account", syncAccountRouter);
 app.route("/sync/snapshots", syncSnapshotsRouter);
 app.route("/sync/onlytraffic", syncOnlytrafficRouter);
+app.route("/sync/crosspoll", syncCrosspollRouter);
 
 const port = Number(process.env.PORT ?? 3000);
 console.log(`Server starting on port ${port}`);

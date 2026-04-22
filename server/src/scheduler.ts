@@ -26,9 +26,10 @@ async function drainSSE(path: string, triggeredBy: string) {
 }
 
 async function runDailySync() {
-  console.log("[Scheduler] Daily sync starting: snapshots → onlytraffic");
+  console.log("[Scheduler] Daily sync starting: snapshots → onlytraffic → crosspoll");
   await drainSSE("/sync/snapshots", "cron_daily");
   await drainSSE("/sync/onlytraffic", "cron_daily");
+  await drainSSE("/sync/crosspoll", "cron_daily");
   console.log("[Scheduler] Daily sync complete");
 }
 

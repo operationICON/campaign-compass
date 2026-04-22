@@ -7,7 +7,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2,
   ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
-  BarChart3, Camera, Users, Truck, Play, Square, Zap,
+  BarChart3, Camera, Users, Truck, Play, Square, Zap, History, GitMerge,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SortableTh } from "@/components/SortableTh";
@@ -19,40 +19,48 @@ import { Badge } from "@/components/ui/badge";
 
 const PAGE_SIZE = 25;
 
-type SyncType = "dashboard" | "snapshot" | "ltv" | "onlytraffic" | "ot_snapshot";
+type SyncType = "dashboard" | "snapshot" | "snapshot_backfill" | "ltv" | "onlytraffic" | "ot_snapshot" | "crosspoll";
 
 const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; badge: string }> = {
-  dashboard:   { bg: "bg-blue-500/10",   text: "text-blue-600 dark:text-blue-400",     border: "border-blue-500/30",  badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
-  snapshot:    { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/30", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
-  ltv:         { bg: "bg-purple-500/10",  text: "text-purple-600 dark:text-purple-400",  border: "border-purple-500/30", badge: "bg-purple-500/15 text-purple-700 dark:text-purple-300" },
-  onlytraffic: { bg: "bg-orange-500/10",  text: "text-orange-600 dark:text-orange-400",  border: "border-orange-500/30", badge: "bg-orange-500/15 text-orange-700 dark:text-orange-300" },
-  ot_snapshot: { bg: "bg-amber-500/10",   text: "text-amber-600 dark:text-amber-400",    border: "border-amber-500/30",  badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
+  dashboard:         { bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",      border: "border-blue-500/30",   badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
+  snapshot:          { bg: "bg-emerald-500/10",  text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/30", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
+  snapshot_backfill: { bg: "bg-teal-500/10",     text: "text-teal-600 dark:text-teal-400",       border: "border-teal-500/30",    badge: "bg-teal-500/15 text-teal-700 dark:text-teal-300" },
+  ltv:               { bg: "bg-purple-500/10",   text: "text-purple-600 dark:text-purple-400",   border: "border-purple-500/30",  badge: "bg-purple-500/15 text-purple-700 dark:text-purple-300" },
+  onlytraffic:       { bg: "bg-orange-500/10",   text: "text-orange-600 dark:text-orange-400",   border: "border-orange-500/30",  badge: "bg-orange-500/15 text-orange-700 dark:text-orange-300" },
+  ot_snapshot:       { bg: "bg-amber-500/10",    text: "text-amber-600 dark:text-amber-400",     border: "border-amber-500/30",   badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
+  crosspoll:         { bg: "bg-pink-500/10",     text: "text-pink-600 dark:text-pink-400",       border: "border-pink-500/30",    badge: "bg-pink-500/15 text-pink-700 dark:text-pink-300" },
 };
 
 const SYNC_LABELS: Record<SyncType, string> = {
   dashboard: "Dashboard",
   snapshot: "Snapshots",
+  snapshot_backfill: "Backfill",
   ltv: "LTV",
   onlytraffic: "OnlyTraffic",
   ot_snapshot: "OT Snapshots",
+  crosspoll: "Cross-Poll",
 };
 
 const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
   dashboard: BarChart3,
   snapshot: Camera,
+  snapshot_backfill: History,
   ltv: Users,
   onlytraffic: Truck,
   ot_snapshot: Camera,
+  crosspoll: GitMerge,
 };
 
 function classifySyncType(log: any): SyncType {
   const msg = (log.message || "").toLowerCase();
   const details = JSON.stringify(log.details || {}).toLowerCase();
   const triggered = (log.triggered_by || "").toLowerCase();
-  if (triggered.includes("ot_snapshot") || triggered.includes("onlytraffic_snapshot") || msg.includes("ot snapshot") || msg.includes("onlytraffic snapshot") || details.includes("ot_snapshot")) return "ot_snapshot";
-  if (triggered.includes("ltv") || triggered.includes("fan_sync") || msg.includes("ltv") || msg.includes("fan sync") || details.includes("ltv")) return "ltv";
-  if (triggered.includes("snapshot") || msg.includes("snapshot") || details.includes("snapshot")) return "snapshot";
-  if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || msg.includes("auto-tag") || details.includes("onlytraffic")) return "onlytraffic";
+  if (triggered.includes("ot_snapshot") || triggered.includes("onlytraffic_snapshot") || msg.includes("ot snapshot") || details.includes("ot_snapshot")) return "ot_snapshot";
+  if (triggered.includes("ltv") || triggered.includes("fan_sync") || msg.includes("ltv") || msg.includes("fan sync")) return "ltv";
+  if (triggered.includes("crosspoll") || msg.includes("cross-poll") || msg.includes("crosspoll")) return "crosspoll";
+  if (triggered.includes("backfill") || msg.includes("backfill")) return "snapshot_backfill";
+  if (triggered.includes("snapshot") || msg.includes("snapshot")) return "snapshot";
+  if (triggered.includes("onlytraffic") || msg.includes("onlytraffic") || msg.includes("auto-tag")) return "onlytraffic";
   return "dashboard";
 }
 
@@ -82,8 +90,8 @@ export default function LogsPage() {
   
 
   // Running state per sync type
-  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false, ot_snapshot: false });
-  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "", ot_snapshot: "" });
+  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, snapshot_backfill: false, ltv: false, onlytraffic: false, ot_snapshot: false, crosspoll: false });
+  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", snapshot_backfill: "", ltv: "", onlytraffic: "", ot_snapshot: "", crosspoll: "" });
   const abortRefs = useRef<Record<string, AbortController>>({});
 
   const [allRunning, setAllRunning] = useState(false);
@@ -105,7 +113,7 @@ export default function LogsPage() {
 
   // Build status cards from last log per type
   const statusCards = useMemo(() => {
-    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, ltv: null, onlytraffic: null, ot_snapshot: null };
+    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null };
     for (const log of classifiedLogs) {
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
@@ -251,12 +259,65 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
+  const runBackfillSync = useCallback(async (days = 7) => {
+    const ctrl = new AbortController();
+    abortRefs.current.snapshot_backfill = ctrl;
+    setRunning(r => ({ ...r, snapshot_backfill: true }));
+    setProgress(p => ({ ...p, snapshot_backfill: "Starting..." }));
+    try {
+      const lastData = await streamSync(
+        "/sync/snapshots/backfill",
+        { triggered_by: "manual", days },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, snapshot_backfill: msg })); },
+        ctrl.signal,
+      );
+      if (ctrl.signal.aborted) return;
+      toast.success(`Backfill complete — ${lastData?.snapshots_saved ?? 0} rows saved`);
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["daily_snapshots"] });
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      toast.error(`Backfill failed: ${err.message}`);
+    } finally {
+      delete abortRefs.current.snapshot_backfill;
+      setRunning(r => ({ ...r, snapshot_backfill: false }));
+      setProgress(p => ({ ...p, snapshot_backfill: "" }));
+    }
+  }, [queryClient]);
+
+  const runCrosspollSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.crosspoll = ctrl;
+    setRunning(r => ({ ...r, crosspoll: true }));
+    setProgress(p => ({ ...p, crosspoll: "Starting..." }));
+    try {
+      const lastData = await streamSync(
+        "/sync/crosspoll",
+        { triggered_by: "manual" },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, crosspoll: msg })); },
+        ctrl.signal,
+      );
+      if (ctrl.signal.aborted) return;
+      toast.success(`Cross-poll sync complete — ${lastData?.links_updated ?? 0} links updated`);
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      toast.error(`Cross-poll sync failed: ${err.message}`);
+    } finally {
+      delete abortRefs.current.crosspoll;
+      setRunning(r => ({ ...r, crosspoll: false }));
+      setProgress(p => ({ ...p, crosspoll: "" }));
+    }
+  }, [queryClient]);
+
   const runAllSync = useCallback(async () => {
     setAllRunning(true);
     const steps = [
       { label: "Dashboard", fn: runDashboardSync },
-      { label: "Snapshots", fn: runSnapshotSync },
       { label: "OnlyTraffic", fn: runOnlyTrafficSync },
+      { label: "Backfill (7d)", fn: () => runBackfillSync(7) },
+      { label: "Snapshots", fn: runSnapshotSync },
+      { label: "Cross-Poll", fn: runCrosspollSync },
     ];
     for (const { label, fn } of steps) {
       setAllProgress(`Running ${label}...`);
@@ -264,14 +325,16 @@ export default function LogsPage() {
     }
     setAllRunning(false);
     setAllProgress("");
-    toast.success("Full sync complete — all 3 syncs done");
+    toast.success("Full sync complete");
     queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
-  }, [runDashboardSync, runSnapshotSync, runOnlyTrafficSync, queryClient]);
+  }, [runDashboardSync, runSnapshotSync, runOnlyTrafficSync, runBackfillSync, runCrosspollSync, queryClient]);
 
   const syncHandlers: Partial<Record<SyncType, () => void>> = {
     dashboard: runDashboardSync,
     snapshot: runSnapshotSync,
+    snapshot_backfill: () => runBackfillSync(7),
     onlytraffic: runOnlyTrafficSync,
+    crosspoll: runCrosspollSync,
   };
 
   const hasFilters = statusFilter !== "all" || typeFilter !== "all";
@@ -308,8 +371,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC BUTTONS ═══ */}
-        <div className="grid grid-cols-3 gap-3">
-          {(["dashboard", "snapshot", "onlytraffic"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-5 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll"] as SyncType[]).map((type) => {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
@@ -352,8 +415,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
-        <div className="grid grid-cols-3 gap-3">
-          {(["dashboard", "snapshot", "onlytraffic"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-5 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll"] as SyncType[]).map((type) => {
             const colors = SYNC_COLORS[type];
             const Icon = SYNC_ICONS[type];
             const last = statusCards[type];
