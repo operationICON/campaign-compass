@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
 import { accounts, tracking_links, daily_metrics, sync_logs, campaigns } from "../../db/schema.js";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, isNull } from "drizzle-orm";
 
 const router = new Hono();
 const API_BASE = "https://app.onlyfansapi.com/api";
@@ -67,6 +67,12 @@ router.post("/", async (c) => {
       const campaignName = link.campaignName ?? "Unknown";
       const campaignId = campaignMap[campaignName] ?? Object.values(campaignMap)[0];
 
+      const spenders = Number(link.revenue?.spendersCount ?? 0);
+      const cvr = clicks > 0 ? (subs / clicks) * 100 : 0;
+      const arpu = spenders > 0 ? rev / spenders : 0;
+      const ltvPerSub = subs > 0 ? rev / subs : 0;
+      const spenderRate = subs > 0 ? (spenders / subs) * 100 : 0;
+
       const payload: Record<string, any> = {
         external_tracking_link_id: extId,
         url: link.campaignUrl ?? "",
@@ -74,11 +80,16 @@ router.post("/", async (c) => {
         campaign_name: campaignName,
         account_id,
         clicks, subscribers: subs,
-        spenders: Number(link.revenue?.spendersCount ?? 0),
+        spenders,
         revenue: String(rev),
         revenue_per_click: String(Number(link.revenue?.revenuePerClick ?? 0)),
-        revenue_per_subscriber: String(Number(link.revenue?.revenuePerSubscriber ?? 0)),
-        conversion_rate: clicks > 0 ? String((subs / clicks) * 100) : "0",
+        revenue_per_subscriber: String(ltvPerSub),
+        conversion_rate: String(cvr),
+        cvr: String(cvr),
+        arpu: String(arpu),
+        ltv: String(rev),
+        ltv_per_sub: String(ltvPerSub),
+        spender_rate: String(spenderRate),
         calculated_at: link.revenue?.calculatedAt ? new Date(link.revenue.calculatedAt) : new Date(),
         source: link.type ?? null,
         country: link.country ?? null,
@@ -88,7 +99,21 @@ router.post("/", async (c) => {
 
       await db.insert(tracking_links).values(payload).onConflictDoUpdate({
         target: tracking_links.external_tracking_link_id,
-        set: { clicks: sql`excluded.clicks`, subscribers: sql`excluded.subscribers`, revenue: sql`excluded.revenue`, revenue_per_click: sql`excluded.revenue_per_click`, revenue_per_subscriber: sql`excluded.revenue_per_subscriber`, conversion_rate: sql`excluded.conversion_rate`, updated_at: sql`excluded.updated_at` },
+        set: {
+          clicks: sql`excluded.clicks`,
+          subscribers: sql`excluded.subscribers`,
+          spenders: sql`excluded.spenders`,
+          revenue: sql`excluded.revenue`,
+          revenue_per_click: sql`excluded.revenue_per_click`,
+          revenue_per_subscriber: sql`excluded.revenue_per_subscriber`,
+          conversion_rate: sql`excluded.conversion_rate`,
+          cvr: sql`excluded.cvr`,
+          arpu: sql`excluded.arpu`,
+          ltv: sql`excluded.ltv`,
+          ltv_per_sub: sql`excluded.ltv_per_sub`,
+          spender_rate: sql`excluded.spender_rate`,
+          updated_at: sql`excluded.updated_at`,
+        },
       });
 
       // Upsert daily metrics
@@ -99,14 +124,29 @@ router.post("/", async (c) => {
       linkCount++;
     }
 
-    // Aggregate total revenue from all tracking links for this account and persist to accounts.ltv_total
-    const [revenueSum] = await db
-      .select({ total: sql<string>`COALESCE(SUM(revenue::numeric), 0)` })
+    // Aggregate totals from all tracking links for this account
+    const [aggRow] = await db
+      .select({
+        totalRevenue: sql<string>`COALESCE(SUM(revenue::numeric), 0)`,
+        totalSubscribers: sql<number>`COALESCE(SUM(subscribers), 0)`,
+      })
       .from(tracking_links)
-      .where(eq(tracking_links.account_id, account_id));
-    const totalLtv = revenueSum?.total ?? "0";
+      .where(and(eq(tracking_links.account_id, account_id), isNull(tracking_links.deleted_at)));
+    const totalLtv = aggRow?.totalRevenue ?? "0";
+    const totalSubsFromLinks = Number(aggRow?.totalSubscribers ?? 0);
 
-    await db.update(accounts).set({ last_synced_at: new Date(), ltv_total: totalLtv }).where(eq(accounts.id, account_id));
+    // Fetch current subscribers_count; use link-sum as fallback when account has none
+    const [acctRow] = await db
+      .select({ subscribers_count: accounts.subscribers_count })
+      .from(accounts)
+      .where(eq(accounts.id, account_id));
+    const currentSubCount = Number(acctRow?.subscribers_count ?? 0);
+    const updateFields: Record<string, any> = { last_synced_at: new Date(), ltv_total: totalLtv };
+    if (currentSubCount === 0 && totalSubsFromLinks > 0) {
+      updateFields.subscribers_count = totalSubsFromLinks;
+    }
+
+    await db.update(accounts).set(updateFields).where(eq(accounts.id, account_id));
 
     if (syncLogId) await db.update(sync_logs).set({ status: "success", success: true, finished_at: new Date(), completed_at: new Date(), records_processed: linkCount, tracking_links_synced: linkCount, message: `${linkCount} links synced` }).where(eq(sync_logs.id, syncLogId));
 

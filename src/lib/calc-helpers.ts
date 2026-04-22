@@ -5,9 +5,9 @@
 
 // ─── Active account filter (single source of truth) ───
 // Excludes test/inactive accounts from all aggregates and lists.
-// Rule: ltv_total > 0 AND subscribers_count > 0
+// Rule: ltv_total > 0 (subscriber count is populated separately and not required as a gate)
 export function isActiveAccount(a: any): boolean {
-  return Number(a?.ltv_total || 0) > 0 && Number(a?.subscribers_count || 0) > 0;
+  return Number(a?.ltv_total || 0) > 0;
 }
 
 // ─── Status Types ───

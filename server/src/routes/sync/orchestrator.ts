@@ -51,16 +51,27 @@ router.post("/", async (c) => {
           for (const acc of list) {
             const ud = acc.onlyfans_user_data ?? {};
             const numericId = ud.id ? Number(ud.id) : null;
+            const freshSubCount = ud.subscribersCount && ud.subscribersCount > 0 ? ud.subscribersCount : null;
+            const updateSet: Record<string, any> = {
+              display_name: ud.name ?? acc.display_name ?? String(acc.id),
+              avatar_url: ud.avatar ?? null,
+              avatar_thumb_url: ud.avatarThumbs?.c144 ?? null,
+              username: acc.onlyfans_username ?? ud.username ?? null,
+              numeric_of_id: numericId,
+              updated_at: new Date(),
+            };
+            // Only overwrite subscribers_count when the API returns a real positive value
+            if (freshSubCount !== null) updateSet.subscribers_count = freshSubCount;
             await db.insert(accounts).values({
               onlyfans_account_id: String(acc.id),
               username: acc.onlyfans_username ?? ud.username ?? null,
               display_name: acc.display_name ?? ud.name ?? String(acc.id),
               is_active: true,
-              subscribers_count: ud.subscribersCount ?? 0,
+              subscribers_count: freshSubCount ?? 0,
               avatar_url: ud.avatar ?? null,
               avatar_thumb_url: ud.avatarThumbs?.c144 ?? null,
               numeric_of_id: numericId,
-            }).onConflictDoUpdate({ target: accounts.onlyfans_account_id, set: { display_name: ud.name ?? acc.display_name ?? String(acc.id), subscribers_count: ud.subscribersCount ?? 0, avatar_thumb_url: ud.avatarThumbs?.c144 ?? null, numeric_of_id: numericId, updated_at: new Date() } });
+            }).onConflictDoUpdate({ target: accounts.onlyfans_account_id, set: updateSet });
           }
         }
       } catch (err: any) { console.error("Discovery error:", err.message); }
