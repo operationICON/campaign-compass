@@ -13,9 +13,13 @@ import { TagBadge } from "@/components/TagBadge";
 import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { clearTrackingLinkSpend, setTrackingLinkSourceTag, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import { fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import {
+  getTrafficSources, createTrafficSource, updateTrafficSource, deleteTrafficSource,
+  getTrackingLinks, getAccounts, getManualNotes, getDailyMetrics, getUnmatchedOrders,
+  updateTrackingLink,
+} from "@/lib/api";
 import { isActiveAccount } from "@/lib/calc-helpers";
 import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
@@ -221,7 +225,7 @@ export default function TrafficSourcesPage() {
   const { data: sources = [] } = useQuery({
     queryKey: ["traffic_sources"],
     queryFn: async () => {
-      const { data } = await supabase.from("traffic_sources").select("*").order("name");
+      const data = await getTrafficSources();
       return (data || []).filter((s: any) => !s.is_archived);
     },
   });
@@ -231,24 +235,7 @@ export default function TrafficSourcesPage() {
 
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links_ts"],
-    queryFn: async () => {
-      let allLinks: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data } = await supabase
-          .from("tracking_links")
-          .select("*, accounts(display_name, username, avatar_thumb_url)")
-          .is("deleted_at", null)
-          .order("revenue", { ascending: false })
-          .range(from, from + batchSize - 1);
-        if (!data || data.length === 0) break;
-        allLinks = allLinks.concat(data);
-        if (data.length < batchSize) break;
-        from += batchSize;
-      }
-      return allLinks;
-    },
+    queryFn: () => getTrackingLinks(),
   });
   const isLoading = linksLoading || snapshotLoading;
   const isAllTime = timePeriod === "all" && !customRange;
@@ -323,26 +310,17 @@ export default function TrafficSourcesPage() {
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
-    queryFn: async () => {
-      const { data } = await supabase.from("accounts").select("*").order("display_name");
-      return data || [];
-    },
+    queryFn: getAccounts,
   });
 
   const { data: notes = [] } = useQuery({
     queryKey: ["manual_notes_ts"],
-    queryFn: async () => {
-      const { data } = await supabase.from("manual_notes").select("*").order("updated_at", { ascending: false });
-      return data || [];
-    },
+    queryFn: getManualNotes,
   });
 
   const { data: dailyMetrics = [] } = useQuery({
     queryKey: ["daily_metrics_ts"],
-    queryFn: async () => {
-      const { data } = await supabase.from("daily_metrics").select("*").order("date", { ascending: false });
-      return data || [];
-    },
+    queryFn: getDailyMetrics,
   });
 
   const { data: trackingLinkLtv = [] } = useQuery({
@@ -353,11 +331,11 @@ export default function TrafficSourcesPage() {
   const { data: unmatchedOrdersData = { count: 0, spend: 0 } } = useQuery({
     queryKey: ["unmatched_orders_summary"],
     queryFn: async () => {
-      const { data } = await supabase.from("onlytraffic_unmatched_orders").select("total_spent, status").in("status", ["completed", "active", "accepted"]);
-      if (!data) return { count: 0, spend: 0 };
+      const data: any[] = await getUnmatchedOrders();
+      const active = (data || []).filter((r: any) => ["completed", "active", "accepted"].includes((r.status || "").toLowerCase()));
       return {
-        count: data.length,
-        spend: data.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0),
+        count: active.length,
+        spend: active.reduce((s: number, r: any) => s + Number(r.total_spent || 0), 0),
       };
     },
   });
@@ -372,23 +350,6 @@ export default function TrafficSourcesPage() {
     return map;
   }, [trackingLinkLtv]);
 
-  // Migrate source_tag_rules → traffic_sources on load if empty
-  useEffect(() => {
-    if (sources.length > 0) return;
-    (async () => {
-      const { data: rules } = await supabase.from("source_tag_rules").select("*");
-      if (!rules || rules.length === 0) return;
-      const { data: existingSources } = await supabase.from("traffic_sources").select("name");
-      const existingNames = new Set((existingSources || []).map((s: any) => s.name));
-      const toInsert = rules.filter((r: any) => !existingNames.has(r.tag_name)).map((r: any) => ({
-        name: r.tag_name, color: r.color, keywords: r.keywords || [], category: "Manual",
-      }));
-      if (toInsert.length > 0) {
-        await supabase.from("traffic_sources").insert(toInsert);
-        queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-      }
-    })();
-  }, [sources.length]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["tracking_links_ts"] });
@@ -573,14 +534,7 @@ export default function TrafficSourcesPage() {
     if (!editSourceId || !formName.trim()) return;
     setSaving(true);
     try {
-      const oldName = (selectedSource as any)?.name;
-      const { error } = await supabase.from("traffic_sources").update({
-        name: formName.trim(), category: "Manual",
-      } as any).eq("id", editSourceId);
-      if (error) throw error;
-      if (oldName && oldName !== formName.trim()) {
-        await supabase.from("tracking_links").update({ source_tag: formName.trim() } as any).eq("source_tag", oldName);
-      }
+      await updateTrafficSource(editSourceId, { name: formName.trim(), category: "Manual" });
       toast.success("Source updated");
       invalidateAll();
     } catch { toast.error("Failed to save changes"); }
@@ -593,9 +547,7 @@ export default function TrafficSourcesPage() {
     try {
       const name = (selectedSource as any)?.name;
       const count = links.filter((l: any) => l.traffic_source_id === editSourceId).length;
-      await supabase.from("tracking_links").update({ source_tag: null, traffic_source_id: null } as any).eq("traffic_source_id", editSourceId);
-      const { error } = await supabase.from("traffic_sources").delete().eq("id", editSourceId);
-      if (error) throw error;
+      await deleteTrafficSource(editSourceId);
       toast.success(`Deleted ${name} — ${count} campaigns untagged`);
       clearSourceEdit();
       invalidateAll();
@@ -607,10 +559,7 @@ export default function TrafficSourcesPage() {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("traffic_sources").insert({
-        name: newName.trim(), category: "Manual", color: nextColor,
-      });
-      if (error) throw error;
+      await createTrafficSource({ name: newName.trim(), category: "Manual", color: nextColor });
       toast.success("Source created");
       setNewName(""); setNewCategory("Manual");
       invalidateAll();

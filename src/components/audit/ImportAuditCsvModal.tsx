@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Upload, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { updateTrackingLink } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Props {
@@ -93,13 +93,13 @@ export function ImportAuditCsvModal({ open, onClose, onComplete, trackingLinks, 
 
       try {
         if (row.action === "delete") {
-          await supabase.from("tracking_links").update({ deleted_at: new Date().toISOString() } as any).eq("id", row.matchedId);
+          await updateTrackingLink(row.matchedId, { deleted_at: new Date().toISOString() });
           deleted++;
         } else if (row.action === "add_spend") {
-          await supabase.from("tracking_links").update({ needs_spend: true } as any).eq("id", row.matchedId);
+          await updateTrackingLink(row.matchedId, { needs_spend: true });
           spend++;
         } else if (row.action === "review") {
-          await supabase.from("tracking_links").update({ review_flag: true } as any).eq("id", row.matchedId);
+          await updateTrackingLink(row.matchedId, { review_flag: true });
           review++;
         } else {
           kept++;
@@ -109,12 +109,6 @@ export function ImportAuditCsvModal({ open, onClose, onComplete, trackingLinks, 
       }
     }
 
-    await supabase.from("bulk_import_logs").insert({
-      imported_by: "audit_csv",
-      total_rows: rows.length,
-      matched: rows.filter((r) => r.matchedId).length,
-      deleted,
-    } as any);
 
     setResult({ kept, deleted, spend, review, notFound });
     setImporting(false);

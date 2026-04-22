@@ -22,6 +22,10 @@ import {
   clearTrackingLinkSpend, fetchAccounts, fetchDailyMetrics,
   setTrackingLinkSourceTag, fetchTrackingLinkLtv,
 } from "@/lib/supabase-helpers";
+import {
+  getTrafficSources, getOnlytrafficOrders, updateTrackingLink,
+  addAdSpend, getManualNotes, createManualNote, updateManualNote,
+} from "@/lib/api";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
@@ -181,25 +185,7 @@ export default function CampaignsPage() {
   // ─── Data fetching (always fetch all links) ───
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links"],
-    queryFn: async () => {
-      const allData: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("tracking_links")
-          .select("*, accounts(display_name, username, avatar_thumb_url)")
-          .is("deleted_at", null)
-          .order("revenue", { ascending: false })
-          .range(from, from + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allData.push(...data);
-        if (data.length < batchSize) break;
-        from += batchSize;
-      }
-      return allData;
-    },
+    queryFn: fetchTrackingLinks,
   });
 
   // Rows always show — only column values change with period
@@ -216,11 +202,7 @@ export default function CampaignsPage() {
   });
   const { data: trafficSources = [] } = useQuery({
     queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("traffic_sources").select("*").order("name");
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: getTrafficSources,
   });
 
   // Snapshot-derived activity (>= 1 sub/day over last 5 days)
@@ -232,24 +214,7 @@ export default function CampaignsPage() {
 
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
-    queryFn: async () => {
-      const all: any[] = [];
-      let from = 0;
-      const batch = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("onlytraffic_orders")
-          .select("tracking_link_id, order_id")
-          .not("tracking_link_id", "is", null)
-          .range(from, from + batch - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        all.push(...data);
-        if (data.length < batch) break;
-        from += batch;
-      }
-      return all;
-    },
+    queryFn: getOnlytrafficOrders,
   });
 
   // tracking_link_id → Set of CPL|CPC types derived from order_id prefix
@@ -1384,26 +1349,17 @@ export default function CampaignsPage() {
                                 const cplReal = spendType === "CPL" ? numVal : (subsEl > 0 ? previewCost / subsEl : 0);
                                 const arpu = subsEl > 0 ? revEl / subsEl : 0;
                                 const newStatus = calcStatusFromRoi(previewRoi);
-                                const { error: linkErr } = await supabase.from("tracking_links").update({
+                                await updateTrackingLink(el.id, {
                                   cost_type: spendType, cost_value: numVal, cost_total: previewCost,
                                   cvr, cpc_real: cpcReal, cpl_real: cplReal, arpu,
                                   profit: previewProfit, roi: previewRoi, status: newStatus,
-                                } as any).eq("id", el.id);
-                                if (linkErr) throw linkErr;
-                                const { data: existing } = await supabase.from("ad_spend").select("id").eq("tracking_link_id", el.id).maybeSingle();
-                                if (existing) {
-                                  await supabase.from("ad_spend").update({
-                                    spend_type: spendType, amount: previewCost,
-                                    date: new Date().toISOString().split("T")[0],
-                                  } as any).eq("id", existing.id);
-                                } else {
-                                  await supabase.from("ad_spend").insert({
-                                    campaign_id: el.campaign_id, tracking_link_id: el.id,
-                                    traffic_source: el.source || "direct", spend_type: spendType,
-                                    amount: previewCost, date: new Date().toISOString().split("T")[0],
-                                    notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
-                                  });
-                                }
+                                });
+                                await addAdSpend({
+                                  campaign_id: el.campaign_id, tracking_link_id: el.id,
+                                  traffic_source: el.source || "direct", spend_type: spendType,
+                                  amount: previewCost, date: new Date().toISOString().split("T")[0],
+                                  notes: `${spendType} @ $${numVal.toFixed(2)}`, account_id: el.account_id,
+                                });
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                 queryClient.invalidateQueries({ queryKey: ["ad_spend"] });
                                 toast.success("Spend saved");
@@ -1411,7 +1367,7 @@ export default function CampaignsPage() {
                             };
                             const clearSpendInline = async () => {
                               try {
-                                await supabase.from("tracking_links").update({
+                                await updateTrackingLink(el.id, {
                                   cost_type: null,
                                   cost_value: null,
                                   cost_total: 0,
@@ -1420,7 +1376,7 @@ export default function CampaignsPage() {
                                   cpl_real: null,
                                   cpc_real: null,
                                   status: 'NO_SPEND',
-                                }).eq("id", el.id);
+                                });
                                 queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                 toast.success("Spend cleared");
                               } catch (err: any) { toast.error("Save failed — please try again"); }
@@ -1428,19 +1384,17 @@ export default function CampaignsPage() {
                             const saveNoteInline = async () => {
                               if (!noteText.trim()) return;
                               try {
-                                const { data: existingNote } = await supabase.from("manual_notes")
-                                  .select("id").eq("campaign_id", el.campaign_id).eq("account_id", el.account_id).maybeSingle();
+                                const existingNotes: any[] = await getManualNotes();
+                                const existingNote = existingNotes.find((n: any) => n.campaign_id === el.campaign_id && n.account_id === el.account_id);
                                 if (existingNote) {
-                                  const { error } = await supabase.from("manual_notes").update({
+                                  await updateManualNote(existingNote.id, {
                                     note: noteText.trim(), content: noteText.trim(), updated_at: new Date().toISOString(),
-                                  } as any).eq("id", existingNote.id);
-                                  if (error) throw error;
+                                  });
                                 } else {
-                                  const { error } = await supabase.from("manual_notes").insert({
+                                  await createManualNote({
                                     campaign_id: el.campaign_id, campaign_name: el.campaign_name,
                                     account_id: el.account_id, content: noteText.trim(), note: noteText.trim(),
                                   });
-                                  if (error) throw error;
                                 }
                                 toast.success("Note saved");
                               } catch (err: any) { toast.error("Save failed — please try again"); }

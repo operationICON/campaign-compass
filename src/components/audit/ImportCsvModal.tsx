@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, Upload, CheckCircle2, ArrowRight, Loader2, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { createTrackingLink } from "@/lib/api";
 
 interface Props {
   open: boolean;
@@ -80,17 +80,7 @@ export function ImportCsvModal({ open, onClose, onComplete, trackingLinks, accou
 
     for (const row of newRows) {
       try {
-        // We need a campaign_id — find or create one
-        const { data: campaigns } = await supabase.from("campaigns").select("id").eq("account_id", row.accountId!).eq("name", row.campaign_name).limit(1);
-        let campaignId = campaigns?.[0]?.id;
-        if (!campaignId) {
-          const { data: newCamp } = await supabase.from("campaigns").insert({ account_id: row.accountId!, name: row.campaign_name }).select("id").single();
-          campaignId = newCamp?.id;
-        }
-        if (!campaignId) { errors++; continue; }
-
         const insert: any = {
-          campaign_id: campaignId,
           account_id: row.accountId,
           campaign_name: row.campaign_name,
           url: row.campaign_url || `pending-${Date.now()}-${added}`,
@@ -101,14 +91,13 @@ export function ImportCsvModal({ open, onClose, onComplete, trackingLinks, accou
         if (row.spend_type) insert.cost_type = row.spend_type;
         if (row.cost_value) insert.cost_value = Number(row.cost_value);
 
-        await supabase.from("tracking_links").insert(insert);
+        await createTrackingLink(insert);
         added++;
       } catch { errors++; }
     }
 
     skipped = rows.filter((r) => r.status === "exists").length + rows.filter((r) => r.status === "invalid").length;
 
-    await supabase.from("bulk_import_logs").insert({ imported_by: "manual", total_rows: rows.length, created: added, errors } as any);
 
     setResult({ added, skipped, errors });
     setStep(3);

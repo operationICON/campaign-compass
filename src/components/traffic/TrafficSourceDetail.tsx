@@ -4,7 +4,7 @@ import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp
 import { Input } from "@/components/ui/input";
 import { differenceInDays, format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
-import { supabase } from "@/integrations/supabase/client";
+import { getOnlytrafficOrders, updateTrackingLink } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -75,10 +75,8 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const { data: orderMarketerCombos = [] } = useQuery({
     queryKey: ["onlytraffic_orders_marketer_combos"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("onlytraffic_orders")
-        .select("marketer, source, tracking_link_id")
-        .not("marketer", "is", null);
+      const raw = await getOnlytrafficOrders();
+      const data = (raw as any[]).filter((o: any) => o.marketer != null);
       if (!data) return [];
       const comboMap: Record<string, Set<string>> = {};
       data.forEach((o: any) => {
@@ -96,10 +94,8 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   const { data: linkMarketerMap = {} } = useQuery({
     queryKey: ["onlytraffic_orders_link_marketer_map"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("onlytraffic_orders")
-        .select("tracking_link_id, marketer, offer_id")
-        .not("marketer", "is", null);
+      const raw = await getOnlytrafficOrders();
+      const data = (raw as any[]).filter((o: any) => o.marketer != null);
       if (!data) return {};
       // Build map: tracking_link_id → { marketer, offer_id }
       // Also track which marketers have multiple offer_ids
@@ -235,11 +231,7 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     const actualTag = tag === "__add_manual__" ? "Manual" : tag;
     setSavingIds(prev => new Set(prev).add(linkId));
     try {
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({ source_tag: actualTag, traffic_category: "Manual", manually_tagged: true })
-        .eq("id", linkId);
-      if (error) throw error;
+      await updateTrackingLink(linkId, { source_tag: actualTag, traffic_category: "Manual", manually_tagged: true });
       onTagLink(linkId, actualTag);
       toast.success(`Tagged as "${actualTag}"`);
     } catch (e: any) {

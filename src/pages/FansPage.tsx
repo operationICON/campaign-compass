@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getAccounts } from "@/lib/api";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -63,29 +63,19 @@ export default function FansPage() {
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
-      const { data } = await supabase.from("accounts")
-        .select("id, display_name, username, avatar_thumb_url, is_active, onlyfans_account_id")
-        .eq("is_active", true).order("display_name");
-      return data || [];
+      const data = await getAccounts();
+      return (data || []).filter((a: any) => a.is_active);
     },
   });
 
   const { data: newFans = [], isLoading: fansLoading } = useQuery({
     queryKey: ["chatting_team_new_fans"],
-    queryFn: async () => {
-      const { data } = await supabase.from("chatting_team_new_fans")
-        .select("*").order("subscribed_at", { ascending: false });
-      return data || [];
-    },
+    queryFn: async (): Promise<any[]> => [],
   });
 
   const { data: chats = [], isLoading: chatsLoading } = useQuery({
     queryKey: ["chatting_team_chats"],
-    queryFn: async () => {
-      const { data } = await supabase.from("chatting_team_chats")
-        .select("*").order("last_message_at", { ascending: false });
-      return data || [];
-    },
+    queryFn: async (): Promise<any[]> => [],
   });
 
   const lastUpdated = useMemo(() => {

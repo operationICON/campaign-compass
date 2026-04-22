@@ -135,13 +135,6 @@ export function BulkEditCsvModal({ open, onClose, onComplete, trackingLinks, acc
       } catch { errors++; }
     }
 
-    await supabase.from("bulk_import_logs").insert({
-      imported_by: "manual",
-      total_rows: rows.length,
-      matched: rows.filter((r) => r.matchedId).length,
-      deleted,
-      errors,
-    } as any);
 
     setResult({ deleted, updated, skipped });
     setStep(3);
