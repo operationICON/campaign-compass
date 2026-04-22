@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { fetchAlerts } from "@/lib/supabase-helpers";
+import { fetchAlerts, resolveAlertsBulk } from "@/lib/supabase-helpers";
 import { apiFetch } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Eye, X, Bell, CheckCheck } from "lucide-react";
@@ -46,17 +46,15 @@ export default function AlertsPage() {
     if (!unresolvedAlerts.length) return;
     setDismissingAll(true);
     const ids = unresolvedAlerts.map((a: any) => a.id);
-    const { error } = await supabase
-      .from("alerts")
-      .update({ resolved: true, resolved_at: new Date().toISOString() })
-      .in("id", ids);
+    try {
+      await resolveAlertsBulk(ids);
+      toast.success(`${ids.length} alert${ids.length !== 1 ? "s" : ""} dismissed`);
+      queryClient.invalidateQueries({ queryKey: ["all_alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["alerts_unresolved"] });
+    } catch { toast.error("Failed to dismiss all"); }
     setDismissingAll(false);
     setConfirmDismissAll(false);
-    if (error) { toast.error("Failed to dismiss all"); return; }
-    toast.success(`${ids.length} alert${ids.length !== 1 ? "s" : ""} dismissed`);
-    queryClient.invalidateQueries({ queryKey: ["all_alerts"] });
-    queryClient.invalidateQueries({ queryKey: ["alerts"] });
-    queryClient.invalidateQueries({ queryKey: ["alerts_unresolved"] });
   };
 
   const AlertCard = ({ alert }: { alert: any }) => {

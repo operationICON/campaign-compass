@@ -6,7 +6,7 @@ import { PageFilterBar } from "@/components/PageFilterBar";
 import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { fetchAccounts, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized } from "@/lib/supabase-helpers";
 import { updateTrackingLink, restoreTrackingLink, setTrackingLinkSourceTag } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -39,24 +39,6 @@ function loadFilters() {
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
 
-async function fetchAllTrackingLinks() {
-  const allData: any[] = [];
-  let from = 0;
-  const pageSize = 1000;
-  while (true) {
-    const { data, error } = await supabase
-      .from("tracking_links")
-      .select("*, accounts(display_name, username, avatar_thumb_url)")
-      .order("created_at", { ascending: false })
-      .range(from, from + pageSize - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    allData.push(...data);
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-  return allData;
-}
 
 function getAction(l: any, ageDays: number) {
   if (l.clicks === 0 && l.subscribers === 0) return "delete";
@@ -120,24 +102,7 @@ export default function AuditPage() {
   void dateScoped;
   const { data: rawLinks = [], isLoading } = useQuery({
     queryKey: ["audit_all_links"],
-    queryFn: async () => {
-      const allData: any[] = [];
-      let from = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("tracking_links")
-          .select("*, accounts(display_name, username, avatar_thumb_url)")
-          .order("created_at", { ascending: false })
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allData.push(...data);
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-      return allData;
-    },
+    queryFn: () => fetchAllTrackingLinksNormalized({ includeDeleted: true }),
   });
   const allLinks = useMemo(() => applySnapshotToLinks(rawLinks, snapshotLookup), [rawLinks, snapshotLookup]);
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });

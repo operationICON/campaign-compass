@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getAccounts } from "@/lib/api";
+import { getAccounts, getTrackingLinks } from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -89,24 +89,15 @@ export default function MarketerDrilldownPage() {
   }, [orders]);
 
   // Fetch tracking links with extra fields for sub-table
-  const { data: trackingLinks = [], isLoading: linksLoading } = useQuery({
-    queryKey: ["marketer_tracking_links", trackingLinkIds],
-    queryFn: async () => {
-      if (trackingLinkIds.length === 0) return [];
-      const all: any[] = [];
-      for (let i = 0; i < trackingLinkIds.length; i += 50) {
-        const chunk = trackingLinkIds.slice(i, i + 50);
-        const { data } = await supabase
-          .from("tracking_links")
-          .select("id, account_id, clicks, subscribers, revenue, cost_total, cost_type, campaign_name, url, created_at, source_tag, status, campaign_id, profit, roi, ltv_per_sub, conversion_rate, cost_per_lead, revenue_per_subscriber, spenders, payment_type, cost_value, manually_tagged, media_buyer, country, deleted_at, external_tracking_link_id, onlytraffic_marketer, onlytraffic_order_id, onlytraffic_order_type, onlytraffic_status, needs_spend, capped_spend, review_flag, traffic_source_id, traffic_category, arpu, calculated_at, cpc_real, cpl_real, cvr, ltv, needs_full_sync, spender_rate, spenders_count, fans_last_synced_at")
-          .is("deleted_at", null)
-          .in("id", chunk);
-        if (data) all.push(...data);
-      }
-      return all;
-    },
-    enabled: trackingLinkIds.length > 0,
+  const { data: allTrackingLinks = [], isLoading: linksLoading } = useQuery({
+    queryKey: ["tracking_links"],
+    queryFn: getTrackingLinks,
   });
+  const trackingLinkIdSet = useMemo(() => new Set(trackingLinkIds), [trackingLinkIds]);
+  const trackingLinks = useMemo(
+    () => (allTrackingLinks as any[]).filter((l: any) => trackingLinkIdSet.has(l.id)),
+    [allTrackingLinks, trackingLinkIdSet]
+  );
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],

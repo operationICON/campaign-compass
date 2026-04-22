@@ -36,6 +36,20 @@ export async function fetchTrackingLinks(filters?: {
   return api.getTrackingLinks({ account_id: filters?.account_id });
 }
 
+// Fetches all tracking links from Railway API and adds a nested `accounts`
+// object so existing components that use `link.accounts?.username` keep working.
+export async function fetchAllTrackingLinksNormalized(opts?: { includeDeleted?: boolean }) {
+  const rows: any[] = await api.getTrackingLinks({ deleted: opts?.includeDeleted });
+  return rows.map((l: any) => ({
+    ...l,
+    accounts: {
+      display_name: l.account_display_name ?? null,
+      username: l.account_username ?? null,
+      avatar_thumb_url: l.account_avatar_thumb_url ?? null,
+    },
+  }));
+}
+
 export async function fetchTransactions(filters?: {
   account_id?: string;
   date_from?: string;
@@ -140,6 +154,14 @@ export async function upsertAccount(account: {
 
 export async function deleteAccount(id: string) {
   return api.deleteAccount(id);
+}
+
+export async function patchAccount(id: string, fields: Record<string, any>) {
+  return api.updateAccount(id, fields);
+}
+
+export async function resolveAlertsBulk(ids: string[]) {
+  await api.apiFetch("/alerts/resolve-bulk", { method: "POST", body: JSON.stringify({ ids }) });
 }
 
 export async function deleteAdSpend(id: string) {

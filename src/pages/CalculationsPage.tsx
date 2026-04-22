@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CheckCircle2, Calculator, DollarSign, TrendingUp, Database, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchAccounts as fetchAccountsHelper } from "@/lib/supabase-helpers";
+import { fetchAccounts as fetchAccountsHelper, fetchTrackingLinks, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
 import { buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 
 const fmtC = (v: number | null | undefined) =>
@@ -22,42 +22,6 @@ const fmtP = (v: number | null | undefined) =>
 const fmtN = (v: number | null | undefined) =>
   v == null ? "—" : Number(v).toLocaleString("en-US");
 
-async function fetchAllTrackingLinks() {
-  const all: any[] = [];
-  let from = 0;
-  const size = 1000;
-  while (true) {
-    const { data, error } = await supabase
-      .from("tracking_links")
-      .select("id, revenue, cost_total, traffic_category, source_tag, subscribers, onlytraffic_marketer")
-      .is("deleted_at", null)
-      .range(from, from + size - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    all.push(...data);
-    if (data.length < size) break;
-    from += size;
-  }
-  return all;
-}
-
-async function fetchAllLtv() {
-  const all: any[] = [];
-  let from = 0;
-  const size = 1000;
-  while (true) {
-    const { data, error } = await supabase
-      .from("tracking_link_ltv")
-      .select("tracking_link_id, total_ltv, cross_poll_revenue, new_subs_total, is_estimated")
-      .range(from, from + size - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    all.push(...data);
-    if (data.length < size) break;
-    from += size;
-  }
-  return all;
-}
 
 async function fetchFansCount() {
   const data: any[] = await apiFetch("/fans");
@@ -70,31 +34,16 @@ async function fetchLastSync() {
 }
 
 async function fetchExampleCampaigns() {
-  const names = ["fider 04", "SEO 12.11.25"];
-  const { data: links } = await supabase
-    .from("tracking_links")
-    .select("id, campaign_name, cost_total, subscribers")
-    .in("campaign_name", names);
-
-  if (!links || links.length === 0) return {};
-
-  const linkIds = links.map((l: any) => l.id);
-  const { data: ltvRows } = await supabase
-    .from("tracking_link_ltv")
-    .select("tracking_link_id, total_ltv, cross_poll_revenue, new_subs_total");
-
+  const names = new Set(["fider 04", "SEO 12.11.25"]);
+  const [allLinks, allLtv] = await Promise.all([fetchTrackingLinks(), fetchTrackingLinkLtv()]);
+  const links = (allLinks as any[]).filter((l: any) => names.has(l.campaign_name));
+  if (!links.length) return {};
   const ltvMap: Record<string, any> = {};
-  (ltvRows || []).forEach((r: any) => { ltvMap[r.tracking_link_id] = r; });
-
+  (allLtv as any[]).forEach((r: any) => { ltvMap[r.tracking_link_id] = r; });
   const result: Record<string, any> = {};
   links.forEach((l: any) => {
     const ltv = ltvMap[l.id];
-    result[l.campaign_name] = {
-      ...l,
-      total_ltv: ltv?.total_ltv ?? null,
-      cross_poll_revenue: ltv?.cross_poll_revenue ?? null,
-      new_subs_total: ltv?.new_subs_total ?? null,
-    };
+    result[l.campaign_name] = { ...l, total_ltv: ltv?.total_ltv ?? null, cross_poll_revenue: ltv?.cross_poll_revenue ?? null, new_subs_total: ltv?.new_subs_total ?? null };
   });
   return result;
 }
@@ -115,15 +64,15 @@ export default function CalculationsPage() {
   void dateScoped;
 
   const { data: allLinks = [] as any[], isLoading: linksLoading } = useQuery({
-    queryKey: ["calc_tracking_links"],
-    queryFn: () => fetchAllTrackingLinks(),
+    queryKey: ["tracking_links"],
+    queryFn: fetchTrackingLinks,
   });
   // Apply snapshot metrics to links (replaces clicks/subscribers/revenue for non-All-Time)
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
   const { data: ltvRowsRaw = [] as any[], isLoading: ltvLoading } = useQuery({
-    queryKey: ["calc_ltv"],
-    queryFn: () => fetchAllLtv(),
+    queryKey: ["tracking_link_ltv"],
+    queryFn: fetchTrackingLinkLtv,
   });
   // RULE: exclude LTV rows whose tracking_links.deleted_at IS NOT NULL.
   // Shared helper — see src/lib/calc-helpers.ts.

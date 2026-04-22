@@ -3,7 +3,7 @@ import { usePageFilters } from "@/hooks/usePageFilters";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { fetchAccounts } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinkLtv, fetchTrackingLinks } from "@/lib/supabase-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,39 +56,18 @@ export default function CrossPollPage() {
   void dateScoped;
 
   // Cross-poll LTV data (cumulative)
-  const { data: allLtvData = [], isLoading: ltvLoading } = useQuery({
-    queryKey: ["crosspoll_ltv"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tracking_link_ltv")
-        .select("*")
-        .gt("cross_poll_revenue", 0)
-        .order("cross_poll_revenue", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+  const { data: allLtvDataRaw = [], isLoading: ltvLoading } = useQuery({
+    queryKey: ["tracking_link_ltv"],
+    queryFn: fetchTrackingLinkLtv,
   });
+  const allLtvData = useMemo(
+    () => (allLtvDataRaw as any[]).filter((r: any) => Number(r.cross_poll_revenue || 0) > 0),
+    [allLtvDataRaw]
+  );
 
   const { data: trackingLinks = [] } = useQuery({
-    queryKey: ["crosspoll_tracking_links"],
-    queryFn: async () => {
-      const allRows: any[] = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("tracking_links")
-          .select("id, campaign_name, account_id")
-          .is("deleted_at", null)
-          .range(rangeFrom, rangeFrom + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-      }
-      return allRows;
-    },
+    queryKey: ["tracking_links"],
+    queryFn: fetchTrackingLinks,
   });
 
   const linkLookup = useMemo(() => {

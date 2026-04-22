@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { alerts } from "../db/schema.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 
 const router = new Hono();
 
@@ -21,6 +21,13 @@ router.patch("/:id/resolve", async (c) => {
     .where(eq(alerts.id, c.req.param("id")))
     .returning();
   return c.json(row);
+});
+
+router.post("/resolve-bulk", async (c) => {
+  const { ids } = await c.req.json() as { ids: string[] };
+  if (!ids?.length) return c.json({ updated: 0 });
+  await db.update(alerts).set({ resolved: true, resolved_at: new Date() }).where(inArray(alerts.id, ids));
+  return c.json({ updated: ids.length });
 });
 
 export default router;

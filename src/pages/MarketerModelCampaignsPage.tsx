@@ -10,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
+import { fetchAccounts, fetchTrackingLinks } from "@/lib/supabase-helpers";
+import { apiFetch } from "@/lib/api";
 import { usePersistedState } from "@/hooks/usePersistedState";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -72,12 +74,8 @@ export default function MarketerModelCampaignsPage() {
   const { data: account } = useQuery({
     queryKey: ["account_by_username", decodedUsername],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("accounts")
-        .select("id, username, display_name, avatar_thumb_url, avatar_url")
-        .eq("username", decodedUsername)
-        .limit(1);
-      return data?.[0] || null;
+      const accounts: any[] = await fetchAccounts();
+      return accounts.find((a: any) => a.username === decodedUsername) ?? null;
     },
     enabled: !!decodedUsername,
   });
@@ -88,14 +86,9 @@ export default function MarketerModelCampaignsPage() {
     queryKey: ["l4_orders", decodedMarketer, offerId, account?.id],
     queryFn: async () => {
       if (!account?.id) return [];
-      let q = supabase
-        .from("onlytraffic_orders")
-        .select("id, tracking_link_id, marketer, offer_id, order_id, source, status, quantity_delivered, total_spent")
-        .eq("marketer", decodedMarketer)
-        .in("status", ["completed", "accepted", "active", "waiting"]);
-      if (offerId != null) q = q.eq("offer_id", offerId);
-      const { data } = await q;
-      return data || [];
+      const params = new URLSearchParams({ marketer: decodedMarketer ?? "" });
+      if (offerId != null) params.set("offer_id", String(offerId));
+      return apiFetch(`/onlytraffic-orders?${params}`);
     },
     enabled: !!account?.id,
   });
@@ -109,24 +102,16 @@ export default function MarketerModelCampaignsPage() {
   }, [orders]);
 
   // 4. Fetch tracking links for this account
+  const { data: allLinks = [] } = useQuery({
+    queryKey: ["tracking_links", account?.id],
+    queryFn: () => fetchTrackingLinks({ account_id: account?.id }),
+    enabled: !!account?.id,
+  });
+  const trackingLinkIdSet = useMemo(() => new Set(trackingLinkIds), [trackingLinkIds]);
   const { data: trackingLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["l4_tracking_links", trackingLinkIds, account?.id],
-    queryFn: async () => {
-      if (trackingLinkIds.length === 0 || !account?.id) return [];
-      const all: any[] = [];
-      for (let i = 0; i < trackingLinkIds.length; i += 50) {
-        const chunk = trackingLinkIds.slice(i, i + 50);
-        const { data } = await supabase
-          .from("tracking_links")
-          .select("*")
-          .is("deleted_at", null)
-          .in("id", chunk)
-          .eq("account_id", account.id);
-        if (data) all.push(...data);
-      }
-      return all;
-    },
-    enabled: trackingLinkIds.length > 0 && !!account?.id,
+    queryFn: async () => (allLinks as any[]).filter((l: any) => trackingLinkIdSet.has(l.id)),
+    enabled: trackingLinkIds.length > 0 && !!account?.id && (allLinks as any[]).length > 0,
   });
 
   // Determine source label

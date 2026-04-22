@@ -12,7 +12,7 @@ import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized, fetchTransactionTypeTotalsByAccount, patchAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
 import { streamSync } from "@/lib/api";
@@ -127,25 +127,7 @@ export default function AccountsPage() {
 
   const { data: allLinks = [] } = useQuery({
     queryKey: ["tracking_links"],
-    queryFn: async () => {
-      const allRows: any[] = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("tracking_links")
-          .select("*, accounts(display_name, username, avatar_thumb_url)")
-          .is("deleted_at", null)
-          .order("revenue", { ascending: false })
-          .range(rangeFrom, rangeFrom + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-      }
-      return allRows;
-    },
+    queryFn: () => fetchAllTrackingLinksNormalized(),
   });
   const links = useMemo(() => applySnapshotToLinks(allLinks, snapshotLookup), [allLinks, snapshotLookup]);
 
@@ -227,25 +209,9 @@ export default function AccountsPage() {
 
   // Fetch transaction breakdowns per account for revenue breakdown
   const { data: txBreakdowns = {} } = useQuery({
-    queryKey: ["tx_breakdowns_by_account"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("account_id, type, revenue");
-      if (error) throw error;
-      const map: Record<string, { messages: number; tips: number; subscriptions: number; posts: number }> = {};
-      for (const tx of (data || [])) {
-        if (!tx.account_id) continue;
-        if (!map[tx.account_id]) map[tx.account_id] = { messages: 0, tips: 0, subscriptions: 0, posts: 0 };
-        const rev = Number(tx.revenue || 0);
-        const t = (tx.type || "").toLowerCase();
-        if (t === "message") map[tx.account_id].messages += rev;
-        else if (t === "tip") map[tx.account_id].tips += rev;
-        else if (t.includes("subscription")) map[tx.account_id].subscriptions += rev;
-        else if (t === "post") map[tx.account_id].posts += rev;
-      }
-      return map;
-    },
+    queryKey: ["transaction_type_totals_by_account"],
+    queryFn: fetchTransactionTypeTotalsByAccount,
+    staleTime: 5 * 60 * 1000,
   });
 
   const ltvLookup = useMemo(() => {
@@ -279,17 +245,14 @@ export default function AccountsPage() {
   }, [accounts]);
 
   const handleSaveGender = async (accountId: string, gender: string | null) => {
-    const { error } = await supabase
-      .from("accounts")
-      .update({ gender_identity: gender } as any)
-      .eq("id", accountId);
-    if (error) {
+    try {
+      await patchAccount(accountId, { gender_identity: gender });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setEditingGenderFor(null);
+      toast.success(gender ? `Set to "${gender}"` : "Gender removed");
+    } catch {
       toast.error("Failed to save gender");
-      return;
     }
-    queryClient.invalidateQueries({ queryKey: ["accounts"] });
-    setEditingGenderFor(null);
-    toast.success(gender ? `Set to "${gender}"` : "Gender removed");
   };
 
   const agencyAvgCvr = useMemo(() => {
