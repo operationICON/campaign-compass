@@ -1,5 +1,5 @@
 import {
-  pgTable, text, uuid, boolean, numeric, timestamp, integer, jsonb, date, index
+  pgTable, text, uuid, boolean, numeric, timestamp, integer, jsonb, date, index, uniqueIndex
 } from "drizzle-orm/pg-core";
 
 // ── accounts ──────────────────────────────────────────────────────────────────
@@ -131,7 +131,9 @@ export const daily_metrics = pgTable("daily_metrics", {
   conversion_rate:  numeric("conversion_rate"),
   epc:              numeric("epc"),
   created_at:       timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("uq_daily_metrics_link_date").on(t.tracking_link_id, t.date),
+]);
 
 // ── daily_snapshots ───────────────────────────────────────────────────────────
 export const daily_snapshots = pgTable("daily_snapshots", {
@@ -152,7 +154,7 @@ export const daily_snapshots = pgTable("daily_snapshots", {
   synced_at:                 timestamp("synced_at", { withTimezone: true }),
   created_at:                timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  index("idx_daily_snapshots_link_date").on(t.tracking_link_id, t.snapshot_date),
+  uniqueIndex("uq_daily_snapshots_link_date").on(t.tracking_link_id, t.snapshot_date),
 ]);
 
 // ── tracking_link_ltv ─────────────────────────────────────────────────────────
