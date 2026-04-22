@@ -99,7 +99,14 @@ router.post("/", async (c) => {
       linkCount++;
     }
 
-    await db.update(accounts).set({ last_synced_at: new Date() }).where(eq(accounts.id, account_id));
+    // Aggregate total revenue from all tracking links for this account and persist to accounts.ltv_total
+    const [revenueSum] = await db
+      .select({ total: sql<string>`COALESCE(SUM(revenue::numeric), 0)` })
+      .from(tracking_links)
+      .where(eq(tracking_links.account_id, account_id));
+    const totalLtv = revenueSum?.total ?? "0";
+
+    await db.update(accounts).set({ last_synced_at: new Date(), ltv_total: totalLtv }).where(eq(accounts.id, account_id));
 
     if (syncLogId) await db.update(sync_logs).set({ status: "success", success: true, finished_at: new Date(), completed_at: new Date(), records_processed: linkCount, tracking_links_synced: linkCount, message: `${linkCount} links synced` }).where(eq(sync_logs.id, syncLogId));
 
