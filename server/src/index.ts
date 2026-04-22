@@ -31,10 +31,16 @@ import { startScheduler } from "./scheduler.js";
 
 const app = new Hono();
 
-const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? "http://localhost:5173").split(",").map(s => s.trim());
+const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? "http://localhost:8080,http://localhost:5173").split(",").map(s => s.trim());
 
 app.use("*", cors({
-  origin: (origin) => allowedOrigins.includes(origin) ? origin : allowedOrigins[0],
+  origin: (origin) => {
+    if (!origin) return allowedOrigins[0];
+    if (allowedOrigins.includes(origin)) return origin;
+    // Allow all localhost ports in development
+    if (origin.startsWith("http://localhost:")) return origin;
+    return allowedOrigins[0];
+  },
   allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
   maxAge: 86400,
