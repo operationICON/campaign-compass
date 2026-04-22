@@ -7,7 +7,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2,
   ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
-  BarChart3, Camera, Users, Truck, Play, Square,
+  BarChart3, Camera, Users, Truck, Play, Square, Zap,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SortableTh } from "@/components/SortableTh";
@@ -85,6 +85,9 @@ export default function LogsPage() {
   const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, ltv: false, onlytraffic: false, ot_snapshot: false });
   const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", ltv: "", onlytraffic: "", ot_snapshot: "" });
   const abortRefs = useRef<Record<string, AbortController>>({});
+
+  const [allRunning, setAllRunning] = useState(false);
+  const [allProgress, setAllProgress] = useState("");
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -248,6 +251,23 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
+  const runAllSync = useCallback(async () => {
+    setAllRunning(true);
+    const steps = [
+      { label: "Dashboard", fn: runDashboardSync },
+      { label: "Snapshots", fn: runSnapshotSync },
+      { label: "OnlyTraffic", fn: runOnlyTrafficSync },
+    ];
+    for (const { label, fn } of steps) {
+      setAllProgress(`Running ${label}...`);
+      await fn();
+    }
+    setAllRunning(false);
+    setAllProgress("");
+    toast.success("Full sync complete — all 3 syncs done");
+    queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+  }, [runDashboardSync, runSnapshotSync, runOnlyTrafficSync, queryClient]);
+
   const syncHandlers: Partial<Record<SyncType, () => void>> = {
     dashboard: runDashboardSync,
     snapshot: runSnapshotSync,
@@ -268,6 +288,25 @@ export default function LogsPage() {
           <RefreshButton queryKeys={["sync_logs", "accounts"]} />
         </div>
 
+        {/* ═══ SYNC ALL ═══ */}
+        <div className="flex flex-col gap-1.5">
+          <Button
+            onClick={runAllSync}
+            disabled={allRunning || Object.values(running).some(Boolean)}
+            className="h-auto py-4 px-6 flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+          >
+            {allRunning
+              ? <Loader2 className="h-5 w-5 animate-spin" />
+              : <Zap className="h-5 w-5" />}
+            <div className="text-left">
+              <div className="text-sm font-bold">Sync All</div>
+              <div className="text-xs opacity-75">
+                {allRunning && allProgress ? allProgress : "Dashboard → Snapshots → OnlyTraffic"}
+              </div>
+            </div>
+          </Button>
+        </div>
+
         {/* ═══ SYNC BUTTONS ═══ */}
         <div className="grid grid-cols-3 gap-3">
           {(["dashboard", "snapshot", "onlytraffic"] as SyncType[]).map((type) => {
@@ -279,7 +318,7 @@ export default function LogsPage() {
                 <Button
                   variant="outline"
                   onClick={syncHandlers[type]}
-                  disabled={isRunning}
+                  disabled={isRunning || allRunning}
                   className={`h-auto py-4 px-4 flex flex-col items-center gap-2 ${colors.border} hover:${colors.bg} transition-all`}
                 >
                   {isRunning ? (
