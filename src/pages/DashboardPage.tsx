@@ -8,7 +8,7 @@ import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlid
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
-import { getSnapshotsByDateRange } from "@/lib/api";
+import { getSnapshotsByDateRange, getSnapshotLatestDate } from "@/lib/api";
 import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
@@ -87,23 +87,15 @@ export default function DashboardPage() {
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({
     queryKey: ["tracking_links"],
     queryFn: async () => {
-      const allRows: any[] = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("tracking_links")
-          .select("*, accounts(display_name, username, avatar_thumb_url)")
-          .is("deleted_at", null)
-          .order("revenue", { ascending: false })
-          .range(rangeFrom, rangeFrom + batchSize - 1);
-        if (error) throw error;
-        if (!data?.length) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-      }
-      return allRows;
+      const rows: any[] = await fetchTrackingLinks();
+      return rows.map((l: any) => ({
+        ...l,
+        accounts: {
+          display_name: l.account_display_name ?? null,
+          username: l.account_username ?? null,
+          avatar_thumb_url: l.account_avatar_thumb_url ?? null,
+        },
+      }));
     },
   });
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
@@ -176,28 +168,11 @@ export default function DashboardPage() {
       let fromDate = overviewSnapshotRange.from;
       let toDate = overviewSnapshotRange.to;
 
-      // Resolve server date for all sentinel values
       const needsServerDate = fromDate.startsWith("__");
-      let serverMaxDate: string | null = null;
-
       if (needsServerDate) {
-        let latestQuery = supabase
-          .from("daily_snapshots")
-          .select("snapshot_date")
-          .order("snapshot_date", { ascending: false })
-          .limit(1);
-
-        if (agencyAccountIds?.length) {
-          latestQuery = latestQuery.in("account_id", agencyAccountIds);
-        }
-
-        const { data: latest, error: latestError } = await latestQuery;
-        if (latestError) throw latestError;
-
-        serverMaxDate = latest?.[0]?.snapshot_date;
+        const { date: serverMaxDate } = await getSnapshotLatestDate();
         if (!serverMaxDate) return [];
 
-        // Resolve sentinels using server date
         if (fromDate === "__latest__") {
           fromDate = serverMaxDate;
           toDate = serverMaxDate;
@@ -222,45 +197,12 @@ export default function DashboardPage() {
         }
       }
 
-      console.log("[OverviewSnapshots] date range:", { fromDate, toDate, serverMaxDate, originalFrom: overviewSnapshotRange.from });
-
-      const rows: Array<{
-        tracking_link_id: string | null;
-        snapshot_date: string | null;
-        clicks: number | null;
-        subscribers: number | null;
-        revenue: number | null;
-      }> = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-
-      while (true) {
-        let query = supabase
-          .from("daily_snapshots")
-          .select("tracking_link_id, clicks, subscribers, revenue, cost_total, account_id, snapshot_date")
-          .gte("snapshot_date", fromDate)
-          .lte("snapshot_date", toDate)
-          .range(rangeFrom, rangeFrom + batchSize - 1);
-
-        if (agencyAccountIds?.length) {
-          query = query.in("account_id", agencyAccountIds);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        if (!data?.length) break;
-
-        rows.push(...data);
-
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-      }
-
-      const totalRev = rows.reduce((s, r) => s + Number(r.revenue || 0), 0);
-      const totalSubs = rows.reduce((s, r) => s + Number(r.subscribers || 0), 0);
-      console.log("[OverviewSnapshots] result:", { rowCount: rows.length, totalRevenue: totalRev.toFixed(2), totalSubscribers: totalSubs });
-
-      return rows;
+      return getSnapshotsByDateRange({
+        date_from: fromDate,
+        date_to: toDate,
+        account_ids: agencyAccountIds ?? undefined,
+        cols: "slim",
+      });
     },
   });
 
@@ -432,32 +374,16 @@ export default function DashboardPage() {
     enabled: !!periodActiveLinkIds && periodActiveLinkIds.length > 0 && !!periodDays,
     queryFn: async () => {
       if (!periodActiveLinkIds || periodActiveLinkIds.length === 0 || !periodDays) return 0;
+      const idSet = new Set(periodActiveLinkIds);
       const today = new Date();
       let total = 0;
-      const idBatchSize = 500;
-      const rowBatchSize = 1000;
-      for (let i = 0; i < periodActiveLinkIds.length; i += idBatchSize) {
-        const idBatch = periodActiveLinkIds.slice(i, i + idBatchSize);
-        let rangeFrom = 0;
-        while (true) {
-          const { data, error } = await supabase
-            .from("tracking_links")
-            .select("cost_total, created_at")
-            .in("id", idBatch)
-            .gt("cost_total", 0)
-            .range(rangeFrom, rangeFrom + rowBatchSize - 1);
-          if (error) throw error;
-          if (!data?.length) break;
-          for (const row of data) {
-            const costTotal = Number(row.cost_total || 0);
-            const createdAt = new Date(row.created_at);
-            const daysSinceCreated = Math.max(1, differenceInDays(today, createdAt));
-            const dailySpend = costTotal / daysSinceCreated;
-            total += dailySpend * periodDays;
-          }
-          if (data.length < rowBatchSize) break;
-          rangeFrom += rowBatchSize;
-        }
+      for (const link of allLinks) {
+        if (!idSet.has(link.id)) continue;
+        const costTotal = Number(link.cost_total || 0);
+        if (!costTotal) continue;
+        const createdAt = new Date(link.created_at);
+        const daysSinceCreated = Math.max(1, differenceInDays(today, createdAt));
+        total += (costTotal / daysSinceCreated) * periodDays;
       }
       return total;
     },
