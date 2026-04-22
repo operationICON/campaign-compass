@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { ad_spend, campaigns } from "../db/schema.js";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, getTableColumns } from "drizzle-orm";
 
 const router = new Hono();
 
@@ -11,7 +11,7 @@ router.get("/", async (c) => {
   const dateTo = c.req.query("date_to");
 
   const rows = await db
-    .select({ ...ad_spend, campaign_name: campaigns.name })
+    .select({ ...getTableColumns(ad_spend), campaign_name: campaigns.name })
     .from(ad_spend)
     .leftJoin(campaigns, eq(ad_spend.campaign_id, campaigns.id))
     .where(

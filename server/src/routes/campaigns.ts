@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { campaigns, accounts } from "../db/schema.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, getTableColumns } from "drizzle-orm";
 
 const router = new Hono();
 
 router.get("/", async (c) => {
   const rows = await db
     .select({
-      ...campaigns,
+      ...getTableColumns(campaigns),
       account_display_name: accounts.display_name,
     })
     .from(campaigns)

@@ -22,11 +22,11 @@ router.get("/", async (c) => {
 
   const conditions = [
     ids.length ? inArray(onlytraffic_orders.tracking_link_id, ids) : undefined,
-    dateFrom ? gte(onlytraffic_orders.order_created_at, dateFrom + "T00:00:00Z") : undefined,
-    dateTo ? lte(onlytraffic_orders.order_created_at, dateTo + "T23:59:59Z") : undefined,
+    dateFrom ? gte(onlytraffic_orders.order_created_at, new Date(dateFrom + "T00:00:00Z")) : undefined,
+    dateTo ? lte(onlytraffic_orders.order_created_at, new Date(dateTo + "T23:59:59Z")) : undefined,
     statuses.length ? inArray(onlytraffic_orders.status, statuses) : undefined,
     marketer ? eq(onlytraffic_orders.marketer, marketer) : undefined,
-    offerIdParam ? eq(onlytraffic_orders.offer_id, parseInt(offerIdParam)) : undefined,
+    offerIdParam ? eq(onlytraffic_orders.offer_id, offerIdParam) : undefined,
   ].filter(Boolean);
 
   const rows = await db

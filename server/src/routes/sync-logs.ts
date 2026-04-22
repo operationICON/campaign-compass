@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { sync_logs, accounts } from "../db/schema.js";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, getTableColumns } from "drizzle-orm";
 
 const router = new Hono();
 
 router.get("/", async (c) => {
   const rows = await db
     .select({
-      ...sync_logs,
-      accounts: { display_name: accounts.display_name },
+      ...getTableColumns(sync_logs),
+      account_display_name: accounts.display_name,
     })
     .from(sync_logs)
     .leftJoin(accounts, eq(sync_logs.account_id, accounts.id))

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { tracking_links, accounts, campaigns } from "../db/schema.js";
-import { eq, isNull, desc, inArray, sql, and } from "drizzle-orm";
+import { eq, isNull, desc, inArray, sql, and, getTableColumns } from "drizzle-orm";
 
 const router = new Hono();
 
@@ -12,7 +12,7 @@ router.get("/", async (c) => {
 
   const rows = await db
     .select({
-      ...tracking_links,
+      ...getTableColumns(tracking_links),
       account_display_name: accounts.display_name,
       account_username: accounts.username,
       account_avatar_thumb_url: accounts.avatar_thumb_url,
