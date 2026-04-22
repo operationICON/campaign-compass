@@ -34,7 +34,9 @@ router.post("/", async (c) => {
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
 
   const body = await c.req.json() as any;
-  const { account_id, onlyfans_account_id, display_name } = body;
+  const { account_id, onlyfans_account_id, numeric_of_id, display_name } = body;
+  // Tracking-links endpoint requires the numeric performer ID, not the acct_... API ID
+  const trackingLinksId = numeric_of_id ? String(numeric_of_id) : onlyfans_account_id;
 
   const [syncLog] = await db.insert(sync_logs).values({
     account_id, started_at: new Date(), status: "running", success: false,
@@ -44,8 +46,8 @@ router.post("/", async (c) => {
 
   let linkCount = 0;
   try {
-    // Fetch all tracking links from OF API
-    const items = await fetchAllTrackingLinks(onlyfans_account_id, apiKey);
+    // Fetch all tracking links from OF API (requires numeric performer ID)
+    const items = await fetchAllTrackingLinks(trackingLinksId, apiKey);
 
     // Ensure campaigns exist
     const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? "Unknown"))];

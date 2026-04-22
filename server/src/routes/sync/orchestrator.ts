@@ -50,6 +50,7 @@ router.post("/", async (c) => {
           const list = Array.isArray(data) ? data : (data.data ?? []);
           for (const acc of list) {
             const ud = acc.onlyfans_user_data ?? {};
+            const numericId = ud.id ? Number(ud.id) : null;
             await db.insert(accounts).values({
               onlyfans_account_id: String(acc.id),
               username: acc.onlyfans_username ?? ud.username ?? null,
@@ -58,7 +59,8 @@ router.post("/", async (c) => {
               subscribers_count: ud.subscribersCount ?? 0,
               avatar_url: ud.avatar ?? null,
               avatar_thumb_url: ud.avatarThumbs?.c144 ?? null,
-            }).onConflictDoUpdate({ target: accounts.onlyfans_account_id, set: { display_name: ud.name ?? acc.display_name ?? String(acc.id), subscribers_count: ud.subscribersCount ?? 0, avatar_thumb_url: ud.avatarThumbs?.c144 ?? null, updated_at: new Date() } });
+              numeric_of_id: numericId,
+            }).onConflictDoUpdate({ target: accounts.onlyfans_account_id, set: { display_name: ud.name ?? acc.display_name ?? String(acc.id), subscribers_count: ud.subscribersCount ?? 0, avatar_thumb_url: ud.avatarThumbs?.c144 ?? null, numeric_of_id: numericId, updated_at: new Date() } });
           }
         }
       } catch (err: any) { console.error("Discovery error:", err.message); }
@@ -78,7 +80,7 @@ router.post("/", async (c) => {
               const res = await fetch(`${serverUrl}/sync/account`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ account_id: account.id, onlyfans_account_id: account.onlyfans_account_id, display_name: account.display_name }),
+                body: JSON.stringify({ account_id: account.id, onlyfans_account_id: account.onlyfans_account_id, numeric_of_id: account.numeric_of_id, display_name: account.display_name }),
               });
               if (res.ok) {
                 const result = await res.json() as any;
