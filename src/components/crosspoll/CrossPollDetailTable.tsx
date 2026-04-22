@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getFanSpenders, getFans } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -45,35 +45,15 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
   // Fetch fan_spenders with revenue
   const { data: spenders = [], isLoading } = useQuery({
     queryKey: ["crosspoll_detail_spenders"],
-    queryFn: async () => {
-      const all: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("fan_spenders")
-          .select("fan_id, tracking_link_id, account_id, revenue_total")
-          .range(from, from + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        all.push(...data);
-        if (data.length < batchSize) break;
-        from += batchSize;
-      }
-      return all;
-    },
+    queryFn: getFanSpenders,
   });
 
   // Fetch new fans lookup
   const { data: newFans = [] } = useQuery({
     queryKey: ["crosspoll_new_fans"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fans")
-        .select("fan_id")
-        .eq("is_new_fan", true);
-      if (error) throw error;
-      return data;
+      const data = await getFans();
+      return (data || []).filter((f: any) => f.is_new_fan);
     },
   });
 

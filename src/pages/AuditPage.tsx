@@ -7,7 +7,7 @@ import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helper
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
-import { supabase } from "@/integrations/supabase/client";
+import { updateTrackingLink, restoreTrackingLink, setTrackingLinkSourceTag } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -260,7 +260,7 @@ export default function AuditPage() {
 
   const softDelete = async (ids: string[]) => {
     for (const id of ids) {
-      await supabase.from("tracking_links").update({ deleted_at: new Date().toISOString() } as any).eq("id", id);
+      await updateTrackingLink(id, { deleted_at: new Date().toISOString() });
     }
     toast.success(`Deleted ${ids.length} tracking link(s)`);
     setSelected(new Set());
@@ -268,13 +268,13 @@ export default function AuditPage() {
   };
 
   const restore = async (id: string) => {
-    await supabase.from("tracking_links").update({ deleted_at: null } as any).eq("id", id);
+    await restoreTrackingLink(id);
     toast.success("Tracking link restored");
     refreshAll();
   };
 
   const saveSourceTag = async (id: string, tag: string) => {
-    await supabase.from("tracking_links").update({ source_tag: tag, manually_tagged: true } as any).eq("id", id);
+    await setTrackingLinkSourceTag(id, tag, true);
     toast.success("Source tag saved");
     refreshAll();
   };

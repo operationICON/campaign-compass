@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { X, MousePointerClick, Users, DollarSign, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { clearTrackingLinkSpend } from "@/lib/supabase-helpers";
+import { updateTrackingLink, clearTrackingLinkSpend, addAdSpend } from "@/lib/api";
 
 interface CostSettingSlideInProps {
   link: any;
@@ -99,8 +98,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
     if (!costType || !costValue || !preview) return;
     setSaving(true);
     try {
-      // Write 1: Update tracking_links with calculated metrics
-      const { error: linkError } = await supabase.from("tracking_links").update({
+      await updateTrackingLink(link.id, {
         cost_type: costType,
         cost_value: Number(costValue),
         cost_total: preview.cost_total,
@@ -111,11 +109,9 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
         profit: preview.profit,
         roi: preview.roi,
         status: preview.status,
-      }).eq("id", link.id);
-      if (linkError) throw linkError;
+      });
 
-      // Write 2: Insert to ad_spend table
-      await supabase.from("ad_spend").insert({
+      await addAdSpend({
         campaign_id: link.campaign_id,
         traffic_source: link.source || "direct",
         amount: preview.cost_total,

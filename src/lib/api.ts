@@ -1,6 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
-async function apiFetch<T = any>(path: string, options?: RequestInit): Promise<T> {
+export async function apiFetch<T = any>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
@@ -33,6 +33,11 @@ export const deleteAccount = (id: string) => apiFetch(`/accounts/${id}`, { metho
 // ─── Tracking Links ───────────────────────────────────────────────────────────
 export const getTrackingLinks = (filters?: { account_id?: string; deleted?: boolean }) =>
   apiFetch(`/tracking-links${buildQuery({ account_id: filters?.account_id, deleted: filters?.deleted ? "true" : undefined })}`);
+
+export const getTrackingLink = (id: string) => apiFetch(`/tracking-links/${id}`);
+
+export const createTrackingLink = (body: any) =>
+  apiFetch("/tracking-links", { method: "POST", body: JSON.stringify(body) });
 
 export const updateTrackingLink = (id: string, body: any) =>
   apiFetch(`/tracking-links/${id}`, { method: "PUT", body: JSON.stringify(body) });
@@ -109,6 +114,77 @@ export const getAdSpend = (filters?: { campaign_id?: string; date_from?: string;
   apiFetch(`/ad-spend${buildQuery({ campaign_id: filters?.campaign_id, date_from: filters?.date_from, date_to: filters?.date_to })}`);
 export const addAdSpend = (body: any) => apiFetch("/ad-spend", { method: "POST", body: JSON.stringify(body) });
 export const deleteAdSpend = (id: string) => apiFetch(`/ad-spend/${id}`, { method: "DELETE" });
+
+// ─── Campaigns ───────────────────────────────────────────────────────────────
+export const getCampaigns = () => apiFetch("/campaigns");
+export const createCampaign = (body: any) => apiFetch("/campaigns", { method: "POST", body: JSON.stringify(body) });
+export const updateCampaign = (id: string, body: any) => apiFetch(`/campaigns/${id}`, { method: "PUT", body: JSON.stringify(body) });
+export const deleteCampaign = (id: string) => apiFetch(`/campaigns/${id}`, { method: "DELETE" });
+
+// ─── Daily Snapshots extended ─────────────────────────────────────────────────
+export const getSnapshotLatestDate = (account_id?: string) =>
+  apiFetch<{ date: string | null }>(`/daily-snapshots/latest-date${account_id ? `?account_id=${account_id}` : ""}`);
+export const getSnapshotEarliestDate = () =>
+  apiFetch<{ date: string | null }>("/daily-snapshots/earliest-date");
+export const getSnapshotDistinctDates = (limit = 10) =>
+  apiFetch<string[]>(`/daily-snapshots/distinct-dates?limit=${limit}`);
+export const getSnapshotsByDateRange = (params: {
+  date_from?: string;
+  date_to?: string;
+  account_ids?: string[];
+  tracking_link_ids?: string[];
+  cols?: "slim";
+}) =>
+  apiFetch(`/daily-snapshots${buildQuery({
+    date_from: params.date_from,
+    date_to: params.date_to,
+    account_ids: params.account_ids?.join(","),
+    tracking_link_ids: params.tracking_link_ids?.join(","),
+    cols: params.cols,
+  })}`);
+
+// ─── OnlyTraffic Orders ────────────────────────────────────────────────────────
+export const getOnlytrafficOrders = (params?: {
+  tracking_link_ids?: string[];
+  date_from?: string;
+  date_to?: string;
+  statuses?: string[];
+  active_only?: boolean;
+  marketer?: string;
+  offer_id?: string;
+}) =>
+  apiFetch(`/onlytraffic-orders${buildQuery({
+    tracking_link_ids: params?.tracking_link_ids?.join(","),
+    date_from: params?.date_from,
+    date_to: params?.date_to,
+    statuses: params?.statuses?.join(","),
+    active_only: params?.active_only ? "true" : undefined,
+    marketer: params?.marketer,
+    offer_id: params?.offer_id,
+  })}`);
+export const getUnmatchedOrders = () => apiFetch("/onlytraffic-orders/unmatched");
+
+// ─── Tracking Link bulk update ────────────────────────────────────────────────
+export const bulkUpdateTrackingLinks = (updates: { id: string; [key: string]: any }[]) =>
+  apiFetch("/tracking-links/bulk-update", { method: "POST", body: JSON.stringify(updates) });
+
+// ─── Fans ─────────────────────────────────────────────────────────────────────
+export const getFans = (account_id?: string) =>
+  apiFetch(`/fans${account_id ? `?account_id=${account_id}` : ""}`);
+export const getFanCount = (account_id?: string) =>
+  apiFetch<{ count: number }>(`/fans/count${account_id ? `?account_id=${account_id}` : ""}`);
+export const getFanAttributionCounts = () =>
+  apiFetch<Record<string, number>>("/fans/attribution-counts");
+export const getFanSpenders = () => apiFetch("/fans/spenders");
+
+// ─── Manual Notes ─────────────────────────────────────────────────────────────
+export const getManualNotes = () => apiFetch("/manual-notes");
+export const createManualNote = (body: any) =>
+  apiFetch("/manual-notes", { method: "POST", body: JSON.stringify(body) });
+export const updateManualNote = (id: string, body: any) =>
+  apiFetch(`/manual-notes/${id}`, { method: "PUT", body: JSON.stringify(body) });
+export const deleteManualNote = (id: string) =>
+  apiFetch(`/manual-notes/${id}`, { method: "DELETE" });
 
 // ─── Debug ────────────────────────────────────────────────────────────────────
 export const debugCallEndpoint = (url: string) =>

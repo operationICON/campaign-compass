@@ -22,7 +22,6 @@ import {
   clearTrackingLinkSpend, fetchAccounts, fetchDailyMetrics,
   setTrackingLinkSourceTag, fetchTrackingLinkLtv,
 } from "@/lib/supabase-helpers";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
@@ -270,17 +269,6 @@ export default function CampaignsPage() {
   
   const tagColorMap = useTagColors();
 
-  // ─── Realtime ───
-  useEffect(() => {
-    const channel = supabase
-      .channel('campaigns-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tracking_links' }, () => {
-        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-        queryClient.invalidateQueries({ queryKey: ["tracking_link_ltv"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
 
   // ─── Deep-link from /campaigns?id=<tracking_link_id> (e.g. AlertsPage View button) ───
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { tracking_links, accounts } from "../db/schema.js";
+import { tracking_links, accounts, campaigns } from "../db/schema.js";
 import { eq, isNull, desc, inArray, sql, and } from "drizzle-orm";
 
 const router = new Hono();
@@ -28,6 +28,33 @@ router.get("/", async (c) => {
     .orderBy(desc(tracking_links.revenue));
 
   return c.json(rows);
+});
+
+// POST /tracking-links — create new (finds/creates campaign automatically)
+router.post("/", async (c) => {
+  const body = await c.req.json();
+  const { account_id, campaign_name, campaign_id: providedCampaignId, ...rest } = body;
+
+  let campaignId = providedCampaignId;
+  if (!campaignId && account_id && campaign_name) {
+    const existing = await db.select({ id: campaigns.id })
+      .from(campaigns)
+      .where(and(eq(campaigns.account_id, account_id), eq(campaigns.name, campaign_name)))
+      .limit(1);
+    if (existing.length > 0) {
+      campaignId = existing[0].id;
+    } else {
+      const [newCamp] = await db.insert(campaigns)
+        .values({ account_id, name: campaign_name, status: "active" })
+        .returning({ id: campaigns.id });
+      campaignId = newCamp.id;
+    }
+  }
+
+  const [row] = await db.insert(tracking_links)
+    .values({ account_id, campaign_name, campaign_id: campaignId, ...rest })
+    .returning();
+  return c.json(row, 201);
 });
 
 router.get("/:id", async (c) => {
@@ -58,6 +85,16 @@ router.patch("/:id/source-tag", async (c) => {
     .where(eq(tracking_links.id, c.req.param("id")))
     .returning();
   return c.json(row);
+});
+
+// POST /tracking-links/bulk-update — [{id, ...fields}]
+router.post("/bulk-update", async (c) => {
+  const updates: { id: string; [key: string]: any }[] = await c.req.json();
+  for (const { id, ...fields } of updates) {
+    if (!id) continue;
+    await db.update(tracking_links).set({ ...fields, updated_at: new Date() }).where(eq(tracking_links.id, id));
+  }
+  return c.json({ updated: updates.length });
 });
 
 // PATCH /tracking-links/bulk-source-tag

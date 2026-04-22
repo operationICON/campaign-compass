@@ -5,6 +5,10 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import accountsRouter from "./routes/accounts.js";
+import campaignsRouter from "./routes/campaigns.js";
+import onlytrafficOrdersRouter from "./routes/onlytraffic-orders.js";
+import fansRouter from "./routes/fans.js";
+import manualNotesRouter from "./routes/manual-notes.js";
 import trackingLinksRouter from "./routes/tracking-links.js";
 import syncLogsRouter from "./routes/sync-logs.js";
 import alertsRouter from "./routes/alerts.js";
@@ -39,6 +43,10 @@ app.use("*", logger());
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 
 app.route("/accounts", accountsRouter);
+app.route("/campaigns", campaignsRouter);
+app.route("/onlytraffic-orders", onlytrafficOrdersRouter);
+app.route("/fans", fansRouter);
+app.route("/manual-notes", manualNotesRouter);
 app.route("/tracking-links", trackingLinksRouter);
 app.route("/sync-logs", syncLogsRouter);
 app.route("/alerts", alertsRouter);

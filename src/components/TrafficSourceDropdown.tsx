@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getTrafficSources, createTrafficSource } from "@/lib/api";
 import { toast } from "sonner";
 
 interface TrafficSourceDropdownProps {
@@ -10,14 +10,6 @@ interface TrafficSourceDropdownProps {
   className?: string;
 }
 
-async function fetchTrafficSources() {
-  const { data, error } = await supabase
-    .from("traffic_sources")
-    .select("*")
-    .order("name");
-  if (error) throw error;
-  return data || [];
-}
 
 export function TrafficSourceDropdown({ value, trafficSourceId, onSave, className }: TrafficSourceDropdownProps) {
   const queryClient = useQueryClient();
@@ -34,7 +26,7 @@ export function TrafficSourceDropdown({ value, trafficSourceId, onSave, classNam
 
   const { data: sources = [] } = useQuery({
     queryKey: ["traffic_sources"],
-    queryFn: fetchTrafficSources,
+    queryFn: getTrafficSources,
   });
 
   useEffect(() => {
@@ -65,17 +57,7 @@ export function TrafficSourceDropdown({ value, trafficSourceId, onSave, classNam
     setSaving(true);
     try {
       const keywords = newKeywords.split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
-      const { data, error } = await supabase
-        .from("traffic_sources")
-        .insert({
-          name: newName.trim(),
-          category: "Manual",
-          keywords,
-          color: "#0891b2",
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await createTrafficSource({ name: newName.trim(), category: "Manual", keywords, color: "#0891b2" });
       queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
       setCreating(false);
       setNewName("");

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSnapshotsByDateRange } from "@/lib/api";
 import { ArrowUp, ArrowDown } from "lucide-react";
 
 interface Snap {
@@ -87,13 +87,8 @@ export function CampaignGrowthTable({
   const { data: snaps = [], isLoading } = useQuery({
     queryKey: ["daily_snapshots_growth_table", trackingLinkId],
     queryFn: async (): Promise<Snap[]> => {
-      const { data, error } = await supabase
-        .from("daily_snapshots")
-        .select("snapshot_date, subscribers, clicks, revenue")
-        .eq("tracking_link_id", trackingLinkId)
-        .order("snapshot_date", { ascending: true });
-      if (error) throw error;
-      return (data || []).map((r: any) => ({
+      const rows = await getSnapshotsByDateRange({ tracking_link_ids: [trackingLinkId] });
+      return (rows || []).map((r: any) => ({
         snapshot_date: r.snapshot_date,
         subscribers: Number(r.subscribers || 0),
         clicks: Number(r.clicks || 0),

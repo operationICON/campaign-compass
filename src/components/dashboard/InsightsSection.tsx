@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getFanAttributionCounts } from "@/lib/api";
 import { Info } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
 
@@ -173,13 +173,7 @@ export function InsightsSection({
   // ── LTV PER MODEL ──
   const { data: fanCounts = {} } = useQuery({
     queryKey: ["fan_attribution_counts"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("fan_attributions").select("account_id");
-      if (error) throw error;
-      const counts: Record<string, number> = {};
-      (data || []).forEach((row: any) => { counts[row.account_id] = (counts[row.account_id] || 0) + 1; });
-      return counts;
-    },
+    queryFn: getFanAttributionCounts,
     staleTime: 60000,
   });
 

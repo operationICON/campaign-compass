@@ -8,7 +8,7 @@ import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlid
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
-import { supabase } from "@/integrations/supabase/client";
+import { getSnapshotsByDateRange } from "@/lib/api";
 import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
@@ -279,26 +279,14 @@ export default function DashboardPage() {
   const { data: todaySnapshots = [] } = useQuery({
     queryKey: ["daily_snapshots", "today", todayStr, agencyAccountIds?.join(",") ?? "all"],
     queryFn: async () => {
-      let q = supabase.from("daily_snapshots")
-        .select("tracking_link_id, clicks, subscribers, revenue")
-        .eq("snapshot_date", todayStr);
-      if (agencyAccountIds?.length) q = q.in("account_id", agencyAccountIds);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
+      return getSnapshotsByDateRange({ date_from: todayStr, date_to: todayStr, account_ids: agencyAccountIds ?? undefined, cols: "slim" });
     },
   });
 
   const { data: lastWeekSnapshots = [] } = useQuery({
     queryKey: ["daily_snapshots", "lastweek", lastWeekStr, agencyAccountIds?.join(",") ?? "all"],
     queryFn: async () => {
-      let q = supabase.from("daily_snapshots")
-        .select("tracking_link_id, clicks, subscribers, revenue")
-        .eq("snapshot_date", lastWeekStr);
-      if (agencyAccountIds?.length) q = q.in("account_id", agencyAccountIds);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
+      return getSnapshotsByDateRange({ date_from: lastWeekStr, date_to: lastWeekStr, account_ids: agencyAccountIds ?? undefined, cols: "slim" });
     },
   });
 
@@ -320,15 +308,6 @@ export default function DashboardPage() {
     onError: (err: any) => toast.error(`Sync failed: ${err.message}`, { id: 'sync-progress' }),
   });
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('dashboard-rt')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tracking_links' }, () => {
-        queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
 
   const lastSynced = useMemo(() => {
     const syncTimes = accounts.map((a: any) => a.last_synced_at).filter(Boolean).sort().reverse();

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchSyncLogs, fetchAccounts, triggerSync } from "@/lib/supabase-helpers";
-import { supabase } from "@/integrations/supabase/client";
+import { streamSync } from "@/lib/api";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2,
@@ -87,13 +87,10 @@ export default function LogsPage() {
   const abortRefs = useRef<Record<string, AbortController>>({});
 
   useEffect(() => {
-    const channel = supabase
-      .channel("sync_logs_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sync_logs" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const id = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+    }, 10000);
+    return () => clearInterval(id);
   }, [queryClient]);
 
   // Classify all logs
@@ -201,48 +198,12 @@ export default function LogsPage() {
     setRunning(r => ({ ...r, snapshot: true }));
     setProgress(p => ({ ...p, snapshot: "Starting..." }));
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/sync-snapshots`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${supabaseKey}`,
-          "apikey": supabaseKey,
-        },
-        body: JSON.stringify({ triggered_by: "manual" }),
-        signal: ctrl.signal,
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Snapshot sync failed: ${errText}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let lastData: any = null;
-
-      if (reader) {
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                lastData = data;
-                if (data.message) setProgress(p => ({ ...p, snapshot: data.message }));
-              } catch {}
-            }
-          }
-        }
-      }
+      const lastData = await streamSync(
+        "/sync/snapshots",
+        { triggered_by: "manual" },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, snapshot: msg })); },
+        ctrl.signal,
+      );
 
       if (ctrl.signal.aborted) return;
       toast.success(`Snapshot sync complete — ${lastData?.snapshots_saved ?? 0} snapshots saved`);
@@ -264,48 +225,12 @@ export default function LogsPage() {
     setRunning(r => ({ ...r, onlytraffic: true }));
     setProgress(p => ({ ...p, onlytraffic: "Starting..." }));
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/sync-onlytraffic`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${supabaseKey}`,
-          "apikey": supabaseKey,
-        },
-        body: JSON.stringify({ triggered_by: "manual" }),
-        signal: ctrl.signal,
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`OnlyTraffic sync failed: ${errText}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let lastData: any = null;
-
-      if (reader) {
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                lastData = data;
-                if (data.message) setProgress(p => ({ ...p, onlytraffic: data.message }));
-              } catch {}
-            }
-          }
-        }
-      }
+      const lastData = await streamSync(
+        "/sync/onlytraffic",
+        { triggered_by: "manual" },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, onlytraffic: msg })); },
+        ctrl.signal,
+      );
 
       if (ctrl.signal.aborted) return;
       const linksUpdated = lastData?.links_updated ?? 0;

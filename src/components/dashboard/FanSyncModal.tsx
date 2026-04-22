@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -106,11 +106,10 @@ export function FanSyncModal({ open, onOpenChange }: { open: boolean; onOpenChan
       setCurrentLink(link);
 
       try {
-        const res = await supabase.functions.invoke("sync-fans", {
-          body: { tracking_link_id: link.id, account_id: link.account_id },
-        });
-
-        const data = res.data;
+        const data = await apiFetch("/fans/sync", {
+          method: "POST",
+          body: JSON.stringify({ tracking_link_id: link.id, account_id: link.account_id }),
+        }).catch((e: any) => ({ success: false, error: e.message }));
         if (data?.success) {
           fans += (data.subscribers_synced || 0);
           newResults.push({

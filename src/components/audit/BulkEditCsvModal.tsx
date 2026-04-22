@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, Upload, FileText, CheckCircle2, XCircle, ArrowRight, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { updateTrackingLink } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Props {
@@ -120,7 +120,7 @@ export function BulkEditCsvModal({ open, onClose, onComplete, trackingLinks, acc
 
       try {
         if (row.action === "delete") {
-          await supabase.from("tracking_links").update({ deleted_at: new Date().toISOString() } as any).eq("id", row.matchedId);
+          await updateTrackingLink(row.matchedId, { deleted_at: new Date().toISOString() });
           deleted++;
         } else if (row.action === "update") {
           const updates: any = {};
@@ -128,7 +128,7 @@ export function BulkEditCsvModal({ open, onClose, onComplete, trackingLinks, acc
           if (row.spend_type) updates.cost_type = row.spend_type;
           if (row.cost_value) updates.cost_value = Number(row.cost_value);
           if (Object.keys(updates).length > 0) {
-            await supabase.from("tracking_links").update(updates).eq("id", row.matchedId);
+            await updateTrackingLink(row.matchedId, updates);
             updated++;
           }
         }

@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSnapshotLatestDate, getSnapshotDistinctDates, getSnapshotsByDateRange } from "@/lib/api";
 import type { TimePeriod } from "./usePageFilters";
 
 export interface SnapshotMetrics {
   clicks: number;
   subscribers: number;
   revenue: number;
-  days: number; // COUNT(DISTINCT snapshot_date) for this link
+  days: number;
 }
 
 interface SnapshotRow {
@@ -15,18 +15,13 @@ interface SnapshotRow {
   snapshot_date: string | null;
   clicks: number | null;
   subscribers: number | null;
-  revenue: number | null;
+  revenue: string | number | null;
 }
 
-function toMetricValue(value: number | null | undefined) {
+function toMetricValue(value: number | string | null | undefined) {
   return Number(value || 0);
 }
 
-/**
- * Builds a lookup map by SUMming incremental daily_snapshot values
- * across the selected date range. Snapshots now store daily deltas,
- * so we simply accumulate them.
- */
 export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string, SnapshotMetrics> {
   const lookup: Record<string, SnapshotMetrics> = {};
   const datesPerLink: Record<string, Set<string>> = {};
@@ -35,22 +30,17 @@ export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string,
     const id = String(row.tracking_link_id ?? "").toLowerCase();
     if (!id) continue;
 
-    const clicks = toMetricValue(row.clicks);
-    const subscribers = toMetricValue(row.subscribers);
-    const revenue = toMetricValue(row.revenue);
-
     if (!lookup[id]) {
       lookup[id] = { clicks: 0, subscribers: 0, revenue: 0, days: 0 };
       datesPerLink[id] = new Set();
     }
 
-    lookup[id].clicks += clicks;
-    lookup[id].subscribers += subscribers;
-    lookup[id].revenue += revenue;
+    lookup[id].clicks += toMetricValue(row.clicks);
+    lookup[id].subscribers += toMetricValue(row.subscribers);
+    lookup[id].revenue += toMetricValue(row.revenue);
     if (row.snapshot_date) datesPerLink[id].add(row.snapshot_date);
   }
 
-  // Set days count from distinct dates
   for (const id of Object.keys(lookup)) {
     lookup[id].days = datesPerLink[id]?.size || 0;
   }
@@ -58,27 +48,6 @@ export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string,
   return lookup;
 }
 
-/**
- * Helper: fetch the server's CURRENT_DATE via a lightweight RPC-style query.
- * Returns YYYY-MM-DD string.
- */
-async function fetchServerDate(): Promise<string> {
-  const { data, error } = await supabase
-    .from("daily_snapshots")
-    .select("snapshot_date")
-    .order("snapshot_date", { ascending: false })
-    .limit(1);
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    return new Date().toISOString().slice(0, 10);
-  }
-  return data[0].snapshot_date;
-}
-
-/**
- * Fetches daily_snapshots for the selected time period and returns
- * a lookup map of tracking_link_id → per-period {clicks, subscribers, revenue, days}
- */
 export function useSnapshotMetrics(
   timePeriod: TimePeriod,
   customRange: { from: Date; to: Date } | null
@@ -101,52 +70,38 @@ export function useSnapshotMetrics(
         fromDate = customRange.from.toISOString().slice(0, 10);
         toDate = customRange.to.toISOString().slice(0, 10);
       } else {
-        const serverMaxDate = await fetchServerDate();
+        const { date: serverMaxDate } = await getSnapshotLatestDate();
+        const maxDate = serverMaxDate ?? new Date().toISOString().slice(0, 10);
 
         switch (timePeriod) {
           case "day": {
-            // "Last Sync" — window between the two most recent DISTINCT snapshot_dates.
-            // Falls back to single-day window if only one sync exists.
-            const { data: distinct } = await supabase
-              .from("daily_snapshots")
-              .select("snapshot_date")
-              .order("snapshot_date", { ascending: false })
-              .limit(500);
-            const seen = new Set<string>();
-            const distinctDates: string[] = [];
-            for (const r of distinct || []) {
-              if (r.snapshot_date && !seen.has(r.snapshot_date)) {
-                seen.add(r.snapshot_date);
-                distinctDates.push(r.snapshot_date);
-                if (distinctDates.length >= 2) break;
-              }
-            }
-            toDate = distinctDates[0] ?? serverMaxDate;
+            const distinctDates = await getSnapshotDistinctDates(2);
+            toDate = distinctDates[0] ?? maxDate;
             fromDate = distinctDates[1] ?? toDate;
             break;
           }
           case "week": {
-            const d = new Date(serverMaxDate + "T00:00:00Z");
+            const d = new Date(maxDate + "T00:00:00Z");
             d.setUTCDate(d.getUTCDate() - 7);
             fromDate = d.toISOString().slice(0, 10);
-            toDate = serverMaxDate;
+            toDate = maxDate;
             break;
           }
           case "month": {
-            const d = new Date(serverMaxDate + "T00:00:00Z");
+            const d = new Date(maxDate + "T00:00:00Z");
             d.setUTCDate(d.getUTCDate() - 30);
             fromDate = d.toISOString().slice(0, 10);
-            const dEnd = new Date(serverMaxDate + "T00:00:00Z");
+            const dEnd = new Date(maxDate + "T00:00:00Z");
             dEnd.setUTCDate(dEnd.getUTCDate() - 1);
             toDate = dEnd.toISOString().slice(0, 10);
             break;
           }
           case "prev_month": {
-            const refDate = new Date(serverMaxDate + "T00:00:00Z");
-            const prevMonthStart = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth() - 1, 1));
-            const prevMonthEnd = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), 0));
-            fromDate = prevMonthStart.toISOString().slice(0, 10);
-            toDate = prevMonthEnd.toISOString().slice(0, 10);
+            const ref = new Date(maxDate + "T00:00:00Z");
+            const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - 1, 1));
+            const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0));
+            fromDate = start.toISOString().slice(0, 10);
+            toDate = end.toISOString().slice(0, 10);
             break;
           }
           default:
@@ -154,39 +109,19 @@ export function useSnapshotMetrics(
         }
       }
 
-      const allRows: any[] = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("daily_snapshots")
-          .select("tracking_link_id, snapshot_date, clicks, subscribers, revenue")
-          .gte("snapshot_date", fromDate)
-          .lte("snapshot_date", toDate)
-          .range(rangeFrom, rangeFrom + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-      }
-      return allRows;
+      return getSnapshotsByDateRange({ date_from: fromDate, date_to: toDate, cols: "slim" });
     },
     enabled: !isAllTime,
   });
 
   const snapshotLookup = useMemo<Record<string, SnapshotMetrics> | null>(() => {
     if (isAllTime) return null;
-    return buildSnapshotLookup(snapshotRows);
+    return buildSnapshotLookup(snapshotRows as SnapshotRow[]);
   }, [snapshotRows, isAllTime]);
 
   return { snapshotLookup, isAllTime, isLoading };
 }
 
-/**
- * Helper: get metrics for a link, using snapshot data if available,
- * otherwise falling back to the tracking_links row totals.
- */
 export function getSnapshotMetrics(
   link: any,
   snapshotLookup: Record<string, SnapshotMetrics> | null
@@ -203,15 +138,11 @@ export function getSnapshotMetrics(
   return snapshotLookup[id] || { clicks: 0, subscribers: 0, revenue: 0, days: 0 };
 }
 
-/**
- * Returns a new array of links with clicks/subscribers/revenue
- * replaced by snapshot-period delta values. For "All Time" returns links unchanged.
- */
 export function applySnapshotToLinks(
   links: any[],
   snapshotLookup: Record<string, SnapshotMetrics> | null
 ): any[] {
-  if (!snapshotLookup) return links; // All Time — use originals
+  if (!snapshotLookup) return links;
   return links.map(l => {
     const m = getSnapshotMetrics(l, snapshotLookup);
     return { ...l, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue, snapshotDays: m.days };

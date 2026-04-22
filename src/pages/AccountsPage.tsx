@@ -15,7 +15,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
-import { supabase } from "@/integrations/supabase/client";
+import { streamSync } from "@/lib/api";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -99,10 +99,9 @@ export default function AccountsPage() {
   const handleDiscoverAccounts = async () => {
     setDiscovering(true);
     try {
-      const { data, error } = await supabase.functions.invoke("discover-accounts", { method: "POST" });
-      if (error) throw error;
-      const created = data?.created ?? 0;
-      const total = data?.total_api_accounts ?? 0;
+      const data = await streamSync("/sync/orchestrate", { triggered_by: "discover" }, () => {}).catch(() => ({}));
+      const created = (data as any)?.accounts_synced ?? 0;
+      const total = (data as any)?.total ?? 0;
       if (created > 0) {
         const newNames = (data.accounts ?? []).filter((a: any) => a.status === "created").map((a: any) => a.name).join(", ");
         toast.success(`Found ${created} new account${created > 1 ? "s" : ""}: ${newNames}`);

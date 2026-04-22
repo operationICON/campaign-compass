@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { supabase } from "@/integrations/supabase/client";
+import { debugCallEndpoint, getAccounts } from "@/lib/api";
 import { Bug, Send, Loader2 } from "lucide-react";
 import { CreditMonitor } from "@/components/debug/CreditMonitor";
 import { EndpointLibrary } from "@/components/debug/EndpointLibrary";
@@ -18,25 +18,15 @@ export default function DebugPage() {
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
-    queryFn: async () => {
-      const { data } = await supabase.from("accounts").select("id, display_name, username, onlyfans_account_id");
-      return data ?? [];
-    },
+    queryFn: getAccounts,
   });
 
   const callEndpoint = useCallback(async (url: string) => {
     setLoading(true);
     try {
       const start = Date.now();
-      // All OF API calls go through the edge function — key never reaches the browser
-      const { data: proxyData, error: proxyError } = await supabase.functions.invoke("debug-api", {
-        body: { action: "call_endpoint", url },
-      });
+      const bodyParsed = await debugCallEndpoint(url);
       const responseTimeMs = Date.now() - start;
-
-      if (proxyError) throw new Error(proxyError.message);
-
-      const bodyParsed = proxyData;
       const res = { status: bodyParsed?.status ?? 200, statusText: bodyParsed?.status_text ?? "OK" };
 
       const creditsUsed = bodyParsed?.body?._meta?._credits?.used ?? null;

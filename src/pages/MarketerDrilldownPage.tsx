@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getAccounts } from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -110,10 +110,7 @@ export default function MarketerDrilldownPage() {
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
-    queryFn: async () => {
-      const { data } = await supabase.from("accounts").select("id, username, display_name, avatar_thumb_url, avatar_url").order("display_name");
-      return data || [];
-    },
+    queryFn: getAccounts,
   });
 
   const sourceLabel = useMemo(() => {

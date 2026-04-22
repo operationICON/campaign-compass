@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getTrafficSources, updateTrackingLink, createTrackingLink } from "@/lib/api";
 import { toast } from "sonner";
 import { X, ChevronUp } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
@@ -67,11 +67,7 @@ export function TrackingLinkPanel({ open, onClose, editLink, accounts }: Trackin
 
   const { data: trafficSources = [] } = useQuery({
     queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("traffic_sources").select("*").order("name");
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: getTrafficSources,
   });
 
   useEffect(() => {
@@ -145,7 +141,7 @@ export function TrackingLinkPanel({ open, onClose, editLink, accounts }: Trackin
       const sourceName = trafficSources.find((s: any) => s.id === trafficSourceId)?.name || null;
 
       if (isEdit) {
-        const { error } = await supabase.from("tracking_links").update({
+        await updateTrackingLink(editLink.id, {
           url: url.trim(),
           campaign_name: campaignName.trim(),
           account_id: accountId,
@@ -155,31 +151,12 @@ export function TrackingLinkPanel({ open, onClose, editLink, accounts }: Trackin
           cost_value: costValue,
           cost_total: costTotal,
           external_tracking_link_id: externalId || null,
-        } as any).eq("id", editLink.id);
-        if (error) throw error;
+        });
         toast.success("Tracking link updated");
       } else {
-        let campaignId: string;
-        const { data: existingCampaign } = await supabase
-          .from("campaigns").select("id")
-          .eq("account_id", accountId).eq("name", campaignName.trim())
-          .maybeSingle();
-
-        if (existingCampaign) {
-          campaignId = existingCampaign.id;
-        } else {
-          const { data: newCampaign, error: campErr } = await supabase
-            .from("campaigns")
-            .insert({ account_id: accountId, name: campaignName.trim(), status: "active" })
-            .select("id").single();
-          if (campErr) throw campErr;
-          campaignId = newCampaign.id;
-        }
-
-        const { error } = await supabase.from("tracking_links").insert({
+        await createTrackingLink({
           url: url.trim(),
           campaign_name: campaignName.trim(),
-          campaign_id: campaignId,
           account_id: accountId,
           traffic_source_id: trafficSourceId || null,
           source_tag: sourceName,
@@ -189,7 +166,6 @@ export function TrackingLinkPanel({ open, onClose, editLink, accounts }: Trackin
           cost_total: costTotal,
           external_tracking_link_id: externalId || null,
         });
-        if (error) throw error;
         toast.success("Tracking link created");
       }
 

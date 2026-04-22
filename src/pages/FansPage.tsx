@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -141,13 +141,13 @@ export default function FansPage() {
     if (!selectedAccount) return;
     setModelRefreshing(true);
     try {
-      const { error } = await supabase.functions.invoke("refresh-chatting-team", {
-        body: {
+      await apiFetch("/fans/refresh", {
+        method: "POST",
+        body: JSON.stringify({
           account_id: selectedAccount.id,
           external_account_id: (selectedAccount as any).onlyfans_account_id,
-        },
+        }),
       });
-      if (error) throw error;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["chatting_team_new_fans"] }),
         queryClient.invalidateQueries({ queryKey: ["chatting_team_chats"] }),

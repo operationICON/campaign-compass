@@ -5,7 +5,6 @@ import {
 } from "lucide-react";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { ModelAvatar } from "@/components/ModelAvatar";
-import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";

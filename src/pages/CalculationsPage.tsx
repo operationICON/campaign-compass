@@ -4,7 +4,7 @@ import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMet
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getAccounts, apiFetch } from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -59,26 +59,14 @@ async function fetchAllLtv() {
   return all;
 }
 
-async function fetchAccounts() {
-  const { data, error } = await supabase.from("accounts").select("id, display_name, subscribers_count");
-  if (error) throw error;
-  return data || [];
-}
-
 async function fetchFansCount() {
-  const { count, error } = await supabase.from("fans").select("*", { count: "exact", head: true });
-  if (error) throw error;
-  return count ?? 0;
+  const data: any[] = await apiFetch("/fans");
+  return data.length;
 }
 
 async function fetchLastSync() {
-  const { data, error } = await supabase
-    .from("tracking_link_ltv")
-    .select("updated_at")
-    .order("updated_at", { ascending: false })
-    .limit(1);
-  if (error) throw error;
-  return data?.[0]?.updated_at ?? null;
+  const data: any[] = await apiFetch("/tracking-link-ltv");
+  return data.sort((a, b) => (b.updated_at > a.updated_at ? 1 : -1))[0]?.updated_at ?? null;
 }
 
 async function fetchExampleCampaigns() {
@@ -146,7 +134,7 @@ export default function CalculationsPage() {
   );
   const { data: accounts = [] as any[] } = useQuery({
     queryKey: ["calc_accounts"],
-    queryFn: fetchAccounts,
+    queryFn: getAccounts,
   });
   const { data: fansCount = 0 } = useQuery({
     queryKey: ["calc_fans_count"],

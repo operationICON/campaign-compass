@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { supabase } from "@/integrations/supabase/client";
+import { updateTrackingLink } from "@/lib/api";
 import { toast } from "sonner";
 import { Download, Upload, FileUp, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { differenceInDays } from "date-fns";
@@ -200,9 +200,8 @@ export function CsvCostImportModal({ open, onClose, onComplete, trackingLinks }:
         Number(link.revenue || 0), link.created_at
       );
 
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({
+      try {
+        await updateTrackingLink(link.id, {
           cost_type: costType,
           cost_value: costValue,
           cost_total: metrics.cost_total,
@@ -214,14 +213,11 @@ export function CsvCostImportModal({ open, onClose, onComplete, trackingLinks }:
           roi: metrics.roi,
           status: metrics.status,
           calculated_at: new Date().toISOString(),
-        })
-        .eq("id", link.id);
-
-      if (error) {
-        console.error(`Failed to update ${row.campaign_name}:`, error);
-        skipped++;
-      } else {
+        });
         imported++;
+      } catch (err) {
+        console.error(`Failed to update ${row.campaign_name}:`, err);
+        skipped++;
       }
 
       setProgress(Math.round(((i + 1) / toImport.length) * 100));

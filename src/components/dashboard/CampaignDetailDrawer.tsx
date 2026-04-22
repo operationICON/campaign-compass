@@ -13,7 +13,11 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getTrackingLink, updateTrackingLink, deleteTrackingLink,
+  getTrafficSources, createTrafficSource, deleteTrafficSource,
+  getAccounts, getOnlytrafficOrders,
+} from "@/lib/api";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -85,19 +89,12 @@ function DrawerBodyInner({
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ["accounts_list"],
-    queryFn: async () => {
-      const { data } = await supabase.from("accounts").select("id, display_name, avatar_thumb_url, username").eq("is_active", true).order("display_name");
-      return data || [];
-    },
+    queryFn: getAccounts,
   });
 
   const { data: sourceTags = [] } = useQuery({
     queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data } = await supabase.from("traffic_sources")
-        .select("id, name, color").order("name");
-      return data || [];
-    },
+    queryFn: getTrafficSources,
   });
 
   const syncDrawerState = (nextCampaign: any) => {
@@ -119,14 +116,7 @@ function DrawerBodyInner({
   });
 
   const fetchTrackingLink = async (linkId: string) => {
-    const { data, error } = await supabase
-      .from("tracking_links")
-      .select("*, accounts(display_name, username, avatar_thumb_url)")
-      .eq("id", linkId)
-      .single();
-
-    if (error) throw error;
-    return data;
+    return getTrackingLink(linkId);
   };
 
   useEffect(() => {
@@ -204,13 +194,12 @@ function DrawerBodyInner({
     setActionSaving(true);
     try {
       const selected = sourceTags.find((t: any) => t.name === sourceVal);
-      const { error } = await supabase.from("tracking_links").update({
+      await updateTrackingLink(d.id, {
         source_tag: sourceVal || null,
-        traffic_source_id: selected?.id || null,
+        traffic_source_id: (selected as any)?.id || null,
         manually_tagged: true,
-        traffic_category: "Manual"
-      }).eq("id", d.id);
-      if (error) throw error;
+        traffic_category: "Manual",
+      });
 
       await refetchTrackingLinkAndSync();
 
@@ -319,8 +308,7 @@ function DrawerBodyInner({
     try {
       const baseLink = await fetchTrackingLink(d.id);
       const spendPayload = getSpendPayload(baseLink);
-      const { error } = await supabase.from("tracking_links").update(spendPayload).eq("id", d.id);
-      if (error) throw error;
+      await updateTrackingLink(d.id, spendPayload);
 
       await refetchTrackingLinkAndSync(baseLink);
       toast.success("Spend saved");
@@ -333,8 +321,7 @@ function DrawerBodyInner({
   const confirmDelete = async () => {
     setActionSaving(true);
     try {
-      const { error } = await supabase.from("tracking_links").update({ deleted_at: new Date().toISOString() }).eq("id", d.id);
-      if (error) throw error;
+      await deleteTrackingLink(d.id);
       removeCachedLink(d.id);
       toast.success("Campaign deleted");
       refreshAll();
@@ -454,7 +441,7 @@ function DrawerBodyInner({
                       cpc_real: null,
                       status: 'NO_SPEND',
                     };
-                    await supabase.from("tracking_links").update(clearedSpend).eq("id", d.id);
+                    await updateTrackingLink(d.id, clearedSpend);
                     await refetchTrackingLinkAndSync();
                     toast.success("Spend cleared");
                     await refreshAll();
@@ -502,20 +489,18 @@ function DrawerBodyInner({
                     if (exists) { toast.info(`"${trimmed}" already exists`); return; }
                     setActionSaving(true);
                     try {
-                      const { data, error } = await supabase.from("traffic_sources").insert({
+                      const data = await createTrafficSource({
                         name: trimmed,
                         category: "Manual",
                         color: "#0891b2",
                         keywords: [],
-                      }).select().single();
-                      if (error) throw error;
-                      // Also assign to the tracking link
-                      await supabase.from("tracking_links").update({
+                      });
+                      await updateTrackingLink(d.id, {
                         source_tag: data.name,
                         traffic_source_id: data.id,
                         manually_tagged: true,
                         traffic_category: "Manual",
-                      }).eq("id", d.id);
+                      });
 
                       await refetchTrackingLinkAndSync();
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
@@ -537,14 +522,7 @@ function DrawerBodyInner({
                     if (!src) { toast.error("Source not found in list"); return; }
                     setActionSaving(true);
                     try {
-                      // Clear source from any tracking links referencing this source
-                      await supabase.from("tracking_links").update({
-                        source_tag: null,
-                        traffic_source_id: null,
-                        manually_tagged: false,
-                      }).eq("traffic_source_id", src.id);
-                      const { error } = await supabase.from("traffic_sources").delete().eq("id", src.id);
-                      if (error) throw error;
+                      await deleteTrafficSource(src.id);
                       if (d.traffic_source_id === src.id || d.source_tag === src.name) await refetchTrackingLinkAndSync();
                       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
                       await refreshTrackingQueries();
@@ -631,12 +609,11 @@ function DrawerBodyInner({
                 onClick={async () => {
                   setActionSaving(true);
                   try {
-                    const { error } = await supabase.from("tracking_links").update({
+                    await updateTrackingLink(d.id, {
                       campaign_name: editCampaignName.trim(),
                       url: editUrl.trim(),
                       account_id: editAccountId,
-                    } as any).eq("id", d.id);
-                    if (error) throw error;
+                    });
 
                     await refetchTrackingLinkAndSync();
 
@@ -740,12 +717,10 @@ function OrderHistorySection({ campaignId, cappedSpend }: { campaignId: string; 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["onlytraffic_orders", campaignId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("onlytraffic_orders")
-        .select("*")
-        .eq("tracking_link_id", campaignId)
-        .order("order_created_at", { ascending: false });
-      return data || [];
+      const data = await getOnlytrafficOrders({ tracking_link_ids: [campaignId] });
+      return (data || []).sort((a: any, b: any) =>
+        new Date(b.order_created_at || 0).getTime() - new Date(a.order_created_at || 0).getTime()
+      );
     },
   });
 

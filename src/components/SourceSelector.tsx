@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getTrafficSources, createTrafficSource, updateTrackingLink } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
@@ -32,13 +32,7 @@ export function SourceSelector({
 
   const { data: sources = [] } = useQuery({
     queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("traffic_sources")
-        .select("id, name")
-        .order("name");
-      return data || [];
-    },
+    queryFn: getTrafficSources,
   });
 
   const invalidateAll = () => {
@@ -55,27 +49,18 @@ export function SourceSelector({
       let sourceId: string;
 
       if (existing) {
-        sourceId = existing.id;
+        sourceId = (existing as any).id;
       } else {
-        const { data, error } = await supabase
-          .from("traffic_sources")
-          .insert({ name })
-          .select("id")
-          .single();
-        if (error) throw error;
-        sourceId = data.id;
+        const created = await createTrafficSource({ name });
+        sourceId = created.id;
       }
 
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({
-          source_tag: name,
-          traffic_source_id: sourceId,
-          manually_tagged: true,
-          traffic_category: "Manual",
-        })
-        .eq("id", trackingLinkId);
-      if (error) throw error;
+      await updateTrackingLink(trackingLinkId, {
+        source_tag: name,
+        traffic_source_id: sourceId,
+        manually_tagged: true,
+        traffic_category: "Manual",
+      });
 
       toast.success("Saved");
       invalidateAll();
@@ -89,15 +74,11 @@ export function SourceSelector({
   const handleClear = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({
-          source_tag: null,
-          traffic_source_id: null,
-          manually_tagged: false,
-        })
-        .eq("id", trackingLinkId);
-      if (error) throw error;
+      await updateTrackingLink(trackingLinkId, {
+        source_tag: null,
+        traffic_source_id: null,
+        manually_tagged: false,
+      });
       setSourceName("");
       toast.success("Cleared");
       invalidateAll();

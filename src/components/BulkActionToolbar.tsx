@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getTrafficSources, bulkSetSourceTag, bulkUpdateTrackingLinks } from "@/lib/api";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 
@@ -30,10 +30,7 @@ export function BulkActionToolbar({
 
   const { data: sources = [] } = useQuery({
     queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data } = await supabase.from("traffic_sources").select("*").order("name");
-      return data || [];
-    },
+    queryFn: getTrafficSources,
     enabled: actions.includes("assign_source"),
   });
 
@@ -43,15 +40,7 @@ export function BulkActionToolbar({
   const handleAssignSource = async (source: any) => {
     setProcessing(true);
     try {
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({
-          source_tag: source.name,
-          traffic_source_id: source.id,
-          manually_tagged: true,
-        } as any)
-        .in("id", ids);
-      if (error) throw error;
+      await bulkUpdateTrackingLinks(ids.map(id => ({ id, source_tag: source.name, traffic_source_id: source.id, manually_tagged: true })));
       toast.success(`Source assigned to ${count} tracking links`);
       setSourceDropdownOpen(false);
       onComplete();
@@ -66,15 +55,7 @@ export function BulkActionToolbar({
   const handleRemoveSource = async () => {
     setProcessing(true);
     try {
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({
-          source_tag: null,
-          traffic_source_id: null,
-          manually_tagged: false,
-        } as any)
-        .in("id", ids);
-      if (error) throw error;
+      await bulkUpdateTrackingLinks(ids.map(id => ({ id, source_tag: null, traffic_source_id: null, manually_tagged: false })));
       toast.success(`Source removed from ${count} tracking links`);
       setConfirmAction(null);
       onComplete();
@@ -89,11 +70,7 @@ export function BulkActionToolbar({
   const handleDelete = async () => {
     setProcessing(true);
     try {
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({ deleted_at: new Date().toISOString() } as any)
-        .in("id", ids);
-      if (error) throw error;
+      await bulkUpdateTrackingLinks(ids.map(id => ({ id, deleted_at: new Date().toISOString() })));
       toast.success(`${count} tracking links deleted`);
       setConfirmAction(null);
       onComplete();
@@ -108,11 +85,7 @@ export function BulkActionToolbar({
   const handleRestore = async () => {
     setProcessing(true);
     try {
-      const { error } = await supabase
-        .from("tracking_links")
-        .update({ deleted_at: null } as any)
-        .in("id", ids);
-      if (error) throw error;
+      await bulkUpdateTrackingLinks(ids.map(id => ({ id, deleted_at: null })));
       toast.success(`${count} tracking links restored`);
       setConfirmAction(null);
       onComplete();

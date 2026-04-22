@@ -1,28 +1,9 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Bell, CheckCircle, XCircle, AlertTriangle, X } from "lucide-react";
+import { getNotifications, getUnreadCount, markNotificationsRead } from "@/lib/api";
+import { Bell, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-async function fetchNotifications() {
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (error) throw error;
-  return data;
-}
-
-async function fetchUnreadCount() {
-  const { count, error } = await supabase
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("read", false);
-  if (error) throw error;
-  return count ?? 0;
-}
 
 const ICON_MAP: Record<string, { icon: typeof Bell; color: string }> = {
   sync_failed: { icon: XCircle, color: "text-destructive" },
@@ -36,31 +17,26 @@ export function NotificationBell() {
 
   const { data: notifications = [] } = useQuery({
     queryKey: ["notifications"],
-    queryFn: fetchNotifications,
+    queryFn: getNotifications,
+    refetchInterval: 30000,
   });
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["notifications_unread_count"],
-    queryFn: fetchUnreadCount,
+    queryFn: async () => { const r = await getUnreadCount(); return r.count; },
+    refetchInterval: 30000,
   });
 
-  // Realtime subscription
+  // Poll sync_logs for realtime-like updates
   useEffect(() => {
-    const channel = supabase
-      .channel("notifications_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        queryClient.invalidateQueries({ queryKey: ["notifications_unread_count"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "sync_logs" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const id = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+    }, 15000);
+    return () => clearInterval(id);
   }, [queryClient]);
 
   async function markAllRead() {
-    await supabase.from("notifications").update({ read: true }).eq("read", false);
+    await markNotificationsRead();
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
     queryClient.invalidateQueries({ queryKey: ["notifications_unread_count"] });
   }
@@ -90,7 +66,7 @@ export function NotificationBell() {
           {notifications.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">No notifications</div>
           ) : (
-            notifications.map((n: any) => {
+            (notifications as any[]).map((n: any) => {
               const config = ICON_MAP[n.type] || { icon: Bell, color: "text-muted-foreground" };
               const Icon = config.icon;
               return (

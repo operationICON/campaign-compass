@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 
 export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month";
 export type RevenueMode = "gross" | "net";

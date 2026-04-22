@@ -1,0 +1,8 @@
+﻿{
+  "schema": "./src/db/schema.ts",
+  "out": "./drizzle",
+  "dialect": "postgresql",
+  "dbCredentials": {
+    "url": "postgresql://postgres:biIrWliRpyldBjERtQRSDHWWCvQZbKsW@roundhouse.proxy.rlwy.net:35174/railway"
+  }
+}

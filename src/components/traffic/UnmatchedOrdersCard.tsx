@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { AlertTriangle, ArrowUpDown, ChevronDown, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getUnmatchedOrders } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -31,12 +31,8 @@ export function UnmatchedOrdersCard() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["unmatched_orders_list"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("onlytraffic_unmatched_orders")
-        .select("id, order_id, order_type, source, marketer, campaign_url, total_spent, status")
-        .order("total_spent", { ascending: false });
-      if (error) throw error;
-      return (data || []) as Order[];
+      const data = await getUnmatchedOrders();
+      return (data as any[]).sort((a, b) => Number(b.total_spent || 0) - Number(a.total_spent || 0)) as Order[];
     },
   });
 

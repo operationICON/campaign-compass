@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getTrafficSources, createTrafficSource, updateTrackingLink } from "@/lib/api";
 
 interface SourceTagDropdownProps {
   value: string;
@@ -30,11 +30,7 @@ export function SourceTagDropdown({ value, onChange, onSave, className, tracking
 
   const { data: rules = [] } = useQuery({
     queryKey: ["traffic_sources"],
-    queryFn: async () => {
-      const { data } = await supabase.from("traffic_sources")
-        .select("id, name, color").order("name");
-      return data || [];
-    },
+    queryFn: getTrafficSources,
   });
 
   useEffect(() => { setSearch(value); }, [value]);
@@ -57,7 +53,7 @@ export function SourceTagDropdown({ value, onChange, onSave, className, tracking
     if (!search.trim() || filtered.length > 0) return null;
     const q = search.toLowerCase();
     for (const r of rules) {
-      const name = r.name;
+      const name = (r as any).name;
       if (name.toLowerCase() === q) return null;
       if (levenshtein(name.toLowerCase(), q) <= 2) return name;
     }
@@ -74,12 +70,12 @@ export function SourceTagDropdown({ value, onChange, onSave, className, tracking
 
     if (trackingLinkId) {
       const source = rules.find((r: any) => r.name === tagName);
-      await supabase.from("tracking_links").update({
+      await updateTrackingLink(trackingLinkId, {
         source_tag: tagName,
-        traffic_source_id: source?.id || null,
+        traffic_source_id: (source as any)?.id || null,
         manually_tagged: true,
         traffic_category: "Manual",
-      }).eq("id", trackingLinkId);
+      });
       queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
     }
   };
@@ -87,10 +83,11 @@ export function SourceTagDropdown({ value, onChange, onSave, className, tracking
   const handleCreate = async () => {
     const name = search.trim();
     if (!name) return;
-    await supabase.from("traffic_sources").upsert({
-      name: name
-    }, { onConflict: "name" });
-    queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+    const existing = rules.find((r: any) => r.name.toLowerCase() === name.toLowerCase());
+    if (!existing) {
+      await createTrafficSource({ name });
+      queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+    }
     handleSelect(name);
   };
 
@@ -101,7 +98,7 @@ export function SourceTagDropdown({ value, onChange, onSave, className, tracking
         onClick={() => { setOpen(true); inputRef.current?.focus(); }}
       >
         {value && !open && (
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rules.find((r: any) => r.name === value)?.color || "#0891b2" }} />
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: (rules.find((r: any) => r.name === value) as any)?.color || "#0891b2" }} />
         )}
         <input
           ref={inputRef}

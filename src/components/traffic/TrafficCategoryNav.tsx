@@ -15,7 +15,7 @@ import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { supabase } from "@/integrations/supabase/client";
+import { getAccounts, getOnlytrafficOrders } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
@@ -145,23 +145,18 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   // Fetch accounts for dropdown
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
-    queryFn: async () => {
-      const { data } = await supabase.from("accounts").select("id, username, display_name, avatar_thumb_url, onlyfans_account_id, gender_identity").order("display_name");
-      return data || [];
-    },
+    queryFn: getAccounts,
   });
 
   // Fetch distinct marketer combos
   const { data: orderMarketerCombos = [] } = useQuery({
     queryKey: ["onlytraffic_orders_marketer_combos"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("onlytraffic_orders")
-        .select("marketer, source, tracking_link_id, offer_id")
-        .not("marketer", "is", null);
+      const data = await getOnlytrafficOrders();
       if (!data) return [];
+      const filtered = (data as any[]).filter((o: any) => o.marketer != null);
       const comboMap: Record<string, Set<string>> = {};
-      data.forEach((o: any) => {
+      filtered.forEach((o: any) => {
         const key = o.marketer;
         if (!comboMap[key]) comboMap[key] = new Set();
         if (o.tracking_link_id) comboMap[key].add(o.tracking_link_id);
@@ -170,16 +165,15 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
         .map(([label, ids]) => ({ label, trackingLinkIds: Array.from(ids) }))
         .sort((a, b) => a.label.localeCompare(b.label));
     },
+
   });
 
   // Fetch marketer+offer_id per tracking_link_id
   const { data: linkMarketerMap = {} } = useQuery({
     queryKey: ["onlytraffic_orders_link_marketer_map"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("onlytraffic_orders")
-        .select("tracking_link_id, marketer, offer_id, order_id")
-        .not("marketer", "is", null);
+      const raw = await getOnlytrafficOrders();
+      const data = (raw as any[]).filter((o: any) => o.marketer != null);
       if (!data) return {};
       const marketerOffers: Record<string, Set<number>> = {};
       data.forEach((o: any) => {

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAlerts } from "@/lib/supabase-helpers";
-import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Eye, X, Bell, CheckCheck } from "lucide-react";
 import { useState } from "react";
@@ -35,8 +35,7 @@ export default function AlertsPage() {
   const [confirmDismissAll, setConfirmDismissAll] = useState(false);
 
   const dismissAlert = async (id: string) => {
-    const { error } = await supabase.from("alerts").update({ resolved: true, resolved_at: new Date().toISOString() }).eq("id", id);
-    if (error) { toast.error("Failed to dismiss"); return; }
+    await apiFetch(`/alerts/${id}/resolve`, { method: "PATCH" }).catch(() => { toast.error("Failed to dismiss"); return; });
     toast.success("Alert dismissed");
     queryClient.invalidateQueries({ queryKey: ["all_alerts"] });
     queryClient.invalidateQueries({ queryKey: ["alerts"] });

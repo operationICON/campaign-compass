@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSnapshotsByDateRange, getOnlytrafficOrders } from "@/lib/api";
 import { TagBadge } from "@/components/TagBadge";
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { subDays } from "date-fns";
@@ -96,25 +96,7 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
   // Fetch ALL snapshots for this account
   const { data: snapshots = [], isLoading } = useQuery({
     queryKey: ["growth_tab_snapshots", accountId],
-    queryFn: async () => {
-      const allRows: any[] = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("daily_snapshots")
-          .select("tracking_link_id, snapshot_date, clicks, subscribers, revenue")
-          .eq("account_id", accountId)
-          .order("snapshot_date", { ascending: true })
-          .range(rangeFrom, rangeFrom + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-      }
-      return allRows;
-    },
+    queryFn: () => getSnapshotsByDateRange({ account_ids: [accountId] }),
     enabled: !!accountId,
   });
 
@@ -122,21 +104,7 @@ export function GrowthTab({ accountId, accLinks, modelName, avatarUrl, onRowClic
   const linkIds = useMemo(() => accLinks.map((l) => l.id), [accLinks]);
   const { data: orders = [] } = useQuery({
     queryKey: ["growth_tab_orders", accountId, linkIds.length],
-    queryFn: async () => {
-      if (linkIds.length === 0) return [];
-      const allRows: any[] = [];
-      const chunkSize = 200;
-      for (let i = 0; i < linkIds.length; i += chunkSize) {
-        const chunk = linkIds.slice(i, i + chunkSize);
-        const { data, error } = await supabase
-          .from("onlytraffic_orders")
-          .select("tracking_link_id, total_spent, order_created_at, status")
-          .in("tracking_link_id", chunk);
-        if (error) throw error;
-        allRows.push(...(data || []));
-      }
-      return allRows;
-    },
+    queryFn: () => getOnlytrafficOrders({ tracking_link_ids: linkIds }),
     enabled: !!accountId && linkIds.length > 0,
   });
 
