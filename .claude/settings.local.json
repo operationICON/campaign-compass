@@ -6,7 +6,18 @@
       "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/debug\" -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"call_endpoint\",\"url\":\"https://app.onlyfansapi.com/api/acct_1a8303b5bf3d48a9a1dd4042c18b8ab5/tracking-links?limit=5\"}')",
       "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/sync-logs?limit=10\")",
       "Bash(node -e \"const chunks=[]; process.stdin.on\\('data',d=>chunks.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const data=JSON.parse\\(chunks.join\\(''\\)\\); const list=Array.isArray\\(data\\)?data:data.data||data.logs||[]; list.forEach\\(l=>console.log\\(JSON.stringify\\({status:l.status,message:l.message,error:l.error_message,links:l.tracking_links_synced,accounts:l.accounts_synced,triggered:l.triggered_by,started:l.started_at}\\)\\)\\); }\\)\")",
-      "Bash(node -e \"const API_BASE='https://app.onlyfansapi.com/api'; const nextPage='https://app.onlyfansapi.com/api/acct_1a8303b5bf3d48a9a1dd4042c18b8ab5/tracking-links?limit=50&offset=50'; const p=new URL\\(nextPage\\); const url=p.pathname+p.search; console.log\\('url:',url\\); console.log\\('full:',API_BASE+url\\);\")"
+      "Bash(node -e \"const API_BASE='https://app.onlyfansapi.com/api'; const nextPage='https://app.onlyfansapi.com/api/acct_1a8303b5bf3d48a9a1dd4042c18b8ab5/tracking-links?limit=50&offset=50'; const p=new URL\\(nextPage\\); const url=p.pathname+p.search; console.log\\('url:',url\\); console.log\\('full:',API_BASE+url\\);\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const content=fs.readFileSync\\('src/pages/DashboardPage.tsx','utf8'\\); const lines=content.split\\('\\\\n'\\); lines.forEach\\(\\(l,i\\)=>{if\\(l.includes\\('accounts'\\)\\)console.log\\(i+1,l.trim\\(\\)\\);}\\)\")",
+      "Bash(PowerShell -Command \"Select-String -Path 'src/pages/DashboardPage.tsx' -Pattern 'supabase' | Select-Object LineNumber, Line\")",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\Ern\\\\campaign-compass\"; git diff --cached -- server/ | Select-Object -First 40)",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\Ern\\\\campaign-compass\"; git diff HEAD -- server/src/routes/sync/account.ts | Select-Object -First 30)",
+      "PowerShell($body = '{\"triggered_by\":\"manual\"}'; $r = Invoke-WebRequest -Uri \"https://upbeat-bravery-production-3ec1.up.railway.app/sync/orchestrate\" -Method POST -ContentType \"application/json\" -Body $body -TimeoutSec 300; $lines = $r.Content -split \"`n\"; $lines | Where-Object { $_ -match '\"step\"' } | ForEach-Object { $_ } | Select-Object -Last 10)",
+      "PowerShell($lines = $r.Content -split \"`n\"; $lines | Where-Object { $_ -match '\"step\":\"done\"' })",
+      "PowerShell(git add server/src/routes/sync/onlytraffic.ts src/pages/DashboardPage.tsx)",
+      "PowerShell(git push origin main)",
+      "PowerShell(git pull --rebase origin main)",
+      "PowerShell(git stash)",
+      "PowerShell(git stash pop)"
     ]
   }
 }

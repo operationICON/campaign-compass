@@ -6,7 +6,9 @@
       "Bash(curl -s -X POST https://upbeat-bravery-production-3ec1.up.railway.app/sync/orchestrate -H 'Content-Type: application/json' -d '{\"triggered_by\":\"debug\"}' --max-time 15)",
       "Bash(curl -s -X POST https://upbeat-bravery-production-3ec1.up.railway.app/sync/orchestrate -H 'Content-Type: application/json' -d '{\"triggered_by\":\"debug\"}' --max-time 120)",
       "Bash(curl -s -X POST https://upbeat-bravery-production-3ec1.up.railway.app/sync/account -H 'Content-Type: application/json' -d '{\"onlyfans_account_id\":\"test\",\"display_name\":\"test\"}' --max-time 15)",
-      "Bash(curl -s https://upbeat-bravery-production-3ec1.up.railway.app/accounts)"
+      "Bash(curl -s https://upbeat-bravery-production-3ec1.up.railway.app/accounts)",
+      "Bash(npx tsx *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
