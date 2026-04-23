@@ -151,34 +151,20 @@ router.get("/active-count", async (c) => {
     ? sql`AND tl.account_id = ANY(${accountIds}::uuid[])`
     : sql``;
 
+  // daily_snapshots.subscribers is a daily increment (not cumulative).
+  // Active = SUM of last 5 days >= 5 (i.e. average >= 1 sub/day).
   const result = await db.execute<{ count: string }>(sql`
-    WITH snapshots_7d AS (
-      SELECT tracking_link_id, snapshot_date, subscribers
+    WITH recent AS (
+      SELECT tracking_link_id, SUM(subscribers) AS subs_5d
       FROM daily_snapshots
-      WHERE snapshot_date >= CURRENT_DATE - INTERVAL '7 days'
+      WHERE snapshot_date > CURRENT_DATE - INTERVAL '5 days'
         AND tracking_link_id IS NOT NULL
-    ),
-    latest AS (
-      SELECT DISTINCT ON (tracking_link_id)
-        tracking_link_id, snapshot_date, subscribers
-      FROM snapshots_7d
-      ORDER BY tracking_link_id, snapshot_date DESC
-    ),
-    earlier AS (
-      SELECT DISTINCT ON (tracking_link_id)
-        tracking_link_id, snapshot_date, subscribers
-      FROM snapshots_7d
-      WHERE snapshot_date <= CURRENT_DATE - INTERVAL '5 days'
-      ORDER BY tracking_link_id, snapshot_date DESC
+      GROUP BY tracking_link_id
     ),
     active_links AS (
-      SELECT l.tracking_link_id
-      FROM latest l
-      JOIN earlier e ON e.tracking_link_id = l.tracking_link_id
-      WHERE l.snapshot_date != e.snapshot_date
-        AND (l.subscribers - e.subscribers) > 0
-        AND (l.subscribers - e.subscribers)::float /
-            GREATEST(1, (l.snapshot_date - e.snapshot_date)) >= 1
+      SELECT tracking_link_id
+      FROM recent
+      WHERE subs_5d >= 5
     )
     SELECT COUNT(*) AS count
     FROM tracking_links tl
