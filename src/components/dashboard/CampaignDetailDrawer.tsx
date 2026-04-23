@@ -217,7 +217,7 @@ function DrawerBodyInner({
   const costInputValue = Number(d.cost_value ?? 0);
   const totalClicks = Number(d.clicks ?? 0);
   const tlSubscribers = Number(d.subscribers ?? 0);
-  const tlSpenders = Number(d.spenders_count ?? d.spenders ?? 0);
+  const tlSpenders = Number(d.spenders_count || d.spenders || 0);
   const campaignRevenue = Number(d.revenue ?? 0);
 
   const profit = d.profit != null ? Number(d.profit) : (cost > 0 ? campaignRevenue - cost : null);
@@ -260,7 +260,7 @@ function DrawerBodyInner({
     const unitValue = Number(costValue) || 0;
     const linkClicks = Number(linkData?.clicks ?? 0);
     const linkSubscribers = Number(linkData?.subscribers ?? 0);
-    const linkSpenders = Number(linkData?.spenders_count ?? linkData?.spenders ?? 0);
+    const linkSpenders = Number(linkData?.spenders_count || linkData?.spenders || 0);
     const linkRevenue = Number(linkData?.revenue ?? 0);
     const total = costType === "CPC"
       ? unitValue * linkClicks
@@ -297,7 +297,7 @@ function DrawerBodyInner({
       roi: roiValue,
       cvr: cvrValue,
       spender_rate: spenderRateValue,
-      arpu: linkSubscribers > 0 ? round(linkRevenue / linkSubscribers, 4) : 0,
+      arpu: linkSpenders > 0 ? round(linkRevenue / linkSpenders, 4) : null,
       status: statusValue,
     };
   };
@@ -640,7 +640,7 @@ function DrawerBodyInner({
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Financials</span>
             </div>
             <DataRow label="Total Spend" value={cost > 0 ? fmtC2(cost) : hasSpendConfig ? fmtC2(cost) : "—"} />
-            <DataRow label="Profit" value={cost > 0 ? fmtC2(profit) : hasSpendConfig ? fmtC2(0) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
+            <DataRow label="Profit" value={cost > 0 ? fmtC2(profit ?? 0) : hasSpendConfig ? fmtC2(0) : "—"} tone={cost > 0 ? profitTone(profit) : "neutral"} />
             <DataRow label="Profit/Sub" value={cost > 0 && profitPerSub != null ? fmtC2(profitPerSub) : "—"} tone={profitPerSub != null ? profitTone(profitPerSub) : "neutral"} />
             <DataRow label="Subs/Day" value={subsPerDay} />
             <DataRow label="CVR" value={cvr != null ? fmtPct(cvr) : "—"} />
@@ -707,7 +707,7 @@ function DrawerBodyInner({
       />
 
       {/* ORDER HISTORY — OnlyTraffic only */}
-      {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={cost} />}
+      {d.traffic_category === "OnlyTraffic" && <OrderHistorySection campaignId={d.id} cappedSpend={Number(d.capped_spend ?? 0)} />}
     </div>
   );
 }
