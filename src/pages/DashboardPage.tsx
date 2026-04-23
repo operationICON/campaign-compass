@@ -664,6 +664,7 @@ export default function DashboardPage() {
         {/* ═══ REVENUE BREAKDOWN BY MODEL ═══ */}
         <ModelRevenueBreakdown
           accounts={accounts}
+          allLinks={allLinks}
           txTypeTotalsByAccount={txTypeTotalsByAccount}
           revMultiplier={revMultiplier}
         />

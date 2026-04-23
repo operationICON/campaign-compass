@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { ModelAvatar } from "@/components/ModelAvatar";
-import { isActiveAccount } from "@/lib/calc-helpers";
 
 interface TxBreakdown {
   messages: number;
@@ -12,6 +11,7 @@ interface TxBreakdown {
 
 interface Props {
   accounts: any[];
+  allLinks: any[];
   txTypeTotalsByAccount: Record<string, TxBreakdown>;
   revMultiplier: number;
 }
@@ -19,62 +19,66 @@ interface Props {
 const fmtC = (v: number) =>
   `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-const fmtPct = (v: number, total: number) =>
-  total > 0 ? `${((v / total) * 100).toFixed(0)}%` : "—";
+const pctOf = (v: number, total: number) =>
+  total > 0 ? `${((v / total) * 100).toFixed(0)}%` : null;
 
-export function ModelRevenueBreakdown({ accounts, txTypeTotalsByAccount, revMultiplier }: Props) {
+export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccount, revMultiplier }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   const rows = useMemo(() => {
     return accounts
-      .filter(isActiveAccount)
+      .filter((a: any) => Number(a.ltv_total || 0) > 0)
       .map((acc: any) => {
-        // Prefer ltv_ columns (from LTV sync) if populated; fall back to transaction aggregates
-        const accMsg = Number(acc.ltv_messages || 0);
-        const accTips = Number(acc.ltv_tips || 0);
+        const ltvTotal = Number(acc.ltv_total || 0);
+
+        // Campaign revenue = sum of tracking_links.revenue for this account
+        const campRev = allLinks
+          .filter((l: any) => l.account_id === acc.id)
+          .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+
+        // Type breakdown — prefer ltv_ columns (LTV sync), fall back to transactions
+        const accMsg  = Number(acc.ltv_messages      || 0);
+        const accTips = Number(acc.ltv_tips          || 0);
         const accSubs = Number(acc.ltv_subscriptions || 0);
-        const accPosts = Number(acc.ltv_posts || 0);
-        const hasLtvBreakdown = accMsg > 0 || accTips > 0 || accSubs > 0 || accPosts > 0;
+        const accPost = Number(acc.ltv_posts         || 0);
+        const hasLtv  = accMsg > 0 || accTips > 0 || accSubs > 0 || accPost > 0;
 
         const tx = txTypeTotalsByAccount[acc.id];
-        const messages    = hasLtvBreakdown ? accMsg  : (tx?.messages    ?? 0);
-        const tips        = hasLtvBreakdown ? accTips : (tx?.tips        ?? 0);
-        const subscriptions = hasLtvBreakdown ? accSubs : (tx?.subscriptions ?? 0);
-        const posts       = hasLtvBreakdown ? accPosts : (tx?.posts       ?? 0);
-        const total = messages + tips + subscriptions + posts;
+        const messages      = hasLtv ? accMsg  : (tx?.messages      ?? 0);
+        const tips          = hasLtv ? accTips : (tx?.tips          ?? 0);
+        const subscriptions = hasLtv ? accSubs : (tx?.subscriptions ?? 0);
+        const posts         = hasLtv ? accPost : (tx?.posts         ?? 0);
 
-        return { acc, messages, tips, subscriptions, posts, total };
+        const hasBreakdown = messages > 0 || tips > 0 || subscriptions > 0 || posts > 0;
+
+        return {
+          acc, ltvTotal, campRev,
+          messages, tips, subscriptions, posts, hasBreakdown,
+        };
       })
-      .filter(r => r.total > 0)
-      .sort((a, b) => b.total - a.total);
-  }, [accounts, txTypeTotalsByAccount]);
+      .sort((a, b) => b.ltvTotal - a.ltvTotal);
+  }, [accounts, allLinks, txTypeTotalsByAccount]);
 
   const totals = useMemo(() =>
     rows.reduce(
       (s, r) => ({
+        ltvTotal:      s.ltvTotal      + r.ltvTotal,
         messages:      s.messages      + r.messages,
         tips:          s.tips          + r.tips,
         subscriptions: s.subscriptions + r.subscriptions,
         posts:         s.posts         + r.posts,
-        total:         s.total         + r.total,
       }),
-      { messages: 0, tips: 0, subscriptions: 0, posts: 0, total: 0 }
+      { ltvTotal: 0, messages: 0, tips: 0, subscriptions: 0, posts: 0 }
     ),
     [rows]
   );
 
-  if (rows.length === 0) return null;
+  const anyBreakdown = rows.some(r => r.hasBreakdown);
 
-  const COL_COLORS = {
-    messages:      "text-primary",
-    tips:          "text-[hsl(38_92%_50%)]",
-    subscriptions: "text-purple-400",
-    posts:         "text-blue-400",
-  };
+  if (rows.length === 0) return null;
 
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      {/* Header */}
       <button
         className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-secondary/30 transition-colors"
         onClick={() => setCollapsed(c => !c)}
@@ -101,24 +105,36 @@ export function ModelRevenueBreakdown({ accounts, txTypeTotalsByAccount, revMult
                   Model
                 </th>
                 <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Total
+                  Total Revenue
                 </th>
-                <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                  Messages / PPV
+                <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Via Campaigns
                 </th>
-                <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[hsl(38_92%_50%)]">
-                  Tips
-                </th>
-                <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-purple-400">
-                  Subscriptions
-                </th>
-                <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-blue-400">
-                  Posts
-                </th>
+                {anyBreakdown && (
+                  <>
+                    <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                      Messages / PPV
+                    </th>
+                    <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[hsl(38_92%_50%)]">
+                      Tips
+                    </th>
+                    <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-purple-400">
+                      Subscriptions
+                    </th>
+                    <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+                      Posts
+                    </th>
+                  </>
+                )}
+                {!anyBreakdown && (
+                  <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+                    Breakdown
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ acc, messages, tips, subscriptions, posts, total }) => (
+              {rows.map(({ acc, ltvTotal, campRev, messages, tips, subscriptions, posts, hasBreakdown }) => (
                 <tr key={acc.id} className="border-b border-border/50 hover:bg-secondary/10">
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
@@ -132,60 +148,86 @@ export function ModelRevenueBreakdown({ accounts, txTypeTotalsByAccount, revMult
                           {acc.display_name || acc.username || "—"}
                         </p>
                         {acc.username && (
-                          <p className="text-[10px] text-muted-foreground">@{acc.username.replace("@", "")}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            @{acc.username.replace("@", "")}
+                          </p>
                         )}
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono font-semibold text-foreground tabular-nums">
-                    {fmtC(total * revMultiplier)}
+                    {fmtC(ltvTotal * revMultiplier)}
                   </td>
-                  <CellVal value={messages} total={total} multiplier={revMultiplier} colorClass={COL_COLORS.messages} />
-                  <CellVal value={tips} total={total} multiplier={revMultiplier} colorClass={COL_COLORS.tips} />
-                  <CellVal value={subscriptions} total={total} multiplier={revMultiplier} colorClass={COL_COLORS.subscriptions} />
-                  <CellVal value={posts} total={total} multiplier={revMultiplier} colorClass={COL_COLORS.posts} />
+                  <td className="px-4 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
+                    {campRev > 0 ? fmtC(campRev * revMultiplier) : "—"}
+                  </td>
+                  {anyBreakdown && (
+                    <>
+                      <TypeCell value={messages} total={ltvTotal} multiplier={revMultiplier} colorClass="text-primary" />
+                      <TypeCell value={tips} total={ltvTotal} multiplier={revMultiplier} colorClass="text-[hsl(38_92%_50%)]" />
+                      <TypeCell value={subscriptions} total={ltvTotal} multiplier={revMultiplier} colorClass="text-purple-400" />
+                      <TypeCell value={posts} total={ltvTotal} multiplier={revMultiplier} colorClass="text-blue-400" />
+                    </>
+                  )}
+                  {!anyBreakdown && (
+                    <td className="px-4 py-2.5 text-right text-[10px] text-muted-foreground/40 italic">
+                      Run LTV sync
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
-
-            {/* Totals row */}
             <tfoot>
               <tr className="border-t border-border bg-secondary/30">
                 <td className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Total
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono font-bold text-foreground tabular-nums">
-                  {fmtC(totals.total * revMultiplier)}
+                  {fmtC(totals.ltvTotal * revMultiplier)}
                 </td>
-                <FooterCell value={totals.messages} total={totals.total} multiplier={revMultiplier} colorClass={COL_COLORS.messages} />
-                <FooterCell value={totals.tips} total={totals.total} multiplier={revMultiplier} colorClass={COL_COLORS.tips} />
-                <FooterCell value={totals.subscriptions} total={totals.total} multiplier={revMultiplier} colorClass={COL_COLORS.subscriptions} />
-                <FooterCell value={totals.posts} total={totals.total} multiplier={revMultiplier} colorClass={COL_COLORS.posts} />
+                <td className="px-4 py-2.5 text-right font-mono font-bold text-muted-foreground tabular-nums">
+                  {fmtC(rows.reduce((s, r) => s + r.campRev, 0) * revMultiplier)}
+                </td>
+                {anyBreakdown && (
+                  <>
+                    <FooterCell value={totals.messages} total={totals.ltvTotal} multiplier={revMultiplier} colorClass="text-primary" />
+                    <FooterCell value={totals.tips} total={totals.ltvTotal} multiplier={revMultiplier} colorClass="text-[hsl(38_92%_50%)]" />
+                    <FooterCell value={totals.subscriptions} total={totals.ltvTotal} multiplier={revMultiplier} colorClass="text-purple-400" />
+                    <FooterCell value={totals.posts} total={totals.ltvTotal} multiplier={revMultiplier} colorClass="text-blue-400" />
+                  </>
+                )}
+                {!anyBreakdown && <td />}
               </tr>
             </tfoot>
           </table>
+
+          {!anyBreakdown && (
+            <p className="px-4 py-2 text-[10px] text-muted-foreground/50 border-t border-border">
+              Type breakdown (Messages / PPV, Tips, Subscriptions, Posts) requires the LTV sync to be run from Sync Center.
+            </p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function CellVal({
+function TypeCell({
   value, total, multiplier, colorClass,
 }: {
   value: number; total: number; multiplier: number; colorClass: string;
 }) {
   if (value <= 0) {
-    return (
-      <td className="px-4 py-2.5 text-right font-mono tabular-nums text-muted-foreground/40">—</td>
-    );
+    return <td className="px-4 py-2.5 text-right font-mono tabular-nums text-muted-foreground/30">—</td>;
   }
   return (
     <td className="px-4 py-2.5 text-right tabular-nums">
       <span className={`font-mono font-semibold ${colorClass}`}>
         {fmtC(value * multiplier)}
       </span>
-      <span className="text-[10px] text-muted-foreground ml-1.5">{fmtPct(value, total)}</span>
+      {pctOf(value, total) && (
+        <span className="text-[10px] text-muted-foreground ml-1.5">{pctOf(value, total)}</span>
+      )}
     </td>
   );
 }
@@ -200,8 +242,8 @@ function FooterCell({
       <span className={`font-mono font-bold ${colorClass}`}>
         {value > 0 ? fmtC(value * multiplier) : "—"}
       </span>
-      {value > 0 && (
-        <span className="text-[10px] text-muted-foreground ml-1.5">{fmtPct(value, total)}</span>
+      {value > 0 && pctOf(value, total) && (
+        <span className="text-[10px] text-muted-foreground ml-1.5">{pctOf(value, total)}</span>
       )}
     </td>
   );
