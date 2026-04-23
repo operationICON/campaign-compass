@@ -3,6 +3,9 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
 import CampaignsPage from "./pages/CampaignsPage";
@@ -28,24 +31,29 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/campaigns" element={<CampaignsPage />} />
-          <Route path="/audit" element={<AuditPage />} />
-          <Route path="/calculations" element={<CalculationsPage />} />
-          <Route path="/accounts" element={<AccountsPage />} />
-          <Route path="/charts" element={<ChartsPage />} />
-          <Route path="/alerts" element={<AlertsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/logs" element={<LogsPage />} />
-          <Route path="/debug" element={<DebugPage />} />
-          <Route path="/traffic-sources" element={<TrafficSourcesPage />} />
-          <Route path="/sources/onlytraffic/:marketer/:offer_id" element={<MarketerDrilldownPage />} />
-          <Route path="/sources/onlytraffic/:marketer/:offer_id/:model_username" element={<MarketerModelCampaignsPage />} />
-          <Route path="/cross-poll" element={<CrossPollPage />} />
-          <Route path="/fans" element={<FansPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            {/* Accessible to all authenticated users */}
+            <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
+            {/* Admin-only routes */}
+            <Route path="/" element={<ProtectedRoute adminOnly><DashboardPage /></ProtectedRoute>} />
+            <Route path="/audit" element={<ProtectedRoute adminOnly><AuditPage /></ProtectedRoute>} />
+            <Route path="/calculations" element={<ProtectedRoute adminOnly><CalculationsPage /></ProtectedRoute>} />
+            <Route path="/accounts" element={<ProtectedRoute adminOnly><AccountsPage /></ProtectedRoute>} />
+            <Route path="/charts" element={<ProtectedRoute adminOnly><ChartsPage /></ProtectedRoute>} />
+            <Route path="/alerts" element={<ProtectedRoute adminOnly><AlertsPage /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute adminOnly><SettingsPage /></ProtectedRoute>} />
+            <Route path="/logs" element={<ProtectedRoute adminOnly><LogsPage /></ProtectedRoute>} />
+            <Route path="/debug" element={<ProtectedRoute adminOnly><DebugPage /></ProtectedRoute>} />
+            <Route path="/traffic-sources" element={<ProtectedRoute adminOnly><TrafficSourcesPage /></ProtectedRoute>} />
+            <Route path="/sources/onlytraffic/:marketer/:offer_id" element={<ProtectedRoute adminOnly><MarketerDrilldownPage /></ProtectedRoute>} />
+            <Route path="/sources/onlytraffic/:marketer/:offer_id/:model_username" element={<ProtectedRoute adminOnly><MarketerModelCampaignsPage /></ProtectedRoute>} />
+            <Route path="/cross-poll" element={<ProtectedRoute adminOnly><CrossPollPage /></ProtectedRoute>} />
+            <Route path="/fans" element={<ProtectedRoute adminOnly><FansPage /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

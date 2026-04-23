@@ -1,9 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
+function getToken(): string | null {
+  try { return localStorage.getItem("ct_token"); } catch { return null; }
+}
+
 export async function apiFetch<T = any>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options?.headers ?? {}),
+    },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -11,6 +20,20 @@ export async function apiFetch<T = any>(path: string, options?: RequestInit): Pr
   }
   return res.json();
 }
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+export const authLogin = (email: string, password: string) =>
+  apiFetch<{ token: string; user: { id: string; email: string; role: string; name: string } }>(
+    "/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }
+  );
+export const authMe = () => apiFetch<{ user: { id: string; email: string; role: string; name: string } }>("/auth/me");
+export const getUsers = () => apiFetch<any[]>("/auth/users");
+export const createUser = (body: { email: string; password: string; name: string; role: string }) =>
+  apiFetch("/auth/users", { method: "POST", body: JSON.stringify(body) });
+export const updateUser = (id: string, body: { name?: string; role?: string; password?: string }) =>
+  apiFetch(`/auth/users/${id}`, { method: "PUT", body: JSON.stringify(body) });
+export const deleteUser = (id: string) =>
+  apiFetch(`/auth/users/${id}`, { method: "DELETE" });
 
 function buildQuery(params: Record<string, string | string[] | undefined>): string {
   const q = new URLSearchParams();
@@ -197,9 +220,10 @@ export async function streamSync(
   onProgress: (msg: string) => void,
   signal?: AbortSignal,
 ): Promise<any> {
+  const token = getToken();
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(body),
     signal,
   });

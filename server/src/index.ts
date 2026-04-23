@@ -27,6 +27,7 @@ import syncAccountRouter from "./routes/sync/account.js";
 import syncSnapshotsRouter from "./routes/sync/snapshots.js";
 import syncOnlytrafficRouter from "./routes/sync/onlytraffic.js";
 import syncCrosspollRouter from "./routes/sync/crosspoll.js";
+import authRouter from "./routes/auth.js";
 import { startScheduler } from "./scheduler.js";
 
 const app = new Hono();
@@ -49,6 +50,7 @@ app.use("*", cors({
 app.use("*", logger());
 
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
+app.route("/auth", authRouter);
 
 app.route("/accounts", accountsRouter);
 app.route("/campaigns", campaignsRouter);

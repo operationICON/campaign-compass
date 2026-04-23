@@ -1,34 +1,51 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, LayoutGrid, Users, BarChart3,
   Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator, Heart
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mainNav = [
-  { to: "/", icon: LayoutDashboard, label: "Overview" },
-  { to: "/campaigns", icon: LayoutGrid, label: "Tracking Links" },
-  { to: "/cross-poll", icon: GitBranch, label: "Cross-Poll" },
-  { to: "/accounts", icon: Users, label: "Models" },
-  { to: "/fans", icon: Heart, label: "Fans" },
-  { to: "/traffic-sources", icon: Tag, label: "Sources" },
-  { to: "/audit", icon: ShieldCheck, label: "Audit" },
-  { to: "/charts", icon: BarChart3, label: "Charts" },
+  { to: "/", icon: LayoutDashboard, label: "Overview", adminOnly: true },
+  { to: "/campaigns", icon: LayoutGrid, label: "Tracking Links", adminOnly: false },
+  { to: "/cross-poll", icon: GitBranch, label: "Cross-Poll", adminOnly: true },
+  { to: "/accounts", icon: Users, label: "Models", adminOnly: true },
+  { to: "/fans", icon: Heart, label: "Fans", adminOnly: true },
+  { to: "/traffic-sources", icon: Tag, label: "Sources", adminOnly: true },
+  { to: "/audit", icon: ShieldCheck, label: "Audit", adminOnly: true },
+  { to: "/charts", icon: BarChart3, label: "Charts", adminOnly: true },
 ];
 
 const systemNav = [
-  { to: "/calculations", icon: Calculator, label: "Calculations" },
-  { to: "/alerts", icon: Bell, label: "Alerts", hasBadge: true },
-  { to: "/logs", icon: Activity, label: "Sync Logs" },
-  { to: "/settings", icon: Settings, label: "Settings" },
-  { to: "/debug", icon: Code2, label: "API Debug" },
+  { to: "/calculations", icon: Calculator, label: "Calculations", adminOnly: true },
+  { to: "/alerts", icon: Bell, label: "Alerts", hasBadge: true, adminOnly: true },
+  { to: "/logs", icon: Activity, label: "Sync Logs", adminOnly: true },
+  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true },
+  { to: "/debug", icon: Code2, label: "API Debug", adminOnly: true },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
-  const { data: alerts = [] } = useQuery({ queryKey: ["alerts_unresolved"], queryFn: () => fetchAlerts(true) });
-  const unresolvedCount = alerts.length;
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const isAdmin = user?.role === "admin";
+
+  const { data: alerts = [] } = useQuery({
+    queryKey: ["alerts_unresolved"],
+    queryFn: () => fetchAlerts(true),
+    enabled: isAdmin,
+  });
+  const unresolvedCount = (alerts as any[]).length;
+
+  const visibleMain = mainNav.filter((item) => !item.adminOnly || isAdmin);
+  const visibleSystem = systemNav.filter((item) => !item.adminOnly || isAdmin);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   const NavItem = ({ to, icon: Icon, label, hasBadge }: { to: string; icon: any; label: string; hasBadge?: boolean }) => {
     const isActive = location.pathname === to;
@@ -52,6 +69,10 @@ export function AppSidebar() {
     );
   };
 
+  const initials = user?.name
+    ? user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+    : "?";
+
   return (
     <aside className="w-[220px] min-h-screen bg-sidebar flex flex-col">
       {/* Logo */}
@@ -71,33 +92,45 @@ export function AppSidebar() {
       <nav className="flex-1 px-3 flex flex-col">
         <div className="text-[10px] uppercase tracking-[0.12em] text-sidebar-foreground px-4 mb-2 mt-2">Main</div>
         <div className="flex flex-col gap-0.5">
-          {mainNav.map((item) => (
+          {visibleMain.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
         </div>
 
-        <div className="w-full h-px bg-sidebar-border my-3" />
-
-        <div className="text-[10px] uppercase tracking-[0.12em] text-sidebar-foreground px-4 mb-2">System</div>
-        <div className="flex flex-col gap-0.5">
-          {systemNav.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
-        </div>
+        {visibleSystem.length > 0 && (
+          <>
+            <div className="w-full h-px bg-sidebar-border my-3" />
+            <div className="text-[10px] uppercase tracking-[0.12em] text-sidebar-foreground px-4 mb-2">System</div>
+            <div className="flex flex-col gap-0.5">
+              {visibleSystem.map((item) => (
+                <NavItem key={item.to} {...item} />
+              ))}
+            </div>
+          </>
+        )}
       </nav>
 
       {/* User section */}
       <div className="border-t border-sidebar-border px-4 py-4">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 rounded-full gradient-bg flex items-center justify-center text-white text-xs font-bold shrink-0">
-            M
+            {initials}
           </div>
-          <div>
-            <div className="text-white text-[13px] font-medium leading-tight">Martin</div>
-            <div className="text-sidebar-foreground text-[11px]">Admin</div>
+          <div className="min-w-0">
+            <div className="text-white text-[13px] font-medium leading-tight truncate">{user?.name ?? "—"}</div>
+            <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5 ${
+              isAdmin
+                ? "bg-primary/20 text-primary"
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {isAdmin ? "Admin" : "User"}
+            </span>
           </div>
         </div>
-        <button className="flex items-center gap-2 text-sidebar-foreground hover:text-white text-[12px] transition-colors w-full px-1">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 text-sidebar-foreground hover:text-white text-[12px] transition-colors w-full px-1"
+        >
           <LogOut className="h-3.5 w-3.5" />
           <span>Log out</span>
         </button>

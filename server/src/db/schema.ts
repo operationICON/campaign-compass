@@ -387,6 +387,17 @@ export const bulk_import_logs = pgTable("bulk_import_logs", {
   created_at:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── users ─────────────────────────────────────────────────────────────────────
+export const users = pgTable("users", {
+  id:             uuid("id").primaryKey().defaultRandom(),
+  email:          text("email").notNull().unique(),
+  password_hash:  text("password_hash").notNull(),
+  name:           text("name").notNull(),
+  role:           text("role").notNull().default("user"),
+  created_at:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  last_login_at:  timestamp("last_login_at", { withTimezone: true }),
+});
+
 // ── test_logs ─────────────────────────────────────────────────────────────────
 export const test_logs = pgTable("test_logs", {
   id:               uuid("id").primaryKey().defaultRandom(),
