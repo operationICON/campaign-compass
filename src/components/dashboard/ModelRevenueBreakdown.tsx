@@ -27,15 +27,7 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
 
   const rows = useMemo(() => {
     return accounts
-      .filter((a: any) => Number(a.ltv_total || 0) > 0)
       .map((acc: any) => {
-        const ltvTotal = Number(acc.ltv_total || 0);
-
-        // Campaign revenue = sum of tracking_links.revenue for this account
-        const campRev = allLinks
-          .filter((l: any) => l.account_id === acc.id)
-          .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-
         // Type breakdown — prefer ltv_ columns (LTV sync), fall back to transactions
         const accMsg  = Number(acc.ltv_messages      || 0);
         const accTips = Number(acc.ltv_tips          || 0);
@@ -49,6 +41,19 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
         const subscriptions = hasLtv ? accSubs : (tx?.subscriptions ?? 0);
         const posts         = hasLtv ? accPost : (tx?.posts         ?? 0);
 
+        // Total revenue: prefer ltv_total (LTV sync), fall back to sum of transaction types
+        const txSum = messages + tips + subscriptions + posts;
+        const ltvTotal = Number(acc.ltv_total || 0) > 0
+          ? Number(acc.ltv_total || 0)
+          : txSum;
+
+        if (ltvTotal <= 0) return null;
+
+        // Campaign revenue = sum of tracking_links.revenue for this account
+        const campRev = allLinks
+          .filter((l: any) => l.account_id === acc.id)
+          .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+
         const hasBreakdown = messages > 0 || tips > 0 || subscriptions > 0 || posts > 0;
 
         return {
@@ -56,6 +61,7 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
           messages, tips, subscriptions, posts, hasBreakdown,
         };
       })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
       .sort((a, b) => b.ltvTotal - a.ltvTotal);
   }, [accounts, allLinks, txTypeTotalsByAccount]);
 
