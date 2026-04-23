@@ -421,25 +421,29 @@ export default function DashboardPage() {
     : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
-    // Rule definition: Unattributed = max(0, accounts.ltv_total - SUM(tracking_links.revenue))
-    // Unattributed % = unattributed / ltv_total × 100  (NULL when ltv_total <= 0)
+    // Unattributed = OFAPI tracking link revenue not yet attributed to specific fans in the LTV system.
+    // Base = SUM(tracking_links.revenue); attributed = SUM(tracking_link_ltv.total_ltv).
     let accts = accounts.filter(isActiveAccount);
     if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
     else if (groupFilter !== "all") accts = accts.filter((a: any) => getAccountCategory(a) === groupFilter);
 
-    const accountTotalLtv = accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
     const accountTotalSubs = accts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const acctIds = new Set(accts.map((a: any) => a.id));
 
-    // Tracked revenue from non-deleted tracking_links scoped to filtered accounts
+    // Total OFAPI revenue from tracking links (our source of truth)
     const trackedRevenue = (allLinks || [])
       .filter((l: any) => acctIds.has(l.account_id))
       .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
-    const unattributed = Math.max(0, accountTotalLtv - trackedRevenue);
-    const pct = accountTotalLtv > 0 ? (unattributed / accountTotalLtv) * 100 : 0;
-    return { accountTotalLtv, accountTotalSubs, trackedRevenue, unattributed, pct, isOverflow: false };
-  }, [accounts, modelParam, groupFilter, allLinks]);
+    // Fan-attributed LTV from tracking_link_ltv (requires LTV sync to have run)
+    const ltvAttributed = (trackingLinkLtv || [])
+      .filter((r: any) => acctIds.has(r.account_id))
+      .reduce((s: number, r: any) => s + Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0), 0);
+
+    const unattributed = Math.max(0, trackedRevenue - ltvAttributed);
+    const pct = trackedRevenue > 0 ? (unattributed / trackedRevenue) * 100 : 0;
+    return { accountTotalLtv: trackedRevenue, accountTotalSubs, trackedRevenue, ltvAttributed, unattributed, pct, isOverflow: false };
+  }, [accounts, modelParam, groupFilter, allLinks, trackingLinkLtv]);
 
   const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -971,11 +975,15 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        const accountsLtv5 = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        // Base = OFAPI tracking link revenue; attributed = fan-tracked LTV from LTV sync
+        const filtAcctIds = new Set(filtAccounts.map((a: any) => a.id));
         const campaignRevenue5 = allTimeRevenue;
-        const unattribVal = Math.max(0, accountsLtv5 - campaignRevenue5);
-        const pct = accountsLtv5 > 0
-          ? (unattribVal / accountsLtv5) * 100
+        const ltvAttributed5 = trackingLinkLtv
+          .filter((r: any) => filtAcctIds.has(r.account_id))
+          .reduce((s: number, r: any) => s + Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0), 0);
+        const unattribVal = Math.max(0, campaignRevenue5 - ltvAttributed5);
+        const pct = campaignRevenue5 > 0
+          ? (unattribVal / campaignRevenue5) * 100
           : null;
         const colorClass = pct === null ? "text-muted-foreground"
           : pct > 50 ? "text-destructive"
@@ -1007,7 +1015,7 @@ function KpiCards({
             colorClass={colorClass}
             cardStyle={cardStyle}
             unattribVal={unattribVal}
-            ltvTotal={accountsLtv5}
+            ltvTotal={campaignRevenue5}
             uaMessages={breakdown.messages}
             uaTips={breakdown.tips}
             uaSubs={breakdown.subscriptions}
@@ -1022,11 +1030,9 @@ function KpiCards({
       case "total_revenue": {
         let revVal: number | null = null;
         let subtitle = "";
-        const activeAccts = filtAccounts.filter(isActiveAccount);
-        const accountsLtvTotal = activeAccts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         if (isAllTime) {
-          revVal = accountsLtvTotal * revMultiplier;
-          subtitle = "All time · accounts revenue";
+          revVal = allTimeRevenue * revMultiplier;
+          subtitle = "All time · tracking links revenue";
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
         } else {
@@ -1034,8 +1040,13 @@ function KpiCards({
           subtitle = periodLabel;
         }
 
-        const bkTotalRev = accountsLtvTotal * revMultiplier;
-        const bkTracked = allTimeRevenue * revMultiplier;
+        // Breakdown: fan-attributed LTV vs unattributed (requires LTV sync)
+        const filtAcctIds2 = new Set(filtAccounts.map((a: any) => a.id));
+        const ltvAttributedRev = trackingLinkLtv
+          .filter((r: any) => filtAcctIds2.has(r.account_id))
+          .reduce((s: number, r: any) => s + Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0), 0);
+        const bkTotalRev = allTimeRevenue * revMultiplier;
+        const bkTracked = ltvAttributedRev * revMultiplier;
         const bkUnattr = Math.max(0, bkTotalRev - bkTracked);
 
         return (
@@ -1360,7 +1371,7 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, ltvTotal, u
       ) : (
         <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
       )}
-      <p className="text-[11px] text-muted-foreground mt-1">Revenue not attributed to tracking links · All time</p>
+      <p className="text-[11px] text-muted-foreground mt-1">Tracking revenue not yet fan-attributed · All time</p>
 
       {hasBreakdown && (
         <>
