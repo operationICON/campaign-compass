@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { apiFetch, getAccounts } from "@/lib/api";
+import { apiFetch, getAccounts, getTrackingLinks } from "@/lib/api";
+import { fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
+import { ModelRevenueBreakdown } from "@/components/dashboard/ModelRevenueBreakdown";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -39,7 +41,7 @@ type ChatFilter = "all" | "unread" | "flagged" | "done";
 
 export default function FansPage() {
   const queryClient = useQueryClient();
-  const { timePeriod, setTimePeriod, customRange, setCustomRange } = usePageFilters();
+  const { timePeriod, setTimePeriod, customRange, setCustomRange, revMultiplier } = usePageFilters();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
@@ -66,6 +68,17 @@ export default function FansPage() {
       const data = await getAccounts();
       return (data || []).filter((a: any) => a.is_active);
     },
+  });
+
+  const { data: allLinks = [] } = useQuery({
+    queryKey: ["tracking_links"],
+    queryFn: getTrackingLinks,
+  });
+
+  const { data: txBreakdowns = {} } = useQuery({
+    queryKey: ["transaction_type_totals_by_account"],
+    queryFn: fetchTransactionTypeTotalsByAccount,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: newFans = [], isLoading: fansLoading } = useQuery({
@@ -303,6 +316,14 @@ export default function FansPage() {
                 </button>
               </div>
             </div>
+
+            {/* Revenue breakdown — Messages/PPV · Tips · Subscriptions · Posts */}
+            <ModelRevenueBreakdown
+              accounts={selectedAccount ? [selectedAccount] : accounts}
+              allLinks={allLinks}
+              txTypeTotalsByAccount={txBreakdowns as any}
+              revMultiplier={revMultiplier}
+            />
 
             {/* Two panels — 60/40 split */}
             <div className="grid grid-cols-2 gap-4">

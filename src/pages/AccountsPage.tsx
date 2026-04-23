@@ -12,6 +12,7 @@ import { getEffectiveSource } from "@/lib/source-helpers";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { ModelRevenueBreakdown } from "@/components/dashboard/ModelRevenueBreakdown";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized, fetchTransactionTypeTotalsByAccount, patchAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
@@ -911,6 +912,14 @@ export default function AccountsPage() {
               </div>
             </div>
           </div>
+
+          {/* Revenue Breakdown table — collapsible, shows Messages/PPV · Tips · Subscriptions · Posts */}
+          <ModelRevenueBreakdown
+            accounts={[acc]}
+            allLinks={allLinks.filter((l: any) => l.account_id === acc.id)}
+            txTypeTotalsByAccount={txBreakdowns as any}
+            revMultiplier={revMultiplier}
+          />
 
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
