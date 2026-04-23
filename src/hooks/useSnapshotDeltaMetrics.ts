@@ -98,25 +98,27 @@ export function useSnapshotDeltaMetrics(
         (byLink[id] ||= []).push(r);
       }
 
+      // days = calendar size of the window (used as the per-day denominator)
+      const windowDays = Math.max(1, Math.round(
+        (new Date(win.end + "T00:00:00Z").getTime() - new Date(win.start + "T00:00:00Z").getTime()) / 86400000
+      ));
+
       const lookup: Record<string, SnapshotDelta> = {};
       for (const id of Object.keys(byLink)) {
         const series = byLink[id].sort((a, b) => (a.snapshot_date! > b.snapshot_date! ? 1 : -1));
-        const latest = series[series.length - 1];
-        let earlier: RawRow | null = null;
-        for (let i = series.length - 1; i >= 0; i--) {
-          if (series[i].snapshot_date! <= win.start) { earlier = series[i]; break; }
-        }
-        if (!earlier || !latest || earlier.snapshot_date === latest.snapshot_date) {
+
+        // Sum all daily incremental values strictly inside the window (exclusive start, inclusive end).
+        // Each row already stores the daily increment — do NOT subtract endpoints.
+        const inWindow = series.filter(r => r.snapshot_date! > win.start && r.snapshot_date! <= win.end);
+        if (!inWindow.length) {
           lookup[id] = { subsGained: 0, clicksGained: 0, revenueGained: 0, subsPerDay: null, daysBetween: null };
           continue;
         }
-        const days = Math.max(1, Math.round(
-          (new Date(latest.snapshot_date! + "T00:00:00Z").getTime() - new Date(earlier.snapshot_date! + "T00:00:00Z").getTime()) / 86400000
-        ));
-        const subsGained = Math.max(0, Number(latest.subscribers || 0) - Number(earlier.subscribers || 0));
-        const clicksGained = Math.max(0, Number(latest.clicks || 0) - Number(earlier.clicks || 0));
-        const revenueGained = Math.max(0, Number(latest.revenue || 0) - Number(earlier.revenue || 0));
-        lookup[id] = { subsGained, clicksGained, revenueGained, subsPerDay: subsGained / days, daysBetween: days };
+
+        const subsGained = inWindow.reduce((s, r) => s + Math.max(0, Number(r.subscribers || 0)), 0);
+        const clicksGained = inWindow.reduce((s, r) => s + Math.max(0, Number(r.clicks || 0)), 0);
+        const revenueGained = inWindow.reduce((s, r) => s + Math.max(0, Number(r.revenue || 0)), 0);
+        lookup[id] = { subsGained, clicksGained, revenueGained, subsPerDay: subsGained / windowDays, daysBetween: windowDays };
       }
 
       return { lookup, windowStart: win.start, windowEnd: win.end };

@@ -22,14 +22,15 @@ const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 function dayDiff(a: string, b: string): number {
-  const da = new Date(a).getTime();
-  const db = new Date(b).getTime();
-  return Math.max(0, Math.round((db - da) / 86400000));
+  return Math.max(0, Math.round(
+    (new Date(b + "T00:00:00Z").getTime() - new Date(a + "T00:00:00Z").getTime()) / 86400000
+  ));
 }
 
+// Use UTC so the cutoff never drifts by timezone
 function isoDaysAgo(days: number): string {
   const d = new Date();
-  d.setDate(d.getDate() - days);
+  d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }
 
@@ -43,34 +44,46 @@ interface PeriodDelta {
 
 function computeDelta(snaps: Snap[], col: ColKey): PeriodDelta {
   const empty: PeriodDelta = { subs: 0, clicks: 0, revenue: 0, days: 0, hasData: false };
-  if (snaps.length < 2) return empty;
+  if (!snaps.length) return empty;
+
   const sorted = [...snaps].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
   const latest = sorted[sorted.length - 1];
 
-  let earliest: Snap | null = null;
-
   if (col === "last_sync") {
-    earliest = sorted[sorted.length - 2];
-  } else {
-    const cutoff = isoDaysAgo(col === "7d" ? 7 : col === "14d" ? 14 : 30);
-    // MAX(snapshot ≤ cutoff)
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (sorted[i].snapshot_date <= cutoff) {
-        earliest = sorted[i];
-        break;
-      }
-    }
-    // Fallback: oldest snapshot (still useful so column isn't empty)
-    if (!earliest && sorted.length >= 2) earliest = sorted[0];
+    // Each row IS the daily increment — the most recent row is the last sync's value
+    if (sorted.length < 1) return empty;
+    return {
+      subs: Math.max(0, latest.subscribers),
+      clicks: Math.max(0, latest.clicks),
+      revenue: Math.max(0, latest.revenue),
+      days: 1,
+      hasData: true,
+    };
   }
 
-  if (!earliest || earliest.snapshot_date === latest.snapshot_date) return empty;
+  const periodDays = col === "7d" ? 7 : col === "14d" ? 14 : 30;
+  const cutoff = isoDaysAgo(periodDays);
+
+  // Sum all daily incremental values on or after the cutoff date
+  const inWindow = sorted.filter(s => s.snapshot_date >= cutoff);
+
+  if (!inWindow.length) {
+    // Fallback: link predates the window; sum everything we have
+    if (sorted.length < 2) return empty;
+    return {
+      subs: sorted.reduce((s, r) => s + Math.max(0, r.subscribers), 0),
+      clicks: sorted.reduce((s, r) => s + Math.max(0, r.clicks), 0),
+      revenue: sorted.reduce((s, r) => s + Math.max(0, r.revenue), 0),
+      days: periodDays,
+      hasData: true,
+    };
+  }
 
   return {
-    subs: Math.max(0, latest.subscribers - earliest.subscribers),
-    clicks: Math.max(0, latest.clicks - earliest.clicks),
-    revenue: Math.max(0, latest.revenue - earliest.revenue),
-    days: Math.max(1, dayDiff(earliest.snapshot_date, latest.snapshot_date)),
+    subs: inWindow.reduce((s, r) => s + Math.max(0, r.subscribers), 0),
+    clicks: inWindow.reduce((s, r) => s + Math.max(0, r.clicks), 0),
+    revenue: inWindow.reduce((s, r) => s + Math.max(0, r.revenue), 0),
+    days: periodDays,
     hasData: true,
   };
 }
