@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getTrackingLinks, getAccounts } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -50,39 +50,18 @@ export function FanSyncModal({ open, onOpenChange }: { open: boolean; onOpenChan
   const loadQueue = async () => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-    // Fetch links needing sync (paginated to bypass 1000-row default limit)
-    const links: any[] = [];
-    let rangeFrom = 0;
-    const batchSize = 1000;
-    while (true) {
-      const { data } = await supabase
-        .from("tracking_links")
-        .select("id, campaign_name, account_id, subscribers, fans_last_synced_at, needs_full_sync")
-        .is("deleted_at", null)
-        .or("subscribers.gt.0,clicks.gt.0")
-        .order("subscribers", { ascending: false })
-        .range(rangeFrom, rangeFrom + batchSize - 1);
-      if (!data || data.length === 0) break;
-      links.push(...data);
-      if (data.length < batchSize) break;
-      rangeFrom += batchSize;
-    }
+    const allLinks: any[] = await getTrackingLinks();
 
-    // Filter: needs_full_sync OR never synced OR stale
-    const needsSync = (links || []).filter((l: any) =>
-      l.needs_full_sync === true ||
-      !l.fans_last_synced_at ||
-      new Date(l.fans_last_synced_at) < new Date(sevenDaysAgo)
+    // Filter: has activity AND (needs_full_sync OR never synced OR stale)
+    const needsSync = allLinks.filter((l: any) =>
+      (Number(l.subscribers || 0) > 0 || Number(l.clicks || 0) > 0) &&
+      (l.needs_full_sync === true ||
+        !l.fans_last_synced_at ||
+        new Date(l.fans_last_synced_at) < new Date(sevenDaysAgo))
     );
 
-    // Get account usernames
-    const accountIds = [...new Set(needsSync.map((l: any) => l.account_id))];
-    const { data: accounts } = await supabase
-      .from("accounts")
-      .select("id, username")
-      .in("id", accountIds);
-
-    const accountMap = Object.fromEntries((accounts || []).map((a: any) => [a.id, a.username]));
+    const allAccounts: any[] = await getAccounts();
+    const accountMap = Object.fromEntries(allAccounts.map((a: any) => [a.id, a.username]));
 
     const enriched = needsSync.map((l: any) => ({
       ...l,

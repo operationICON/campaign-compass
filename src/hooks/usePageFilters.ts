@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { subDays, startOfDay, startOfMonth, endOfMonth, subMonths, endOfDay } from "date-fns";
 
 export type TimePeriod = "all" | "day" | "week" | "month" | "prev_month";
 export type RevenueMode = "gross" | "net";
@@ -64,7 +64,6 @@ export function usePageFilters() {
   const [timePeriod, setTimePeriodRaw] = useState<TimePeriod>(loadTimePeriod);
   const [modelFilter, setModelFilterRaw] = useState(loadModelFilter);
   const [customRange, setCustomRangeRaw] = useState<{ from: Date; to: Date } | null>(loadCustomRange);
-  const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
   const [revenueMode, setRevenueModeRaw] = useState<RevenueMode>(loadRevenueMode);
 
   const setTimePeriod = useCallback((tp: TimePeriod) => {
@@ -99,7 +98,7 @@ export function usePageFilters() {
     if (customRange) {
       return {
         from: startOfDay(customRange.from).toISOString(),
-        to: startOfDay(customRange.to).toISOString(),
+        to: endOfDay(customRange.to).toISOString(),
       };
     }
     const now = new Date();
@@ -110,16 +109,18 @@ export function usePageFilters() {
         return { from: subDays(now, 7).toISOString(), to: null };
       case "month":
         return { from: subDays(now, 30).toISOString(), to: null };
-      case "prev_month":
+      case "prev_month": {
+        const prevMonth = subMonths(now, 1);
         return {
-          from: subDays(now, 60).toISOString(),
-          to: subDays(now, 31).toISOString(),
+          from: startOfMonth(prevMonth).toISOString(),
+          to: endOfMonth(prevMonth).toISOString(),
         };
+      }
       case "all":
       default:
         return { from: null, to: null };
     }
-  }, [timePeriod, customRange, lastSyncDate]);
+  }, [timePeriod, customRange]);
 
   return {
     timePeriod,
