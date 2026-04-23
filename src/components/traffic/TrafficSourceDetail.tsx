@@ -380,12 +380,16 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
               const profitColor = profit !== null ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
               const roiColor = roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
               const isSaving = savingIds.has(link.id);
+              const activeInfo = getActiveInfo(link.id, activeLookup);
 
               return (
                 <TableRow key={link.id} className="border-border cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setDrawerCampaign(link)}>
                   <TableCell className="max-w-[220px]">
-                    <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
-                    <p className="text-muted-foreground truncate" style={{ fontSize: "10px" }}>{link.url}</p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: activeInfo.isActive ? "#16a34a" : "#94a3b8" }} title={activeInfo.isActive ? "Active" : "Inactive"} />
+                      <p className="text-foreground font-semibold truncate" style={{ fontSize: "12px" }}>{link.campaign_name || "—"}</p>
+                    </div>
+                    <p className="text-muted-foreground truncate" style={{ fontSize: "10px", paddingLeft: "14px" }}>{link.url}</p>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">

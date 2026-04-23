@@ -395,8 +395,6 @@ export default function DashboardPage() {
     return isAllTime && allTimeTotals ? allTimeTotals.expenses
       : (periodActiveLinkIds && periodActiveLinkIds.length > 0 ? (periodExpensesFromDb ?? 0) : 0);
   }, [isAllTime, allTimeTotals, periodActiveLinkIds, periodExpensesFromDb]);
-  const totalRevenue = overviewPeriodTotals.revenue;
-
   // Total LTV + Spend — for periods, sum directly from snapshot rows (avoids 1000-row link cap)
   const snapshotRevenue = useMemo(() => {
     if (isAllTime) return 0;
@@ -413,13 +411,8 @@ export default function DashboardPage() {
     return overviewSnapshotRows.reduce((s, r) => s + Number(r.subscribers || 0), 0);
   }, [isAllTime, overviewSnapshotRows]);
 
-  const totalLtv = isAllTime && allTimeTotals ? allTimeTotals.totalLtv : snapshotRevenue;
-  const totalProfit = totalLtv - totalSpend;
   // hasSnapshotData: true if any snapshot rows were returned for this period
   const hasSnapshotData = isAllTime || overviewSnapshotRows.length > 0;
-  const avgProfitPerSub = isAllTime && allTimeTotals
-    ? (allTimeTotals.ltvSubs > 0 ? totalProfit / allTimeTotals.ltvSubs : null)
-    : periodSubscribers > 0 ? totalProfit / periodSubscribers : null;
 
   const unattributedStats = useMemo(() => {
     // Unattributed = OFAPI tracking link revenue not yet attributed to specific fans in the LTV system.
@@ -595,13 +588,9 @@ export default function DashboardPage() {
           allLinks={allLinks}
           snapshotLookup={overviewSnapshotLookup}
           totalSpend={totalSpend}
-          totalRevenue={totalRevenue}
-          totalLtv={totalLtv}
-          totalProfit={totalProfit}
           periodSubscribers={periodSubscribers}
           periodDayCount={periodDayCount}
           activeLinkCount={activeLinkCount}
-          avgProfitPerSub={avgProfitPerSub}
           unattributedStats={unattributedStats}
           timePeriod={timePeriod}
           customRange={customRange}
@@ -614,45 +603,6 @@ export default function DashboardPage() {
           }}
           fmtC={fmtC}
           hasSnapshotData={hasSnapshotData}
-          organicRevenue={(() => {
-            // Filter accounts by agency/model selection
-            let accts = accounts.filter(isActiveAccount);
-            if (modelParam) accts = accts.filter((a: any) => a.id === modelParam);
-            else if (groupFilter !== "all") accts = accts.filter((a: any) => {
-              const username = (a.username || "").replace("@", "");
-              return (CATEGORY_MAP[username] || "Female") === groupFilter;
-            });
-
-            if (isAllTime) {
-              // All Time: accounts.ltv_total - tracking_links.revenue
-              const accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-              const accountIdSet = new Set(accts.map((a: any) => a.id));
-              let campaignLtv = 0;
-              for (const r of trackingLinkLtv) {
-                if (!accountIdSet.has(r.account_id)) continue;
-                campaignLtv += Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0);
-              }
-              return accountRev - campaignLtv;
-            }
-
-            // Period filters: use accounts.ltv_last_* - SUM(snapshot revenue)
-            let accountRev = 0;
-            const tp = timePeriod as string;
-            if (tp === "day") {
-              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_day || 0), 0);
-            } else if (tp === "week") {
-              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_7d || 0), 0);
-            } else if (tp === "month") {
-              accountRev = accts.reduce((s: number, a: any) => s + Number(a.ltv_last_30d || 0), 0);
-            } else {
-              // prev_month or custom: fall back to snapshot revenue diff
-              accountRev = totalRevenue;
-            }
-
-            // Campaign revenue from snapshots
-            const campaignRev = snapshotRevenue;
-            return accountRev - campaignRev;
-          })()}
           trackingLinkLtv={trackingLinkLtv}
           revMultiplier={revMultiplier}
           revenueMode={revenueMode}
@@ -680,6 +630,7 @@ export default function DashboardPage() {
           lastWeekSnapshots={lastWeekSnapshots}
           activeLinkCount={activeLinkCount}
           snapshotRows={overviewSnapshotRows}
+          revMultiplier={revMultiplier}
         />
 
 
@@ -715,9 +666,9 @@ export default function DashboardPage() {
 function KpiCards({
   isLoading, isVisible, enabledCards,
   accounts, links, allLinks, snapshotLookup,
-  totalSpend, totalRevenue, totalLtv, totalProfit, periodSubscribers, periodDayCount, activeLinkCount, avgProfitPerSub,
+  totalSpend, periodSubscribers, periodDayCount, activeLinkCount,
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
-  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData, organicRevenue,
+  modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData,
   trackingLinkLtv, revMultiplier, revenueMode,
   snapshotSpend, snapshotSubs,
   txTypeTotalsByAccount,
@@ -730,13 +681,9 @@ function KpiCards({
   allLinks: any[];
   snapshotLookup: Record<string, any> | null;
   totalSpend: number;
-  totalRevenue: number;
-  totalLtv: number;
-  totalProfit: number;
   periodSubscribers: number;
   periodDayCount: number | null;
   activeLinkCount: number;
-  avgProfitPerSub: number | null;
   unattributedStats: any;
   timePeriod: string;
   customRange: { from: Date; to: Date } | null;
@@ -746,7 +693,6 @@ function KpiCards({
   getAccountCategory: (a: any) => string;
   fmtC: (v: number) => string;
   hasSnapshotData: boolean;
-  organicRevenue: number;
   trackingLinkLtv: any[];
   revMultiplier: number;
   revenueMode: "gross" | "net";
@@ -857,8 +803,8 @@ function KpiCards({
         let profitPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtvTotal = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-          const totalSubsCount = filtAccounts.filter(isActiveAccount).reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+          const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+          const totalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
           const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
@@ -1077,7 +1023,6 @@ function KpiCards({
       // ═══ TOTAL SUBS (always accounts.subscribers_count) ═══
       case "total_subs": {
         const totalSubsVal = filtAccounts
-          .filter(isActiveAccount)
           .reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
         const subsSubtitle = "Active subscribers across all models · All time";
         return (
@@ -1150,8 +1095,7 @@ function KpiCards({
 
       // ═══ TOTAL PROFIT ═══
       case "total_profit": {
-        const activeAcctsTP = filtAccounts.filter(isActiveAccount);
-        const tpRev = isAllTime ? activeAcctsTP.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
+        const tpRev = isAllTime ? filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
         const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const tpVal = tpRev - tpSpend;
         const showDash = !isAllTime && noDataForPeriod;

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { tracking_links, accounts, campaigns } from "../db/schema.js";
+import { tracking_links, accounts, campaigns, daily_snapshots } from "../db/schema.js";
 import { eq, isNull, desc, inArray, sql, and, getTableColumns } from "drizzle-orm";
 
 const router = new Hono();
@@ -143,19 +143,51 @@ router.post("/:id/restore", async (c) => {
 });
 
 // GET /tracking-links/active-count
+// Active = >= 1 new sub/day over the last 5 days (snapshot delta), matching useActiveLinkStatus.
 router.get("/active-count", async (c) => {
   const accountIds = c.req.queries("account_id");
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(tracking_links)
-    .where(
-      and(
-        isNull(tracking_links.deleted_at),
-        sql`(${tracking_links.clicks} > 0 OR ${tracking_links.subscribers} > 0)`,
-        accountIds?.length ? inArray(tracking_links.account_id, accountIds) : undefined,
-      )
-    );
-  return c.json({ count: Number(result[0]?.count ?? 0) });
+
+  const accountFilter = accountIds?.length
+    ? sql`AND tl.account_id = ANY(${accountIds}::uuid[])`
+    : sql``;
+
+  const result = await db.execute<{ count: string }>(sql`
+    WITH snapshots_7d AS (
+      SELECT tracking_link_id, snapshot_date, subscribers
+      FROM daily_snapshots
+      WHERE snapshot_date >= CURRENT_DATE - INTERVAL '7 days'
+        AND tracking_link_id IS NOT NULL
+    ),
+    latest AS (
+      SELECT DISTINCT ON (tracking_link_id)
+        tracking_link_id, snapshot_date, subscribers
+      FROM snapshots_7d
+      ORDER BY tracking_link_id, snapshot_date DESC
+    ),
+    earlier AS (
+      SELECT DISTINCT ON (tracking_link_id)
+        tracking_link_id, snapshot_date, subscribers
+      FROM snapshots_7d
+      WHERE snapshot_date <= CURRENT_DATE - INTERVAL '5 days'
+      ORDER BY tracking_link_id, snapshot_date DESC
+    ),
+    active_links AS (
+      SELECT l.tracking_link_id
+      FROM latest l
+      JOIN earlier e ON e.tracking_link_id = l.tracking_link_id
+      WHERE l.snapshot_date != e.snapshot_date
+        AND (l.subscribers - e.subscribers) > 0
+        AND (l.subscribers - e.subscribers)::float /
+            GREATEST(1, (l.snapshot_date - e.snapshot_date)) >= 1
+    )
+    SELECT COUNT(*) AS count
+    FROM tracking_links tl
+    JOIN active_links al ON al.tracking_link_id = tl.id
+    WHERE tl.deleted_at IS NULL
+    ${accountFilter}
+  `);
+
+  return c.json({ count: Number(result.rows[0]?.count ?? 0) });
 });
 
 export default router;

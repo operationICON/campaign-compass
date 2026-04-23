@@ -966,6 +966,7 @@ export default function CampaignsPage() {
                         const statusStyle = STATUS_STYLES[status] || STATUS_STYLES["NO_DATA"];
                         const isInactive = status === "INACTIVE";
                         const isExpanded = expandedRow === link.id;
+                        const activeInfo = getActiveInfo(link.id, activeLookup);
 
                         return (
                           <React.Fragment key={link.id}>
@@ -984,8 +985,11 @@ export default function CampaignsPage() {
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                             </td>
                             <td style={{ padding: "8px 12px", maxWidth: "200px" }}>
-                              <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
-                              <p className="truncate text-muted-foreground" style={{ fontSize: "11px" }} title={link.url}>{link.url}</p>
+                              <div className="flex items-center gap-1.5">
+                                <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: activeInfo.isActive ? "#16a34a" : "#94a3b8" }} title={activeInfo.isActive ? "Active" : "Inactive"} />
+                                <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
+                              </div>
+                              <p className="truncate text-muted-foreground" style={{ fontSize: "11px", paddingLeft: "14px" }} title={link.url}>{link.url}</p>
                             </td>
                             {columnOrder.visibleOrderedColumns.map(c => {
                               switch (c.id) {
@@ -1187,25 +1191,16 @@ export default function CampaignsPage() {
                                 case "subs_day": {
                                   let subsPerDay: number | null = null;
                                   let subsDayLbl: string | null = null;
-                                  if (activityFilter !== "all") {
-                                    // Activity filter engaged → always show 5-day snapshot-derived value
-                                    const ai = getActiveInfo(link.id, activeLookup);
-                                    subsPerDay = ai.subsPerDay > 0 ? ai.subsPerDay : null;
-                                    if (subsPerDay === null) subsDayLbl = "—";
-                                  } else if (!isDeltaAllTime) {
+                                  if (!isDeltaAllTime) {
                                     // Date filter active → delta from cumulative snapshots in window
                                     const d = getDelta(link.id, deltaLookup);
                                     subsPerDay = d?.subsPerDay ?? null;
                                     if (subsPerDay === null) subsDayLbl = "—";
                                   } else {
-                                    // All Time: subscribers / days since created
-                                    const totalSubs = Number(link.subscribers || 0);
-                                    const daysSince = Math.max(1, link.daysSinceCreated || 1);
-                                    if (totalSubs > 0 && daysSince > 0) {
-                                      subsPerDay = totalSubs / daysSince;
-                                    } else if (totalSubs === 0) {
-                                      subsDayLbl = "—";
-                                    }
+                                    // All Time (and activity filter) → 5-day snapshot-derived rate
+                                    // This ensures inactive links show 0 instead of a misleading historical average
+                                    subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
+                                    if (subsPerDay === null) subsDayLbl = "—";
                                   }
                                   return (
                                   <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>

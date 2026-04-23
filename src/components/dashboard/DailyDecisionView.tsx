@@ -18,6 +18,7 @@ interface DailyDecisionViewProps {
   lastWeekSnapshots?: any[];
   activeLinkCount?: number;
   snapshotRows?: any[];
+  revMultiplier?: number;
 }
 
 export function DailyDecisionView({
@@ -30,6 +31,7 @@ export function DailyDecisionView({
   lastWeekSnapshots = [],
   activeLinkCount,
   snapshotRows = [],
+  revMultiplier = 1,
 }: DailyDecisionViewProps) {
   const [open, setOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
@@ -109,7 +111,10 @@ export function DailyDecisionView({
       const newSubs = getNewSubs(l);
       const ltvPerSub = newSubs > 0 ? totalLtv / newSubs : 0;
       const cost = Number(l.cost_total || 0);
+      // Gross ROI used for SCALE/WATCH/STOP classification; display variants apply revMultiplier
       const roi = cost > 0 ? ((totalLtv + crossPoll - cost) / cost) * 100 : 0;
+      const roiDisplay = cost > 0 ? ((totalLtv + crossPoll) * revMultiplier - cost) / cost * 100 : 0;
+      const ltvPerSubDisplay = ltvPerSub * revMultiplier;
       const account = accounts.find((a: any) => a.id === l.account_id);
       const modelName = account?.display_name || l.accounts?.display_name || "";
       const avatarUrl = account?.avatar_thumb_url || l.accounts?.avatar_thumb_url || null;
@@ -117,7 +122,7 @@ export function DailyDecisionView({
       return {
         ...l,
         periodSubs, periodRev, periodClicks,
-        totalLtv, crossPoll, newSubs, ltvPerSub, cost, roi,
+        totalLtv, crossPoll, newSubs, ltvPerSub, ltvPerSubDisplay, cost, roi, roiDisplay,
         modelName, avatarUrl,
         hasPeriodSubs: periodSubs > 0,
         allTimeSubs: Number(l.subscribers || 0),
@@ -227,8 +232,8 @@ export function DailyDecisionView({
           accNewSubs += Number(rec.new_subs_total || 0);
         }
       }
-      const ltvPerSub = accNewSubs > 0 ? accLtv / accNewSubs : null;
-      const profitPerSub = accNewSubs > 0 ? (accLtv - spendTotal) / accNewSubs : null;
+      const ltvPerSub = accNewSubs > 0 ? (accLtv * revMultiplier) / accNewSubs : null;
+      const profitPerSub = accNewSubs > 0 ? (accLtv * revMultiplier - spendTotal) / accNewSubs : null;
 
       return { ...acc, subsPerDay, spendTotal, estDailySpend, ltvPerSub, profitPerSub };
     }).sort((a: any, b: any) => (b.profitPerSub ?? -Infinity) - (a.profitPerSub ?? -Infinity));
@@ -248,8 +253,8 @@ export function DailyDecisionView({
         <div className="flex items-center gap-2 mb-1.5">
           <ModelAvatar avatarUrl={l.avatarUrl} name={l.modelName} size={20} />
           <p className="text-xs font-semibold text-foreground truncate flex-1">{l.campaign_name || "Unknown"}</p>
-          <span className={`text-[10px] font-mono font-bold ${l.roi >= 0 ? "text-primary" : "text-destructive"}`}>
-            {fmtPct(l.roi)} ROI
+          <span className={`text-[10px] font-mono font-bold ${l.roiDisplay >= 0 ? "text-primary" : "text-destructive"}`}>
+            {fmtPct(l.roiDisplay)} ROI
           </span>
         </div>
         <div className="grid grid-cols-2 gap-1">
@@ -259,7 +264,7 @@ export function DailyDecisionView({
           </div>
           <div>
             <p className="text-[9px] text-muted-foreground uppercase">Revenue</p>
-            <p className="text-[11px] font-mono font-medium text-foreground">{fmtC(l.periodRev)}</p>
+            <p className="text-[11px] font-mono font-medium text-foreground">{fmtC(l.periodRev * revMultiplier)}</p>
           </div>
         </div>
       </button>
@@ -329,7 +334,7 @@ export function DailyDecisionView({
                 </div>
                 {bestLtvSub ? (
                   <>
-                    <p className="text-sm font-bold text-primary">{fmtC2(bestLtvSub.ltvPerSub)}</p>
+                    <p className="text-sm font-bold text-primary">{fmtC2(bestLtvSub.ltvPerSubDisplay)}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{bestLtvSub.campaign_name}</p>
                   </>
                 ) : <p className="text-sm font-bold text-muted-foreground">—</p>}
@@ -351,7 +356,7 @@ export function DailyDecisionView({
                 </div>
                 {topEarner ? (
                   <>
-                    <p className="text-sm font-bold text-foreground truncate">{fmtC(Number(topEarner.revenue || 0))}</p>
+                    <p className="text-sm font-bold text-foreground truncate">{fmtC(Number(topEarner.revenue || 0) * revMultiplier)}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{topEarner.campaign_name}</p>
                   </>
                 ) : <p className="text-sm font-bold text-muted-foreground">—</p>}
@@ -437,7 +442,7 @@ export function DailyDecisionView({
                         </div>
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <span className="text-sm font-mono font-bold text-primary">{fmtC2(l.ltvPerSub)}/sub</span>
+                        <span className="text-sm font-mono font-bold text-primary">{fmtC2(l.ltvPerSubDisplay)}/sub</span>
                         <span className="text-[10px] text-muted-foreground">{l.newSubs} fans</span>
                       </div>
                     </button>
@@ -475,6 +480,7 @@ export function DailyDecisionView({
                         <span className={`font-mono font-semibold ${getValueColor(m.profitPerSub != null ? (m.profitPerSub >= 0 ? "positive" : "negative") : "neutral")}`}>
                           {m.profitPerSub != null ? `${fmtC2(m.profitPerSub)}/sub` : "—"}
                         </span>
+
                       </div>
                     ))}
                   </div>

@@ -1057,19 +1057,17 @@ export default function AccountsPage() {
                             const roiPrev = spendPrev > 0 ? (profitPrev / spendPrev) * 100 : null;
 
                             // Subs/Day priority:
-                            //  - Activity filter engaged → 5-day snapshot-derived (always)
                             //  - Date filter active → period delta from useAccountLinkDeltas
-                            //  - All Time → lifetime average (subs / days_since_created)
+                            //  - All Time (default) → 5-day snapshot-derived rate
+                            //  Lifetime average (subs / days_since_created) was intentionally removed:
+                            //  it made old inactive links appear active with misleading historical rates.
                             let subsPerDay: number | null;
                             let subsPerDayPrev: number | null = null;
-                            if (activityFilter !== "all") {
-                              subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
-                            } else if (periodActive) {
+                            if (periodActive) {
                               subsPerDay = linkD && linkD.cur.days > 0 ? linkD.cur.subs / linkD.cur.days : null;
                               subsPerDayPrev = linkD && linkD.prev.days > 0 ? linkD.prev.subs / linkD.prev.days : null;
                             } else {
-                              const daysActive = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : null;
-                              subsPerDay = daysActive && daysActive > 0 && lifetimeSubs > 0 ? lifetimeSubs / daysActive : null;
+                              subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
                             }
                             const rowBorder =
                               activityFilter === "active"
@@ -1091,8 +1089,11 @@ export default function AccountsPage() {
                                 onClick={() => setDrawerCampaign({ ...l, avatarUrl: acc.avatar_thumb_url, modelName: acc.display_name })}
                               >
                                 <td className="py-3 px-3">
-                                  <p className="font-bold text-foreground text-[12px] truncate max-w-[220px]">{l.campaign_name || "—"}</p>
-                                  <p className="text-[10px] text-muted-foreground truncate max-w-[220px]">{l.url}</p>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: activeInfo.isActive ? "#16a34a" : "#94a3b8" }} title={activeInfo.isActive ? "Active" : "Inactive"} />
+                                    <p className="font-bold text-foreground text-[12px] truncate max-w-[220px]">{l.campaign_name || "—"}</p>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground truncate max-w-[220px]" style={{ paddingLeft: "14px" }}>{l.url}</p>
                                 </td>
                                 <td className="py-3 px-3 text-[12px]">
                                   <TagBadge tagName={getEffectiveSource(l)} />

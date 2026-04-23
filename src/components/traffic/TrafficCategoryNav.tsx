@@ -872,7 +872,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                 >
                   <td style={{ padding: "8px 12px" }}>
                     <div className="flex items-center gap-3">
-                      <ModelAvatar name={g.marketer} size={32} />
+                      <div className="relative shrink-0">
+                        <ModelAvatar name={g.marketer} size={32} />
+                        <span className="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-card" style={{ width: 10, height: 10, background: g.isActive ? "#16a34a" : "#94a3b8" }} title={g.isActive ? "Active" : "Inactive"} />
+                      </div>
                       <div className="min-w-0">
                         <p className={`font-medium truncate ${mutedRow ? "text-muted-foreground" : "text-foreground"}`} style={{ fontSize: "13px", fontWeight: 500 }}>
                           {g.marketer}
