@@ -20,6 +20,14 @@ async function run() {
     `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS fans_last_synced_at timestamptz`,
     `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS numeric_of_id integer`,
 
+    // tracking_links computed metric columns
+    `ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS spenders integer DEFAULT 0`,
+    `ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS cvr numeric`,
+    `ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS arpu numeric`,
+    `ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS ltv numeric`,
+    `ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS ltv_per_sub numeric`,
+    `ALTER TABLE tracking_links ADD COLUMN IF NOT EXISTS spender_rate numeric`,
+
     // unique indexes required for ON CONFLICT upserts
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_metrics_link_date ON daily_metrics (tracking_link_id, date)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_snapshots_link_date ON daily_snapshots (tracking_link_id, snapshot_date)`,

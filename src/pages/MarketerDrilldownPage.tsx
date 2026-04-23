@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { getCostTypeFromOrderId, deriveCostLabel, calcCostMetric, type CostTypeFromOrder } from "@/lib/calc-helpers";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getAccounts, getTrackingLinks } from "@/lib/api";
+import { getAccounts, getTrackingLinks, getOnlytrafficOrders } from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -62,23 +62,17 @@ export default function MarketerDrilldownPage() {
   const decodedMarketer = isUnknown ? "Unknown" : decodeURIComponent(marketer || "");
   const offerId = (!isUnknown && offer_id) ? Number(offer_id) : null;
 
-  // Fetch orders
+  // Fetch orders via Railway API
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ["marketer_orders", decodedMarketer, offerId, isUnknown],
-    queryFn: async () => {
-      let q = supabase
-        .from("onlytraffic_orders")
-        .select("id, tracking_link_id, quantity_delivered, total_spent, marketer, offer_id, source, status, order_id")
-        .in("status", ["completed", "accepted", "active", "waiting"]);
-      if (isUnknown) {
-        q = q.or("marketer.is.null,marketer.eq.");
-      } else {
-        q = q.eq("marketer", decodedMarketer);
-        if (offerId != null) q = q.eq("offer_id", offerId);
-      }
-      const { data } = await q;
-      return data || [];
-    },
+    queryFn: () => getOnlytrafficOrders(isUnknown
+      ? { statuses: ["completed", "accepted", "active", "waiting"] }
+      : {
+          marketer: decodedMarketer,
+          ...(offerId != null ? { offer_id: String(offerId) } : {}),
+          statuses: ["completed", "accepted", "active", "waiting"],
+        }
+    ),
     enabled: isUnknown || !!decodedMarketer,
   });
 
