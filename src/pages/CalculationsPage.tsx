@@ -205,17 +205,12 @@ export default function CalculationsPage() {
       example: `${fmtC(totalSpend)} ÷ ${fmtN(totalNewSubs)} = ${avgCpl != null ? fmtC(avgCpl) : "—"}`,
     },
     {
-      name: "Unattributed %",
-      formula: "(Total Revenue − Tracked Revenue) ÷ Total Revenue × 100",
-      source: "(SUM(accounts.ltv_total) − SUM(tracking_links.revenue WHERE deleted_at IS NULL)) ÷ SUM(accounts.ltv_total)",
+      name: "Total Revenue",
+      formula: "SUM(tracking_links.revenue)",
+      source: "SUM(tracking_links.revenue WHERE deleted_at IS NULL)",
       example: (() => {
-        // Rule 4: only count active accounts (ltv_total>0 AND subscribers_count>0)
-        const activeAccts = accounts.filter((a: any) => Number(a.ltv_total || 0) > 0 && Number(a.subscribers_count || 0) > 0);
-        const totalRev = activeAccts.reduce((s, a: any) => s + Number(a.ltv_total || 0), 0);
-        const trackedRev = links.reduce((s, l: any) => s + Number(l.revenue || 0), 0);
-        const unattr = Math.max(0, totalRev - trackedRev);
-        const pct = totalRev > 0 ? (unattr / totalRev) * 100 : 0;
-        return `(${fmtC(totalRev)} − ${fmtC(trackedRev)}) ÷ ${fmtC(totalRev)} = ${fmtP(pct)}`;
+        const totalRev = links.reduce((s, l: any) => s + Number(l.revenue || 0), 0);
+        return fmtC(totalRev);
       })(),
     },
   ];

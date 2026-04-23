@@ -270,16 +270,6 @@ export default function AccountsPage() {
     return `@${u.replace("@", "")}`;
   };
 
-  // Unattributed % calculation used on OVERVIEW cards — reuse everywhere
-  const calcUnattributedPct = (acc: any) => {
-    const ltvT = Number(acc.ltv_total || 0);
-    const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-    const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-    if (ltvT <= 0) return { pct: null, totalRev: ltvT, campRev, unattributed: 0 };
-    const unattributed = Math.max(0, ltvT - campRev);
-    const pct = (unattributed / ltvT) * 100;
-    return { pct, totalRev: ltvT, campRev, unattributed };
-  };
 
   const accountStats = useMemo(() => {
     const stats: Record<string, any> = {};
@@ -337,8 +327,7 @@ export default function AccountsPage() {
       }
 
       const apiSubs = acc.subscribers_count || 0;
-      const ua = calcUnattributedPct(acc);
-      const unattributedPct = ua.pct;
+      const unattributedPct: number | null = null;
 
       const blendedRoi = totalSpendAllTime > 0
         ? ((campaignRevAllTime - totalSpendAllTime) / totalSpendAllTime) * 100
@@ -384,7 +373,7 @@ export default function AccountsPage() {
   }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime, activeLookup, deltaLookup, isDeltaAllTime]);
 
   const afterAccountFilter = useMemo(() => {
-    // Rule 4: exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
+    // Rule 4: exclude inactive/test accounts (subscribers_count=0)
     const active = accounts.filter(isActiveAccount);
     if (pageModelFilter === "all") return active;
     return active.filter((a: any) => a.id === pageModelFilter);
@@ -408,7 +397,7 @@ export default function AccountsPage() {
             return (sb.totalSpendAllTime || 0) - (sa.totalSpendAllTime || 0);
           return (sb.ltvPerSub || 0) - (sa.ltvPerSub || 0);
         case "ltv_per_sub":
-          return ((Number(b.ltv_total || 0) / Math.max(Number(b.subscribers_count || 0), 1))) - ((Number(a.ltv_total || 0) / Math.max(Number(a.subscribers_count || 0), 1)));
+          return ((accountStats[b.id]?.campaignRevAllTime || 0) / Math.max(Number(b.subscribers_count || 0), 1)) - ((accountStats[a.id]?.campaignRevAllTime || 0) / Math.max(Number(a.subscribers_count || 0), 1));
         case "subscribers":
           return (sb.apiSubs || 0) - (sa.apiSubs || 0);
         case "active_links":
@@ -589,7 +578,6 @@ export default function AccountsPage() {
     const stats = accountStats[acc.id] || {};
     const accLinks = selectedAccLinks;
     const category = getGender(acc);
-    const ua = calcUnattributedPct(acc);
 
     const sortedLinks = [...accLinks].sort((a: any, b: any) => {
       const dir = sortAsc ? 1 : -1;
@@ -709,7 +697,7 @@ export default function AccountsPage() {
     const gainedSuffix = periodActive ? periodSuffix : "(all)";
 
     // Lifetime KPI values (used when "All Time" or as fallback)
-    const lifetimeRevenue = Number(acc.ltv_total || 0) * revMultiplier;
+    const lifetimeRevenue = (stats.campaignRevAllTime || 0) * revMultiplier;
     const lifetimeCampaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
     const lifetimeSpend = stats.totalSpendAllTime || 0;
     const lifetimeProfit = lifetimeRevenue - lifetimeSpend;
@@ -816,32 +804,17 @@ export default function AccountsPage() {
                   {/* Row 3: Traffic health */}
                   <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
                   <KpiCard label="Active Tracking Links" value={String(stats.activeCampaigns || 0)} />
-                  {/* Unattributed % — clicks scroll to breakdown section below */}
-                  <div
-                    className="bg-secondary/50 dark:bg-secondary rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-all"
-                    onClick={() => document.getElementById("revenue-breakdown-detail")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                  >
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
-                      Unattributed % <Info className="h-3 w-3" />
-                    </p>
-                    <p className={`text-lg font-bold font-mono ${
-                      ua.pct == null ? "text-foreground"
-                        : ua.pct > 50 ? "text-destructive"
-                        : ua.pct >= 30 ? "text-[hsl(38_92%_50%)]"
-                        : "text-primary"
-                    }`}>{ua.pct != null ? fmtPct(ua.pct) : "—"}</p>
-                  </div>
-                  {/* 2 empty slots in row 3 */}
+                  {/* 3 empty slots */}
+                  <div />
                   <div />
                   <div />
                 </div>
 
                 {/* PART 6 — Revenue Breakdown (compact, borderless, inside KPI area) */}
-                {Number(acc.ltv_total || 0) > 0 && (() => {
-                  const ltvT = Number(acc.ltv_total || 0);
+                {(() => {
                   const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
                   const campRevRaw = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-                  const unattributed = Math.max(0, ltvT - campRevRaw);
+                  if (campRevRaw <= 0) return null;
 
                   const accMsg = Number(acc.ltv_messages || 0);
                   const accTips = Number(acc.ltv_tips || 0);
@@ -869,26 +842,6 @@ export default function AccountsPage() {
                     <div id="revenue-breakdown-detail" className="mt-3 pt-3 border-t border-border/50">
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Revenue Breakdown</p>
                       <div className="space-y-2 text-[12px]">
-                        <div className="space-y-1.5 pb-2 border-b border-border/50">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full shrink-0 bg-primary" />
-                              <span className="text-muted-foreground">Via Campaigns</span>
-                            </div>
-                            <span className="font-mono text-foreground/80">
-                              {fmtCurrency(campRevRaw * revMultiplier)} · {ltvT > 0 ? ((campRevRaw / ltvT) * 100).toFixed(1) : "0"}%
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground/50" />
-                              <span className="text-muted-foreground">Unattributed</span>
-                            </div>
-                            <span className="font-mono text-foreground/80">
-                              {fmtCurrency(unattributed * revMultiplier)} · {ltvT > 0 ? ((unattributed / ltvT) * 100).toFixed(1) : "0"}%
-                            </span>
-                          </div>
-                        </div>
                         {typeRows.length > 0 && (
                           <div className="space-y-1.5">
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">By Type</span>
@@ -899,7 +852,7 @@ export default function AccountsPage() {
                                   <span className="text-muted-foreground">{r.label}</span>
                                 </div>
                                 <span className="font-mono text-foreground/80">
-                                  {fmtCurrency(r.value * revMultiplier)} · {ltvT > 0 ? ((r.value / ltvT) * 100).toFixed(1) : "0"}%
+                                  {fmtCurrency(r.value * revMultiplier)} · {campRevRaw > 0 ? ((r.value / campRevRaw) * 100).toFixed(1) : "0"}%
                                 </span>
                               </div>
                             ))}
@@ -1463,7 +1416,7 @@ export default function AccountsPage() {
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Revenue</span>
-                    <span className="font-mono font-semibold text-foreground">{fmtCurrency((Number(acc.ltv_total || 0)) * revMultiplier)}</span>
+                    <span className="font-mono font-semibold text-foreground">{fmtCurrency((stats.campaignRevAllTime || 0) * revMultiplier)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
@@ -1486,32 +1439,14 @@ export default function AccountsPage() {
                     <span className="text-muted-foreground">Spend</span>
                     <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Unattributed</span>
-                    <span className={`font-mono font-semibold ${
-                      (() => {
-                        const ua = calcUnattributedPct(acc);
-                        return ua.pct == null ? "text-muted-foreground"
-                          : ua.pct > 50 ? "text-destructive"
-                          : ua.pct >= 30 ? "text-[hsl(38_92%_50%)]"
-                          : "text-primary";
-                      })()
-                    }`}>
-                      {(() => {
-                        const ua = calcUnattributedPct(acc);
-                        return ua.pct != null ? fmtPct(ua.pct) : "—";
-                      })()}
-                    </span>
-                  </div>
                 </div>
 
                 {/* Revenue breakdown expandable */}
-                {Number(acc.ltv_total || 0) > 0 && (() => {
-                  const ltvT = Number(acc.ltv_total || 0);
+                {(() => {
                   const isExp = expandedBreakdown.has(acc.id);
                   const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
                   const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-                  const unattributed = Math.max(0, ltvT - campRev);
+                  if (campRev <= 0) return null;
 
                   const accMsg = Number(acc.ltv_messages || 0);
                   const accTips = Number(acc.ltv_tips || 0);
@@ -1552,26 +1487,6 @@ export default function AccountsPage() {
                       </button>
                       {isExp && (
                         <div className="mt-1.5 space-y-1.5 text-[12px]">
-                          <div className="space-y-1 pb-1.5 border-b border-border/50">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full shrink-0 bg-primary" />
-                                <span className="text-muted-foreground">Via Campaigns</span>
-                              </div>
-                              <span className="font-mono text-foreground/80">
-                                {fmtCurrency(campRev * revMultiplier)} · {ltvT > 0 ? ((campRev / ltvT) * 100).toFixed(1) : "0"}%
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground/50" />
-                                <span className="text-muted-foreground">Unattributed</span>
-                              </div>
-                              <span className="font-mono text-foreground/80">
-                                {fmtCurrency(unattributed * revMultiplier)} · {ltvT > 0 ? ((unattributed / ltvT) * 100).toFixed(1) : "0"}%
-                              </span>
-                            </div>
-                          </div>
                           {typeRows.length > 0 && (
                             <div className="space-y-1">
                               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">By Type</span>
@@ -1582,7 +1497,7 @@ export default function AccountsPage() {
                                     <span className="text-muted-foreground">{r.label}</span>
                                   </div>
                                   <span className="font-mono text-foreground/80">
-                                    {fmtCurrency(r.value * revMultiplier)} · {ltvT > 0 ? ((r.value / ltvT) * 100).toFixed(1) : "0"}%
+                                    {fmtCurrency(r.value * revMultiplier)} · {campRev > 0 ? ((r.value / campRev) * 100).toFixed(1) : "0"}%
                                   </span>
                                 </div>
                               ))}

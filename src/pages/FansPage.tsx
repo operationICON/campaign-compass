@@ -81,6 +81,7 @@ export default function FansPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+
   const { data: newFans = [], isLoading: fansLoading } = useQuery({
     queryKey: ["chatting_team_new_fans"],
     queryFn: async (): Promise<any[]> => [],

@@ -41,18 +41,14 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
         const subscriptions = hasLtv ? accSubs : (tx?.subscriptions ?? 0);
         const posts         = hasLtv ? accPost : (tx?.posts         ?? 0);
 
-        // Total revenue: prefer ltv_total (LTV sync), fall back to sum of transaction types
-        const txSum = messages + tips + subscriptions + posts;
-        const ltvTotal = Number(acc.ltv_total || 0) > 0
-          ? Number(acc.ltv_total || 0)
-          : txSum;
+        // Total revenue from tracking links
+        const ltvTotal = allLinks
+          .filter((l: any) => l.account_id === acc.id)
+          .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
         if (ltvTotal <= 0) return null;
 
-        // Campaign revenue = sum of tracking_links.revenue for this account
-        const campRev = allLinks
-          .filter((l: any) => l.account_id === acc.id)
-          .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+        const campRev = ltvTotal;
 
         const hasBreakdown = messages > 0 || tips > 0 || subscriptions > 0 || posts > 0;
 

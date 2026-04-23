@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 
 const PAGE_SIZE = 25;
 
-type SyncType = "dashboard" | "snapshot" | "snapshot_backfill" | "ltv" | "onlytraffic" | "ot_snapshot" | "crosspoll";
+type SyncType = "dashboard" | "snapshot" | "snapshot_backfill" | "ltv" | "onlytraffic" | "ot_snapshot" | "crosspoll" | "revenue_breakdown";
 
 const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; badge: string }> = {
   dashboard:         { bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",      border: "border-blue-500/30",   badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
@@ -29,6 +29,7 @@ const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; 
   onlytraffic:       { bg: "bg-orange-500/10",   text: "text-orange-600 dark:text-orange-400",   border: "border-orange-500/30",  badge: "bg-orange-500/15 text-orange-700 dark:text-orange-300" },
   ot_snapshot:       { bg: "bg-amber-500/10",    text: "text-amber-600 dark:text-amber-400",     border: "border-amber-500/30",   badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
   crosspoll:         { bg: "bg-pink-500/10",     text: "text-pink-600 dark:text-pink-400",       border: "border-pink-500/30",    badge: "bg-pink-500/15 text-pink-700 dark:text-pink-300" },
+  revenue_breakdown: { bg: "bg-green-500/10",   text: "text-green-600 dark:text-green-400",     border: "border-green-500/30",   badge: "bg-green-500/15 text-green-700 dark:text-green-300" },
 };
 
 const SYNC_LABELS: Record<SyncType, string> = {
@@ -39,6 +40,7 @@ const SYNC_LABELS: Record<SyncType, string> = {
   onlytraffic: "OnlyTraffic",
   ot_snapshot: "OT Snapshots",
   crosspoll: "Cross-Poll",
+  revenue_breakdown: "Rev Breakdown",
 };
 
 const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
@@ -49,6 +51,7 @@ const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
   onlytraffic: Truck,
   ot_snapshot: Camera,
   crosspoll: GitMerge,
+  revenue_breakdown: BarChart3,
 };
 
 function classifySyncType(log: any): SyncType {
@@ -56,6 +59,7 @@ function classifySyncType(log: any): SyncType {
   const details = JSON.stringify(log.details || {}).toLowerCase();
   const triggered = (log.triggered_by || "").toLowerCase();
   if (triggered.includes("ot_snapshot") || triggered.includes("onlytraffic_snapshot") || msg.includes("ot snapshot") || details.includes("ot_snapshot")) return "ot_snapshot";
+  if (triggered.includes("revenue_breakdown") || msg.includes("revenue breakdown")) return "revenue_breakdown";
   if (triggered.includes("ltv") || triggered.includes("fan_sync") || msg.includes("ltv") || msg.includes("fan sync")) return "ltv";
   if (triggered.includes("crosspoll") || msg.includes("cross-poll") || msg.includes("crosspoll")) return "crosspoll";
   if (triggered.includes("backfill") || msg.includes("backfill")) return "snapshot_backfill";
@@ -90,8 +94,8 @@ export default function LogsPage() {
   
 
   // Running state per sync type
-  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, snapshot_backfill: false, ltv: false, onlytraffic: false, ot_snapshot: false, crosspoll: false });
-  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", snapshot_backfill: "", ltv: "", onlytraffic: "", ot_snapshot: "", crosspoll: "" });
+  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, snapshot_backfill: false, ltv: false, onlytraffic: false, ot_snapshot: false, crosspoll: false, revenue_breakdown: false });
+  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", snapshot_backfill: "", ltv: "", onlytraffic: "", ot_snapshot: "", crosspoll: "", revenue_breakdown: "" });
   const abortRefs = useRef<Record<string, AbortController>>({});
 
   const [allRunning, setAllRunning] = useState(false);
@@ -113,7 +117,7 @@ export default function LogsPage() {
 
   // Build status cards from last log per type
   const statusCards = useMemo(() => {
-    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null };
+    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null, revenue_breakdown: null };
     for (const log of classifiedLogs) {
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
@@ -310,6 +314,32 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
+  const runRevenueBreakdownSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.revenue_breakdown = ctrl;
+    setRunning(r => ({ ...r, revenue_breakdown: true }));
+    setProgress(p => ({ ...p, revenue_breakdown: "Starting..." }));
+    try {
+      const lastData = await streamSync(
+        "/sync/revenue-breakdown",
+        { triggered_by: "manual" },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, revenue_breakdown: msg })); },
+        ctrl.signal,
+      );
+      if (ctrl.signal.aborted) return;
+      toast.success(`Revenue breakdown sync complete — ${lastData?.accounts_updated ?? 0} accounts updated`);
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      toast.error(`Revenue breakdown sync failed: ${err.message}`);
+    } finally {
+      delete abortRefs.current.revenue_breakdown;
+      setRunning(r => ({ ...r, revenue_breakdown: false }));
+      setProgress(p => ({ ...p, revenue_breakdown: "" }));
+    }
+  }, [queryClient]);
+
   const runAllSync = useCallback(async () => {
     setAllRunning(true);
     const steps = [
@@ -335,6 +365,7 @@ export default function LogsPage() {
     snapshot_backfill: () => runBackfillSync(7),
     onlytraffic: runOnlyTrafficSync,
     crosspoll: runCrosspollSync,
+    revenue_breakdown: runRevenueBreakdownSync,
   };
 
   const hasFilters = statusFilter !== "all" || typeFilter !== "all";
@@ -371,8 +402,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC BUTTONS ═══ */}
-        <div className="grid grid-cols-5 gap-3">
-          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-6 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown"] as SyncType[]).map((type) => {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
@@ -415,8 +446,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
-        <div className="grid grid-cols-5 gap-3">
-          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-6 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown"] as SyncType[]).map((type) => {
             const colors = SYNC_COLORS[type];
             const Icon = SYNC_ICONS[type];
             const last = statusCards[type];
@@ -509,6 +540,7 @@ export default function LogsPage() {
                   <option value="ltv">LTV</option>
                   <option value="onlytraffic">OnlyTraffic</option>
                   <option value="ot_snapshot">OT Snapshots</option>
+                  <option value="revenue_breakdown">Rev Breakdown</option>
                 </select>
                 <select
                   value={statusFilter}

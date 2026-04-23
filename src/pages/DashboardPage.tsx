@@ -708,7 +708,7 @@ function KpiCards({
   const noDataForPeriod = !hasSnapshotData && !isAllTime;
 
   // ── Filter accounts by model/group selection ──
-  // Rule 4: globally exclude inactive/test accounts (ltv_total=0 OR subscribers_count=0)
+  // Rule 4: globally exclude inactive/test accounts (subscribers_count=0)
   const activeAccounts = useMemo(() => accounts.filter(isActiveAccount), [accounts]);
   const filtAccounts = modelParam ? activeAccounts.filter((a: any) => a.id === modelParam)
     : groupFilter !== "all" ? activeAccounts.filter((a: any) => getAccountCategory(a) === groupFilter)
@@ -725,6 +725,7 @@ function KpiCards({
       return true;
     })
     .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+
 
   const allTimeSpend = allLinks
     .filter((l: any) => {
@@ -803,9 +804,8 @@ function KpiCards({
         let profitPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
           const totalSubsCount = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-          const profit = accountsLtvTotal * revMultiplier - allTimeSpend;
+          const profit = allTimeRevenue * revMultiplier - allTimeSpend;
           profitPerSub = totalSubsCount > 0 ? profit / totalSubsCount : null;
           subtitle = "All time · accounts revenue minus spend";
         } else if (noDataForPeriod) {
@@ -1095,7 +1095,7 @@ function KpiCards({
 
       // ═══ TOTAL PROFIT ═══
       case "total_profit": {
-        const tpRev = isAllTime ? filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
+        const tpRev = isAllTime ? allTimeRevenue * revMultiplier : snapshotRevenue * revMultiplier;
         const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const tpVal = tpRev - tpSpend;
         const showDash = !isAllTime && noDataForPeriod;
@@ -1121,8 +1121,7 @@ function KpiCards({
 
       // ═══ ROI ═══
       case "blended_roi": {
-        const activeAcctsROI = filtAccounts.filter(isActiveAccount);
-        const roiRev = isAllTime ? activeAcctsROI.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMultiplier : snapshotRevenue * revMultiplier;
+        const roiRev = isAllTime ? allTimeRevenue * revMultiplier : snapshotRevenue * revMultiplier;
         const roiSpend = isAllTime ? allTimeSpend : snapshotSpend;
         const roiProfit = roiRev - roiSpend;
         const roiVal = roiSpend > 0 ? (roiProfit / roiSpend) * 100 : null;
@@ -1299,7 +1298,7 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, ltvTotal, u
   const mSubs = uaSubs * revMultiplier;
   const mPosts = uaPosts * revMultiplier;
 
-  // % is computed against total ltv_total (not unattributed total).
+  // % is computed against total transaction revenue.
   const pctOfLtv = (v: number) => mLtvTotal > 0 ? `${((v / mLtvTotal) * 100).toFixed(1)}%` : "0%";
 
   const rows = [
