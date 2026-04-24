@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
-import { ArrowLeft, DollarSign, TrendingUp, BarChart3, Users, Percent, ChevronUp, ChevronDown, Search, X } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { differenceInDays, format } from "date-fns";
 import { ModelAvatar } from "@/components/ModelAvatar";
@@ -162,25 +162,6 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     return baseFilteredLinks.filter(l => !getActiveInfo(l.id, activeLookup).isActive);
   }, [baseFilteredLinks, activityFilter, activeLookup]);
 
-  // KPIs
-  const kpis = useMemo(() => {
-    const spend = filteredLinks.filter(l => Number(l.cost_total || 0) > 0).reduce((s, l) => s + Number(l.cost_total || 0), 0);
-    const revenue = filteredLinks.reduce((s, l) => s + Number(l.revenue || 0), 0);
-    const profit = revenue - spend;
-    const subs = filteredLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-    const roi = spend > 0 ? (profit / spend) * 100 : null;
-    const cplLinks = filteredLinks.filter(l => l.payment_type === "CPL" && Number(l.cost_total || 0) > 0);
-    const cplSpend = cplLinks.reduce((s, l) => s + Number(l.cost_total || 0), 0);
-    const cplSubs = cplLinks.reduce((s, l) => s + (l.subscribers || 0), 0);
-    const avgCpl = cplSubs > 0 ? cplSpend / cplSubs : null;
-    const profitPerSub = spend > 0 && subs > 0 ? profit / subs : null;
-    const ltvPerSub = subs > 0 ? revenue / subs : null;
-    const ages = filteredLinks.map(l => Math.max(1, differenceInDays(new Date(), new Date(l.created_at))));
-    const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 1;
-    const subsDay = avgAge > 0 ? subs / avgAge : 0;
-    return { spend, revenue, profit, avgCpl, profitPerSub, ltvPerSub, subsDay, roi };
-  }, [filteredLinks]);
-
   // Sorting
   const sorted = useMemo(() => {
     const getValue = (l: any): number | string => {
@@ -325,18 +306,6 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
         totalCount={activityCounts.total}
         activeCount={activityCounts.active}
       />
-
-      {/* Sub-KPI row */}
-      <div className="grid grid-cols-8 gap-2">
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Spend" value={fmtC(kpis.spend)} color="#dc2626" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Revenue" value={fmtC(kpis.revenue)} color="#16a34a" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="Profit" value={fmtC(kpis.profit)} color={kpis.profit >= 0 ? "#16a34a" : "#dc2626"} />
-        <SubKpi icon={<DollarSign className="h-3.5 w-3.5" />} label="Avg CPL" value={kpis.avgCpl !== null ? fmtC(kpis.avgCpl) : "—"} color="#0891b2" />
-        <SubKpi icon={<Users className="h-3.5 w-3.5" />} label="Profit/Sub" value={kpis.profitPerSub !== null ? fmtC(kpis.profitPerSub) : "—"} color={kpis.profitPerSub !== null ? (kpis.profitPerSub >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-        <SubKpi icon={<BarChart3 className="h-3.5 w-3.5" />} label="Subs/Day" value={kpis.subsDay > 0 ? kpis.subsDay.toFixed(1) : "0"} color="#d97706" />
-        <SubKpi icon={<TrendingUp className="h-3.5 w-3.5" />} label="LTV/Sub" value={kpis.ltvPerSub !== null ? fmtC(kpis.ltvPerSub) : "—"} color="#0891b2" />
-        <SubKpi icon={<Percent className="h-3.5 w-3.5" />} label="ROI" value={kpis.roi !== null ? fmtPct(kpis.roi) : "—"} color={kpis.roi !== null ? (kpis.roi >= 0 ? "#16a34a" : "#dc2626") : "#64748b"} />
-      </div>
 
       {/* Campaign table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -519,14 +488,3 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
   );
 }
 
-function SubKpi({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
-  return (
-    <div className="bg-card border border-border px-2 py-2 rounded-lg" style={{ borderLeft: `3px solid ${color}` }}>
-      <div className="flex items-center gap-1 mb-0.5">
-        <span style={{ color }}>{icon}</span>
-        <span className="text-muted-foreground" style={{ fontSize: "9px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
-      </div>
-      <p className="font-mono font-bold text-foreground" style={{ fontSize: "13px" }}>{value}</p>
-    </div>
-  );
-}
