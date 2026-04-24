@@ -173,11 +173,12 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     queryKey: ["onlytraffic_orders_link_marketer_map"],
     queryFn: async () => {
       const raw = await getOnlytrafficOrders();
-      const data = (raw as any[]).filter((o: any) => o.marketer != null);
-      if (!data) return {};
+      const allOrders = (raw as any[]);
+      if (!allOrders?.length) return {};
+      // Build multiOffer set from marketer-tagged orders only (for display)
+      const marketerOrders = allOrders.filter((o: any) => o.marketer != null);
       const marketerOffers: Record<string, Set<number>> = {};
-      data.forEach((o: any) => {
-        if (!o.marketer) return;
+      marketerOrders.forEach((o: any) => {
         if (!marketerOffers[o.marketer]) marketerOffers[o.marketer] = new Set();
         if (o.offer_id != null) marketerOffers[o.marketer].add(o.offer_id);
       });
@@ -185,16 +186,23 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       Object.entries(marketerOffers).forEach(([m, offers]) => {
         if (offers.size > 1) multiOffer.add(m);
       });
+      // Build map from ALL orders with tracking_link_id — marketer-null orders still
+      // need to mark their link as OT so hasOTData() routes it correctly.
       const map: Record<string, { marketer: string; offer_id: number | null; showOfferId: boolean; order_ids: string[] }> = {};
-      data.forEach((o: any) => {
+      allOrders.forEach((o: any) => {
         if (!o.tracking_link_id) return;
         if (!map[o.tracking_link_id]) {
           map[o.tracking_link_id] = {
-            marketer: o.marketer,
-            offer_id: o.offer_id,
-            showOfferId: multiOffer.has(o.marketer) && o.offer_id != null,
+            marketer: o.marketer || "",
+            offer_id: o.offer_id ?? null,
+            showOfferId: o.marketer ? (multiOffer.has(o.marketer) && o.offer_id != null) : false,
             order_ids: [],
           };
+        } else if (o.marketer && !map[o.tracking_link_id].marketer) {
+          // Upgrade to marketer info if we find it in a later row
+          map[o.tracking_link_id].marketer = o.marketer;
+          map[o.tracking_link_id].offer_id = o.offer_id ?? null;
+          map[o.tracking_link_id].showOfferId = multiOffer.has(o.marketer) && o.offer_id != null;
         }
         if (o.order_id) map[o.tracking_link_id].order_ids.push(o.order_id);
       });
@@ -234,9 +242,13 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const otLinks = useMemo(() => allLinks.filter(l =>
     l.deleted_at == null && (isOnlyTraffic(l) || hasOTData(l))
   ), [allLinks, linkMarketerMap]);
-  const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && !hasOTData(l) && l.deleted_at == null), [allLinks, linkMarketerMap]);
+  // Explicitly exclude OT-category links as a defensive guard (isManual already implies !isOnlyTraffic, but hasOTData is the main gate)
+  const manualOnlyLinks = useMemo(() => allLinks.filter(l =>
+    isManual(l) && !isOnlyTraffic(l) && !hasOTData(l) && l.deleted_at == null
+  ), [allLinks, linkMarketerMap]);
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
     l.traffic_category == null &&
+    !isOnlyTraffic(l) &&
     !hasOTData(l) &&
     l.deleted_at == null &&
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
