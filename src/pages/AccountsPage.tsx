@@ -16,11 +16,12 @@ import { ModelRevenueBreakdown } from "@/components/dashboard/ModelRevenueBreakd
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized, fetchTransactionTypeTotalsByAccount, patchAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
-import { streamSync } from "@/lib/api";
+import { streamSync, getSnapshotsByDateRange } from "@/lib/api";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useAccountLinkDeltas, pctChange } from "@/hooks/useAccountLinkDeltas";
+import { useMultiWindowRates, getWindowRates } from "@/hooks/useMultiWindowRates";
 import { TrendChip } from "@/components/TrendChip";
 
 import { format, differenceInDays, subDays, isValid } from "date-fns";
@@ -153,6 +154,7 @@ export default function AccountsPage() {
     timePeriod,
     customRange
   );
+  const multiWindowRates = useMultiWindowRates(selectedAccount?.id ?? null);
 
   const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
@@ -178,32 +180,13 @@ export default function AccountsPage() {
       else if (perfRange === "30d") fromDate = subDays(now, 30).toISOString().slice(0, 10);
       else if (perfRange === "90d") fromDate = subDays(now, 90).toISOString().slice(0, 10);
 
-      let query = supabase
-        .from("daily_snapshots")
-        .select("tracking_link_id, snapshot_date, clicks, subscribers, revenue")
-        .eq("account_id", selectedAccount.id)
-        .order("snapshot_date", { ascending: true });
-      if (fromDate) query = query.gte("snapshot_date", fromDate);
-
-      const allRows: any[] = [];
-      let rangeFrom = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data, error } = await query.range(rangeFrom, rangeFrom + batchSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allRows.push(...data);
-        if (data.length < batchSize) break;
-        rangeFrom += batchSize;
-        // Re-create query for next batch
-        query = supabase
-          .from("daily_snapshots")
-          .select("tracking_link_id, snapshot_date, clicks, subscribers, revenue")
-          .eq("account_id", selectedAccount.id)
-          .order("snapshot_date", { ascending: true });
-        if (fromDate) query = query.gte("snapshot_date", fromDate);
-      }
-      return allRows;
+      const rows = await getSnapshotsByDateRange({
+        account_ids: [selectedAccount.id],
+        ...(fromDate ? { date_from: fromDate } : {}),
+      });
+      return (rows as any[]).sort((a, b) =>
+        (a.snapshot_date ?? "") > (b.snapshot_date ?? "") ? 1 : -1
+      );
     },
     enabled: !!selectedAccount,
   });
@@ -956,7 +939,7 @@ export default function AccountsPage() {
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>{headerLabel("Clicks")} <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>{headerLabel("Subs")} <SortIcon col="subscribers" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Gained {gainedSuffix}</th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>{headerLabel("Subs/Day")} <SortIcon col="subs_day" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>{periodActive ? headerLabel("Subs/Day") : "Subs/Day (3d · 7d · 14d)"} <SortIcon col="subs_day" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>{headerLabel("CVR")} <SortIcon col="cvr" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>{headerLabel("Spend")} <SortIcon col="spend" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>{headerLabel("Revenue")} <SortIcon col="revenue" /></th>
@@ -1081,9 +1064,30 @@ export default function AccountsPage() {
                                   )}
                                   {periodActive && <div><TrendChip value={gainedTrend} /></div>}
                                 </td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">
-                                  {subsPerDay != null ? `${subsPerDay.toFixed(1)}/day` : "—"}
-                                  {periodActive && subsPerDayPrev !== null && <div><TrendChip value={pctChange(subsPerDay ?? 0, subsPerDayPrev)} /></div>}
+                                <td className="text-right py-3 px-3">
+                                  {periodActive ? (
+                                    <div className="font-mono text-[12px] text-muted-foreground text-right">
+                                      {subsPerDay != null ? `${subsPerDay < 1 ? subsPerDay.toFixed(2) : subsPerDay.toFixed(1)}/day` : "—"}
+                                      {subsPerDayPrev !== null && <div><TrendChip value={pctChange(subsPerDay ?? 0, subsPerDayPrev)} /></div>}
+                                    </div>
+                                  ) : (() => {
+                                    const wr = getWindowRates(l.id, multiWindowRates);
+                                    const fmt = (v: number | null) =>
+                                      v == null ? <span className="text-muted-foreground/30">—</span>
+                                        : <span className={v >= 1 ? "text-emerald-400 font-semibold" : v >= 0.3 ? "text-amber-400" : "text-muted-foreground/60"}>
+                                            {v < 1 ? v.toFixed(2) : v.toFixed(1)}
+                                          </span>;
+                                    return (
+                                      <div className="flex flex-col items-end gap-0.5">
+                                        {([["3d", wr.w3d], ["7d", wr.w7d], ["14d", wr.w14d]] as [string, number | null][]).map(([label, val]) => (
+                                          <div key={label} className="flex items-center gap-1.5">
+                                            <span className="text-[9px] text-muted-foreground/50 font-mono w-[18px] text-right">{label}</span>
+                                            <span className="text-[11px] font-mono">{fmt(val)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {cvr != null ? fmtPct(cvr) : <span className="text-muted-foreground">—</span>}

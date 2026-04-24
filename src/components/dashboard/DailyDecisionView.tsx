@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   ChevronDown, ChevronUp, TrendingUp, TrendingDown, Eye, XCircle,
   BarChart3, Users, Zap, Link2, AlertTriangle, DollarSign,
@@ -6,6 +6,7 @@ import {
 import { getEffectiveSource } from "@/lib/source-helpers";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 interface DailyDecisionViewProps {
@@ -36,6 +37,33 @@ export function DailyDecisionView({
   const [open, setOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkDone = useRef(false);
+
+  // Open campaign from URL param ?campaign=<id> — runs once after links load
+  useEffect(() => {
+    if (deepLinkDone.current || !links.length) return;
+    deepLinkDone.current = true;
+    const id = searchParams.get("campaign");
+    if (!id) return;
+    const link = links.find((l: any) => String(l.id) === String(id));
+    if (link) { setSelectedCampaign(link); setOpen(true); }
+  }, [links]);
+
+  function openCampaign(l: any) {
+    setSelectedCampaign(l);
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.set("campaign", String(l.id));
+    setSearchParams(next, { replace: true });
+  }
+
+  function closeCampaign() {
+    setSelectedCampaign(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete("campaign");
+    setSearchParams(next, { replace: true });
+  }
 
   const fmtC = (v: number) =>
     `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -247,7 +275,7 @@ export function DailyDecisionView({
   function CampaignCard({ l, accentClass }: { l: any; accentClass: string }) {
     return (
       <button
-        onClick={() => setSelectedCampaign(l)}
+        onClick={() => openCampaign(l)}
         className={`w-full text-left rounded-lg px-3 py-2.5 transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ${accentClass}`}
       >
         <div className="flex items-center gap-2 mb-1.5">
@@ -431,7 +459,7 @@ export function DailyDecisionView({
                   {topLtvPerSub.map(l => (
                     <button
                       key={l.id}
-                      onClick={() => setSelectedCampaign(l)}
+                      onClick={() => openCampaign(l)}
                       className="bg-secondary/50 border border-border rounded-lg px-3 py-2.5 text-left hover:bg-secondary/80 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-1.5 mb-1.5">
@@ -500,7 +528,7 @@ export function DailyDecisionView({
       {/* Campaign Detail Bottom Drawer */}
       <CampaignDetailDrawer
         campaign={selectedCampaign}
-        onClose={() => setSelectedCampaign(null)}
+        onClose={closeCampaign}
       />
     </>
   );

@@ -46,6 +46,7 @@ import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/L
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetrics";
+import { useMultiWindowRates, getWindowRates } from "@/hooks/useMultiWindowRates";
 
 // ─── Types ───
 type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses";
@@ -211,6 +212,7 @@ export default function CampaignsPage() {
   // Per-link delta-from-cumulative metrics for the selected window. Used for
   // Subs/Day on the table when the activity filter is "all".
   const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
+  const multiWindowRates = useMultiWindowRates("all");
 
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
@@ -1189,27 +1191,36 @@ export default function CampaignsPage() {
                                   </td>
                                 );
                                 case "subs_day": {
-                                  let subsPerDay: number | null = null;
-                                  let subsDayLbl: string | null = null;
                                   if (!isDeltaAllTime) {
-                                    // Date filter active → delta from cumulative snapshots in window
+                                    // Date filter active → single rate from delta window
                                     const d = getDelta(link.id, deltaLookup);
-                                    subsPerDay = d?.subsPerDay ?? null;
-                                    if (subsPerDay === null) subsDayLbl = "—";
-                                  } else {
-                                    // All Time (and activity filter) → 5-day snapshot-derived rate
-                                    // This ensures inactive links show 0 instead of a misleading historical average
-                                    subsPerDay = activeInfo.subsPerDay > 0 ? activeInfo.subsPerDay : null;
-                                    if (subsPerDay === null) subsDayLbl = "—";
+                                    const spd = d?.subsPerDay ?? null;
+                                    return (
+                                      <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                        {spd != null && spd > 0
+                                          ? <span className="text-primary font-bold">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day</span>
+                                          : <span className="text-muted-foreground">—</span>}
+                                      </td>
+                                    );
                                   }
+                                  // All Time → multi-window rates (3d · 7d · 14d)
+                                  const wr = getWindowRates(link.id, multiWindowRates);
+                                  const fmtW = (v: number | null) =>
+                                    v == null ? <span className="text-muted-foreground/30">—</span>
+                                      : <span className={v >= 1 ? "text-emerald-400 font-semibold" : v >= 0.3 ? "text-amber-400" : "text-muted-foreground/50"}>
+                                          {v < 1 ? v.toFixed(2) : v.toFixed(1)}
+                                        </span>;
                                   return (
-                                  <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {subsPerDay !== null && subsPerDay > 0
-                                      ? <span className="text-primary font-bold">{subsPerDay.toFixed(1)}/day</span>
-                                      : subsDayLbl
-                                        ? <span className="text-muted-foreground text-[10px]">{subsDayLbl}</span>
-                                        : <span className="text-muted-foreground">0/day</span>}
-                                  </td>
+                                    <td key={c.id} style={{ padding: "8px 12px" }}>
+                                      <div className="flex flex-col items-start gap-0.5">
+                                        {([["3d", wr.w3d], ["7d", wr.w7d], ["14d", wr.w14d]] as [string, number | null][]).map(([label, val]) => (
+                                          <div key={label} className="flex items-center gap-1.5">
+                                            <span className="text-[9px] text-muted-foreground/50 font-mono w-[16px]">{label}</span>
+                                            <span className="text-[11px] font-mono">{fmtW(val)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
                                   );
                                 }
                                 case "created": {

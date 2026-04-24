@@ -27,12 +27,13 @@ interface PeriodStats {
   subs: number;
   clicks: number;
   days: number;
+  actualDays: number;
   hasData: boolean;
-  date?: string; // only for last_sync
+  date?: string;
 }
 
 function computePeriod(snaps: Snap[], key: PeriodKey): PeriodStats {
-  const empty: PeriodStats = { subs: 0, clicks: 0, days: 0, hasData: false };
+  const empty: PeriodStats = { subs: 0, clicks: 0, days: 0, actualDays: 0, hasData: false };
   if (!snaps.length) return empty;
 
   const sorted = [...snaps].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
@@ -43,6 +44,7 @@ function computePeriod(snaps: Snap[], key: PeriodKey): PeriodStats {
       subs: Math.max(0, latest.subscribers),
       clicks: Math.max(0, latest.clicks),
       days: 1,
+      actualDays: 1,
       hasData: true,
       date: latest.snapshot_date,
     };
@@ -51,8 +53,6 @@ function computePeriod(snaps: Snap[], key: PeriodKey): PeriodStats {
   const periodDays = key === "7d" ? 7 : key === "14d" ? 14 : 30;
   const cutoff = isoDaysAgo(periodDays);
   const inWindow = sorted.filter(s => s.snapshot_date >= cutoff);
-
-  // If nothing in the window, the link is older than this window — sum everything
   const source = inWindow.length ? inWindow : (sorted.length >= 2 ? sorted : null);
   if (!source) return empty;
 
@@ -60,19 +60,21 @@ function computePeriod(snaps: Snap[], key: PeriodKey): PeriodStats {
     subs: source.reduce((s, r) => s + Math.max(0, r.subscribers), 0),
     clicks: source.reduce((s, r) => s + Math.max(0, r.clicks), 0),
     days: periodDays,
+    actualDays: inWindow.length,
     hasData: true,
   };
 }
 
 function PeriodCard({
-  label, stats, lifetimeCvr, isLastSync,
+  label, stats, lifetimeCvr, isLastSync, periodDays,
 }: {
   label: string;
   stats: PeriodStats;
   lifetimeCvr: number | null;
   isLastSync: boolean;
+  periodDays: number | null;
 }) {
-  const subsPerDay = stats.days > 0 ? stats.subs / stats.days : 0;
+  const subsPerDay = stats.actualDays > 0 ? stats.subs / stats.actualDays : 0;
   const cvr = stats.clicks > 0 ? (stats.subs / stats.clicks) * 100 : null;
   const hasActivity = stats.subs > 0 || stats.clicks > 0;
 
@@ -80,72 +82,93 @@ function PeriodCard({
     ? differenceInDays(new Date(), new Date(stats.date + "T00:00:00Z"))
     : null;
 
+  const isPartial = !isLastSync && periodDays != null && stats.actualDays < periodDays;
+
   return (
-    <div className="rounded-lg border border-border overflow-hidden" style={{ background: "#0D1117" }}>
-      {/* Card header */}
-      <div className="px-3 py-2 border-b border-border/60 flex items-center justify-between">
+    <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ background: "#0D1117" }}>
+      {/* Header */}
+      <div className="px-3 py-2.5 border-b border-border/60 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
-        {isLastSync && stats.date && (
-          <span className="text-[9px] text-muted-foreground/50 font-mono">
-            {daysSinceSync === 0
-              ? "today"
-              : daysSinceSync === 1
-              ? "yesterday"
-              : `${daysSinceSync}d ago`}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {isLastSync && stats.date && (
+            <span className="text-[9px] text-muted-foreground/50 font-mono">
+              {daysSinceSync === 0
+                ? "today"
+                : daysSinceSync === 1
+                ? "yesterday"
+                : `${daysSinceSync}d ago`}
+            </span>
+          )}
+          {!isLastSync && periodDays != null && stats.hasData && (
+            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md border ${
+              isPartial
+                ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
+                : "text-muted-foreground/40 bg-transparent border-transparent"
+            }`}>
+              {stats.actualDays}/{periodDays}d
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="px-3 py-3 space-y-3">
+      {/* Body */}
+      <div className="px-3 py-3 flex flex-col gap-2.5 flex-1">
         {!stats.hasData ? (
-          <p className="text-[11px] text-muted-foreground/40 italic text-center py-2">No data</p>
+          <p className="text-[11px] text-muted-foreground/40 italic text-center py-3">No data</p>
         ) : (
           <>
-            {/* Hero: new subs */}
-            <div>
-              <p className="text-[10px] text-muted-foreground mb-0.5">New Subscribers</p>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-2xl font-bold font-mono tabular-nums ${stats.subs > 0 ? "text-emerald-400" : "text-muted-foreground/40"}`}>
+            {/* Subs + Per Day side by side */}
+            <div className="flex items-end justify-between gap-2">
+              <div>
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 mb-1">New Subs</p>
+                <span className={`text-3xl font-bold font-mono tabular-nums leading-none ${
+                  stats.subs > 0 ? "text-emerald-400" : "text-muted-foreground/25"
+                }`}>
                   +{stats.subs}
                 </span>
-                {!isLastSync && stats.days > 0 && (
-                  <span className="text-[10px] text-muted-foreground">
-                    ({subsPerDay < 1 ? subsPerDay.toFixed(2) : subsPerDay.toFixed(1)}/day)
-                  </span>
+              </div>
+              <div className="text-right pb-0.5">
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 mb-1">Per Day</p>
+                <span className="text-[15px] font-mono font-semibold text-muted-foreground tabular-nums">
+                  {subsPerDay < 1 ? subsPerDay.toFixed(2) : subsPerDay.toFixed(1)}
+                </span>
+              </div>
+            </div>
+
+            <div className="border-t border-border/30" />
+
+            {/* Clicks + CVR */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground/70">Clicks</span>
+                <span className={`text-[12px] font-mono font-semibold tabular-nums ${
+                  stats.clicks > 0 ? "text-foreground" : "text-muted-foreground/25"
+                }`}>
+                  {stats.clicks > 0 ? stats.clicks.toLocaleString() : "—"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground/70">CVR</span>
+                {cvr != null ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[12px] font-mono font-semibold text-foreground tabular-nums">
+                      {cvr.toFixed(1)}%
+                    </span>
+                    {lifetimeCvr != null && Math.abs(cvr - lifetimeCvr) > 0.5 && (
+                      <span className={`text-[9px] font-bold ${cvr > lifetimeCvr ? "text-emerald-400" : "text-amber-400"}`}>
+                        {cvr > lifetimeCvr ? "↑" : "↓"}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-[12px] text-muted-foreground/25">—</span>
                 )}
               </div>
             </div>
 
-            {/* Clicks */}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">Clicks</span>
-              <span className={`text-[12px] font-mono font-semibold tabular-nums ${stats.clicks > 0 ? "text-foreground" : "text-muted-foreground/40"}`}>
-                {stats.clicks > 0 ? stats.clicks.toLocaleString() : "—"}
-              </span>
-            </div>
-
-            {/* CVR */}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">CVR</span>
-              {cvr != null ? (
-                <div className="flex items-center gap-1">
-                  <span className="text-[12px] font-mono font-semibold text-foreground tabular-nums">
-                    {cvr.toFixed(1)}%
-                  </span>
-                  {lifetimeCvr != null && Math.abs(cvr - lifetimeCvr) > 0.5 && (
-                    <span className={`text-[9px] font-semibold px-1 rounded ${cvr > lifetimeCvr ? "text-emerald-400" : "text-amber-400"}`}>
-                      {cvr > lifetimeCvr ? "↑" : "↓"}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-[12px] text-muted-foreground/40">—</span>
-              )}
-            </div>
-
-            {/* No activity hint for last sync */}
             {isLastSync && !hasActivity && (
               <p className="text-[10px] text-muted-foreground/40 italic">No activity this sync</p>
             )}
@@ -223,7 +246,7 @@ export function CampaignGrowthTable({
       {isLoading ? (
         <div className="grid grid-cols-4 gap-2">
           {PERIODS.map(p => (
-            <div key={p.key} className="rounded-lg border border-border h-[120px] animate-pulse" style={{ background: "#0D1117" }} />
+            <div key={p.key} className="rounded-xl border border-border h-[148px] animate-pulse" style={{ background: "#0D1117" }} />
           ))}
         </div>
       ) : (
@@ -235,6 +258,7 @@ export function CampaignGrowthTable({
               stats={stats[p.key]}
               lifetimeCvr={lifetimeCvr}
               isLastSync={p.key === "last_sync"}
+              periodDays={p.days}
             />
           ))}
         </div>
