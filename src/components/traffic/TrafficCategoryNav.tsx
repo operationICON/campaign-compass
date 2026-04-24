@@ -222,10 +222,16 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     else onLevelChange?.(2);
   };
 
-  const otLinks = useMemo(() => allLinks.filter(l => isOnlyTraffic(l) && l.deleted_at == null), [allLinks]);
+  // A link has OT data if it has a source_tag or onlytraffic fields — treat as OT even if traffic_category is null
+  const hasOTData = (l: any) => !!(l.source_tag?.trim() || l.onlytraffic_marketer?.trim() || l.onlytraffic_order_id?.trim());
+
+  const otLinks = useMemo(() => allLinks.filter(l =>
+    l.deleted_at == null && !isManual(l) && (isOnlyTraffic(l) || hasOTData(l))
+  ), [allLinks]);
   const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
     l.traffic_category == null &&
+    !hasOTData(l) &&
     l.deleted_at == null &&
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
   ), [allLinks]);
