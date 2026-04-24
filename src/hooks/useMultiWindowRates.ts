@@ -2,10 +2,16 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getSnapshotsByDateRange } from "@/lib/api";
 
+export interface WindowRate {
+  rate: number;       // subs / actualDays (true velocity)
+  actualDays: number; // how many days of data exist in this window
+  isFull: boolean;    // true when actualDays >= windowDays (full history)
+}
+
 export interface WindowRates {
-  w3d: number | null;
-  w7d: number | null;
-  w14d: number | null;
+  w3d: WindowRate | null;
+  w7d: WindowRate | null;
+  w14d: WindowRate | null;
 }
 
 function isoNDaysAgo(n: number): string {
@@ -14,7 +20,7 @@ function isoNDaysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Pass accountId to scope to one model, or null to fetch all accounts.
+// Pass a specific accountId to scope to one model, or null/"all" for all accounts.
 export function useMultiWindowRates(accountId: string | null | "all") {
   const scopedId = accountId === "all" ? null : accountId;
   const { data: rows = [] } = useQuery({
@@ -23,7 +29,7 @@ export function useMultiWindowRates(accountId: string | null | "all") {
     queryFn: () =>
       getSnapshotsByDateRange({
         ...(scopedId ? { account_ids: [scopedId] } : {}),
-        date_from: isoNDaysAgo(14), // 14d is the max window we display
+        date_from: isoNDaysAgo(14),
         cols: "slim",
       }),
   });
@@ -41,11 +47,17 @@ export function useMultiWindowRates(accountId: string | null | "all") {
 
     const today = new Date().toISOString().slice(0, 10);
     for (const [id, snaps] of Object.entries(byLink)) {
-      const rate = (days: number) => {
-        const cutoff = isoNDaysAgo(days);
+      const rate = (windowDays: number): WindowRate | null => {
+        const cutoff = isoNDaysAgo(windowDays);
         const inW = snaps.filter(s => s.date >= cutoff && s.date <= today);
         if (!inW.length) return null;
-        return inW.reduce((s, r) => s + r.subs, 0) / days;
+        const totalSubs = inW.reduce((s, r) => s + r.subs, 0);
+        const actualDays = inW.length;
+        return {
+          rate: totalSubs / actualDays,   // always divide by actual days, not window size
+          actualDays,
+          isFull: actualDays >= windowDays,
+        };
       };
       map.set(id, { w3d: rate(3), w7d: rate(7), w14d: rate(14) });
     }

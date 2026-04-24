@@ -1064,17 +1064,19 @@ export default function AccountsPage() {
                                     </div>
                                   ) : (() => {
                                     const wr = getWindowRates(l.id, multiWindowRates);
-                                    const fmt = (v: number | null) =>
-                                      v == null ? <span className="text-muted-foreground/30">—</span>
-                                        : <span className={v >= 1 ? "text-emerald-400 font-semibold" : v >= 0.3 ? "text-amber-400" : "text-muted-foreground/60"}>
-                                            {v < 1 ? v.toFixed(2) : v.toFixed(1)}
-                                          </span>;
                                     return (
                                       <div className="flex flex-col items-end gap-0.5">
-                                        {([["3d", wr.w3d], ["7d", wr.w7d], ["14d", wr.w14d]] as [string, number | null][]).map(([label, val]) => (
-                                          <div key={label} className="flex items-center gap-1.5">
+                                        {([["3d", wr.w3d], ["7d", wr.w7d], ["14d", wr.w14d]] as [string, import("@/hooks/useMultiWindowRates").WindowRate | null][]).map(([label, w]) => (
+                                          <div key={label} className="flex items-center gap-1">
                                             <span className="text-[9px] text-muted-foreground/50 font-mono w-[18px] text-right">{label}</span>
-                                            <span className="text-[11px] font-mono">{fmt(val)}</span>
+                                            {w == null ? (
+                                              <span className="text-[11px] font-mono text-muted-foreground/30">—</span>
+                                            ) : (
+                                              <span className={`text-[11px] font-mono ${w.rate >= 1 ? "text-emerald-400 font-semibold" : w.rate >= 0.3 ? "text-amber-400" : "text-muted-foreground/50"} ${!w.isFull ? "opacity-70" : ""}`}>
+                                                {w.rate < 1 ? w.rate.toFixed(2) : w.rate.toFixed(1)}
+                                                {!w.isFull && <span className="text-[8px] text-muted-foreground/40 ml-0.5">{w.actualDays}d</span>}
+                                              </span>
+                                            )}
                                           </div>
                                         ))}
                                       </div>
