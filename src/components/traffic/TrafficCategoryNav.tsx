@@ -230,10 +230,10 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     else onLevelChange?.(2);
   };
 
-  // A link has OT data if it has a source_tag or onlytraffic fields — treat as OT even if traffic_category is null
-  // Also treat as OT if it appears in linkMarketerMap (has OT orders in DB even if sync didn't stamp the link fields)
+  // A link has OT data if it has OT-specific fields or OT orders in the DB.
+  // source_tag is intentionally excluded — it is also used for manually-tagged links,
+  // so including it would route Manual links with sources into the OT card.
   const hasOTData = (l: any) => !!(
-    l.source_tag?.trim() ||
     l.onlytraffic_marketer?.trim() ||
     l.onlytraffic_order_id?.trim() ||
     (linkMarketerMap as any)[l.id]

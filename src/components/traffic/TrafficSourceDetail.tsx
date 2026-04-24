@@ -212,7 +212,9 @@ export function TrafficSourceDetail({ sourceName, sourceColor, categoryName, lin
     const actualTag = tag === "__add_manual__" ? "Manual" : tag;
     setSavingIds(prev => new Set(prev).add(linkId));
     try {
-      await updateTrackingLink(linkId, { source_tag: actualTag, traffic_category: "Manual", manually_tagged: true });
+      const linkObj = links.find((l: any) => l.id === linkId);
+      const newCategory = linkObj?.traffic_category === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
+      await updateTrackingLink(linkId, { source_tag: actualTag, traffic_category: newCategory, manually_tagged: true });
       onTagLink(linkId, actualTag);
       toast.success(`Tagged as "${actualTag}"`);
     } catch (e: any) {

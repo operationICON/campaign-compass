@@ -17,6 +17,7 @@ interface SourceSelectorProps {
   currentSourceTag: string | null;
   currentTrafficSourceId: string | null;
   trackingLinkId: string;
+  currentTrafficCategory?: string | null;
   onSaved: () => void;
 }
 
@@ -24,6 +25,7 @@ export function SourceSelector({
   currentSourceTag,
   currentTrafficSourceId,
   trackingLinkId,
+  currentTrafficCategory,
   onSaved,
 }: SourceSelectorProps) {
   const queryClient = useQueryClient();
@@ -55,11 +57,13 @@ export function SourceSelector({
         sourceId = created.id;
       }
 
+      // Preserve OT category if the link was already synced from OnlyTraffic
+      const newCategory = currentTrafficCategory === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
       await updateTrackingLink(trackingLinkId, {
         source_tag: name,
         traffic_source_id: sourceId,
         manually_tagged: true,
-        traffic_category: "Manual",
+        traffic_category: newCategory,
       });
 
       toast.success("Saved");

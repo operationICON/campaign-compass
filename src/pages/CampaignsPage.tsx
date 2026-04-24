@@ -1509,6 +1509,7 @@ export default function CampaignsPage() {
                                           currentSourceTag={el.source_tag}
                                           currentTrafficSourceId={el.traffic_source_id}
                                           trackingLinkId={el.id}
+                                          currentTrafficCategory={el.traffic_category}
                                           onSaved={() => {
                                             queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                                           }}
