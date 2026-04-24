@@ -347,7 +347,7 @@ export default function AccountsPage() {
         allCvr,
         cvrDiff,
         unattributedPct,
-        unattributedBreakdown: ua,
+        unattributedBreakdown: null,
         ltvPerSub,
         hasLtvData,
       };
