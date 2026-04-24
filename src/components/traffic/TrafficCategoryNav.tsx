@@ -230,29 +230,24 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     else onLevelChange?.(2);
   };
 
-  // A link has OT data if it has OT-specific fields or OT orders in the DB.
-  // source_tag is intentionally excluded — it is also used for manually-tagged links,
-  // so including it would route Manual links with sources into the OT card.
-  const hasOTData = (l: any) => !!(
-    l.onlytraffic_marketer?.trim() ||
-    l.onlytraffic_order_id?.trim() ||
-    (linkMarketerMap as any)[l.id]
-  );
+  // Bucketing is purely traffic_category-based:
+  //   OT card   → traffic_category === "OnlyTraffic"  (stamped by OT sync)
+  //   Manual card → traffic_category === "Manual" OR null (user-added or untagged)
+  // linkMarketerMap is kept for display purposes (marketer/offer info in the table).
 
   const otLinks = useMemo(() => allLinks.filter(l =>
-    l.deleted_at == null && (isOnlyTraffic(l) || hasOTData(l))
-  ), [allLinks, linkMarketerMap]);
-  // Explicitly exclude OT-category links as a defensive guard (isManual already implies !isOnlyTraffic, but hasOTData is the main gate)
+    l.deleted_at == null && isOnlyTraffic(l)
+  ), [allLinks]);
+
   const manualOnlyLinks = useMemo(() => allLinks.filter(l =>
-    isManual(l) && !isOnlyTraffic(l) && !hasOTData(l) && l.deleted_at == null
-  ), [allLinks, linkMarketerMap]);
+    isManual(l) && l.deleted_at == null
+  ), [allLinks]);
+
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
     l.traffic_category == null &&
-    !isOnlyTraffic(l) &&
-    !hasOTData(l) &&
     l.deleted_at == null &&
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
-  ), [allLinks, linkMarketerMap]);
+  ), [allLinks]);
   const noSourceCount = noSourceLinks.length;
   const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
