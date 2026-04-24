@@ -930,36 +930,25 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        // Base = OFAPI tracking link revenue; attributed = fan-tracked LTV from LTV sync
-        const filtAcctIds = new Set(filtAccounts.map((a: any) => a.id));
-        const campaignRevenue5 = allTimeRevenue;
-        const ltvAttributed5 = trackingLinkLtv
-          .filter((r: any) => filtAcctIds.has(r.account_id))
-          .reduce((s: number, r: any) => s + Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0), 0);
-        const unattribVal = Math.max(0, campaignRevenue5 - ltvAttributed5);
-        const pct = campaignRevenue5 > 0
-          ? (unattribVal / campaignRevenue5) * 100
-          : null;
+        // Unattributed = messages/tips/PPV revenue not from campaigns
+        // Campaign revenue = allTimeRevenue (tracking links); total = accounts.ltv_total
+        const totalLtv5 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const totalRev5 = Math.max(totalLtv5, allTimeRevenue);
+        const unattribVal = Math.max(0, totalLtv5 - allTimeRevenue);
+        const pct = totalRev5 > 0 ? (unattribVal / totalRev5) * 100 : null;
         const colorClass = pct === null ? "text-muted-foreground"
           : pct > 50 ? "text-destructive"
           : pct >= 30 ? "text-[hsl(38_92%_50%)]"
           : "text-primary";
 
-        // Breakdown: revenue by transaction type, scoped to sync_enabled accounts within current filter.
-        // Source: transactions.revenue grouped by type (accounts.ltv_messages/tips/subscriptions/posts
-        // columns are not populated upstream — we aggregate from the transactions table instead).
-        const syncEnabledAccts = filtAccounts.filter((a: any) => a.sync_enabled === true);
-        const breakdown = syncEnabledAccts.reduce(
-          (acc: { messages: number; tips: number; subscriptions: number; posts: number }, a: any) => {
-            const t = txTypeTotalsByAccount[a.id];
-            if (t) {
-              acc.messages += t.messages;
-              acc.tips += t.tips;
-              acc.subscriptions += t.subscriptions;
-              acc.posts += t.posts;
-            }
-            return acc;
-          },
+        // Breakdown by type comes from accounts.ltv_messages/tips/subscriptions/posts
+        const breakdown = filtAccounts.reduce(
+          (acc: { messages: number; tips: number; subscriptions: number; posts: number }, a: any) => ({
+            messages:      acc.messages      + Number(a.ltv_messages      || 0),
+            tips:          acc.tips          + Number(a.ltv_tips          || 0),
+            subscriptions: acc.subscriptions + Number(a.ltv_subscriptions || 0),
+            posts:         acc.posts         + Number(a.ltv_posts         || 0),
+          }),
           { messages: 0, tips: 0, subscriptions: 0, posts: 0 },
         );
 
@@ -970,7 +959,7 @@ function KpiCards({
             colorClass={colorClass}
             cardStyle={cardStyle}
             unattribVal={unattribVal}
-            ltvTotal={campaignRevenue5}
+            ltvTotal={totalRev5}
             uaMessages={breakdown.messages}
             uaTips={breakdown.tips}
             uaSubs={breakdown.subscriptions}
@@ -995,13 +984,12 @@ function KpiCards({
           subtitle = periodLabel;
         }
 
-        // Breakdown: fan-attributed LTV vs unattributed (requires LTV sync)
-        const filtAcctIds2 = new Set(filtAccounts.map((a: any) => a.id));
-        const ltvAttributedRev = trackingLinkLtv
-          .filter((r: any) => filtAcctIds2.has(r.account_id))
-          .reduce((s: number, r: any) => s + Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0), 0);
-        const bkTotalRev = allTimeRevenue * revMultiplier;
-        const bkTracked = ltvAttributedRev * revMultiplier;
+        // Via Campaigns = tracking link revenue; Unattributed = messages/tips/PPV from accounts.ltv_total
+        const bkTracked = allTimeRevenue * revMultiplier;
+        const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+        const bkTotalRev = accountsLtvTotal > allTimeRevenue
+          ? accountsLtvTotal * revMultiplier
+          : allTimeRevenue * revMultiplier;
         const bkUnattr = Math.max(0, bkTotalRev - bkTracked);
 
         return (
@@ -1323,7 +1311,7 @@ function UnattributedCard({ pct, colorClass, cardStyle, unattribVal, ltvTotal, u
       ) : (
         <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
       )}
-      <p className="text-[11px] text-muted-foreground mt-1">Tracking revenue not yet fan-attributed · All time</p>
+      <p className="text-[11px] text-muted-foreground mt-1">Messages, tips, PPV not via campaigns · All time</p>
 
       {hasBreakdown && (
         <>
