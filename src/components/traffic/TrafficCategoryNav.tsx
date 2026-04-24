@@ -204,7 +204,8 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
           map[o.tracking_link_id].offer_id = o.offer_id ?? null;
           map[o.tracking_link_id].showOfferId = multiOffer.has(o.marketer) && o.offer_id != null;
         }
-        if (o.order_id) map[o.tracking_link_id].order_ids.push(o.order_id);
+        if (o.order_id && !map[o.tracking_link_id].order_ids.includes(o.order_id))
+          map[o.tracking_link_id].order_ids.push(o.order_id);
       });
       return map;
     },
@@ -230,24 +231,34 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     else onLevelChange?.(2);
   };
 
+  // Deduplicate by ID — guard against any duplicate rows from the API
+  const dedupedLinks = useMemo(() => {
+    const seen = new Set<string>();
+    return allLinks.filter((l: any) => {
+      if (seen.has(l.id)) return false;
+      seen.add(l.id);
+      return true;
+    });
+  }, [allLinks]);
+
   // Bucketing is purely traffic_category-based:
-  //   OT card   → traffic_category === "OnlyTraffic"  (stamped by OT sync)
+  //   OT card    → traffic_category === "OnlyTraffic"  (stamped by OT sync)
   //   Manual card → traffic_category === "Manual" OR null (user-added or untagged)
-  // linkMarketerMap is kept for display purposes (marketer/offer info in the table).
+  // Three buckets are mutually exclusive — no link appears in more than one card.
 
-  const otLinks = useMemo(() => allLinks.filter(l =>
+  const otLinks = useMemo(() => dedupedLinks.filter(l =>
     l.deleted_at == null && isOnlyTraffic(l)
-  ), [allLinks]);
+  ), [dedupedLinks]);
 
-  const manualOnlyLinks = useMemo(() => allLinks.filter(l =>
+  const manualOnlyLinks = useMemo(() => dedupedLinks.filter(l =>
     isManual(l) && l.deleted_at == null
-  ), [allLinks]);
+  ), [dedupedLinks]);
 
-  const noSourceLinks = useMemo(() => allLinks.filter(l =>
+  const noSourceLinks = useMemo(() => dedupedLinks.filter(l =>
     l.traffic_category == null &&
     l.deleted_at == null &&
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
-  ), [allLinks]);
+  ), [dedupedLinks]);
   const noSourceCount = noSourceLinks.length;
   const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 

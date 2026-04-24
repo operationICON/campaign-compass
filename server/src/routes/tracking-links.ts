@@ -31,9 +31,23 @@ router.get("/", async (c) => {
 });
 
 // POST /tracking-links — create new (finds/creates campaign automatically)
+// If a non-deleted link with the same URL + account already exists, return it to prevent duplicates.
 router.post("/", async (c) => {
   const body = await c.req.json();
   const { account_id, campaign_name, campaign_id: providedCampaignId, ...rest } = body;
+
+  // Duplicate guard: same URL + account → return existing link
+  if (account_id && rest.url) {
+    const dup = await db.select()
+      .from(tracking_links)
+      .where(and(
+        eq(tracking_links.account_id, account_id),
+        eq(tracking_links.url, rest.url),
+        isNull(tracking_links.deleted_at),
+      ))
+      .limit(1);
+    if (dup.length > 0) return c.json(dup[0], 200);
+  }
 
   let campaignId = providedCampaignId;
   if (!campaignId && account_id && campaign_name) {
