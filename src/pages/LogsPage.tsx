@@ -500,34 +500,6 @@ export default function LogsPage() {
           })}
         </div>
 
-        {/* ═══ CREDIT USAGE SUMMARY ═══ */}
-        {(() => {
-          const grandTotal = Object.values(totalCredits).reduce((s, n) => s + n, 0);
-          if (grandTotal === 0) return null;
-          return (
-            <div className="flex items-center gap-4 bg-card border border-border rounded-xl px-5 py-3">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-primary" />
-                <span className="text-[13px] font-semibold text-foreground">Credits Used</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Total:</span>
-                <span className="text-sm font-bold font-mono text-foreground">{grandTotal.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center gap-3 ml-2 flex-wrap">
-                {(["dashboard", "revenue_breakdown", "crosspoll", "onlytraffic"] as SyncType[])
-                  .filter(t => totalCredits[t] > 0)
-                  .map(t => (
-                    <div key={t} className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-muted-foreground">{SYNC_LABELS[t]}:</span>
-                      <span className="text-[11px] font-bold font-mono text-foreground">{totalCredits[t].toLocaleString()}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          );
-        })()}
-
         {/* ═══ SYNC STATUS CARDS ═══ */}
         <div className="grid grid-cols-6 gap-3">
           {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown"] as SyncType[]).map((type) => {
@@ -539,6 +511,10 @@ export default function LogsPage() {
               ? Math.round((new Date(endTime).getTime() - new Date(last.started_at).getTime()) / 1000)
               : null;
             const status = last ? last.effectiveStatus : null;
+            const isRunning = running[type];
+            const dbRunning = status === "running";
+            const showStop = isRunning || dbRunning;
+            const runningLogId = dbRunning ? last?.id : undefined;
 
             return (
               <Card key={type} className={`border ${colors.border} overflow-hidden`}>
@@ -565,6 +541,17 @@ export default function LogsPage() {
                       </span>
                     )}
                   </div>
+                  {showStop && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => stopSync(type, runningLogId)}
+                      className="w-full h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                    >
+                      <Square className="h-3 w-3" />
+                      Stop
+                    </Button>
+                  )}
 
                   {(() => {
                     const stats = allTimeStats[type];
