@@ -784,68 +784,35 @@ export default function AccountsPage() {
                   <KpiCard label={headerLabel("CPL")} value={cpl != null ? fmtCurrency(cpl) : "—"} trend={periodActive ? cplTrend : undefined} reverseTrend />
                   <KpiCard label={headerLabel("CPC")} value={cpc != null ? `$${cpc.toFixed(4)}` : "—"} trend={periodActive ? cpcTrend : undefined} reverseTrend />
 
-                  {/* Row 3: Traffic health */}
+                  {/* Row 3: Traffic health + Unattributed */}
                   <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
                   <KpiCard label="Active Tracking Links" value={String(stats.activeCampaigns || 0)} />
-                  {/* 3 empty slots */}
-                  <div />
+                  {(() => {
+                    const unattributed = Math.max(0, (stats.campaignRevAllTime || 0) - (stats.totalLtvAllTime || 0));
+                    const unattributedPct = (stats.campaignRevAllTime || 0) > 0
+                      ? (unattributed / (stats.campaignRevAllTime || 1)) * 100
+                      : null;
+                    return (
+                      <KpiCard
+                        label="Unattributed Rev"
+                        value={unattributedPct != null ? `${unattributedPct.toFixed(1)}%` : "—"}
+                      />
+                    );
+                  })()}
                   <div />
                   <div />
                 </div>
-
-                {/* PART 6 — Revenue Breakdown (compact, borderless, inside KPI area) */}
-                {(() => {
-                  const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                  const campRevRaw = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-                  if (campRevRaw <= 0) return null;
-
-                  const accMsg = Number(acc.ltv_messages || 0);
-                  const accTips = Number(acc.ltv_tips || 0);
-                  const accSubsLtv = Number(acc.ltv_subscriptions || 0);
-                  const accPosts = Number(acc.ltv_posts || 0);
-                  const hasAccBreakdown = accMsg > 0 || accTips > 0 || accSubsLtv > 0 || accPosts > 0;
-                  const txB = (txBreakdowns as Record<string, any>)[acc.id];
-                  const typeRows = hasAccBreakdown
-                    ? [
-                        { label: "Messages / PPV", value: accMsg, color: "hsl(var(--primary))" },
-                        { label: "Tips", value: accTips, color: "hsl(38 92% 50%)" },
-                        { label: "Subscriptions", value: accSubsLtv, color: "hsl(280 60% 55%)" },
-                        { label: "Posts", value: accPosts, color: "hsl(210 80% 55%)" },
-                      ].filter(r => r.value > 0)
-                    : txB
-                      ? [
-                          { label: "Messages / PPV", value: txB.messages, color: "hsl(var(--primary))" },
-                          { label: "Tips", value: txB.tips, color: "hsl(38 92% 50%)" },
-                          { label: "Subscriptions", value: txB.subscriptions, color: "hsl(280 60% 55%)" },
-                          { label: "Posts", value: txB.posts, color: "hsl(210 80% 55%)" },
-                        ].filter(r => r.value > 0)
-                      : [];
-
-                  return (
-                    <div id="revenue-breakdown-detail" className="mt-3 pt-3 border-t border-border/50">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Revenue Breakdown</p>
-                      <div className="space-y-2 text-[12px]">
-                        {typeRows.length > 0 && (
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">By Type</span>
-                            {typeRows.map(r => (
-                              <div key={r.label} className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: r.color }} />
-                                  <span className="text-muted-foreground">{r.label}</span>
-                                </div>
-                                <span className="font-mono text-foreground/80">
-                                  {fmtCurrency(r.value * revMultiplier)} · {campRevRaw > 0 ? ((r.value / campRevRaw) * 100).toFixed(1) : "0"}%
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
               </div>
+            </div>
+
+            {/* Revenue Breakdown — full width inside the profile card */}
+            <div className="border-t border-border">
+              <ModelRevenueBreakdown
+                accounts={[acc]}
+                allLinks={allLinks.filter((l: any) => l.account_id === acc.id)}
+                txTypeTotalsByAccount={txBreakdowns as any}
+                revMultiplier={revMultiplier}
+              />
             </div>
           </div>
 
@@ -1272,14 +1239,6 @@ export default function AccountsPage() {
                 )}
 
         </div>
-
-          {/* Revenue Breakdown — Messages/PPV · Tips · Subscriptions · Posts */}
-          <ModelRevenueBreakdown
-            accounts={[acc]}
-            allLinks={allLinks.filter((l: any) => l.account_id === acc.id)}
-            txTypeTotalsByAccount={txBreakdowns as any}
-            revMultiplier={revMultiplier}
-          />
 
         {/* Campaign drawer for clickable rows */}
         <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} onCampaignUpdated={setDrawerCampaign} />
