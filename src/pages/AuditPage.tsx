@@ -1,9 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
-import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
-import { usePageFilters } from "@/hooks/usePageFilters";
-import { PageFilterBar } from "@/components/PageFilterBar";
-import { getEffectiveSource, getTrafficCategoryLabel } from "@/lib/source-helpers";
+import { getEffectiveSource } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized } from "@/lib/supabase-helpers";
@@ -18,16 +14,19 @@ import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
-  AlertCircle, Skull, Tag, DollarSign, ChevronDown, X, CheckCircle2, FilterX, Copy
+  AlertCircle, Skull, Tag, DollarSign, X, CheckCircle2, FilterX, Copy,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
+import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn } from "@/lib/calc-helpers";
+import { ModelAvatar } from "@/components/ModelAvatar";
 
 const LS_KEY = "ct_audit_filters";
-
+const PAGE_SIZE = 25;
 
 function loadFilters() {
   try {
@@ -38,8 +37,6 @@ function loadFilters() {
 }
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
-
-
 function getAction(l: any, ageDays: number) {
   if (l.clicks === 0 && l.subscribers === 0) return "delete";
   if (l.subscribers > 0 && !l.cost_total) return "add_spend";
@@ -48,9 +45,13 @@ function getAction(l: any, ageDays: number) {
   return "keep";
 }
 
-import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn, calcProfit, getEffectiveRevenue, calcStatusFromRoi, STATUS_LABELS } from "@/lib/calc-helpers";
-import { EstBadge } from "@/components/EstBadge";
-import { ModelAvatar } from "@/components/ModelAvatar";
+const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
+  ...SHARED_STATUS_STYLES,
+  DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
+};
+
+const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtP = (v: number) => `${v.toFixed(1)}%`;
 
 function getStatus(l: any) {
   if (l.deleted_at) return "DELETED";
@@ -63,53 +64,60 @@ function getActivityStatus(l: any, thirtyDaysAgo: Date) {
   return lastDate < thirtyDaysAgo ? "Inactive" : "Active";
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  ...SHARED_STATUS_STYLES,
-  DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
-};
-
-const fmtC = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const fmtP = (v: number) => `${v.toFixed(1)}%`;
-
-// ─── Unified columns matching Tracking Links page ───
 const AUDIT_COLUMNS: ColumnDef[] = [
-  { id: "model", label: "Model", defaultOn: true },
-  { id: "source", label: "Source", defaultOn: true },
-  { id: "clicks", label: "Clicks", defaultOn: false },
-  { id: "subscribers", label: "Subscribers", defaultOn: false },
-  { id: "cvr", label: "CVR", defaultOn: false },
-  { id: "revenue", label: "Revenue", defaultOn: true },
-  
-  { id: "ltv_sub", label: "LTV/Sub", defaultOn: true },
-  { id: "spender_rate", label: "Spender %", defaultOn: false },
-  { id: "expenses", label: "Expenses", defaultOn: true },
-  { id: "profit", label: "Profit", defaultOn: true },
-  { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
-  { id: "roi", label: "ROI", defaultOn: true },
-  { id: "status", label: "Status", defaultOn: true },
-  { id: "subs_day", label: "Subs/Day", defaultOn: true },
-  { id: "created", label: "Created", defaultOn: false },
-  { id: "media_buyer", label: "Media Buyer", defaultOn: false },
-  { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
+  { id: "model",        label: "Model",       defaultOn: true },
+  { id: "source",       label: "Source",      defaultOn: true },
+  { id: "clicks",       label: "Clicks",      defaultOn: false },
+  { id: "subscribers",  label: "Subscribers", defaultOn: false },
+  { id: "cvr",          label: "CVR",         defaultOn: false },
+  { id: "revenue",      label: "Revenue",     defaultOn: true },
+  { id: "ltv_sub",      label: "LTV/Sub",     defaultOn: true },
+  { id: "spender_rate", label: "Spender %",   defaultOn: false },
+  { id: "expenses",     label: "Expenses",    defaultOn: true },
+  { id: "profit",       label: "Profit",      defaultOn: true },
+  { id: "profit_sub",   label: "Profit/Sub",  defaultOn: true, alwaysOn: true },
+  { id: "roi",          label: "ROI",         defaultOn: true },
+  { id: "status",       label: "Status",      defaultOn: true },
+  { id: "subs_day",     label: "Subs/Day",    defaultOn: true },
+  { id: "created",      label: "Created",     defaultOn: true },
+  { id: "media_buyer",  label: "Media Buyer", defaultOn: false },
+  { id: "avg_expenses", label: "Avg Expenses",defaultOn: false },
 ];
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+function TablePagination({ page, total, pageSize, onChange }: { page: number; total: number; pageSize: number; onChange: (p: number) => void }) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (total === 0 || totalPages <= 1) return null;
+  const start = page * pageSize + 1;
+  const end = Math.min((page + 1) * pageSize, total);
+  const btnCls = "flex items-center justify-center w-7 h-7 rounded border border-border text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors";
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-xs text-muted-foreground bg-muted/20">
+      <span>{start}–{end} of {total.toLocaleString()}</span>
+      <div className="flex items-center gap-1">
+        <button className={btnCls} disabled={page === 0} onClick={() => onChange(0)}><ChevronsLeft className="h-3.5 w-3.5" /></button>
+        <button className={btnCls} disabled={page === 0} onClick={() => onChange(page - 1)}><ChevronLeft className="h-3.5 w-3.5" /></button>
+        <span className="px-3 py-1 rounded border border-border bg-card font-medium text-foreground">
+          {page + 1} / {totalPages}
+        </span>
+        <button className={btnCls} disabled={page >= totalPages - 1} onClick={() => onChange(page + 1)}><ChevronRight className="h-3.5 w-3.5" /></button>
+        <button className={btnCls} disabled={page >= totalPages - 1} onClick={() => onChange(totalPages - 1)}><ChevronsRight className="h-3.5 w-3.5" /></button>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function AuditPage() {
   const queryClient = useQueryClient();
-  const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter } = usePageFilters();
-  const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
-  // Shared date-scoped aggregator — available for KPI cards.
-  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
-  void dateScoped;
+
   const { data: rawLinks = [], isLoading } = useQuery({
     queryKey: ["audit_all_links"],
     queryFn: () => fetchAllTrackingLinksNormalized({ includeDeleted: true }),
   });
-  const allLinks = useMemo(() => applySnapshotToLinks(rawLinks, snapshotLookup), [rawLinks, snapshotLookup]);
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: trackingLinkLtv = [] } = useQuery({
-    queryKey: ["tracking_link_ltv"],
-    queryFn: fetchTrackingLinkLtv,
-  });
+  const { data: trackingLinkLtv = [] } = useQuery({ queryKey: ["tracking_link_ltv"], queryFn: fetchTrackingLinkLtv });
+
   const ltvLookup = useMemo(() => {
     const map: Record<string, any> = {};
     for (const r of trackingLinkLtv) {
@@ -118,21 +126,23 @@ export default function AuditPage() {
     }
     return map;
   }, [trackingLinkLtv]);
+
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
   const [activeTab, setActiveTab] = useState("zero");
+  const [page, setPage] = useState(0);
   const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
-  
+  useEffect(() => { setPage(0); }, [activeTab, filters]);
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
   const anyFilterActive = filters.model !== "all" || filters.source !== "all" || filters.status !== "all" || filters.activity !== "all" || filters.action !== "all";
   const clearFilters = () => setFilters({ model: "all", source: "all", status: "all", activity: "all", action: "all" });
 
-  const activeLinks = useMemo(() => allLinks.filter((l: any) => !l.deleted_at), [allLinks]);
-  const deletedLinks = useMemo(() => allLinks.filter((l: any) => l.deleted_at), [allLinks]);
+  const activeLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !l.deleted_at), [rawLinks]);
+  const deletedLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !!l.deleted_at), [rawLinks]);
 
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
@@ -145,17 +155,16 @@ export default function AuditPage() {
 
   const filteredLinks = useMemo(() => {
     return activeLinks.filter((l: any) => {
-      const linkAccountId = l.account_id || "";
       const ad = differenceInDays(now, new Date(l.created_at));
-      if (filters.model !== "all" && linkAccountId !== filters.model) return false;
+      if (filters.model !== "all" && l.account_id !== filters.model) return false;
       if (filters.source !== "all") {
         const es = getEffectiveSource(l);
         if (filters.source === "Untagged") { if (es) return false; }
         else { if (es !== filters.source) return false; }
       }
-      if (filters.status !== "all") { if (getStatus(l) !== filters.status) return false; }
-      if (filters.activity !== "all") { if (getActivityStatus(l, thirtyDaysAgo) !== filters.activity) return false; }
-      if (filters.action !== "all") { if (getAction(l, ad) !== filters.action) return false; }
+      if (filters.status !== "all" && getStatus(l) !== filters.status) return false;
+      if (filters.activity !== "all" && getActivityStatus(l, thirtyDaysAgo) !== filters.activity) return false;
+      if (filters.action !== "all" && getAction(l, ad) !== filters.action) return false;
       return true;
     });
   }, [activeLinks, filters]);
@@ -179,15 +188,13 @@ export default function AuditPage() {
     (!l.cost_total || l.cost_total === 0) && (l.clicks > 0 || l.subscribers > 0)
   ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
 
-  // Duplicates: same external_tracking_link_id or same URL
   const duplicateGroups = useMemo(() => {
     const byExtId: Record<string, any[]> = {};
     const byUrl: Record<string, any[]> = {};
     for (const l of activeLinks) {
       if (l.external_tracking_link_id) {
-        const key = l.external_tracking_link_id;
-        if (!byExtId[key]) byExtId[key] = [];
-        byExtId[key].push(l);
+        if (!byExtId[l.external_tracking_link_id]) byExtId[l.external_tracking_link_id] = [];
+        byExtId[l.external_tracking_link_id].push(l);
       }
       if (l.url) {
         const key = l.url.trim().toLowerCase();
@@ -195,7 +202,6 @@ export default function AuditPage() {
         byUrl[key].push(l);
       }
     }
-    // Merge groups, dedup by link id
     const seenIds = new Set<string>();
     const groups: { key: string; links: any[] }[] = [];
     for (const [key, links] of Object.entries(byExtId)) {
@@ -224,9 +230,7 @@ export default function AuditPage() {
   };
 
   const softDelete = async (ids: string[]) => {
-    for (const id of ids) {
-      await updateTrackingLink(id, { deleted_at: new Date().toISOString() });
-    }
+    for (const id of ids) await updateTrackingLink(id, { deleted_at: new Date().toISOString() });
     toast.success(`Deleted ${ids.length} tracking link(s)`);
     setSelected(new Set());
     refreshAll();
@@ -245,24 +249,22 @@ export default function AuditPage() {
   };
 
   const toggleSelect = (id: string) => {
-    setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
   const selectAll = (ids: string[]) => {
-    setSelected((prev) => {
-      const allSel = ids.every((id) => prev.has(id));
+    setSelected(prev => {
+      const allSel = ids.every(id => prev.has(id));
       const next = new Set(prev);
-      ids.forEach((id) => allSel ? next.delete(id) : next.add(id));
+      ids.forEach(id => allSel ? next.delete(id) : next.add(id));
       return next;
     });
   };
 
   const modelName = (l: any) => l.accounts?.username || l.accounts?.display_name || "—";
   const ageDays = (d: string) => differenceInDays(now, new Date(d));
-
-  const isVis = (id: string) => columnOrder.isVisible(id);
-
   const exportCount = filteredLinks.length;
 
+  // ── Sub-components ──────────────────────────────────────────────────────────
   const StatCard = ({ icon: Icon, label, count, color }: { icon: any; label: string; count: number; color: string }) => (
     <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
@@ -285,7 +287,7 @@ export default function AuditPage() {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {ids.length} tracking link(s)?</AlertDialogTitle>
-          <AlertDialogDescription>Tracking links will be soft-deleted and can be restored later.</AlertDialogDescription>
+          <AlertDialogDescription>Tracking links will be soft-deleted and can be restored from the Deleted tab.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -303,7 +305,7 @@ export default function AuditPage() {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this tracking link?</AlertDialogTitle>
-          <AlertDialogDescription>It will be soft-deleted and can be restored later.</AlertDialogDescription>
+          <AlertDialogDescription>It will be soft-deleted and can be restored from the Deleted tab.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -320,7 +322,7 @@ export default function AuditPage() {
       <div className="flex items-center gap-1">
         <Select value={val} onValueChange={setVal}>
           <SelectTrigger className="h-7 text-xs w-[110px]"><SelectValue placeholder="Select..." /></SelectTrigger>
-          <SelectContent>{sources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          <SelectContent>{sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
         </Select>
         {val && val !== link.source_tag && (
           <Button size="sm" variant="ghost" className="h-7 text-xs text-primary" onClick={() => saveSourceTag(link.id, val)}>
@@ -338,7 +340,7 @@ export default function AuditPage() {
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">{placeholder}</SelectItem>
-        {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
       </SelectContent>
     </Select>
   );
@@ -360,19 +362,49 @@ export default function AuditPage() {
     </DropdownMenu>
   );
 
+  // Activity pill filter
+  const ActivityPills = () => {
+    const opts = [
+      { value: "all",      label: "All" },
+      { value: "Active",   label: "Active" },
+      { value: "Inactive", label: "Inactive" },
+      { value: "Testing",  label: "Testing" },
+    ];
+    return (
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
+        {opts.map(o => (
+          <button
+            key={o.value}
+            onClick={() => setFilter("activity", o.value)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              filters.activity === o.value
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   const TabToolbar = ({ rightContent }: { rightContent: React.ReactNode }) => (
     <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
-      <AccountFilterDropdown value={filters.model} onChange={(v) => setFilter("model", v)} accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))} />
-      <FilterSelect value={filters.source} onValueChange={(v) => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map((s: string) => ({ value: s, label: s }))} />
-      <FilterSelect value={filters.status} onValueChange={(v) => setFilter("status", v)} placeholder="All Statuses" options={[
+      <AccountFilterDropdown
+        value={filters.model}
+        onChange={v => setFilter("model", v)}
+        accounts={(accounts as any[]).map(a => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+      />
+      <FilterSelect value={filters.source} onValueChange={v => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map(s => ({ value: s, label: s }))} />
+      <FilterSelect value={filters.status} onValueChange={v => setFilter("status", v)} placeholder="All Statuses" options={[
         { value: "SCALE", label: "SCALE" }, { value: "WATCH", label: "WATCH" }, { value: "LOW", label: "LOW" },
         { value: "KILL", label: "KILL" }, { value: "INACTIVE", label: "INACTIVE" }, { value: "TESTING", label: "TESTING" }, { value: "NO_SPEND", label: "NO SPEND" },
       ]} />
-      <FilterSelect value={filters.activity} onValueChange={(v) => setFilter("activity", v)} placeholder="All Activity" options={[
-        { value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }, { value: "Testing", label: "Testing" },
-      ]} />
-      <FilterSelect value={filters.action} onValueChange={(v) => setFilter("action", v)} placeholder="All Actions" options={[
-        { value: "keep", label: "Keep" }, { value: "delete", label: "Delete" }, { value: "add_spend", label: "Add Spend" }, { value: "review", label: "Review" },
+      <ActivityPills />
+      <FilterSelect value={filters.action} onValueChange={v => setFilter("action", v)} placeholder="All Actions" options={[
+        { value: "keep", label: "Keep" }, { value: "delete", label: "Delete" },
+        { value: "add_spend", label: "Add Spend" }, { value: "review", label: "Review" },
       ]} />
       <ColumnsButton />
       {anyFilterActive && (
@@ -385,34 +417,30 @@ export default function AuditPage() {
     </div>
   );
 
-  // ─── Render a row (shared for active + deleted) ───
+  // ── Row renderer ────────────────────────────────────────────────────────────
   const renderRow = (l: any, opts: { isDeleted?: boolean; showCheckbox?: boolean; showSourceDropdown?: boolean }) => {
     const ad = ageDays(l.created_at);
     const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
     const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
-    const hasLtvRecord = ltvRecord !== null;
-    const ltvVal = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
-    const ltvPerSub = hasLtvRecord && l.subscribers > 0 ? Number(ltvRecord.ltv_per_sub || 0).toFixed(2) : "—";
-    const spenderRate = ltvRecord ? `${Number(ltvRecord.spender_pct || 0).toFixed(1)}%` : (l.subscribers > 0 ? (((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1) + "%" : "—");
+    const ltvPerSub = ltvRecord && l.subscribers > 0 ? Number(ltvRecord.ltv_per_sub || 0).toFixed(2) : "—";
+    const spenderRate = ltvRecord ? `${Number(ltvRecord.spender_pct || 0).toFixed(1)}%`
+      : l.subscribers > 0 ? `${(((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1)}%` : "—";
     const costTotal = Number(l.cost_total || 0);
     const hasCost = costTotal > 0;
+    const ltvVal = ltvRecord ? Number(ltvRecord.total_ltv || 0) : null;
     const effectiveRev = ltvVal !== null && ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
     const profit = hasCost ? effectiveRev - costTotal : null;
     const profitPerSub = l.subscribers > 0 && hasCost && profit !== null ? profit / l.subscribers : null;
     const status = getStatus(l);
     const ss = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
-    const rowClass = opts.isDeleted
-      ? "border-t border-border opacity-50 bg-muted/20"
-      : "border-t border-border hover:bg-muted/30";
 
     return (
-      <tr key={l.id} className={rowClass}>
+      <tr key={l.id} className={opts.isDeleted ? "border-t border-border opacity-50 bg-muted/20" : "border-t border-border hover:bg-muted/30"}>
         {opts.showCheckbox && (
           <td className="p-2">
             {!opts.isDeleted && <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} />}
           </td>
         )}
-        {/* Campaign — always visible */}
         <td className="p-2">
           <div className={`font-medium truncate max-w-[220px] ${opts.isDeleted ? "line-through text-muted-foreground" : ""}`}>{l.campaign_name}</div>
           <div className="text-muted-foreground truncate max-w-[220px] text-[10px]">{l.url}</div>
@@ -425,18 +453,15 @@ export default function AuditPage() {
             case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
             case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
             case "revenue": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>;
-            
             case "ltv_sub": return <td key={c.id} className="p-2 text-right font-mono">${ltvPerSub}</td>;
             case "spender_rate": return <td key={c.id} className="p-2 text-right">{spenderRate}</td>;
             case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(costTotal)}</td>;
             case "profit": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
             case "profit_sub": return (
               <td key={c.id} className="p-2 text-right">
-                {profitPerSub !== null ? (
-                  <span className={`font-mono font-bold ${profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
-                    {profitPerSub >= 0 ? "" : "-"}${Math.abs(profitPerSub).toFixed(2)}
-                  </span>
-                ) : <span className="text-muted-foreground font-bold">—</span>}
+                {profitPerSub !== null
+                  ? <span className={`font-mono font-bold ${profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{profitPerSub >= 0 ? "" : "-"}${Math.abs(profitPerSub).toFixed(2)}</span>
+                  : <span className="text-muted-foreground font-bold">—</span>}
               </td>
             );
             case "roi": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{l.roi != null ? fmtP(l.roi) : "—"}</td>;
@@ -460,50 +485,73 @@ export default function AuditPage() {
             default: return null;
           }
         })}
-        {/* Actions */}
         <td className="p-2">
-          <div className="flex items-center gap-1">
-            {opts.isDeleted ? (
-              <button onClick={() => restore(l.id)} className="text-primary hover:text-primary/80 p-1 rounded transition-colors" title="Restore">
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <InlineDeleteBtn id={l.id} />
-            )}
-          </div>
+          {opts.isDeleted
+            ? <button onClick={() => restore(l.id)} className="text-primary hover:text-primary/80 p-1 rounded transition-colors" title="Restore"><RotateCcw className="h-3.5 w-3.5" /></button>
+            : <InlineDeleteBtn id={l.id} />}
         </td>
       </tr>
     );
   };
 
-  // Visible column count for colSpan
-  const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length + 1; // campaign(locked) + checkbox + actions
+  const renderTable = (items: any[], showCheckbox: boolean, showSourceDropdown: boolean) => {
+    const paginated = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length + (showCheckbox ? 1 : 0);
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50">
+              <tr>
+                {showCheckbox && <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(items.map(l => l.id))} checked={items.length > 0 && items.every(l => selected.has(l.id))} /></th>}
+                <th className="p-2 font-medium text-left">Tracking Link</th>
+                {columnOrder.visibleOrderedColumns.map(c => {
+                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr"].includes(c.id) ? "text-right" : "text-left";
+                  return <th key={c.id} className={`p-2 font-medium ${align}`}>{c.label}</th>;
+                })}
+                <th className="p-2 w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.length > 0
+                ? paginated.map(l => renderRow(l, { showCheckbox, showSourceDropdown }))
+                : <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No tracking links found ✓</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <TablePagination page={page} total={items.length} pageSize={PAGE_SIZE} onChange={setPage} />
+      </>
+    );
+  };
 
-  const renderTable = (items: any[], tabKey: string, showCheckbox: boolean, showSourceDropdown: boolean) => (
-    <table className="w-full text-xs">
-      <thead className="bg-muted/50">
-        <tr>
-          {showCheckbox && <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(items.map((l: any) => l.id))} checked={items.length > 0 && items.every((l: any) => selected.has(l.id))} /></th>}
-          <th className="p-2 font-medium text-left">Tracking Link</th>
-          {columnOrder.visibleOrderedColumns.map(c => {
-            const align = ["revenue","ltv","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr"].includes(c.id) ? "text-right" : "text-left";
-            return <th key={c.id} className={`p-2 font-medium ${align}`}>{c.label}</th>;
-          })}
-          <th className="p-2 w-12"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((l: any) => renderRow(l, { showCheckbox, showSourceDropdown }))}
-        {/* Show deleted items in same table, grayed out */}
-        {deletedLinks.length > 0 && items.length > 0 && tabKey === activeTab && deletedLinks.map((l: any) =>
-          renderRow(l, { isDeleted: true, showCheckbox, showSourceDropdown: false })
-        )}
-        {items.length === 0 && deletedLinks.length === 0 && (
-          <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No tracking links found ✓</td></tr>
-        )}
-      </tbody>
-    </table>
-  );
+  const renderDeletedTable = () => {
+    const paginated = deletedLinks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length;
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="p-2 font-medium text-left">Tracking Link</th>
+                {columnOrder.visibleOrderedColumns.map(c => {
+                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr"].includes(c.id) ? "text-right" : "text-left";
+                  return <th key={c.id} className={`p-2 font-medium ${align}`}>{c.label}</th>;
+                })}
+                <th className="p-2 w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.length > 0
+                ? paginated.map(l => renderRow(l, { isDeleted: true, showCheckbox: false, showSourceDropdown: false }))
+                : <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No deleted tracking links</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <TablePagination page={page} total={deletedLinks.length} pageSize={PAGE_SIZE} onChange={setPage} />
+      </>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -525,24 +573,13 @@ export default function AuditPage() {
           </div>
         </div>
 
-        {/* ═══ TIME + MODEL FILTER BAR ═══ */}
-        <PageFilterBar
-          timePeriod={timePeriod}
-          onTimePeriodChange={setTimePeriod}
-          customRange={customRange}
-          onCustomRangeChange={setCustomRange}
-          modelFilter={pageModelFilter}
-          onModelFilterChange={setPageModelFilter}
-          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-        />
-
-        {/* Stat cards */}
+        {/* KPI Stat Cards */}
         <div className="grid grid-cols-5 gap-4">
-          <StatCard icon={AlertCircle} label="Zero Activity" count={zeroActivity.length} color="bg-muted text-muted-foreground" />
-          <StatCard icon={Skull} label="Inactive" count={inactive.length} color="bg-destructive/10 text-destructive" />
-          <StatCard icon={Tag} label="Missing Source" count={missingSource.length} color="bg-warning/10 text-warning" />
-          <StatCard icon={DollarSign} label="Missing Spend" count={missingSpend.length} color="bg-info/10 text-primary" />
-          <StatCard icon={Copy} label="Duplicates" count={duplicateCount} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
+          <StatCard icon={AlertCircle} label="Zero Activity"   count={zeroActivity.length}  color="bg-muted text-muted-foreground" />
+          <StatCard icon={Skull}       label="Inactive"        count={inactive.length}       color="bg-destructive/10 text-destructive" />
+          <StatCard icon={Tag}         label="Missing Source"  count={missingSource.length}  color="bg-warning/10 text-warning" />
+          <StatCard icon={DollarSign}  label="Missing Spend"   count={missingSpend.length}   color="bg-info/10 text-primary" />
+          <StatCard icon={Copy}        label="Duplicates"      count={duplicateCount}        color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
         </div>
 
         {/* Tabs */}
@@ -553,37 +590,40 @@ export default function AuditPage() {
             <TabsTrigger value="source">Missing Source ({missingSource.length})</TabsTrigger>
             <TabsTrigger value="spend">Missing Spend ({missingSpend.length})</TabsTrigger>
             <TabsTrigger value="dupes">Duplicates ({duplicateCount})</TabsTrigger>
+            <TabsTrigger value="deleted" className="text-destructive data-[state=active]:text-destructive">
+              Deleted ({deletedLinks.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="zero">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <TabToolbar rightContent={
-                <DeleteConfirmBtn ids={Array.from(selected).filter((id) => zeroActivity.some((l: any) => l.id === id))} label="Delete selected" />
+                <DeleteConfirmBtn ids={Array.from(selected).filter(id => zeroActivity.some(l => l.id === id))} label="Delete selected" />
               } />
-              {renderTable(zeroActivity, "zero", true, false)}
+              {renderTable(zeroActivity, true, false)}
             </div>
           </TabsContent>
 
           <TabsContent value="dead">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <TabToolbar rightContent={
-                <DeleteConfirmBtn ids={Array.from(selected).filter((id) => inactive.some((l: any) => l.id === id))} label="Delete selected" />
+                <DeleteConfirmBtn ids={Array.from(selected).filter(id => inactive.some(l => l.id === id))} label="Delete selected" />
               } />
-              {renderTable(inactive, "dead", true, false)}
+              {renderTable(inactive, true, false)}
             </div>
           </TabsContent>
 
           <TabsContent value="source">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <TabToolbar rightContent={null} />
-              {renderTable(missingSource, "source", false, true)}
+              {renderTable(missingSource, false, true)}
             </div>
           </TabsContent>
 
           <TabsContent value="spend">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <TabToolbar rightContent={null} />
-              {renderTable(missingSpend, "spend", false, false)}
+              {renderTable(missingSpend, false, false)}
             </div>
           </TabsContent>
 
@@ -591,14 +631,14 @@ export default function AuditPage() {
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <div className="p-3 border-b border-border">
                 <p className="text-xs text-muted-foreground italic">
-                  Same campaign name on different models is not flagged as a duplicate — only exact URL or tracking link ID matches are flagged.
+                  Same campaign name on different models is not flagged — only exact URL or tracking link ID matches are flagged.
                 </p>
               </div>
               {duplicateGroups.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">No duplicates found ✓</div>
               ) : (
                 <div className="divide-y divide-border">
-                  {duplicateGroups.map((group) => (
+                  {duplicateGroups.map(group => (
                     <div key={group.key} className="p-4 space-y-2">
                       <div className="text-sm font-medium text-foreground">{group.links[0]?.campaign_name || "Unnamed"}</div>
                       <div className="text-[10px] text-muted-foreground truncate">{group.links[0]?.url}</div>
@@ -613,37 +653,42 @@ export default function AuditPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {group.links.map((l: any, idx: number) => {
-                            const isOriginal = idx === 0;
-                            return (
-                              <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                                <td className="p-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} />
-                                    <span className="text-muted-foreground">@{l.accounts?.username || l.accounts?.display_name || "?"}</span>
-                                  </div>
-                                </td>
-                                <td className="p-2 font-mono text-muted-foreground">{l.external_tracking_link_id || "—"}</td>
-                                <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>
-                                <td className="p-2">
-                                  {isOriginal ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">Original</span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Duplicate</span>
-                                  )}
-                                </td>
-                                <td className="p-2">
-                                  {!isOriginal && <InlineDeleteBtn id={l.id} />}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                          {group.links.map((l, idx) => (
+                            <tr key={l.id} className="border-t border-border hover:bg-muted/30">
+                              <td className="p-2">
+                                <div className="flex items-center gap-1.5">
+                                  <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} />
+                                  <span className="text-muted-foreground">@{l.accounts?.username || l.accounts?.display_name || "?"}</span>
+                                </div>
+                              </td>
+                              <td className="p-2 font-mono text-muted-foreground">{l.external_tracking_link_id || "—"}</td>
+                              <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>
+                              <td className="p-2">
+                                {idx === 0
+                                  ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">Original</span>
+                                  : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Duplicate</span>}
+                              </td>
+                              <td className="p-2">{idx !== 0 && <InlineDeleteBtn id={l.id} />}</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="deleted">
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="p-3 border-b border-border flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Soft-deleted tracking links — click <RotateCcw className="h-3 w-3 inline mx-0.5" /> to restore.
+                </p>
+                <span className="text-xs text-muted-foreground">{deletedLinks.length} deleted</span>
+              </div>
+              {renderDeletedTable()}
             </div>
           </TabsContent>
         </Tabs>
