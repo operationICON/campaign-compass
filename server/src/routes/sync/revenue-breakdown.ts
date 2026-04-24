@@ -18,6 +18,13 @@ async function fetchAllTransactions(ofAccountId: string, apiKey: string): Promis
     apiCalls++;
     const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url}`;
     const res = await fetch(fullUrl, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+    if (res.status === 429) {
+      // Rate limited — back off and retry this same page (don't advance url)
+      const retryAfter = Number(res.headers.get("Retry-After") ?? 15);
+      await sleep(retryAfter * 1000);
+      apiCalls--; // don't count the failed call
+      continue;
+    }
     if (!res.ok) throw new Error(`OF API ${res.status} for account ${ofAccountId}`);
     const json = await res.json() as any;
     const page: any[] = json?.data?.list ?? json?.data ?? json?.transactions ?? json?.list ?? [];

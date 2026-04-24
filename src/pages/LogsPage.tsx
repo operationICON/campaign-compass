@@ -403,8 +403,13 @@ export default function LogsPage() {
       if (ctrl.signal.aborted) return;
       if (lastData?.step === "error") throw new Error(lastData.error ?? "Unknown error");
       const updated = lastData?.accounts_updated ?? 0;
-      if (updated === 0) {
-        toast.warning("Revenue breakdown sync — no transaction data found. Run a Dashboard sync first to populate transactions.");
+      const errors = lastData?.errors ?? 0;
+      if (errors > 0 && updated === 0) {
+        toast.warning(`Revenue breakdown sync — all accounts failed (${errors} errors). Check API key / rate limits.`);
+      } else if (updated === 0) {
+        toast.warning("Revenue breakdown sync — no transactions found.");
+      } else if (errors > 0) {
+        toast.warning(`Revenue breakdown sync — ${updated} accounts updated, ${errors} failed`);
       } else {
         toast.success(`Revenue breakdown sync complete — ${updated} accounts updated`);
       }
@@ -515,17 +520,6 @@ export default function LogsPage() {
                     <span className="text-[10px] text-muted-foreground text-center">Running…</span>
                   )}
                 </Button>
-                {showStop && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => stopSync(type)}
-                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
-                  >
-                    <Square className="h-3 w-3" />
-                    Stop
-                  </Button>
-                )}
               </div>
             );
           })}
