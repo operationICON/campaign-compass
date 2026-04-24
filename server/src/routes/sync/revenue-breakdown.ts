@@ -3,6 +3,7 @@ import { db } from "../../db/client.js";
 import { accounts, transactions, fan_spend, fans, sync_logs } from "../../db/schema.js";
 import { eq, inArray, sql } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
+import { cancelFlags } from "../../lib/cancelFlags.js";
 
 const router = new Hono();
 const API_BASE = "https://app.onlyfansapi.com/api";
@@ -70,6 +71,11 @@ router.post("/", async (c) => {
       await send({ step: "start", message: `Syncing transactions for ${accountList.length} accounts...` });
 
       for (const account of accountList) {
+        if (syncLogId && cancelFlags.get(syncLogId)) {
+          cancelFlags.delete(syncLogId);
+          await send({ step: "cancelled", message: "Sync cancelled by user" });
+          return;
+        }
         if (!account.onlyfans_account_id) continue;
         try {
           await send({ step: "fetching", message: `Fetching ${account.display_name}...` });

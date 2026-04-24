@@ -97,7 +97,7 @@ function loadKpiVisibility(): Set<KpiId> {
 const TS_COLUMNS: ColumnDef[] = [
   { id: "model", label: "Model", defaultOn: true },
   { id: "source", label: "Source", defaultOn: true },
-  { id: "category", label: "Category", defaultOn: true },
+  { id: "category", label: "Category", defaultOn: false },
   { id: "clicks", label: "Clicks", defaultOn: true },
   { id: "subscribers", label: "Subs", defaultOn: true },
   { id: "cvr", label: "CVR", defaultOn: true },

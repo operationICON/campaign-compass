@@ -198,17 +198,25 @@ export default function LogsPage() {
 
   useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter, sortKey, sortAsc]);
 
-  // Stop handler
-  const stopSync = useCallback((type: string) => {
+  // Stop handler — aborts live SSE if running, otherwise calls cancel API
+  const stopSync = useCallback(async (type: string, syncLogId?: number) => {
     const ctrl = abortRefs.current[type];
     if (ctrl) {
       ctrl.abort();
       delete abortRefs.current[type];
+    } else if (syncLogId) {
+      const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+      await fetch(`${apiBase}/sync/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sync_log_id: syncLogId }),
+      }).catch(() => {});
     }
     setRunning(r => ({ ...r, [type]: false }));
     setProgress(p => ({ ...p, [type]: "" }));
+    queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
     toast.info(`${SYNC_LABELS[type as SyncType]} sync stopped`);
-  }, []);
+  }, [queryClient]);
 
   // Sync handlers
   const runDashboardSync = useCallback(async () => {
@@ -448,15 +456,18 @@ export default function LogsPage() {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
+            const dbRunning = statusCards[type]?.effectiveStatus === "running";
+            const showStop = isRunning || dbRunning;
+            const runningLogId = dbRunning ? statusCards[type]?.id : undefined;
             return (
               <div key={type} className="flex flex-col gap-1.5">
                 <Button
                   variant="outline"
                   onClick={syncHandlers[type]}
-                  disabled={isRunning || allRunning}
+                  disabled={showStop || allRunning}
                   className={`h-auto py-4 px-4 flex flex-col items-center gap-2 ${colors.border} hover:${colors.bg} transition-all`}
                 >
-                  {isRunning ? (
+                  {showStop ? (
                     <Loader2 className={`h-5 w-5 animate-spin ${colors.text}`} />
                   ) : (
                     <Icon className={`h-5 w-5 ${colors.text}`} />
@@ -469,12 +480,15 @@ export default function LogsPage() {
                       {progress[type]}
                     </span>
                   )}
+                  {!isRunning && dbRunning && (
+                    <span className="text-[10px] text-muted-foreground text-center">Running…</span>
+                  )}
                 </Button>
-                {isRunning && (
+                {showStop && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => stopSync(type)}
+                    onClick={() => stopSync(type, runningLogId)}
                     className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
                   >
                     <Square className="h-3 w-3" />

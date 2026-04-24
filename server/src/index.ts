@@ -28,6 +28,7 @@ import syncSnapshotsRouter from "./routes/sync/snapshots.js";
 import syncOnlytrafficRouter from "./routes/sync/onlytraffic.js";
 import syncCrosspollRouter from "./routes/sync/crosspoll.js";
 import syncRevenueBreakdownRouter from "./routes/sync/revenue-breakdown.js";
+import syncCancelRouter from "./routes/sync/cancel.js";
 import authRouter from "./routes/auth.js";
 import { startScheduler } from "./scheduler.js";
 
@@ -77,6 +78,7 @@ app.route("/sync/snapshots", syncSnapshotsRouter);
 app.route("/sync/onlytraffic", syncOnlytrafficRouter);
 app.route("/sync/crosspoll", syncCrosspollRouter);
 app.route("/sync/revenue-breakdown", syncRevenueBreakdownRouter);
+app.route("/sync/cancel", syncCancelRouter);
 
 const port = Number(process.env.PORT ?? 3000);
 console.log(`Server starting on port ${port}`);

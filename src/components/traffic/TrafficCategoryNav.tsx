@@ -577,9 +577,6 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   if (!activeCategory) {
     return (
       <div className="space-y-3">
-        <p className="text-muted-foreground" style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-          Traffic Categories
-        </p>
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => setCategoryAndNotify("OnlyTraffic")}
