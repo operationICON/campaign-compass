@@ -125,6 +125,16 @@ export default function LogsPage() {
     return cards;
   }, [classifiedLogs]);
 
+  // Total credits consumed per sync type across all runs
+  const totalCredits = useMemo(() => {
+    const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0 };
+    for (const log of classifiedLogs) {
+      const calls = log.details?.api_calls ?? 0;
+      if (calls > 0) totals[log.syncType as SyncType] += calls;
+    }
+    return totals;
+  }, [classifiedLogs]);
+
   // Filter logs
   const filteredLogs = useMemo(() => {
     return classifiedLogs.filter((log: any) => {
@@ -457,6 +467,34 @@ export default function LogsPage() {
           })}
         </div>
 
+        {/* ═══ CREDIT USAGE SUMMARY ═══ */}
+        {(() => {
+          const grandTotal = Object.values(totalCredits).reduce((s, n) => s + n, 0);
+          if (grandTotal === 0) return null;
+          return (
+            <div className="flex items-center gap-4 bg-card border border-border rounded-xl px-5 py-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-primary" />
+                <span className="text-[13px] font-semibold text-foreground">Credits Used</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Total:</span>
+                <span className="text-sm font-bold font-mono text-foreground">{grandTotal.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-3 ml-2 flex-wrap">
+                {(["dashboard", "revenue_breakdown", "crosspoll", "onlytraffic"] as SyncType[])
+                  .filter(t => totalCredits[t] > 0)
+                  .map(t => (
+                    <div key={t} className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">{SYNC_LABELS[t]}:</span>
+                      <span className="text-[11px] font-bold font-mono text-foreground">{totalCredits[t].toLocaleString()}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ═══ SYNC STATUS CARDS ═══ */}
         <div className="grid grid-cols-6 gap-3">
           {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown"] as SyncType[]).map((type) => {
@@ -522,9 +560,17 @@ export default function LogsPage() {
                       {(last.details?.api_calls ?? 0) > 0 && (
                         <div className="flex items-center justify-between text-xs">
                           <span className="flex items-center gap-1 text-muted-foreground">
-                            <Zap className="h-3 w-3" /> Credits used
+                            <Zap className="h-3 w-3" /> Last run
                           </span>
                           <span className="font-mono font-bold text-primary">{last.details.api_calls}</span>
+                        </div>
+                      )}
+                      {totalCredits[type] > 0 && (
+                        <div className="flex items-center justify-between text-xs border-t border-border/50 pt-1.5 mt-0.5">
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Zap className="h-3 w-3" /> All-time
+                          </span>
+                          <span className="font-mono font-bold text-foreground">{totalCredits[type].toLocaleString()}</span>
                         </div>
                       )}
                     </div>
