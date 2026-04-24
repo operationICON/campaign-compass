@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { getEffectiveSource } from "@/lib/source-helpers";
+import { getEffectiveSource } from "@/lib/source-helpers"; // still used in renderRow source column
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized } from "@/lib/supabase-helpers";
@@ -8,13 +8,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
-  AlertCircle, Skull, Tag, DollarSign, X, CheckCircle2, FilterX, Copy,
+  AlertCircle, Skull, Tag, DollarSign, CheckCircle2, Copy,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
@@ -31,19 +30,15 @@ const PAGE_SIZE = 25;
 function loadFilters() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const p = JSON.parse(raw);
+      return { model: p.model ?? "all", activity: p.activity ?? "all" };
+    }
   } catch {}
-  return { model: "all", source: "all", status: "all", activity: "all", action: "all" };
+  return { model: "all", activity: "all" };
 }
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
-function getAction(l: any, ageDays: number) {
-  if (l.clicks === 0 && l.subscribers === 0) return "delete";
-  if (l.subscribers > 0 && !l.cost_total) return "add_spend";
-  if (l.subscribers > 0 && l.cost_total > 0) return "keep";
-  if (l.clicks > 0 && l.subscribers === 0 && ageDays > 14) return "review";
-  return "keep";
-}
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   ...SHARED_STATUS_STYLES,
@@ -138,8 +133,8 @@ export default function AuditPage() {
   useEffect(() => { setPage(0); }, [activeTab, filters]);
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
-  const anyFilterActive = filters.model !== "all" || filters.source !== "all" || filters.status !== "all" || filters.activity !== "all" || filters.action !== "all";
-  const clearFilters = () => setFilters({ model: "all", source: "all", status: "all", activity: "all", action: "all" });
+  const anyFilterActive = filters.model !== "all" || filters.activity !== "all";
+  const clearFilters = () => setFilters({ model: "all", activity: "all" });
 
   const activeLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !l.deleted_at), [rawLinks]);
   const deletedLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !!l.deleted_at), [rawLinks]);
@@ -147,24 +142,10 @@ export default function AuditPage() {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-  const distinctSources = useMemo(() => {
-    const s = [...new Set(activeLinks.map((l: any) => getEffectiveSource(l)).filter(Boolean))].sort() as string[];
-    if (!s.includes("Untagged")) s.push("Untagged");
-    return s;
-  }, [activeLinks]);
-
-  const filteredLinks = useMemo(() => {
+const filteredLinks = useMemo(() => {
     return activeLinks.filter((l: any) => {
-      const ad = differenceInDays(now, new Date(l.created_at));
       if (filters.model !== "all" && l.account_id !== filters.model) return false;
-      if (filters.source !== "all") {
-        const es = getEffectiveSource(l);
-        if (filters.source === "Untagged") { if (es) return false; }
-        else { if (es !== filters.source) return false; }
-      }
-      if (filters.status !== "all" && getStatus(l) !== filters.status) return false;
       if (filters.activity !== "all" && getActivityStatus(l, thirtyDaysAgo) !== filters.activity) return false;
-      if (filters.action !== "all" && getAction(l, ad) !== filters.action) return false;
       return true;
     });
   }, [activeLinks, filters]);
@@ -333,18 +314,6 @@ export default function AuditPage() {
     );
   };
 
-  const FilterSelect = ({ value, onValueChange, placeholder, options }: { value: string; onValueChange: (v: string) => void; placeholder: string; options: { value: string; label: string }[] }) => (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="h-8 text-xs w-[130px] bg-card border-border">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">{placeholder}</SelectItem>
-        {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-      </SelectContent>
-    </Select>
-  );
-
   const ColumnsButton = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -362,33 +331,6 @@ export default function AuditPage() {
     </DropdownMenu>
   );
 
-  // Activity pill filter
-  const ActivityPills = () => {
-    const opts = [
-      { value: "all",      label: "All" },
-      { value: "Active",   label: "Active" },
-      { value: "Inactive", label: "Inactive" },
-      { value: "Testing",  label: "Testing" },
-    ];
-    return (
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
-        {opts.map(o => (
-          <button
-            key={o.value}
-            onClick={() => setFilter("activity", o.value)}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-              filters.activity === o.value
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    );
-  };
-
   const TabToolbar = ({ rightContent }: { rightContent: React.ReactNode }) => (
     <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
       <AccountFilterDropdown
@@ -396,22 +338,23 @@ export default function AuditPage() {
         onChange={v => setFilter("model", v)}
         accounts={(accounts as any[]).map(a => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
       />
-      <FilterSelect value={filters.source} onValueChange={v => setFilter("source", v)} placeholder="All Sources" options={distinctSources.map(s => ({ value: s, label: s }))} />
-      <FilterSelect value={filters.status} onValueChange={v => setFilter("status", v)} placeholder="All Statuses" options={[
-        { value: "SCALE", label: "SCALE" }, { value: "WATCH", label: "WATCH" }, { value: "LOW", label: "LOW" },
-        { value: "KILL", label: "KILL" }, { value: "INACTIVE", label: "INACTIVE" }, { value: "TESTING", label: "TESTING" }, { value: "NO_SPEND", label: "NO SPEND" },
-      ]} />
-      <ActivityPills />
-      <FilterSelect value={filters.action} onValueChange={v => setFilter("action", v)} placeholder="All Actions" options={[
-        { value: "keep", label: "Keep" }, { value: "delete", label: "Delete" },
-        { value: "add_spend", label: "Add Spend" }, { value: "review", label: "Review" },
-      ]} />
+      {/* Active / Inactive pills */}
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
+        {(["all", "Active", "Inactive"] as const).map(opt => (
+          <button
+            key={opt}
+            onClick={() => setFilter("activity", opt)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              filters.activity === opt
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {opt === "all" ? "All" : opt}
+          </button>
+        ))}
+      </div>
       <ColumnsButton />
-      {anyFilterActive && (
-        <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
-          <FilterX className="h-3.5 w-3.5 mr-1" /> Clear
-        </Button>
-      )}
       <span className="text-xs text-muted-foreground">{filteredLinks.length} shown</span>
       <div className="ml-auto flex items-center gap-2">{rightContent}</div>
     </div>
