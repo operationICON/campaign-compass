@@ -41,6 +41,7 @@ router.post("/", async (c) => {
         WHERE f.is_new_fan = true
           AND f.first_subscribe_link_id IS NOT NULL
           AND tl.deleted_at IS NULL
+          AND tl.external_tracking_link_id IS NOT NULL
         GROUP BY f.first_subscribe_link_id, tl.account_id, tl.campaign_name, tl.external_tracking_link_id
       `);
 

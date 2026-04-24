@@ -302,7 +302,13 @@ export default function LogsPage() {
         ctrl.signal,
       );
       if (ctrl.signal.aborted) return;
-      toast.success(`Cross-poll sync complete — ${lastData?.links_updated ?? 0} links updated`);
+      if (lastData?.step === "error") throw new Error(lastData.error ?? "Unknown error");
+      const errCount = lastData?.errors ?? 0;
+      if (errCount > 0) {
+        toast.warning(`Cross-poll sync — ${lastData?.links_updated ?? 0} links updated, ${errCount} failed`);
+      } else {
+        toast.success(`Cross-poll sync complete — ${lastData?.links_updated ?? 0} links updated`);
+      }
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
     } catch (err: any) {
       if (err.name === "AbortError") return;
@@ -327,7 +333,13 @@ export default function LogsPage() {
         ctrl.signal,
       );
       if (ctrl.signal.aborted) return;
-      toast.success(`Revenue breakdown sync complete — ${lastData?.accounts_updated ?? 0} accounts updated`);
+      if (lastData?.step === "error") throw new Error(lastData.error ?? "Unknown error");
+      const updated = lastData?.accounts_updated ?? 0;
+      if (updated === 0) {
+        toast.warning("Revenue breakdown sync — no transaction data found. Run a Dashboard sync first to populate transactions.");
+      } else {
+        toast.success(`Revenue breakdown sync complete — ${updated} accounts updated`);
+      }
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
     } catch (err: any) {
