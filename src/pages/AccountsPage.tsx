@@ -849,14 +849,6 @@ export default function AccountsPage() {
             </div>
           </div>
 
-          {/* Revenue Breakdown table — collapsible, shows Messages/PPV · Tips · Subscriptions · Posts */}
-          <ModelRevenueBreakdown
-            accounts={[acc]}
-            allLinks={allLinks.filter((l: any) => l.account_id === acc.id)}
-            txTypeTotalsByAccount={txBreakdowns as any}
-            revMultiplier={revMultiplier}
-          />
-
                 {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
@@ -1278,6 +1270,14 @@ export default function AccountsPage() {
                 )}
 
         </div>
+
+          {/* Revenue Breakdown — Messages/PPV · Tips · Subscriptions · Posts */}
+          <ModelRevenueBreakdown
+            accounts={[acc]}
+            allLinks={allLinks.filter((l: any) => l.account_id === acc.id)}
+            txTypeTotalsByAccount={txBreakdowns as any}
+            revMultiplier={revMultiplier}
+          />
 
         {/* Campaign drawer for clickable rows */}
         <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} onCampaignUpdated={setDrawerCampaign} />
