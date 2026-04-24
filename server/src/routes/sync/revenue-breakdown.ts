@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
 import { accounts, transactions, fan_spend, fans, sync_logs } from "../../db/schema.js";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql, and, like } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 import { cancelFlags } from "../../lib/cancelFlags.js";
 
@@ -47,6 +47,19 @@ router.post("/", async (c) => {
 
   const body = await c.req.json().catch(() => ({}));
   const triggeredBy = body.triggered_by ?? "manual";
+  // Clean up any stuck previous revenue_breakdown runs before starting
+  const stuckRows = await db
+    .select({ id: sync_logs.id })
+    .from(sync_logs)
+    .where(and(eq(sync_logs.status, "running"), like(sync_logs.triggered_by, "%revenue_breakdown%")));
+  for (const row of stuckRows) {
+    cancelFlags.set(row.id, true);
+    await db.update(sync_logs).set({
+      status: "error", success: false, finished_at: new Date(), completed_at: new Date(),
+      error_message: "Superseded by new run",
+    }).where(eq(sync_logs.id, row.id));
+  }
+
   const { stream, send, close } = createSSEStream();
 
   const [syncLog] = await db.insert(sync_logs).values({

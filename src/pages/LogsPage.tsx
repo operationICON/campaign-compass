@@ -198,20 +198,19 @@ export default function LogsPage() {
 
   useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter, sortKey, sortAsc]);
 
-  // Stop handler — aborts live SSE if running, otherwise calls cancel API
-  const stopSync = useCallback(async (type: string, syncLogId?: number) => {
+  // Stop handler — aborts live SSE + cancels all running DB logs for the type
+  const stopSync = useCallback(async (type: string) => {
     const ctrl = abortRefs.current[type];
     if (ctrl) {
       ctrl.abort();
       delete abortRefs.current[type];
-    } else if (syncLogId) {
-      const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-      await fetch(`${apiBase}/sync/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sync_log_id: syncLogId }),
-      }).catch(() => {});
     }
+    const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+    await fetch(`${apiBase}/sync/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sync_type: type }),
+    }).catch(() => {});
     setRunning(r => ({ ...r, [type]: false }));
     setProgress(p => ({ ...p, [type]: "" }));
     queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
@@ -458,7 +457,7 @@ export default function LogsPage() {
             const isRunning = running[type];
             const dbRunning = statusCards[type]?.effectiveStatus === "running";
             const showStop = isRunning || dbRunning;
-            const runningLogId = dbRunning ? statusCards[type]?.id : undefined;
+
             return (
               <div key={type} className="flex flex-col gap-1.5">
                 <Button
@@ -488,7 +487,7 @@ export default function LogsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => stopSync(type, runningLogId)}
+                    onClick={() => stopSync(type)}
                     className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
                   >
                     <Square className="h-3 w-3" />
@@ -514,7 +513,6 @@ export default function LogsPage() {
             const isRunning = running[type];
             const dbRunning = status === "running";
             const showStop = isRunning || dbRunning;
-            const runningLogId = dbRunning ? last?.id : undefined;
 
             return (
               <Card key={type} className={`border ${colors.border} overflow-hidden`}>
@@ -545,7 +543,7 @@ export default function LogsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => stopSync(type, runningLogId)}
+                      onClick={() => stopSync(type)}
                       className="w-full h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
                     >
                       <Square className="h-3 w-3" />
