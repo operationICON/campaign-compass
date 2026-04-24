@@ -5,7 +5,7 @@ import { fetchSyncLogs, fetchAccounts, triggerSync } from "@/lib/supabase-helper
 import { streamSync } from "@/lib/api";
 import { format, formatDistanceToNow } from "date-fns";
 import {
-  CheckCircle, XCircle, Clock, Loader2,
+  CheckCircle, XCircle, Clock, Loader2, AlertCircle,
   ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
   BarChart3, Camera, Users, Truck, Play, Square, Zap, History, GitMerge,
 } from "lucide-react";
@@ -73,7 +73,35 @@ function getEffectiveStatus(log: any) {
     const elapsed = Date.now() - new Date(log.started_at).getTime();
     if (elapsed > 10 * 60 * 1000) return "error";
   }
-  return log.status;
+  return log.status; // passes through "partial", "success", "error", "running"
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "success") return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+      <CheckCircle className="h-2.5 w-2.5" /> Success
+    </span>
+  );
+  if (status === "partial") return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
+      <AlertCircle className="h-2.5 w-2.5" /> Partial
+    </span>
+  );
+  if (status === "error") return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-destructive/15 text-destructive">
+      <XCircle className="h-2.5 w-2.5" /> Failed
+    </span>
+  );
+  if (status === "running") return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400">
+      <Loader2 className="h-2.5 w-2.5 animate-spin" /> Running
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-secondary text-muted-foreground">
+      {status}
+    </span>
+  );
 }
 
 type StatusFilter = "all" | "success" | "error" | "running";
@@ -530,18 +558,7 @@ export default function LogsPage() {
                         {SYNC_LABELS[type]}
                       </span>
                     </div>
-                    {status && (
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        status === "success" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
-                        status === "error" ? "bg-destructive/15 text-destructive" :
-                        "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                      }`}>
-                        {status === "success" ? <CheckCircle className="h-2.5 w-2.5" /> :
-                         status === "error" ? <XCircle className="h-2.5 w-2.5" /> :
-                         <Loader2 className="h-2.5 w-2.5 animate-spin" />}
-                        {status === "error" ? "Failed" : status === "success" ? "Success" : "Running"}
-                      </span>
-                    )}
+                    {status && <StatusBadge status={status} />}
                   </div>
                   {showStop && (
                     <Button
@@ -733,16 +750,7 @@ export default function LogsPage() {
                               {duration !== null ? `${duration}s` : "—"}
                             </td>
                             <td className="py-2.5 px-4 text-center">
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                status === "success" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
-                                status === "error" ? "bg-destructive/15 text-destructive" :
-                                "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                              }`}>
-                                {status === "success" ? <CheckCircle className="h-2.5 w-2.5" /> :
-                                 status === "error" ? <XCircle className="h-2.5 w-2.5" /> :
-                                 <Loader2 className="h-2.5 w-2.5 animate-spin" />}
-                                {status === "error" ? "Failed" : status === "success" ? "Success" : "Running"}
-                              </span>
+                              <StatusBadge status={status} />
                             </td>
                             <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
                               {log.triggered_by ? (log.triggered_by === "manual" ? "LIZA (manual)" : log.triggered_by) : "—"}
