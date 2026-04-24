@@ -56,26 +56,34 @@ router.post("/", async (c) => {
         const conversionPct = newSubs > 0 ? Math.round(crossFans / newSubs * 10000) / 100 : 0;
 
         try {
-          await db.insert(tracking_link_ltv).values({
-            tracking_link_id: row.tracking_link_id,
-            external_tracking_link_id: row.external_tracking_link_id ?? null,
-            account_id: row.link_account_id,
-            new_subs_total: newSubs,
-            cross_poll_fans: crossFans,
-            cross_poll_revenue: String(crossRevenue),
-            cross_poll_avg_per_fan: String(avgPerFan),
-            cross_poll_conversion_pct: String(conversionPct),
-          }).onConflictDoUpdate({
-            target: tracking_link_ltv.tracking_link_id,
-            set: {
+          const trackingLinkIdStr = String(row.tracking_link_id);
+          const [existing] = await db
+            .select({ id: tracking_link_ltv.id })
+            .from(tracking_link_ltv)
+            .where(eq(tracking_link_ltv.tracking_link_id, trackingLinkIdStr))
+            .limit(1);
+
+          if (existing) {
+            await db.update(tracking_link_ltv).set({
               new_subs_total: newSubs,
               cross_poll_fans: crossFans,
               cross_poll_revenue: String(crossRevenue),
               cross_poll_avg_per_fan: String(avgPerFan),
               cross_poll_conversion_pct: String(conversionPct),
               updated_at: new Date(),
-            },
-          });
+            }).where(eq(tracking_link_ltv.id, existing.id));
+          } else {
+            await db.insert(tracking_link_ltv).values({
+              tracking_link_id: trackingLinkIdStr,
+              external_tracking_link_id: String(row.external_tracking_link_id),
+              account_id: String(row.link_account_id),
+              new_subs_total: newSubs,
+              cross_poll_fans: crossFans,
+              cross_poll_revenue: String(crossRevenue),
+              cross_poll_avg_per_fan: String(avgPerFan),
+              cross_poll_conversion_pct: String(conversionPct),
+            });
+          }
           saved++;
         } catch (err: any) {
           errors.push(`${row.campaign_name}: ${err.message}`);

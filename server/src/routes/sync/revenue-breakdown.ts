@@ -43,10 +43,10 @@ router.post("/", async (c) => {
         if (!byAccount[id]) byAccount[id] = { messages: 0, tips: 0, subscriptions: 0, posts: 0 };
         const v = Number(row.total ?? 0);
         const t = (row.type ?? "").toLowerCase();
-        if (t === "message" || t === "messages" || t === "ppv" || t === "chat") byAccount[id].messages += v;
-        else if (t === "tip" || t === "tips")                                   byAccount[id].tips += v;
-        else if (t === "subscription" || t === "subscriptions" || t === "sub")  byAccount[id].subscriptions += v;
-        else if (t === "post" || t === "posts")                                 byAccount[id].posts += v;
+        if (t.includes("message") || t === "ppv" || t === "chat")              byAccount[id].messages += v;
+        else if (t.includes("tip"))                                             byAccount[id].tips += v;
+        else if (t.includes("subscription") || t.includes("sub"))              byAccount[id].subscriptions += v;
+        else if (t.includes("post"))                                            byAccount[id].posts += v;
       }
 
       const accountIds = Object.keys(byAccount);
