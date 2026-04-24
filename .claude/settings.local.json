@@ -18,7 +18,13 @@
       "PowerShell(git pull --rebase origin main)",
       "PowerShell(git stash)",
       "PowerShell(git stash pop)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "PowerShell(git add *)",
+      "PowerShell(git commit *)",
+      "Bash(curl -s -X POST http://localhost:3000/sync/cancel -H \"Content-Type: application/json\" -d \"{\\\\\"sync_type\\\\\":\\\\\"revenue_breakdown\\\\\"}\")",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3000/sync/cancel\" -Method POST -ContentType \"application/json\" -Body '{\"sync_type\":\"revenue_breakdown\"}')",
+      "PowerShell(psql *)",
+      "PowerShell(ls C:\\\\Users\\\\Ern\\\\campaign-compass\\\\server\\\\node_modules | Where-Object { $_.Name -match \"pg|neon|postgres\" } | Select-Object Name)"
     ]
   }
 }

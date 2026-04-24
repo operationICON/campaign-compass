@@ -9,7 +9,9 @@
       "Bash(curl -s https://upbeat-bravery-production-3ec1.up.railway.app/accounts)",
       "Bash(npx tsx *)",
       "Bash(npx tsc *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(git checkout *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
