@@ -24,36 +24,42 @@ router.post("/", async (c) => {
     try {
       await send({ step: "start", message: "Computing cross-poll revenue..." });
 
-      // Single aggregate SQL: for each tracking link, compute cross-poll from fans
-      // who first subscribed via that link but spent on a DIFFERENT account.
+      // Preflight diagnostics
+      const fanCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM fans WHERE first_subscribe_link_id IS NOT NULL`);
+      const linkCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM tracking_links WHERE deleted_at IS NULL AND external_tracking_link_id IS NOT NULL`);
+      const spendCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM fan_spend`);
+      await send({ step: "preflight", message: `Fans with link: ${fanCheck.rows[0]?.cnt ?? 0}, active links: ${linkCheck.rows[0]?.cnt ?? 0}, fan_spend rows: ${spendCheck.rows[0]?.cnt ?? 0}` });
+
+      // For each tracking link, compute cross-poll from ALL fans who first subscribed
+      // via that link but also spent on a DIFFERENT account.
       const rows = await db.execute(sql`
         SELECT
           f.first_subscribe_link_id                                           AS tracking_link_id,
           tl.account_id                                                       AS link_account_id,
           tl.campaign_name,
-          COUNT(DISTINCT f.id)                                                AS new_subs_total,
+          COUNT(DISTINCT f.id)                                                AS fans_total,
           COUNT(DISTINCT CASE WHEN fs.account_id != tl.account_id THEN f.id END) AS cross_poll_fans,
           COALESCE(SUM(CASE WHEN fs.account_id != tl.account_id THEN fs.revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue,
           tl.external_tracking_link_id
         FROM fans f
         JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
         LEFT JOIN fan_spend fs ON fs.fan_id = f.fan_id
-        WHERE f.is_new_fan = true
-          AND f.first_subscribe_link_id IS NOT NULL
+        WHERE f.first_subscribe_link_id IS NOT NULL
           AND tl.deleted_at IS NULL
           AND tl.external_tracking_link_id IS NOT NULL
         GROUP BY f.first_subscribe_link_id, tl.account_id, tl.campaign_name, tl.external_tracking_link_id
       `);
 
       const results = rows.rows as any[];
-      await send({ step: "computed", message: `${results.length} links with fan data` });
+      const sample = results[0];
+      await send({ step: "computed", message: `${results.length} links with fan data${sample ? ` | sample: ${sample.campaign_name}, fans=${sample.fans_total}, crossFans=${sample.cross_poll_fans}, crossRev=${sample.cross_poll_revenue}` : ""}` });
 
       for (const row of results) {
         const crossFans = Number(row.cross_poll_fans ?? 0);
         const crossRevenue = Number(row.cross_poll_revenue ?? 0);
-        const newSubs = Number(row.new_subs_total ?? 0);
+        const fansTotal = Number(row.fans_total ?? 0);
         const avgPerFan = crossFans > 0 ? Math.round(crossRevenue / crossFans * 100) / 100 : 0;
-        const conversionPct = newSubs > 0 ? Math.round(crossFans / newSubs * 10000) / 100 : 0;
+        const conversionPct = fansTotal > 0 ? Math.round(crossFans / fansTotal * 10000) / 100 : 0;
 
         try {
           const trackingLinkIdStr = String(row.tracking_link_id);
@@ -65,7 +71,7 @@ router.post("/", async (c) => {
 
           if (existing) {
             await db.update(tracking_link_ltv).set({
-              new_subs_total: newSubs,
+              new_subs_total: fansTotal,
               cross_poll_fans: crossFans,
               cross_poll_revenue: String(crossRevenue),
               cross_poll_avg_per_fan: String(avgPerFan),
@@ -77,7 +83,7 @@ router.post("/", async (c) => {
               tracking_link_id: trackingLinkIdStr,
               external_tracking_link_id: String(row.external_tracking_link_id),
               account_id: String(row.link_account_id),
-              new_subs_total: newSubs,
+              new_subs_total: fansTotal,
               cross_poll_fans: crossFans,
               cross_poll_revenue: String(crossRevenue),
               cross_poll_avg_per_fan: String(avgPerFan),

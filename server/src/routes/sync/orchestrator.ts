@@ -28,7 +28,7 @@ router.post("/", async (c) => {
   const orchLogId = orchLog?.id;
 
   (async () => {
-    let accountsSynced = 0, totalLinksSynced = 0;
+    let accountsSynced = 0, totalLinksSynced = 0, totalApiCalls = 0;
     const errors: string[] = [];
 
     try {
@@ -45,6 +45,7 @@ router.post("/", async (c) => {
       await send({ step: "discovery", message: "Discovering accounts..." });
       try {
         const res = await fetch(`${API_BASE}/accounts`, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+        totalApiCalls++; // 1 credit for /accounts
         if (res.ok) {
           const data = await res.json() as any;
           const list = Array.isArray(data) ? data : (data.data ?? []);
@@ -97,6 +98,7 @@ router.post("/", async (c) => {
                 const result = await res.json() as any;
                 accountsSynced++;
                 totalLinksSynced += result.links ?? 0;
+                totalApiCalls += result.api_calls ?? 0;
                 return;
               }
               if (attempt === 0) continue;
@@ -113,9 +115,9 @@ router.post("/", async (c) => {
 
       const now = new Date();
       const hasErrors = errors.length > 0;
-      if (orchLogId) await db.update(sync_logs).set({ status: hasErrors ? "partial" : "success", success: !hasErrors, finished_at: now, completed_at: now, accounts_synced: accountsSynced, tracking_links_synced: totalLinksSynced, records_processed: totalLinksSynced, message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts, ${totalLinksSynced} links`, error_message: hasErrors ? errors.join("; ") : null }).where(eq(sync_logs.id, orchLogId));
+      if (orchLogId) await db.update(sync_logs).set({ status: hasErrors ? "partial" : "success", success: !hasErrors, finished_at: now, completed_at: now, accounts_synced: accountsSynced, tracking_links_synced: totalLinksSynced, records_processed: totalLinksSynced, message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts, ${totalLinksSynced} links`, error_message: hasErrors ? errors.join("; ") : null, details: { api_calls: totalApiCalls } }).where(eq(sync_logs.id, orchLogId));
 
-      await send({ step: "done", message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts`, accounts_synced: accountsSynced, tracking_links_synced: totalLinksSynced, errors: errors.length > 0 ? errors : undefined });
+      await send({ step: "done", message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts`, accounts_synced: accountsSynced, tracking_links_synced: totalLinksSynced, api_calls: totalApiCalls, errors: errors.length > 0 ? errors : undefined });
     } catch (err: any) {
       if (orchLogId) await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, orchLogId));
       await send({ step: "error", error: err.message });

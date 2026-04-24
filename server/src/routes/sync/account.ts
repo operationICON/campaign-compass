@@ -8,24 +8,24 @@ const API_BASE = "https://app.onlyfansapi.com/api";
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-async function fetchAllTrackingLinks(ofAccountId: string, apiKey: string): Promise<any[]> {
-  const all: any[] = [];
+async function fetchAllTrackingLinks(ofAccountId: string, apiKey: string): Promise<{ items: any[]; apiCalls: number }> {
+  const items: any[] = [];
   let url: string | null = `/${ofAccountId}/tracking-links?limit=50`;
-  let page = 0;
-  while (url && page < 100) {
-    page++;
+  let apiCalls = 0;
+  while (url && apiCalls < 100) {
+    apiCalls++;
     const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url}`;
     const res = await fetch(fullUrl, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
     if (!res.ok) break;
     const json = await res.json() as any;
     const links = json?.data?.list ?? [];
     if (!links.length) break;
-    all.push(...links);
+    items.push(...links);
     const nextPage = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null;
     url = nextPage ?? null;
     await sleep(300);
   }
-  return all;
+  return { items, apiCalls };
 }
 
 router.post("/", async (c) => {
@@ -44,7 +44,7 @@ router.post("/", async (c) => {
   let linkCount = 0;
   try {
     // Fetch all tracking links from OF API
-    const items = await fetchAllTrackingLinks(onlyfans_account_id, apiKey);
+    const { items, apiCalls } = await fetchAllTrackingLinks(onlyfans_account_id, apiKey);
 
     // Ensure campaigns exist
     const campaignNames = [...new Set(items.map((l: any) => l.campaignName ?? "Unknown"))];
@@ -148,9 +148,9 @@ router.post("/", async (c) => {
 
     await db.update(accounts).set(updateFields).where(eq(accounts.id, account_id));
 
-    if (syncLogId) await db.update(sync_logs).set({ status: "success", success: true, finished_at: new Date(), completed_at: new Date(), records_processed: linkCount, tracking_links_synced: linkCount, message: `${linkCount} links synced` }).where(eq(sync_logs.id, syncLogId));
+    if (syncLogId) await db.update(sync_logs).set({ status: "success", success: true, finished_at: new Date(), completed_at: new Date(), records_processed: linkCount, tracking_links_synced: linkCount, message: `${linkCount} links synced`, details: { api_calls: apiCalls } }).where(eq(sync_logs.id, syncLogId));
 
-    return c.json({ account: display_name, status: "success", links: linkCount });
+    return c.json({ account: display_name, status: "success", links: linkCount, api_calls: apiCalls });
   } catch (err: any) {
     if (syncLogId) await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
     return c.json({ account: display_name, status: "error", error: err.message }, 500);

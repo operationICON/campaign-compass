@@ -519,6 +519,14 @@ export default function LogsPage() {
                           <span className="font-mono text-foreground">{last.tracking_links_synced}</span>
                         </div>
                       )}
+                      {(last.details?.api_calls ?? 0) > 0 && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Zap className="h-3 w-3" /> Credits used
+                          </span>
+                          <span className="font-mono font-bold text-primary">{last.details.api_calls}</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground text-center py-2">Never run</p>
@@ -598,6 +606,9 @@ export default function LogsPage() {
                         <SortableTh<LogSortKey> label="Type" sortKey="type" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <SortableTh<LogSortKey> label="Account" sortKey="account" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="left" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <SortableTh<LogSortKey> label="Records" sortKey="records" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
+                        <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>
+                          <span className="flex items-center justify-end gap-1"><Zap className="h-3 w-3" />Credits</span>
+                        </th>
                         <SortableTh<LogSortKey> label="Duration" sortKey="duration" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <SortableTh<LogSortKey> label="Status" sortKey="status" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="center" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Triggered by</th>
@@ -640,6 +651,11 @@ export default function LogsPage() {
                             </td>
                             <td className="py-2.5 px-4 text-right font-mono text-foreground">
                               {log.records_processed ?? 0}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono">
+                              {(log.details?.api_calls ?? 0) > 0
+                                ? <span className="text-primary font-bold">{log.details.api_calls}</span>
+                                : <span className="text-muted-foreground">—</span>}
                             </td>
                             <td className="py-2.5 px-4 text-right font-mono text-muted-foreground">
                               {duration !== null ? `${duration}s` : "—"}
@@ -691,6 +707,12 @@ export default function LogsPage() {
                           <div>
                             <p className="text-muted-foreground">Links synced</p>
                             <p className="font-mono font-bold text-foreground">{log.tracking_links_synced}</p>
+                          </div>
+                        )}
+                        {(log.details?.api_calls ?? 0) > 0 && (
+                          <div>
+                            <p className="flex items-center gap-1 text-muted-foreground"><Zap className="h-3 w-3" />Credits used</p>
+                            <p className="font-mono font-bold text-primary">{log.details.api_calls}</p>
                           </div>
                         )}
                         <div>
