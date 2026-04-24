@@ -801,66 +801,72 @@ export default function AccountsPage() {
                   <div />
                   <div />
                 </div>
+
+                {/* Revenue Breakdown — compact, under KPI cards */}
+                {(() => {
+                  const campRevRaw = stats.campaignRevAllTime || 0;
+                  const ltvRaw = stats.totalLtvAllTime || 0;
+                  const notSyncedRaw = Math.max(0, campRevRaw - ltvRaw);
+                  const totalForPct = campRevRaw * revMultiplier;
+                  const fmt = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  const pct = (v: number) => totalForPct > 0 ? `${((v / totalForPct) * 100).toFixed(1)}%` : null;
+
+                  const tx = (txBreakdowns as any)[acc.id] as any;
+                  const accMsg  = Number(acc.ltv_messages || 0);
+                  const accTips = Number(acc.ltv_tips || 0);
+                  const accSubs = Number(acc.ltv_subscriptions || 0);
+                  const accPost = Number(acc.ltv_posts || 0);
+                  const hasLtv  = accMsg > 0 || accTips > 0 || accSubs > 0 || accPost > 0;
+                  const messages      = (hasLtv ? accMsg  : (tx?.messages      ?? 0)) * revMultiplier;
+                  const tips          = (hasLtv ? accTips : (tx?.tips          ?? 0)) * revMultiplier;
+                  const subscriptions = (hasLtv ? accSubs : (tx?.subscriptions ?? 0)) * revMultiplier;
+                  const posts         = (hasLtv ? accPost : (tx?.posts         ?? 0)) * revMultiplier;
+                  const hasTypeBreakdown = messages > 0 || tips > 0 || subscriptions > 0 || posts > 0;
+
+                  const Row = ({ dot, label, value, pctVal }: { dot: string; label: string; value: string; pctVal: string | null }) => (
+                    <div className="flex items-center justify-between py-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
+                        <span className="text-[11px] text-muted-foreground">{label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                        <span className="text-foreground font-semibold">{value}</span>
+                        {pctVal && <span className="text-muted-foreground/50">· {pctVal}</span>}
+                      </div>
+                    </div>
+                  );
+
+                  return (
+                    <div className="mt-4 pt-3 border-t border-border">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Revenue Breakdown</p>
+                      <div className="grid grid-cols-2 gap-x-6">
+                        {/* Left: LTV attribution status */}
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40 mb-1">Attribution</p>
+                          <Row dot="bg-emerald-400" label="LTV Synced" value={fmt(ltvRaw * revMultiplier)} pctVal={pct(ltvRaw * revMultiplier)} />
+                          {notSyncedRaw > 0 && (
+                            <Row dot="bg-muted-foreground/30" label="Not LTV Synced" value={fmt(notSyncedRaw * revMultiplier)} pctVal={pct(notSyncedRaw * revMultiplier)} />
+                          )}
+                        </div>
+                        {/* Right: by transaction type */}
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40 mb-1">By Type</p>
+                          {hasTypeBreakdown ? (
+                            <>
+                              {messages > 0 && <Row dot="bg-primary" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
+                              {tips > 0 && <Row dot="bg-amber-400" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
+                              {subscriptions > 0 && <Row dot="bg-purple-400" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
+                              {posts > 0 && <Row dot="bg-blue-400" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
+                            </>
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground/40 italic">Run LTV sync to see</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            </div>
-
-            {/* Revenue Breakdown — compact inline inside profile card */}
-            <div className="border-t border-border px-6 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Revenue Breakdown</p>
-              {(() => {
-                const campRevRaw = stats.campaignRevAllTime || 0;
-                const ltvRaw = stats.totalLtvAllTime || 0;
-                const unattributedRaw = Math.max(0, campRevRaw - ltvRaw);
-                const totalForPct = campRevRaw * revMultiplier;
-                const fmt = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                const pct = (v: number) => totalForPct > 0 ? `${((v / totalForPct) * 100).toFixed(1)}%` : null;
-
-                const tx = (txBreakdowns as any)[acc.id] as any;
-                const accMsg  = Number(acc.ltv_messages || 0);
-                const accTips = Number(acc.ltv_tips || 0);
-                const accSubs = Number(acc.ltv_subscriptions || 0);
-                const accPost = Number(acc.ltv_posts || 0);
-                const hasLtv  = accMsg > 0 || accTips > 0 || accSubs > 0 || accPost > 0;
-                const messages      = (hasLtv ? accMsg  : (tx?.messages      ?? 0)) * revMultiplier;
-                const tips          = (hasLtv ? accTips : (tx?.tips          ?? 0)) * revMultiplier;
-                const subscriptions = (hasLtv ? accSubs : (tx?.subscriptions ?? 0)) * revMultiplier;
-                const posts         = (hasLtv ? accPost : (tx?.posts         ?? 0)) * revMultiplier;
-                const hasTypeBreakdown = messages > 0 || tips > 0 || subscriptions > 0 || posts > 0;
-
-                const Row = ({ dot, label, value, pctVal }: { dot: string; label: string; value: string; pctVal: string | null }) => (
-                  <div className="flex items-center justify-between py-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-                      <span className="text-[11px] text-muted-foreground">{label}</span>
-                    </div>
-                    <div className="flex items-center gap-2 font-mono text-[11px]">
-                      <span className="text-foreground font-semibold">{value}</span>
-                      {pctVal && <span className="text-muted-foreground/60">· {pctVal}</span>}
-                    </div>
-                  </div>
-                );
-
-                return (
-                  <div className="space-y-0.5">
-                    <Row dot="bg-emerald-400" label="Via Campaigns" value={fmt(campRevRaw * revMultiplier)} pctVal={pct(campRevRaw * revMultiplier)} />
-                    {unattributedRaw > 0 && (
-                      <Row dot="bg-muted-foreground/40" label="Unattributed" value={fmt(unattributedRaw * revMultiplier)} pctVal={pct(unattributedRaw * revMultiplier)} />
-                    )}
-                    {hasTypeBreakdown && (
-                      <>
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/50 pt-2 pb-0.5">By Type</p>
-                        {messages > 0 && <Row dot="bg-primary" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
-                        {tips > 0 && <Row dot="bg-amber-400" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
-                        {subscriptions > 0 && <Row dot="bg-purple-400" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
-                        {posts > 0 && <Row dot="bg-blue-400" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
-                      </>
-                    )}
-                    {!hasTypeBreakdown && (
-                      <p className="text-[10px] text-muted-foreground/40 italic pt-1">Run LTV sync to see type breakdown (Messages · Tips · Subscriptions · Posts)</p>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
           </div>
 
