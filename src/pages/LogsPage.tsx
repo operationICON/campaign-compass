@@ -459,7 +459,7 @@ export default function LogsPage() {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
-            const dbRunning = statusCards[type]?.effectiveStatus === "running";
+            const dbRunning = statusCards[type]?.status === "running";
             const showStop = isRunning || dbRunning;
 
             return (
@@ -515,7 +515,7 @@ export default function LogsPage() {
               : null;
             const status = last ? last.effectiveStatus : null;
             const isRunning = running[type];
-            const dbRunning = status === "running";
+            const dbRunning = last?.status === "running";
             const showStop = isRunning || dbRunning;
 
             return (
