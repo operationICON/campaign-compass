@@ -226,9 +226,9 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   const hasOTData = (l: any) => !!(l.source_tag?.trim() || l.onlytraffic_marketer?.trim() || l.onlytraffic_order_id?.trim());
 
   const otLinks = useMemo(() => allLinks.filter(l =>
-    l.deleted_at == null && !isManual(l) && (isOnlyTraffic(l) || hasOTData(l))
+    l.deleted_at == null && (isOnlyTraffic(l) || hasOTData(l))
   ), [allLinks]);
-  const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && l.deleted_at == null), [allLinks]);
+  const manualOnlyLinks = useMemo(() => allLinks.filter(l => isManual(l) && !hasOTData(l) && l.deleted_at == null), [allLinks]);
   const noSourceLinks = useMemo(() => allLinks.filter(l =>
     l.traffic_category == null &&
     !hasOTData(l) &&
