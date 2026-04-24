@@ -1,1 +1,1 @@
-export const cancelFlags = new Map<number, boolean>();
+export const cancelFlags = new Map<string, boolean>();

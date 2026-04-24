@@ -6,23 +6,21 @@ import { cancelFlags } from "../../lib/cancelFlags.js";
 
 const router = new Hono();
 
-// Triggered_by prefix patterns per sync type
 const TYPE_PATTERNS: Record<string, string> = {
   revenue_breakdown: "%revenue_breakdown%",
-  dashboard: "%manual%",
-  crosspoll: "%crosspoll%",
-  onlytraffic: "%onlytraffic%",
-  snapshot: "%snapshot%",
+  dashboard:         "%manual%",
+  crosspoll:         "%crosspoll%",
+  onlytraffic:       "%onlytraffic%",
+  snapshot:          "%snapshot%",
 };
 
 router.post("/", async (c) => {
   const { sync_log_id, sync_type } = await c.req.json().catch(() => ({}));
 
   const now = new Date();
-  const cancelled: number[] = [];
+  const cancelled: string[] = [];
 
   if (sync_type && TYPE_PATTERNS[sync_type]) {
-    // Cancel all running logs for this sync type
     const rows = await db
       .select({ id: sync_logs.id })
       .from(sync_logs)
@@ -37,8 +35,7 @@ router.post("/", async (c) => {
       cancelled.push(row.id);
     }
   } else if (sync_log_id) {
-    // Cancel a specific log by ID
-    const id = Number(sync_log_id);
+    const id = String(sync_log_id);
     cancelFlags.set(id, true);
     await db.update(sync_logs).set({
       status: "error", success: false,

@@ -199,17 +199,21 @@ export default function LogsPage() {
   useEffect(() => { setSyncPage(1); }, [statusFilter, typeFilter, sortKey, sortAsc]);
 
   // Stop handler — aborts live SSE + cancels all running DB logs for the type
-  const stopSync = useCallback(async (type: string) => {
+  // Pass a specific logId to kill only that row (from the history table Kill button)
+  const stopSync = useCallback(async (type: string, specificLogId?: string) => {
     const ctrl = abortRefs.current[type];
     if (ctrl) {
       ctrl.abort();
       delete abortRefs.current[type];
     }
     const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+    const body = specificLogId
+      ? { sync_log_id: specificLogId }
+      : { sync_type: type };
     await fetch(`${apiBase}/sync/cancel`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sync_type: type }),
+      body: JSON.stringify(body),
     }).catch(() => {});
     setRunning(r => ({ ...r, [type]: false }));
     setProgress(p => ({ ...p, [type]: "" }));
@@ -680,6 +684,7 @@ export default function LogsPage() {
                         <SortableTh<LogSortKey> label="Status" sortKey="status" activeKey={sortKey} asc={sortAsc} onSort={handleSort} align="center" className="py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }} />
                         <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Triggered by</th>
                         <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontSize: 10 }}>Message</th>
+                        <th className="py-2.5 px-4" />
                       </tr>
                     </thead>
                     <tbody>
@@ -747,6 +752,17 @@ export default function LogsPage() {
                                 <span className="text-destructive">{displayMessage || "Unknown error"}</span>
                               ) : (
                                 displayMessage || "—"
+                              )}
+                            </td>
+                            <td className="py-2.5 px-2" onClick={e => e.stopPropagation()}>
+                              {log.status === "running" && (
+                                <button
+                                  onClick={() => stopSync(log.syncType, log.id)}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-destructive hover:bg-destructive/10 transition-colors"
+                                  title="Force stop this run"
+                                >
+                                  <Square className="h-2.5 w-2.5" /> Kill
+                                </button>
                               )}
                             </td>
                           </tr>
