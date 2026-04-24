@@ -11,7 +11,13 @@ function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 function normalizeUrl(url: string | null | undefined) {
   if (!url) return null;
-  return url.replace(/\/$/, "").toLowerCase().trim();
+  return url.trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .split("?")[0]
+    .split("#")[0]
+    .replace(/\/$/, "")
+    .toLowerCase();
 }
 
 async function getAllPages(path: string, apiKey: string): Promise<any[]> {
@@ -82,7 +88,7 @@ router.post("/", async (c) => {
       const allLinks: any[] = [];
       let offset = 0;
       while (true) {
-        const batch = await db.select({ id: tracking_links.id, url: tracking_links.url, campaign_name: tracking_links.campaign_name, account_id: tracking_links.account_id, traffic_category: tracking_links.traffic_category, source_tag: tracking_links.source_tag }).from(tracking_links).where(isNull(tracking_links.deleted_at)).limit(1000).offset(offset);
+        const batch = await db.select({ id: tracking_links.id, url: tracking_links.url, campaign_name: tracking_links.campaign_name, account_id: tracking_links.account_id, traffic_category: tracking_links.traffic_category, source_tag: tracking_links.source_tag, onlytraffic_order_id: tracking_links.onlytraffic_order_id }).from(tracking_links).where(isNull(tracking_links.deleted_at)).limit(1000).offset(offset);
         if (!batch.length) break;
         allLinks.push(...batch);
         if (batch.length < 1000) break;
@@ -103,10 +109,18 @@ router.post("/", async (c) => {
 
       const linkMap: Record<string, { link: any; orders: any[]; type: string; source: string | null; marketer: string | null; offer_id: string | null }> = {};
 
+      // Build order_id → link map for secondary matching
+      const orderIdToLink: Record<string, any> = {};
+      for (const tl of allLinks) {
+        if (tl.onlytraffic_order_id) orderIdToLink[tl.onlytraffic_order_id] = tl;
+      }
+
       const processOrder = (order: any, type: "CPL" | "CPC") => {
         const campaignUrl = type === "CPL" ? order.campaign_url : order.url;
         const normUrl = normalizeUrl(campaignUrl);
-        const urlMatch = allLinks.find(tl => normalizeUrl(tl.url) === normUrl);
+        // Primary: match by normalized URL; secondary: match by previously stamped order_id
+        const urlMatch = allLinks.find(tl => normalizeUrl(tl.url) === normUrl)
+          ?? (order.order_id ? orderIdToLink[order.order_id] : undefined);
         if (!urlMatch) { stats.unmatched++; unmatchedOrders.push({ order_id: order.order_id, order_type: type, campaign_url: campaignUrl || null, total_spent: parseFloat(order.total_spent || 0), source: order.source || null, marketer: order.offer_marketer_name || null, status: order.status || "unmatched" }); return; }
 
         const expected = accountNumericIdMap[urlMatch.account_id];

@@ -38,11 +38,13 @@ type TableSortPreset = "newest_first" | "highest_revenue" | "highest_profit" | "
 type ColSortKey = "campaign" | "model" | "source" | "marketer" | "offerId" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
 
 function isOnlyTraffic(link: any): boolean {
-  return link.traffic_category === "OnlyTraffic";
+  // A link is OT if explicitly categorized OR if it was ever matched by OT sync (has order ID)
+  return link.traffic_category === "OnlyTraffic" || link.onlytraffic_order_id != null;
 }
 
 function isManual(link: any): boolean {
-  return link.traffic_category === "Manual";
+  // A link is Manual only if categorized as Manual AND never matched by OT sync
+  return link.traffic_category === "Manual" && link.onlytraffic_order_id == null;
 }
 
 function calcCategoryMetrics(catLinks: any[], linkMarketerMapData?: Record<string, any>) {
@@ -256,6 +258,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
 
   const noSourceLinks = useMemo(() => dedupedLinks.filter(l =>
     l.traffic_category == null &&
+    l.onlytraffic_order_id == null &&
     l.deleted_at == null &&
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
   ), [dedupedLinks]);
