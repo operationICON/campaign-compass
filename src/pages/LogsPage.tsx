@@ -125,6 +125,25 @@ export default function LogsPage() {
     return cards;
   }, [classifiedLogs]);
 
+  // All-time aggregates per sync type across all successful runs
+  const allTimeStats = useMemo(() => {
+    const zero = () => ({ runs: 0, records: 0, links: 0, accounts: 0, credits: 0 });
+    const totals: Record<SyncType, ReturnType<typeof zero>> = {
+      dashboard: zero(), snapshot: zero(), snapshot_backfill: zero(), ltv: zero(),
+      onlytraffic: zero(), ot_snapshot: zero(), crosspoll: zero(), revenue_breakdown: zero(),
+    };
+    for (const log of classifiedLogs) {
+      if (log.effectiveStatus !== "success" && log.effectiveStatus !== "partial") continue;
+      const t = totals[log.syncType as SyncType];
+      t.runs++;
+      t.records  += Number(log.records_processed     ?? 0);
+      t.links    += Number(log.tracking_links_synced  ?? 0);
+      t.accounts += Number(log.accounts_synced        ?? 0);
+      t.credits  += Number(log.details?.api_calls     ?? 0);
+    }
+    return totals;
+  }, [classifiedLogs]);
+
   // Total credits consumed per sync type across all runs
   const totalCredits = useMemo(() => {
     const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0 };
@@ -533,50 +552,53 @@ export default function LogsPage() {
                     )}
                   </div>
 
-                  {last ? (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Last run</span>
-                        <span className="font-mono text-foreground">
-                          {format(new Date(last.started_at), "MMM d, HH:mm")}
-                        </span>
+                  {(() => {
+                    const stats = allTimeStats[type];
+                    const hasData = stats.runs > 0;
+                    return hasData ? (
+                      <div className="space-y-2">
+                        {/* All-time primary stat */}
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">All Time</p>
+                          <p className="text-[22px] font-bold font-mono text-foreground leading-tight">
+                            {stats.records > 0 ? stats.records.toLocaleString() : stats.links > 0 ? stats.links.toLocaleString() : stats.runs.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {stats.records > 0 ? "records" : stats.links > 0 ? "links" : "runs"} · {stats.runs} sync{stats.runs !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        {/* Secondary all-time stats */}
+                        <div className="space-y-1 border-t border-border/40 pt-1.5">
+                          {stats.links > 0 && stats.records > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Links</span>
+                              <span className="font-mono text-foreground">{stats.links.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {stats.accounts > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Accounts</span>
+                              <span className="font-mono text-foreground">{stats.accounts.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {stats.credits > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="flex items-center gap-1 text-muted-foreground"><Zap className="h-3 w-3" />Credits</span>
+                              <span className="font-mono font-bold text-primary">{stats.credits.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {last && (
+                            <div className="flex items-center justify-between text-xs border-t border-border/30 pt-1">
+                              <span className="text-muted-foreground">Last run</span>
+                              <span className="font-mono text-muted-foreground">{format(new Date(last.started_at), "MMM d, HH:mm")}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {duration !== null && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Duration</span>
-                          <span className="font-mono text-foreground">{duration}s</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Records</span>
-                        <span className="font-mono text-foreground">{last.records_processed ?? 0}</span>
-                      </div>
-                      {(last.tracking_links_synced ?? 0) > 0 && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Links synced</span>
-                          <span className="font-mono text-foreground">{last.tracking_links_synced}</span>
-                        </div>
-                      )}
-                      {(last.details?.api_calls ?? 0) > 0 && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <Zap className="h-3 w-3" /> Last run
-                          </span>
-                          <span className="font-mono font-bold text-primary">{last.details.api_calls}</span>
-                        </div>
-                      )}
-                      {totalCredits[type] > 0 && (
-                        <div className="flex items-center justify-between text-xs border-t border-border/50 pt-1.5 mt-0.5">
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <Zap className="h-3 w-3" /> All-time
-                          </span>
-                          <span className="font-mono font-bold text-foreground">{totalCredits[type].toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground text-center py-2">Never run</p>
-                  )}
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center py-2">Never run</p>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
