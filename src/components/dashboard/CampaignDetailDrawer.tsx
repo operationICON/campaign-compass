@@ -704,6 +704,7 @@ function DrawerBodyInner({
         trackingLinkId={d.id}
         lifetimeClicks={totalClicks}
         lifetimeSubs={tlSubscribers}
+        lifetimeRevenue={campaignRevenue}
       />
 
       {/* ORDER HISTORY — OnlyTraffic only */}
