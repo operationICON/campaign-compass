@@ -77,10 +77,8 @@ export default function CalculationsPage() {
 
   // ── Revenue ──
   const estRevenue = links.reduce((s, l: any) => s + Number(l.revenue || 0), 0);
-  const totalLtvSum = ltvRows.reduce((s, r: any) => s + Number(r.total_ltv || 0), 0);
   const crossPollSum = ltvRows.reduce((s, r: any) => s + Number(r.cross_poll_revenue || 0), 0);
-  const unaccounted = estRevenue - totalLtvSum;
-  const totalLtvPlusCp = totalLtvSum + crossPollSum;
+  const totalLtvPlusCp = ltvRows.reduce((s, r: any) => s + Number(r.total_ltv || 0) + Number(r.cross_poll_revenue || 0), 0);
 
   // ── Spend ──
   const totalSpend = links.reduce((s, l: any) => s + Number(l.cost_total || 0), 0);
@@ -90,7 +88,7 @@ export default function CalculationsPage() {
 
   // ── Performance ──
   const totalNewSubs = ltvRows.reduce((s, r: any) => s + Number(r.new_subs_total || 0), 0);
-  const totalProfit = totalLtvPlusCp - totalSpend;
+  const totalProfit = estRevenue - totalSpend;
   const overallRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
   const avgProfitPerSub = totalNewSubs > 0 ? totalProfit / totalNewSubs : null;
   const avgCpl = totalNewSubs > 0 ? totalSpend / totalNewSubs : null;
@@ -140,7 +138,7 @@ export default function CalculationsPage() {
 
         {/* Live Summary Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <SummaryCard label="Total LTV" value={isLoading ? null : fmtC(totalLtvPlusCp)} color="#16a34a" />
+          <SummaryCard label="Revenue" value={isLoading ? null : fmtC(estRevenue)} color="#16a34a" />
           <SummaryCard label="Total Spend" value={isLoading ? null : fmtC(totalSpend)} color="#dc2626" />
           <SummaryCard label="Profit" value={isLoading ? null : fmtC(totalProfit)} color={totalProfit >= 0 ? "#16a34a" : "#dc2626"} />
           <SummaryCard label="ROI" value={isLoading ? null : fmtP(overallRoi)} color={(overallRoi ?? 0) >= 0 ? "#16a34a" : "#dc2626"} />
@@ -156,53 +154,22 @@ export default function CalculationsPage() {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <MetricCard
-              label="Est. Revenue"
-              formula="Sum of revenue stamped on each tracking link by the data sync. This is the raw number from the platform — not yet fan-attributed."
+              label="Revenue"
+              formula="Sum of revenue stamped on each tracking link by the data sync. This is the primary revenue number used for Profit and ROI calculations."
               source="SUM(tracking_links.revenue)"
               value={isLoading ? undefined : fmtC(estRevenue)}
               color="#16a34a"
               isLoading={isLoading}
             />
             <MetricCard
-              label="LTV"
-              formula="Actual revenue computed per fan from their full payment history. More accurate than Est. Revenue — only populated after LTV sync runs."
-              source="SUM(tracking_link_ltv.total_ltv)"
-              value={isLoading ? undefined : fmtC(totalLtvSum)}
-              color="#16a34a"
-              isLoading={isLoading}
-            />
-            <MetricCard
               label="Cross-Poll Revenue"
-              formula="Revenue those fans generated on other models after their first subscription through this campaign."
+              formula="Revenue fans generated on other models after their first subscription through this campaign. Feeds into LTV/Sub only."
               source="SUM(tracking_link_ltv.cross_poll_revenue)"
               value={isLoading ? undefined : fmtC(crossPollSum)}
               color="#0891b2"
               isLoading={isLoading}
             />
-            <MetricCard
-              label="Total LTV"
-              formula="LTV + Cross-Poll — the complete revenue picture attributed to a campaign, including revenue spill-over to other models."
-              source="total_ltv + cross_poll_revenue"
-              value={isLoading ? undefined : fmtC(totalLtvPlusCp)}
-              color="#16a34a"
-              isLoading={isLoading}
-            />
-            <MetricCard
-              label="Unaccounted Revenue"
-              formula="Revenue on tracking links not yet matched to fans via LTV sync. Decreases as sync coverage improves."
-              source="tracking_links.revenue − tracking_link_ltv.total_ltv"
-              value={isLoading ? undefined : fmtC(unaccounted)}
-              color="#d97706"
-              isLoading={isLoading}
-            />
           </div>
-
-          {!isLoading && (
-            <div className="mt-3 rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1">
-              <div><span className="font-semibold text-foreground">Reconciliation: </span>Est. Revenue = LTV + Unaccounted → <span className="font-mono">{fmtC(estRevenue)} = {fmtC(totalLtvSum)} + {fmtC(unaccounted)}</span></div>
-              <div><span className="font-semibold text-foreground">Total LTV: </span>LTV + Cross-Poll → <span className="font-mono">{fmtC(totalLtvPlusCp)} = {fmtC(totalLtvSum)} + {fmtC(crossPollSum)}</span></div>
-            </div>
-          )}
         </Section>
 
         {/* SECTION: Spend */}
@@ -256,8 +223,8 @@ export default function CalculationsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <MetricCard
               label="Profit"
-              formula="What we actually made after costs. Uses Total LTV (not Est. Revenue) as the revenue base."
-              source="(total_ltv + cross_poll_revenue) − SUM(cost_total)"
+              formula="What we actually made after costs. Revenue minus total spend across all campaigns."
+              source="SUM(tracking_links.revenue) − SUM(cost_total)"
               value={isLoading ? undefined : fmtC(totalProfit)}
               color={totalProfit >= 0 ? "#16a34a" : "#dc2626"}
               isLoading={isLoading}
@@ -315,21 +282,22 @@ export default function CalculationsPage() {
             <MetricCard
               label="Campaign Profit"
               formula="What this specific campaign made after its spend is deducted. Null if the campaign has no spend."
-              source="(total_ltv + cross_poll_revenue) − cost_total"
+              source="tracking_links.revenue − cost_total"
               value={fider04 ? (() => {
-                const ltv = Number(fider04.total_ltv || 0) + Number(fider04.cross_poll_revenue || 0);
-                return `e.g. ${fider04.campaign_name}: ${fmtC(ltv - Number(fider04.cost_total || 0))}`;
+                const rev = Number(fider04.revenue || 0);
+                const spend = Number(fider04.cost_total || 0);
+                return `e.g. ${fider04.campaign_name}: ${fmtC(rev - spend)}`;
               })() : undefined}
               color="#16a34a"
             />
             <MetricCard
               label="Campaign ROI"
               formula="Profit as a percentage of spend for this specific campaign. Drives the status badge."
-              source="((total_ltv + cross_poll) − cost_total) ÷ cost_total × 100"
+              source="(revenue − cost_total) ÷ cost_total × 100"
               value={fider04 ? (() => {
-                const ltv = Number(fider04.total_ltv || 0) + Number(fider04.cross_poll_revenue || 0);
+                const rev = Number(fider04.revenue || 0);
                 const spend = Number(fider04.cost_total || 0);
-                const roi = spend > 0 ? ((ltv - spend) / spend) * 100 : null;
+                const roi = spend > 0 ? ((rev - spend) / spend) * 100 : null;
                 return `e.g. ${fider04.campaign_name}: ${fmtP(roi)}`;
               })() : undefined}
               color="#16a34a"
@@ -337,12 +305,12 @@ export default function CalculationsPage() {
             <MetricCard
               label="Profit / Sub"
               formula="Profit this campaign generated per new subscriber it acquired."
-              source="Campaign Profit ÷ new_subs_total"
+              source="(revenue − cost_total) ÷ subscribers"
               value={fider04 ? (() => {
-                const ltv = Number(fider04.total_ltv || 0) + Number(fider04.cross_poll_revenue || 0);
+                const rev = Number(fider04.revenue || 0);
                 const spend = Number(fider04.cost_total || 0);
                 const subs = Number(fider04.new_subs_total || 0);
-                return `e.g. ${fider04.campaign_name}: ${subs > 0 ? fmtC((ltv - spend) / subs) : "—"}`;
+                return `e.g. ${fider04.campaign_name}: ${subs > 0 ? fmtC((rev - spend) / subs) : "—"}`;
               })() : undefined}
               color="#7c3aed"
             />
