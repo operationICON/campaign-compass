@@ -140,4 +140,133 @@ router.post("/", async (c) => {
   return new Response(stream, { headers: sseHeaders });
 });
 
+// POST /sync/snapshots/backfill — fetches current month + previous month for all links
+router.post("/backfill", async (c) => {
+  const apiKey = process.env.ONLYFANS_API_KEY;
+  if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
+
+  const body = await c.req.json().catch(() => ({}));
+  const triggeredBy = body.triggered_by ?? "manual";
+
+  const now = new Date();
+  const DATE_END = now.toISOString().split("T")[0];
+  // First day of previous month
+  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const DATE_START = prevMonth.toISOString().split("T")[0];
+
+  const { stream, send, close } = createSSEStream();
+
+  const [syncLog] = await db.insert(sync_logs).values({
+    started_at: new Date(), status: "running", success: false,
+    triggered_by: `snapshot_backfill_${triggeredBy}`,
+    message: `Snapshot backfill: ${DATE_START} → ${DATE_END}`,
+    records_processed: 0,
+  }).returning();
+  const syncLogId = syncLog?.id;
+
+  (async () => {
+    let totalSaved = 0, totalErrors = 0, apiCalls = 0;
+    try {
+      await send({ step: "start", message: `Backfilling ${DATE_START} → ${DATE_END}` });
+
+      const accountList = await db.select().from(accounts).where(eq(accounts.is_active, true));
+      await send({ step: "accounts", message: `${accountList.length} accounts`, total: accountList.length });
+
+      for (const acct of accountList) {
+        if (!acct.onlyfans_account_id) continue;
+        await send({ step: "account", message: `${acct.display_name}...` });
+
+        const links: any[] = [];
+        let offset = 0;
+        while (true) {
+          const batch = await db.select({
+            id: tracking_links.id,
+            external_tracking_link_id: tracking_links.external_tracking_link_id,
+          })
+          .from(tracking_links)
+          .where(and(
+            eq(tracking_links.account_id, acct.id),
+            isNull(tracking_links.deleted_at),
+            isNotNull(tracking_links.external_tracking_link_id),
+          ))
+          .limit(100).offset(offset);
+          if (!batch.length) break;
+          links.push(...batch);
+          if (batch.length < 100) break;
+          offset += 100;
+        }
+
+        for (const link of links) {
+          try {
+            const statsUrl = `${API_BASE}/${acct.onlyfans_account_id}/tracking-links/${link.external_tracking_link_id}/stats?date_start=${DATE_START}&date_end=${DATE_END}`;
+            const res = await fetch(statsUrl, { headers: { Authorization: `Bearer ${apiKey}` } });
+            apiCalls++;
+            if (!res.ok) { totalErrors++; await sleep(DELAY_MS); continue; }
+
+            const json = await res.json() as any;
+            const daily: any[] = json?.data?.daily_metrics ?? [];
+
+            const rows = daily
+              .filter((d: any) => (d.clicks || 0) > 0 || (d.subs || 0) > 0 || (d.revenue || 0) > 0)
+              .map((d: any) => ({
+                tracking_link_id: link.id,
+                account_id: acct.id,
+                external_tracking_link_id: link.external_tracking_link_id!,
+                snapshot_date: d.timestamp,
+                clicks: d.clicks || 0,
+                subscribers: d.subs || 0,
+                revenue: String(d.revenue || 0),
+                raw_clicks: d.clicks || 0,
+                raw_subscribers: d.subs || 0,
+                raw_revenue: String(d.revenue || 0),
+                synced_at: new Date(),
+              }));
+
+            if (rows.length > 0) {
+              await db.insert(daily_snapshots).values(rows).onConflictDoUpdate({
+                target: [daily_snapshots.tracking_link_id, daily_snapshots.snapshot_date],
+                set: {
+                  clicks: sql`excluded.clicks`,
+                  subscribers: sql`excluded.subscribers`,
+                  revenue: sql`excluded.revenue`,
+                  raw_clicks: sql`excluded.raw_clicks`,
+                  raw_subscribers: sql`excluded.raw_subscribers`,
+                  raw_revenue: sql`excluded.raw_revenue`,
+                  synced_at: sql`excluded.synced_at`,
+                },
+              });
+              totalSaved += rows.length;
+            }
+          } catch { totalErrors++; }
+          await sleep(DELAY_MS);
+        }
+
+        if (syncLogId) {
+          await db.update(sync_logs).set({ records_processed: totalSaved, message: `${acct.display_name} done — ${totalSaved} rows saved` }).where(eq(sync_logs.id, syncLogId));
+        }
+      }
+
+      const nowDone = new Date();
+      if (syncLogId) {
+        await db.update(sync_logs).set({
+          status: totalErrors > 0 && totalSaved === 0 ? "error" : "success",
+          success: totalSaved > 0 || totalErrors === 0,
+          finished_at: nowDone, completed_at: nowDone,
+          records_processed: totalSaved,
+          message: `Backfill complete: ${totalSaved} rows, ${apiCalls} API calls`,
+          error_message: totalErrors > 0 ? `${totalErrors} errors` : null,
+        }).where(eq(sync_logs.id, syncLogId));
+      }
+      await send({ step: "done", message: `${totalSaved} rows saved`, snapshots_saved: totalSaved, api_calls: apiCalls, errors: totalErrors });
+    } catch (err: any) {
+      if (syncLogId) {
+        await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message, message: `Fatal: ${err.message}` }).where(eq(sync_logs.id, syncLogId));
+      }
+      await send({ step: "error", error: err.message });
+    } finally { close(); }
+  })();
+
+  return new Response(stream, { headers: sseHeaders });
+});
+
 export default router;
