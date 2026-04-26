@@ -37,14 +37,11 @@ type Category = "OnlyTraffic" | "Manual";
 type TableSortPreset = "newest_first" | "highest_revenue" | "highest_profit" | "most_spend" | "highest_roi" | "most_campaigns";
 type ColSortKey = "campaign" | "model" | "source" | "marketer" | "offerId" | "orderId" | "clicks" | "subs" | "spend" | "revenue" | "profit" | "profitSub" | "ltvSub" | "roi" | "created" | "status";
 
-function isOnlyTraffic(link: any): boolean {
-  // A link is OT if explicitly categorized OR if it was ever matched by OT sync (has order ID)
-  return link.traffic_category === "OnlyTraffic" || link.onlytraffic_order_id != null;
-}
-
-function isManual(link: any): boolean {
-  // A link is Manual only if categorized as Manual AND never matched by OT sync
-  return link.traffic_category === "Manual" && link.onlytraffic_order_id == null;
+function isOTLink(link: any, marketerMap: Record<string, any>): boolean {
+  // A link belongs to OT if any of: explicit category, stamped order ID, or has rows in onlytraffic_orders table
+  return link.traffic_category === "OnlyTraffic"
+    || link.onlytraffic_order_id != null
+    || marketerMap[link.id] != null;
 }
 
 function calcCategoryMetrics(catLinks: any[], linkMarketerMapData?: Record<string, any>) {
@@ -249,19 +246,20 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
   // Three buckets are mutually exclusive — no link appears in more than one card.
 
   const otLinks = useMemo(() => dedupedLinks.filter(l =>
-    l.deleted_at == null && isOnlyTraffic(l)
-  ), [dedupedLinks]);
+    l.deleted_at == null && isOTLink(l, linkMarketerMap)
+  ), [dedupedLinks, linkMarketerMap]);
 
   const manualOnlyLinks = useMemo(() => dedupedLinks.filter(l =>
-    isManual(l) && l.deleted_at == null
-  ), [dedupedLinks]);
+    l.traffic_category === "Manual" && !isOTLink(l, linkMarketerMap) && l.deleted_at == null
+  ), [dedupedLinks, linkMarketerMap]);
 
   const noSourceLinks = useMemo(() => dedupedLinks.filter(l =>
     l.traffic_category == null &&
     l.onlytraffic_order_id == null &&
+    !linkMarketerMap[l.id] &&
     l.deleted_at == null &&
     (l.clicks > 0 || l.subscribers > 0 || Number(l.revenue || 0) > 0)
-  ), [dedupedLinks]);
+  ), [dedupedLinks, linkMarketerMap]);
   const noSourceCount = noSourceLinks.length;
   const manualLinks = useMemo(() => [...manualOnlyLinks, ...noSourceLinks], [manualOnlyLinks, noSourceLinks]);
 
