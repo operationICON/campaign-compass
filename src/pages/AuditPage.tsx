@@ -1,22 +1,21 @@
 import { useState, useMemo, useEffect } from "react";
-import { getEffectiveSource } from "@/lib/source-helpers"; // still used in renderRow source column
+import { getEffectiveSource } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized } from "@/lib/supabase-helpers";
 import { updateTrackingLink, restoreTrackingLink, setTrackingLinkSourceTag } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
-import { Input } from "@/components/ui/input";
 import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
   AlertCircle, Skull, Tag, DollarSign, CheckCircle2, Copy,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  ArrowUp, ArrowDown, ArrowUpDown, Search, List,
+  ArrowUp, ArrowDown, ArrowUpDown, Search, X,
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -30,6 +29,8 @@ import { useActiveLinkStatus } from "@/hooks/useActiveLinkStatus";
 const LS_KEY = "ct_audit_filters";
 const PAGE_SIZE = 25;
 
+type IssueFilter = "all" | "zero" | "inactive" | "source" | "spend" | "dupes" | "deleted";
+
 function loadFilters() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -41,7 +42,6 @@ function loadFilters() {
   return { model: "all", activity: "all", search: "" };
 }
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
-
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   ...SHARED_STATUS_STYLES,
@@ -56,51 +56,54 @@ function getStatus(l: any) {
   return calcStatusFn(l);
 }
 
-
 const AUDIT_COLUMNS: ColumnDef[] = [
-  { id: "model",        label: "Model",       defaultOn: true },
-  { id: "source",       label: "Source",      defaultOn: true },
-  { id: "clicks",       label: "Clicks",      defaultOn: false },
-  { id: "subscribers",  label: "Subscribers", defaultOn: false },
-  { id: "cvr",          label: "CVR",         defaultOn: false },
-  { id: "revenue",      label: "Revenue",     defaultOn: true },
-  { id: "ltv_sub",      label: "LTV/Sub",     defaultOn: true },
-  { id: "spender_rate", label: "Spender %",   defaultOn: false },
-  { id: "expenses",     label: "Expenses",    defaultOn: true },
-  { id: "profit",       label: "Profit",      defaultOn: true },
-  { id: "profit_sub",   label: "Profit/Sub",  defaultOn: true, alwaysOn: true },
-  { id: "roi",          label: "ROI",         defaultOn: true },
-  { id: "status",       label: "Status",      defaultOn: true },
-  { id: "subs_day",     label: "Subs/Day",    defaultOn: true },
-  { id: "created",      label: "Created",     defaultOn: true },
-  { id: "media_buyer",  label: "Media Buyer", defaultOn: false },
-  { id: "avg_expenses", label: "Avg Expenses",defaultOn: false },
+  { id: "model",        label: "Model",        defaultOn: true },
+  { id: "source",       label: "Source",       defaultOn: true },
+  { id: "clicks",       label: "Clicks",       defaultOn: false },
+  { id: "subscribers",  label: "Subscribers",  defaultOn: false },
+  { id: "cvr",          label: "CVR",          defaultOn: false },
+  { id: "revenue",      label: "Revenue",      defaultOn: true },
+  { id: "ltv_sub",      label: "LTV/Sub",      defaultOn: true },
+  { id: "spender_rate", label: "Spender %",    defaultOn: false },
+  { id: "expenses",     label: "Expenses",     defaultOn: true },
+  { id: "profit",       label: "Profit",       defaultOn: true },
+  { id: "profit_sub",   label: "Profit/Sub",   defaultOn: true, alwaysOn: true },
+  { id: "roi",          label: "ROI",          defaultOn: true },
+  { id: "status",       label: "Status",       defaultOn: true },
+  { id: "subs_day",     label: "Subs/Day",     defaultOn: true },
+  { id: "created",      label: "Created",      defaultOn: true },
+  { id: "media_buyer",  label: "Media Buyer",  defaultOn: false },
+  { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
 ];
 
-// ── Pagination ────────────────────────────────────────────────────────────────
+const ISSUE_META: Record<string, { label: string; bg: string; text: string }> = {
+  zero:     { label: "No Activity", bg: "#f3f4f6", text: "#6b7280" },
+  inactive: { label: "Inactive",    bg: "#fee2e2", text: "#dc2626" },
+  source:   { label: "No Source",   bg: "#fef9c3", text: "#854d0e" },
+  spend:    { label: "No Spend",    bg: "#dbeafe", text: "#1d4ed8" },
+  dupes:    { label: "Duplicate",   bg: "#ffedd5", text: "#c2410c" },
+};
+
 function TablePagination({ page, total, pageSize, onChange }: { page: number; total: number; pageSize: number; onChange: (p: number) => void }) {
   const totalPages = Math.ceil(total / pageSize);
   if (total === 0 || totalPages <= 1) return null;
   const start = page * pageSize + 1;
   const end = Math.min((page + 1) * pageSize, total);
-  const btnCls = "flex items-center justify-center w-7 h-7 rounded border border-border text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors";
+  const btn = "flex items-center justify-center w-7 h-7 rounded border border-border text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors";
   return (
     <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-xs text-muted-foreground bg-muted/20">
       <span>{start}–{end} of {total.toLocaleString()}</span>
       <div className="flex items-center gap-1">
-        <button className={btnCls} disabled={page === 0} onClick={() => onChange(0)}><ChevronsLeft className="h-3.5 w-3.5" /></button>
-        <button className={btnCls} disabled={page === 0} onClick={() => onChange(page - 1)}><ChevronLeft className="h-3.5 w-3.5" /></button>
-        <span className="px-3 py-1 rounded border border-border bg-card font-medium text-foreground">
-          {page + 1} / {totalPages}
-        </span>
-        <button className={btnCls} disabled={page >= totalPages - 1} onClick={() => onChange(page + 1)}><ChevronRight className="h-3.5 w-3.5" /></button>
-        <button className={btnCls} disabled={page >= totalPages - 1} onClick={() => onChange(totalPages - 1)}><ChevronsRight className="h-3.5 w-3.5" /></button>
+        <button className={btn} disabled={page === 0} onClick={() => onChange(0)}><ChevronsLeft className="h-3.5 w-3.5" /></button>
+        <button className={btn} disabled={page === 0} onClick={() => onChange(page - 1)}><ChevronLeft className="h-3.5 w-3.5" /></button>
+        <span className="px-3 py-1 rounded border border-border bg-card font-medium text-foreground">{page + 1} / {totalPages}</span>
+        <button className={btn} disabled={page >= totalPages - 1} onClick={() => onChange(page + 1)}><ChevronRight className="h-3.5 w-3.5" /></button>
+        <button className={btn} disabled={page >= totalPages - 1} onClick={() => onChange(totalPages - 1)}><ChevronsRight className="h-3.5 w-3.5" /></button>
       </div>
     </div>
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
 export default function AuditPage() {
   const queryClient = useQueryClient();
 
@@ -122,8 +125,10 @@ export default function AuditPage() {
 
   const { activeLookup } = useActiveLinkStatus();
 
+  const now = new Date();
+
   const isLinkActive = (l: any): boolean => {
-    const ageDays = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : 999;
+    const ageDays = l.created_at ? differenceInDays(now, new Date(l.created_at)) : 999;
     if (ageDays < 5) return true;
     return activeLookup.get(String(l.id).toLowerCase())?.isActive ?? false;
   };
@@ -131,18 +136,90 @@ export default function AuditPage() {
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
-  const [activeTab, setActiveTab] = useState("all");
+  const [issueFilter, setIssueFilter] = useState<IssueFilter>("all");
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" }>({ col: "created", dir: "desc" });
   const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
-  useEffect(() => { setPage(0); }, [activeTab, filters]);
+  useEffect(() => { setPage(0); }, [issueFilter, filters]);
 
   const toggleSort = (col: string) => {
     setSort(prev => prev.col === col ? { col, dir: prev.dir === "asc" ? "desc" : "asc" } : { col, dir: "desc" });
     setPage(0);
   };
+
+  const activeLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !l.deleted_at), [rawLinks]);
+  const deletedLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !!l.deleted_at), [rawLinks]);
+
+  const duplicateIds = useMemo(() => {
+    const byExtId: Record<string, any[]> = {};
+    const byUrl: Record<string, any[]> = {};
+    for (const l of activeLinks) {
+      if (l.external_tracking_link_id) {
+        if (!byExtId[l.external_tracking_link_id]) byExtId[l.external_tracking_link_id] = [];
+        byExtId[l.external_tracking_link_id].push(l);
+      }
+      if (l.url) {
+        const key = l.url.trim().toLowerCase();
+        if (!byUrl[key]) byUrl[key] = [];
+        byUrl[key].push(l);
+      }
+    }
+    const ids = new Set<string>();
+    for (const links of Object.values(byExtId)) if (links.length > 1) links.forEach(l => ids.add(l.id));
+    for (const links of Object.values(byUrl)) if (links.length > 1) links.forEach(l => ids.add(l.id));
+    return ids;
+  }, [activeLinks]);
+
+  const getIssues = (l: any): string[] => {
+    if (l.deleted_at) return [];
+    const issues: string[] = [];
+    const ad = l.created_at ? differenceInDays(now, new Date(l.created_at)) : 999;
+    if (l.clicks === 0 && l.subscribers === 0 && ad > 30) issues.push("zero");
+    if ((l.clicks > 0 || l.subscribers > 0) && !isLinkActive(l)) issues.push("inactive");
+    if (!getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)) issues.push("source");
+    if (Number(l.cost_total || 0) === 0 && (l.clicks > 0 || l.subscribers > 0)) issues.push("spend");
+    if (duplicateIds.has(l.id)) issues.push("dupes");
+    return issues;
+  };
+
+  const issueCounts = useMemo(() => ({
+    zero:     activeLinks.filter(l => { const a = differenceInDays(now, new Date(l.created_at)); return l.clicks === 0 && l.subscribers === 0 && a > 30; }).length,
+    inactive: activeLinks.filter(l => (l.clicks > 0 || l.subscribers > 0) && !isLinkActive(l)).length,
+    source:   activeLinks.filter(l => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length,
+    spend:    activeLinks.filter(l => Number(l.cost_total || 0) === 0 && (l.clicks > 0 || l.subscribers > 0)).length,
+    dupes:    duplicateIds.size,
+    deleted:  deletedLinks.length,
+  }), [activeLinks, deletedLinks, duplicateIds, activeLookup]);
+
+  const totalIssues = issueCounts.zero + issueCounts.inactive + issueCounts.source + issueCounts.spend;
+
+  const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
+  const anyFilterActive = filters.model !== "all" || filters.activity !== "all" || filters.search !== "";
+  const clearFilters = () => setFilters({ model: "all", activity: "all", search: "" });
+
+  const isDeleted = issueFilter === "deleted";
+
+  const baseFiltered = useMemo(() => {
+    const q = filters.search.trim().toLowerCase();
+    const pool = isDeleted ? deletedLinks : activeLinks;
+    return pool.filter((l: any) => {
+      if (filters.model !== "all" && l.account_id !== filters.model) return false;
+      if (!isDeleted && filters.activity !== "all") {
+        const active = isLinkActive(l);
+        if (filters.activity === "Active" && !active) return false;
+        if (filters.activity === "Inactive" && active) return false;
+      }
+      if (q && !(l.campaign_name || "").toLowerCase().includes(q) && !(l.url || "").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [activeLinks, deletedLinks, filters, isDeleted, activeLookup]);
+
+  const displayLinks = useMemo(() => {
+    if (issueFilter === "all" || isDeleted) return baseFiltered;
+    return baseFiltered.filter(l => getIssues(l).includes(issueFilter));
+  }, [baseFiltered, issueFilter, duplicateIds, activeLookup]);
 
   const getSortVal = (l: any, col: string): number | string => {
     const id = String(l.id).toLowerCase();
@@ -174,91 +251,19 @@ export default function AuditPage() {
     }
   };
 
-  const sortItems = (items: any[]): any[] =>
-    [...items].sort((a, b) => {
+  const sortedLinks = useMemo(() =>
+    [...displayLinks].sort((a, b) => {
       const av = getSortVal(a, sort.col);
       const bv = getSortVal(b, sort.col);
       const cmp = typeof av === "string" && typeof bv === "string"
-        ? av.localeCompare(bv)
-        : (av as number) - (bv as number);
+        ? av.localeCompare(bv) : (av as number) - (bv as number);
       return sort.dir === "asc" ? cmp : -cmp;
-    });
+    }),
+  [displayLinks, sort]);
 
-  const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
-  const anyFilterActive = filters.model !== "all" || filters.activity !== "all" || filters.search !== "";
-  const clearFilters = () => setFilters({ model: "all", activity: "all", search: "" });
-
-  const activeLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !l.deleted_at), [rawLinks]);
-  const deletedLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !!l.deleted_at), [rawLinks]);
-
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
-
-const filteredLinks = useMemo(() => {
-    const q = filters.search.trim().toLowerCase();
-    return activeLinks.filter((l: any) => {
-      if (filters.model !== "all" && l.account_id !== filters.model) return false;
-      if (filters.activity !== "all") {
-        const active = isLinkActive(l);
-        if (filters.activity === "Active" && !active) return false;
-        if (filters.activity === "Inactive" && active) return false;
-      }
-      if (q && !(l.campaign_name || "").toLowerCase().includes(q) && !(l.url || "").toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [activeLinks, filters, activeLookup]);
-
-  const zeroActivity = useMemo(() => filteredLinks.filter((l: any) =>
-    l.clicks === 0 && l.subscribers === 0 && new Date(l.created_at) < thirtyDaysAgo
-  ), [filteredLinks]);
-
-  const inactive = useMemo(() => filteredLinks.filter((l: any) =>
-    (l.clicks > 0 || l.subscribers > 0) && !isLinkActive(l)
-  ), [filteredLinks, activeLookup]);
-
-  const missingSource = useMemo(() => filteredLinks.filter((l: any) =>
-    !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)
-  ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
-
-  const missingSpend = useMemo(() => filteredLinks.filter((l: any) =>
-    Number(l.cost_total || 0) === 0 && (l.clicks > 0 || l.subscribers > 0)
-  ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
-
-  const duplicateGroups = useMemo(() => {
-    const byExtId: Record<string, any[]> = {};
-    const byUrl: Record<string, any[]> = {};
-    for (const l of activeLinks) {
-      if (l.external_tracking_link_id) {
-        if (!byExtId[l.external_tracking_link_id]) byExtId[l.external_tracking_link_id] = [];
-        byExtId[l.external_tracking_link_id].push(l);
-      }
-      if (l.url) {
-        const key = l.url.trim().toLowerCase();
-        if (!byUrl[key]) byUrl[key] = [];
-        byUrl[key].push(l);
-      }
-    }
-    const seenIds = new Set<string>();
-    const groups: { key: string; links: any[] }[] = [];
-    for (const [key, links] of Object.entries(byExtId)) {
-      if (links.length < 2) continue;
-      const sorted = [...links].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      groups.push({ key: `ext:${key}`, links: sorted });
-      sorted.forEach(l => seenIds.add(l.id));
-    }
-    for (const [key, links] of Object.entries(byUrl)) {
-      if (links.length < 2) continue;
-      const unseen = links.filter(l => !seenIds.has(l.id));
-      if (unseen.length === links.length) {
-        const sorted = [...links].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        groups.push({ key: `url:${key}`, links: sorted });
-        sorted.forEach(l => seenIds.add(l.id));
-      }
-    }
-    return groups;
-  }, [activeLinks]);
-
-  const duplicateCount = duplicateGroups.reduce((sum, g) => sum + g.links.length - 1, 0);
+  const paginatedLinks = useMemo(() =>
+    sortedLinks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+  [sortedLinks, page]);
 
   const refreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["audit_all_links"] });
@@ -287,7 +292,8 @@ const filteredLinks = useMemo(() => {
   const toggleSelect = (id: string) => {
     setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
-  const selectAll = (ids: string[]) => {
+  const selectAll = () => {
+    const ids = paginatedLinks.map(l => l.id);
     setSelected(prev => {
       const allSel = ids.every(id => prev.has(id));
       const next = new Set(prev);
@@ -297,54 +303,20 @@ const filteredLinks = useMemo(() => {
   };
 
   const modelName = (l: any) => l.accounts?.username || l.accounts?.display_name || "—";
-  const ageDays = (d: string) => differenceInDays(now, new Date(d));
-  const exportCount = filteredLinks.length;
 
-  // ── Sub-components ──────────────────────────────────────────────────────────
-  const StatCard = ({ icon: Icon, label, count, color, tab, isActive }: { icon: any; label: string; count: number; color: string; tab?: string; isActive?: boolean }) => (
-    <button
-      onClick={() => tab && setActiveTab(tab)}
-      className={`w-full text-left bg-card rounded-2xl border p-4 flex items-center gap-3 transition-all ${tab ? "cursor-pointer hover:shadow-md" : "cursor-default"} ${isActive ? "border-primary shadow-sm ring-1 ring-primary/30" : "border-border"}`}
-    >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <div className="text-2xl font-bold font-mono text-foreground">{count}</div>
-        <div className="text-xs text-muted-foreground">{label}</div>
-      </div>
-    </button>
-  );
-
-  const DeleteConfirmBtn = ({ ids, label }: { ids: string[]; label: string }) => (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm" disabled={ids.length === 0}>
-          <Trash2 className="h-3.5 w-3.5 mr-1" /> {label} ({ids.length})
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete {ids.length} tracking link(s)?</AlertDialogTitle>
-          <AlertDialogDescription>Tracking links will be soft-deleted and can be restored from the Deleted tab.</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={() => softDelete(ids)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
+  // ── Inline components ───────────────────────────────────────────────────────
 
   const InlineDeleteBtn = ({ id }: { id: string }) => (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <button className="text-destructive hover:text-destructive/80 p-1 rounded transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+        <button className="text-destructive hover:text-destructive/80 p-1 rounded transition-colors">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this tracking link?</AlertDialogTitle>
-          <AlertDialogDescription>It will be soft-deleted and can be restored from the Deleted tab.</AlertDialogDescription>
+          <AlertDialogDescription>Soft-deleted — can be restored from the Deleted filter.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -354,92 +326,62 @@ const filteredLinks = useMemo(() => {
     </AlertDialog>
   );
 
-  const SourceDropdown = ({ link }: { link: any }) => {
+  const DeleteConfirmBtn = ({ ids }: { ids: string[] }) => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="destructive" size="sm" disabled={ids.length === 0}>
+          <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete selected ({ids.length})
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {ids.length} tracking link(s)?</AlertDialogTitle>
+          <AlertDialogDescription>Soft-deleted — restorable from the Deleted filter.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => softDelete(ids)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  const SourceInline = ({ link }: { link: any }) => {
     const [val, setVal] = useState(link.source_tag || "");
     const sources = ["Reddit", "Twitter", "TikTok", "Instagram", "Google", "Telegram", "SFS", "Other"];
+    if (getEffectiveSource(link)) return <span>{getEffectiveSource(link)}</span>;
     return (
       <div className="flex items-center gap-1">
-        <Select value={val} onValueChange={setVal}>
-          <SelectTrigger className="h-7 text-xs w-[110px]"><SelectValue placeholder="Select..." /></SelectTrigger>
-          <SelectContent>{sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-        </Select>
-        {val && val !== link.source_tag && (
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-primary" onClick={() => saveSourceTag(link.id, val)}>
+        <select value={val} onChange={e => setVal(e.target.value)} className="h-7 text-xs border border-border rounded px-1 bg-background">
+          <option value="">Pick…</option>
+          {sources.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        {val && (
+          <button onClick={() => saveSourceTag(link.id, val)} className="text-primary hover:text-primary/80 p-1">
             <CheckCircle2 className="h-3.5 w-3.5" />
-          </Button>
+          </button>
         )}
       </div>
     );
   };
 
-  const ColumnsButton = () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 text-xs"><Columns3 className="h-3.5 w-3.5 mr-1" /> Columns</Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DraggableColumnSelector
-          columns={columnOrder.orderedColumns}
-          isVisible={columnOrder.isVisible}
-          onToggle={columnOrder.toggleColumn}
-          onReorder={columnOrder.reorder}
-          onReset={columnOrder.reset}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+  const SortTh = ({ colId, label, align = "text-left" }: { colId: string; label: string; align?: string }) => (
+    <th className={`p-2 font-medium ${align} cursor-pointer select-none whitespace-nowrap`} onClick={() => toggleSort(colId)}>
+      <span className={`inline-flex items-center gap-0.5 ${align === "text-right" ? "flex-row-reverse" : ""}`}>
+        {label}
+        {sort.col === colId
+          ? sort.dir === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+          : <ArrowUpDown className="h-3 w-3 opacity-25 hover:opacity-60 transition-opacity" />}
+      </span>
+    </th>
   );
 
-  const TabToolbar = ({ rightContent }: { rightContent: React.ReactNode }) => (
-    <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        <Input
-          value={filters.search}
-          onChange={e => setFilter("search", e.target.value)}
-          placeholder="Search links…"
-          className="h-8 pl-8 text-xs w-44"
-        />
-      </div>
-      <AccountFilterDropdown
-        value={filters.model}
-        onChange={v => setFilter("model", v)}
-        accounts={(accounts as any[]).map(a => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-      />
-      {/* Active / Inactive pills */}
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
-        {(["all", "Active", "Inactive"] as const).map(opt => (
-          <button
-            key={opt}
-            onClick={() => setFilter("activity", opt)}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-              filters.activity === opt
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {opt === "all" ? "All" : opt}
-          </button>
-        ))}
-      </div>
-      <ColumnsButton />
-      {anyFilterActive && (
-        <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
-          Clear filters
-        </button>
-      )}
-      <span className="text-xs text-muted-foreground">{filteredLinks.length} shown</span>
-      <div className="ml-auto flex items-center gap-2">{rightContent}</div>
-    </div>
-  );
-
-  // ── Row renderer ────────────────────────────────────────────────────────────
-  const renderRow = (l: any, opts: { isDeleted?: boolean; showCheckbox?: boolean; showSourceDropdown?: boolean }) => {
-    const ad = ageDays(l.created_at);
-    const subsPerDay = ad > 0 ? (l.subscribers / ad).toFixed(1) : "—";
+  const renderRow = (l: any) => {
+    const ad = l.created_at ? differenceInDays(now, new Date(l.created_at)) : 0;
     const ltvRecord = ltvLookup[String(l.id).toLowerCase()] || null;
     const ltvPerSub = ltvRecord && l.subscribers > 0 ? Number(ltvRecord.ltv_per_sub || 0).toFixed(2) : "—";
-    const spenderRate = ltvRecord ? `${Number(ltvRecord.spender_pct || 0).toFixed(1)}%`
+    const spenderRate = ltvRecord
+      ? `${Number(ltvRecord.spender_pct || 0).toFixed(1)}%`
       : l.subscribers > 0 ? `${(((l.spenders_count || l.spenders || 0) / l.subscribers) * 100).toFixed(1)}%` : "—";
     const costTotal = Number(l.cost_total || 0);
     const hasCost = costTotal > 0;
@@ -449,46 +391,84 @@ const filteredLinks = useMemo(() => {
     const profitPerSub = l.subscribers > 0 && hasCost && profit !== null ? profit / l.subscribers : null;
     const status = getStatus(l);
     const ss = STATUS_STYLES[status] || STATUS_STYLES.NO_DATA;
+    const issues = isDeleted ? [] : getIssues(l);
+    const active = isLinkActive(l);
 
     return (
-      <tr key={l.id} className={opts.isDeleted ? "border-t border-border opacity-50 bg-muted/20" : "border-t border-border hover:bg-muted/30"}>
-        {opts.showCheckbox && (
-          <td className="p-2">
-            {!opts.isDeleted && <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} />}
+      <tr key={l.id} className={`border-t border-border ${isDeleted ? "opacity-50 bg-muted/20" : "hover:bg-muted/30"}`}>
+        {!isDeleted && (
+          <td className="p-2 w-8">
+            <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)} />
           </td>
         )}
         <td className="p-2">
           <div className="flex items-start gap-1.5">
-            {!opts.isDeleted && (
-              <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${isLinkActive(l) ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
+            {!isDeleted && (
+              <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${active ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
             )}
             <div>
-              <div className={`font-medium truncate max-w-[220px] ${opts.isDeleted ? "line-through text-muted-foreground" : ""}`}>{l.campaign_name}</div>
-              <div className="text-muted-foreground truncate max-w-[220px] text-[10px]">{l.url}</div>
+              <div className={`font-medium truncate max-w-[210px] text-xs ${isDeleted ? "line-through text-muted-foreground" : ""}`}>{l.campaign_name}</div>
+              <div className="text-muted-foreground truncate max-w-[210px] text-[10px]">{l.url}</div>
+              {issues.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 mt-1">
+                  {issues.map(iss => {
+                    const m = ISSUE_META[iss];
+                    return m ? (
+                      <span key={iss} className="inline-block px-1.5 py-0 rounded-full text-[9px] font-semibold"
+                        style={{ backgroundColor: m.bg, color: m.text }}>{m.label}</span>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </td>
         {columnOrder.visibleOrderedColumns.map(c => {
           switch (c.id) {
-            case "model": return <td key={c.id} className="p-2"><div className="flex items-center gap-1.5"><ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} /><span className="text-muted-foreground text-xs">@{modelName(l)}</span></div></td>;
-            case "source": return <td key={c.id} className="p-2">{opts.showSourceDropdown ? <SourceDropdown link={l} /> : (getEffectiveSource(l) || "—")}</td>;
-            case "clicks": return <td key={c.id} className="p-2 text-right font-mono">{(l.clicks || 0).toLocaleString()}</td>;
-            case "subscribers": return <td key={c.id} className="p-2 text-right font-mono">{(l.subscribers || 0).toLocaleString()}</td>;
-            case "cvr": return <td key={c.id} className="p-2 text-right font-mono">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
-            case "revenue": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(l.revenue || 0)}</td>;
-            case "ltv_sub": return <td key={c.id} className="p-2 text-right font-mono">${ltvPerSub}</td>;
-            case "spender_rate": return <td key={c.id} className="p-2 text-right">{spenderRate}</td>;
-            case "expenses": return <td key={c.id} className="p-2 text-right font-mono">{fmtC(costTotal)}</td>;
-            case "profit": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{profit !== null ? fmtC(profit) : "—"}</td>;
-            case "profit_sub": return (
-              <td key={c.id} className="p-2 text-right">
-                {profitPerSub !== null
-                  ? <span className={`font-mono font-bold ${profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>{profitPerSub >= 0 ? "" : "-"}${Math.abs(profitPerSub).toFixed(2)}</span>
-                  : <span className="text-muted-foreground font-bold">—</span>}
+            case "model": return (
+              <td key={c.id} className="p-2">
+                <div className="flex items-center gap-1.5">
+                  <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={22} />
+                  <span className="text-muted-foreground text-xs">@{modelName(l)}</span>
+                </div>
               </td>
             );
-            case "roi": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{l.roi != null ? fmtP(l.roi) : "—"}</td>;
-            case "status": return <td key={c.id} className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span></td>;
+            case "source": return (
+              <td key={c.id} className="p-2 text-xs">
+                {issueFilter === "source" ? <SourceInline link={l} /> : (getEffectiveSource(l) || "—")}
+              </td>
+            );
+            case "clicks":       return <td key={c.id} className="p-2 text-right font-mono text-xs">{(l.clicks || 0).toLocaleString()}</td>;
+            case "subscribers":  return <td key={c.id} className="p-2 text-right font-mono text-xs">{(l.subscribers || 0).toLocaleString()}</td>;
+            case "cvr":          return <td key={c.id} className="p-2 text-right font-mono text-xs">{l.clicks > 100 ? `${((l.subscribers / l.clicks) * 100).toFixed(1)}%` : "—"}</td>;
+            case "revenue":      return <td key={c.id} className="p-2 text-right font-mono text-xs">{fmtC(l.revenue || 0)}</td>;
+            case "ltv_sub":      return <td key={c.id} className="p-2 text-right font-mono text-xs">${ltvPerSub}</td>;
+            case "spender_rate": return <td key={c.id} className="p-2 text-right text-xs">{spenderRate}</td>;
+            case "expenses":     return <td key={c.id} className="p-2 text-right font-mono text-xs">{fmtC(costTotal)}</td>;
+            case "profit":       return (
+              <td key={c.id} className="p-2 text-right font-mono text-xs" style={{ color: (profit || 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                {profit !== null ? fmtC(profit) : "—"}
+              </td>
+            );
+            case "profit_sub":   return (
+              <td key={c.id} className="p-2 text-right">
+                {profitPerSub !== null
+                  ? <span className={`font-mono font-bold text-xs ${profitPerSub >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {profitPerSub >= 0 ? "" : "-"}${Math.abs(profitPerSub).toFixed(2)}
+                    </span>
+                  : <span className="text-muted-foreground font-bold text-xs">—</span>}
+              </td>
+            );
+            case "roi": return (
+              <td key={c.id} className="p-2 text-right font-mono text-xs" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                {l.roi != null ? fmtP(l.roi) : "—"}
+              </td>
+            );
+            case "status": return (
+              <td key={c.id} className="p-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span>
+              </td>
+            );
             case "subs_day": {
               const rate = ad > 0 && l.subscribers > 0 ? l.subscribers / ad : null;
               return (
@@ -513,258 +493,202 @@ const filteredLinks = useMemo(() => {
               return (
                 <td key={c.id} className="p-2">
                   <p className="text-foreground text-xs">{format(new Date(l.created_at), "MMM d, yyyy")}</p>
-                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5"
+                    style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
                 </td>
               );
             }
-            case "media_buyer": return <td key={c.id} className="p-2">{l.media_buyer || "—"}</td>;
-            case "avg_expenses": return <td key={c.id} className="p-2 text-right font-mono">{hasCost ? fmtC(costTotal) : "—"}</td>;
+            case "media_buyer":  return <td key={c.id} className="p-2 text-xs">{l.media_buyer || "—"}</td>;
+            case "avg_expenses": return <td key={c.id} className="p-2 text-right font-mono text-xs">{hasCost ? fmtC(costTotal) : "—"}</td>;
             default: return null;
           }
         })}
         <td className="p-2">
-          {opts.isDeleted
-            ? <button onClick={() => restore(l.id)} className="text-primary hover:text-primary/80 p-1 rounded transition-colors" title="Restore"><RotateCcw className="h-3.5 w-3.5" /></button>
+          {isDeleted
+            ? <button onClick={() => restore(l.id)} className="text-primary hover:text-primary/80 p-1 rounded" title="Restore"><RotateCcw className="h-3.5 w-3.5" /></button>
             : <InlineDeleteBtn id={l.id} />}
         </td>
       </tr>
     );
   };
 
-  const SortTh = ({ colId, label, align = "text-left" }: { colId: string; label: string; align?: string }) => (
-    <th className={`p-2 font-medium ${align} cursor-pointer select-none whitespace-nowrap`} onClick={() => toggleSort(colId)}>
-      <span className={`inline-flex items-center gap-0.5 ${align === "text-right" ? "flex-row-reverse" : ""}`}>
-        {label}
-        {sort.col === colId
-          ? sort.dir === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-          : <ArrowUpDown className="h-3 w-3 opacity-25 hover:opacity-60 transition-opacity" />}
-      </span>
-    </th>
-  );
-
-  const renderTable = (items: any[], showCheckbox: boolean, showSourceDropdown: boolean) => {
-    const sorted = sortItems(items);
-    const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-    const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length + (showCheckbox ? 1 : 0);
-    return (
-      <>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/50">
-              <tr>
-                {showCheckbox && <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(items.map(l => l.id))} checked={items.length > 0 && items.every(l => selected.has(l.id))} /></th>}
-                <SortTh colId="name" label="Tracking Link" />
-                {columnOrder.visibleOrderedColumns.map(c => {
-                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr","profit_sub","avg_expenses"].includes(c.id) ? "text-right" : "text-left";
-                  return <SortTh key={c.id} colId={c.id} label={c.label} align={align} />;
-                })}
-                <th className="p-2 w-12"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.length > 0
-                ? paginated.map(l => renderRow(l, { showCheckbox, showSourceDropdown }))
-                : <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No tracking links found ✓</td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <TablePagination page={page} total={items.length} pageSize={PAGE_SIZE} onChange={setPage} />
-      </>
-    );
-  };
-
-  const renderDeletedTable = () => {
-    const sorted = sortItems(deletedLinks);
-    const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-    const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length;
-    return (
-      <>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/50">
-              <tr>
-                <SortTh colId="name" label="Tracking Link" />
-                {columnOrder.visibleOrderedColumns.map(c => {
-                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr","profit_sub","avg_expenses"].includes(c.id) ? "text-right" : "text-left";
-                  return <SortTh key={c.id} colId={c.id} label={c.label} align={align} />;
-                })}
-                <th className="p-2 w-12"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.length > 0
-                ? paginated.map(l => renderRow(l, { isDeleted: true, showCheckbox: false, showSourceDropdown: false }))
-                : <tr><td colSpan={visibleColCount} className="p-8 text-center text-muted-foreground">No deleted tracking links</td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <TablePagination page={page} total={deletedLinks.length} pageSize={PAGE_SIZE} onChange={setPage} />
-      </>
-    );
-  };
+  const CHIPS: { key: IssueFilter; label: string; icon: any; count: number; active: string; inactive: string }[] = [
+    { key: "all",      label: "All Links",   icon: null,        count: activeLinks.length,    active: "border-foreground bg-foreground text-background",                                                   inactive: "border-border text-muted-foreground hover:border-foreground/50" },
+    { key: "zero",     label: "No Activity", icon: AlertCircle, count: issueCounts.zero,      active: "border-gray-500 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",                    inactive: "border-border text-muted-foreground hover:border-gray-400" },
+    { key: "inactive", label: "Inactive",    icon: Skull,       count: issueCounts.inactive,  active: "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",                      inactive: "border-border text-muted-foreground hover:border-red-400" },
+    { key: "source",   label: "No Source",   icon: Tag,         count: issueCounts.source,    active: "border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",       inactive: "border-border text-muted-foreground hover:border-yellow-400" },
+    { key: "spend",    label: "No Spend",    icon: DollarSign,  count: issueCounts.spend,     active: "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",                 inactive: "border-border text-muted-foreground hover:border-blue-400" },
+    { key: "dupes",    label: "Duplicates",  icon: Copy,        count: issueCounts.dupes,     active: "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",       inactive: "border-border text-muted-foreground hover:border-orange-400" },
+    { key: "deleted",  label: "Deleted",     icon: Trash2,      count: issueCounts.deleted,   active: "border-destructive bg-destructive/10 text-destructive",                                            inactive: "border-border text-muted-foreground hover:border-destructive/50" },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-5">
+
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-[22px] font-medium text-foreground flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" /> Tracking Link Audit
+              <ShieldCheck className="h-5 w-5 text-primary" /> Link Health
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {isLoading ? "Loading…" : (
                 <>
-                  <span className="font-medium text-foreground">{activeLinks.length.toLocaleString()}</span> links total
+                  <span className="font-medium text-foreground">{activeLinks.length.toLocaleString()}</span> total links
                   {" · "}
-                  <span className={`font-medium ${(zeroActivity.length + inactive.length + missingSource.length + missingSpend.length) > 0 ? "text-destructive" : "text-emerald-500"}`}>
-                    {zeroActivity.length + inactive.length + missingSource.length + missingSpend.length}
-                  </span> need attention
+                  <span className={totalIssues > 0 ? "font-medium text-destructive" : "font-medium text-emerald-500"}>
+                    {totalIssues} issue{totalIssues !== 1 ? "s" : ""} found
+                  </span>
                 </>
               )}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton queryKeys={["audit_all_links"]} />
-            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => exportCampaignsCsv(filteredLinks, accounts)}>
-              <Download className="h-4 w-4 mr-1" /> {anyFilterActive ? `Export Filtered (${exportCount})` : `Export All (${exportCount})`}
+            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => exportCampaignsCsv(displayLinks, accounts)}>
+              <Download className="h-4 w-4 mr-1" /> Export ({displayLinks.length})
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setImportAuditOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import Audit CSV</Button>
+            <Button variant="outline" size="sm" onClick={() => setImportAuditOpen(true)}>
+              <Upload className="h-4 w-4 mr-1" /> Import CSV
+            </Button>
           </div>
         </div>
 
-        {/* KPI Stat Cards — clickable, jump to tab */}
-        <div className="grid grid-cols-5 gap-4">
-          <StatCard icon={AlertCircle} label="Zero Activity"  count={zeroActivity.length}  color="bg-muted text-muted-foreground"                                                         tab="zero"   isActive={activeTab === "zero"} />
-          <StatCard icon={Skull}       label="Inactive"       count={inactive.length}       color="bg-destructive/10 text-destructive"                                                    tab="dead"   isActive={activeTab === "dead"} />
-          <StatCard icon={Tag}         label="Missing Source" count={missingSource.length}  color="bg-warning/10 text-warning"                                                            tab="source" isActive={activeTab === "source"} />
-          <StatCard icon={DollarSign}  label="Missing Spend"  count={missingSpend.length}   color="bg-info/10 text-primary"                                                               tab="spend"  isActive={activeTab === "spend"} />
-          <StatCard icon={Copy}        label="Duplicates"     count={duplicateCount}        color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"             tab="dupes"  isActive={activeTab === "dupes"} />
+        {/* Issue filter chips */}
+        <div className="flex flex-wrap gap-2">
+          {CHIPS.map(chip => {
+            const isActive = issueFilter === chip.key;
+            const Icon = chip.icon;
+            return (
+              <button
+                key={chip.key}
+                onClick={() => { setIssueFilter(chip.key); setPage(0); }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${isActive ? chip.active : chip.inactive}`}
+              >
+                {Icon && <Icon className="h-3.5 w-3.5" />}
+                {chip.label}
+                <span className={`px-1.5 py-0 rounded-full text-[10px] font-bold ${isActive ? "bg-black/10 dark:bg-white/15" : "bg-muted"}`}>
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-muted">
-            <TabsTrigger value="all" className="flex items-center gap-1.5"><List className="h-3.5 w-3.5" />All Links ({filteredLinks.length})</TabsTrigger>
-            <TabsTrigger value="zero">Zero Activity</TabsTrigger>
-            <TabsTrigger value="dead">Inactive</TabsTrigger>
-            <TabsTrigger value="source">Missing Source</TabsTrigger>
-            <TabsTrigger value="spend">Missing Spend</TabsTrigger>
-            <TabsTrigger value="dupes">Duplicates</TabsTrigger>
-            <TabsTrigger value="deleted" className="text-destructive data-[state=active]:text-destructive">
-              Deleted ({deletedLinks.length})
-            </TabsTrigger>
-          </TabsList>
+        {/* Table card */}
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
 
-          <TabsContent value="all">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar rightContent={
-                <DeleteConfirmBtn ids={Array.from(selected).filter(id => filteredLinks.some((l: any) => l.id === id))} label="Delete selected" />
-              } />
-              {renderTable(filteredLinks, true, false)}
+          {/* Toolbar */}
+          <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                value={filters.search}
+                onChange={e => setFilter("search", e.target.value)}
+                placeholder="Search links…"
+                className="h-8 pl-8 text-xs w-44"
+              />
             </div>
-          </TabsContent>
-
-          <TabsContent value="zero">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar rightContent={
-                <DeleteConfirmBtn ids={Array.from(selected).filter(id => zeroActivity.some(l => l.id === id))} label="Delete selected" />
-              } />
-              {renderTable(zeroActivity, true, false)}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="dead">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar rightContent={
-                <DeleteConfirmBtn ids={Array.from(selected).filter(id => inactive.some(l => l.id === id))} label="Delete selected" />
-              } />
-              {renderTable(inactive, true, false)}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="source">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar rightContent={null} />
-              {renderTable(missingSource, false, true)}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="spend">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <TabToolbar rightContent={null} />
-              {renderTable(missingSpend, false, false)}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="dupes">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="p-3 border-b border-border">
-                <p className="text-xs text-muted-foreground italic">
-                  Same campaign name on different models is not flagged — only exact URL or tracking link ID matches are flagged.
-                </p>
-              </div>
-              {duplicateGroups.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No duplicates found ✓</div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {duplicateGroups.map(group => (
-                    <div key={group.key} className="p-4 space-y-2">
-                      <div className="text-sm font-medium text-foreground">{group.links[0]?.campaign_name || "Unnamed"}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{group.links[0]?.url}</div>
-                      <table className="w-full text-xs mt-2">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="p-2 text-left font-medium">Model</th>
-                            <th className="p-2 text-left font-medium">External ID</th>
-                            <th className="p-2 text-left font-medium">Created</th>
-                            <th className="p-2 text-left font-medium">Status</th>
-                            <th className="p-2 w-12"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {group.links.map((l, idx) => (
-                            <tr key={l.id} className="border-t border-border hover:bg-muted/30">
-                              <td className="p-2">
-                                <div className="flex items-center gap-1.5">
-                                  <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={24} />
-                                  <span className="text-muted-foreground">@{l.accounts?.username || l.accounts?.display_name || "?"}</span>
-                                </div>
-                              </td>
-                              <td className="p-2 font-mono text-muted-foreground">{l.external_tracking_link_id || "—"}</td>
-                              <td className="p-2">{format(new Date(l.created_at), "MMM d, yyyy")}</td>
-                              <td className="p-2">
-                                {idx === 0
-                                  ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">Original</span>
-                                  : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Duplicate</span>}
-                              </td>
-                              <td className="p-2">{idx !== 0 && <InlineDeleteBtn id={l.id} />}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+            {!isDeleted && (
+              <>
+                <AccountFilterDropdown
+                  value={filters.model}
+                  onChange={v => setFilter("model", v)}
+                  accounts={(accounts as any[]).map(a => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+                />
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
+                  {(["all", "Active", "Inactive"] as const).map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setFilter("activity", opt)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${filters.activity === opt ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {opt === "all" ? "All" : opt}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="deleted">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="p-3 border-b border-border flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Soft-deleted tracking links — click <RotateCcw className="h-3 w-3 inline mx-0.5" /> to restore.
-                </p>
-                <span className="text-xs text-muted-foreground">{deletedLinks.length} deleted</span>
+              </>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">
+                  <Columns3 className="h-3.5 w-3.5 mr-1" /> Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DraggableColumnSelector
+                  columns={columnOrder.orderedColumns}
+                  isVisible={columnOrder.isVisible}
+                  onToggle={columnOrder.toggleColumn}
+                  onReorder={columnOrder.reorder}
+                  onReset={columnOrder.reset}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {anyFilterActive && (
+              <button onClick={clearFilters} className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground">
+                <X className="h-3 w-3" /> Clear
+              </button>
+            )}
+            <span className="text-xs text-muted-foreground">{displayLinks.length} links</span>
+            {selected.size > 0 && !isDeleted && (
+              <div className="ml-auto">
+                <DeleteConfirmBtn ids={Array.from(selected)} />
               </div>
-              {renderDeletedTable()}
-            </div>
-          </TabsContent>
-        </Tabs>
+            )}
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50">
+                <tr>
+                  {!isDeleted && (
+                    <th className="p-2 w-8">
+                      <input type="checkbox"
+                        onChange={selectAll}
+                        checked={paginatedLinks.length > 0 && paginatedLinks.every(l => selected.has(l.id))}
+                      />
+                    </th>
+                  )}
+                  <SortTh colId="name" label="Tracking Link" />
+                  {columnOrder.visibleOrderedColumns.map(c => {
+                    const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr","profit_sub","avg_expenses"].includes(c.id) ? "text-right" : "text-left";
+                    return <SortTh key={c.id} colId={c.id} label={c.label} align={align} />;
+                  })}
+                  <th className="p-2 w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedLinks.length > 0
+                  ? paginatedLinks.map(l => renderRow(l))
+                  : (
+                    <tr>
+                      <td colSpan={99} className="p-12 text-center text-muted-foreground">
+                        <div className="flex flex-col items-center gap-2">
+                          <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                          <span>No links{issueFilter !== "all" ? " with this issue" : ""} found ✓</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+              </tbody>
+            </table>
+          </div>
+
+          <TablePagination page={page} total={displayLinks.length} pageSize={PAGE_SIZE} onChange={setPage} />
+        </div>
       </div>
 
-      <ImportAuditCsvModal open={importAuditOpen} onClose={() => setImportAuditOpen(false)} onComplete={refreshAll} trackingLinks={activeLinks} accounts={accounts} />
+      <ImportAuditCsvModal
+        open={importAuditOpen}
+        onClose={() => setImportAuditOpen(false)}
+        onComplete={refreshAll}
+        trackingLinks={activeLinks}
+        accounts={accounts}
+      />
     </DashboardLayout>
   );
 }
