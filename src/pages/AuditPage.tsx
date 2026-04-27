@@ -210,18 +210,15 @@ const filteredLinks = useMemo(() => {
   ), [filteredLinks]);
 
   const inactive = useMemo(() => filteredLinks.filter((l: any) =>
-    (l.clicks > 0 || l.subscribers > 0) && (
-      (l.calculated_at && new Date(l.calculated_at) < thirtyDaysAgo) ||
-      (!l.calculated_at && new Date(l.created_at) < thirtyDaysAgo)
-    )
-  ), [filteredLinks]);
+    (l.clicks > 0 || l.subscribers > 0) && !isLinkActive(l)
+  ), [filteredLinks, activeLookup]);
 
   const missingSource = useMemo(() => filteredLinks.filter((l: any) =>
     !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)
   ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
 
   const missingSpend = useMemo(() => filteredLinks.filter((l: any) =>
-    (!l.cost_total || l.cost_total === 0) && (l.clicks > 0 || l.subscribers > 0)
+    Number(l.cost_total || 0) === 0 && (l.clicks > 0 || l.subscribers > 0)
   ).sort((a: any, b: any) => (b.subscribers || 0) - (a.subscribers || 0)), [filteredLinks]);
 
   const duplicateGroups = useMemo(() => {
