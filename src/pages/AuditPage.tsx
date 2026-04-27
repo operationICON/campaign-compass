@@ -20,6 +20,7 @@ import {
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
+import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn } from "@/lib/calc-helpers";
@@ -138,12 +139,13 @@ export default function AuditPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
   const [issueFilter, setIssueFilter] = useState<IssueFilter>("all");
+  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" }>({ col: "created", dir: "desc" });
   const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
-  useEffect(() => { setPage(0); }, [issueFilter, filters]);
+  useEffect(() => { setPage(0); }, [issueFilter, activityFilter, filters]);
 
   const toggleSort = (col: string) => {
     setSort(prev => prev.col === col ? { col, dir: prev.dir === "asc" ? "desc" : "asc" } : { col, dir: "desc" });
@@ -212,10 +214,21 @@ export default function AuditPage() {
     });
   }, [activeLinks, deletedLinks, filters, isDeleted, activeLookup]);
 
-  const displayLinks = useMemo(() => {
+  const issueFiltered = useMemo(() => {
     if (issueFilter === "all" || isDeleted) return baseFiltered;
     return baseFiltered.filter(l => getIssues(l).includes(issueFilter));
   }, [baseFiltered, issueFilter, duplicateIds, activeLookup]);
+
+  const activityCounts = useMemo(() => {
+    const active = issueFiltered.filter(l => isLinkActive(l)).length;
+    return { total: issueFiltered.length, active };
+  }, [issueFiltered, activeLookup]);
+
+  const displayLinks = useMemo(() => {
+    if (isDeleted || activityFilter === "all") return issueFiltered;
+    if (activityFilter === "active") return issueFiltered.filter(l => isLinkActive(l));
+    return issueFiltered.filter(l => !isLinkActive(l));
+  }, [issueFiltered, activityFilter, activeLookup, isDeleted]);
 
   const getSortVal = (l: any, col: string): number | string => {
     const id = String(l.id).toLowerCase();
@@ -597,6 +610,16 @@ export default function AuditPage() {
             );
           })}
         </div>
+
+        {/* Activity filter — All / Active / Inactive (snapshot-derived, hidden when viewing Deleted) */}
+        {!isDeleted && (
+          <LinkActivityFilter
+            value={activityFilter}
+            onChange={(v) => { setActivityFilter(v); setPage(0); }}
+            totalCount={activityCounts.total}
+            activeCount={activityCounts.active}
+          />
+        )}
 
         {/* Table card */}
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
