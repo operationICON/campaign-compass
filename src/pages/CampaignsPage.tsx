@@ -1139,25 +1139,22 @@ export default function CampaignsPage() {
                                       </td>
                                     );
                                   }
-                                  // All Time → multi-window rates (3d · 7d · 14d)
-                                  const wr = getWindowRates(link.id, multiWindowRates);
+                                  // All Time → lifetime rate (total subs / age in days)
+                                  const ageDays = Math.max(1, link.daysSinceCreated ?? 1);
+                                  const totalSubs = link.subscribers || 0;
+                                  const lifetimeRate = totalSubs > 0 ? totalSubs / ageDays : null;
                                   return (
                                     <td key={c.id} style={{ padding: "8px 12px" }}>
-                                      <div className="flex flex-col items-start gap-0.5">
-                                        {([["3d", wr.w3d], ["7d", wr.w7d], ["14d", wr.w14d]] as [string, import("@/hooks/useMultiWindowRates").WindowRate | null][]).map(([label, w]) => (
-                                          <div key={label} className="flex items-center gap-1">
-                                            <span className="text-[9px] text-muted-foreground/50 font-mono w-[16px]">{label}</span>
-                                            {w == null ? (
-                                              <span className="text-[11px] font-mono text-muted-foreground/30">—</span>
-                                            ) : (
-                                              <span className={`text-[11px] font-mono ${w.rate >= 1 ? "text-emerald-400 font-semibold" : w.rate >= 0.3 ? "text-amber-400" : "text-muted-foreground/50"} ${!w.isFull ? "opacity-70" : ""}`}>
-                                                {w.rate < 1 ? w.rate.toFixed(2) : w.rate.toFixed(1)}
-                                                {!w.isFull && <span className="text-[8px] text-muted-foreground/40 ml-0.5">{w.actualDays}d</span>}
-                                              </span>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
+                                      {lifetimeRate !== null ? (
+                                        <div className="flex items-baseline gap-1">
+                                          <span className={`font-mono font-semibold text-[12px] ${lifetimeRate >= 1 ? "text-emerald-400" : lifetimeRate >= 0.3 ? "text-amber-400" : "text-muted-foreground"}`}>
+                                            {lifetimeRate < 1 ? lifetimeRate.toFixed(2) : lifetimeRate.toFixed(1)}
+                                          </span>
+                                          <span className="text-[10px] text-muted-foreground font-mono">{ageDays}d</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground text-[12px]">—</span>
+                                      )}
                                     </td>
                                   );
                                 }
