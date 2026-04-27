@@ -22,6 +22,14 @@ const FREQUENCY_OPTIONS = [
   { label: "Monthly", value: "30", desc: "1 sync/month", credits: "~5 credits" },
 ];
 
+const OT_INTERVAL_OPTIONS = [
+  { label: "Every 1 hour", value: "1", desc: "Freshest data" },
+  { label: "Every 4 hours", value: "4", desc: "Recommended" },
+  { label: "Every 8 hours", value: "8", desc: "3×/day" },
+  { label: "Every 12 hours", value: "12", desc: "2×/day" },
+  { label: "Every 24 hours", value: "24", desc: "Once a day" },
+];
+
 export default function SettingsPage() {
   const { user: authUser } = useAuth();
   const isAdmin = authUser?.role === "admin";
@@ -77,19 +85,25 @@ function GeneralTab() {
   const queryClient = useQueryClient();
   const { data: settings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const [frequency, setFrequency] = useState("3");
+  const [otInterval, setOtInterval] = useState("4");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const freq = (settings as any[]).find((s: any) => s.key === "sync_frequency_days");
     if (freq) setFrequency(freq.value);
+    const ot = (settings as any[]).find((s: any) => s.key === "ot_sync_interval_hours");
+    if (ot) setOtInterval(ot.value);
   }, [settings]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateSyncSetting("sync_frequency_days", frequency);
+      await Promise.all([
+        updateSyncSetting("sync_frequency_days", frequency),
+        updateSyncSetting("ot_sync_interval_hours", otInterval),
+      ]);
       queryClient.invalidateQueries({ queryKey: ["sync_settings"] });
-      toast.success("Sync frequency updated");
+      toast.success("Settings saved");
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -100,14 +114,15 @@ function GeneralTab() {
   const selectedOpt = FREQUENCY_OPTIONS.find(o => o.value === frequency);
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 space-y-6">
+    <div className="bg-card border border-border rounded-2xl p-6 space-y-8">
+      {/* Dashboard Sync Frequency */}
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-bold text-foreground">Auto-Sync Frequency</h2>
+          <h2 className="text-sm font-bold text-foreground">Dashboard Sync Frequency</h2>
         </div>
         <p className="text-xs text-muted-foreground mb-5">
-          How often the system automatically syncs data from the API.
+          How often the system automatically syncs accounts and tracking links.
         </p>
         <div className="grid grid-cols-2 gap-3">
           {FREQUENCY_OPTIONS.map((opt) => (
@@ -125,16 +140,44 @@ function GeneralTab() {
             </button>
           ))}
         </div>
-      </div>
-      {selectedOpt && (
-        <div className="bg-secondary/50 border border-border rounded-xl p-4 flex items-center gap-3">
-          <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="text-sm text-foreground font-medium">Estimated usage: {selectedOpt.credits}/month</p>
-            <p className="text-xs text-muted-foreground">{selectedOpt.desc}</p>
+        {selectedOpt && (
+          <div className="bg-secondary/50 border border-border rounded-xl p-4 flex items-center gap-3 mt-4">
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm text-foreground font-medium">Estimated usage: {selectedOpt.credits}/month</p>
+              <p className="text-xs text-muted-foreground">{selectedOpt.desc}</p>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* OnlyTraffic Auto-Sync */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-bold text-foreground">OnlyTraffic Auto-Sync</h2>
         </div>
-      )}
+        <p className="text-xs text-muted-foreground mb-5">
+          How often the server automatically pulls fresh order data from OnlyTraffic. Checked every 30 minutes.
+        </p>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {OT_INTERVAL_OPTIONS.map((opt) => (
+            <button key={opt.value} onClick={() => setOtInterval(opt.value)}
+              className={`p-3 rounded-xl border text-left transition-all duration-200 ${
+                otInterval === opt.value ? "bg-primary/10 border-primary ring-2 ring-primary/30" : "bg-secondary border-border hover:border-primary/40"
+              }`}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${otInterval === opt.value ? "border-primary" : "border-muted-foreground"}`}>
+                  {otInterval === opt.value && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                </div>
+                <span className={`text-xs font-semibold ${otInterval === opt.value ? "text-foreground" : "text-muted-foreground"}`}>{opt.label}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground ml-5">{opt.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button onClick={handleSave} disabled={saving}
         className="px-5 py-2.5 rounded-xl gradient-bg text-white text-sm font-semibold hover:opacity-90 transition-all duration-200 disabled:opacity-50 hero-glow">
         {saving ? "Saving..." : "Save Settings"}

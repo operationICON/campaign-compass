@@ -13,9 +13,9 @@ router.get("/", async (c) => {
 router.put("/:key", async (c) => {
   const { value } = await c.req.json();
   const [row] = await db
-    .update(sync_settings)
-    .set({ value, updated_at: new Date() })
-    .where(eq(sync_settings.key, c.req.param("key")))
+    .insert(sync_settings)
+    .values({ key: c.req.param("key"), value })
+    .onConflictDoUpdate({ target: sync_settings.key, set: { value, updated_at: new Date() } })
     .returning();
   return c.json(row);
 });
