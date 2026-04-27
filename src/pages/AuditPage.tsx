@@ -36,10 +36,10 @@ function loadFilters() {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      return { model: p.model ?? "all", activity: p.activity ?? "all", search: p.search ?? "" };
+      return { model: p.model ?? "all", search: p.search ?? "" };
     }
   } catch {}
-  return { model: "all", activity: "all", search: "" };
+  return { model: "all", search: "" };
 }
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
@@ -196,8 +196,8 @@ export default function AuditPage() {
   const totalIssues = issueCounts.zero + issueCounts.inactive + issueCounts.source + issueCounts.spend;
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
-  const anyFilterActive = filters.model !== "all" || filters.activity !== "all" || filters.search !== "";
-  const clearFilters = () => setFilters({ model: "all", activity: "all", search: "" });
+  const anyFilterActive = filters.model !== "all" || filters.search !== "";
+  const clearFilters = () => setFilters({ model: "all", search: "" });
 
   const isDeleted = issueFilter === "deleted";
 
@@ -206,11 +206,6 @@ export default function AuditPage() {
     const pool = isDeleted ? deletedLinks : activeLinks;
     return pool.filter((l: any) => {
       if (filters.model !== "all" && l.account_id !== filters.model) return false;
-      if (!isDeleted && filters.activity !== "all") {
-        const active = isLinkActive(l);
-        if (filters.activity === "Active" && !active) return false;
-        if (filters.activity === "Inactive" && active) return false;
-      }
       if (q && !(l.campaign_name || "").toLowerCase().includes(q) && !(l.url || "").toLowerCase().includes(q)) return false;
       return true;
     });
@@ -592,24 +587,11 @@ export default function AuditPage() {
               />
             </div>
             {!isDeleted && (
-              <>
-                <AccountFilterDropdown
-                  value={filters.model}
-                  onChange={v => setFilter("model", v)}
-                  accounts={(accounts as any[]).map(a => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-                />
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
-                  {(["all", "Active", "Inactive"] as const).map(opt => (
-                    <button
-                      key={opt}
-                      onClick={() => setFilter("activity", opt)}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${filters.activity === opt ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      {opt === "all" ? "All" : opt}
-                    </button>
-                  ))}
-                </div>
-              </>
+              <AccountFilterDropdown
+                value={filters.model}
+                onChange={v => setFilter("model", v)}
+                accounts={(accounts as any[]).map(a => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+              />
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
