@@ -19,10 +19,9 @@ async function fetchAllTransactions(ofAccountId: string, apiKey: string): Promis
     const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url}`;
     const res = await fetch(fullUrl, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
     if (res.status === 429) {
-      // Rate limited — back off and retry this same page (don't advance url)
       const retryAfter = Number(res.headers.get("Retry-After") ?? 15);
       await sleep(retryAfter * 1000);
-      apiCalls--; // don't count the failed call
+      apiCalls--;
       continue;
     }
     if (!res.ok) throw new Error(`OF API ${res.status} for account ${ofAccountId}`);
@@ -54,7 +53,8 @@ router.post("/", async (c) => {
 
   const body = await c.req.json().catch(() => ({}));
   const triggeredBy = body.triggered_by ?? "manual";
-  // Clean up any stuck previous revenue_breakdown runs before starting
+
+  // Clean up stuck previous runs
   const stuckRows = await db
     .select({ id: sync_logs.id })
     .from(sync_logs)
@@ -69,12 +69,14 @@ router.post("/", async (c) => {
 
   const { stream, send, close } = createSSEStream();
 
-  const [syncLog] = await db.insert(sync_logs).values({
+  // Parent log — stays "running" for the duration so cancel.ts can find and flag it
+  const [parentLog] = await db.insert(sync_logs).values({
     started_at: new Date(), status: "running", success: false,
     triggered_by: `revenue_breakdown_sync_${triggeredBy}`,
-    message: "Revenue sync started", records_processed: 0,
+    message: "Revenue breakdown sync started",
+    records_processed: 0,
   }).returning();
-  const syncLogId = syncLog?.id;
+  const parentLogId = parentLog?.id;
 
   (async () => {
     let totalTx = 0;
@@ -88,15 +90,34 @@ router.post("/", async (c) => {
         .from(accounts)
         .where(eq(accounts.is_active, true));
 
-      await send({ step: "start", message: `Syncing transactions for ${accountList.length} accounts...` });
+      await send({ step: "start", message: `Syncing ${accountList.length} accounts...` });
 
       for (const account of accountList) {
-        if (syncLogId && cancelFlags.get(syncLogId)) {
-          cancelFlags.delete(syncLogId);
+        // Check cancel on the parent log before starting each account
+        if (parentLogId && cancelFlags.get(parentLogId)) {
+          cancelFlags.delete(parentLogId);
+          await db.update(sync_logs).set({
+            status: "error", success: false, finished_at: new Date(), completed_at: new Date(),
+            error_message: "Cancelled by user",
+            records_processed: totalTx,
+            accounts_synced: accountsUpdated,
+          }).where(eq(sync_logs.id, parentLogId));
           await send({ step: "cancelled", message: "Sync cancelled by user" });
           return;
         }
+
         if (!account.onlyfans_account_id) continue;
+
+        // Create a per-account sync log so it shows up individually in the logs UI
+        const [accountLog] = await db.insert(sync_logs).values({
+          account_id: account.id,
+          started_at: new Date(), status: "running", success: false,
+          triggered_by: `revenue_breakdown_sync_${triggeredBy}`,
+          message: `Syncing ${account.display_name}`,
+          records_processed: 0,
+        }).returning();
+        const accountLogId = accountLog?.id;
+
         try {
           await send({ step: "fetching", message: `Fetching ${account.display_name}...` });
           const { items: txList, apiCalls } = await fetchAllTransactions(account.onlyfans_account_id, apiKey);
@@ -138,7 +159,7 @@ router.post("/", async (c) => {
             totalTx += batch.length;
           }
 
-          // Rebuild fan_spend for this account from transactions
+          // Rebuild fan_spend for this account
           const fanSpendAgg = await db.execute(sql`
             SELECT fan_id, SUM(revenue::numeric) AS total
             FROM transactions
@@ -149,7 +170,6 @@ router.post("/", async (c) => {
           const aggRows = fanSpendAgg.rows as { fan_id: string; total: string }[];
 
           if (aggRows.length > 0) {
-            // Look up first_subscribe_link_id from fans table
             const fanIds = aggRows.map(r => r.fan_id);
             const fanLinkMap: Record<string, string | null> = {};
             for (let i = 0; i < fanIds.length; i += 500) {
@@ -161,7 +181,6 @@ router.post("/", async (c) => {
               for (const r of linkRows) fanLinkMap[r.fan_id] = r.first_subscribe_link_id ?? null;
             }
 
-            // Delete existing fan_spend for this account, then re-insert
             await db.execute(sql`DELETE FROM fan_spend WHERE account_id = ${account.id}`);
 
             const spendValues = aggRows.map(r => ({
@@ -176,7 +195,7 @@ router.post("/", async (c) => {
             }
           }
 
-          // Update account LTV breakdown from transactions
+          // Update account LTV breakdown
           const typeAgg = await db.execute(sql`
             SELECT type, COALESCE(SUM(revenue::numeric), 0) AS total
             FROM transactions
@@ -200,26 +219,55 @@ router.post("/", async (c) => {
           }).where(eq(accounts.id, account.id));
 
           accountsUpdated++;
+
+          // Mark this account's log as success
+          if (accountLogId) {
+            await db.update(sync_logs).set({
+              status: "success", success: true,
+              finished_at: new Date(), completed_at: new Date(),
+              records_processed: txList.length,
+              message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)} LTV`,
+            }).where(eq(sync_logs.id, accountLogId));
+          }
+
           await send({ step: "account_done", message: `${account.display_name}: ${txList.length} tx, $${ltvTotal.toFixed(2)} total LTV` });
         } catch (err: any) {
           errors.push(`${account.display_name}: ${err.message}`);
           await send({ step: "account_error", message: `${account.display_name}: ${err.message}` });
+          if (accountLogId) {
+            await db.update(sync_logs).set({
+              status: "error", success: false,
+              finished_at: new Date(), completed_at: new Date(),
+              error_message: err.message,
+              message: `${account.display_name}: failed`,
+            }).where(eq(sync_logs.id, accountLogId));
+          }
         }
       }
 
-      if (syncLogId) await db.update(sync_logs).set({
-        status: errors.length > 0 ? "partial" : "success",
-        success: errors.length === 0,
-        finished_at: new Date(), completed_at: new Date(),
-        records_processed: totalTx,
-        message: `${totalTx} transactions synced, ${accountsUpdated} accounts updated`,
-        error_message: errors.length > 0 ? errors.join("; ") : null,
-        details: { api_calls: totalApiCalls },
-      }).where(eq(sync_logs.id, syncLogId));
+      // Mark parent log done
+      if (parentLogId) {
+        await db.update(sync_logs).set({
+          status: errors.length > 0 ? "partial" : "success",
+          success: errors.length === 0,
+          finished_at: new Date(), completed_at: new Date(),
+          records_processed: totalTx,
+          accounts_synced: accountsUpdated,
+          message: `${accountsUpdated} accounts · ${totalTx} transactions synced`,
+          error_message: errors.length > 0 ? errors.join("; ") : null,
+          details: { api_calls: totalApiCalls },
+        }).where(eq(sync_logs.id, parentLogId));
+      }
 
       await send({ step: "done", message: `${totalTx} transactions synced, ${accountsUpdated} accounts updated`, transactions_synced: totalTx, accounts_updated: accountsUpdated, api_calls: totalApiCalls, errors: errors.length });
     } catch (err: any) {
-      if (syncLogId) await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
+      if (parentLogId) {
+        await db.update(sync_logs).set({
+          status: "error", success: false,
+          finished_at: new Date(), completed_at: new Date(),
+          error_message: err.message,
+        }).where(eq(sync_logs.id, parentLogId));
+      }
       await send({ step: "error", error: err.message });
     } finally { close(); }
   })();
