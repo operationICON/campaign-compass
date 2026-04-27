@@ -620,17 +620,21 @@ export default function AccountsPage() {
       return dir * ((av as number) - (bv as number));
     });
 
-    // Activity filter (snapshot-derived: >= 1 sub/day over last 5 days)
-    const accLinksActiveCount = accLinks.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive).length;
+    // Active = ≥1 sub/day over last 5 days (snapshot) OR no snapshot data but has subs/clicks
+    const isLinkActive = (l: any): boolean => {
+      const id = String(l.id).toLowerCase();
+      if (activeLookup.has(id)) return activeLookup.get(id)!.isActive;
+      return (l.subscribers || 0) > 0 || (l.clicks || 0) > 0;
+    };
+
+    const accLinksActiveCount = accLinks.filter((l: any) => isLinkActive(l)).length;
     const accLinksInactiveCount = accLinks.length - accLinksActiveCount;
 
-    // Apply activity filter on top of the user-sorted list so column-header
-    // sorting always controls row order regardless of which activity tab is active.
     let displayLinks = sortedLinks;
     if (activityFilter === "active") {
-      displayLinks = sortedLinks.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive);
+      displayLinks = sortedLinks.filter((l: any) => isLinkActive(l));
     } else if (activityFilter === "inactive") {
-      displayLinks = sortedLinks.filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive);
+      displayLinks = sortedLinks.filter((l: any) => !isLinkActive(l));
     }
 
     // KPI card component (with optional trend chip when date filter is active)
@@ -1040,7 +1044,7 @@ export default function AccountsPage() {
                               >
                                 <td className="py-3 px-3">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: activeInfo.isActive ? "#16a34a" : "#94a3b8" }} title={activeInfo.isActive ? "Active" : "Inactive"} />
+                                    <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: isLinkActive(l) ? "#16a34a" : "#94a3b8" }} title={isLinkActive(l) ? "Active" : "Inactive"} />
                                     <p className="font-bold text-foreground text-[12px] truncate max-w-[220px]">{l.campaign_name || "—"}</p>
                                   </div>
                                   <p className="text-[10px] text-muted-foreground truncate max-w-[220px]" style={{ paddingLeft: "14px" }}>{l.url}</p>
