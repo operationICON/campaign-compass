@@ -620,11 +620,13 @@ export default function AccountsPage() {
       return dir * ((av as number) - (bv as number));
     });
 
-    // Active = ≥1 sub/day over last 5 days (snapshot) OR no snapshot data but has subs/clicks
+    // Active = activity in last 5 days (snapshots), OR new link (<5d old) with any subs/clicks
     const isLinkActive = (l: any): boolean => {
       const id = String(l.id).toLowerCase();
       if (activeLookup.has(id)) return activeLookup.get(id)!.isActive;
-      return (l.subscribers || 0) > 0 || (l.clicks || 0) > 0;
+      const ageDays = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : 999;
+      if (ageDays <= 5) return (l.subscribers || 0) > 0 || (l.clicks || 0) > 0;
+      return false;
     };
 
     const accLinksActiveCount = accLinks.filter((l: any) => isLinkActive(l)).length;
