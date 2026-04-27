@@ -23,6 +23,7 @@ import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn } from "@/lib/calc-helpers";
 import { ModelAvatar } from "@/components/ModelAvatar";
+import { useActiveLinkStatus } from "@/hooks/useActiveLinkStatus";
 
 const LS_KEY = "ct_audit_filters";
 const PAGE_SIZE = 25;
@@ -53,11 +54,6 @@ function getStatus(l: any) {
   return calcStatusFn(l);
 }
 
-function getActivityStatus(l: any, thirtyDaysAgo: Date) {
-  if (l.clicks === 0 && l.subscribers === 0) return "Testing";
-  const lastDate = l.calculated_at ? new Date(l.calculated_at) : new Date(l.created_at);
-  return lastDate < thirtyDaysAgo ? "Inactive" : "Active";
-}
 
 const AUDIT_COLUMNS: ColumnDef[] = [
   { id: "model",        label: "Model",       defaultOn: true },
@@ -122,6 +118,14 @@ export default function AuditPage() {
     return map;
   }, [trackingLinkLtv]);
 
+  const { activeLookup } = useActiveLinkStatus();
+
+  const isLinkActive = (l: any): boolean => {
+    const ageDays = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : 999;
+    if (ageDays < 5) return true;
+    return activeLookup.get(String(l.id).toLowerCase())?.isActive ?? false;
+  };
+
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
@@ -145,10 +149,14 @@ export default function AuditPage() {
 const filteredLinks = useMemo(() => {
     return activeLinks.filter((l: any) => {
       if (filters.model !== "all" && l.account_id !== filters.model) return false;
-      if (filters.activity !== "all" && getActivityStatus(l, thirtyDaysAgo) !== filters.activity) return false;
+      if (filters.activity !== "all") {
+        const active = isLinkActive(l);
+        if (filters.activity === "Active" && !active) return false;
+        if (filters.activity === "Inactive" && active) return false;
+      }
       return true;
     });
-  }, [activeLinks, filters]);
+  }, [activeLinks, filters, activeLookup]);
 
   const zeroActivity = useMemo(() => filteredLinks.filter((l: any) =>
     l.clicks === 0 && l.subscribers === 0 && new Date(l.created_at) < thirtyDaysAgo
@@ -385,8 +393,15 @@ const filteredLinks = useMemo(() => {
           </td>
         )}
         <td className="p-2">
-          <div className={`font-medium truncate max-w-[220px] ${opts.isDeleted ? "line-through text-muted-foreground" : ""}`}>{l.campaign_name}</div>
-          <div className="text-muted-foreground truncate max-w-[220px] text-[10px]">{l.url}</div>
+          <div className="flex items-start gap-1.5">
+            {!opts.isDeleted && (
+              <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${isLinkActive(l) ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
+            )}
+            <div>
+              <div className={`font-medium truncate max-w-[220px] ${opts.isDeleted ? "line-through text-muted-foreground" : ""}`}>{l.campaign_name}</div>
+              <div className="text-muted-foreground truncate max-w-[220px] text-[10px]">{l.url}</div>
+            </div>
+          </div>
         </td>
         {columnOrder.visibleOrderedColumns.map(c => {
           switch (c.id) {
