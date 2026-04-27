@@ -13,14 +13,13 @@ import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
 import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
-  AlertCircle, Skull, Tag, DollarSign, CheckCircle2, Copy,
+  Skull, Tag, DollarSign, CheckCircle2, Copy,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUp, ArrowDown, ArrowUpDown, Search, X,
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useColumnOrder, type ColumnDef } from "@/hooks/useColumnOrder";
 import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn } from "@/lib/calc-helpers";
@@ -30,7 +29,7 @@ import { useActiveLinkStatus } from "@/hooks/useActiveLinkStatus";
 const LS_KEY = "ct_audit_filters";
 const PAGE_SIZE = 25;
 
-type IssueFilter = "all" | "zero" | "inactive" | "source" | "spend" | "dupes" | "deleted";
+type IssueFilter = "all" | "inactive" | "source" | "spend" | "dupes" | "deleted";
 
 function loadFilters() {
   try {
@@ -79,7 +78,6 @@ const AUDIT_COLUMNS: ColumnDef[] = [
 ];
 
 const ISSUE_META: Record<string, { label: string; bg: string; text: string }> = {
-  zero:     { label: "No Activity", bg: "#f3f4f6", text: "#6b7280" },
   inactive: { label: "Inactive",    bg: "#fee2e2", text: "#dc2626" },
   source:   { label: "No Source",   bg: "#fef9c3", text: "#854d0e" },
   spend:    { label: "No Spend",    bg: "#dbeafe", text: "#1d4ed8" },
@@ -139,13 +137,12 @@ export default function AuditPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
   const [issueFilter, setIssueFilter] = useState<IssueFilter>("all");
-  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" }>({ col: "created", dir: "desc" });
   const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
-  useEffect(() => { setPage(0); }, [issueFilter, activityFilter, filters]);
+  useEffect(() => { setPage(0); }, [issueFilter, filters]);
 
   const toggleSort = (col: string) => {
     setSort(prev => prev.col === col ? { col, dir: prev.dir === "asc" ? "desc" : "asc" } : { col, dir: "desc" });
@@ -178,8 +175,6 @@ export default function AuditPage() {
   const getIssues = (l: any): string[] => {
     if (l.deleted_at) return [];
     const issues: string[] = [];
-    const ad = l.created_at ? differenceInDays(now, new Date(l.created_at)) : 999;
-    if (l.clicks === 0 && l.subscribers === 0 && ad > 30) issues.push("zero");
     if ((l.clicks > 0 || l.subscribers > 0) && !isLinkActive(l)) issues.push("inactive");
     if (!getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)) issues.push("source");
     if (Number(l.cost_total || 0) === 0 && (l.clicks > 0 || l.subscribers > 0)) issues.push("spend");
@@ -188,7 +183,6 @@ export default function AuditPage() {
   };
 
   const issueCounts = useMemo(() => ({
-    zero:     activeLinks.filter(l => { const a = differenceInDays(now, new Date(l.created_at)); return l.clicks === 0 && l.subscribers === 0 && a > 30; }).length,
     inactive: activeLinks.filter(l => (l.clicks > 0 || l.subscribers > 0) && !isLinkActive(l)).length,
     source:   activeLinks.filter(l => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length,
     spend:    activeLinks.filter(l => Number(l.cost_total || 0) === 0 && (l.clicks > 0 || l.subscribers > 0)).length,
@@ -223,16 +217,7 @@ export default function AuditPage() {
     return baseFiltered.filter(l => getIssues(l).includes(issueFilter));
   }, [baseFiltered, issueFilter, duplicateIds, activeLookup]);
 
-  const activityCounts = useMemo(() => {
-    const active = issueFiltered.filter(l => isLinkActive(l)).length;
-    return { total: issueFiltered.length, active };
-  }, [issueFiltered, activeLookup]);
-
-  const displayLinks = useMemo(() => {
-    if (isDeleted || activityFilter === "all") return issueFiltered;
-    if (activityFilter === "active") return issueFiltered.filter(l => isLinkActive(l));
-    return issueFiltered.filter(l => !isLinkActive(l));
-  }, [issueFiltered, activityFilter, activeLookup, isDeleted]);
+  const displayLinks = issueFiltered;
 
   const getSortVal = (l: any, col: string): number | string => {
     const id = String(l.id).toLowerCase();
@@ -556,13 +541,12 @@ export default function AuditPage() {
   };
 
   const CHIPS: { key: IssueFilter; label: string; icon: any; count: number; active: string; inactive: string }[] = [
-    { key: "all",      label: "All Links",   icon: null,        count: activeLinks.length,    active: "border-foreground bg-foreground text-background",                                                   inactive: "border-border text-muted-foreground hover:border-foreground/50" },
-    { key: "zero",     label: "No Activity", icon: AlertCircle, count: issueCounts.zero,      active: "border-gray-500 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",                    inactive: "border-border text-muted-foreground hover:border-gray-400" },
-    { key: "inactive", label: "Inactive",    icon: Skull,       count: issueCounts.inactive,  active: "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",                      inactive: "border-border text-muted-foreground hover:border-red-400" },
-    { key: "source",   label: "No Source",   icon: Tag,         count: issueCounts.source,    active: "border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",       inactive: "border-border text-muted-foreground hover:border-yellow-400" },
-    { key: "spend",    label: "No Spend",    icon: DollarSign,  count: issueCounts.spend,     active: "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",                 inactive: "border-border text-muted-foreground hover:border-blue-400" },
-    { key: "dupes",    label: "Duplicates",  icon: Copy,        count: issueCounts.dupes,     active: "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",       inactive: "border-border text-muted-foreground hover:border-orange-400" },
-    { key: "deleted",  label: "Deleted",     icon: Trash2,      count: issueCounts.deleted,   active: "border-destructive bg-destructive/10 text-destructive",                                            inactive: "border-border text-muted-foreground hover:border-destructive/50" },
+    { key: "all",      label: "All Links",  icon: null,        count: activeLinks.length,   active: "border-foreground bg-foreground text-background",                                                   inactive: "border-border text-muted-foreground hover:border-foreground/50" },
+    { key: "inactive", label: "Inactive",   icon: Skull,       count: issueCounts.inactive, active: "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",                      inactive: "border-border text-muted-foreground hover:border-red-400" },
+    { key: "source",   label: "No Source",  icon: Tag,         count: issueCounts.source,   active: "border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",       inactive: "border-border text-muted-foreground hover:border-yellow-400" },
+    { key: "spend",    label: "No Spend",   icon: DollarSign,  count: issueCounts.spend,    active: "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",                 inactive: "border-border text-muted-foreground hover:border-blue-400" },
+    { key: "dupes",    label: "Duplicates", icon: Copy,        count: issueCounts.dupes,    active: "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",       inactive: "border-border text-muted-foreground hover:border-orange-400" },
+    { key: "deleted",  label: "Deleted",    icon: Trash2,      count: issueCounts.deleted,  active: "border-destructive bg-destructive/10 text-destructive",                                            inactive: "border-border text-muted-foreground hover:border-destructive/50" },
   ];
 
   return (
@@ -619,16 +603,6 @@ export default function AuditPage() {
             );
           })}
         </div>
-
-        {/* Activity filter — All / Active / Inactive (snapshot-derived, hidden when viewing Deleted) */}
-        {!isDeleted && (
-          <LinkActivityFilter
-            value={activityFilter}
-            onChange={(v) => { setActivityFilter(v); setPage(0); }}
-            totalCount={activityCounts.total}
-            activeCount={activityCounts.active}
-          />
-        )}
 
         {/* Table card */}
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
