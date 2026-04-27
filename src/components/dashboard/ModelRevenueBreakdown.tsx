@@ -33,7 +33,7 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
         const accTips = Number(acc.ltv_tips          || 0);
         const accSubs = Number(acc.ltv_subscriptions || 0);
         const accPost = Number(acc.ltv_posts         || 0);
-        const hasLtv  = accMsg > 0 || accTips > 0 || accSubs > 0 || accPost > 0;
+        const hasLtv  = Number(acc.ltv_total || 0) > 0;
 
         const tx = txTypeTotalsByAccount[acc.id];
         const messages      = hasLtv ? accMsg  : (tx?.messages      ?? 0);

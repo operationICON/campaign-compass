@@ -779,8 +779,7 @@ function KpiCards({
 
   // ── Helper: sum of breakdown types (the balanced Total Revenue) ──
   const calcTotalRevFromTypes = (accts: any[]) => {
-    return accts.reduce((s: number, a: any) =>
-      s + Number(a.ltv_messages || 0) + Number(a.ltv_tips || 0) + Number(a.ltv_subscriptions || 0) + Number(a.ltv_posts || 0), 0);
+    return accts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
   };
 
   const renderCard = (id: OverviewKpiCardId) => {
@@ -916,7 +915,7 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        // Breakdown by type comes from accounts.ltv_messages/tips/subscriptions/posts
+        // Individual type breakdown — for display in the expanded card
         const breakdown = filtAccounts.reduce(
           (acc: { messages: number; tips: number; subscriptions: number; posts: number }, a: any) => ({
             messages:      acc.messages      + Number(a.ltv_messages      || 0),
@@ -926,8 +925,8 @@ function KpiCards({
           }),
           { messages: 0, tips: 0, subscriptions: 0, posts: 0 },
         );
-        // Unattributed = sum of all revenue types not from tracking links
-        const unattribVal = breakdown.messages + breakdown.tips + breakdown.subscriptions + breakdown.posts;
+        // Unattributed total uses ltv_total (includes "other" bucket not in the 4 named fields)
+        const unattribVal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
         const totalRev5 = allTimeRevenue + unattribVal;
         const pct = totalRev5 > 0 ? (unattribVal / totalRev5) * 100 : null;
         const colorClass = pct === null ? "text-muted-foreground"
@@ -955,8 +954,7 @@ function KpiCards({
 
       // ═══ TOTAL REVENUE ═══
       case "total_revenue": {
-        const unattribSum = filtAccounts.reduce((s: number, a: any) =>
-          s + Number(a.ltv_messages || 0) + Number(a.ltv_tips || 0) + Number(a.ltv_subscriptions || 0) + Number(a.ltv_posts || 0), 0);
+        const unattribSum = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
 
         const bkTracked = allTimeRevenue * revMultiplier;
         const bkUnattr = unattribSum * revMultiplier;

@@ -684,7 +684,7 @@ export default function AccountsPage() {
     const gainedSuffix = periodActive ? periodSuffix : "(all)";
 
     // Lifetime KPI values (used when "All Time" or as fallback)
-    const lifetimeUnattrib = (Number(acc.ltv_messages || 0) + Number(acc.ltv_tips || 0) + Number(acc.ltv_subscriptions || 0) + Number(acc.ltv_posts || 0)) * revMultiplier;
+    const lifetimeUnattrib = Number(acc.ltv_total || 0) * revMultiplier;
     const lifetimeCampaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
     const lifetimeRevenue = lifetimeCampaignRev + lifetimeUnattrib;
     const lifetimeSpend = stats.totalSpendAllTime || 0;
@@ -815,8 +815,8 @@ export default function AccountsPage() {
                   const accTips = Number(acc.ltv_tips || 0);
                   const accSubs = Number(acc.ltv_subscriptions || 0);
                   const accPost = Number(acc.ltv_posts || 0);
-                  const hasLtv  = accMsg > 0 || accTips > 0 || accSubs > 0 || accPost > 0;
-                  const unattribRaw = accMsg + accTips + accSubs + accPost;
+                  const hasLtv  = Number(acc.ltv_total || 0) > 0;
+                  const unattribRaw = Number(acc.ltv_total || 0);
 
                   const campaignsVal   = campRevRaw * revMultiplier;
                   const unattribVal    = unattribRaw * revMultiplier;
