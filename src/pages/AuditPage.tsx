@@ -243,7 +243,7 @@ export default function AuditPage() {
     const ad = l.created_at ? Math.max(1, differenceInDays(now, new Date(l.created_at))) : 1;
     switch (col) {
       case "name":         return (l.campaign_name || "").toLowerCase();
-      case "model":        return (l.accounts?.username || l.accounts?.display_name || "").toLowerCase();
+      case "model":        return (l.account_username || l.accounts?.username || l.account_display_name || l.accounts?.display_name || "").toLowerCase();
       case "source":       return (getEffectiveSource(l) || "").toLowerCase();
       case "clicks":       return l.clicks || 0;
       case "subscribers":  return l.subscribers || 0;
@@ -254,7 +254,7 @@ export default function AuditPage() {
       case "expenses":     return costTotal;
       case "profit":       return costTotal > 0 ? effectiveRev - costTotal : -Infinity;
       case "profit_sub":   return (l.subscribers > 0 && costTotal > 0) ? (effectiveRev - costTotal) / l.subscribers : -Infinity;
-      case "roi":          return l.roi ?? -Infinity;
+      case "roi":          return costTotal > 0 ? ((effectiveRev - costTotal) / costTotal) * 100 : -Infinity;
       case "status":       return calcStatusFn(l);
       case "subs_day":     return l.subscribers > 0 ? l.subscribers / ad : -1;
       case "last_sync":    return l.calculated_at ? new Date(l.calculated_at).getTime() : -1;
@@ -316,7 +316,7 @@ export default function AuditPage() {
     });
   };
 
-  const modelName = (l: any) => l.accounts?.username || l.accounts?.display_name || "—";
+  const modelName = (l: any) => l.account_username || l.accounts?.username || l.account_display_name || l.accounts?.display_name || "—";
 
   // ── Inline components ───────────────────────────────────────────────────────
 
@@ -452,7 +452,7 @@ export default function AuditPage() {
             case "model": return (
               <td key={c.id} className="p-2">
                 <div className="flex items-center gap-1.5">
-                  <ModelAvatar avatarUrl={l.accounts?.avatar_thumb_url} name={l.accounts?.username || l.accounts?.display_name || "?"} size={22} />
+                  <ModelAvatar avatarUrl={l.account_avatar_thumb_url || l.accounts?.avatar_thumb_url} name={l.account_username || l.accounts?.username || l.account_display_name || l.accounts?.display_name || "?"} size={22} />
                   <span className="text-muted-foreground text-xs">@{modelName(l)}</span>
                 </div>
               </td>
@@ -483,11 +483,14 @@ export default function AuditPage() {
                   : <span className="text-muted-foreground font-bold text-xs">—</span>}
               </td>
             );
-            case "roi": return (
-              <td key={c.id} className="p-2 text-right font-mono text-xs" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>
-                {l.roi != null ? fmtP(l.roi) : "—"}
-              </td>
-            );
+            case "roi": {
+              const roi = hasCost ? ((effectiveRev - costTotal) / costTotal) * 100 : null;
+              return (
+                <td key={c.id} className="p-2 text-right font-mono text-xs" style={{ color: (roi ?? 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                  {roi !== null ? fmtP(roi) : "—"}
+                </td>
+              );
+            }
             case "status": return (
               <td key={c.id} className="p-2">
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span>
