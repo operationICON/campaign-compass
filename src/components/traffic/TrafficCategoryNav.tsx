@@ -5,6 +5,7 @@ import { getEffectiveSource } from "@/lib/source-helpers";
 import { useTagColors } from "@/components/TagBadge";
 import { differenceInDays, format } from "date-fns";
 import { TrafficSourceDetail } from "./TrafficSourceDetail";
+import { ManualModelDrilldown } from "./ManualModelDrilldown";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { UnmatchedOrdersCard } from "./UnmatchedOrdersCard";
 import { Input } from "@/components/ui/input";
@@ -695,10 +696,29 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     );
   }
 
-  // ═══ LEVEL 2 — GROUPED SOURCE VIEW ═══
+  // ═══ LEVEL 3 — MODEL DRILLDOWN ═══
   if (activeSourceKey) {
     const group = groupedSources.find(g => g.key === activeSourceKey);
     if (group) {
+      const groupTitle = group.isUnknown
+        ? "Unknown — Untagged"
+        : group.marketer && group.sourceTag
+          ? `${group.marketer} — ${group.sourceTag}`
+          : group.marketer || group.sourceTag || "Unknown";
+
+      // Manual category → rich model-grouped drilldown (mirrors OT MarketerDrilldownPage)
+      if (!isOT) {
+        return (
+          <ManualModelDrilldown
+            links={group.links}
+            groupTitle={groupTitle}
+            onBack={() => { setActiveSourceKey(null); onLevelChange?.(2); }}
+            activeLookup={activeLookup}
+          />
+        );
+      }
+
+      // OT category (non-URL-navigated groups) → flat campaign list
       return (
         <div className="space-y-4">
           <button
@@ -709,7 +729,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
             <ArrowLeft className="h-4 w-4" /> Back to {activeCategory}
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-foreground font-bold text-lg">{group.marketer} — {group.sourceTag}</span>
+            <span className="text-foreground font-bold text-lg">{groupTitle}</span>
             <span className="text-muted-foreground" style={{ fontSize: "12px" }}>· {group.campaigns} campaigns</span>
           </div>
           <div className="grid grid-cols-6 gap-2">
