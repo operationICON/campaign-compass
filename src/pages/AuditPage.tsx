@@ -29,7 +29,7 @@ import { useActiveLinkStatus } from "@/hooks/useActiveLinkStatus";
 const LS_KEY = "ct_audit_filters";
 const PAGE_SIZE = 25;
 
-type IssueFilter = "all" | "inactive" | "source" | "spend" | "dupes" | "deleted";
+type IssueFilter = "all" | "active" | "inactive" | "source" | "spend" | "dupes" | "deleted";
 
 function loadFilters() {
   try {
@@ -137,13 +137,12 @@ export default function AuditPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
   const [issueFilter, setIssueFilter] = useState<IssueFilter>("all");
-  const [activityFilter, setActivityFilter] = useState<LinkActivityFilterValue>("all");
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" }>({ col: "created", dir: "desc" });
   const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
-  useEffect(() => { setPage(0); }, [issueFilter, activityFilter, filters]);
+  useEffect(() => { setPage(0); }, [issueFilter, filters]);
 
   const toggleSort = (col: string) => {
     setSort(prev => prev.col === col ? { col, dir: prev.dir === "asc" ? "desc" : "asc" } : { col, dir: "desc" });
@@ -184,6 +183,7 @@ export default function AuditPage() {
   };
 
   const issueCounts = useMemo(() => ({
+    active:   activeLinks.filter(l => isLinkActive(l)).length,
     inactive: activeLinks.filter(l => (l.clicks > 0 || l.subscribers > 0) && !isLinkActive(l)).length,
     source:   activeLinks.filter(l => !getEffectiveSource(l) && (l.clicks > 0 || l.subscribers > 0)).length,
     spend:    activeLinks.filter(l => Number(l.cost_total || 0) === 0 && (l.clicks > 0 || l.subscribers > 0)).length,
@@ -213,21 +213,11 @@ export default function AuditPage() {
     });
   }, [activeLinks, deletedLinks, filters, isDeleted, activeLookup]);
 
-  const issueFiltered = useMemo(() => {
-    if (issueFilter === "all" || isDeleted) return baseFiltered;
-    return baseFiltered.filter(l => getIssues(l).includes(issueFilter));
-  }, [baseFiltered, issueFilter, duplicateIds, activeLookup]);
-
-  const activityCounts = useMemo(() => {
-    const active = issueFiltered.filter(l => isLinkActive(l)).length;
-    return { total: issueFiltered.length, active };
-  }, [issueFiltered, activeLookup]);
-
   const displayLinks = useMemo(() => {
-    if (isDeleted || activityFilter === "all") return issueFiltered;
-    if (activityFilter === "active") return issueFiltered.filter(l => isLinkActive(l));
-    return issueFiltered.filter(l => !isLinkActive(l));
-  }, [issueFiltered, activityFilter, activeLookup, isDeleted]);
+    if (isDeleted || issueFilter === "all") return baseFiltered;
+    if (issueFilter === "active") return baseFiltered.filter(l => isLinkActive(l));
+    return baseFiltered.filter(l => getIssues(l).includes(issueFilter));
+  }, [baseFiltered, issueFilter, duplicateIds, activeLookup, isDeleted]);
 
   const getSortVal = (l: any, col: string): number | string => {
     const id = String(l.id).toLowerCase();
@@ -551,8 +541,9 @@ export default function AuditPage() {
   };
 
   const CHIPS: { key: IssueFilter; label: string; icon: any; count: number; active: string; inactive: string }[] = [
-    { key: "all",      label: "All Links",  icon: null,        count: activeLinks.length,   active: "border-foreground bg-foreground text-background",                                                   inactive: "border-border text-muted-foreground hover:border-foreground/50" },
-    { key: "inactive", label: "Inactive",   icon: Skull,       count: issueCounts.inactive, active: "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",                      inactive: "border-border text-muted-foreground hover:border-red-400" },
+    { key: "all",      label: "All Links",  icon: null,           count: activeLinks.length,    active: "border-foreground bg-foreground text-background",                                                        inactive: "border-border text-muted-foreground hover:border-foreground/50" },
+    { key: "active",   label: "Active",     icon: CheckCircle2,   count: issueCounts.active,    active: "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",      inactive: "border-border text-muted-foreground hover:border-emerald-400" },
+    { key: "inactive", label: "Inactive",   icon: Skull,          count: issueCounts.inactive,  active: "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",                         inactive: "border-border text-muted-foreground hover:border-red-400" },
     { key: "source",   label: "No Source",  icon: Tag,         count: issueCounts.source,   active: "border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",       inactive: "border-border text-muted-foreground hover:border-yellow-400" },
     { key: "spend",    label: "No Spend",   icon: DollarSign,  count: issueCounts.spend,    active: "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",                 inactive: "border-border text-muted-foreground hover:border-blue-400" },
     { key: "dupes",    label: "Duplicates", icon: Copy,        count: issueCounts.dupes,    active: "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",       inactive: "border-border text-muted-foreground hover:border-orange-400" },
@@ -613,22 +604,6 @@ export default function AuditPage() {
             );
           })}
         </div>
-
-        {/* Activity filter — All / Active only (no Inactive: covered by the Inactive chip) */}
-        {!isDeleted && (
-          <div className="flex items-center gap-2">
-            {(["all", "active"] as const).map(key => {
-              const label = key === "all" ? `All links (${activityCounts.total})` : `Active (${activityCounts.active})`;
-              const selected = activityFilter === key;
-              return (
-                <button key={key} onClick={() => { setActivityFilter(key); setPage(0); }}
-                  className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/50 dark:bg-secondary text-foreground/80 border-border hover:bg-secondary"}`}>
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         {/* Table card */}
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
