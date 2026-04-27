@@ -71,9 +71,13 @@ function classifySyncType(log: any): SyncType {
 function getEffectiveStatus(log: any) {
   if (log.status === "running" || log.status === "pending") {
     const elapsed = Date.now() - new Date(log.started_at).getTime();
-    if (elapsed > 10 * 60 * 1000) return "error";
+    // Revenue breakdown can run 60-90 min on a full scan — give it more headroom
+    const threshold = (log.triggered_by || "").includes("revenue_breakdown")
+      ? 120 * 60 * 1000
+      : 15 * 60 * 1000;
+    if (elapsed > threshold) return "error";
   }
-  return log.status; // passes through "partial", "success", "error", "running"
+  return log.status;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -730,7 +734,7 @@ export default function LogsPage() {
                               </span>
                             </td>
                             <td className="py-2.5 px-4 text-foreground">
-                              {log.accounts?.display_name || "—"}
+                              {log.account_display_name || "—"}
                             </td>
                             <td className="py-2.5 px-4 text-right font-mono text-foreground">
                               {log.records_processed ?? 0}
