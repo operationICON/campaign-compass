@@ -71,6 +71,7 @@ const AUDIT_COLUMNS: ColumnDef[] = [
   { id: "roi",          label: "ROI",          defaultOn: true },
   { id: "status",       label: "Status",       defaultOn: true },
   { id: "subs_day",     label: "Subs/Day",     defaultOn: true },
+  { id: "last_sync",    label: "Last Sync",    defaultOn: true },
   { id: "created",      label: "Created",      defaultOn: true },
   { id: "media_buyer",  label: "Media Buyer",  defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
@@ -239,6 +240,7 @@ export default function AuditPage() {
       case "roi":          return l.roi ?? -Infinity;
       case "status":       return calcStatusFn(l);
       case "subs_day":     return l.subscribers > 0 ? l.subscribers / ad : -1;
+      case "last_sync":    return l.calculated_at ? new Date(l.calculated_at).getTime() : -1;
       case "created":      return new Date(l.created_at).getTime();
       case "media_buyer":  return (l.media_buyer || "").toLowerCase();
       case "avg_expenses": return costTotal;
@@ -360,8 +362,18 @@ export default function AuditPage() {
     );
   };
 
+  const COL_WIDTHS: Record<string, string> = {
+    name: "min-w-[220px]",
+    model: "min-w-[130px]", source: "min-w-[90px]", clicks: "min-w-[70px]",
+    subscribers: "min-w-[90px]", cvr: "min-w-[55px]", revenue: "min-w-[90px]",
+    ltv_sub: "min-w-[75px]", spender_rate: "min-w-[75px]", expenses: "min-w-[90px]",
+    profit: "min-w-[90px]", profit_sub: "min-w-[85px]", roi: "min-w-[60px]",
+    status: "min-w-[80px]", subs_day: "min-w-[80px]", last_sync: "min-w-[100px]",
+    created: "min-w-[100px]", media_buyer: "min-w-[100px]", avg_expenses: "min-w-[100px]",
+  };
+
   const SortTh = ({ colId, label, align = "text-left" }: { colId: string; label: string; align?: string }) => (
-    <th className={`p-2 font-medium ${align} cursor-pointer select-none whitespace-nowrap`} onClick={() => toggleSort(colId)}>
+    <th className={`p-2 font-medium ${align} cursor-pointer select-none whitespace-nowrap ${COL_WIDTHS[colId] ?? ""}`} onClick={() => toggleSort(colId)}>
       <span className={`inline-flex items-center gap-0.5 ${align === "text-right" ? "flex-row-reverse" : ""}`}>
         {label}
         {sort.col === colId
@@ -479,6 +491,20 @@ export default function AuditPage() {
                 </td>
               );
             }
+            case "last_sync": {
+              if (!l.calculated_at) return <td key={c.id} className="p-2 text-xs text-muted-foreground">—</td>;
+              const syncDate = new Date(l.calculated_at);
+              const syncAgo = differenceInDays(now, syncDate);
+              const syncColor = syncAgo === 0 ? "#16a34a" : syncAgo <= 3 ? "#2563eb" : syncAgo <= 7 ? "#854d0e" : "#dc2626";
+              return (
+                <td key={c.id} className="p-2 whitespace-nowrap">
+                  <p className="text-foreground text-xs">{format(syncDate, "MMM d, yyyy")}</p>
+                  <span className="text-[10px] font-medium" style={{ color: syncColor }}>
+                    {syncAgo === 0 ? "Today" : `${syncAgo}d ago`}
+                  </span>
+                </td>
+              );
+            }
             case "created": {
               const days = ad;
               const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
@@ -486,7 +512,7 @@ export default function AuditPage() {
                 : days <= 180 ? { label: `${days}d Mature`, bg: "#fef9c3", text: "#854d0e" }
                 : { label: `${days}d Old`, bg: "#f3f4f6", text: "#6b7280" };
               return (
-                <td key={c.id} className="p-2">
+                <td key={c.id} className="p-2 whitespace-nowrap">
                   <p className="text-foreground text-xs">{format(new Date(l.created_at), "MMM d, yyyy")}</p>
                   <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5"
                     style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
@@ -635,7 +661,7 @@ export default function AuditPage() {
                       />
                     </th>
                   )}
-                  <SortTh colId="name" label="Tracking Link" />
+                  <SortTh colId="name" label="Tracking Link" align="text-left" />
                   {columnOrder.visibleOrderedColumns.map(c => {
                     const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr","profit_sub","avg_expenses"].includes(c.id) ? "text-right" : "text-left";
                     return <SortTh key={c.id} colId={c.id} label={c.label} align={align} />;
