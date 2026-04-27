@@ -30,18 +30,21 @@ export function useActiveLinkStatus(accountId?: string | null) {
     const map = new Map<string, ActiveLinkInfo>();
     if (!rows.length) return map;
 
-    // Group incremental subscriber counts by link
-    const byLink: Record<string, number> = {};
+    // Sum subs and clicks per link over the window
+    const byLink: Record<string, { subs: number; clicks: number }> = {};
     for (const r of rows as any[]) {
       const id = String(r.tracking_link_id ?? "").toLowerCase();
       if (!id) continue;
-      byLink[id] = (byLink[id] ?? 0) + Number(r.subscribers || 0);
+      if (!byLink[id]) byLink[id] = { subs: 0, clicks: 0 };
+      byLink[id].subs += Number(r.subscribers || 0);
+      byLink[id].clicks += Number(r.clicks || 0);
     }
 
-    // spd = total subs in window / window size
+    // Active = any subs OR any clicks recorded in the 5-day window
     for (const id of Object.keys(byLink)) {
-      const spd = byLink[id] / WINDOW_DAYS;
-      map.set(id, { subsPerDay: spd, isActive: spd >= 1 });
+      const { subs, clicks } = byLink[id];
+      const spd = subs / WINDOW_DAYS;
+      map.set(id, { subsPerDay: spd, isActive: subs > 0 || clicks > 0 });
     }
 
     return map;
