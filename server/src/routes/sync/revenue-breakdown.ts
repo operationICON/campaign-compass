@@ -10,9 +10,11 @@ const API_BASE = "https://app.onlyfansapi.com/api";
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-async function fetchAllTransactions(ofAccountId: string, apiKey: string): Promise<{ items: any[]; apiCalls: number }> {
+async function fetchTransactions(ofAccountId: string, apiKey: string, afterDate?: string): Promise<{ items: any[]; apiCalls: number }> {
   const items: any[] = [];
-  let url: string | null = `/${ofAccountId}/transactions?limit=100`;
+  // If we have a known latest date, only pull transactions after that — far fewer API calls
+  const dateParam = afterDate ? `&after=${afterDate}` : "";
+  let url: string | null = `/${ofAccountId}/transactions?limit=100${dateParam}`;
   let apiCalls = 0;
   while (url && apiCalls < 500) {
     apiCalls++;
@@ -119,10 +121,17 @@ router.post("/", async (c) => {
         const accountLogId = accountLog?.id;
 
         try {
-          await send({ step: "fetching", message: `Fetching ${account.display_name}...` });
-          const { items: txList, apiCalls } = await fetchAllTransactions(account.onlyfans_account_id, apiKey);
+          // Find the latest transaction date we already have — only fetch newer ones
+          const latestRow = await db.execute(sql`
+            SELECT MAX(date) AS latest FROM transactions WHERE account_id = ${account.id}
+          `);
+          const latestDate = (latestRow.rows[0] as any)?.latest as string | null;
+          const isIncremental = !!latestDate;
+
+          await send({ step: "fetching", message: `Fetching ${account.display_name}${isIncremental ? ` (incremental from ${latestDate})` : " (full scan)"}...` });
+          const { items: txList, apiCalls } = await fetchTransactions(account.onlyfans_account_id, apiKey, latestDate ?? undefined);
           totalApiCalls += apiCalls;
-          await send({ step: "fetched", message: `${account.display_name}: ${txList.length} transactions (${apiCalls} API calls)` });
+          await send({ step: "fetched", message: `${account.display_name}: ${txList.length} transactions (${apiCalls} API calls${isIncremental ? ", incremental" : ", full scan"})` });
 
           // Upsert transactions in batches
           for (let i = 0; i < txList.length; i += 100) {
