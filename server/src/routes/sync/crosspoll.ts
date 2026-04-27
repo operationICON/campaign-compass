@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
-import { fans, fan_spend, tracking_links, tracking_link_ltv, sync_logs } from "../../db/schema.js";
+import { fans, transactions, tracking_links, tracking_link_ltv, sync_logs } from "../../db/schema.js";
 import { eq, isNotNull, and, ne, sql } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 
@@ -27,23 +27,23 @@ router.post("/", async (c) => {
       // Preflight diagnostics
       const fanCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM fans WHERE first_subscribe_link_id IS NOT NULL`);
       const linkCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM tracking_links WHERE deleted_at IS NULL AND external_tracking_link_id IS NOT NULL`);
-      const spendCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM fan_spend`);
-      await send({ step: "preflight", message: `Fans with link: ${fanCheck.rows[0]?.cnt ?? 0}, active links: ${linkCheck.rows[0]?.cnt ?? 0}, fan_spend rows: ${spendCheck.rows[0]?.cnt ?? 0}` });
+      const txCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM transactions`);
+      await send({ step: "preflight", message: `Fans with link: ${fanCheck.rows[0]?.cnt ?? 0}, active links: ${linkCheck.rows[0]?.cnt ?? 0}, transactions: ${txCheck.rows[0]?.cnt ?? 0}` });
 
-      // For each tracking link, compute cross-poll from ALL fans who first subscribed
-      // via that link but also spent on a DIFFERENT account.
+      // For each tracking link, compute cross-poll directly from transactions —
+      // fans who first subscribed via that link but spent on a DIFFERENT account.
       const rows = await db.execute(sql`
         SELECT
-          f.first_subscribe_link_id                                           AS tracking_link_id,
-          tl.account_id                                                       AS link_account_id,
+          f.first_subscribe_link_id                                                AS tracking_link_id,
+          tl.account_id                                                            AS link_account_id,
           tl.campaign_name,
-          COUNT(DISTINCT f.id)                                                AS fans_total,
-          COUNT(DISTINCT CASE WHEN fs.account_id != tl.account_id THEN f.id END) AS cross_poll_fans,
-          COALESCE(SUM(CASE WHEN fs.account_id != tl.account_id THEN fs.revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue,
+          COUNT(DISTINCT f.id)                                                     AS fans_total,
+          COUNT(DISTINCT CASE WHEN t.account_id::text != tl.account_id::text THEN f.id END) AS cross_poll_fans,
+          COALESCE(SUM(CASE WHEN t.account_id::text != tl.account_id::text THEN t.revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue,
           tl.external_tracking_link_id
         FROM fans f
         JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
-        LEFT JOIN fan_spend fs ON fs.fan_id = f.fan_id
+        LEFT JOIN transactions t ON t.fan_id = f.fan_id
         WHERE f.first_subscribe_link_id IS NOT NULL
           AND tl.deleted_at IS NULL
           AND tl.external_tracking_link_id IS NOT NULL

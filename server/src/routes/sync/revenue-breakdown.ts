@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
-import { accounts, transactions, fan_spend, fans, sync_logs } from "../../db/schema.js";
-import { eq, inArray, sql, and, like } from "drizzle-orm";
+import { accounts, transactions, sync_logs } from "../../db/schema.js";
+import { eq, sql, and, like } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 import { cancelFlags } from "../../lib/cancelFlags.js";
 
@@ -157,42 +157,6 @@ router.post("/", async (c) => {
                 },
               });
             totalTx += batch.length;
-          }
-
-          // Rebuild fan_spend for this account
-          const fanSpendAgg = await db.execute(sql`
-            SELECT fan_id, SUM(revenue::numeric) AS total
-            FROM transactions
-            WHERE account_id = ${account.id}
-              AND fan_id IS NOT NULL AND fan_id != ''
-            GROUP BY fan_id
-          `);
-          const aggRows = fanSpendAgg.rows as { fan_id: string; total: string }[];
-
-          if (aggRows.length > 0) {
-            const fanIds = aggRows.map(r => r.fan_id);
-            const fanLinkMap: Record<string, string | null> = {};
-            for (let i = 0; i < fanIds.length; i += 500) {
-              const batch = fanIds.slice(i, i + 500);
-              const linkRows = await db
-                .select({ fan_id: fans.fan_id, first_subscribe_link_id: fans.first_subscribe_link_id })
-                .from(fans)
-                .where(inArray(fans.fan_id, batch));
-              for (const r of linkRows) fanLinkMap[r.fan_id] = r.first_subscribe_link_id ?? null;
-            }
-
-            await db.execute(sql`DELETE FROM fan_spend WHERE account_id = ${account.id}`);
-
-            const spendValues = aggRows.map(r => ({
-              fan_id: r.fan_id,
-              account_id: account.id,
-              tracking_link_id: fanLinkMap[r.fan_id] ?? null,
-              revenue: String(r.total),
-              calculated_at: new Date(),
-            }));
-            for (let i = 0; i < spendValues.length; i += 500) {
-              await db.insert(fan_spend).values(spendValues.slice(i, i + 500));
-            }
           }
 
           // Update account LTV breakdown
