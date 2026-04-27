@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
 import { accounts, sync_logs } from "../../db/schema.js";
-import { eq, gt, and } from "drizzle-orm";
+import { eq, lt, and } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 
 const router = new Hono();
@@ -40,7 +40,7 @@ router.post("/", async (c) => {
       const stuck = await db
         .select({ id: sync_logs.id })
         .from(sync_logs)
-        .where(and(eq(sync_logs.status, "running"), gt(ninetyMinAgo, sync_logs.started_at)));
+        .where(and(eq(sync_logs.status, "running"), lt(sync_logs.started_at, ninetyMinAgo)));
       for (const row of stuck.filter(r => r.id !== orchLogId)) {
         await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: "Sync timed out" }).where(eq(sync_logs.id, row.id));
       }
