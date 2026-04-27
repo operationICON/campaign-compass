@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 
-import { usePageFilters } from "@/hooks/usePageFilters";
+import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetrics";
@@ -308,6 +308,19 @@ export default function AccountsPage() {
         subsPerDay = anySpd ? totalSpd : null;
       }
 
+      // Period revenue + subs from snapshot deltas — only valid when NOT All Time.
+      // Guard: only set when at least one link has delta data in the window.
+      let periodRevenue: number | null = null;
+      let periodSubs: number | null = null;
+      if (!isDeltaAllTime) {
+        let rev = 0, subs = 0, anyData = false;
+        for (const l of accLinks) {
+          const d = getDelta(l.id, deltaLookup);
+          if (d) { rev += d.revenueGained; subs += d.subsGained; anyData = true; }
+        }
+        if (anyData) { periodRevenue = rev; periodSubs = subs; }
+      }
+
       const apiSubs = acc.subscribers_count || 0;
       const unattributedPct: number | null = null;
 
@@ -349,6 +362,8 @@ export default function AccountsPage() {
         unattributedBreakdown: null,
         ltvPerSub,
         hasLtvData,
+        periodRevenue,
+        periodSubs,
       };
     }
     return stats;
@@ -1447,36 +1462,54 @@ export default function AccountsPage() {
                 </div>
 
                 {/* KPI grid */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Revenue</span>
-                    <span className="font-mono font-semibold text-foreground">
-                      {fmtCurrency(((stats.hasLtvData && stats.totalLtvAllTime > 0 ? stats.totalLtvAllTime : stats.campaignRevAllTime) || 0) * revMultiplier)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
-                    <span className="font-mono font-semibold text-primary">
-                      {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Spend</span>
-                    <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">CVR</span>
-                    <span className="font-mono font-semibold text-foreground">
-                      {stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between col-span-2">
-                    <span className="text-muted-foreground">Profit</span>
-                    <span className={`font-mono font-semibold ${(stats.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-destructive"}`}>
-                      {stats.totalSpendAllTime > 0 ? fmtCurrency((stats.totalProfit || 0) * revMultiplier) : "—"}
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  const periodLabel = customRange ? "Custom" : (TIME_PERIODS.find(t => t.key === timePeriod)?.label ?? "");
+                  const showPeriod = !isDeltaAllTime && stats.periodRevenue != null;
+                  return (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Revenue <span className="text-[10px] opacity-50">(all time)</span></span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {fmtCurrency(((stats.hasLtvData && stats.totalLtvAllTime > 0 ? stats.totalLtvAllTime : stats.campaignRevAllTime) || 0) * revMultiplier)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
+                        <span className="font-mono font-semibold text-primary">
+                          {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—"}
+                        </span>
+                      </div>
+                      {/* Period revenue — only shown when a time period is selected and data exists */}
+                      {showPeriod && (
+                        <div className="flex justify-between col-span-2 py-1 px-2 rounded-md bg-primary/5 border border-primary/20">
+                          <span className="text-muted-foreground">Rev <span className="text-primary font-semibold">{periodLabel}</span></span>
+                          <span className="font-mono font-semibold text-primary">
+                            {fmtCurrency((stats.periodRevenue || 0) * revMultiplier)}
+                            {stats.periodSubs != null && stats.periodSubs > 0 && (
+                              <span className="text-[10px] text-muted-foreground ml-1">· {stats.periodSubs.toLocaleString()} subs</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Spend</span>
+                        <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">CVR</span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between col-span-2">
+                        <span className="text-muted-foreground">Profit</span>
+                        <span className={`font-mono font-semibold ${(stats.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-destructive"}`}>
+                          {stats.totalSpendAllTime > 0 ? fmtCurrency((stats.totalProfit || 0) * revMultiplier) : "—"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Revenue breakdown expandable */}
                 {(() => {
