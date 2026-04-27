@@ -11,11 +11,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { exportCampaignsCsv } from "@/components/audit/ExportCampaignsCsv";
 import { ImportAuditCsvModal } from "@/components/audit/ImportAuditCsvModal";
+import { Input } from "@/components/ui/input";
 import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
   AlertCircle, Skull, Tag, DollarSign, CheckCircle2, Copy,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  ArrowUp, ArrowDown, ArrowUpDown,
+  ArrowUp, ArrowDown, ArrowUpDown, Search, List,
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -34,10 +35,10 @@ function loadFilters() {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      return { model: p.model ?? "all", activity: p.activity ?? "all" };
+      return { model: p.model ?? "all", activity: p.activity ?? "all", search: p.search ?? "" };
     }
   } catch {}
-  return { model: "all", activity: "all" };
+  return { model: "all", activity: "all", search: "" };
 }
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
@@ -184,8 +185,8 @@ export default function AuditPage() {
     });
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
-  const anyFilterActive = filters.model !== "all" || filters.activity !== "all";
-  const clearFilters = () => setFilters({ model: "all", activity: "all" });
+  const anyFilterActive = filters.model !== "all" || filters.activity !== "all" || filters.search !== "";
+  const clearFilters = () => setFilters({ model: "all", activity: "all", search: "" });
 
   const activeLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !l.deleted_at), [rawLinks]);
   const deletedLinks = useMemo(() => (rawLinks as any[]).filter((l: any) => !!l.deleted_at), [rawLinks]);
@@ -194,6 +195,7 @@ export default function AuditPage() {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
 const filteredLinks = useMemo(() => {
+    const q = filters.search.trim().toLowerCase();
     return activeLinks.filter((l: any) => {
       if (filters.model !== "all" && l.account_id !== filters.model) return false;
       if (filters.activity !== "all") {
@@ -201,6 +203,7 @@ const filteredLinks = useMemo(() => {
         if (filters.activity === "Active" && !active) return false;
         if (filters.activity === "Inactive" && active) return false;
       }
+      if (q && !(l.campaign_name || "").toLowerCase().includes(q) && !(l.url || "").toLowerCase().includes(q)) return false;
       return true;
     });
   }, [activeLinks, filters, activeLookup]);
@@ -298,8 +301,11 @@ const filteredLinks = useMemo(() => {
   const exportCount = filteredLinks.length;
 
   // ── Sub-components ──────────────────────────────────────────────────────────
-  const StatCard = ({ icon: Icon, label, count, color }: { icon: any; label: string; count: number; color: string }) => (
-    <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
+  const StatCard = ({ icon: Icon, label, count, color, tab, isActive }: { icon: any; label: string; count: number; color: string; tab?: string; isActive?: boolean }) => (
+    <button
+      onClick={() => tab && setActiveTab(tab)}
+      className={`w-full text-left bg-card rounded-2xl border p-4 flex items-center gap-3 transition-all ${tab ? "cursor-pointer hover:shadow-md" : "cursor-default"} ${isActive ? "border-primary shadow-sm ring-1 ring-primary/30" : "border-border"}`}
+    >
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
         <Icon className="h-5 w-5" />
       </div>
@@ -307,7 +313,7 @@ const filteredLinks = useMemo(() => {
         <div className="text-2xl font-bold font-mono text-foreground">{count}</div>
         <div className="text-xs text-muted-foreground">{label}</div>
       </div>
-    </div>
+    </button>
   );
 
   const DeleteConfirmBtn = ({ ids, label }: { ids: string[]; label: string }) => (
@@ -385,6 +391,16 @@ const filteredLinks = useMemo(() => {
 
   const TabToolbar = ({ rightContent }: { rightContent: React.ReactNode }) => (
     <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          value={filters.search}
+          onChange={e => setFilter("search", e.target.value)}
+          placeholder="Search links…"
+          className="h-8 pl-8 text-xs w-44"
+        />
+      </div>
       <AccountFilterDropdown
         value={filters.model}
         onChange={v => setFilter("model", v)}
@@ -407,6 +423,11 @@ const filteredLinks = useMemo(() => {
         ))}
       </div>
       <ColumnsButton />
+      {anyFilterActive && (
+        <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+          Clear filters
+        </button>
+      )}
       <span className="text-xs text-muted-foreground">{filteredLinks.length} shown</span>
       <div className="ml-auto flex items-center gap-2">{rightContent}</div>
     </div>
@@ -591,7 +612,17 @@ const filteredLinks = useMemo(() => {
             <h1 className="text-[22px] font-medium text-foreground flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" /> Tracking Link Audit
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Review, clean up, and manage your tracking links</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isLoading ? "Loading…" : (
+                <>
+                  <span className="font-medium text-foreground">{activeLinks.length.toLocaleString()}</span> links total
+                  {" · "}
+                  <span className={`font-medium ${(zeroActivity.length + inactive.length + missingSource.length + missingSpend.length) > 0 ? "text-destructive" : "text-emerald-500"}`}>
+                    {zeroActivity.length + inactive.length + missingSource.length + missingSpend.length}
+                  </span> need attention
+                </>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton queryKeys={["audit_all_links"]} />
@@ -602,24 +633,24 @@ const filteredLinks = useMemo(() => {
           </div>
         </div>
 
-        {/* KPI Stat Cards */}
+        {/* KPI Stat Cards — clickable, jump to tab */}
         <div className="grid grid-cols-5 gap-4">
-          <StatCard icon={AlertCircle} label="Zero Activity"   count={zeroActivity.length}  color="bg-muted text-muted-foreground" />
-          <StatCard icon={Skull}       label="Inactive"        count={inactive.length}       color="bg-destructive/10 text-destructive" />
-          <StatCard icon={Tag}         label="Missing Source"  count={missingSource.length}  color="bg-warning/10 text-warning" />
-          <StatCard icon={DollarSign}  label="Missing Spend"   count={missingSpend.length}   color="bg-info/10 text-primary" />
-          <StatCard icon={Copy}        label="Duplicates"      count={duplicateCount}        color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
+          <StatCard icon={AlertCircle} label="Zero Activity"  count={zeroActivity.length}  color="bg-muted text-muted-foreground"                                                         tab="zero"   isActive={activeTab === "zero"} />
+          <StatCard icon={Skull}       label="Inactive"       count={inactive.length}       color="bg-destructive/10 text-destructive"                                                    tab="dead"   isActive={activeTab === "dead"} />
+          <StatCard icon={Tag}         label="Missing Source" count={missingSource.length}  color="bg-warning/10 text-warning"                                                            tab="source" isActive={activeTab === "source"} />
+          <StatCard icon={DollarSign}  label="Missing Spend"  count={missingSpend.length}   color="bg-info/10 text-primary"                                                               tab="spend"  isActive={activeTab === "spend"} />
+          <StatCard icon={Copy}        label="Duplicates"     count={duplicateCount}        color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"             tab="dupes"  isActive={activeTab === "dupes"} />
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-muted">
-            <TabsTrigger value="all">All Links ({filteredLinks.length})</TabsTrigger>
-            <TabsTrigger value="zero">Zero Activity ({zeroActivity.length})</TabsTrigger>
-            <TabsTrigger value="dead">Inactive ({inactive.length})</TabsTrigger>
-            <TabsTrigger value="source">Missing Source ({missingSource.length})</TabsTrigger>
-            <TabsTrigger value="spend">Missing Spend ({missingSpend.length})</TabsTrigger>
-            <TabsTrigger value="dupes">Duplicates ({duplicateCount})</TabsTrigger>
+            <TabsTrigger value="all" className="flex items-center gap-1.5"><List className="h-3.5 w-3.5" />All Links ({filteredLinks.length})</TabsTrigger>
+            <TabsTrigger value="zero">Zero Activity</TabsTrigger>
+            <TabsTrigger value="dead">Inactive</TabsTrigger>
+            <TabsTrigger value="source">Missing Source</TabsTrigger>
+            <TabsTrigger value="spend">Missing Spend</TabsTrigger>
+            <TabsTrigger value="dupes">Duplicates</TabsTrigger>
             <TabsTrigger value="deleted" className="text-destructive data-[state=active]:text-destructive">
               Deleted ({deletedLinks.length})
             </TabsTrigger>
