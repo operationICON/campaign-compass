@@ -833,13 +833,26 @@ export default function AccountsPage() {
 
                   const Row = ({ dot, label, value, pctVal }: { dot: string; label: string; value: string; pctVal: string | null }) => (
                     <div className="flex items-center justify-between py-0.5">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
-                        <span className="text-[11px] text-muted-foreground">{label}</span>
+                        <span className="text-[11px] text-muted-foreground truncate">{label}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                        <span className="text-foreground font-semibold">{value}</span>
-                        {pctVal && <span className="text-muted-foreground/50">· {pctVal}</span>}
+                      <div className="flex items-center gap-1.5 font-mono flex-shrink-0 ml-2">
+                        <span className="text-[11px] text-foreground font-bold">{value}</span>
+                        {pctVal && <span className="text-[10px] text-muted-foreground/60">{pctVal}</span>}
+                      </div>
+                    </div>
+                  );
+
+                  const SubRow = ({ dot, label, value, pctVal }: { dot: string; label: string; value: string; pctVal: string | null }) => (
+                    <div className="flex items-center justify-between py-0.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`inline-block w-1 h-1 rounded-full flex-shrink-0 ${dot}`} />
+                        <span className="text-[10px] text-muted-foreground/75 truncate">{label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 font-mono flex-shrink-0 ml-2">
+                        <span className="text-[10px] text-foreground/90 font-semibold">{value}</span>
+                        {pctVal && <span className="text-[9px] text-muted-foreground/50">{pctVal}</span>}
                       </div>
                     </div>
                   );
@@ -855,17 +868,17 @@ export default function AccountsPage() {
                         <Row dot="bg-emerald-400" label="Campaigns" value={fmt(campaignsVal)} pctVal={pct(campaignsVal)} />
                         <Row dot="bg-muted-foreground/40" label="Unattributed" value={fmt(unattribVal)} pctVal={pct(unattribVal)} />
                         {hasTypeBreakdown && (
-                          <div className="mt-1 pl-3 border-l-2 border-border space-y-0.5">
-                            {messages > 0 && <Row dot="bg-primary" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
-                            {tips > 0 && <Row dot="bg-amber-400" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
-                            {subscriptions > 0 && <Row dot="bg-purple-400" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
-                            {posts > 0 && <Row dot="bg-blue-400" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
+                          <div className="ml-3 pl-2.5 border-l-2 border-border/60 space-y-0.5">
+                            {messages > 0 && <SubRow dot="bg-primary/70" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
+                            {tips > 0 && <SubRow dot="bg-amber-400/70" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
+                            {subscriptions > 0 && <SubRow dot="bg-purple-400/70" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
+                            {posts > 0 && <SubRow dot="bg-blue-400/70" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
                           </div>
                         )}
                         {ltvPerSubVal !== null && (
-                          <div className="flex items-center justify-between py-0.5 pt-1.5 mt-1 border-t border-border/50">
+                          <div className="flex items-center justify-between py-0.5 pt-1.5 mt-0.5 border-t border-border/50">
                             <span className="text-[11px] text-muted-foreground">Rev / Sub</span>
-                            <span className="font-mono font-semibold text-[11px] text-foreground">{fmt(ltvPerSubVal)}</span>
+                            <span className="font-mono font-bold text-[11px] text-foreground">{fmt(ltvPerSubVal)}</span>
                           </div>
                         )}
                       </div>
