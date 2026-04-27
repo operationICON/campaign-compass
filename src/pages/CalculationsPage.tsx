@@ -432,6 +432,16 @@ export default function CalculationsPage() {
             const pct = totalCount > 0 ? (syncedCount / totalCount) * 100 : 0;
             const estMinRemaining = notSynced.length * 3;
 
+            // Per-account LTV/Sub from tracking_link_ltv
+            const accLtvMap: Record<string, { totalLtv: number; totalSubs: number }> = {};
+            for (const r of ltvRows as any[]) {
+              const accId = r.account_id;
+              if (!accId) continue;
+              if (!accLtvMap[accId]) accLtvMap[accId] = { totalLtv: 0, totalSubs: 0 };
+              accLtvMap[accId].totalLtv += Number(r.total_ltv || 0);
+              accLtvMap[accId].totalSubs += Number(r.new_subs_total || 0);
+            }
+
             const fmtDate = (d: string | null) => {
               if (!d) return "—";
               const dt = new Date(d);
@@ -465,10 +475,7 @@ export default function CalculationsPage() {
                       <tr className="border-b border-border bg-muted/30">
                         <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Account</th>
                         <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total LTV</th>
-                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Messages</th>
-                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tips</th>
-                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Subscriptions</th>
-                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Posts</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">LTV / Sub</th>
                         <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last Synced</th>
                         <th className="text-center px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
                       </tr>
@@ -483,18 +490,13 @@ export default function CalculationsPage() {
                         .map((acc: any) => {
                           const isSynced = !!acc.ltv_updated_at;
                           const total = Number(acc.ltv_total || 0);
-                          const msgs = Number(acc.ltv_messages || 0);
-                          const tips = Number(acc.ltv_tips || 0);
-                          const subs = Number(acc.ltv_subscriptions || 0);
-                          const posts = Number(acc.ltv_posts || 0);
+                          const accLtv = accLtvMap[acc.id];
+                          const ltvPerSub = accLtv && accLtv.totalSubs > 0 ? accLtv.totalLtv / accLtv.totalSubs : null;
                           return (
                             <tr key={acc.id} className="border-b border-border/50 hover:bg-muted/20">
                               <td className="px-4 py-2.5 font-medium text-foreground text-[13px]">{acc.display_name || acc.username || "—"}</td>
                               <td className="px-4 py-2.5 text-right font-mono text-[12px] text-foreground">{total > 0 ? fmtC(total) : "—"}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{msgs > 0 ? fmtC(msgs) : "—"}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{tips > 0 ? fmtC(tips) : "—"}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{subs > 0 ? fmtC(subs) : "—"}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{posts > 0 ? fmtC(posts) : "—"}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-foreground">{ltvPerSub !== null ? fmtC(ltvPerSub) : "—"}</td>
                               <td className="px-4 py-2.5 text-right text-[12px] text-muted-foreground">{fmtDate(acc.ltv_updated_at)}</td>
                               <td className="px-4 py-2.5 text-center">
                                 {isSynced ? (
