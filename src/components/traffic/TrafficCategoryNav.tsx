@@ -887,11 +887,11 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
                   className="border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
                   style={{ height: "48px" }}
                   onClick={() => {
-                    if (g.isUnknown) {
+                    if (g.isUnknown && isOT) {
                       navigate(`/sources/onlytraffic/__unknown__/0`);
                       return;
                     }
-                    if (g.offerId != null) {
+                    if (g.offerId != null && isOT) {
                       navigate(`/sources/onlytraffic/${encodeURIComponent(g.marketer)}/${g.offerId}`);
                     } else {
                       setActiveSourceKey(g.key); onLevelChange?.(3);
