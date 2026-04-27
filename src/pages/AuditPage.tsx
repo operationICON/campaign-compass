@@ -409,7 +409,21 @@ const filteredLinks = useMemo(() => {
             );
             case "roi": return <td key={c.id} className="p-2 text-right font-mono" style={{ color: (l.roi || 0) >= 0 ? "#16a34a" : "#dc2626" }}>{l.roi != null ? fmtP(l.roi) : "—"}</td>;
             case "status": return <td key={c.id} className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ss.bg, color: ss.text }}>{status}</span></td>;
-            case "subs_day": return <td key={c.id} className="p-2 text-right">{subsPerDay}</td>;
+            case "subs_day": {
+              const rate = ad > 0 && l.subscribers > 0 ? l.subscribers / ad : null;
+              return (
+                <td key={c.id} className="p-2 text-right">
+                  {rate !== null ? (
+                    <div className="flex items-baseline gap-1 justify-end">
+                      <span className={`font-mono font-semibold text-[12px] ${rate >= 1 ? "text-emerald-400" : rate >= 0.3 ? "text-amber-400" : "text-muted-foreground"}`}>
+                        {rate < 1 ? rate.toFixed(2) : rate.toFixed(1)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-mono">{ad}d</span>
+                    </div>
+                  ) : <span className="text-muted-foreground text-[12px]">—</span>}
+                </td>
+              );
+            }
             case "created": {
               const days = ad;
               const pill = days <= 30 ? { label: `${days}d New`, bg: "#dcfce7", text: "#16a34a" }
