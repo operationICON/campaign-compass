@@ -679,8 +679,9 @@ export default function AccountsPage() {
     const gainedSuffix = periodActive ? periodSuffix : "(all)";
 
     // Lifetime KPI values (used when "All Time" or as fallback)
-    const lifetimeRevenue = (stats.campaignRevAllTime || 0) * revMultiplier;
+    const lifetimeUnattrib = (Number(acc.ltv_messages || 0) + Number(acc.ltv_tips || 0) + Number(acc.ltv_subscriptions || 0) + Number(acc.ltv_posts || 0)) * revMultiplier;
     const lifetimeCampaignRev = (stats.campaignRevAllTime || 0) * revMultiplier;
+    const lifetimeRevenue = lifetimeCampaignRev + lifetimeUnattrib;
     const lifetimeSpend = stats.totalSpendAllTime || 0;
     const lifetimeProfit = lifetimeRevenue - lifetimeSpend;
     const lifetimeRoi = lifetimeSpend > 0 ? (lifetimeProfit / lifetimeSpend) * 100 : null;
@@ -786,18 +787,17 @@ export default function AccountsPage() {
                   {/* Row 3: Traffic health + Unattributed */}
                   <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
                   <KpiCard label="Active Tracking Links" value={String(stats.activeCampaigns || 0)} />
-                  {(() => {
-                    const unattributed = Math.max(0, (stats.campaignRevAllTime || 0) - (stats.totalLtvAllTime || 0));
-                    const unattributedPct = (stats.campaignRevAllTime || 0) > 0
-                      ? (unattributed / (stats.campaignRevAllTime || 1)) * 100
-                      : null;
-                    return (
-                      <KpiCard
-                        label="Unattributed Rev"
-                        value={unattributedPct != null ? `${unattributedPct.toFixed(1)}%` : "—"}
-                      />
-                    );
-                  })()}
+                  <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">Unattributed Rev</p>
+                    <p className="text-lg font-bold font-mono text-foreground">
+                      {lifetimeUnattrib > 0 ? `$${lifetimeUnattrib.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
+                    </p>
+                    {lifetimeRevenue > 0 && lifetimeUnattrib > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {((lifetimeUnattrib / lifetimeRevenue) * 100).toFixed(1)}% of total
+                      </p>
+                    )}
+                  </div>
                   <div />
                   <div />
                 </div>
