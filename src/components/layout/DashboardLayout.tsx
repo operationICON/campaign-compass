@@ -10,7 +10,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
-      <div className="flex-1 flex flex-col overflow-auto">
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <header className="flex items-center justify-between px-6 py-3 bg-card border-b border-border">
           <div />
           <div className="flex items-center gap-2">
