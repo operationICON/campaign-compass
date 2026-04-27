@@ -20,7 +20,6 @@ import {
 import { RefreshButton } from "@/components/RefreshButton";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { OverviewCustomizer, useOverviewCustomizer, type OverviewKpiCardId } from "@/components/dashboard/OverviewCustomizer";
-import { DailyDecisionView } from "@/components/dashboard/DailyDecisionView";
 import { applySnapshotToLinks, buildSnapshotLookup } from "@/hooks/useSnapshotMetrics";
 import { usePageFilters, TIME_PERIODS, type TimePeriod } from "@/hooks/usePageFilters";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
@@ -619,19 +618,6 @@ export default function DashboardPage() {
           revMultiplier={revMultiplier}
         />
 
-        {/* ═══ DAILY DECISION VIEW ═══ */}
-        <DailyDecisionView
-          links={filteredLinksForKpi}
-          ltvLookup={overviewLtvLookup}
-          accounts={accounts}
-          snapshotLookup={overviewSnapshotLookup}
-          isAllTime={isAllTime}
-          todaySnapshots={todaySnapshots}
-          lastWeekSnapshots={lastWeekSnapshots}
-          activeLinkCount={activeLinkCount}
-          snapshotRows={overviewSnapshotRows}
-          revMultiplier={revMultiplier}
-        />
 
 
 
