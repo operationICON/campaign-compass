@@ -832,14 +832,14 @@ export default function AccountsPage() {
                   const pct = (v: number) => totalForPct > 0 ? `${((v / totalForPct) * 100).toFixed(1)}%` : null;
 
                   const Row = ({ dot, label, value, pctVal }: { dot: string; label: string; value: string; pctVal: string | null }) => (
-                    <div className="flex items-center justify-between py-0.5">
+                    <div className="flex items-center justify-between py-1">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
                         <span className="text-[11px] text-muted-foreground truncate">{label}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 font-mono flex-shrink-0 ml-2">
-                        <span className="text-[11px] text-foreground font-bold">{value}</span>
-                        {pctVal && <span className="text-[10px] text-muted-foreground/60">{pctVal}</span>}
+                      <div className="flex items-center gap-2 font-mono flex-shrink-0 ml-2">
+                        <span className="text-[15px] text-foreground font-bold">{value}</span>
+                        {pctVal && <span className="text-[11px] text-muted-foreground/60">{pctVal}</span>}
                       </div>
                     </div>
                   );
@@ -850,9 +850,9 @@ export default function AccountsPage() {
                         <span className={`inline-block w-1 h-1 rounded-full flex-shrink-0 ${dot}`} />
                         <span className="text-[10px] text-muted-foreground/75 truncate">{label}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 font-mono flex-shrink-0 ml-2">
-                        <span className="text-[10px] text-foreground/90 font-semibold">{value}</span>
-                        {pctVal && <span className="text-[9px] text-muted-foreground/50">{pctVal}</span>}
+                      <div className="flex items-center gap-2 font-mono flex-shrink-0 ml-2">
+                        <span className="text-[13px] text-foreground/90 font-semibold">{value}</span>
+                        {pctVal && <span className="text-[10px] text-muted-foreground/50">{pctVal}</span>}
                       </div>
                     </div>
                   );
@@ -876,9 +876,9 @@ export default function AccountsPage() {
                           </div>
                         )}
                         {ltvPerSubVal !== null && (
-                          <div className="flex items-center justify-between py-0.5 pt-1.5 mt-0.5 border-t border-border/50">
+                          <div className="flex items-center justify-between py-1 pt-2 mt-0.5 border-t border-border/50">
                             <span className="text-[11px] text-muted-foreground">Rev / Sub</span>
-                            <span className="font-mono font-bold text-[11px] text-foreground">{fmt(ltvPerSubVal)}</span>
+                            <span className="font-mono font-bold text-[15px] text-foreground">{fmt(ltvPerSubVal)}</span>
                           </div>
                         )}
                       </div>
