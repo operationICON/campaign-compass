@@ -25,7 +25,6 @@ import { DraggableColumnSelector } from "@/components/DraggableColumnSelector";
 import { STATUS_STYLES as SHARED_STATUS_STYLES, calcStatus as calcStatusFn } from "@/lib/calc-helpers";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { useActiveLinkStatus } from "@/hooks/useActiveLinkStatus";
-import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 
 const LS_KEY = "ct_audit_filters";
 const PAGE_SIZE = 25;
@@ -615,14 +614,20 @@ export default function AuditPage() {
           })}
         </div>
 
-        {/* Activity filter — hidden when viewing Deleted */}
+        {/* Activity filter — All / Active only (no Inactive: covered by the Inactive chip) */}
         {!isDeleted && (
-          <LinkActivityFilter
-            value={activityFilter}
-            onChange={(v) => { setActivityFilter(v); setPage(0); }}
-            totalCount={activityCounts.total}
-            activeCount={activityCounts.active}
-          />
+          <div className="flex items-center gap-2">
+            {(["all", "active"] as const).map(key => {
+              const label = key === "all" ? `All links (${activityCounts.total})` : `Active (${activityCounts.active})`;
+              const selected = activityFilter === key;
+              return (
+                <button key={key} onClick={() => { setActivityFilter(key); setPage(0); }}
+                  className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/50 dark:bg-secondary text-foreground/80 border-border hover:bg-secondary"}`}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {/* Table card */}
