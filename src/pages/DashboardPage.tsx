@@ -930,17 +930,6 @@ function KpiCards({
 
       // ═══ CARD 5 — UNATTRIBUTED % (Always All Time) ═══
       case "unattributed_pct": {
-        // Unattributed = messages/tips/PPV revenue not from campaigns
-        // Campaign revenue = allTimeRevenue (tracking links); total = accounts.ltv_total
-        const totalLtv5 = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-        const totalRev5 = Math.max(totalLtv5, allTimeRevenue);
-        const unattribVal = Math.max(0, totalLtv5 - allTimeRevenue);
-        const pct = totalRev5 > 0 ? (unattribVal / totalRev5) * 100 : null;
-        const colorClass = pct === null ? "text-muted-foreground"
-          : pct > 50 ? "text-destructive"
-          : pct >= 30 ? "text-[hsl(38_92%_50%)]"
-          : "text-primary";
-
         // Breakdown by type comes from accounts.ltv_messages/tips/subscriptions/posts
         const breakdown = filtAccounts.reduce(
           (acc: { messages: number; tips: number; subscriptions: number; posts: number }, a: any) => ({
@@ -951,6 +940,14 @@ function KpiCards({
           }),
           { messages: 0, tips: 0, subscriptions: 0, posts: 0 },
         );
+        // Unattributed = sum of all revenue types not from tracking links
+        const unattribVal = breakdown.messages + breakdown.tips + breakdown.subscriptions + breakdown.posts;
+        const totalRev5 = allTimeRevenue + unattribVal;
+        const pct = totalRev5 > 0 ? (unattribVal / totalRev5) * 100 : null;
+        const colorClass = pct === null ? "text-muted-foreground"
+          : pct > 50 ? "text-destructive"
+          : pct >= 30 ? "text-[hsl(38_92%_50%)]"
+          : "text-primary";
 
         return (
           <UnattributedCard
@@ -972,25 +969,24 @@ function KpiCards({
 
       // ═══ TOTAL REVENUE ═══
       case "total_revenue": {
+        const unattribSum = filtAccounts.reduce((s: number, a: any) =>
+          s + Number(a.ltv_messages || 0) + Number(a.ltv_tips || 0) + Number(a.ltv_subscriptions || 0) + Number(a.ltv_posts || 0), 0);
+
+        const bkTracked = allTimeRevenue * revMultiplier;
+        const bkUnattr = unattribSum * revMultiplier;
+        const bkTotalRev = bkTracked + bkUnattr;
+
         let revVal: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          revVal = allTimeRevenue * revMultiplier;
-          subtitle = "All time · tracking links revenue";
+          revVal = bkTotalRev;
+          subtitle = "All time · tracking links + unattributed revenue";
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
         } else {
           revVal = snapshotRevenue * revMultiplier;
           subtitle = periodLabel;
         }
-
-        // Via Campaigns = tracking link revenue; Unattributed = messages/tips/PPV from accounts.ltv_total
-        const bkTracked = allTimeRevenue * revMultiplier;
-        const accountsLtvTotal = filtAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-        const bkTotalRev = accountsLtvTotal > allTimeRevenue
-          ? accountsLtvTotal * revMultiplier
-          : allTimeRevenue * revMultiplier;
-        const bkUnattr = Math.max(0, bkTotalRev - bkTracked);
 
         return (
           <TotalRevenueCard
