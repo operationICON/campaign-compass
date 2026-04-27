@@ -839,29 +839,17 @@ export default function AccountsPage() {
                   return (
                     <div className="mt-4 pt-3 border-t border-border">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Revenue Breakdown</p>
-                      <div className="grid grid-cols-2 gap-x-6">
-                        {/* Left: LTV attribution status */}
-                        <div className="space-y-0.5">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40 mb-1">Attribution</p>
-                          <Row dot="bg-emerald-400" label="LTV Synced" value={fmt(ltvRaw * revMultiplier)} pctVal={pct(ltvRaw * revMultiplier)} />
-                          {notSyncedRaw > 0 && (
-                            <Row dot="bg-muted-foreground/30" label="Not LTV Synced" value={fmt(notSyncedRaw * revMultiplier)} pctVal={pct(notSyncedRaw * revMultiplier)} />
-                          )}
-                        </div>
-                        {/* Right: by transaction type */}
-                        <div className="space-y-0.5">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40 mb-1">By Type</p>
-                          {hasTypeBreakdown ? (
-                            <>
-                              {messages > 0 && <Row dot="bg-primary" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
-                              {tips > 0 && <Row dot="bg-amber-400" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
-                              {subscriptions > 0 && <Row dot="bg-purple-400" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
-                              {posts > 0 && <Row dot="bg-blue-400" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
-                            </>
-                          ) : (
-                            <p className="text-[10px] text-muted-foreground/40 italic">Run LTV sync to see</p>
-                          )}
-                        </div>
+                      <div className="space-y-0.5">
+                        {hasTypeBreakdown ? (
+                          <>
+                            {messages > 0 && <Row dot="bg-primary" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
+                            {tips > 0 && <Row dot="bg-amber-400" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
+                            {subscriptions > 0 && <Row dot="bg-purple-400" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
+                            {posts > 0 && <Row dot="bg-blue-400" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
+                          </>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground/40 italic">Run LTV sync to see</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -952,7 +940,7 @@ export default function AccountsPage() {
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>{headerLabel("Clicks")} <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>{headerLabel("Subs")} <SortIcon col="subscribers" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Gained {gainedSuffix}</th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>{periodActive ? headerLabel("Subs/Day") : "Subs/Day (3d · 7d · 14d)"} <SortIcon col="subs_day" /></th>
+                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>{headerLabel("Subs/Day")} <SortIcon col="subs_day" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>{headerLabel("CVR")} <SortIcon col="cvr" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>{headerLabel("Spend")} <SortIcon col="spend" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("revenue")}>{headerLabel("Revenue")} <SortIcon col="revenue" /></th>
@@ -1078,30 +1066,26 @@ export default function AccountsPage() {
                                   {periodActive && <div><TrendChip value={gainedTrend} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3">
-                                  {periodActive ? (
-                                    <div className="font-mono text-[12px] text-muted-foreground text-right">
-                                      {subsPerDay != null ? `${subsPerDay < 1 ? subsPerDay.toFixed(2) : subsPerDay.toFixed(1)}/day` : "—"}
-                                      {subsPerDayPrev !== null && <div><TrendChip value={pctChange(subsPerDay ?? 0, subsPerDayPrev)} /></div>}
-                                    </div>
-                                  ) : (() => {
-                                    const wr = getWindowRates(l.id, multiWindowRates);
-                                    return (
-                                      <div className="flex flex-col items-end gap-0.5">
-                                        {([["3d", wr.w3d], ["7d", wr.w7d], ["14d", wr.w14d]] as [string, import("@/hooks/useMultiWindowRates").WindowRate | null][]).map(([label, w]) => (
-                                          <div key={label} className="flex items-center gap-1">
-                                            <span className="text-[9px] text-muted-foreground/50 font-mono w-[18px] text-right">{label}</span>
-                                            {w == null ? (
-                                              <span className="text-[11px] font-mono text-muted-foreground/30">—</span>
-                                            ) : (
-                                              <span className={`text-[11px] font-mono ${w.rate >= 1 ? "text-emerald-400 font-semibold" : w.rate >= 0.3 ? "text-amber-400" : "text-muted-foreground/50"} ${!w.isFull ? "opacity-70" : ""}`}>
-                                                {w.rate < 1 ? w.rate.toFixed(2) : w.rate.toFixed(1)}
-                                                {!w.isFull && <span className="text-[8px] text-muted-foreground/40 ml-0.5">{w.actualDays}d</span>}
-                                              </span>
-                                            )}
-                                          </div>
-                                        ))}
+                                  {(() => {
+                                    if (periodActive) {
+                                      return (
+                                        <div className="font-mono text-[12px] text-muted-foreground text-right">
+                                          {subsPerDay != null ? `${subsPerDay < 1 ? subsPerDay.toFixed(2) : subsPerDay.toFixed(1)}/day` : "—"}
+                                          {subsPerDayPrev !== null && <div><TrendChip value={pctChange(subsPerDay ?? 0, subsPerDayPrev)} /></div>}
+                                        </div>
+                                      );
+                                    }
+                                    const ageDays = l.created_at ? Math.max(1, differenceInDays(new Date(), new Date(l.created_at))) : 1;
+                                    const totalSubs = l.subscribers || 0;
+                                    const lifetimeRate = totalSubs > 0 ? totalSubs / ageDays : null;
+                                    return lifetimeRate !== null ? (
+                                      <div className="flex items-baseline gap-1 justify-end">
+                                        <span className={`font-mono font-semibold text-[12px] ${lifetimeRate >= 1 ? "text-emerald-400" : lifetimeRate >= 0.3 ? "text-amber-400" : "text-muted-foreground"}`}>
+                                          {lifetimeRate < 1 ? lifetimeRate.toFixed(2) : lifetimeRate.toFixed(1)}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground font-mono">{ageDays}d</span>
                                       </div>
-                                    );
+                                    ) : <span className="text-muted-foreground text-[12px]">—</span>;
                                   })()}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
