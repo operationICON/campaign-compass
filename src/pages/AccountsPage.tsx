@@ -1448,7 +1448,6 @@ export default function AccountsPage() {
 
                 {/* KPI grid */}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
-                  {/* Total Revenue = LTV-adjusted when available, else raw campaign rev */}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Revenue</span>
                     <span className="font-mono font-semibold text-foreground">
@@ -1461,25 +1460,17 @@ export default function AccountsPage() {
                       {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—"}
                     </span>
                   </div>
-                  {/* Campaign Rev = direct tracking-link attributed revenue */}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Campaign Rev</span>
-                    <span className="font-mono font-semibold text-foreground">
-                      {fmtCurrency((stats.campaignRevAllTime || 0) * revMultiplier)}
-                    </span>
-                  </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Spend</span>
                     <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
                   </div>
-                  {/* CVR row */}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">CVR</span>
                     <span className="font-mono font-semibold text-foreground">
                       {stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between col-span-2">
                     <span className="text-muted-foreground">Profit</span>
                     <span className={`font-mono font-semibold ${(stats.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-destructive"}`}>
                       {stats.totalSpendAllTime > 0 ? fmtCurrency((stats.totalProfit || 0) * revMultiplier) : "—"}
@@ -1533,6 +1524,11 @@ export default function AccountsPage() {
                       </button>
                       {isExp && (
                         <div className="mt-1.5 space-y-1.5 text-[12px]">
+                          {/* Campaign Rev line */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Campaign Rev</span>
+                            <span className="font-mono text-foreground font-semibold">{fmtCurrency(campRev * revMultiplier)}</span>
+                          </div>
                           {typeRows.length > 0 && (
                             <div className="space-y-1">
                               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">By Type</span>
@@ -1555,24 +1551,15 @@ export default function AccountsPage() {
                   );
                 })()}
 
-                {/* Footer stats bar */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-2 border-t border-border text-[11px]">
-                  <div className="flex flex-col">
-                    <span className="font-mono font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span>
-                    <span className="text-muted-foreground">Total Subs</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-mono font-semibold text-foreground">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}/day` : "—"}</span>
-                    <span className="text-muted-foreground">Subs/Day (avg)</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-mono font-semibold text-emerald-400">{stats.activeCampaigns || 0}</span>
-                    <span className="text-muted-foreground">Active Links</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-mono font-semibold text-foreground">{stats.totalCampaigns || 0}</span>
-                    <span className="text-muted-foreground">Total Links</span>
-                  </div>
+                {/* Footer stats — one line */}
+                <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border text-[11px] text-muted-foreground">
+                  <span><span className="font-mono font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span> subs</span>
+                  <span className="text-border">·</span>
+                  <span><span className="font-mono font-semibold text-foreground">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}` : "—"}</span> subs/day</span>
+                  <span className="text-border">·</span>
+                  <span><span className="font-mono font-semibold text-emerald-400">{stats.activeCampaigns || 0}</span> active links</span>
+                  <span className="text-border">·</span>
+                  <span><span className="font-mono font-semibold text-foreground">{stats.totalCampaigns || 0}</span> total links</span>
                 </div>
               </div>
             );
