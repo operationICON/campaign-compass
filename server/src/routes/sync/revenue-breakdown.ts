@@ -226,11 +226,11 @@ router.post("/", async (c) => {
               status: "success", success: true,
               finished_at: new Date(), completed_at: new Date(),
               records_processed: txList.length,
-              message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)} LTV`,
+              message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)}`,
             }).where(eq(sync_logs.id, accountLogId));
           }
 
-          await send({ step: "account_done", message: `${account.display_name}: ${txList.length} tx, $${ltvTotal.toFixed(2)} total LTV` });
+          await send({ step: "account_done", message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)}` });
         } catch (err: any) {
           errors.push(`${account.display_name}: ${err.message}`);
           await send({ step: "account_error", message: `${account.display_name}: ${err.message}` });
