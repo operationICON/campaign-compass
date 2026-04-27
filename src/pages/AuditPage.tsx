@@ -15,6 +15,7 @@ import {
   ShieldCheck, Upload, Trash2, RotateCcw, Download, Columns3,
   AlertCircle, Skull, Tag, DollarSign, CheckCircle2, Copy,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -131,10 +132,56 @@ export default function AuditPage() {
   const [filters, setFilters] = useState(loadFilters);
   const [activeTab, setActiveTab] = useState("zero");
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" }>({ col: "created", dir: "desc" });
   const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
   useEffect(() => { setPage(0); }, [activeTab, filters]);
+
+  const toggleSort = (col: string) => {
+    setSort(prev => prev.col === col ? { col, dir: prev.dir === "asc" ? "desc" : "asc" } : { col, dir: "desc" });
+    setPage(0);
+  };
+
+  const getSortVal = (l: any, col: string): number | string => {
+    const id = String(l.id).toLowerCase();
+    const ltvRec = ltvLookup[id] || null;
+    const costTotal = Number(l.cost_total || 0);
+    const ltvVal = ltvRec ? Number(ltvRec.total_ltv || 0) : null;
+    const effectiveRev = ltvVal !== null && ltvVal > 0 ? ltvVal : Number(l.revenue || 0);
+    const ad = l.created_at ? Math.max(1, differenceInDays(now, new Date(l.created_at))) : 1;
+    switch (col) {
+      case "name":         return (l.campaign_name || "").toLowerCase();
+      case "model":        return (l.accounts?.username || l.accounts?.display_name || "").toLowerCase();
+      case "source":       return (getEffectiveSource(l) || "").toLowerCase();
+      case "clicks":       return l.clicks || 0;
+      case "subscribers":  return l.subscribers || 0;
+      case "cvr":          return l.clicks > 100 ? (l.subscribers / l.clicks) : -1;
+      case "revenue":      return effectiveRev;
+      case "ltv_sub":      return ltvRec ? Number(ltvRec.ltv_per_sub || 0) : -1;
+      case "spender_rate": return ltvRec ? Number(ltvRec.spender_pct || 0) : -1;
+      case "expenses":     return costTotal;
+      case "profit":       return costTotal > 0 ? effectiveRev - costTotal : -Infinity;
+      case "profit_sub":   return (l.subscribers > 0 && costTotal > 0) ? (effectiveRev - costTotal) / l.subscribers : -Infinity;
+      case "roi":          return l.roi ?? -Infinity;
+      case "status":       return calcStatusFn(l);
+      case "subs_day":     return l.subscribers > 0 ? l.subscribers / ad : -1;
+      case "created":      return new Date(l.created_at).getTime();
+      case "media_buyer":  return (l.media_buyer || "").toLowerCase();
+      case "avg_expenses": return costTotal;
+      default:             return 0;
+    }
+  };
+
+  const sortItems = (items: any[]): any[] =>
+    [...items].sort((a, b) => {
+      const av = getSortVal(a, sort.col);
+      const bv = getSortVal(b, sort.col);
+      const cmp = typeof av === "string" && typeof bv === "string"
+        ? av.localeCompare(bv)
+        : (av as number) - (bv as number);
+      return sort.dir === "asc" ? cmp : -cmp;
+    });
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
   const anyFilterActive = filters.model !== "all" || filters.activity !== "all";
@@ -466,8 +513,20 @@ const filteredLinks = useMemo(() => {
     );
   };
 
+  const SortTh = ({ colId, label, align = "text-left" }: { colId: string; label: string; align?: string }) => (
+    <th className={`p-2 font-medium ${align} cursor-pointer select-none whitespace-nowrap`} onClick={() => toggleSort(colId)}>
+      <span className={`inline-flex items-center gap-0.5 ${align === "text-right" ? "flex-row-reverse" : ""}`}>
+        {label}
+        {sort.col === colId
+          ? sort.dir === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+          : <ArrowUpDown className="h-3 w-3 opacity-25 hover:opacity-60 transition-opacity" />}
+      </span>
+    </th>
+  );
+
   const renderTable = (items: any[], showCheckbox: boolean, showSourceDropdown: boolean) => {
-    const paginated = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const sorted = sortItems(items);
+    const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
     const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length + (showCheckbox ? 1 : 0);
     return (
       <>
@@ -476,10 +535,10 @@ const filteredLinks = useMemo(() => {
             <thead className="bg-muted/50">
               <tr>
                 {showCheckbox && <th className="p-2 w-8"><input type="checkbox" onChange={() => selectAll(items.map(l => l.id))} checked={items.length > 0 && items.every(l => selected.has(l.id))} /></th>}
-                <th className="p-2 font-medium text-left">Tracking Link</th>
+                <SortTh colId="name" label="Tracking Link" />
                 {columnOrder.visibleOrderedColumns.map(c => {
-                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr"].includes(c.id) ? "text-right" : "text-left";
-                  return <th key={c.id} className={`p-2 font-medium ${align}`}>{c.label}</th>;
+                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr","profit_sub","avg_expenses"].includes(c.id) ? "text-right" : "text-left";
+                  return <SortTh key={c.id} colId={c.id} label={c.label} align={align} />;
                 })}
                 <th className="p-2 w-12"></th>
               </tr>
@@ -497,7 +556,8 @@ const filteredLinks = useMemo(() => {
   };
 
   const renderDeletedTable = () => {
-    const paginated = deletedLinks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const sorted = sortItems(deletedLinks);
+    const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
     const visibleColCount = 2 + columnOrder.visibleOrderedColumns.length;
     return (
       <>
@@ -505,10 +565,10 @@ const filteredLinks = useMemo(() => {
           <table className="w-full text-xs">
             <thead className="bg-muted/50">
               <tr>
-                <th className="p-2 font-medium text-left">Tracking Link</th>
+                <SortTh colId="name" label="Tracking Link" />
                 {columnOrder.visibleOrderedColumns.map(c => {
-                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr"].includes(c.id) ? "text-right" : "text-left";
-                  return <th key={c.id} className={`p-2 font-medium ${align}`}>{c.label}</th>;
+                  const align = ["revenue","ltv_sub","spender_rate","expenses","profit","roi","subs_day","clicks","subscribers","cvr","profit_sub","avg_expenses"].includes(c.id) ? "text-right" : "text-left";
+                  return <SortTh key={c.id} colId={c.id} label={c.label} align={align} />;
                 })}
                 <th className="p-2 w-12"></th>
               </tr>
