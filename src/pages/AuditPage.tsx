@@ -130,7 +130,7 @@ export default function AuditPage() {
   const [importAuditOpen, setImportAuditOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState(loadFilters);
-  const [activeTab, setActiveTab] = useState("zero");
+  const [activeTab, setActiveTab] = useState("all");
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" }>({ col: "created", dir: "desc" });
   const columnOrder = useColumnOrder("ct_audit_columns", AUDIT_COLUMNS);
@@ -614,6 +614,7 @@ const filteredLinks = useMemo(() => {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-muted">
+            <TabsTrigger value="all">All Links ({filteredLinks.length})</TabsTrigger>
             <TabsTrigger value="zero">Zero Activity ({zeroActivity.length})</TabsTrigger>
             <TabsTrigger value="dead">Inactive ({inactive.length})</TabsTrigger>
             <TabsTrigger value="source">Missing Source ({missingSource.length})</TabsTrigger>
@@ -623,6 +624,15 @@ const filteredLinks = useMemo(() => {
               Deleted ({deletedLinks.length})
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="all">
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <TabToolbar rightContent={
+                <DeleteConfirmBtn ids={Array.from(selected).filter(id => filteredLinks.some((l: any) => l.id === id))} label="Delete selected" />
+              } />
+              {renderTable(filteredLinks, true, false)}
+            </div>
+          </TabsContent>
 
           <TabsContent value="zero">
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
