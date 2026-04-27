@@ -855,13 +855,12 @@ export default function AccountsPage() {
                         <Row dot="bg-emerald-400" label="Campaigns" value={fmt(campaignsVal)} pctVal={pct(campaignsVal)} />
                         <Row dot="bg-muted-foreground/40" label="Unattributed" value={fmt(unattribVal)} pctVal={pct(unattribVal)} />
                         {hasTypeBreakdown && (
-                          <>
-                            <div className="w-full h-px bg-border my-1" />
+                          <div className="mt-1 pl-3 border-l-2 border-border space-y-0.5">
                             {messages > 0 && <Row dot="bg-primary" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
                             {tips > 0 && <Row dot="bg-amber-400" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
                             {subscriptions > 0 && <Row dot="bg-purple-400" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
                             {posts > 0 && <Row dot="bg-blue-400" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
-                          </>
+                          </div>
                         )}
                         {ltvPerSubVal !== null && (
                           <div className="flex items-center justify-between py-0.5 pt-1.5 mt-1 border-t border-border/50">
