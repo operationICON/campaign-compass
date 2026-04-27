@@ -426,11 +426,18 @@ export default function CampaignsPage() {
     return result;
   }, [baseLinks, searchQuery, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
 
-  // Activity counts (snapshot-derived) scoped to current filters
+  // Active = ≥1 sub/day over last 5 days (snapshot) OR no snapshot data but has subs/clicks
+  const isLinkActive = (l: any): boolean => {
+    const id = String(l.id).toLowerCase();
+    if (activeLookup.has(id)) return activeLookup.get(id)!.isActive;
+    return (l.subscribers || 0) > 0 || (l.clicks || 0) > 0;
+  };
+
+  // Activity counts scoped to current filters
   const activityCounts = useMemo(() => {
     let active = 0;
     for (const l of filteredPreActivity) {
-      if (getActiveInfo(l.id, activeLookup).isActive) active++;
+      if (isLinkActive(l)) active++;
     }
     return { total: filteredPreActivity.length, active };
   }, [filteredPreActivity, activeLookup]);
@@ -438,8 +445,8 @@ export default function CampaignsPage() {
   const filtered = useMemo(() => {
     if (activityFilter === "all") return filteredPreActivity;
     if (activityFilter === "active")
-      return filteredPreActivity.filter((l: any) => getActiveInfo(l.id, activeLookup).isActive);
-    return filteredPreActivity.filter((l: any) => !getActiveInfo(l.id, activeLookup).isActive);
+      return filteredPreActivity.filter((l: any) => isLinkActive(l));
+    return filteredPreActivity.filter((l: any) => !isLinkActive(l));
   }, [filteredPreActivity, activityFilter, activeLookup]);
 
 
@@ -905,6 +912,7 @@ export default function CampaignsPage() {
                         const isInactive = status === "INACTIVE";
                         const isExpanded = expandedRow === link.id;
                         const activeInfo = getActiveInfo(link.id, activeLookup);
+                        const linkIsActive = isLinkActive(link);
 
                         return (
                           <React.Fragment key={link.id}>
@@ -924,7 +932,7 @@ export default function CampaignsPage() {
                             </td>
                             <td style={{ padding: "8px 12px", maxWidth: "200px" }}>
                               <div className="flex items-center gap-1.5">
-                                <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: activeInfo.isActive ? "#16a34a" : "#94a3b8" }} title={activeInfo.isActive ? "Active" : "Inactive"} />
+                                <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: linkIsActive ? "#16a34a" : "#94a3b8" }} title={linkIsActive ? "Active" : "Inactive"} />
                                 <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
                               </div>
                               <p className="truncate text-muted-foreground" style={{ fontSize: "11px", paddingLeft: "14px" }} title={link.url}>{link.url}</p>
