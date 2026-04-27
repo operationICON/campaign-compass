@@ -417,6 +417,103 @@ export default function CalculationsPage() {
           )}
         </Section>
 
+        {/* SECTION: Revenue Breakdown Sync Status */}
+        <Section
+          icon={<BarChart3 className="h-4 w-4" style={{ color: "#16a34a" }} />}
+          title="Revenue Breakdown Sync Status"
+          description="Per-account LTV sync coverage — shows how much revenue data has been captured"
+        >
+          {(() => {
+            const activeAccounts = (allAccounts as any[]).filter((a: any) => a.is_active !== false);
+            const synced = activeAccounts.filter((a: any) => a.ltv_updated_at);
+            const notSynced = activeAccounts.filter((a: any) => !a.ltv_updated_at);
+            const syncedCount = synced.length;
+            const totalCount = activeAccounts.length;
+            const pct = totalCount > 0 ? (syncedCount / totalCount) * 100 : 0;
+            const estMinRemaining = notSynced.length * 3;
+
+            const fmtDate = (d: string | null) => {
+              if (!d) return "—";
+              const dt = new Date(d);
+              const diff = Math.floor((Date.now() - dt.getTime()) / 60000);
+              if (diff < 60) return `${diff}m ago`;
+              if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+              return `${Math.floor(diff / 1440)}d ago`;
+            };
+
+            return (
+              <div className="space-y-4">
+                {/* Summary bar */}
+                <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">{syncedCount} of {totalCount} accounts synced</span>
+                    <span className="text-sm font-mono text-muted-foreground">{pct.toFixed(0)}%</span>
+                  </div>
+                  <Progress value={pct} className="h-2" />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{notSynced.length > 0 ? `${notSynced.length} not yet synced` : "All accounts synced"}</span>
+                    {notSynced.length > 0 && (
+                      <span>~{estMinRemaining} min to sync remaining (est. 3 min/account)</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Per-account table */}
+                <div className="bg-card border border-border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Account</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total LTV</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Messages</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tips</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Subscriptions</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Posts</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last Synced</th>
+                        <th className="text-center px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeAccounts
+                        .sort((a: any, b: any) => {
+                          if (a.ltv_updated_at && !b.ltv_updated_at) return -1;
+                          if (!a.ltv_updated_at && b.ltv_updated_at) return 1;
+                          return (b.ltv_total || 0) - (a.ltv_total || 0);
+                        })
+                        .map((acc: any) => {
+                          const isSynced = !!acc.ltv_updated_at;
+                          const total = Number(acc.ltv_total || 0);
+                          const msgs = Number(acc.ltv_messages || 0);
+                          const tips = Number(acc.ltv_tips || 0);
+                          const subs = Number(acc.ltv_subscriptions || 0);
+                          const posts = Number(acc.ltv_posts || 0);
+                          return (
+                            <tr key={acc.id} className="border-b border-border/50 hover:bg-muted/20">
+                              <td className="px-4 py-2.5 font-medium text-foreground text-[13px]">{acc.display_name || acc.username || "—"}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-foreground">{total > 0 ? fmtC(total) : "—"}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{msgs > 0 ? fmtC(msgs) : "—"}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{tips > 0 ? fmtC(tips) : "—"}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{subs > 0 ? fmtC(subs) : "—"}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{posts > 0 ? fmtC(posts) : "—"}</td>
+                              <td className="px-4 py-2.5 text-right text-[12px] text-muted-foreground">{fmtDate(acc.ltv_updated_at)}</td>
+                              <td className="px-4 py-2.5 text-center">
+                                {isSynced ? (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500">Synced</span>
+                                ) : (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-500">Not Synced</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </Section>
+
       </div>
     </DashboardLayout>
   );
