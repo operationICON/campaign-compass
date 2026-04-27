@@ -805,23 +805,26 @@ export default function AccountsPage() {
                 {/* Revenue Breakdown — compact, under KPI cards */}
                 {(() => {
                   const campRevRaw = stats.campaignRevAllTime || 0;
-                  const ltvRaw = stats.totalLtvAllTime || 0;
-                  const notSyncedRaw = Math.max(0, campRevRaw - ltvRaw);
-                  const totalForPct = campRevRaw * revMultiplier;
-                  const fmt = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                  const pct = (v: number) => totalForPct > 0 ? `${((v / totalForPct) * 100).toFixed(1)}%` : null;
-
                   const tx = (txBreakdowns as any)[acc.id] as any;
                   const accMsg  = Number(acc.ltv_messages || 0);
                   const accTips = Number(acc.ltv_tips || 0);
                   const accSubs = Number(acc.ltv_subscriptions || 0);
                   const accPost = Number(acc.ltv_posts || 0);
                   const hasLtv  = accMsg > 0 || accTips > 0 || accSubs > 0 || accPost > 0;
+                  const unattribRaw = accMsg + accTips + accSubs + accPost;
+
+                  const campaignsVal   = campRevRaw * revMultiplier;
+                  const unattribVal    = unattribRaw * revMultiplier;
+                  const totalForPct    = campaignsVal + unattribVal;
+
                   const messages      = (hasLtv ? accMsg  : (tx?.messages      ?? 0)) * revMultiplier;
                   const tips          = (hasLtv ? accTips : (tx?.tips          ?? 0)) * revMultiplier;
                   const subscriptions = (hasLtv ? accSubs : (tx?.subscriptions ?? 0)) * revMultiplier;
                   const posts         = (hasLtv ? accPost : (tx?.posts         ?? 0)) * revMultiplier;
                   const hasTypeBreakdown = messages > 0 || tips > 0 || subscriptions > 0 || posts > 0;
+
+                  const fmt = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  const pct = (v: number) => totalForPct > 0 ? `${((v / totalForPct) * 100).toFixed(1)}%` : null;
 
                   const Row = ({ dot, label, value, pctVal }: { dot: string; label: string; value: string; pctVal: string | null }) => (
                     <div className="flex items-center justify-between py-0.5">
@@ -840,15 +843,16 @@ export default function AccountsPage() {
                     <div className="mt-4 pt-3 border-t border-border">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Revenue Breakdown</p>
                       <div className="space-y-0.5">
-                        {hasTypeBreakdown ? (
+                        <Row dot="bg-emerald-400" label="Campaigns" value={fmt(campaignsVal)} pctVal={pct(campaignsVal)} />
+                        <Row dot="bg-muted-foreground/40" label="Unattributed" value={fmt(unattribVal)} pctVal={pct(unattribVal)} />
+                        {hasTypeBreakdown && (
                           <>
+                            <div className="w-full h-px bg-border my-1" />
                             {messages > 0 && <Row dot="bg-primary" label="Messages / PPV" value={fmt(messages)} pctVal={pct(messages)} />}
                             {tips > 0 && <Row dot="bg-amber-400" label="Tips" value={fmt(tips)} pctVal={pct(tips)} />}
                             {subscriptions > 0 && <Row dot="bg-purple-400" label="Subscriptions" value={fmt(subscriptions)} pctVal={pct(subscriptions)} />}
                             {posts > 0 && <Row dot="bg-blue-400" label="Posts" value={fmt(posts)} pctVal={pct(posts)} />}
                           </>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground/40 italic">Run LTV sync to see</p>
                         )}
                       </div>
                     </div>
