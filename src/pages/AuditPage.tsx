@@ -196,7 +196,11 @@ export default function AuditPage() {
     deleted:  deletedLinks.length,
   }), [activeLinks, deletedLinks, duplicateIds, activeLookup]);
 
-  const totalIssues = issueCounts.zero + issueCounts.inactive + issueCounts.source + issueCounts.spend;
+  // Count unique links that have at least one issue (a link with 3 issues is still 1 link)
+  const totalIssues = useMemo(
+    () => activeLinks.filter(l => getIssues(l).length > 0).length,
+    [activeLinks, duplicateIds, activeLookup]
+  );
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
   const anyFilterActive = filters.model !== "all" || filters.search !== "";
