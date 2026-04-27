@@ -426,13 +426,12 @@ export default function CampaignsPage() {
     return result;
   }, [baseLinks, searchQuery, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
 
-  // Active = activity in last 5 days (snapshots), OR new link (<5d old) with any subs/clicks
+  // Active = created < 5 days ago (always active, hasn't had time to get traffic)
+  //       OR has any subs/clicks recorded in snapshot window (last 5 days)
   const isLinkActive = (l: any): boolean => {
-    const id = String(l.id).toLowerCase();
-    if (activeLookup.has(id)) return activeLookup.get(id)!.isActive;
     const ageDays = l.created_at ? differenceInDays(new Date(), new Date(l.created_at)) : 999;
-    if (ageDays <= 5) return (l.subscribers || 0) > 0 || (l.clicks || 0) > 0;
-    return false;
+    if (ageDays < 5) return true;
+    return activeLookup.get(String(l.id).toLowerCase())?.isActive ?? false;
   };
 
   // Activity counts scoped to current filters
