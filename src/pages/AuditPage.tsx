@@ -3,7 +3,7 @@ import { getEffectiveSource } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized } from "@/lib/supabase-helpers";
-import { updateTrackingLink, restoreTrackingLink, setTrackingLinkSourceTag } from "@/lib/api";
+import { updateTrackingLink, deleteTrackingLink, restoreTrackingLink, setTrackingLinkSourceTag } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -285,9 +285,11 @@ export default function AuditPage() {
   };
 
   const softDelete = async (ids: string[]) => {
-    for (const id of ids) await updateTrackingLink(id, { deleted_at: new Date().toISOString() });
-    toast.success(`Deleted ${ids.length} tracking link(s)`);
+    for (const id of ids) await deleteTrackingLink(id);
+    toast.success(`Deleted ${ids.length} tracking link(s) — view them in the Deleted filter`);
     setSelected(new Set());
+    setIssueFilter("deleted");
+    setPage(0);
     refreshAll();
   };
 
