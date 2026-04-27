@@ -355,7 +355,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const subs = l.subscribers || 0;
       switch (colSortKey) {
         case "campaign": return (l.campaign_name || "").toLowerCase();
-        case "model": return (l.accounts?.username || "").toLowerCase();
+        case "model": return (l.account_username || l.accounts?.username || "").toLowerCase();
         case "source": return (getEffectiveSource(l) || "zzz").toLowerCase();
         case "marketer": return (l.onlytraffic_marketer || "zzz").toLowerCase();
         case "offerId": {
@@ -1141,7 +1141,7 @@ function MarketerExpandedTable({ links, linkMarketerMap, onCampaignClick }: { li
       const profitSub = sp > 0 && subs > 0 ? (rv - sp) / subs : null;
       const ltvSub = subs > 0 ? rv / subs : null;
       const info = linkMarketerMap[link.id];
-      const username = link.accounts?.username || "unknown";
+      const username = link.account_username || link.accounts?.username || "unknown";
       const badge = getStatusBadge(link);
       const statusOrder = { SCALE: 4, WATCH: 3, LOW: 2, KILL: 1, "NO SPEND": 0 };
       return { link, sp, rv, subs, profit, roi, profitSub, ltvSub, info, username, badge, statusOrder: (statusOrder as any)[badge.label] ?? 0 };
@@ -1206,8 +1206,8 @@ function MarketerExpandedTable({ links, linkMarketerMap, onCampaignClick }: { li
         </TableHeader>
         <TableBody>
           {rows.map(({ link, sp, rv, subs, profit, roi, profitSub, ltvSub, info, username, badge }) => {
-            const avatarUrl = link.accounts?.avatar_thumb_url || null;
-            const displayName = link.accounts?.display_name || username;
+            const avatarUrl = link.account_avatar_thumb_url || link.accounts?.avatar_thumb_url || null;
+            const displayName = link.account_display_name || link.accounts?.display_name || username;
             const profitColor = profit !== null ? (profit >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
             const roiColor = roi !== null ? (roi >= 0 ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)") : undefined;
             const ageDays = link.created_at ? Math.max(0, differenceInDays(new Date(), new Date(link.created_at))) : 0;
