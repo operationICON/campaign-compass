@@ -2,9 +2,9 @@ import { Hono } from "hono";
 import { db } from "../../db/client.js";
 import {
   accounts, fans, fan_spend, fan_attributions, fan_account_stats,
-  tracking_links, tracking_link_ltv, sync_logs,
+  tracking_link_ltv, sync_logs,
 } from "../../db/schema.js";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 
 const router = new Hono();
@@ -46,20 +46,16 @@ async function ensureSchema() {
 }
 
 // ── bootstrap: build fan profiles from fan_spend + fan_attributions ───────────
-// This is the right source — transactions table is for raw OF API data
-// which may be empty; fan_spend has the computed revenue per fan.
 async function bootstrapFromSpend(send: (data: any) => any) {
-  // 1. Count source data
+  // 1. Count source data — fan_attributions is the source of truth (NOT fans table which may be empty)
   const spendCountResult = await db.execute(sql`SELECT COUNT(*) as cnt FROM fan_spend`);
-  const fanCountResult = await db.execute(sql`SELECT COUNT(*) as cnt FROM fans`);
-  const [spendCount] = spendCountResult.rows as any[];
-  const [fanCount] = fanCountResult.rows as any[];
-  const totalSpend = Number(spendCount?.cnt ?? 0);
-  const totalFans = Number(fanCount?.cnt ?? 0);
-  await send({ step: "count", message: `${totalFans} fans · ${totalSpend} spend rows` });
+  const attrCountResult = await db.execute(sql`SELECT COUNT(DISTINCT fan_id) as cnt FROM fan_attributions WHERE fan_id IS NOT NULL AND fan_id != ''`);
+  const totalSpend = Number((spendCountResult.rows[0] as any)?.cnt ?? 0);
+  const totalAttr = Number((attrCountResult.rows[0] as any)?.cnt ?? 0);
+  await send({ step: "count", message: `${totalAttr} unique fans in attributions · ${totalSpend} spend rows` });
 
-  if (totalFans === 0) {
-    await send({ step: "warn", message: "No fans in database — run a Dashboard Sync first" });
+  if (totalAttr === 0 && totalSpend === 0) {
+    await send({ step: "warn", message: "No fan data found — run a Dashboard Sync first to populate fan data" });
     return { upsertedFans: 0, upsertedStats: 0 };
   }
 
@@ -74,7 +70,6 @@ async function bootstrapFromSpend(send: (data: any) => any) {
     })
     .from(fan_spend);
 
-  // Group spend by fan_id
   const spendByFan = new Map<string, { total: number; accounts: Map<string, { revenue: number; calc_at: Date | null }> }>();
   for (const row of spendRows) {
     const fid = row.fan_id ?? "";
@@ -105,103 +100,111 @@ async function bootstrapFromSpend(send: (data: any) => any) {
     })
     .from(fan_attributions);
 
-  const attrByFan = new Map<string, { username: string | null; first_date: Date | null; account_ids: Set<string> }>();
+  const attrByFan = new Map<string, { username: string | null; first_date: Date | null; first_account_id: string | null; account_ids: Set<string> }>();
   for (const row of attrRows) {
     const fid = row.fan_id ?? "";
     if (!fid) continue;
-    if (!attrByFan.has(fid)) attrByFan.set(fid, { username: null, first_date: null, account_ids: new Set() });
+    if (!attrByFan.has(fid)) attrByFan.set(fid, { username: null, first_date: null, first_account_id: null, account_ids: new Set() });
     const entry = attrByFan.get(fid)!;
     if (row.fan_username && !entry.username) entry.username = row.fan_username;
     if (row.subscribe_date_approx) {
       const d = new Date(row.subscribe_date_approx);
-      if (!entry.first_date || d < entry.first_date) entry.first_date = d;
+      if (!entry.first_date || d < entry.first_date) {
+        entry.first_date = d;
+        entry.first_account_id = row.account_id ? String(row.account_id) : null;
+      }
     }
     if (row.account_id) entry.account_ids.add(String(row.account_id));
   }
 
-  // 4. Load all fans with their link→account mapping
-  await send({ step: "load_fans", message: "Loading fans..." });
-  const allFans = await db.select().from(fans);
+  // 4. Collect all unique fan_ids from both sources and UPSERT into fans table
+  const allFanIds = new Set<string>([...attrByFan.keys(), ...spendByFan.keys()]);
+  const fanIdArray = [...allFanIds];
+  await send({ step: "persist", message: `Upserting ${fanIdArray.length} fan profiles...` });
 
-  // Build link→account map for acquired_via_account_id
-  const linkIds = [...new Set(allFans.map(f => f.first_subscribe_link_id).filter(Boolean) as string[])];
-  const linkAccountMap = new Map<string, string>();
-  if (linkIds.length > 0) {
-    const linkRows = await db
-      .select({ id: tracking_links.id, account_id: tracking_links.account_id })
-      .from(tracking_links)
-      .where(inArray(tracking_links.id, linkIds));
-    for (const r of linkRows) {
-      if (r.account_id) linkAccountMap.set(r.id, r.account_id);
-    }
-  }
-
-  // 5. Update fans + fan_account_stats in batches
-  await send({ step: "persist", message: `Processing ${allFans.length} fans...` });
   let upsertedFans = 0;
   let upsertedStats = 0;
 
-  const BATCH = 200;
-  for (let i = 0; i < allFans.length; i += BATCH) {
-    const batch = allFans.slice(i, i + BATCH);
+  const BATCH = 100;
+  for (let i = 0; i < fanIdArray.length; i += BATCH) {
+    const batch = fanIdArray.slice(i, i + BATCH);
 
-    for (const fan of batch) {
-      const spend = spendByFan.get(fan.fan_id);
-      const attr = attrByFan.get(fan.fan_id);
-      const acquiredAccountId = fan.first_subscribe_link_id ? (linkAccountMap.get(fan.first_subscribe_link_id) ?? null) : null;
+    for (const fanId of batch) {
+      const spend = spendByFan.get(fanId);
+      const attr = attrByFan.get(fanId);
 
       const totalRevenue = spend?.total ?? 0;
-      const spentAccounts = [...(spend?.accounts.keys() ?? [])];
-      const isCrossPoll = spentAccounts.length > 1 || (acquiredAccountId != null && spentAccounts.length === 1 && spentAccounts[0] !== acquiredAccountId);
+      const spentAccountIds = [...(spend?.accounts.keys() ?? [])];
+      const acquiredAccountId = attr?.first_account_id ?? (spentAccountIds[0] ?? null);
+      const isCrossPoll = spentAccountIds.length > 1 ||
+        (acquiredAccountId != null && spentAccountIds.length === 1 && spentAccountIds[0] !== acquiredAccountId);
 
-      const firstDate = attr?.first_date ?? (fan.first_subscribe_date ? new Date(fan.first_subscribe_date) : null);
-      // Last seen: max of calculated_at across accounts
+      const firstDate = attr?.first_date ?? null;
       let lastDate: Date | null = null;
       for (const acc of spend?.accounts.values() ?? []) {
         if (acc.calc_at && (!lastDate || acc.calc_at > lastDate)) lastDate = acc.calc_at;
       }
 
-      await db.update(fans).set({
-        username: attr?.username ?? null,
-        total_revenue: String(totalRevenue),
-        total_transactions: spentAccounts.length, // proxy: number of accounts with spend
-        first_transaction_at: firstDate,
-        last_transaction_at: lastDate,
-        is_cross_poll: isCrossPoll,
-        acquired_via_account_id: acquiredAccountId,
-        updated_at: new Date(),
-      }).where(eq(fans.fan_id, fan.fan_id));
-      upsertedFans++;
+      try {
+        // UPSERT — creates new fan rows if they don't exist, updates if they do
+        const result = await db.insert(fans).values({
+          fan_id: fanId,
+          username: attr?.username ?? null,
+          total_revenue: String(totalRevenue),
+          total_transactions: spentAccountIds.length,
+          first_transaction_at: firstDate,
+          last_transaction_at: lastDate,
+          is_cross_poll: isCrossPoll,
+          acquired_via_account_id: acquiredAccountId,
+          first_subscribe_date: firstDate ? firstDate.toISOString().split("T")[0] : null,
+        }).onConflictDoUpdate({
+          target: fans.fan_id,
+          set: {
+            username: attr?.username ?? null,
+            total_revenue: String(totalRevenue),
+            total_transactions: spentAccountIds.length,
+            first_transaction_at: firstDate,
+            last_transaction_at: lastDate,
+            is_cross_poll: isCrossPoll,
+            acquired_via_account_id: acquiredAccountId,
+            updated_at: new Date(),
+          },
+        }).returning({ id: fans.id });
 
-      // fan_account_stats: one row per account where fan has spend
-      if (spend) {
-        for (const [accountId, accData] of spend.accounts.entries()) {
-          try {
-            await db.insert(fan_account_stats).values({
-              fan_id: fan.id,
-              account_id: accountId,
-              total_revenue: String(accData.revenue),
-              total_transactions: 1,
-              updated_at: new Date(),
-              last_transaction_at: accData.calc_at,
-            }).onConflictDoUpdate({
-              target: [fan_account_stats.fan_id, fan_account_stats.account_id],
-              set: {
+        const fanUuid = result[0]?.id;
+        upsertedFans++;
+
+        if (spend && fanUuid) {
+          for (const [accountId, accData] of spend.accounts.entries()) {
+            try {
+              await db.insert(fan_account_stats).values({
+                fan_id: fanUuid,
+                account_id: accountId,
                 total_revenue: String(accData.revenue),
-                last_transaction_at: accData.calc_at,
+                total_transactions: 1,
                 updated_at: new Date(),
-              },
-            });
-            upsertedStats++;
-          } catch (err: any) {
-            console.error(`[FanSync] fan_account_stats error: ${err.message}`);
+                last_transaction_at: accData.calc_at,
+              }).onConflictDoUpdate({
+                target: [fan_account_stats.fan_id, fan_account_stats.account_id],
+                set: {
+                  total_revenue: String(accData.revenue),
+                  last_transaction_at: accData.calc_at,
+                  updated_at: new Date(),
+                },
+              });
+              upsertedStats++;
+            } catch (err: any) {
+              console.error(`[FanSync] fan_account_stats error: ${err.message}`);
+            }
           }
         }
+      } catch (err: any) {
+        console.error(`[FanSync] fan upsert error for ${fanId}: ${err.message}`);
       }
     }
 
-    if (i % 1000 === 0 && i > 0) {
-      await send({ step: "progress", message: `Processed ${i}/${allFans.length} fans...` });
+    if (i % 500 === 0 && i > 0) {
+      await send({ step: "progress", message: `Processed ${i}/${fanIdArray.length} fans...` });
     }
   }
 
