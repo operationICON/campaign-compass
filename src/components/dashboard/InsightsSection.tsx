@@ -457,7 +457,7 @@ export function InsightsSection({
                 <tr className="border-b border-border">
                   <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2">Model</th>
                   <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Revenue</th>
-                  <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">LTV</th>
+                  <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Fan Revenue</th>
                   <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Spend</th>
                   <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">Profit/Sub</th>
                   {isModelColVisible("roi") && <th className="text-[10px] uppercase text-muted-foreground font-medium pb-2 text-right">ROI</th>}

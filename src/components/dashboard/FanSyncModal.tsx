@@ -141,7 +141,7 @@ export function FanSyncModal({ open, onOpenChange }: { open: boolean; onOpenChan
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
-            Fan LTV Sync
+            Fan Sync
           </DialogTitle>
         </DialogHeader>
 

@@ -173,7 +173,7 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
                   )}
                   {!anyBreakdown && (
                     <td className="px-4 py-2.5 text-right text-[10px] text-muted-foreground/40 italic">
-                      Run LTV sync
+                      Run Data Sync
                     </td>
                   )}
                 </tr>
@@ -205,7 +205,7 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
 
           {!anyBreakdown && (
             <p className="px-4 py-2 text-[10px] text-muted-foreground/50 border-t border-border">
-              Type breakdown (Messages / PPV, Tips, Subscriptions, Posts) requires the LTV sync to be run from Sync Center.
+              Type breakdown (Messages / PPV, Tips, Subscriptions, Posts) requires the Data Sync to be run from Sync Center.
             </p>
           )}
         </div>

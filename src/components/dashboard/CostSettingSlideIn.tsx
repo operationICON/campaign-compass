@@ -241,7 +241,7 @@ export function CostSettingSlideIn({ link, onClose, onSaved }: CostSettingSlideI
                   <div><span className="text-muted-foreground block">Clicks</span><span className="font-mono font-semibold text-foreground">{clicks.toLocaleString()}</span></div>
                   <div><span className="text-muted-foreground block">Subs</span><span className="font-mono font-semibold text-foreground">{subscribers.toLocaleString()}</span></div>
                   <div><span className="text-muted-foreground block">CVR</span><span className="font-mono font-semibold text-foreground">{fmtP(preview.cvr * 100)}</span></div>
-                  <div><span className="text-muted-foreground block">LTV</span><span className="font-mono font-semibold text-primary">{fmtC(revenue)}</span></div>
+                  <div><span className="text-muted-foreground block">Revenue</span><span className="font-mono font-semibold text-primary">{fmtC(revenue)}</span></div>
                 </div>
                 <div className="border-t border-border pt-2 grid grid-cols-4 gap-2 text-xs">
                   <div><span className="text-muted-foreground block">Total Spend</span><span className="font-mono font-semibold text-foreground">{fmtC(preview.cost_total)}</span></div>

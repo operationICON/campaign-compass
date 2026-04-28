@@ -1381,7 +1381,7 @@ export default function CampaignsPage() {
                                             { l: "Clicks", v: clicksEl.toLocaleString(), c: "text-foreground" },
                                             { l: "Revenue", v: fmtC(Number(el.revenue || 0)), c: "text-foreground" },
                                             { l: "Subs", v: subsEl.toLocaleString(), c: "text-foreground" },
-                                            { l: "LTV", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-primary" : "text-muted-foreground" },
+                                            { l: "Fan Rev", v: ltvVal > 0 ? fmtC(ltvVal) : (el.fans_last_synced_at ? "$0.00" : "—"), c: ltvVal > 0 ? "text-primary" : "text-muted-foreground" },
                                             { l: "CVR", v: clicksEl > 100 ? `${((subsEl / clicksEl) * 100).toFixed(1)}%` : "—", c: clicksEl > 100 && (subsEl / clicksEl) > 0.15 ? "text-primary" : "text-muted-foreground" },
                                             { l: "LTV/New Sub", v: ltvSubVal > 0 ? fmtC(ltvSubVal) : "—", c: ltvSubVal > 0 ? "text-foreground" : "text-muted-foreground" },
                                             { l: "Subs/Day", v: subsDayDisplay.v, c: subsDayDisplay.c === "text-primary" ? "text-primary" : "text-muted-foreground" },
