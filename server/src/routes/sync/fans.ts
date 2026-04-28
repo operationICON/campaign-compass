@@ -26,6 +26,16 @@ async function ensureSchema() {
   await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS last_transaction_at TIMESTAMPTZ`);
   await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS is_cross_poll BOOLEAN`);
   await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS acquired_via_account_id UUID REFERENCES accounts(id)`);
+  // Unique constraint on fan_spend so we can upsert per fan per account
+  await db.execute(sql`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_fan_spend_fan_account'
+      ) THEN
+        ALTER TABLE fan_spend ADD CONSTRAINT uq_fan_spend_fan_account UNIQUE(fan_id, account_id);
+      END IF;
+    END $$
+  `);
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS fan_account_stats (
       id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -332,7 +342,8 @@ router.post("/bootstrap", async (c) => {
 });
 
 // ── POST /sync/fans ───────────────────────────────────────────────────────────
-// Attempts OF API for new transactions, then re-runs bootstrap aggregation
+// Fetches per-fan spending data from the /fans API endpoint for each account,
+// stores in fans + fan_spend, then re-aggregates fan profiles.
 router.post("/", async (c) => {
   const apiKey = process.env.ONLYFANS_API_KEY;
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
@@ -360,71 +371,90 @@ router.post("/", async (c) => {
         .from(accounts)
         .where(eq(accounts.is_active, true));
 
-      await send({ step: "start", message: `Fetching transactions for ${enabledAccounts.length} accounts...` });
+      await send({ step: "start", message: `Fetching fans for ${enabledAccounts.length} accounts via /fans endpoint...` });
 
-      let newTransactions = 0;
+      let totalFansFetched = 0;
 
       for (const account of enabledAccounts) {
+        if (!account.onlyfans_account_id) continue;
         try {
+          // Collect all fans for this account before writing (so partial failures don't corrupt)
+          const fetched: Array<{ fan_id: string; username: string | null; display_name: string | null; revenue: string }> = [];
           let page = 1;
           let hasMore = true;
-          let accountTx = 0;
 
-          while (hasMore && page <= 50) {
-            const url = `${API_BASE}/${account.onlyfans_account_id}/transactions?limit=200&page=${page}`;
-            const res = await fetch(url, {
-              headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-            });
+          while (hasMore && page <= 300) {
+            const url = `${API_BASE}/${account.onlyfans_account_id}/fans?limit=100&page=${page}`;
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
 
             if (!res.ok) {
-              if (res.status !== 404) errors.push(`${account.display_name}: HTTP ${res.status}`);
+              errors.push(`${account.display_name}: HTTP ${res.status}`);
               hasMore = false;
               break;
             }
 
             const data = await res.json() as any;
-            const list: any[] = Array.isArray(data) ? data : (data?.data?.list ?? data?.data ?? []);
-            if (!list.length) { hasMore = false; break; }
+            // Try all common response shapes from onlyfansapi.com
+            const list: any[] = data?.data?.list ?? data?.data ?? data?.fans ?? data?.list ?? [];
+            if (!Array.isArray(list) || list.length === 0) { hasMore = false; break; }
 
-            // Store raw transactions for future use (best-effort)
-            for (const tx of list) {
-              try {
-                const { transactions } = await import("../../db/schema.js");
-                const extId = String(tx.id ?? tx.transactionId ?? "");
-                if (!extId) continue;
-                const fanId = String(tx.userId ?? tx.user_id ?? tx.fanId ?? tx.fan_id ?? "");
-                await db.insert(transactions).values({
-                  account_id: account.id,
-                  user_id: fanId || null,
-                  fan_id: fanId || null,
-                  fan_username: tx.username ?? tx.fan_username ?? null,
-                  date: String(tx.date ?? tx.createdAt ?? "").split("T")[0] || null,
-                  type: tx.type ?? null,
-                  revenue: String(Number(tx.amount ?? tx.revenue ?? 0)),
-                  revenue_net: String(Number(tx.net ?? tx.revenue_net ?? 0)),
-                  fee: String(Number(tx.fee ?? 0)),
-                  currency: tx.currency ?? "USD",
-                  status: tx.status ?? "success",
-                  external_transaction_id: extId,
-                }).onConflictDoNothing();
-                newTransactions++;
-                accountTx++;
-              } catch {}
+            for (const fan of list) {
+              const fanId = String(
+                fan.id ?? fan.userId ?? fan.user_id ?? fan.fanId ?? fan.fan_id ?? ""
+              );
+              if (!fanId) continue;
+              const revenue = Number(
+                fan.revenue?.total ?? fan.totalRevenue ?? fan.total_revenue ??
+                fan.spendingTotal ?? fan.spending ?? fan.totalSpend ?? fan.amount ?? 0
+              );
+              fetched.push({
+                fan_id: fanId,
+                username: fan.username ?? fan.userName ?? fan.user_name ?? null,
+                display_name: fan.name ?? fan.displayName ?? fan.display_name ?? null,
+                revenue: String(revenue),
+              });
             }
 
             const nextPage = data?._meta?._pagination?.next_page ?? null;
-            if (!nextPage || list.length < 200) hasMore = false;
+            if (!nextPage || list.length < 100) hasMore = false;
             else page++;
             await sleep(300);
           }
-          if (accountTx > 0) await send({ step: "account_done", message: `${account.display_name}: ${accountTx} transactions` });
+
+          if (fetched.length > 0) {
+            // Upsert fans + fan_spend
+            for (const f of fetched) {
+              await db.insert(fans).values({
+                fan_id: f.fan_id,
+                username: f.username,
+                display_name: f.display_name,
+              }).onConflictDoUpdate({
+                target: fans.fan_id,
+                set: { username: f.username, display_name: f.display_name, updated_at: new Date() },
+              });
+
+              await db.insert(fan_spend).values({
+                fan_id: f.fan_id,
+                account_id: account.id,
+                revenue: f.revenue,
+                calculated_at: new Date(),
+              }).onConflictDoUpdate({
+                target: sql`(fan_id, account_id)`,
+                set: { revenue: f.revenue, calculated_at: new Date() },
+              });
+            }
+            totalFansFetched += fetched.length;
+            await send({ step: "account_done", message: `${account.display_name}: ${fetched.length} fans fetched` });
+          } else if (!errors.some(e => e.startsWith(account.display_name))) {
+            await send({ step: "account_done", message: `${account.display_name}: 0 fans returned` });
+          }
         } catch (err: any) {
           errors.push(`${account.display_name}: ${err.message}`);
         }
       }
 
-      // Always re-run bootstrap aggregation so fan profiles stay current
-      await send({ step: "aggregate", message: `Re-aggregating fan profiles (${newTransactions} new API transactions)...` });
+      // Re-aggregate fan profiles from fan_spend data now populated
+      await send({ step: "aggregate", message: `Aggregating ${totalFansFetched} fan records across accounts...` });
       const { upsertedFans, upsertedStats } = await bootstrapFromSpend(send);
 
       await send({ step: "crosspoll", message: "Updating cross-poll LTV..." });
@@ -436,12 +466,12 @@ router.post("/", async (c) => {
           status: errors.length > 0 ? "partial" : "success",
           success: errors.length === 0,
           finished_at: now, completed_at: now,
-          records_processed: upsertedFans,
-          message: `${upsertedFans} fans updated, ${ltvUpdated} LTV links${newTransactions > 0 ? `, ${newTransactions} new transactions` : ""}`,
+          records_processed: totalFansFetched,
+          message: `${totalFansFetched} fans fetched, ${upsertedFans} profiles built${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
         }).where(eq(sync_logs.id, syncLogId));
       }
-      await send({ step: "done", message: `Sync complete — ${upsertedFans} fans`, errors: errors.length > 0 ? errors : undefined });
+      await send({ step: "done", message: `Sync complete — ${totalFansFetched} fans fetched, ${upsertedFans} profiles built`, errors: errors.length > 0 ? errors : undefined });
     } catch (err: any) {
       if (syncLogId) {
         await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
