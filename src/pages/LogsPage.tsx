@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 
 const PAGE_SIZE = 25;
 
-type SyncType = "dashboard" | "snapshot" | "snapshot_backfill" | "ltv" | "onlytraffic" | "ot_snapshot" | "crosspoll" | "revenue_breakdown";
+type SyncType = "dashboard" | "snapshot" | "snapshot_backfill" | "ltv" | "onlytraffic" | "ot_snapshot" | "crosspoll" | "revenue_breakdown" | "fans";
 
 const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; badge: string }> = {
   dashboard:         { bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",      border: "border-blue-500/30",   badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
@@ -29,7 +29,8 @@ const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; 
   onlytraffic:       { bg: "bg-orange-500/10",   text: "text-orange-600 dark:text-orange-400",   border: "border-orange-500/30",  badge: "bg-orange-500/15 text-orange-700 dark:text-orange-300" },
   ot_snapshot:       { bg: "bg-amber-500/10",    text: "text-amber-600 dark:text-amber-400",     border: "border-amber-500/30",   badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
   crosspoll:         { bg: "bg-pink-500/10",     text: "text-pink-600 dark:text-pink-400",       border: "border-pink-500/30",    badge: "bg-pink-500/15 text-pink-700 dark:text-pink-300" },
-  revenue_breakdown: { bg: "bg-green-500/10",   text: "text-green-600 dark:text-green-400",     border: "border-green-500/30",   badge: "bg-green-500/15 text-green-700 dark:text-green-300" },
+  revenue_breakdown: { bg: "bg-green-500/10",    text: "text-green-600 dark:text-green-400",     border: "border-green-500/30",   badge: "bg-green-500/15 text-green-700 dark:text-green-300" },
+  fans:              { bg: "bg-rose-500/10",      text: "text-rose-600 dark:text-rose-400",       border: "border-rose-500/30",    badge: "bg-rose-500/15 text-rose-700 dark:text-rose-300" },
 };
 
 const SYNC_LABELS: Record<SyncType, string> = {
@@ -41,6 +42,7 @@ const SYNC_LABELS: Record<SyncType, string> = {
   ot_snapshot: "OT Snapshots",
   crosspoll: "Cross-Poll",
   revenue_breakdown: "Rev Breakdown",
+  fans: "Fans",
 };
 
 const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
@@ -52,6 +54,7 @@ const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
   ot_snapshot: Camera,
   crosspoll: GitMerge,
   revenue_breakdown: BarChart3,
+  fans: Users,
 };
 
 function classifySyncType(log: any): SyncType {
@@ -60,7 +63,8 @@ function classifySyncType(log: any): SyncType {
   const triggered = (log.triggered_by || "").toLowerCase();
   if (triggered.includes("ot_snapshot") || triggered.includes("onlytraffic_snapshot") || msg.includes("ot snapshot") || details.includes("ot_snapshot")) return "ot_snapshot";
   if (triggered.includes("revenue_breakdown") || msg.includes("revenue breakdown")) return "revenue_breakdown";
-  if (triggered.includes("ltv") || triggered.includes("fan_sync") || msg.includes("ltv") || msg.includes("fan sync")) return "ltv";
+  if (triggered.includes("fan_sync") || triggered.includes("fan_bootstrap")) return "fans";
+  if (triggered.includes("ltv") || msg.includes("ltv")) return "ltv";
   if (triggered.includes("crosspoll") || msg.includes("cross-poll") || msg.includes("crosspoll")) return "crosspoll";
   if (triggered.includes("backfill") || msg.includes("backfill")) return "snapshot_backfill";
   if (triggered.includes("snapshot") || msg.includes("snapshot")) return "snapshot";
@@ -162,7 +166,7 @@ export default function LogsPage() {
     const zero = () => ({ runs: 0, records: 0, links: 0, accounts: 0, credits: 0 });
     const totals: Record<SyncType, ReturnType<typeof zero>> = {
       dashboard: zero(), snapshot: zero(), snapshot_backfill: zero(), ltv: zero(),
-      onlytraffic: zero(), ot_snapshot: zero(), crosspoll: zero(), revenue_breakdown: zero(),
+      onlytraffic: zero(), ot_snapshot: zero(), crosspoll: zero(), revenue_breakdown: zero(), fans: zero(),
     };
     for (const log of classifiedLogs) {
       if (log.effectiveStatus !== "success" && log.effectiveStatus !== "partial") continue;
@@ -178,7 +182,7 @@ export default function LogsPage() {
 
   // Total credits consumed per sync type across all runs
   const totalCredits = useMemo(() => {
-    const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0 };
+    const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0, fans: 0 };
     for (const log of classifiedLogs) {
       const calls = log.details?.api_calls ?? 0;
       if (calls > 0) totals[log.syncType as SyncType] += calls;
