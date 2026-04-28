@@ -57,6 +57,7 @@ router.get("/count", async (c) => {
 // ── GET /fans ─────────────────────────────────────────────────────────────────
 router.get("/", async (c) => {
   const accountId = c.req.query("account_id");
+  const trackingLinkId = c.req.query("tracking_link_id");
   const search = c.req.query("search");
   const dateFrom = c.req.query("date_from");
   const dateTo = c.req.query("date_to");
@@ -79,6 +80,7 @@ router.get("/", async (c) => {
 
   const conditions: ReturnType<typeof sql>[] = [];
   if (accountId) conditions.push(sql`EXISTS (SELECT 1 FROM fan_account_stats fas WHERE fas.fan_id = f.id AND fas.account_id = ${accountId}::uuid)`);
+  if (trackingLinkId) conditions.push(sql`f.first_subscribe_link_id = ${trackingLinkId}::uuid`);
   if (search) conditions.push(sql`(f.fan_id ILIKE ${"%" + search + "%"} OR f.username ILIKE ${"%" + search + "%"} OR f.display_name ILIKE ${"%" + search + "%"})`);
   if (dateFrom) conditions.push(sql`f.last_transaction_at >= ${dateFrom}`);
   if (dateTo) conditions.push(sql`f.last_transaction_at <= ${dateTo}`);

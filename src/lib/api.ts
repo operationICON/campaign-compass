@@ -199,12 +199,13 @@ export const getFanStats = (params?: { account_id?: string }) =>
   }>(`/fans/stats${buildQuery({ account_id: params?.account_id })}`);
 
 export const getFans = (params?: {
-  account_id?: string; search?: string; date_from?: string; date_to?: string;
+  account_id?: string; tracking_link_id?: string; search?: string; date_from?: string; date_to?: string;
   spenders_only?: boolean; cross_poll_only?: boolean;
   limit?: number; offset?: number; sort_by?: string; sort_dir?: string;
 }) =>
   apiFetch<{ fans: any[]; total: number; limit: number; offset: number }>(`/fans${buildQuery({
     account_id: params?.account_id,
+    tracking_link_id: params?.tracking_link_id,
     search: params?.search,
     date_from: params?.date_from,
     date_to: params?.date_to,
