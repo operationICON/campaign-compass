@@ -30,7 +30,7 @@ function safeFormat(dateStr: string | null | undefined, fmt: string, fallback = 
   const d = new Date(dateStr);
   return isValid(d) ? format(d, fmt) : fallback;
 }
-import { ArrowLeft, ChevronUp, ChevronDown, Pencil, X, UserPlus, Loader2, Info } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pencil, X, UserPlus, Loader2, Info } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
@@ -97,7 +97,7 @@ export default function AccountsPage() {
   const [perfRange, setPerfRange] = useState<PerfRange>("30d");
   const [activityFilter, setActivityFilter] = usePersistedState<"all" | "active" | "inactive">(`${A_PREFS}_activityFilter`, "all");
   const [linksPage, setLinksPage] = useState(1);
-  const LINKS_PER_PAGE = 25;
+  const [linksPerPage, setLinksPerPage] = usePersistedState<number>(`${A_PREFS}_perPage`, 25);
 
   // Reset to page 1 whenever account, filter, or sort changes
   useEffect(() => { setLinksPage(1); }, [selectedAccount?.id, activityFilter, sortKey, sortAsc]);
@@ -657,8 +657,11 @@ export default function AccountsPage() {
     } else if (activityFilter === "inactive") {
       displayLinks = sortedLinks.filter((l: any) => !isLinkActive(l));
     }
-    const totalLinkPages = Math.ceil(displayLinks.length / LINKS_PER_PAGE);
-    const paginatedLinks = displayLinks.slice((linksPage - 1) * LINKS_PER_PAGE, linksPage * LINKS_PER_PAGE);
+    const totalLinkPages = Math.max(1, Math.ceil(displayLinks.length / linksPerPage));
+    const safeLinkPage = Math.min(linksPage, totalLinkPages);
+    const paginatedLinks = displayLinks.slice((safeLinkPage - 1) * linksPerPage, safeLinkPage * linksPerPage);
+    const showStart = displayLinks.length > 0 ? (safeLinkPage - 1) * linksPerPage + 1 : 0;
+    const showEnd = Math.min(safeLinkPage * linksPerPage, displayLinks.length);
 
     // KPI card component (with optional trend chip when date filter is active)
     const KpiCard = ({
@@ -984,6 +987,43 @@ export default function AccountsPage() {
                     {displayLinks.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-8 text-center">No tracking links match this filter</p>
                     ) : (
+                      <>
+                      {/* Top pagination bar */}
+                      <div className="flex items-center justify-between px-1 py-2 border-b border-border">
+                        <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {displayLinks.length} tracking links</span>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">Rows:</span>
+                            {[10, 25, 50, 100].map(n => (
+                              <button key={n} onClick={() => { setLinksPerPage(n); setLinksPage(1); }}
+                                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${linksPerPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>{n}</button>
+                            ))}
+                          </div>
+                          {totalLinkPages > 1 && (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setLinksPage(p => Math.max(1, p - 1))} disabled={safeLinkPage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
+                                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                              {Array.from({ length: Math.min(totalLinkPages, 7) }, (_, i) => {
+                                let pageNum: number;
+                                if (totalLinkPages <= 7) pageNum = i + 1;
+                                else if (safeLinkPage <= 4) pageNum = i + 1;
+                                else if (safeLinkPage >= totalLinkPages - 3) pageNum = totalLinkPages - 6 + i;
+                                else pageNum = safeLinkPage - 3 + i;
+                                return (
+                                  <button key={pageNum} onClick={() => setLinksPage(pageNum)}
+                                    className={`w-8 h-8 rounded text-xs font-medium transition-colors ${pageNum === safeLinkPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
+                                    {pageNum}
+                                  </button>
+                                );
+                              })}
+                              <button onClick={() => setLinksPage(p => Math.min(totalLinkPages, p + 1))} disabled={safeLinkPage >= totalLinkPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
@@ -1192,58 +1232,43 @@ export default function AccountsPage() {
                           })}
                         </tbody>
                       </table>
-                    )}
-                    {/* Pagination footer */}
-                    {displayLinks.length > 0 && (
-                      <div className="flex items-center justify-between mt-3 px-1">
-                        <p className="text-[11px] text-muted-foreground">
-                          {displayLinks.length > LINKS_PER_PAGE
-                            ? `Showing ${(linksPage - 1) * LINKS_PER_PAGE + 1}–${Math.min(linksPage * LINKS_PER_PAGE, displayLinks.length)} of ${displayLinks.length} links`
-                            : `${displayLinks.length} link${displayLinks.length === 1 ? "" : "s"}${activityFilter === "active" ? " active" : activityFilter === "inactive" ? " inactive" : ""}`}
-                        </p>
-                        {totalLinkPages > 1 && (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => setLinksPage(p => Math.max(1, p - 1))}
-                              disabled={linksPage === 1}
-                              className="px-2 py-1 rounded text-[11px] border border-border bg-secondary/50 hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            >
-                              ← Prev
-                            </button>
-                            {Array.from({ length: totalLinkPages }, (_, i) => i + 1)
-                              .filter(p => p === 1 || p === totalLinkPages || Math.abs(p - linksPage) <= 2)
-                              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
-                                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
-                                acc.push(p);
-                                return acc;
-                              }, [])
-                              .map((p, i) =>
-                                p === "…" ? (
-                                  <span key={`ellipsis-${i}`} className="px-1 text-[11px] text-muted-foreground">…</span>
-                                ) : (
-                                  <button
-                                    key={p}
-                                    onClick={() => setLinksPage(p as number)}
-                                    className={`w-7 h-6 rounded text-[11px] border transition-colors ${
-                                      linksPage === p
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "border-border bg-secondary/50 hover:bg-secondary text-foreground"
-                                    }`}
-                                  >
-                                    {p}
-                                  </button>
-                                )
-                              )}
-                            <button
-                              onClick={() => setLinksPage(p => Math.min(totalLinkPages, p + 1))}
-                              disabled={linksPage === totalLinkPages}
-                              className="px-2 py-1 rounded text-[11px] border border-border bg-secondary/50 hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            >
-                              Next →
-                            </button>
+                      {/* Bottom pagination bar */}
+                      <div className="flex items-center justify-between px-1 py-2 border-t border-border">
+                        <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {displayLinks.length} tracking links</span>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">Rows:</span>
+                            {[10, 25, 50, 100].map(n => (
+                              <button key={n} onClick={() => { setLinksPerPage(n); setLinksPage(1); }}
+                                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${linksPerPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>{n}</button>
+                            ))}
                           </div>
-                        )}
+                          {totalLinkPages > 1 && (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setLinksPage(p => Math.max(1, p - 1))} disabled={safeLinkPage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
+                                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                              {Array.from({ length: Math.min(totalLinkPages, 7) }, (_, i) => {
+                                let pageNum: number;
+                                if (totalLinkPages <= 7) pageNum = i + 1;
+                                else if (safeLinkPage <= 4) pageNum = i + 1;
+                                else if (safeLinkPage >= totalLinkPages - 3) pageNum = totalLinkPages - 6 + i;
+                                else pageNum = safeLinkPage - 3 + i;
+                                return (
+                                  <button key={pageNum} onClick={() => setLinksPage(pageNum)}
+                                    className={`w-8 h-8 rounded text-xs font-medium transition-colors ${pageNum === safeLinkPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
+                                    {pageNum}
+                                  </button>
+                                );
+                              })}
+                              <button onClick={() => setLinksPage(p => Math.min(totalLinkPages, p + 1))} disabled={safeLinkPage >= totalLinkPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                      </>
                     )}
                   </div>
                 )}
