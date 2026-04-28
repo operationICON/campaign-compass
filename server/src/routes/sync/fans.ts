@@ -553,6 +553,69 @@ router.post("/", async (c) => {
         `);
       }
 
+      // ── Phase 4: reconcile fan revenue from transactions table ───────────────
+      // The fan sync only captures revenue from transactions where parseFanFromDescription()
+      // finds a URL in the description (tips, messages, posts). Subscription revenue is
+      // skipped because descriptions don't contain the fan's URL.
+      // transactions.fan_username is set by the dashboard sync from the API's userUsername
+      // field and covers ALL transaction types — use it as the authoritative revenue source.
+      await send({ step: "reconcile", message: "Reconciling fan revenue from transaction history..." });
+
+      // 4a: Update existing fans' total_revenue from actual transaction records
+      const reconcileResult = await db.execute(sql`
+        UPDATE fans f
+        SET
+          total_revenue       = sub.tx_revenue,
+          total_transactions  = sub.tx_count,
+          first_transaction_at = LEAST(f.first_transaction_at, sub.first_tx::timestamptz),
+          last_transaction_at  = GREATEST(f.last_transaction_at, sub.last_tx::timestamptz),
+          updated_at           = NOW()
+        FROM (
+          SELECT
+            fan_username,
+            SUM(revenue::numeric)  AS tx_revenue,
+            COUNT(*)               AS tx_count,
+            MIN(date)              AS first_tx,
+            MAX(date)              AS last_tx
+          FROM transactions
+          WHERE fan_username IS NOT NULL AND fan_username != ''
+            AND revenue::numeric > 0
+          GROUP BY fan_username
+        ) sub
+        WHERE f.fan_id = sub.fan_username
+      `);
+      const reconciledCount = Number((reconcileResult as any).rowCount ?? 0);
+
+      // 4b: Discover fans in transactions that the fan sync missed entirely
+      //     (e.g. subscribers whose descriptions never contained the fan URL)
+      const discoverResult = await db.execute(sql`
+        INSERT INTO fans (fan_id, username, total_revenue, total_transactions, first_transaction_at, last_transaction_at)
+        SELECT
+          sub.fan_username,
+          sub.fan_username,
+          sub.tx_revenue,
+          sub.tx_count,
+          sub.first_tx::timestamptz,
+          sub.last_tx::timestamptz
+        FROM (
+          SELECT
+            fan_username,
+            SUM(revenue::numeric)  AS tx_revenue,
+            COUNT(*)               AS tx_count,
+            MIN(date)              AS first_tx,
+            MAX(date)              AS last_tx
+          FROM transactions
+          WHERE fan_username IS NOT NULL AND fan_username != ''
+            AND revenue::numeric > 0
+          GROUP BY fan_username
+        ) sub
+        WHERE NOT EXISTS (SELECT 1 FROM fans f WHERE f.fan_id = sub.fan_username)
+        ON CONFLICT (fan_id) DO NOTHING
+      `);
+      const discoveredCount = Number((discoverResult as any).rowCount ?? 0);
+
+      await send({ step: "reconcile_done", message: `Reconciled ${reconciledCount} fan revenue totals, discovered ${discoveredCount} new fans from transaction history` });
+
       await send({ step: "crosspoll", message: "Updating cross-poll data..." });
       const ltvUpdated = await updateCrosspollLtv();
 
@@ -563,7 +626,7 @@ router.post("/", async (c) => {
           success: errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: upsertedFans,
-          message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} transactions processed${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}${authErrors.length ? `. Auth issues (skipped): ${authErrors.map(e => e.split(":")[0]).join(", ")}` : ""}`,
+          message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} tx processed, ${reconciledCount} revenue totals reconciled, ${discoveredCount} new fans discovered${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}${authErrors.length ? `. Auth issues (skipped): ${authErrors.map(e => e.split(":")[0]).join(", ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
           details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, ltv_links: ltvUpdated, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
