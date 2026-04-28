@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTrackingLinks } from "@/lib/api";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Users, DollarSign, TrendingUp, RefreshCw,
   Search, ChevronDown, ChevronRight, GitMerge, X,
-  ExternalLink, Tag,
+  ExternalLink, ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -36,11 +36,11 @@ function fmtShortDate(d: string | null | undefined) {
 }
 
 const TX_TYPE_META: Record<string, { label: string; color: string }> = {
-  new_subscription:       { label: "New Sub",    color: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" },
-  recurring_subscription: { label: "Resub",      color: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
-  tip:                    { label: "Tip",         color: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-  message:                { label: "Message",     color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-  post:                   { label: "Post",        color: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+  new_subscription:       { label: "New Sub",  color: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" },
+  recurring_subscription: { label: "Resub",    color: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+  tip:                    { label: "Tip",       color: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  message:                { label: "Message",   color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  post:                   { label: "Post",      color: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
 };
 function txMeta(type: string | null) {
   return TX_TYPE_META[type ?? ""] ?? { label: type ?? "Other", color: "bg-muted text-muted-foreground" };
@@ -60,6 +60,99 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
       </div>
       <div className="text-2xl font-bold tabular-nums">{value}</div>
       {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+// ─── Account fan card (grid view) ─────────────────────────────────────────────
+function AccountFanCard({ account, stats, isLoading, onClick }: {
+  account: any;
+  stats: any | null;
+  isLoading: boolean;
+  onClick: () => void;
+}) {
+  const spenderPct = stats?.total_fans > 0 ? (stats.spenders / stats.total_fans) * 100 : 0;
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/50 hover:shadow-lg transition-all group"
+    >
+      {/* Account header */}
+      <div className="flex items-center gap-3 mb-4">
+        {account.avatar_thumb_url ? (
+          <img
+            src={account.avatar_thumb_url}
+            alt={account.display_name}
+            className="w-12 h-12 rounded-full object-cover border-2 border-border flex-shrink-0"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground flex-shrink-0">
+            {account.display_name.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="font-bold text-sm truncate">{account.display_name}</div>
+          {isLoading ? (
+            <Skeleton className="h-4 w-24 mt-1" />
+          ) : stats?.total_revenue > 0 ? (
+            <div className="text-sm font-semibold text-emerald-500 tabular-nums">{fmt$(stats.total_revenue)}</div>
+          ) : (
+            <div className="text-xs text-muted-foreground">No revenue yet</div>
+          )}
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-3/4" />
+        </div>
+      ) : stats ? (
+        <>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Fans</div>
+              <div className="text-xl font-bold tabular-nums">{fmtNum(stats.total_fans)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Spenders</div>
+              <div className="text-xl font-bold tabular-nums text-emerald-500">{fmtNum(stats.spenders)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg / Spender</div>
+              <div className="text-sm font-semibold tabular-nums">{fmt$(stats.avg_per_spender)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Cross-Poll</div>
+              <div className="text-sm font-semibold tabular-nums text-violet-500">{fmtNum(stats.cross_poll_fans)}</div>
+            </div>
+          </div>
+
+          {/* Spender conversion bar */}
+          {stats.total_fans > 0 && (
+            <div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                <span>Spender rate</span>
+                <span>{spenderPct.toFixed(1)}%</span>
+              </div>
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, spenderPct)}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-xs text-muted-foreground py-2">No fan data — run a fan sync first</div>
+      )}
+
+      <div className="mt-4 flex items-center justify-end">
+        <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">View fans →</span>
+      </div>
     </div>
   );
 }
@@ -85,7 +178,7 @@ function FanAvatar({ fan, size = 28 }: { fan: any; size?: number }) {
 }
 
 // ─── Inline transaction list ──────────────────────────────────────────────────
-function InlineTxList({ fanDbId, accountMap, showAccount }: { fanDbId: string; accountMap: Record<string, any>; showAccount: boolean }) {
+function InlineTxList({ fanDbId, showAccount, accountMap }: { fanDbId: string; showAccount: boolean; accountMap: Record<string, any> }) {
   const { data, isLoading } = useQuery({
     queryKey: ["fan_detail", fanDbId],
     queryFn: () => getFan(fanDbId),
@@ -97,7 +190,7 @@ function InlineTxList({ fanDbId, accountMap, showAccount }: { fanDbId: string; a
   if (isLoading) {
     return (
       <div className="px-4 pb-3 pt-1 space-y-1.5">
-        {[0,1,2].map(i => <Skeleton key={i} className="h-8 w-full rounded" />)}
+        {[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full rounded" />)}
       </div>
     );
   }
@@ -249,7 +342,7 @@ function FanEditPanel({ fan, onClose, onUpdated }: { fan: any; onClose: () => vo
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function FansPage() {
   const queryClient = useQueryClient();
-  const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -264,30 +357,76 @@ export default function FansPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset campaign filter when account changes
-  useEffect(() => { setCampaignFilter("all"); }, [accountFilter]);
+  // Reset filters when navigating between accounts
+  useEffect(() => {
+    setCampaignFilter("all");
+    setSearch("");
+    setExpandedFans(new Set());
+  }, [selectedAccountId]);
 
-  const { data: accounts = [] } = useQuery({
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => (await getAccounts() || []).filter((a: any) => a.is_active),
   });
 
-  const { data: trackingLinks = [] } = useQuery({
-    queryKey: ["tracking_links", accountFilter],
-    queryFn: () => getTrackingLinks(accountFilter !== "all" ? { account_id: accountFilter } : {}),
-    enabled: accountFilter !== "all",
-  });
-
-  const statsQuery = useQuery({
-    queryKey: ["fan_stats", accountFilter],
-    queryFn: () => getFanStats(accountFilter !== "all" ? { account_id: accountFilter } : {}),
+  // Global stats (all accounts combined)
+  const globalStatsQuery = useQuery({
+    queryKey: ["fan_stats", "all"],
+    queryFn: () => getFanStats(),
     staleTime: 60_000,
+    enabled: selectedAccountId === null,
   });
 
+  // Per-account stats for grid cards (parallel)
+  const accountStatsQueries = useQueries({
+    queries: accounts.map((acc: any) => ({
+      queryKey: ["fan_stats", acc.id],
+      queryFn: () => getFanStats({ account_id: acc.id }),
+      staleTime: 60_000,
+      enabled: selectedAccountId === null,
+    })),
+  });
+
+  const accountStatsMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    accounts.forEach((acc: any, i: number) => {
+      if (accountStatsQueries[i]?.data) map[acc.id] = accountStatsQueries[i].data;
+    });
+    return map;
+  }, [accounts, accountStatsQueries]);
+
+  // Selected account
+  const selectedAccount = useMemo(
+    () => selectedAccountId ? accounts.find((a: any) => a.id === selectedAccountId) : null,
+    [accounts, selectedAccountId]
+  );
+
+  // Per-account stats for detail view
+  const selectedStatsQuery = useQuery({
+    queryKey: ["fan_stats", selectedAccountId],
+    queryFn: () => getFanStats({ account_id: selectedAccountId! }),
+    staleTime: 60_000,
+    enabled: !!selectedAccountId,
+  });
+
+  // Tracking links for campaign filter
+  const { data: trackingLinks = [] } = useQuery({
+    queryKey: ["tracking_links", selectedAccountId],
+    queryFn: () => getTrackingLinks({ account_id: selectedAccountId! }),
+    enabled: !!selectedAccountId,
+  });
+
+  const tlMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    for (const tl of trackingLinks as any[]) m[tl.id] = tl;
+    return m;
+  }, [trackingLinks]);
+
+  // Fan list (only when account selected)
   const fansQuery = useQuery({
-    queryKey: ["fans_list", accountFilter, campaignFilter, debouncedSearch, spendersOnly],
+    queryKey: ["fans_list", selectedAccountId, campaignFilter, debouncedSearch, spendersOnly],
     queryFn: () => getFans({
-      account_id: accountFilter !== "all" ? accountFilter : undefined,
+      account_id: selectedAccountId || undefined,
       tracking_link_id: campaignFilter !== "all" ? campaignFilter : undefined,
       search: debouncedSearch || undefined,
       spenders_only: spendersOnly || undefined,
@@ -295,6 +434,7 @@ export default function FansPage() {
       sort_dir: "desc",
       limit: 5000,
     }),
+    enabled: !!selectedAccountId,
     staleTime: 30_000,
   });
 
@@ -302,18 +442,19 @@ export default function FansPage() {
     queryKey: ["tx_totals"],
     queryFn: () => getTransactionTotals(),
     staleTime: 60_000,
+    enabled: selectedAccountId === null,
   });
 
   const fans = fansQuery.data?.fans ?? [];
-  const total = fansQuery.data?.total ?? 0;
-  const stats = statsQuery.data;
-  const isLoading = fansQuery.isLoading;
+  const totalFans = fansQuery.data?.total ?? 0;
+  const globalStats = globalStatsQuery.data;
+  const selectedStats = selectedStatsQuery.data;
+  const isLoadingFans = fansQuery.isLoading;
   const txCount = txTotalsQuery.data?.count ?? 0;
-  const noFansYet = !isLoading && fans.length === 0 && total === 0 && !debouncedSearch && !spendersOnly && accountFilter === "all";
 
   const accountMap = useMemo(() => {
     const m: Record<string, any> = {};
-    for (const a of accounts) m[a.id] = a;
+    for (const a of accounts) m[(a as any).id] = a;
     return m;
   }, [accounts]);
 
@@ -342,11 +483,27 @@ export default function FansPage() {
   return (
     <DashboardLayout>
       <div className="flex flex-col gap-0">
-        {/* header */}
+
+        {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div>
-            <h1 className="text-xl font-bold">Fans</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Revenue analytics and fan attribution</p>
+          <div className="flex items-center gap-3">
+            {selectedAccountId && (
+              <button
+                onClick={() => setSelectedAccountId(null)}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mr-1"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Accounts</span>
+              </button>
+            )}
+            <div>
+              <h1 className="text-xl font-bold">
+                {selectedAccount ? selectedAccount.display_name : "Fans"}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {selectedAccount ? "Fan analytics · click a fan to see transactions" : "Select an account to view fan analytics"}
+              </p>
+            </div>
           </div>
           <Button size="sm" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
@@ -362,229 +519,270 @@ export default function FansPage() {
           </div>
         )}
 
-        {/* account tabs */}
-        <div className="flex items-center gap-0 px-6 border-b border-border overflow-x-auto">
-          {[{ id: "all", display_name: "All Accounts" }, ...accounts].map((a: any) => (
-            <button
-              key={a.id}
-              onClick={() => setAccountFilter(a.id)}
-              className={cn(
-                "px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors shrink-0",
-                accountFilter === a.id
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {a.display_name}
-            </button>
-          ))}
-        </div>
+        {selectedAccountId === null ? (
+          // ── GRID VIEW ──────────────────────────────────────────────────────
+          <div className="p-6 flex flex-col gap-6">
 
-        <div className="flex flex-col gap-5 p-6">
-          {/* KPI cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {statsQuery.isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
-            ) : (
-              <>
-                <KpiCard label="Total Fans" value={fmtNum(stats?.total_fans)} icon={Users} />
-                <KpiCard label="Spenders" value={fmtNum(stats?.spenders)} sub={stats?.total_fans ? `${((stats.spenders / stats.total_fans) * 100).toFixed(1)}% of fans` : undefined} icon={DollarSign} color="bg-emerald-500" />
-                <KpiCard label="Fan Revenue" value={fmt$(stats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
-                <KpiCard label="Avg / Spender" value={fmt$(stats?.avg_per_spender)} icon={DollarSign} />
-                <KpiCard label="Cross-Poll" value={fmtNum(stats?.cross_poll_fans)} sub={fmt$(stats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
-              </>
-            )}
-          </div>
-
-          {/* filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search fan or username..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-8 h-8 text-sm"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-                </button>
+            {/* Global KPI cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {globalStatsQuery.isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+              ) : (
+                <>
+                  <KpiCard label="Total Fans" value={fmtNum(globalStats?.total_fans)} icon={Users} />
+                  <KpiCard
+                    label="Spenders"
+                    value={fmtNum(globalStats?.spenders)}
+                    sub={globalStats?.total_fans ? `${((globalStats.spenders / globalStats.total_fans) * 100).toFixed(1)}% of fans` : undefined}
+                    icon={DollarSign} color="bg-emerald-500"
+                  />
+                  <KpiCard label="Fan Revenue" value={fmt$(globalStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
+                  <KpiCard label="Avg / Spender" value={fmt$(globalStats?.avg_per_spender)} icon={DollarSign} />
+                  <KpiCard label="Cross-Poll" value={fmtNum(globalStats?.cross_poll_fans)} sub={fmt$(globalStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
+                </>
               )}
             </div>
 
-            {accountFilter !== "all" && trackingLinks.length > 0 && (
-              <Select value={campaignFilter} onValueChange={setCampaignFilter}>
-                <SelectTrigger className="w-52 h-8 text-sm">
-                  <SelectValue placeholder="All campaigns" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All campaigns</SelectItem>
-                  {(trackingLinks as any[]).map((tl: any) => (
-                    <SelectItem key={tl.id} value={tl.id}>
-                      {tl.campaign_name || tl.external_tracking_link_id || tl.id}
-                    </SelectItem>
+            {/* Account cards */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Accounts
+                </h2>
+                <span className="text-xs text-muted-foreground">{accounts.length} active</span>
+              </div>
+
+              {accountsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-52 rounded-xl" />)}
+                </div>
+              ) : accounts.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-semibold">No active accounts</p>
+                  <p className="text-sm mt-1">Add accounts in Settings to get started.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {accounts.map((acc: any, i: number) => (
+                    <AccountFanCard
+                      key={acc.id}
+                      account={acc}
+                      stats={accountStatsMap[acc.id] ?? null}
+                      isLoading={accountStatsQueries[i]?.isLoading ?? false}
+                      onClick={() => setSelectedAccountId(acc.id)}
+                    />
                   ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <button
-              onClick={() => setSpendersOnly(v => !v)}
-              className={cn(
-                "h-8 px-3 rounded-md border text-xs font-medium transition-colors",
-                spendersOnly
-                  ? "bg-emerald-50 border-emerald-400 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-400"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
+                </div>
               )}
-            >
-              Spenders only
-            </button>
-
-            <span className="text-xs text-muted-foreground ml-auto">{fmtNum(total)} fans</span>
+            </div>
           </div>
 
-          {/* fan table */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="w-8 px-3 py-2.5" />
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Fan</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">First seen</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Last seen</th>
-                  <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Revenue</th>
-                  <th className="text-right px-3 py-2.5 font-medium text-muted-foreground w-16">Txns</th>
-                  <th className="text-center px-3 py-2.5 font-medium text-muted-foreground w-16 hidden lg:table-cell">XP</th>
-                  <th className="w-12 px-3 py-2.5" />
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  Array.from({ length: 15 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border/50">
-                      <td className="px-3 py-3"><Skeleton className="h-3 w-3" /></td>
-                      <td className="px-3 py-3"><Skeleton className="h-4 w-40" /></td>
-                      <td className="px-3 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-3 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-3 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
-                      <td className="px-3 py-3"><Skeleton className="h-4 w-8 ml-auto" /></td>
-                      <td className="hidden lg:table-cell" />
-                      <td />
-                    </tr>
-                  ))
-                ) : fans.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-0">
-                      {noFansYet ? (
-                        <div className="flex flex-col items-center justify-center py-16 px-6 gap-4">
-                          <Users className="w-10 h-10 text-muted-foreground/30" />
-                          <div className="text-center">
-                            <p className="font-semibold">No fan profiles yet</p>
-                            {txCount > 0 ? (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                You have {fmtNum(txCount)} transactions — run a Fan Sync to build profiles.
-                              </p>
-                            ) : (
-                              <p className="text-sm text-muted-foreground mt-1">Run a Dashboard Sync first, then Fan Sync.</p>
-                            )}
-                          </div>
-                          <Button size="sm" onClick={handleSync} disabled={syncing}>
-                            <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
-                            Sync Fans Now
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-center py-12 text-muted-foreground">
-                          <Users className="w-7 h-7 mx-auto mb-2 opacity-30" />
-                          <p className="text-sm font-medium">No fans match your filters</p>
-                        </div>
-                      )}
-                    </td>
+        ) : (
+          // ── DETAIL VIEW ────────────────────────────────────────────────────
+          <div className="p-6 flex flex-col gap-5">
+
+            {/* Per-account KPI cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {selectedStatsQuery.isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+              ) : (
+                <>
+                  <KpiCard label="Total Fans" value={fmtNum(selectedStats?.total_fans)} icon={Users} />
+                  <KpiCard
+                    label="Spenders"
+                    value={fmtNum(selectedStats?.spenders)}
+                    sub={selectedStats?.total_fans ? `${((selectedStats.spenders / selectedStats.total_fans) * 100).toFixed(1)}% of fans` : undefined}
+                    icon={DollarSign} color="bg-emerald-500"
+                  />
+                  <KpiCard label="Fan Revenue" value={fmt$(selectedStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
+                  <KpiCard label="Avg / Spender" value={fmt$(selectedStats?.avg_per_spender)} icon={DollarSign} />
+                  <KpiCard label="Cross-Poll" value={fmtNum(selectedStats?.cross_poll_fans)} sub={fmt$(selectedStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
+                </>
+              )}
+            </div>
+
+            {/* Filter bar */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-48">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search fan or username..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                  </button>
+                )}
+              </div>
+
+              {(trackingLinks as any[]).length > 0 && (
+                <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+                  <SelectTrigger className="w-56 h-8 text-sm">
+                    <SelectValue placeholder="All campaigns" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All campaigns</SelectItem>
+                    {(trackingLinks as any[]).map((tl: any) => (
+                      <SelectItem key={tl.id} value={tl.id}>
+                        {tl.campaign_name || tl.external_tracking_link_id || tl.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              <button
+                onClick={() => setSpendersOnly(v => !v)}
+                className={cn(
+                  "h-8 px-3 rounded-md border text-xs font-medium transition-colors",
+                  spendersOnly
+                    ? "bg-emerald-50 border-emerald-400 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-400"
+                    : "border-border text-muted-foreground hover:border-foreground/30"
+                )}
+              >
+                Spenders only
+              </button>
+
+              <span className="text-xs text-muted-foreground ml-auto">{fmtNum(totalFans)} fans</span>
+            </div>
+
+            {/* Fan table */}
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="w-8 px-3 py-2.5" />
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Fan</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden lg:table-cell">Campaign</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">First seen</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Last seen</th>
+                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Revenue</th>
+                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground w-16">Txns</th>
+                    <th className="w-12 px-3 py-2.5" />
                   </tr>
-                ) : (
-                  fans.map((fan: any) => {
-                    const rev = Number(fan.total_revenue ?? 0);
-                    const isSpender = rev > 0;
-                    const isExpanded = expandedFans.has(fan.id);
-                    return (
-                      <>
-                        <tr
-                          key={fan.id}
-                          onClick={() => toggleExpand(fan.id)}
-                          className={cn(
-                            "border-b border-border/50 cursor-pointer hover:bg-muted/30 transition-colors",
-                            isExpanded && "bg-muted/20"
-                          )}
-                        >
-                          <td className="px-3 py-2.5 text-muted-foreground">
-                            {isExpanded
-                              ? <ChevronDown className="w-3.5 h-3.5" />
-                              : <ChevronRight className="w-3.5 h-3.5" />}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <FanAvatar fan={fan} size={26} />
-                              <div className="min-w-0">
-                                <div className="font-medium text-sm truncate max-w-44">
-                                  {fan.username ? `@${fan.username}` : fan.fan_id}
-                                </div>
-                                {fan.is_cross_poll && (
-                                  <span className="text-[10px] text-violet-500 flex items-center gap-0.5">
-                                    <GitMerge className="w-2.5 h-2.5" /> cross-poll
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
-                            {fmtShortDate(fan.first_transaction_at)}
-                          </td>
-                          <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
-                            {fmtShortDate(fan.last_transaction_at)}
-                          </td>
-                          <td className="px-3 py-2.5 text-right">
-                            <span className={cn("font-semibold tabular-nums text-sm", isSpender ? "text-emerald-600" : "text-muted-foreground")}>
-                              {isSpender ? fmt$(rev) : "—"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
-                            {fan.total_transactions ?? "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-center hidden lg:table-cell">
-                            {fan.is_cross_poll && (
-                              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 dark:bg-violet-900/40">
-                                <GitMerge className="w-2.5 h-2.5 text-violet-600" />
-                              </span>
+                </thead>
+                <tbody>
+                  {isLoadingFans ? (
+                    Array.from({ length: 15 }).map((_, i) => (
+                      <tr key={i} className="border-b border-border/50">
+                        <td className="px-3 py-3"><Skeleton className="h-3 w-3" /></td>
+                        <td className="px-3 py-3"><Skeleton className="h-4 w-40" /></td>
+                        <td className="px-3 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-32" /></td>
+                        <td className="px-3 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-3 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-3 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                        <td className="px-3 py-3"><Skeleton className="h-4 w-8 ml-auto" /></td>
+                        <td />
+                      </tr>
+                    ))
+                  ) : fans.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-16 text-center">
+                        <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                        {selectedStats?.total_fans === 0 && txCount > 0 ? (
+                          <>
+                            <p className="font-semibold text-sm">No fan profiles yet for this account</p>
+                            <p className="text-xs text-muted-foreground mt-1">Run a Fan Sync to build profiles.</p>
+                            <Button size="sm" className="mt-3" onClick={handleSync} disabled={syncing}>
+                              <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
+                              Sync Fans Now
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="text-sm text-muted-foreground font-medium">No fans match your filters</p>
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    fans.map((fan: any) => {
+                      const rev = Number(fan.total_revenue ?? 0);
+                      const isSpender = rev > 0;
+                      const isExpanded = expandedFans.has(fan.id);
+                      const campaignTl = fan.first_subscribe_link_id ? tlMap[fan.first_subscribe_link_id] : null;
+                      return (
+                        <>
+                          <tr
+                            key={fan.id}
+                            onClick={() => toggleExpand(fan.id)}
+                            className={cn(
+                              "border-b border-border/50 cursor-pointer hover:bg-muted/30 transition-colors",
+                              isExpanded && "bg-muted/20"
                             )}
-                          </td>
-                          <td className="px-3 py-2.5 text-right" onClick={e => { e.stopPropagation(); setEditFan(fan); }}>
-                            <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Edit</span>
-                          </td>
-                        </tr>
-                        {isExpanded && (
-                          <tr key={`${fan.id}-tx`} className="bg-muted/10 border-b border-border/50">
-                            <td />
-                            <td colSpan={7} className="py-0">
-                              <InlineTxList
-                                fanDbId={fan.id}
-                                accountMap={accountMap}
-                                showAccount={accountFilter === "all"}
-                              />
+                          >
+                            <td className="px-3 py-2.5 text-muted-foreground">
+                              {isExpanded
+                                ? <ChevronDown className="w-3.5 h-3.5" />
+                                : <ChevronRight className="w-3.5 h-3.5" />}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <FanAvatar fan={fan} size={26} />
+                                <div className="min-w-0">
+                                  <div className="font-medium text-sm truncate max-w-44">
+                                    {fan.username ? `@${fan.username}` : fan.fan_id}
+                                  </div>
+                                  {fan.is_cross_poll && (
+                                    <span className="text-[10px] text-violet-500 flex items-center gap-0.5">
+                                      <GitMerge className="w-2.5 h-2.5" /> cross-poll
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 hidden lg:table-cell">
+                              {campaignTl ? (
+                                <span className="text-xs text-muted-foreground truncate max-w-40 block">
+                                  {campaignTl.campaign_name || campaignTl.external_tracking_link_id || "—"}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/50">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                              {fmtShortDate(fan.first_transaction_at)}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                              {fmtShortDate(fan.last_transaction_at)}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                              <span className={cn("font-semibold tabular-nums text-sm", isSpender ? "text-emerald-500" : "text-muted-foreground")}>
+                                {isSpender ? fmt$(rev) : "—"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
+                              {fan.total_transactions ?? "—"}
+                            </td>
+                            <td
+                              className="px-3 py-2.5 text-right"
+                              onClick={e => { e.stopPropagation(); setEditFan(fan); }}
+                            >
+                              <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Edit</span>
                             </td>
                           </tr>
-                        )}
-                      </>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                          {isExpanded && (
+                            <tr key={`${fan.id}-tx`} className="bg-muted/10 border-b border-border/50">
+                              <td />
+                              <td colSpan={7} className="py-0">
+                                <InlineTxList fanDbId={fan.id} accountMap={accountMap} showAccount={false} />
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* fan edit sheet */}
+      {/* Fan edit sheet */}
       <Sheet open={!!editFan} onOpenChange={open => { if (!open) setEditFan(null); }}>
         <SheetContent className="w-[380px] sm:max-w-[380px] overflow-y-auto p-0">
           {editFan && (
