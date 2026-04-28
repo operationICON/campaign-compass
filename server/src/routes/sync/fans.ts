@@ -47,16 +47,24 @@ async function ensureSchema() {
 
 // ── bootstrap: build fan profiles from fan_spend + fan_attributions ───────────
 async function bootstrapFromSpend(send: (data: any) => any) {
-  // 1. Count source data — fan_attributions is the source of truth (NOT fans table which may be empty)
-  const spendCountResult = await db.execute(sql`SELECT COUNT(*) as cnt FROM fan_spend`);
-  const attrCountResult = await db.execute(sql`SELECT COUNT(DISTINCT fan_id) as cnt FROM fan_attributions WHERE fan_id IS NOT NULL AND fan_id != ''`);
-  const totalSpend = Number((spendCountResult.rows[0] as any)?.cnt ?? 0);
-  const totalAttr = Number((attrCountResult.rows[0] as any)?.cnt ?? 0);
-  await send({ step: "count", message: `${totalAttr} unique fans in attributions · ${totalSpend} spend rows` });
+  // 1. Diagnose all source tables so we know exactly what data exists
+  const diagResult = await db.execute(sql`
+    SELECT
+      (SELECT COUNT(*) FROM fan_attributions)                                                            AS attr_total,
+      (SELECT COUNT(*) FROM fan_attributions WHERE fan_id IS NOT NULL AND fan_id != '')                  AS attr_valid,
+      (SELECT COUNT(*) FROM fan_spend)                                                                   AS spend_total,
+      (SELECT COUNT(*) FROM fan_spend WHERE fan_id IS NOT NULL AND fan_id != '')                         AS spend_valid,
+      (SELECT COUNT(*) FROM fans)                                                                        AS fans_total
+  `);
+  const diag = (diagResult.rows[0] as any) ?? {};
+  const totalAttr = Number(diag.attr_valid ?? 0);
+  const totalSpend = Number(diag.spend_valid ?? 0);
+  const diagMsg = `fan_attributions: ${diag.attr_total} rows (${diag.attr_valid} valid fan_ids) · fan_spend: ${diag.spend_total} rows (${diag.spend_valid} valid) · fans: ${diag.fans_total} rows`;
+  await send({ step: "count", message: diagMsg });
 
   if (totalAttr === 0 && totalSpend === 0) {
-    await send({ step: "warn", message: "No fan data found — run a Dashboard Sync first to populate fan data" });
-    return { upsertedFans: 0, upsertedStats: 0 };
+    await send({ step: "warn", message: `No source data found. ${diagMsg}. Run a Dashboard Sync first.` });
+    return { upsertedFans: 0, upsertedStats: 0, failedFans: 0, diagMsg };
   }
 
   // 2. Load all fan_spend grouped by fan_id
@@ -124,6 +132,8 @@ async function bootstrapFromSpend(send: (data: any) => any) {
 
   let upsertedFans = 0;
   let upsertedStats = 0;
+  let failedFans = 0;
+  let firstError: string | null = null;
 
   const BATCH = 100;
   for (let i = 0; i < fanIdArray.length; i += BATCH) {
@@ -135,9 +145,7 @@ async function bootstrapFromSpend(send: (data: any) => any) {
 
       const totalRevenue = spend?.total ?? 0;
       const spentAccountIds = [...(spend?.accounts.keys() ?? [])];
-      const acquiredAccountId = attr?.first_account_id ?? (spentAccountIds[0] ?? null);
-      const isCrossPoll = spentAccountIds.length > 1 ||
-        (acquiredAccountId != null && spentAccountIds.length === 1 && spentAccountIds[0] !== acquiredAccountId);
+      const isCrossPoll = spentAccountIds.length > 1;
 
       const firstDate = attr?.first_date ?? null;
       let lastDate: Date | null = null;
@@ -146,7 +154,7 @@ async function bootstrapFromSpend(send: (data: any) => any) {
       }
 
       try {
-        // UPSERT — creates new fan rows if they don't exist, updates if they do
+        // UPSERT — no acquired_via_account_id to avoid FK violations; that can be set in a separate pass
         const result = await db.insert(fans).values({
           fan_id: fanId,
           username: attr?.username ?? null,
@@ -155,7 +163,6 @@ async function bootstrapFromSpend(send: (data: any) => any) {
           first_transaction_at: firstDate,
           last_transaction_at: lastDate,
           is_cross_poll: isCrossPoll,
-          acquired_via_account_id: acquiredAccountId,
           first_subscribe_date: firstDate ? firstDate.toISOString().split("T")[0] : null,
         }).onConflictDoUpdate({
           target: fans.fan_id,
@@ -166,7 +173,6 @@ async function bootstrapFromSpend(send: (data: any) => any) {
             first_transaction_at: firstDate,
             last_transaction_at: lastDate,
             is_cross_poll: isCrossPoll,
-            acquired_via_account_id: acquiredAccountId,
             updated_at: new Date(),
           },
         }).returning({ id: fans.id });
@@ -199,16 +205,22 @@ async function bootstrapFromSpend(send: (data: any) => any) {
           }
         }
       } catch (err: any) {
+        failedFans++;
+        if (!firstError) firstError = `${fanId}: ${err.message}`;
         console.error(`[FanSync] fan upsert error for ${fanId}: ${err.message}`);
       }
     }
 
     if (i % 500 === 0 && i > 0) {
-      await send({ step: "progress", message: `Processed ${i}/${fanIdArray.length} fans...` });
+      await send({ step: "progress", message: `Processed ${i}/${fanIdArray.length} fans (${upsertedFans} ok, ${failedFans} failed)...` });
     }
   }
 
-  return { upsertedFans, upsertedStats };
+  if (failedFans > 0) {
+    await send({ step: "warn", message: `${failedFans} fan upserts failed. First error: ${firstError}` });
+  }
+
+  return { upsertedFans, upsertedStats, failedFans, diagMsg: "" };
 }
 
 // Update tracking_link_ltv cross-poll data
@@ -294,7 +306,7 @@ router.post("/bootstrap", async (c) => {
       await ensureSchema();
 
       await send({ step: "start", message: "Building fan profiles from fan_spend + fan_attributions..." });
-      const { upsertedFans, upsertedStats } = await bootstrapFromSpend(send);
+      const { upsertedFans, upsertedStats, failedFans, diagMsg } = await bootstrapFromSpend(send);
 
       await send({ step: "crosspoll", message: "Updating cross-poll LTV..." });
       const ltvUpdated = await updateCrosspollLtv();
@@ -304,7 +316,7 @@ router.post("/bootstrap", async (c) => {
         await db.update(sync_logs).set({
           status: "success", success: true, finished_at: now, completed_at: now,
           records_processed: upsertedFans,
-          message: `Bootstrap: ${upsertedFans} fans, ${upsertedStats} stats, ${ltvUpdated} LTV links`,
+          message: `Bootstrap: ${upsertedFans} fans, ${upsertedStats} stats, ${ltvUpdated} LTV links${failedFans ? ` (${failedFans} failed)` : ""}. ${diagMsg}`,
         }).where(eq(sync_logs.id, syncLogId));
       }
       await send({ step: "done", message: `Done — ${upsertedFans} fans updated, ${upsertedStats} account stats, ${ltvUpdated} LTV links` });
