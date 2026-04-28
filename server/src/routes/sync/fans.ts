@@ -376,12 +376,26 @@ router.post("/", async (c) => {
       await send({ step: "migrate", message: "Ensuring schema..." });
       await ensureSchema();
 
+      // ── Incremental sync cutoff: find last successful/partial fan sync ────────
+      const lastSyncRow = await db.execute(sql`
+        SELECT started_at FROM sync_logs
+        WHERE triggered_by LIKE 'fan_sync_%'
+          AND (success = true OR (status = 'partial' AND records_processed > 0))
+        ORDER BY started_at DESC LIMIT 1
+      `);
+      const lastSyncRaw = (lastSyncRow.rows[0] as any)?.started_at;
+      // Apply a 2-day overlap to avoid missing transactions near the boundary
+      const cutoffDate: Date | null = lastSyncRaw
+        ? new Date(new Date(lastSyncRaw).getTime() - 2 * 24 * 60 * 60 * 1000)
+        : null;
+
       const enabledAccounts = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })
         .from(accounts)
         .where(eq(accounts.is_active, true));
 
-      await send({ step: "start", message: `Fetching transactions for ${enabledAccounts.length} accounts...` });
+      const mode = cutoffDate ? `incremental from ${cutoffDate.toISOString().split("T")[0]}` : "full historical";
+      await send({ step: "start", message: `${enabledAccounts.length} accounts — ${mode}` });
 
       let totalTxProcessed = 0;
 
@@ -389,7 +403,7 @@ router.post("/", async (c) => {
       type FanEntry = { revenue: number; username: string; display_name: string; first_date: string | null; last_date: string | null; byAccount: Map<string, number> };
       const globalFanMap = new Map<string, FanEntry>();
 
-      // ── Phase 1: fetch all transactions, build in-memory map ─────────────────
+      // ── Phase 1: fetch transactions, stop when hitting old data ──────────────
       for (const account of enabledAccounts) {
         if (!account.onlyfans_account_id) continue;
         try {
@@ -397,8 +411,9 @@ router.post("/", async (c) => {
 
           let url: string | null = `${API_BASE}/${account.onlyfans_account_id}/transactions?limit=100`;
           let apiCalls = 0;
+          let hitCutoff = false;
 
-          while (url && apiCalls < 500) {
+          while (url && apiCalls < 500 && !hitCutoff) {
             apiCalls++;
             const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
 
@@ -415,6 +430,12 @@ router.post("/", async (c) => {
             if (!Array.isArray(page) || page.length === 0) break;
 
             for (const tx of page) {
+              // Stop early if this tx predates the last sync (API returns newest-first)
+              if (cutoffDate) {
+                const txRaw = tx.createdAt ?? tx.date;
+                if (txRaw && new Date(txRaw) < cutoffDate) { hitCutoff = true; break; }
+              }
+
               totalTxProcessed++;
               const fan = parseFanFromDescription(tx.description);
               if (!fan) continue;
@@ -437,7 +458,8 @@ router.post("/", async (c) => {
             await sleep(150);
           }
 
-          await send({ step: "account_done", message: `${account.display_name}: ${perAccountMap.size} unique fans from ${apiCalls} API pages` });
+          const stopReason = hitCutoff ? " (incremental — stopped at cutoff)" : "";
+          await send({ step: "account_done", message: `${account.display_name}: ${perAccountMap.size} fans from ${apiCalls} pages${stopReason}` });
 
           // Merge into global map
           for (const [fanId, data] of perAccountMap.entries()) {
@@ -519,7 +541,7 @@ router.post("/", async (c) => {
           success: errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: upsertedFans,
-          message: `${upsertedFans} fan profiles built from ${totalTxProcessed} transactions${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
+          message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} transactions processed${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
           details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, ltv_links: ltvUpdated },
         }).where(eq(sync_logs.id, syncLogId));
