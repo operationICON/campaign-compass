@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts } from "@/lib/api";
+import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals } from "@/lib/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -160,6 +160,12 @@ export default function FansPage() {
     staleTime: 30_000,
   });
 
+  const txTotalsQuery = useQuery({
+    queryKey: ["tx_totals"],
+    queryFn: () => getTransactionTotals(),
+    staleTime: 60_000,
+  });
+
   const selectedFanQuery = useQuery({
     queryKey: ["fan_detail", selectedFanId],
     queryFn: () => selectedFanId ? getFan(selectedFanId) : null,
@@ -171,6 +177,8 @@ export default function FansPage() {
   const total = fansQuery.data?.total ?? 0;
   const stats = statsQuery.data;
   const isLoading = fansQuery.isLoading;
+  const txCount = txTotalsQuery.data?.count ?? 0;
+  const noFansYet = !isLoading && fans.length === 0 && total === 0 && !debouncedSearch && !spendersOnly && !crossPollOnly && accountFilter === "all";
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -249,9 +257,12 @@ export default function FansPage() {
 
         {/* sync progress */}
         {syncProgress && (
-          <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-4 py-2 flex items-center gap-2">
-            <RefreshCw className="w-3 h-3 animate-spin flex-shrink-0" />
-            {syncProgress}
+          <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center gap-3">
+            <RefreshCw className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-primary">{bootstrapping ? "Building fan profiles..." : "Syncing fans..."}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{syncProgress}</p>
+            </div>
           </div>
         )}
 
@@ -379,10 +390,43 @@ export default function FansPage() {
                   ))
                 ) : fans.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-muted-foreground">
-                      <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                      <p className="font-medium">No fans found</p>
-                      <p className="text-xs mt-1">Click <strong>Build Fan Profiles</strong> above to generate fan analytics from your existing transaction data</p>
+                    <td colSpan={7} className="py-0">
+                      {noFansYet ? (
+                        <div className="flex flex-col items-center justify-center py-20 px-6 gap-5">
+                          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                            <Users className="w-8 h-8 text-primary" />
+                          </div>
+                          <div className="text-center max-w-sm">
+                            <p className="font-semibold text-lg">No fan profiles yet</p>
+                            {txCount > 0 ? (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                You have <strong>{fmtNum(txCount)} transactions</strong> in your database ready to be analyzed.
+                                Click the button below to build fan profiles.
+                              </p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                No transaction data found. Make sure your accounts have been synced first.
+                              </p>
+                            )}
+                          </div>
+                          {txCount > 0 && (
+                            <Button
+                              size="lg"
+                              onClick={handleBootstrap}
+                              disabled={bootstrapping || syncing}
+                              className="gap-2"
+                            >
+                              <RefreshCw className={cn("w-4 h-4", bootstrapping && "animate-spin")} />
+                              {bootstrapping ? "Building..." : `Build Fan Profiles from ${fmtNum(txCount)} transactions`}
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-16 text-muted-foreground">
+                          <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                          <p className="font-medium">No fans match your filters</p>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (
