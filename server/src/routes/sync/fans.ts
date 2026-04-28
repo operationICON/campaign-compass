@@ -361,6 +361,15 @@ router.post("/", async (c) => {
 
   (async () => {
     const errors: string[] = [];
+    const probeResults: Array<{
+      account: string;
+      endpoint: string;
+      status: number;
+      working: boolean;
+      keys: string;
+      item_keys: string;
+      raw: string;
+    }> = [];
 
     try {
       await send({ step: "migrate", message: "Ensuring schema..." });
@@ -385,7 +394,6 @@ router.post("/", async (c) => {
 
           // Probe first candidate that returns data
           let workingEndpoint: string | null = null;
-          let probeShape = "";
 
           for (const endpoint of ENDPOINT_CANDIDATES) {
             const probeUrl = `${API_BASE}/${account.onlyfans_account_id}/${endpoint}?limit=5`;
@@ -394,22 +402,27 @@ router.post("/", async (c) => {
             let probeData: any;
             try { probeData = JSON.parse(probeText); } catch { probeData = null; }
 
+            const topKeys = JSON.stringify(Object.keys(probeData ?? {}));
+
             if (!probeRes.ok) {
-              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} — ${probeText.slice(0, 200)}` });
+              const result = { account: account.display_name!, endpoint, status: probeRes.status, working: false, keys: topKeys, item_keys: "", raw: probeText.slice(0, 300) };
+              probeResults.push(result);
+              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} — ${probeText.slice(0, 150)}` });
               continue;
             }
 
-            // Record the top-level keys so we know the response shape
-            probeShape = JSON.stringify(Object.keys(probeData ?? {}));
             const list: any[] = probeData?.data?.list ?? probeData?.data ?? probeData?.fans ??
               probeData?.subscribers ?? probeData?.members ?? probeData?.list ?? [];
 
             if (Array.isArray(list) && list.length > 0) {
+              const itemKeys = JSON.stringify(Object.keys(list[0] ?? {}));
+              probeResults.push({ account: account.display_name!, endpoint, status: probeRes.status, working: true, keys: topKeys, item_keys: itemKeys, raw: "" });
               workingEndpoint = endpoint;
-              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} ✓ — keys: ${probeShape}, first item keys: ${JSON.stringify(Object.keys(list[0] ?? {}))}` });
+              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} ✓ — item fields: ${itemKeys}` });
               break;
             } else {
-              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} but empty/unknown shape — keys: ${probeShape}, raw: ${probeText.slice(0, 300)}` });
+              probeResults.push({ account: account.display_name!, endpoint, status: probeRes.status, working: false, keys: topKeys, item_keys: "", raw: probeText.slice(0, 300) });
+              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} empty — keys: ${topKeys} — ${probeText.slice(0, 200)}` });
             }
             await sleep(300);
           }
@@ -512,6 +525,7 @@ router.post("/", async (c) => {
           records_processed: totalFansFetched,
           message: `${totalFansFetched} fans fetched, ${upsertedFans} profiles built${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
+          details: { probe_results: probeResults, api_calls: probeResults.length },
         }).where(eq(sync_logs.id, syncLogId));
       }
       await send({ step: "done", message: `Sync complete — ${totalFansFetched} fans fetched, ${upsertedFans} profiles built`, errors: errors.length > 0 ? errors : undefined });

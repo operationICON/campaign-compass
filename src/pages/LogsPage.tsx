@@ -37,7 +37,7 @@ const SYNC_LABELS: Record<SyncType, string> = {
   dashboard: "Dashboard",
   snapshot: "Snapshots",
   snapshot_backfill: "Backfill",
-  ltv: "LTV",
+  ltv: "Analytics",
   onlytraffic: "OnlyTraffic",
   ot_snapshot: "OT Snapshots",
   crosspoll: "Cross-Poll",
@@ -130,8 +130,8 @@ export default function LogsPage() {
   
 
   // Running state per sync type
-  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, snapshot_backfill: false, ltv: false, onlytraffic: false, ot_snapshot: false, crosspoll: false, revenue_breakdown: false });
-  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", snapshot_backfill: "", ltv: "", onlytraffic: "", ot_snapshot: "", crosspoll: "", revenue_breakdown: "" });
+  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, snapshot_backfill: false, ltv: false, onlytraffic: false, ot_snapshot: false, crosspoll: false, revenue_breakdown: false, fans: false });
+  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", snapshot_backfill: "", ltv: "", onlytraffic: "", ot_snapshot: "", crosspoll: "", revenue_breakdown: "", fans: "" });
   const abortRefs = useRef<Record<string, AbortController>>({});
 
   const [allRunning, setAllRunning] = useState(false);
@@ -153,7 +153,7 @@ export default function LogsPage() {
 
   // Build status cards from last log per type
   const statusCards = useMemo(() => {
-    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null, revenue_breakdown: null };
+    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null, revenue_breakdown: null, fans: null };
     for (const log of classifiedLogs) {
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
@@ -433,6 +433,43 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
+  const runFanSync = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.fans = ctrl;
+    setRunning(r => ({ ...r, fans: true }));
+    setProgress(p => ({ ...p, fans: "Starting..." }));
+    try {
+      const lastData = await streamSync(
+        "/sync/fans",
+        { triggered_by: "manual" },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, fans: msg })); },
+        ctrl.signal,
+      );
+      if (ctrl.signal.aborted) return;
+      if (lastData?.step === "error") throw new Error(lastData.error ?? "Unknown error");
+      const fetched = lastData?.fans_fetched ?? 0;
+      const built = lastData?.profiles_built ?? 0;
+      const errCount = lastData?.errors?.length ?? 0;
+      if (errCount > 0 && fetched === 0) {
+        toast.warning(`Fan sync — API probe failed for all accounts. Check Sync Logs for details.`);
+      } else if (fetched === 0) {
+        toast.warning("Fan sync — 0 fans returned. API may not support this endpoint.");
+      } else {
+        toast.success(`Fan sync complete — ${fetched} fans fetched, ${built} profiles built`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["fans_list"] });
+      queryClient.invalidateQueries({ queryKey: ["fan_stats"] });
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      toast.error(`Fan sync failed: ${err.message}`);
+    } finally {
+      delete abortRefs.current.fans;
+      setRunning(r => ({ ...r, fans: false }));
+      setProgress(p => ({ ...p, fans: "" }));
+    }
+  }, [queryClient]);
+
   const runAllSync = useCallback(async () => {
     setAllRunning(true);
     const steps = [
@@ -459,6 +496,7 @@ export default function LogsPage() {
     onlytraffic: runOnlyTrafficSync,
     crosspoll: runCrosspollSync,
     revenue_breakdown: runRevenueBreakdownSync,
+    fans: runFanSync,
   };
 
   const hasFilters = statusFilter !== "all" || typeFilter !== "all";
@@ -495,8 +533,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC BUTTONS ═══ */}
-        <div className="grid grid-cols-6 gap-3">
-          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-7 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown", "fans"] as SyncType[]).map((type) => {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
@@ -534,8 +572,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
-        <div className="grid grid-cols-6 gap-3">
-          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-7 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown", "fans"] as SyncType[]).map((type) => {
             const colors = SYNC_COLORS[type];
             const Icon = SYNC_ICONS[type];
             const last = statusCards[type];
@@ -647,10 +685,11 @@ export default function LogsPage() {
                   <option value="all">All Types</option>
                   <option value="dashboard">Dashboard</option>
                   <option value="snapshot">Snapshots</option>
-                  <option value="ltv">LTV</option>
+                  <option value="ltv">Analytics</option>
                   <option value="onlytraffic">OnlyTraffic</option>
                   <option value="ot_snapshot">OT Snapshots</option>
                   <option value="revenue_breakdown">Rev Breakdown</option>
+                  <option value="fans">Fans</option>
                 </select>
                 <select
                   value={statusFilter}
@@ -825,7 +864,29 @@ export default function LogsPage() {
                           <p className="text-xs text-destructive">{log.error_message}</p>
                         </div>
                       )}
-                      {details && typeof details === "object" && (
+                      {details?.probe_results && Array.isArray(details.probe_results) && details.probe_results.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">API Probe Results</p>
+                          <div className="space-y-1">
+                            {(details.probe_results as any[]).map((r: any, i: number) => (
+                              <div key={i} className="flex items-start gap-2 text-[11px] bg-secondary/50 rounded px-2 py-1.5">
+                                <span className={`shrink-0 px-1.5 py-0.5 rounded font-mono font-bold text-[10px] ${r.working ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : r.status >= 400 ? "bg-destructive/15 text-destructive" : "bg-amber-500/15 text-amber-600"}`}>
+                                  {r.status}
+                                </span>
+                                <span className="text-muted-foreground shrink-0">{r.account}</span>
+                                <span className="text-foreground font-mono shrink-0">/{r.endpoint}</span>
+                                {r.working && r.item_keys && (
+                                  <span className="text-primary truncate">fields: {r.item_keys}</span>
+                                )}
+                                {!r.working && r.raw && (
+                                  <span className="text-muted-foreground truncate">{r.raw}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {details && typeof details === "object" && !details.probe_results && (
                         <div>
                           <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Details</p>
                           <pre className="text-[11px] text-muted-foreground bg-secondary/50 p-2 rounded overflow-x-auto max-h-40">
