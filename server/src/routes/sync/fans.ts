@@ -370,7 +370,8 @@ router.post("/", async (c) => {
   const syncLogId = syncLog?.id;
 
   (async () => {
-    const errors: string[] = [];
+    const errors: string[] = [];       // data errors → partial
+    const authErrors: string[] = [];   // 401/403 → warning only, not partial
 
     try {
       await send({ step: "migrate", message: "Ensuring schema..." });
@@ -422,6 +423,10 @@ router.post("/", async (c) => {
               await sleep(retryAfter * 1000);
               apiCalls--;
               continue;
+            }
+            if (res.status === 401 || res.status === 403) {
+              authErrors.push(`${account.display_name}: HTTP ${res.status} (check API credentials for this account)`);
+              break;
             }
             if (!res.ok) { errors.push(`${account.display_name}: HTTP ${res.status}`); break; }
 
@@ -541,12 +546,12 @@ router.post("/", async (c) => {
           success: errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: upsertedFans,
-          message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} transactions processed${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
+          message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} transactions processed${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}${authErrors.length ? `. Auth issues (skipped): ${authErrors.map(e => e.split(":")[0]).join(", ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
           details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, ltv_links: ltvUpdated },
         }).where(eq(sync_logs.id, syncLogId));
       }
-      await send({ step: "done", message: `Done — ${upsertedFans} fans, ${totalTxProcessed} transactions processed`, errors: errors.length > 0 ? errors : undefined });
+      await send({ step: "done", message: `Done — ${upsertedFans} fans, ${totalTxProcessed} transactions processed`, errors: errors.length > 0 ? errors : undefined, auth_warnings: authErrors.length > 0 ? authErrors : undefined });
     } catch (err: any) {
       if (syncLogId) {
         await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
