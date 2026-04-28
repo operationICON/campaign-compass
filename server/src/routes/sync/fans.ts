@@ -354,9 +354,6 @@ function parseFanFromDescription(description: string | null | undefined): { fan_
 }
 
 // ── POST /sync/fans ───────────────────────────────────────────────────────────
-// Fetches transactions from the /transactions endpoint (which works), extracts
-// fan identity from the description HTML field, aggregates revenue per fan,
-// and upserts into fans + fan_spend tables.
 router.post("/", async (c) => {
   const apiKey = process.env.ONLYFANS_API_KEY;
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
@@ -384,16 +381,19 @@ router.post("/", async (c) => {
         .from(accounts)
         .where(eq(accounts.is_active, true));
 
-      await send({ step: "start", message: `Building fan profiles from transactions for ${enabledAccounts.length} accounts...` });
+      await send({ step: "start", message: `Fetching transactions for ${enabledAccounts.length} accounts...` });
 
       let totalTxProcessed = 0;
-      let totalUniqueFans = 0;
 
+      // Global map: fanId → aggregated data across all accounts
+      type FanEntry = { revenue: number; username: string; display_name: string; first_date: string | null; last_date: string | null; byAccount: Map<string, number> };
+      const globalFanMap = new Map<string, FanEntry>();
+
+      // ── Phase 1: fetch all transactions, build in-memory map ─────────────────
       for (const account of enabledAccounts) {
         if (!account.onlyfans_account_id) continue;
         try {
-          // fanId → { revenue, display_name, first_date, last_date }
-          const fanMap = new Map<string, { revenue: number; username: string; display_name: string; first_date: string | null; last_date: string | null }>();
+          const perAccountMap = new Map<string, { revenue: number; username: string; display_name: string; first_date: string | null; last_date: string | null }>();
 
           let url: string | null = `${API_BASE}/${account.onlyfans_account_id}/transactions?limit=100`;
           let apiCalls = 0;
@@ -408,10 +408,7 @@ router.post("/", async (c) => {
               apiCalls--;
               continue;
             }
-            if (!res.ok) {
-              errors.push(`${account.display_name}: HTTP ${res.status}`);
-              break;
-            }
+            if (!res.ok) { errors.push(`${account.display_name}: HTTP ${res.status}`); break; }
 
             const json = await res.json() as any;
             const page: any[] = json?.data?.list ?? json?.data ?? json?.transactions ?? json?.list ?? [];
@@ -419,71 +416,98 @@ router.post("/", async (c) => {
 
             for (const tx of page) {
               totalTxProcessed++;
-              // Primary: extract fan from description HTML
               const fan = parseFanFromDescription(tx.description);
               if (!fan) continue;
-
               const revenue = Number(tx.amount ?? tx.revenue ?? 0);
               const dateStr: string | null = tx.createdAt ? String(tx.createdAt).split("T")[0] : (tx.date ? String(tx.date).split("T")[0] : null);
-
-              const existing = fanMap.get(fan.fan_id);
-              if (existing) {
-                existing.revenue += revenue;
+              const ex = perAccountMap.get(fan.fan_id);
+              if (ex) {
+                ex.revenue += revenue;
                 if (dateStr) {
-                  if (!existing.first_date || dateStr < existing.first_date) existing.first_date = dateStr;
-                  if (!existing.last_date || dateStr > existing.last_date) existing.last_date = dateStr;
+                  if (!ex.first_date || dateStr < ex.first_date) ex.first_date = dateStr;
+                  if (!ex.last_date  || dateStr > ex.last_date)  ex.last_date  = dateStr;
                 }
               } else {
-                fanMap.set(fan.fan_id, { revenue, username: fan.username, display_name: fan.display_name, first_date: dateStr, last_date: dateStr });
+                perAccountMap.set(fan.fan_id, { revenue, username: fan.username, display_name: fan.display_name, first_date: dateStr, last_date: dateStr });
               }
             }
 
             const nextPage = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null;
             url = nextPage ?? null;
-            await sleep(200);
+            await sleep(150);
           }
 
-          if (fanMap.size > 0) {
-            totalUniqueFans += fanMap.size;
-            await send({ step: "account_done", message: `${account.display_name}: ${fanMap.size} unique fans from ${apiCalls} API pages` });
+          await send({ step: "account_done", message: `${account.display_name}: ${perAccountMap.size} unique fans from ${apiCalls} API pages` });
 
-            for (const [fanId, data] of fanMap.entries()) {
-              await db.insert(fans).values({
-                fan_id: fanId,
-                username: data.username,
-                display_name: data.display_name,
-                total_revenue: String(data.revenue),
-                first_transaction_at: data.first_date ? new Date(data.first_date) : null,
-                last_transaction_at: data.last_date ? new Date(data.last_date) : null,
-              }).onConflictDoUpdate({
-                target: fans.fan_id,
-                set: {
-                  username: data.username,
-                  display_name: data.display_name,
-                  total_revenue: String(data.revenue),
-                  last_transaction_at: data.last_date ? new Date(data.last_date) : null,
-                  updated_at: new Date(),
-                },
-              });
-
-              await db.execute(sql`
-                INSERT INTO fan_spend (fan_id, account_id, revenue, calculated_at)
-                VALUES (${fanId}, ${account.id}::uuid, ${String(data.revenue)}::numeric, NOW())
-                ON CONFLICT (fan_id, account_id)
-                DO UPDATE SET revenue = EXCLUDED.revenue, calculated_at = EXCLUDED.calculated_at
-              `);
+          // Merge into global map
+          for (const [fanId, data] of perAccountMap.entries()) {
+            const g = globalFanMap.get(fanId);
+            if (g) {
+              g.revenue += data.revenue;
+              if (data.first_date && (!g.first_date || data.first_date < g.first_date)) g.first_date = data.first_date;
+              if (data.last_date  && (!g.last_date  || data.last_date  > g.last_date))  g.last_date  = data.last_date;
+              g.byAccount.set(account.id, (g.byAccount.get(account.id) ?? 0) + data.revenue);
+            } else {
+              globalFanMap.set(fanId, { revenue: data.revenue, username: data.username, display_name: data.display_name, first_date: data.first_date, last_date: data.last_date, byAccount: new Map([[account.id, data.revenue]]) });
             }
-          } else {
-            await send({ step: "account_done", message: `${account.display_name}: 0 fans identified from ${totalTxProcessed} transactions` });
           }
         } catch (err: any) {
           errors.push(`${account.display_name}: ${err.message}`);
         }
       }
 
-      // Re-aggregate global fan profiles
-      await send({ step: "aggregate", message: `Aggregating ${totalUniqueFans} fan profiles across all accounts...` });
-      const { upsertedFans, upsertedStats } = await bootstrapFromSpend(send);
+      const totalUniqueFans = globalFanMap.size;
+      await send({ step: "persist", message: `Writing ${totalUniqueFans} fan profiles in batches...` });
+
+      // ── Phase 2: batch upsert fans (100 at a time) ────────────────────────────
+      const BATCH = 100;
+      const fanEntries = [...globalFanMap.entries()];
+      let upsertedFans = 0;
+
+      for (let i = 0; i < fanEntries.length; i += BATCH) {
+        const batch = fanEntries.slice(i, i + BATCH);
+        await db.insert(fans).values(batch.map(([fanId, d]) => ({
+          fan_id: fanId,
+          username: d.username,
+          display_name: d.display_name,
+          total_revenue: String(d.revenue),
+          first_transaction_at: d.first_date ? new Date(d.first_date) : null,
+          last_transaction_at:  d.last_date  ? new Date(d.last_date)  : null,
+          is_cross_poll: d.byAccount.size > 1,
+        }))).onConflictDoUpdate({
+          target: fans.fan_id,
+          set: {
+            username:            sql`EXCLUDED.username`,
+            display_name:        sql`EXCLUDED.display_name`,
+            total_revenue:       sql`EXCLUDED.total_revenue`,
+            last_transaction_at: sql`EXCLUDED.last_transaction_at`,
+            is_cross_poll:       sql`EXCLUDED.is_cross_poll`,
+            updated_at:          sql`NOW()`,
+          },
+        });
+        upsertedFans += batch.length;
+      }
+
+      // ── Phase 3: batch upsert fan_spend (100 at a time) ──────────────────────
+      const spendEntries: [string, string, number][] = [];
+      for (const [fanId, d] of globalFanMap.entries()) {
+        for (const [accountId, revenue] of d.byAccount.entries()) {
+          spendEntries.push([fanId, accountId, revenue]);
+        }
+      }
+
+      for (let i = 0; i < spendEntries.length; i += BATCH) {
+        const batch = spendEntries.slice(i, i + BATCH);
+        const vals = batch.map(([fanId, accountId, revenue]) =>
+          sql`(${fanId}, ${accountId}::uuid, ${String(revenue)}::numeric, NOW())`
+        );
+        await db.execute(sql`
+          INSERT INTO fan_spend (fan_id, account_id, revenue, calculated_at)
+          VALUES ${sql.join(vals, sql`, `)}
+          ON CONFLICT (fan_id, account_id)
+          DO UPDATE SET revenue = EXCLUDED.revenue, calculated_at = EXCLUDED.calculated_at
+        `);
+      }
 
       await send({ step: "crosspoll", message: "Updating cross-poll data..." });
       const ltvUpdated = await updateCrosspollLtv();
@@ -495,12 +519,12 @@ router.post("/", async (c) => {
           success: errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: upsertedFans,
-          message: `${upsertedFans} fan profiles built from ${totalTxProcessed} transactions (${totalUniqueFans} unique fans identified)${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
+          message: `${upsertedFans} fan profiles built from ${totalTxProcessed} transactions${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
-          details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans },
+          details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, ltv_links: ltvUpdated },
         }).where(eq(sync_logs.id, syncLogId));
       }
-      await send({ step: "done", message: `Done — ${upsertedFans} fan profiles built from ${totalTxProcessed} transactions`, errors: errors.length > 0 ? errors : undefined });
+      await send({ step: "done", message: `Done — ${upsertedFans} fans, ${totalTxProcessed} transactions processed`, errors: errors.length > 0 ? errors : undefined });
     } catch (err: any) {
       if (syncLogId) {
         await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
