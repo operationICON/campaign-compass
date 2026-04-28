@@ -17,6 +17,8 @@ export default function DebugPage() {
   const [sessionCredits, setSessionCredits] = useState(0);
   const [txSampleResult, setTxSampleResult] = useState<any>(null);
   const [txSampleLoading, setTxSampleLoading] = useState(false);
+  const [txTypesResult, setTxTypesResult] = useState<any>(null);
+  const [txTypesLoading, setTxTypesLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -67,6 +69,19 @@ export default function DebugPage() {
       setHistory((prev) => [response, ...prev].slice(0, 10));
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const runTxTypes = useCallback(async () => {
+    setTxTypesLoading(true);
+    setTxTypesResult(null);
+    try {
+      const data = await debugAction("revenue_diag");
+      setTxTypesResult(data);
+    } catch (err: any) {
+      setTxTypesResult({ error: err.message });
+    } finally {
+      setTxTypesLoading(false);
     }
   }, []);
 
@@ -155,6 +170,48 @@ export default function DebugPage() {
               ))}
               {txSampleResult.error && (
                 <p className="text-xs text-destructive">{txSampleResult.error}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Transaction Type Breakdown Diagnostic */}
+        <div className="bg-card border border-amber-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-amber-500" /> Transaction Type Breakdown
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shows all distinct transaction types in the DB — reveals what's being dumped in "other" and inflating the Unattributed number
+              </p>
+            </div>
+            <button
+              onClick={runTxTypes}
+              disabled={txTypesLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            >
+              {txTypesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Check Transaction Types
+            </button>
+          </div>
+          {txTypesResult && (
+            <div className="space-y-2">
+              {txTypesResult.error && <p className="text-xs text-destructive">{txTypesResult.error}</p>}
+              {txTypesResult.types && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+                    {txTypesResult.transaction_count} total transactions · {txTypesResult.types.length} distinct types
+                  </p>
+                  <div className="space-y-1">
+                    {txTypesResult.types.map((t: any, i: number) => (
+                      <div key={i} className="flex items-center gap-3 text-[11px] bg-secondary/50 rounded px-2 py-1.5">
+                        <span className="font-mono text-foreground w-32 shrink-0">{t.type || "(null/empty)"}</span>
+                        <span className="text-muted-foreground">{Number(t.cnt).toLocaleString()} txns</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
