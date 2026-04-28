@@ -141,7 +141,7 @@ router.post("/", async (c) => {
       .from(accounts)
       .where(eq(accounts.id, account_id));
     const currentSubCount = Number(acctRow?.subscribers_count ?? 0);
-    const updateFields: Record<string, any> = { last_synced_at: new Date(), ltv_total: totalLtv };
+    const updateFields: Record<string, any> = { last_synced_at: new Date() };
     if (currentSubCount === 0 && totalSubsFromLinks > 0) {
       updateFields.subscribers_count = totalSubsFromLinks;
     }
