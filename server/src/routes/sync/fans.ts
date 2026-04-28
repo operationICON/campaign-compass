@@ -295,6 +295,38 @@ router.post("/bootstrap", async (c) => {
 
   (async () => {
     try {
+      // Auto-apply schema changes so no manual SQL migration is required
+      await send({ step: "migrate", message: "Ensuring schema is up to date..." });
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS username TEXT`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS display_name TEXT`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS status TEXT`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS tags TEXT[]`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS notes TEXT`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS total_revenue NUMERIC`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS total_transactions INTEGER`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS first_transaction_at TIMESTAMPTZ`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS last_transaction_at TIMESTAMPTZ`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS is_cross_poll BOOLEAN`);
+      await db.execute(sql`ALTER TABLE fans ADD COLUMN IF NOT EXISTS acquired_via_account_id UUID REFERENCES accounts(id)`);
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS fan_account_stats (
+          id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          fan_id               UUID NOT NULL REFERENCES fans(id) ON DELETE CASCADE,
+          account_id           UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          total_revenue        NUMERIC DEFAULT '0',
+          total_transactions   INTEGER DEFAULT 0,
+          subscription_revenue NUMERIC DEFAULT '0',
+          tip_revenue          NUMERIC DEFAULT '0',
+          message_revenue      NUMERIC DEFAULT '0',
+          post_revenue         NUMERIC DEFAULT '0',
+          first_transaction_at TIMESTAMPTZ,
+          last_transaction_at  TIMESTAMPTZ,
+          updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(fan_id, account_id)
+        )
+      `);
+
       await send({ step: "start", message: "Reading existing transactions..." });
 
       const txCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM transactions`);

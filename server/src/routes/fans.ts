@@ -12,14 +12,13 @@ router.get("/stats", async (c) => {
   const result = await db.execute(sql`
     SELECT
       COUNT(*)                                                                               AS total_fans,
-      COUNT(CASE WHEN total_revenue::numeric > 0 THEN 1 END)                                AS spenders,
-      COALESCE(SUM(total_revenue::numeric), 0)                                              AS total_revenue,
+      COUNT(CASE WHEN total_revenue IS NOT NULL AND total_revenue::numeric > 0 THEN 1 END)   AS spenders,
+      COALESCE(SUM(CASE WHEN total_revenue IS NOT NULL THEN total_revenue::numeric END), 0)  AS total_revenue,
       COALESCE(AVG(CASE WHEN total_revenue::numeric > 0 THEN total_revenue::numeric END), 0) AS avg_per_spender,
       COUNT(CASE WHEN is_cross_poll = true THEN 1 END)                                      AS cross_poll_fans,
-      COALESCE(SUM(CASE WHEN is_cross_poll = true THEN total_revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue
+      COALESCE(SUM(CASE WHEN is_cross_poll = true AND total_revenue IS NOT NULL THEN total_revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue
     FROM fans
-    WHERE total_transactions IS NOT NULL
-      ${accountId ? sql`AND id IN (SELECT fan_id FROM fan_account_stats WHERE account_id = ${accountId}::uuid)` : sql``}
+    ${accountId ? sql`WHERE id IN (SELECT fan_id FROM fan_account_stats WHERE account_id = ${accountId}::uuid)` : sql``}
   `);
 
   const row = (result.rows[0] as any) ?? {};
@@ -31,6 +30,28 @@ router.get("/stats", async (c) => {
     cross_poll_fans: Number(row.cross_poll_fans ?? 0),
     cross_poll_revenue: Number(row.cross_poll_revenue ?? 0),
   });
+});
+
+// ── legacy compat (must be before /:id) ──────────────────────────────────────
+router.get("/spenders", async (c) => {
+  const rows = await db.select().from(fan_spend).limit(50000);
+  return c.json(rows);
+});
+
+router.get("/attribution-counts", async (c) => {
+  const rows = await db
+    .select({ account_id: fan_attributions.account_id })
+    .from(fan_attributions);
+  const counts: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.account_id) counts[r.account_id] = (counts[r.account_id] || 0) + 1;
+  }
+  return c.json(counts);
+});
+
+router.get("/count", async (c) => {
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(fans);
+  return c.json({ count: Number(result?.count ?? 0) });
 });
 
 // ── GET /fans ─────────────────────────────────────────────────────────────────
@@ -56,15 +77,17 @@ router.get("/", async (c) => {
   };
   const orderCol = allowedSortCols[sortBy] ?? "f.total_revenue::numeric";
 
-  const conditions: ReturnType<typeof sql>[] = [sql`f.total_transactions IS NOT NULL`];
+  const conditions: ReturnType<typeof sql>[] = [];
   if (accountId) conditions.push(sql`EXISTS (SELECT 1 FROM fan_account_stats fas WHERE fas.fan_id = f.id AND fas.account_id = ${accountId}::uuid)`);
   if (search) conditions.push(sql`(f.fan_id ILIKE ${"%" + search + "%"} OR f.username ILIKE ${"%" + search + "%"} OR f.display_name ILIKE ${"%" + search + "%"})`);
   if (dateFrom) conditions.push(sql`f.last_transaction_at >= ${dateFrom}`);
   if (dateTo) conditions.push(sql`f.last_transaction_at <= ${dateTo}`);
-  if (spendersOnly) conditions.push(sql`f.total_revenue::numeric > 0`);
+  if (spendersOnly) conditions.push(sql`f.total_revenue IS NOT NULL AND f.total_revenue::numeric > 0`);
   if (crossPollOnly) conditions.push(sql`f.is_cross_poll = true`);
 
-  const whereClause = sql.join(conditions, sql` AND `);
+  const whereClause = conditions.length > 0
+    ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+    : sql``;
 
   const rows = await db.execute(sql`
     SELECT
@@ -75,21 +98,15 @@ router.get("/", async (c) => {
       f.acquired_via_account_id, f.join_date, f.created_at,
       (SELECT COUNT(DISTINCT fas.account_id) FROM fan_account_stats fas WHERE fas.fan_id = f.id) AS account_count
     FROM fans f
-    WHERE ${whereClause}
+    ${whereClause}
     ORDER BY ${sql.raw(orderCol)} ${sql.raw(sortDir)} NULLS LAST
     LIMIT ${limitRaw} OFFSET ${offsetRaw}
   `);
 
-  const countResult = await db.execute(sql`SELECT COUNT(*) as cnt FROM fans f WHERE ${whereClause}`);
+  const countResult = await db.execute(sql`SELECT COUNT(*) as cnt FROM fans f ${whereClause}`);
   const total = Number((countResult.rows[0] as any)?.cnt ?? 0);
 
   return c.json({ fans: rows.rows, total, limit: limitRaw, offset: offsetRaw });
-});
-
-// ── GET /fans/count ───────────────────────────────────────────────────────────
-router.get("/count", async (c) => {
-  const [result] = await db.select({ count: sql<number>`count(*)` }).from(fans);
-  return c.json({ count: Number(result?.count ?? 0) });
 });
 
 // ── GET /fans/:id ─────────────────────────────────────────────────────────────
@@ -152,21 +169,6 @@ router.patch("/:id", async (c) => {
   const updated = await db.update(fans).set(allowed).where(where).returning();
   if (!updated[0]) return c.json({ error: "Fan not found" }, 404);
   return c.json(updated[0]);
-});
-
-// ── legacy compat routes (used by CrossPollDetailTable) ───────────────────────
-router.get("/spenders", async (c) => {
-  const rows = await db.select().from(fan_spend).limit(50000);
-  return c.json(rows);
-});
-
-router.get("/attribution-counts", async (c) => {
-  const rows = await db.select({ account_id: fan_attributions.account_id }).from(fan_attributions);
-  const counts: Record<string, number> = {};
-  for (const r of rows) {
-    if (r.account_id) counts[r.account_id] = (counts[r.account_id] || 0) + 1;
-  }
-  return c.json(counts);
 });
 
 export default router;

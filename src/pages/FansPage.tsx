@@ -202,14 +202,14 @@ export default function FansPage() {
 
   async function handleBootstrap() {
     setBootstrapping(true);
-    setSyncProgress("Bootstrapping from transactions...");
+    setSyncProgress("Building fan profiles from your existing transaction data...");
     try {
       await streamSync("/sync/fans/bootstrap", { triggered_by: "manual" }, (msg) => setSyncProgress(msg));
       await queryClient.invalidateQueries({ queryKey: ["fans_list"] });
       await queryClient.invalidateQueries({ queryKey: ["fan_stats"] });
-      toast.success("Fan bootstrap complete");
+      toast.success("Fan profiles built successfully");
     } catch (err: any) {
-      toast.error(`Bootstrap failed: ${err.message}`);
+      toast.error(`Build failed: ${err.message}`);
     } finally {
       setBootstrapping(false);
       setSyncProgress(null);
@@ -234,7 +234,7 @@ export default function FansPage() {
               disabled={bootstrapping || syncing}
             >
               <RefreshCw className={cn("w-4 h-4 mr-1.5", bootstrapping && "animate-spin")} />
-              Bootstrap
+              Build Fan Profiles
             </Button>
             <Button
               size="sm"
@@ -382,7 +382,7 @@ export default function FansPage() {
                     <td colSpan={7} className="text-center py-16 text-muted-foreground">
                       <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
                       <p className="font-medium">No fans found</p>
-                      <p className="text-xs mt-1">Run Bootstrap to populate fans from existing transactions</p>
+                      <p className="text-xs mt-1">Click <strong>Build Fan Profiles</strong> above to generate fan analytics from your existing transaction data</p>
                     </td>
                   </tr>
                 ) : (
