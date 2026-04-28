@@ -96,6 +96,11 @@ export default function AccountsPage() {
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
   const [perfRange, setPerfRange] = useState<PerfRange>("30d");
   const [activityFilter, setActivityFilter] = usePersistedState<"all" | "active" | "inactive">(`${A_PREFS}_activityFilter`, "all");
+  const [linksPage, setLinksPage] = useState(1);
+  const LINKS_PER_PAGE = 25;
+
+  // Reset to page 1 whenever account, filter, or sort changes
+  useEffect(() => { setLinksPage(1); }, [selectedAccount?.id, activityFilter, sortKey, sortAsc]);
 
   const handleDiscoverAccounts = async () => {
     setDiscovering(true);
@@ -652,6 +657,8 @@ export default function AccountsPage() {
     } else if (activityFilter === "inactive") {
       displayLinks = sortedLinks.filter((l: any) => !isLinkActive(l));
     }
+    const totalLinkPages = Math.ceil(displayLinks.length / LINKS_PER_PAGE);
+    const paginatedLinks = displayLinks.slice((linksPage - 1) * LINKS_PER_PAGE, linksPage * LINKS_PER_PAGE);
 
     // KPI card component (with optional trend chip when date filter is active)
     const KpiCard = ({
@@ -1002,7 +1009,7 @@ export default function AccountsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {displayLinks.map((l: any) => {
+                          {paginatedLinks.map((l: any) => {
                             const status = getStatus(l);
                             // ── Lifetime values from tracking_links ──
                             const lifetimeSpend = Number(l.cost_total || 0);
@@ -1186,12 +1193,57 @@ export default function AccountsPage() {
                         </tbody>
                       </table>
                     )}
-                    {activityFilter !== "all" && displayLinks.length > 0 && (
-                      <p className="text-[11px] text-muted-foreground mt-3 px-1">
-                        {activityFilter === "active"
-                          ? `Showing ${displayLinks.length} active link${displayLinks.length === 1 ? "" : "s"} (delivering ≥ 1 sub/day)`
-                          : `Showing ${displayLinks.length} inactive link${displayLinks.length === 1 ? "" : "s"} (< 1 sub/day last 5 days)`}
-                      </p>
+                    {/* Pagination footer */}
+                    {displayLinks.length > 0 && (
+                      <div className="flex items-center justify-between mt-3 px-1">
+                        <p className="text-[11px] text-muted-foreground">
+                          {displayLinks.length > LINKS_PER_PAGE
+                            ? `Showing ${(linksPage - 1) * LINKS_PER_PAGE + 1}–${Math.min(linksPage * LINKS_PER_PAGE, displayLinks.length)} of ${displayLinks.length} links`
+                            : `${displayLinks.length} link${displayLinks.length === 1 ? "" : "s"}${activityFilter === "active" ? " active" : activityFilter === "inactive" ? " inactive" : ""}`}
+                        </p>
+                        {totalLinkPages > 1 && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setLinksPage(p => Math.max(1, p - 1))}
+                              disabled={linksPage === 1}
+                              className="px-2 py-1 rounded text-[11px] border border-border bg-secondary/50 hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              ← Prev
+                            </button>
+                            {Array.from({ length: totalLinkPages }, (_, i) => i + 1)
+                              .filter(p => p === 1 || p === totalLinkPages || Math.abs(p - linksPage) <= 2)
+                              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                                acc.push(p);
+                                return acc;
+                              }, [])
+                              .map((p, i) =>
+                                p === "…" ? (
+                                  <span key={`ellipsis-${i}`} className="px-1 text-[11px] text-muted-foreground">…</span>
+                                ) : (
+                                  <button
+                                    key={p}
+                                    onClick={() => setLinksPage(p as number)}
+                                    className={`w-7 h-6 rounded text-[11px] border transition-colors ${
+                                      linksPage === p
+                                        ? "bg-primary text-primary-foreground border-primary"
+                                        : "border-border bg-secondary/50 hover:bg-secondary text-foreground"
+                                    }`}
+                                  >
+                                    {p}
+                                  </button>
+                                )
+                              )}
+                            <button
+                              onClick={() => setLinksPage(p => Math.min(totalLinkPages, p + 1))}
+                              disabled={linksPage === totalLinkPages}
+                              className="px-2 py-1 rounded text-[11px] border border-border bg-secondary/50 hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Next →
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
