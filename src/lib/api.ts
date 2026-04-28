@@ -243,6 +243,9 @@ export const deleteManualNote = (id: string) =>
 export const debugCallEndpoint = (url: string) =>
   apiFetch("/debug", { method: "POST", body: JSON.stringify({ action: "call_endpoint", url }) });
 
+export const debugAction = (action: string, extra: Record<string, any> = {}) =>
+  apiFetch("/debug", { method: "POST", body: JSON.stringify({ action, ...extra }) });
+
 // ─── SSE Sync helpers ─────────────────────────────────────────────────────────
 export async function streamSync(
   path: string,

@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { debugCallEndpoint, getAccounts } from "@/lib/api";
-import { Bug, Send, Loader2 } from "lucide-react";
+import { debugCallEndpoint, debugAction, getAccounts } from "@/lib/api";
+import { Bug, Send, Loader2, FlaskConical } from "lucide-react";
 import { CreditMonitor } from "@/components/debug/CreditMonitor";
 import { EndpointLibrary } from "@/components/debug/EndpointLibrary";
 import { ResponseDisplay, type ApiResponse } from "@/components/debug/ResponseDisplay";
@@ -15,6 +15,8 @@ export default function DebugPage() {
   const [history, setHistory] = useState<ApiResponse[]>([]);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [sessionCredits, setSessionCredits] = useState(0);
+  const [txSampleResult, setTxSampleResult] = useState<any>(null);
+  const [txSampleLoading, setTxSampleLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -68,6 +70,19 @@ export default function DebugPage() {
     }
   }, []);
 
+  const runTxSample = useCallback(async () => {
+    setTxSampleLoading(true);
+    setTxSampleResult(null);
+    try {
+      const data = await debugAction("tx_sample");
+      setTxSampleResult(data);
+    } catch (err: any) {
+      setTxSampleResult({ error: err.message });
+    } finally {
+      setTxSampleLoading(false);
+    }
+  }, []);
+
   return (
     <DashboardLayout>
       <div className="space-y-5">
@@ -81,6 +96,69 @@ export default function DebugPage() {
 
         {/* Section 5 — Credit Monitor (always visible) */}
         <CreditMonitor balance={creditBalance} sessionUsed={sessionCredits} />
+
+        {/* Fan Data Diagnostic */}
+        <div className="bg-card border border-rose-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-rose-500" /> Fan Data Diagnostic
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Fetches a raw transaction from the API for each account — shows all fields returned so we can find fan IDs
+              </p>
+            </div>
+            <button
+              onClick={runTxSample}
+              disabled={txSampleLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+            >
+              {txSampleLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Run Transaction Sample
+            </button>
+          </div>
+          {txSampleResult && (
+            <div className="space-y-3">
+              {(txSampleResult.results ?? []).map((r: any, i: number) => (
+                <div key={i} className="bg-secondary/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${r.status === 200 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-destructive/15 text-destructive"}`}>
+                      {r.status ?? "ERR"}
+                    </span>
+                    <span className="text-sm font-semibold text-foreground">{r.account}</span>
+                    {r.error && <span className="text-xs text-destructive">{r.error}</span>}
+                  </div>
+                  {r.tx_fields && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Transaction fields ({r.tx_fields.length})</p>
+                      <div className="flex flex-wrap gap-1">
+                        {r.tx_fields.map((f: string) => (
+                          <span key={f} className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${["userId","user_id","fanId","fan_id","subscriberId","subscriber_id","from","payer","buyer","user"].includes(f) ? "bg-primary/15 text-primary font-bold" : "bg-secondary text-muted-foreground"}`}>
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {r.first_tx && (
+                    <details className="text-[11px]">
+                      <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Show raw transaction</summary>
+                      <pre className="mt-1 bg-secondary/50 p-2 rounded overflow-x-auto max-h-48 text-muted-foreground">
+                        {JSON.stringify(r.first_tx, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                  {!r.tx_fields && !r.error && (
+                    <p className="text-xs text-muted-foreground">No transactions returned — top keys: {JSON.stringify(r.top_keys)}</p>
+                  )}
+                </div>
+              ))}
+              {txSampleResult.error && (
+                <p className="text-xs text-destructive">{txSampleResult.error}</p>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-[1fr_300px] gap-5">
           <div className="space-y-6">

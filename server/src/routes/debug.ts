@@ -63,6 +63,43 @@ router.post("/", async (c) => {
     });
   }
 
+  // Fetch a raw transaction from the API to see exactly what fields come back
+  if (body?.action === "tx_sample") {
+    const apiKey = process.env.ONLYFANS_API_KEY;
+    if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not set" }, 500);
+
+    const accRows = await db.execute(sql`
+      SELECT id, onlyfans_account_id, display_name
+      FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL
+      LIMIT 5
+    `);
+    const accounts = accRows.rows as any[];
+    const results: any[] = [];
+
+    for (const acc of accounts) {
+      const url = `https://app.onlyfansapi.com/api/${acc.onlyfans_account_id}/transactions?limit=1`;
+      try {
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+        const text = await res.text();
+        let parsed: any;
+        try { parsed = JSON.parse(text); } catch { parsed = text; }
+        // Show first transaction with ALL its fields
+        const list = parsed?.data?.list ?? parsed?.data ?? parsed?.transactions ?? parsed?.list ?? [];
+        const firstTx = Array.isArray(list) ? list[0] : null;
+        results.push({
+          account: acc.display_name,
+          status: res.status,
+          top_keys: Object.keys(parsed ?? {}),
+          tx_fields: firstTx ? Object.keys(firstTx) : null,
+          first_tx: firstTx,
+        });
+      } catch (err: any) {
+        results.push({ account: acc.display_name, error: err.message });
+      }
+    }
+    return c.json({ results });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 
