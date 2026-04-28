@@ -65,8 +65,6 @@ router.post("/", async (c) => {
 
   // Fetch a raw transaction from the API to see exactly what fields come back
   if (body?.action === "tx_sample") {
-    const apiKey = process.env.ONLYFANS_API_KEY;
-    if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not set" }, 500);
 
     const accRows = await db.execute(sql`
       SELECT id, onlyfans_account_id, display_name
