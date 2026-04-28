@@ -65,13 +65,16 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
 }
 
 // ─── Account fan card (grid view) ─────────────────────────────────────────────
-function AccountFanCard({ account, stats, isLoading, onClick }: {
+function AccountFanCard({ account, stats, isLoading, totalSubs, onClick }: {
   account: any;
   stats: any | null;
   isLoading: boolean;
+  totalSubs: number;
   onClick: () => void;
 }) {
-  const spenderPct = stats?.total_fans > 0 ? (stats.spenders / stats.total_fans) * 100 : 0;
+  const spenderPct = totalSubs > 0
+    ? (stats?.spenders ?? 0) / totalSubs * 100
+    : 0;
 
   return (
     <div
@@ -113,8 +116,8 @@ function AccountFanCard({ account, stats, isLoading, onClick }: {
         <>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3">
             <div>
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Fans</div>
-              <div className="text-xl font-bold tabular-nums">{fmtNum(stats.total_fans)}</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Subs</div>
+              <div className="text-xl font-bold tabular-nums">{totalSubs > 0 ? fmtNum(totalSubs) : "—"}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Spenders</div>
@@ -131,11 +134,11 @@ function AccountFanCard({ account, stats, isLoading, onClick }: {
           </div>
 
           {/* Spender conversion bar */}
-          {stats.total_fans > 0 && (
+          {totalSubs > 0 && (
             <div>
               <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                <span>Spender rate</span>
-                <span>{spenderPct.toFixed(1)}%</span>
+                <span>{fmtNum(stats.spenders ?? 0)} spenders of {fmtNum(totalSubs)} subs</span>
+                <span className="font-semibold">{spenderPct.toFixed(1)}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                 <div
@@ -409,7 +412,27 @@ export default function FansPage() {
     enabled: !!selectedAccountId,
   });
 
-  // Tracking links for campaign filter
+  // All tracking links — used to derive real subscriber counts per account
+  const { data: allTrackingLinks = [] } = useQuery({
+    queryKey: ["tracking_links_all"],
+    queryFn: () => getTrackingLinks(),
+    staleTime: 300_000,
+  });
+
+  const subsPerAccount = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const tl of allTrackingLinks as any[]) {
+      if (tl.account_id) map[tl.account_id] = (map[tl.account_id] ?? 0) + Number(tl.subscribers || 0);
+    }
+    return map;
+  }, [allTrackingLinks]);
+
+  const totalSubsAll = useMemo(
+    () => Object.values(subsPerAccount).reduce((a, b) => a + b, 0),
+    [subsPerAccount]
+  );
+
+  // Tracking links for campaign filter (selected account only)
   const { data: trackingLinks = [] } = useQuery({
     queryKey: ["tracking_links", selectedAccountId],
     queryFn: () => getTrackingLinks({ account_id: selectedAccountId! }),
@@ -533,7 +556,7 @@ export default function FansPage() {
                   <KpiCard
                     label="Spenders"
                     value={fmtNum(globalStats?.spenders)}
-                    sub={globalStats?.total_fans ? `${((globalStats.spenders / globalStats.total_fans) * 100).toFixed(1)}% of fans` : undefined}
+                    sub={totalSubsAll > 0 ? `${((globalStats.spenders / totalSubsAll) * 100).toFixed(1)}% of ${fmtNum(totalSubsAll)} subs` : undefined}
                     icon={DollarSign} color="bg-emerald-500"
                   />
                   <KpiCard label="Fan Revenue" value={fmt$(globalStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
@@ -570,6 +593,7 @@ export default function FansPage() {
                       account={acc}
                       stats={accountStatsMap[acc.id] ?? null}
                       isLoading={accountStatsQueries[i]?.isLoading ?? false}
+                      totalSubs={subsPerAccount[acc.id] ?? 0}
                       onClick={() => setSelectedAccountId(acc.id)}
                     />
                   ))}
@@ -592,7 +616,9 @@ export default function FansPage() {
                   <KpiCard
                     label="Spenders"
                     value={fmtNum(selectedStats?.spenders)}
-                    sub={selectedStats?.total_fans ? `${((selectedStats.spenders / selectedStats.total_fans) * 100).toFixed(1)}% of fans` : undefined}
+                    sub={selectedAccountId && subsPerAccount[selectedAccountId] > 0
+                      ? `${((selectedStats.spenders / subsPerAccount[selectedAccountId]) * 100).toFixed(1)}% of ${fmtNum(subsPerAccount[selectedAccountId])} subs`
+                      : undefined}
                     icon={DollarSign} color="bg-emerald-500"
                   />
                   <KpiCard label="Fan Revenue" value={fmt$(selectedStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
