@@ -212,10 +212,17 @@ export default function FansPage() {
     setBootstrapping(true);
     setSyncProgress("Building fan profiles from your existing transaction data...");
     try {
-      await streamSync("/sync/fans/bootstrap", { triggered_by: "manual" }, (msg) => setSyncProgress(msg));
+      const result = await streamSync("/sync/fans/bootstrap", { triggered_by: "manual" }, (msg) => setSyncProgress(msg));
       await queryClient.invalidateQueries({ queryKey: ["fans_list"] });
       await queryClient.invalidateQueries({ queryKey: ["fan_stats"] });
-      toast.success("Fan profiles built successfully");
+      const msg = result?.message ?? "";
+      const match = msg.match(/(\d+) fans/);
+      const count = match ? Number(match[1]) : null;
+      if (count === 0 || result?.step === "warn") {
+        toast.error(result?.message ?? "No fan data found — try running a Dashboard Sync first");
+      } else {
+        toast.success(count ? `Built ${count.toLocaleString()} fan profiles` : "Fan profiles built successfully");
+      }
     } catch (err: any) {
       toast.error(`Build failed: ${err.message}`);
     } finally {
