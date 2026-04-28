@@ -333,17 +333,48 @@ export const onlytraffic_unmatched_orders = pgTable("onlytraffic_unmatched_order
 
 // ── fans ──────────────────────────────────────────────────────────────────────
 export const fans = pgTable("fans", {
-  id:                      uuid("id").primaryKey().defaultRandom(),
-  fan_id:                  text("fan_id").notNull().unique(),
-  first_subscribe_account: text("first_subscribe_account"),
-  first_subscribe_date:    date("first_subscribe_date"),
-  first_subscribe_link_id: uuid("first_subscribe_link_id").references(() => tracking_links.id),
-  is_new_fan:              boolean("is_new_fan"),
-  join_date:               date("join_date"),
-  sub_history_checked_at:  timestamp("sub_history_checked_at", { withTimezone: true }),
-  created_at:              timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updated_at:              timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  id:                        uuid("id").primaryKey().defaultRandom(),
+  fan_id:                    text("fan_id").notNull().unique(),
+  first_subscribe_account:   text("first_subscribe_account"),
+  first_subscribe_date:      date("first_subscribe_date"),
+  first_subscribe_link_id:   uuid("first_subscribe_link_id").references(() => tracking_links.id),
+  is_new_fan:                boolean("is_new_fan"),
+  join_date:                 date("join_date"),
+  sub_history_checked_at:    timestamp("sub_history_checked_at", { withTimezone: true }),
+  // enriched fields populated by fan sync/bootstrap
+  username:                  text("username"),
+  display_name:              text("display_name"),
+  avatar_url:                text("avatar_url"),
+  status:                    text("status"),
+  tags:                      text("tags").array(),
+  notes:                     text("notes"),
+  total_revenue:             numeric("total_revenue"),
+  total_transactions:        integer("total_transactions"),
+  first_transaction_at:      timestamp("first_transaction_at", { withTimezone: true }),
+  last_transaction_at:       timestamp("last_transaction_at", { withTimezone: true }),
+  is_cross_poll:             boolean("is_cross_poll"),
+  acquired_via_account_id:   uuid("acquired_via_account_id").references(() => accounts.id),
+  created_at:                timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at:                timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ── fan_account_stats ─────────────────────────────────────────────────────────
+export const fan_account_stats = pgTable("fan_account_stats", {
+  id:                   uuid("id").primaryKey().defaultRandom(),
+  fan_id:               uuid("fan_id").references(() => fans.id).notNull(),
+  account_id:           uuid("account_id").references(() => accounts.id).notNull(),
+  total_revenue:        numeric("total_revenue").default("0"),
+  total_transactions:   integer("total_transactions").default(0),
+  subscription_revenue: numeric("subscription_revenue").default("0"),
+  tip_revenue:          numeric("tip_revenue").default("0"),
+  message_revenue:      numeric("message_revenue").default("0"),
+  post_revenue:         numeric("post_revenue").default("0"),
+  first_transaction_at: timestamp("first_transaction_at", { withTimezone: true }),
+  last_transaction_at:  timestamp("last_transaction_at", { withTimezone: true }),
+  updated_at:           timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_fan_account_stats").on(t.fan_id, t.account_id),
+]);
 
 // ── fan_attributions ──────────────────────────────────────────────────────────
 export const fan_attributions = pgTable("fan_attributions", {

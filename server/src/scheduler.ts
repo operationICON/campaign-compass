@@ -92,10 +92,10 @@ async function runDailySync() {
     return;
   }
   dailySyncRunning = true;
-  console.log("[Scheduler] Daily sync starting: snapshots → crosspoll");
+  console.log("[Scheduler] Daily sync starting: snapshots → fans (replaces crosspoll)");
   try {
     await drainSSE("/sync/snapshots", "cron_daily");
-    await drainSSE("/sync/crosspoll", "cron_daily");
+    await drainSSE("/sync/fans", "cron_daily");
     console.log("[Scheduler] Daily sync complete");
   } finally {
     dailySyncRunning = false;
@@ -134,5 +134,5 @@ export function startScheduler() {
     try { await runOTSyncIfDue(); } catch (err: any) { console.error("[Scheduler] OT startup check error:", err.message); }
   }, 30_000);
 
-  console.log("[Scheduler] Active — dashboard daily 01:00 UTC, snapshots+crosspoll daily 02:00 UTC, OT checked every 30min");
+  console.log("[Scheduler] Active — dashboard daily 01:00 UTC, snapshots+fans daily 02:00 UTC, OT checked every 30min");
 }

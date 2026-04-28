@@ -192,13 +192,38 @@ export const bulkUpdateTrackingLinks = (updates: { id: string; [key: string]: an
   apiFetch("/tracking-links/bulk-update", { method: "POST", body: JSON.stringify(updates) });
 
 // ─── Fans ─────────────────────────────────────────────────────────────────────
-export const getFans = (account_id?: string) =>
-  apiFetch(`/fans${account_id ? `?account_id=${account_id}` : ""}`);
+export const getFanStats = (params?: { account_id?: string }) =>
+  apiFetch<{
+    total_fans: number; spenders: number; total_revenue: number;
+    avg_per_spender: number; cross_poll_fans: number; cross_poll_revenue: number;
+  }>(`/fans/stats${buildQuery({ account_id: params?.account_id })}`);
+
+export const getFans = (params?: {
+  account_id?: string; search?: string; date_from?: string; date_to?: string;
+  spenders_only?: boolean; cross_poll_only?: boolean;
+  limit?: number; offset?: number; sort_by?: string; sort_dir?: string;
+}) =>
+  apiFetch<{ fans: any[]; total: number; limit: number; offset: number }>(`/fans${buildQuery({
+    account_id: params?.account_id,
+    search: params?.search,
+    date_from: params?.date_from,
+    date_to: params?.date_to,
+    spenders_only: params?.spenders_only ? "true" : undefined,
+    cross_poll_only: params?.cross_poll_only ? "true" : undefined,
+    limit: params?.limit?.toString(),
+    offset: params?.offset?.toString(),
+    sort_by: params?.sort_by,
+    sort_dir: params?.sort_dir,
+  })}`);
+
+export const getFan = (id: string) =>
+  apiFetch<{ fan: any; account_stats: any[]; transactions: any[] }>(`/fans/${id}`);
+
+export const updateFan = (id: string, body: { tags?: string[]; notes?: string; status?: string }) =>
+  apiFetch(`/fans/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
 export const getFanCount = (account_id?: string) =>
   apiFetch<{ count: number }>(`/fans/count${account_id ? `?account_id=${account_id}` : ""}`);
-export const getFanAttributionCounts = () =>
-  apiFetch<Record<string, number>>("/fans/attribution-counts");
-export const getFanSpenders = () => apiFetch("/fans/spenders");
 
 // ─── Manual Notes ─────────────────────────────────────────────────────────────
 export const getManualNotes = () => apiFetch("/manual-notes");

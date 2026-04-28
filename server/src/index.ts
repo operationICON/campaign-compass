@@ -31,6 +31,7 @@ import syncAccountRouter from "./routes/sync/account.js";
 import syncSnapshotsRouter from "./routes/sync/snapshots.js";
 import syncOnlytrafficRouter from "./routes/sync/onlytraffic.js";
 import syncCrosspollRouter from "./routes/sync/crosspoll.js";
+import syncFansRouter from "./routes/sync/fans.js";
 import syncRevenueBreakdownRouter from "./routes/sync/revenue-breakdown.js";
 import syncCancelRouter from "./routes/sync/cancel.js";
 import authRouter from "./routes/auth.js";
@@ -96,6 +97,7 @@ app.route("/sync/account", syncAccountRouter);
 app.route("/sync/snapshots", syncSnapshotsRouter);
 app.route("/sync/onlytraffic", syncOnlytrafficRouter);
 app.route("/sync/crosspoll", syncCrosspollRouter);
+app.route("/sync/fans", syncFansRouter);
 app.route("/sync/revenue-breakdown", syncRevenueBreakdownRouter);
 app.route("/sync/cancel", syncCancelRouter);
 
