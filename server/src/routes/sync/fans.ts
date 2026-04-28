@@ -341,9 +341,22 @@ router.post("/bootstrap", async (c) => {
   return new Response(stream, { headers: sseHeaders });
 });
 
+// ── Extract fan identity from transaction description HTML ────────────────────
+// description format: "Payment for message from <a href="https://onlyfans.com/USERNAME">Display Name</a>"
+function parseFanFromDescription(description: string | null | undefined): { fan_id: string; username: string; display_name: string } | null {
+  if (!description) return null;
+  const match = description.match(/href="https?:\/\/onlyfans\.com\/([^"]+)">([^<]+)<\/a>/i);
+  if (!match) return null;
+  const username = match[1].trim();
+  const display_name = match[2].trim();
+  if (!username) return null;
+  return { fan_id: username, username, display_name };
+}
+
 // ── POST /sync/fans ───────────────────────────────────────────────────────────
-// Fetches per-fan spending data from the /fans API endpoint for each account,
-// stores in fans + fan_spend, then re-aggregates fan profiles.
+// Fetches transactions from the /transactions endpoint (which works), extracts
+// fan identity from the description HTML field, aggregates revenue per fan,
+// and upserts into fans + fan_spend tables.
 router.post("/", async (c) => {
   const apiKey = process.env.ONLYFANS_API_KEY;
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
@@ -361,15 +374,6 @@ router.post("/", async (c) => {
 
   (async () => {
     const errors: string[] = [];
-    const probeResults: Array<{
-      account: string;
-      endpoint: string;
-      status: number;
-      working: boolean;
-      keys: string;
-      item_keys: string;
-      raw: string;
-    }> = [];
 
     try {
       await send({ step: "migrate", message: "Ensuring schema..." });
@@ -380,140 +384,108 @@ router.post("/", async (c) => {
         .from(accounts)
         .where(eq(accounts.is_active, true));
 
-      await send({ step: "start", message: `Fetching fans for ${enabledAccounts.length} accounts via /fans endpoint...` });
+      await send({ step: "start", message: `Building fan profiles from transactions for ${enabledAccounts.length} accounts...` });
 
-      let totalFansFetched = 0;
-
-      // Endpoint candidates — try each in order until one returns fan data
-      const ENDPOINT_CANDIDATES = ["fans", "subscribers", "members"];
+      let totalTxProcessed = 0;
+      let totalUniqueFans = 0;
 
       for (const account of enabledAccounts) {
         if (!account.onlyfans_account_id) continue;
         try {
-          const fetched: Array<{ fan_id: string; username: string | null; display_name: string | null; revenue: string }> = [];
+          // fanId → { revenue, display_name, first_date, last_date }
+          const fanMap = new Map<string, { revenue: number; username: string; display_name: string; first_date: string | null; last_date: string | null }>();
 
-          // Probe first candidate that returns data
-          let workingEndpoint: string | null = null;
+          let url: string | null = `${API_BASE}/${account.onlyfans_account_id}/transactions?limit=100`;
+          let apiCalls = 0;
 
-          for (const endpoint of ENDPOINT_CANDIDATES) {
-            const probeUrl = `${API_BASE}/${account.onlyfans_account_id}/${endpoint}?limit=5`;
-            const probeRes = await fetch(probeUrl, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
-            const probeText = await probeRes.text();
-            let probeData: any;
-            try { probeData = JSON.parse(probeText); } catch { probeData = null; }
+          while (url && apiCalls < 500) {
+            apiCalls++;
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
 
-            const topKeys = JSON.stringify(Object.keys(probeData ?? {}));
-
-            if (!probeRes.ok) {
-              const result = { account: account.display_name!, endpoint, status: probeRes.status, working: false, keys: topKeys, item_keys: "", raw: probeText.slice(0, 300) };
-              probeResults.push(result);
-              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} — ${probeText.slice(0, 150)}` });
+            if (res.status === 429) {
+              const retryAfter = Number(res.headers.get("Retry-After") ?? 15);
+              await sleep(retryAfter * 1000);
+              apiCalls--;
               continue;
             }
-
-            const list: any[] = probeData?.data?.list ?? probeData?.data ?? probeData?.fans ??
-              probeData?.subscribers ?? probeData?.members ?? probeData?.list ?? [];
-
-            if (Array.isArray(list) && list.length > 0) {
-              const itemKeys = JSON.stringify(Object.keys(list[0] ?? {}));
-              probeResults.push({ account: account.display_name!, endpoint, status: probeRes.status, working: true, keys: topKeys, item_keys: itemKeys, raw: "" });
-              workingEndpoint = endpoint;
-              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} ✓ — item fields: ${itemKeys}` });
-              break;
-            } else {
-              probeResults.push({ account: account.display_name!, endpoint, status: probeRes.status, working: false, keys: topKeys, item_keys: "", raw: probeText.slice(0, 300) });
-              await send({ step: "probe", message: `${account.display_name} /${endpoint}: HTTP ${probeRes.status} empty — keys: ${topKeys} — ${probeText.slice(0, 200)}` });
-            }
-            await sleep(300);
-          }
-
-          if (!workingEndpoint) {
-            errors.push(`${account.display_name}: no working fan endpoint found (tried: ${ENDPOINT_CANDIDATES.join(", ")})`);
-            continue;
-          }
-
-          // Full paginated fetch using working endpoint
-          let cursor: string | null = null;
-          let page = 1;
-          let hasMore = true;
-
-          while (hasMore && page <= 300) {
-            const urlPath = cursor
-              ? cursor // use next-page cursor if available
-              : `${API_BASE}/${account.onlyfans_account_id}/${workingEndpoint}?limit=100&page=${page}`;
-            const res = await fetch(urlPath, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
-
             if (!res.ok) {
-              errors.push(`${account.display_name}: HTTP ${res.status} on page ${page}`);
-              hasMore = false;
+              errors.push(`${account.display_name}: HTTP ${res.status}`);
               break;
             }
 
-            const data = await res.json() as any;
-            const list: any[] = data?.data?.list ?? data?.data ?? data?.fans ??
-              data?.subscribers ?? data?.members ?? data?.list ?? [];
-            if (!Array.isArray(list) || list.length === 0) { hasMore = false; break; }
+            const json = await res.json() as any;
+            const page: any[] = json?.data?.list ?? json?.data ?? json?.transactions ?? json?.list ?? [];
+            if (!Array.isArray(page) || page.length === 0) break;
 
-            for (const fan of list) {
-              const fanId = String(
-                fan.id ?? fan.userId ?? fan.user_id ?? fan.fanId ?? fan.fan_id ??
-                fan.subscriberId ?? fan.subscriber_id ?? fan.memberId ?? fan.member_id ?? ""
-              );
-              if (!fanId) continue;
-              const revenue = Number(
-                fan.revenue?.total ?? fan.totalRevenue ?? fan.total_revenue ??
-                fan.spendingTotal ?? fan.spending ?? fan.totalSpend ?? fan.amount ??
-                fan.spend ?? fan.totalSpend ?? 0
-              );
-              fetched.push({
-                fan_id: fanId,
-                username: fan.username ?? fan.userName ?? fan.user_name ?? null,
-                display_name: fan.name ?? fan.displayName ?? fan.display_name ?? null,
-                revenue: String(revenue),
-              });
+            for (const tx of page) {
+              totalTxProcessed++;
+              // Primary: extract fan from description HTML
+              const fan = parseFanFromDescription(tx.description);
+              if (!fan) continue;
+
+              const revenue = Number(tx.amount ?? tx.revenue ?? 0);
+              const dateStr: string | null = tx.createdAt ? String(tx.createdAt).split("T")[0] : (tx.date ? String(tx.date).split("T")[0] : null);
+
+              const existing = fanMap.get(fan.fan_id);
+              if (existing) {
+                existing.revenue += revenue;
+                if (dateStr) {
+                  if (!existing.first_date || dateStr < existing.first_date) existing.first_date = dateStr;
+                  if (!existing.last_date || dateStr > existing.last_date) existing.last_date = dateStr;
+                }
+              } else {
+                fanMap.set(fan.fan_id, { revenue, username: fan.username, display_name: fan.display_name, first_date: dateStr, last_date: dateStr });
+              }
             }
 
-            const nextPage = data?._meta?._pagination?.next_page ??
-              data?._pagination?.next_page ?? data?.meta?.next_page ?? null;
-            if (nextPage) { cursor = nextPage.startsWith("http") ? nextPage : `${API_BASE}${nextPage}`; page++; }
-            else if (list.length < 100) hasMore = false;
-            else { cursor = null; page++; }
-            await sleep(300);
+            const nextPage = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null;
+            url = nextPage ?? null;
+            await sleep(200);
           }
 
-          if (fetched.length > 0) {
-            for (const f of fetched) {
+          if (fanMap.size > 0) {
+            totalUniqueFans += fanMap.size;
+            await send({ step: "account_done", message: `${account.display_name}: ${fanMap.size} unique fans from ${apiCalls} API pages` });
+
+            for (const [fanId, data] of fanMap.entries()) {
               await db.insert(fans).values({
-                fan_id: f.fan_id,
-                username: f.username,
-                display_name: f.display_name,
+                fan_id: fanId,
+                username: data.username,
+                display_name: data.display_name,
+                total_revenue: String(data.revenue),
+                first_transaction_at: data.first_date ? new Date(data.first_date) : null,
+                last_transaction_at: data.last_date ? new Date(data.last_date) : null,
               }).onConflictDoUpdate({
                 target: fans.fan_id,
-                set: { username: f.username, display_name: f.display_name, updated_at: new Date() },
+                set: {
+                  username: data.username,
+                  display_name: data.display_name,
+                  total_revenue: String(data.revenue),
+                  last_transaction_at: data.last_date ? new Date(data.last_date) : null,
+                  updated_at: new Date(),
+                },
               });
 
               await db.execute(sql`
                 INSERT INTO fan_spend (fan_id, account_id, revenue, calculated_at)
-                VALUES (${f.fan_id}, ${account.id}::uuid, ${f.revenue}::numeric, NOW())
+                VALUES (${fanId}, ${account.id}::uuid, ${String(data.revenue)}::numeric, NOW())
                 ON CONFLICT (fan_id, account_id)
                 DO UPDATE SET revenue = EXCLUDED.revenue, calculated_at = EXCLUDED.calculated_at
               `);
             }
-            totalFansFetched += fetched.length;
-            await send({ step: "account_done", message: `${account.display_name}: ${fetched.length} fans via /${workingEndpoint}` });
           } else {
-            await send({ step: "account_done", message: `${account.display_name}: 0 fans via /${workingEndpoint}` });
+            await send({ step: "account_done", message: `${account.display_name}: 0 fans identified from ${totalTxProcessed} transactions` });
           }
         } catch (err: any) {
           errors.push(`${account.display_name}: ${err.message}`);
         }
       }
 
-      // Re-aggregate fan profiles from fan_spend data now populated
-      await send({ step: "aggregate", message: `Aggregating ${totalFansFetched} fan records across accounts...` });
+      // Re-aggregate global fan profiles
+      await send({ step: "aggregate", message: `Aggregating ${totalUniqueFans} fan profiles across all accounts...` });
       const { upsertedFans, upsertedStats } = await bootstrapFromSpend(send);
 
-      await send({ step: "crosspoll", message: "Updating cross-poll LTV..." });
+      await send({ step: "crosspoll", message: "Updating cross-poll data..." });
       const ltvUpdated = await updateCrosspollLtv();
 
       const now = new Date();
@@ -522,13 +494,13 @@ router.post("/", async (c) => {
           status: errors.length > 0 ? "partial" : "success",
           success: errors.length === 0,
           finished_at: now, completed_at: now,
-          records_processed: totalFansFetched,
-          message: `${totalFansFetched} fans fetched, ${upsertedFans} profiles built${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
+          records_processed: upsertedFans,
+          message: `${upsertedFans} fan profiles built from ${totalTxProcessed} transactions (${totalUniqueFans} unique fans identified)${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
-          details: { probe_results: probeResults, api_calls: probeResults.length },
+          details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans },
         }).where(eq(sync_logs.id, syncLogId));
       }
-      await send({ step: "done", message: `Sync complete — ${totalFansFetched} fans fetched, ${upsertedFans} profiles built`, errors: errors.length > 0 ? errors : undefined });
+      await send({ step: "done", message: `Done — ${upsertedFans} fan profiles built from ${totalTxProcessed} transactions`, errors: errors.length > 0 ? errors : undefined });
     } catch (err: any) {
       if (syncLogId) {
         await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
