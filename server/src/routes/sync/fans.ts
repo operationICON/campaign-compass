@@ -433,15 +433,12 @@ router.post("/", async (c) => {
                 set: { username: f.username, display_name: f.display_name, updated_at: new Date() },
               });
 
-              await db.insert(fan_spend).values({
-                fan_id: f.fan_id,
-                account_id: account.id,
-                revenue: f.revenue,
-                calculated_at: new Date(),
-              }).onConflictDoUpdate({
-                target: sql`(fan_id, account_id)`,
-                set: { revenue: f.revenue, calculated_at: new Date() },
-              });
+              await db.execute(sql`
+                INSERT INTO fan_spend (fan_id, account_id, revenue, calculated_at)
+                VALUES (${f.fan_id}, ${account.id}::uuid, ${f.revenue}::numeric, NOW())
+                ON CONFLICT (fan_id, account_id)
+                DO UPDATE SET revenue = EXCLUDED.revenue, calculated_at = EXCLUDED.calculated_at
+              `);
             }
             totalFansFetched += fetched.length;
             await send({ step: "account_done", message: `${account.display_name}: ${fetched.length} fans fetched` });
