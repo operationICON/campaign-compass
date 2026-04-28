@@ -225,6 +225,11 @@ export const updateFan = (id: string, body: { tags?: string[]; notes?: string; s
 export const getFanCount = (account_id?: string) =>
   apiFetch<{ count: number }>(`/fans/count${account_id ? `?account_id=${account_id}` : ""}`);
 
+// kept for backward compat — components that import these legacy names
+export const getFanSpenders = () => apiFetch("/fans/spenders");
+export const getFanAttributionCounts = () =>
+  apiFetch<Record<string, number>>("/fans/attribution-counts");
+
 // ─── Manual Notes ─────────────────────────────────────────────────────────────
 export const getManualNotes = () => apiFetch("/manual-notes");
 export const createManualNote = (body: any) =>

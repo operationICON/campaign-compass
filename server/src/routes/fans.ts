@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { fans, fan_account_stats, transactions, accounts } from "../db/schema.js";
+import { fans, fan_account_stats, fan_spend, fan_attributions, transactions, accounts } from "../db/schema.js";
 import { eq, sql, desc } from "drizzle-orm";
 
 const router = new Hono();
@@ -152,6 +152,21 @@ router.patch("/:id", async (c) => {
   const updated = await db.update(fans).set(allowed).where(where).returning();
   if (!updated[0]) return c.json({ error: "Fan not found" }, 404);
   return c.json(updated[0]);
+});
+
+// ── legacy compat routes (used by CrossPollDetailTable) ───────────────────────
+router.get("/spenders", async (c) => {
+  const rows = await db.select().from(fan_spend).limit(50000);
+  return c.json(rows);
+});
+
+router.get("/attribution-counts", async (c) => {
+  const rows = await db.select({ account_id: fan_attributions.account_id }).from(fan_attributions);
+  const counts: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.account_id) counts[r.account_id] = (counts[r.account_id] || 0) + 1;
+  }
+  return c.json(counts);
 });
 
 export default router;
