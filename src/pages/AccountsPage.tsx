@@ -706,7 +706,6 @@ export default function AccountsPage() {
                 ? "(prev mo)"
                 : "";
     const headerLabel = (base: string) => (periodActive ? `${base} ${periodSuffix}` : base);
-    const gainedSuffix = periodActive ? periodSuffix : "(all)";
 
     // Lifetime KPI values (used when "All Time" or as fallback)
     const lifetimeUnattrib = Number(acc.ltv_total || 0) * revMultiplier;
@@ -988,42 +987,6 @@ export default function AccountsPage() {
                       <p className="text-sm text-muted-foreground py-8 text-center">No tracking links match this filter</p>
                     ) : (
                       <>
-                      {/* Top pagination bar */}
-                      <div className="flex items-center justify-between px-1 py-2 border-b border-border">
-                        <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {displayLinks.length} tracking links</span>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-muted-foreground">Rows:</span>
-                            {[10, 25, 50, 100].map(n => (
-                              <button key={n} onClick={() => { setLinksPerPage(n); setLinksPage(1); }}
-                                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${linksPerPage === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>{n}</button>
-                            ))}
-                          </div>
-                          {totalLinkPages > 1 && (
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => setLinksPage(p => Math.max(1, p - 1))} disabled={safeLinkPage <= 1} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
-                                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                              </button>
-                              {Array.from({ length: Math.min(totalLinkPages, 7) }, (_, i) => {
-                                let pageNum: number;
-                                if (totalLinkPages <= 7) pageNum = i + 1;
-                                else if (safeLinkPage <= 4) pageNum = i + 1;
-                                else if (safeLinkPage >= totalLinkPages - 3) pageNum = totalLinkPages - 6 + i;
-                                else pageNum = safeLinkPage - 3 + i;
-                                return (
-                                  <button key={pageNum} onClick={() => setLinksPage(pageNum)}
-                                    className={`w-8 h-8 rounded text-xs font-medium transition-colors ${pageNum === safeLinkPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
-                                    {pageNum}
-                                  </button>
-                                );
-                              })}
-                              <button onClick={() => setLinksPage(p => Math.min(totalLinkPages, p + 1))} disabled={safeLinkPage >= totalLinkPages} className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
@@ -1032,7 +995,6 @@ export default function AccountsPage() {
                             <th className="text-left py-2 px-3 cursor-pointer" onClick={() => toggleSort("marketer")}>Marketer <SortIcon col="marketer" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("clicks")}>{headerLabel("Clicks")} <SortIcon col="clicks" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>{headerLabel("Subs")} <SortIcon col="subscribers" /></th>
-                            <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subscribers")}>Gained {gainedSuffix}</th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("subs_day")}>{headerLabel("Subs/Day")} <SortIcon col="subs_day" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("cvr")}>{headerLabel("CVR")} <SortIcon col="cvr" /></th>
                             <th className="text-right py-2 px-3 cursor-pointer" onClick={() => toggleSort("spend")}>{headerLabel("Spend")} <SortIcon col="spend" /></th>
@@ -1115,11 +1077,7 @@ export default function AccountsPage() {
                                 ? "border-l-2 border-l-muted-foreground/40"
                                 : "";
 
-                            // Gained column: lifetime in All Time mode, delta otherwise
-                            const gainedValue = periodActive
-                              ? (periodHas ? linkD!.cur.subs : null)
-                              : lifetimeSubs;
-                            const gainedTrend = periodActive ? pctChange(linkD?.cur.subs ?? 0, subsPrev) : null;
+
 
                             return (
                               <tr
@@ -1147,16 +1105,6 @@ export default function AccountsPage() {
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {fmtNum(subsVal)}
                                   {periodActive && <div><TrendChip value={pctChange(subsVal, subsPrev)} /></div>}
-                                </td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  {gainedValue == null ? (
-                                    <span className="text-muted-foreground">—</span>
-                                  ) : (
-                                    <span className="text-emerald-500 font-bold">
-                                      {periodActive ? (gainedValue > 0 ? `+${fmtNum(gainedValue)}` : fmtNum(gainedValue)) : fmtNum(gainedValue)}
-                                    </span>
-                                  )}
-                                  {periodActive && <div><TrendChip value={gainedTrend} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3">
                                   {(() => {
