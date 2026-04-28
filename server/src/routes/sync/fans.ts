@@ -400,19 +400,28 @@ router.post("/", async (c) => {
 
       let totalTxProcessed = 0;
 
+      // Per-account result tracking — stored in sync log details for visibility
+      type AccountResult = { account: string; status: "ok" | "auth_error" | "error" | "skipped"; fans: number; pages: number; note?: string };
+      const accountResults: AccountResult[] = [];
+
       // Global map: fanId → aggregated data across all accounts
       type FanEntry = { revenue: number; username: string; display_name: string; first_date: string | null; last_date: string | null; byAccount: Map<string, number> };
       const globalFanMap = new Map<string, FanEntry>();
 
       // ── Phase 1: fetch transactions, stop when hitting old data ──────────────
       for (const account of enabledAccounts) {
-        if (!account.onlyfans_account_id) continue;
+        if (!account.onlyfans_account_id) {
+          accountResults.push({ account: account.display_name ?? account.id, status: "skipped", fans: 0, pages: 0, note: "no onlyfans_account_id" });
+          continue;
+        }
         try {
           const perAccountMap = new Map<string, { revenue: number; username: string; display_name: string; first_date: string | null; last_date: string | null }>();
 
           let url: string | null = `${API_BASE}/${account.onlyfans_account_id}/transactions?limit=100`;
           let apiCalls = 0;
           let hitCutoff = false;
+          let accountStatus: AccountResult["status"] = "ok";
+          let accountNote: string | undefined;
 
           while (url && apiCalls < 500 && !hitCutoff) {
             apiCalls++;
@@ -425,10 +434,17 @@ router.post("/", async (c) => {
               continue;
             }
             if (res.status === 401 || res.status === 403) {
+              accountStatus = "auth_error";
+              accountNote = `HTTP ${res.status} — check API credentials for this account`;
               authErrors.push(`${account.display_name}: HTTP ${res.status} (check API credentials for this account)`);
               break;
             }
-            if (!res.ok) { errors.push(`${account.display_name}: HTTP ${res.status}`); break; }
+            if (!res.ok) {
+              accountStatus = "error";
+              accountNote = `HTTP ${res.status}`;
+              errors.push(`${account.display_name}: HTTP ${res.status}`);
+              break;
+            }
 
             const json = await res.json() as any;
             const page: any[] = json?.data?.list ?? json?.data ?? json?.transactions ?? json?.list ?? [];
@@ -463,8 +479,8 @@ router.post("/", async (c) => {
             await sleep(150);
           }
 
-          const stopReason = hitCutoff ? " (incremental — stopped at cutoff)" : "";
-          await send({ step: "account_done", message: `${account.display_name}: ${perAccountMap.size} fans from ${apiCalls} pages${stopReason}` });
+          accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, fans: perAccountMap.size, pages: apiCalls, note: accountNote ?? (hitCutoff ? "stopped at cutoff (incremental)" : undefined) });
+          await send({ step: "account_done", message: `${account.display_name}: ${accountStatus === "auth_error" ? "⚠ skipped (auth error)" : accountStatus === "error" ? `⚠ error (${accountNote})` : `${perAccountMap.size} fans from ${apiCalls} pages`}` });
 
           // Merge into global map
           for (const [fanId, data] of perAccountMap.entries()) {
@@ -479,6 +495,7 @@ router.post("/", async (c) => {
             }
           }
         } catch (err: any) {
+          accountResults.push({ account: account.display_name ?? account.id, status: "error", fans: 0, pages: 0, note: err.message });
           errors.push(`${account.display_name}: ${err.message}`);
         }
       }
@@ -548,7 +565,7 @@ router.post("/", async (c) => {
           records_processed: upsertedFans,
           message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} transactions processed${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}${authErrors.length ? `. Auth issues (skipped): ${authErrors.map(e => e.split(":")[0]).join(", ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
-          details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, ltv_links: ltvUpdated },
+          details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, ltv_links: ltvUpdated, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
       }
       await send({ step: "done", message: `Done — ${upsertedFans} fans, ${totalTxProcessed} transactions processed`, errors: errors.length > 0 ? errors : undefined, auth_warnings: authErrors.length > 0 ? authErrors : undefined });
