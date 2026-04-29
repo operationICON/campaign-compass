@@ -6,7 +6,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { isActiveAccount } from "@/lib/calc-helpers";
-import { Clock, ChevronRight, CalendarDays, ChevronLeft, X } from "lucide-react";
+import { Clock, ChevronRight, CalendarDays, ChevronLeft, ArrowRight } from "lucide-react";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 
 const COLOR_CYCLE = [
   "#0891b2", "#16a34a", "#d97706", "#7c3aed", "#ec4899",
@@ -39,27 +40,16 @@ function getMonthGrid(year: number, month: number): (Date | null)[] {
   return cells;
 }
 
-function isSameDay(a: Date, b: Date) {
+function isSameDayLocal(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-function isInRange(day: Date, from: Date, to: Date) {
-  return day >= from && day <= to;
 }
 
 interface DateRange { from: Date; to: Date }
 
-interface SubsDatePickerProps {
-  value: DateRange;
-  onChange: (r: DateRange) => void;
-}
-
-function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
+function SubsDatePicker({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
   const [open, setOpen] = useState(false);
   const [leftYear, setLeftYear] = useState(() => value.to.getFullYear());
-  const [leftMonth, setLeftMonth] = useState(() => {
-    const m = value.to.getMonth();
-    return m === 0 ? 0 : m - 1;
-  });
+  const [leftMonth, setLeftMonth] = useState(() => { const m = value.to.getMonth(); return m === 0 ? 0 : m - 1; });
   const [picking, setPicking] = useState<{ from: Date; to: Date | null } | null>(null);
   const [hovered, setHovered] = useState<Date | null>(null);
 
@@ -67,34 +57,21 @@ function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
   const rightMonth = (leftMonth + 1) % 12;
 
   function prevMonth() {
-    if (leftMonth === 0) { setLeftMonth(11); setLeftYear(y => y - 1); }
-    else setLeftMonth(m => m - 1);
+    if (leftMonth === 0) { setLeftMonth(11); setLeftYear(y => y - 1); } else setLeftMonth(m => m - 1);
   }
   function nextMonth() {
-    if (leftMonth === 11) { setLeftMonth(0); setLeftYear(y => y + 1); }
-    else setLeftMonth(m => m + 1);
+    if (leftMonth === 11) { setLeftMonth(0); setLeftYear(y => y + 1); } else setLeftMonth(m => m + 1);
   }
-
   function handleDayClick(day: Date) {
-    if (!picking || picking.to !== null) {
-      setPicking({ from: day, to: null });
-    } else {
+    if (!picking || picking.to !== null) { setPicking({ from: day, to: null }); }
+    else {
       const from = day < picking.from ? day : picking.from;
       const to = day < picking.from ? picking.from : day;
       setPicking({ from, to });
     }
   }
-
   function handleApply() {
-    if (picking?.from && picking?.to) {
-      onChange({ from: picking.from, to: picking.to });
-      setOpen(false);
-    }
-  }
-
-  function handlePreset(preset: typeof QUICK_PRESETS[0]) {
-    const r = preset.fn();
-    setPicking({ from: r.from, to: r.to });
+    if (picking?.from && picking?.to) { onChange({ from: picking.from, to: picking.to }); setOpen(false); }
   }
 
   const effectiveTo = picking?.to ?? hovered ?? null;
@@ -113,12 +90,13 @@ function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
           ))}
           {cells.map((day, i) => {
             if (!day) return <div key={`e${i}`} />;
-            const isStart = picking?.from && isSameDay(day, picking.from);
-            const isEnd = effectiveTo && isSameDay(day, effectiveTo);
+            const isStart = picking?.from && isSameDayLocal(day, picking.from);
+            const isEnd = effectiveTo && isSameDayLocal(day, effectiveTo);
             const inRange = picking?.from && effectiveTo
-              ? isInRange(day, picking.from < effectiveTo ? picking.from : effectiveTo, picking.from < effectiveTo ? effectiveTo : picking.from)
+              ? day >= (picking.from < effectiveTo ? picking.from : effectiveTo) &&
+                day <= (picking.from < effectiveTo ? effectiveTo : picking.from)
               : false;
-            const todayDay = isSameDay(day, today);
+            const isToday = isSameDayLocal(day, today);
             return (
               <button
                 key={day.toISOString()}
@@ -132,7 +110,7 @@ function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
                 ].filter(Boolean).join(" ")}
               >
                 {day.getDate()}
-                {todayDay && !isStart && !isEnd && (
+                {isToday && !isStart && !isEnd && (
                   <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
                 )}
               </button>
@@ -143,8 +121,6 @@ function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
     );
   }
 
-  const label = `${format(value.from, "MMM d")} – ${format(value.to, "MMM d, yyyy")}`;
-
   return (
     <div className="relative" onMouseLeave={() => setHovered(null)}>
       <button
@@ -152,17 +128,14 @@ function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground font-medium hover:border-primary/50 transition-colors"
       >
         <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-        {label}
+        {format(value.from, "MMM d")} – {format(value.to, "MMM d, yyyy")}
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
-            className="absolute top-full right-0 mt-2 z-50 bg-card rounded-xl p-4 shadow-2xl"
-            style={{ border: "1px solid hsl(var(--border))", minWidth: 520 }}
-          >
-            {/* Nav row */}
+          <div className="absolute top-full right-0 mt-2 z-50 bg-card rounded-xl p-4 shadow-2xl"
+            style={{ border: "1px solid hsl(var(--border))", minWidth: 520 }}>
             <div className="flex items-center justify-between mb-3">
               <button onClick={prevMonth} className="p-1 rounded hover:bg-secondary transition-colors">
                 <ChevronLeft className="h-4 w-4 text-muted-foreground" />
@@ -172,38 +145,23 @@ function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
-
-            {/* Two calendars */}
-            <div className="flex gap-5 mb-4">
-              {renderMonth(leftYear, leftMonth)}
-              {renderMonth(rightYear, rightMonth)}
-            </div>
-
-            {/* Presets + Actions */}
+            <div className="flex gap-5 mb-4">{renderMonth(leftYear, leftMonth)}{renderMonth(rightYear, rightMonth)}</div>
             <div className="flex items-end justify-between gap-4 pt-3 border-t border-border">
               <div className="flex flex-wrap gap-1.5">
                 {QUICK_PRESETS.map(p => (
-                  <button
-                    key={p.label}
-                    onClick={() => handlePreset(p)}
-                    className="px-2 py-1 text-[11px] rounded-md bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors border border-border"
-                  >
+                  <button key={p.label} onClick={() => { const r = p.fn(); setPicking({ from: r.from, to: r.to }); }}
+                    className="px-2 py-1 text-[11px] rounded-md bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors border border-border">
                     {p.label}
                   </button>
                 ))}
               </div>
               <div className="flex gap-2 shrink-0">
-                <button
-                  onClick={() => setOpen(false)}
-                  className="px-3 py-1.5 text-[12px] border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <button onClick={() => setOpen(false)}
+                  className="px-3 py-1.5 text-[12px] border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                   Cancel
                 </button>
-                <button
-                  onClick={handleApply}
-                  disabled={!picking?.from || !picking?.to}
-                  className="px-3 py-1.5 text-[12px] font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 transition-colors"
-                >
+                <button onClick={handleApply} disabled={!picking?.from || !picking?.to}
+                  className="px-3 py-1.5 text-[12px] font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 transition-colors">
                   Apply
                 </button>
               </div>
@@ -222,6 +180,10 @@ const fmtDate = (d: string) => {
   const [y, m, day] = d.split("-").map(Number);
   return format(new Date(y, m - 1, day), "MMM d");
 };
+const fmtLtv = (rev: number, subs: number) =>
+  subs > 0 ? `$${(rev / subs).toFixed(2)}` : "—";
+const fmtCvr = (subs: number, clicks: number) =>
+  clicks > 0 ? `${((subs / clicks) * 100).toFixed(1)}%` : "—";
 
 function getSourceKey(link: any): string {
   const tag = (link.source_tag || "").trim();
@@ -238,6 +200,8 @@ interface LinkRow {
   dailySubs: Record<string, number>;
   total: number;
   avgPerDay: number;
+  totalRevenue: number;
+  totalClicks: number;
 }
 
 interface SourceRow {
@@ -247,6 +211,8 @@ interface SourceRow {
   total: number;
   avgPerDay: number;
   pct: number;
+  totalRevenue: number;
+  totalClicks: number;
   links: LinkRow[];
 }
 
@@ -261,6 +227,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
   const [activeFilter, setActiveFilter] = useState<"all" | "active">("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const [drawerLink, setDrawerLink] = useState<any | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 14),
     to: new Date(),
@@ -274,10 +241,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     const dates: string[] = [];
     let cur = new Date(dateRange.from);
     const end = new Date(dateRange.to);
-    while (cur <= end) {
-      dates.push(format(cur, "yyyy-MM-dd"));
-      cur = addDays(cur, 1);
-    }
+    while (cur <= end) { dates.push(format(cur, "yyyy-MM-dd")); cur = addDays(cur, 1); }
     return dates;
   }, [dateRange]);
 
@@ -290,12 +254,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     queryKey: ["daily_snapshots_source_breakdown", accountId, dateFrom, dateTo],
     queryFn: () =>
       selectedAccountIds.length > 0
-        ? getSnapshotsByDateRange({
-            date_from: dateFrom,
-            date_to: dateTo,
-            account_ids: selectedAccountIds,
-            cols: "slim",
-          })
+        ? getSnapshotsByDateRange({ date_from: dateFrom, date_to: dateTo, account_ids: selectedAccountIds, cols: "slim" })
         : Promise.resolve([]),
     enabled: selectedAccountIds.length > 0,
   });
@@ -326,7 +285,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     return map;
   }, [allLinks, accountId, accountMap]);
 
-  // Link IDs with 1+ sub in the last 5 calendar days from today
   const activeLinksSet = useMemo(() => {
     const last5 = new Set<string>();
     for (let i = 0; i < 5; i++) last5.add(format(subDays(new Date(), i), "yyyy-MM-dd"));
@@ -342,33 +300,39 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     const rows = snapshots as any[];
     if (!rows.length) return { sourceRows: [], chartData: [] };
 
-    const linkDateSubs: Record<string, Record<string, number>> = {};
+    // Per-link: daily subs + total revenue + total clicks
+    const linkStats: Record<string, { dailySubs: Record<string, number>; revenue: number; clicks: number }> = {};
     for (const snap of rows) {
       const lid = String(snap.tracking_link_id);
       const date = String(snap.snapshot_date).slice(0, 10);
       const subs = Number(snap.subscribers) || 0;
-      if (subs === 0) continue;
-      if (!linkDateSubs[lid]) linkDateSubs[lid] = {};
-      linkDateSubs[lid][date] = (linkDateSubs[lid][date] || 0) + subs;
+      const rev = Number(snap.revenue) || 0;
+      const clk = Number(snap.clicks) || 0;
+      if (!linkStats[lid]) linkStats[lid] = { dailySubs: {}, revenue: 0, clicks: 0 };
+      if (subs > 0) linkStats[lid].dailySubs[date] = (linkStats[lid].dailySubs[date] || 0) + subs;
+      linkStats[lid].revenue += rev;
+      linkStats[lid].clicks += clk;
     }
 
-    const sourceGroups: Record<string, Map<string, { campaign_name: string; model: string; dailySubs: Record<string, number> }>> = {};
-    for (const [lid, dateSubs] of Object.entries(linkDateSubs)) {
+    // Group by source key — only links with subs
+    const sourceGroups: Record<string, Map<string, { campaign_name: string; model: string; dailySubs: Record<string, number>; revenue: number; clicks: number }>> = {};
+    for (const [lid, stats] of Object.entries(linkStats)) {
+      if (Object.keys(stats.dailySubs).length === 0) continue;
       const meta = linkMetaMap[lid] ?? { sourceKey: "Direct / Untagged", campaign_name: lid.slice(0, 8), model: "Unknown" };
       if (!sourceGroups[meta.sourceKey]) sourceGroups[meta.sourceKey] = new Map();
-      if (!sourceGroups[meta.sourceKey].has(lid)) {
-        sourceGroups[meta.sourceKey].set(lid, { campaign_name: meta.campaign_name, model: meta.model, dailySubs: {} });
-      }
-      const entry = sourceGroups[meta.sourceKey].get(lid)!;
-      for (const [date, subs] of Object.entries(dateSubs)) {
-        entry.dailySubs[date] = (entry.dailySubs[date] || 0) + subs;
-      }
+      sourceGroups[meta.sourceKey].set(lid, {
+        campaign_name: meta.campaign_name,
+        model: meta.model,
+        dailySubs: stats.dailySubs,
+        revenue: stats.revenue,
+        clicks: stats.clicks,
+      });
     }
 
     const sourceTotals: Record<string, number> = {};
     for (const [key, linksMap] of Object.entries(sourceGroups)) {
       let t = 0;
-      for (const link of linksMap.values()) for (const s of Object.values(link.dailySubs)) t += s;
+      for (const l of linksMap.values()) for (const s of Object.values(l.dailySubs)) t += s;
       sourceTotals[key] = t;
     }
     const grandTotal = Object.values(sourceTotals).reduce((a, b) => a + b, 0);
@@ -379,19 +343,26 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
       .map(([key, linksMap], i) => {
         const dailySubs: Record<string, number> = {};
         const linkRows: LinkRow[] = [];
-        for (const [lid, linkData] of linksMap.entries()) {
-          const linkTotal = Object.values(linkData.dailySubs).reduce((a, b) => a + b, 0);
+        let sourceRev = 0;
+        let sourceClicks = 0;
+
+        for (const [lid, ld] of linksMap.entries()) {
+          const linkTotal = Object.values(ld.dailySubs).reduce((a, b) => a + b, 0);
           linkRows.push({
             id: lid,
-            campaign_name: linkData.campaign_name,
-            model: linkData.model,
-            dailySubs: linkData.dailySubs,
+            campaign_name: ld.campaign_name,
+            model: ld.model,
+            dailySubs: ld.dailySubs,
             total: linkTotal,
             avgPerDay: linkTotal / daysCount,
+            totalRevenue: ld.revenue,
+            totalClicks: ld.clicks,
           });
-          for (const [date, subs] of Object.entries(linkData.dailySubs)) {
+          for (const [date, subs] of Object.entries(ld.dailySubs)) {
             dailySubs[date] = (dailySubs[date] || 0) + subs;
           }
+          sourceRev += ld.revenue;
+          sourceClicks += ld.clicks;
         }
         linkRows.sort((a, b) => b.total - a.total);
         const total = sourceTotals[key];
@@ -402,6 +373,8 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
           total,
           avgPerDay: total / daysCount,
           pct: grandTotal > 0 ? (total / grandTotal) * 100 : 0,
+          totalRevenue: sourceRev,
+          totalClicks: sourceClicks,
           links: linkRows,
         };
       });
@@ -415,13 +388,11 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     return { sourceRows: sourceRowsRaw, chartData };
   }, [snapshots, linkMetaMap, allDatesInRange]);
 
-  // Only dates that have at least one data point
   const displayDates = useMemo(
     () => allDatesInRange.filter(d => sourceRows.some(r => (r.dailySubs[d] || 0) > 0)),
     [allDatesInRange, sourceRows],
   );
 
-  // Apply source + active filters
   const displayRows = useMemo(() => {
     let rows = sourceFilter === "all" ? sourceRows : sourceRows.filter(r => r.key === sourceFilter);
     if (activeFilter === "active") {
@@ -440,9 +411,17 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     });
   };
 
+  function openDrawer(linkId: string) {
+    const full = allLinks.find((l: any) => String(l.id) === linkId);
+    if (full) setDrawerLink(full);
+  }
+
   if (!activeAccounts.length) return null;
 
   const selectedAccountName = activeAccounts.find((a: any) => a.id === accountId)?.display_name ?? "";
+
+  // Column count: Source/Campaign + Total + Avg/Day + LTV/Sub + CVR + Share + dates
+  const fixedColCount = 6;
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 space-y-4">
@@ -467,15 +446,10 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
           {/* Active toggle */}
           <div className="flex border border-border rounded-lg overflow-hidden">
             {(["all", "active"] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setActiveFilter(f)}
+              <button key={f} onClick={() => setActiveFilter(f)}
                 className={`px-2.5 py-1.5 text-xs font-medium border-r border-border last:border-r-0 transition-colors ${
-                  activeFilter === f
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                }`}
-              >
+                  activeFilter === f ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                }`}>
                 {f === "all" ? "All" : "Active"}
               </button>
             ))}
@@ -483,24 +457,17 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
 
           {/* Source filter */}
           {sourceRows.length > 1 && (
-            <select
-              value={sourceFilter}
-              onChange={e => setSourceFilter(e.target.value)}
-              className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            >
+            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
+              className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
               <option value="all">All Sources</option>
-              {sourceRows.map(r => (
-                <option key={r.key} value={r.key}>{r.key}</option>
-              ))}
+              {sourceRows.map(r => <option key={r.key} value={r.key}>{r.key}</option>)}
             </select>
           )}
 
           {/* Model selector */}
-          <select
-            value={accountId}
+          <select value={accountId}
             onChange={e => { setAccountId(e.target.value); setSourceFilter("all"); setExpandedSources(new Set()); }}
-            className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          >
+            className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
             <option value="all">All Models</option>
             {activeAccounts.map((a: any) => (
               <option key={a.id} value={a.id}>{a.display_name || a.username}</option>
@@ -529,40 +496,19 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barCategoryGap="30%">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickFormatter={fmtDate}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={false}
-                tickLine={false}
-                allowDecimals={false}
-              />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tickFormatter={fmtDate} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                  color: "hsl(var(--foreground))",
-                }}
+                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--foreground))" }}
                 labelStyle={{ color: "hsl(var(--muted-foreground))", marginBottom: 4 }}
                 labelFormatter={v => fmtDate(String(v))}
                 formatter={(value: any, name: string) => [fmtN(Number(value)), name]}
               />
               {displayRows.map((row, i) => (
-                <Bar
-                  key={row.key}
-                  dataKey={row.key}
-                  stackId="a"
-                  fill={row.color}
-                  name={row.key}
-                  radius={i === displayRows.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
-                />
+                <Bar key={row.key} dataKey={row.key} stackId="a" fill={row.color} name={row.key}
+                  radius={i === displayRows.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
               ))}
             </BarChart>
           </ResponsiveContainer>
@@ -572,39 +518,34 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
             <table className="min-w-full" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr className="bg-secondary border-b border-border">
-                  <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 200 }}>
+                  <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap sticky left-0 bg-secondary z-10" style={{ minWidth: 200 }}>
                     Source / Campaign
                   </th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 64 }}>Total</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 64 }}>Avg/Day</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 56 }}>Share</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 62 }}>Total</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 62 }}>Avg/Day</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 72 }}>LTV/Sub</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 58 }}>CVR</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 54 }}>Share</th>
                   {displayDates.map(d => (
-                    <th
-                      key={d}
-                      className={`text-right px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${
-                        d === todayStr
-                          ? "text-primary bg-primary/10"
-                          : "text-muted-foreground"
-                      }`}
-                      style={{ minWidth: 52 }}
-                    >
+                    <th key={d}
+                      className={`text-right px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${d === todayStr ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+                      style={{ minWidth: 52 }}>
                       {fmtDate(d)}
                     </th>
                   ))}
+                  {/* spacer for arrow column */}
+                  <th style={{ minWidth: 24 }} />
                 </tr>
               </thead>
               <tbody>
                 {displayRows.map(row => (
                   <React.Fragment key={row.key}>
-                    <tr
-                      className="border-b border-border hover:bg-secondary/30 cursor-pointer transition-colors"
-                      onClick={() => toggleSource(row.key)}
-                    >
-                      <td className="px-3 py-2.5">
+                    {/* Source header row — expand/collapse only */}
+                    <tr className="border-b border-border hover:bg-secondary/30 cursor-pointer transition-colors"
+                      onClick={() => toggleSource(row.key)}>
+                      <td className="px-3 py-2.5 sticky left-0 bg-card z-10" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                         <div className="flex items-center gap-2">
-                          <ChevronRight
-                            className={`h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0 ${expandedSources.has(row.key) ? "rotate-90" : ""}`}
-                          />
+                          <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0 ${expandedSources.has(row.key) ? "rotate-90" : ""}`} />
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
                           <span className="text-[12px] text-foreground font-semibold">{row.key}</span>
                           <span className="text-[11px] text-muted-foreground">({row.links.length})</span>
@@ -612,23 +553,25 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] font-semibold text-foreground">{fmtN(row.total)}</td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{row.avgPerDay.toFixed(1)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{fmtLtv(row.totalRevenue, row.total)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{fmtCvr(row.total, row.totalClicks)}</td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{row.pct.toFixed(1)}%</td>
                       {displayDates.map(d => (
-                        <td
-                          key={d}
-                          className={`px-2 py-2.5 text-right font-mono text-[12px] ${d === todayStr ? "bg-primary/5" : ""}`}
-                        >
+                        <td key={d} className={`px-2 py-2.5 text-right font-mono text-[12px] ${d === todayStr ? "bg-primary/5" : ""}`}>
                           {row.dailySubs[d]
                             ? <span className="text-foreground">{fmtN(row.dailySubs[d])}</span>
-                            : <span className="text-muted-foreground/40">—</span>
-                          }
+                            : <span className="text-muted-foreground/40">—</span>}
                         </td>
                       ))}
+                      <td />
                     </tr>
 
+                    {/* Campaign rows — clickable, open drawer */}
                     {expandedSources.has(row.key) && row.links.map(link => (
-                      <tr key={link.id} className="border-b border-border/50 bg-secondary/10 hover:bg-secondary/20 transition-colors">
-                        <td className="px-3 py-2">
+                      <tr key={link.id}
+                        className="border-b border-border/50 bg-secondary/10 hover:bg-secondary/25 cursor-pointer transition-colors group"
+                        onClick={() => openDrawer(link.id)}>
+                        <td className="px-3 py-2 sticky left-0 bg-[hsl(var(--secondary)/0.1)] group-hover:bg-[hsl(var(--secondary)/0.25)] z-10 transition-colors" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                           <div className="flex items-center gap-2 pl-7">
                             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
                             <span className="text-[11px] text-foreground font-medium truncate max-w-[130px]" title={link.campaign_name}>
@@ -641,18 +584,19 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-[11px] text-foreground">{fmtN(link.total)}</td>
                         <td className="px-3 py-2 text-right font-mono text-[11px] text-muted-foreground">{link.avgPerDay.toFixed(1)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-[11px] text-muted-foreground">{fmtLtv(link.totalRevenue, link.total)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-[11px] text-muted-foreground">{fmtCvr(link.total, link.totalClicks)}</td>
                         <td className="px-3 py-2 text-right text-[11px] text-muted-foreground/40">—</td>
                         {displayDates.map(d => (
-                          <td
-                            key={d}
-                            className={`px-2 py-2 text-right font-mono text-[11px] ${d === todayStr ? "bg-primary/5" : ""}`}
-                          >
+                          <td key={d} className={`px-2 py-2 text-right font-mono text-[11px] ${d === todayStr ? "bg-primary/5" : ""}`}>
                             {link.dailySubs[d]
                               ? <span className="text-muted-foreground">{fmtN(link.dailySubs[d])}</span>
-                              : <span className="text-muted-foreground/30">—</span>
-                            }
+                              : <span className="text-muted-foreground/30">—</span>}
                           </td>
                         ))}
+                        <td className="px-2 py-2 text-right">
+                          <ArrowRight className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                        </td>
                       </tr>
                     ))}
                   </React.Fragment>
@@ -662,6 +606,13 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
           </div>
         </>
       )}
+
+      {/* Campaign detail drawer */}
+      <CampaignDetailDrawer
+        campaign={drawerLink}
+        onClose={() => setDrawerLink(null)}
+        onCampaignUpdated={updated => setDrawerLink(updated)}
+      />
     </div>
   );
 }
