@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getSnapshotsByDateRange, getSnapshotDistinctDates } from "@/lib/api";
-import { format, subDays } from "date-fns";
+import { format, subDays, addDays, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { isActiveAccount } from "@/lib/calc-helpers";
-import { Clock, ChevronRight } from "lucide-react";
+import { Clock, ChevronRight, CalendarDays, ChevronLeft, X } from "lucide-react";
 
 const COLOR_CYCLE = [
   "#0891b2", "#16a34a", "#d97706", "#7c3aed", "#ec4899",
@@ -14,11 +14,208 @@ const COLOR_CYCLE = [
   "#f59e0b", "#8b5cf6", "#14b8a6", "#e879f9",
 ];
 
-const RANGES = [
-  { label: "7D", days: 7 },
-  { label: "14D", days: 14 },
-  { label: "30D", days: 30 },
+// ─── Inline date range picker ────────────────────────────────────────────────
+
+const QUICK_PRESETS = [
+  { label: "Today",          fn: () => ({ from: new Date(), to: new Date() }) },
+  { label: "Yesterday",      fn: () => ({ from: subDays(new Date(), 1), to: subDays(new Date(), 1) }) },
+  { label: "Last 7 days",    fn: () => ({ from: subDays(new Date(), 7), to: new Date() }) },
+  { label: "Last 30 days",   fn: () => ({ from: subDays(new Date(), 30), to: new Date() }) },
+  { label: "This month",     fn: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
+  { label: "Previous month", fn: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
+  { label: "This year",      fn: () => ({ from: startOfYear(new Date()), to: new Date() }) },
 ];
+
+const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+function getMonthGrid(year: number, month: number): (Date | null)[] {
+  const first = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  let startDay = first.getDay() - 1;
+  if (startDay < 0) startDay = 6;
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startDay; i++) cells.push(null);
+  for (let d = 1; d <= lastDay; d++) cells.push(new Date(year, month, d));
+  return cells;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function isInRange(day: Date, from: Date, to: Date) {
+  return day >= from && day <= to;
+}
+
+interface DateRange { from: Date; to: Date }
+
+interface SubsDatePickerProps {
+  value: DateRange;
+  onChange: (r: DateRange) => void;
+}
+
+function SubsDatePicker({ value, onChange }: SubsDatePickerProps) {
+  const [open, setOpen] = useState(false);
+  const [leftYear, setLeftYear] = useState(() => value.to.getFullYear());
+  const [leftMonth, setLeftMonth] = useState(() => {
+    const m = value.to.getMonth();
+    return m === 0 ? 0 : m - 1;
+  });
+  const [picking, setPicking] = useState<{ from: Date; to: Date | null } | null>(null);
+  const [hovered, setHovered] = useState<Date | null>(null);
+
+  const rightYear = leftMonth === 11 ? leftYear + 1 : leftYear;
+  const rightMonth = (leftMonth + 1) % 12;
+
+  function prevMonth() {
+    if (leftMonth === 0) { setLeftMonth(11); setLeftYear(y => y - 1); }
+    else setLeftMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (leftMonth === 11) { setLeftMonth(0); setLeftYear(y => y + 1); }
+    else setLeftMonth(m => m + 1);
+  }
+
+  function handleDayClick(day: Date) {
+    if (!picking || picking.to !== null) {
+      setPicking({ from: day, to: null });
+    } else {
+      const from = day < picking.from ? day : picking.from;
+      const to = day < picking.from ? picking.from : day;
+      setPicking({ from, to });
+    }
+  }
+
+  function handleApply() {
+    if (picking?.from && picking?.to) {
+      onChange({ from: picking.from, to: picking.to });
+      setOpen(false);
+    }
+  }
+
+  function handlePreset(preset: typeof QUICK_PRESETS[0]) {
+    const r = preset.fn();
+    setPicking({ from: r.from, to: r.to });
+  }
+
+  const effectiveTo = picking?.to ?? hovered ?? null;
+
+  function renderMonth(year: number, month: number) {
+    const cells = getMonthGrid(year, month);
+    const today = new Date();
+    return (
+      <div style={{ width: 210 }}>
+        <div className="text-center text-[12px] font-semibold text-foreground mb-2">
+          {format(new Date(year, month, 1), "MMMM yyyy")}
+        </div>
+        <div className="grid grid-cols-7">
+          {WEEK_DAYS.map(d => (
+            <div key={d} className="text-center text-[10px] text-muted-foreground py-1 font-medium">{d}</div>
+          ))}
+          {cells.map((day, i) => {
+            if (!day) return <div key={`e${i}`} />;
+            const isStart = picking?.from && isSameDay(day, picking.from);
+            const isEnd = effectiveTo && isSameDay(day, effectiveTo);
+            const inRange = picking?.from && effectiveTo
+              ? isInRange(day, picking.from < effectiveTo ? picking.from : effectiveTo, picking.from < effectiveTo ? effectiveTo : picking.from)
+              : false;
+            const todayDay = isSameDay(day, today);
+            return (
+              <button
+                key={day.toISOString()}
+                onClick={() => handleDayClick(day)}
+                onMouseEnter={() => setHovered(day)}
+                className={[
+                  "h-7 text-[11px] relative transition-colors",
+                  isStart || isEnd ? "bg-primary text-primary-foreground rounded-full font-bold z-10" : "",
+                  !isStart && !isEnd && inRange ? "bg-primary/15 text-foreground rounded-none" : "",
+                  !isStart && !isEnd && !inRange ? "hover:bg-secondary rounded-full" : "",
+                ].filter(Boolean).join(" ")}
+              >
+                {day.getDate()}
+                {todayDay && !isStart && !isEnd && (
+                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const label = `${format(value.from, "MMM d")} – ${format(value.to, "MMM d, yyyy")}`;
+
+  return (
+    <div className="relative" onMouseLeave={() => setHovered(null)}>
+      <button
+        onClick={() => { setOpen(o => !o); setPicking({ from: value.from, to: value.to }); }}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground font-medium hover:border-primary/50 transition-colors"
+      >
+        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+        {label}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="absolute top-full right-0 mt-2 z-50 bg-card rounded-xl p-4 shadow-2xl"
+            style={{ border: "1px solid hsl(var(--border))", minWidth: 520 }}
+          >
+            {/* Nav row */}
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={prevMonth} className="p-1 rounded hover:bg-secondary transition-colors">
+                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <div className="flex-1" />
+              <button onClick={nextMonth} className="p-1 rounded hover:bg-secondary transition-colors">
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Two calendars */}
+            <div className="flex gap-5 mb-4">
+              {renderMonth(leftYear, leftMonth)}
+              {renderMonth(rightYear, rightMonth)}
+            </div>
+
+            {/* Presets + Actions */}
+            <div className="flex items-end justify-between gap-4 pt-3 border-t border-border">
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_PRESETS.map(p => (
+                  <button
+                    key={p.label}
+                    onClick={() => handlePreset(p)}
+                    className="px-2 py-1 text-[11px] rounded-md bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors border border-border"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => setOpen(false)}
+                  className="px-3 py-1.5 text-[12px] border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApply}
+                  disabled={!picking?.from || !picking?.to}
+                  className="px-3 py-1.5 text-[12px] font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 transition-colors"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 
 const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtDate = (d: string) => {
@@ -59,23 +256,30 @@ interface Props {
 }
 
 export function DailySubsBreakdown({ accounts, allLinks }: Props) {
-  const activeAccounts = (accounts as any[]).filter(isActiveAccount);
+  const activeAccounts = accounts.filter(isActiveAccount);
   const [accountId, setAccountId] = useState<string>("all");
-  const [days, setDays] = useState(14);
+  const [activeFilter, setActiveFilter] = useState<"all" | "active">("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 14),
+    to: new Date(),
+  });
 
-  const dateFrom = format(subDays(new Date(), days), "yyyy-MM-dd");
-  const dateTo = format(new Date(), "yyyy-MM-dd");
+  const dateFrom = format(dateRange.from, "yyyy-MM-dd");
+  const dateTo = format(dateRange.to, "yyyy-MM-dd");
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
-  // Full ordered date range for columns
   const allDatesInRange = useMemo(() => {
     const dates: string[] = [];
-    for (let i = days; i >= 0; i--) {
-      dates.push(format(subDays(new Date(), i), "yyyy-MM-dd"));
+    let cur = new Date(dateRange.from);
+    const end = new Date(dateRange.to);
+    while (cur <= end) {
+      dates.push(format(cur, "yyyy-MM-dd"));
+      cur = addDays(cur, 1);
     }
     return dates;
-  }, [days]);
+  }, [dateRange]);
 
   const selectedAccountIds = useMemo(
     () => accountId === "all" ? activeAccounts.map((a: any) => a.id) : [accountId],
@@ -83,7 +287,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
   );
 
   const { data: snapshots = [], isLoading } = useQuery({
-    queryKey: ["daily_snapshots_source_breakdown", accountId, days],
+    queryKey: ["daily_snapshots_source_breakdown", accountId, dateFrom, dateTo],
     queryFn: () =>
       selectedAccountIds.length > 0
         ? getSnapshotsByDateRange({
@@ -103,21 +307,15 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
   });
   const lastSynced: string | null = (latestDates as string[])[0] ?? null;
 
-  // Build account display name map
   const accountMap = useMemo(() => {
     const map: Record<string, string> = {};
-    (accounts as any[]).forEach((a: any) => {
-      map[a.id] = a.display_name || a.username || "Unknown";
-    });
+    accounts.forEach((a: any) => { map[a.id] = a.display_name || a.username || "Unknown"; });
     return map;
   }, [accounts]);
 
-  // Build tracking link metadata map — only for relevant accounts
   const linkMetaMap = useMemo(() => {
     const map: Record<string, { sourceKey: string; campaign_name: string; model: string }> = {};
-    const links = accountId === "all"
-      ? (allLinks as any[])
-      : (allLinks as any[]).filter((l: any) => l.account_id === accountId);
+    const links = accountId === "all" ? allLinks : allLinks.filter((l: any) => l.account_id === accountId);
     for (const l of links) {
       map[String(l.id)] = {
         sourceKey: getSourceKey(l),
@@ -128,12 +326,22 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     return map;
   }, [allLinks, accountId, accountMap]);
 
-  // Core pivot: build source rows + chart data
+  // Link IDs with 1+ sub in the last 5 calendar days from today
+  const activeLinksSet = useMemo(() => {
+    const last5 = new Set<string>();
+    for (let i = 0; i < 5; i++) last5.add(format(subDays(new Date(), i), "yyyy-MM-dd"));
+    const ids = new Set<string>();
+    for (const snap of snapshots as any[]) {
+      const date = String(snap.snapshot_date).slice(0, 10);
+      if (last5.has(date) && Number(snap.subscribers) >= 1) ids.add(String(snap.tracking_link_id));
+    }
+    return ids;
+  }, [snapshots]);
+
   const { sourceRows, chartData } = useMemo(() => {
     const rows = snapshots as any[];
     if (!rows.length) return { sourceRows: [], chartData: [] };
 
-    // Step 1: aggregate subs per link per date
     const linkDateSubs: Record<string, Record<string, number>> = {};
     for (const snap of rows) {
       const lid = String(snap.tracking_link_id);
@@ -144,21 +352,12 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
       linkDateSubs[lid][date] = (linkDateSubs[lid][date] || 0) + subs;
     }
 
-    // Step 2: group links by source key
     const sourceGroups: Record<string, Map<string, { campaign_name: string; model: string; dailySubs: Record<string, number> }>> = {};
     for (const [lid, dateSubs] of Object.entries(linkDateSubs)) {
-      const meta = linkMetaMap[lid] ?? {
-        sourceKey: "Direct / Untagged",
-        campaign_name: lid.slice(0, 8),
-        model: "Unknown",
-      };
+      const meta = linkMetaMap[lid] ?? { sourceKey: "Direct / Untagged", campaign_name: lid.slice(0, 8), model: "Unknown" };
       if (!sourceGroups[meta.sourceKey]) sourceGroups[meta.sourceKey] = new Map();
       if (!sourceGroups[meta.sourceKey].has(lid)) {
-        sourceGroups[meta.sourceKey].set(lid, {
-          campaign_name: meta.campaign_name,
-          model: meta.model,
-          dailySubs: {},
-        });
+        sourceGroups[meta.sourceKey].set(lid, { campaign_name: meta.campaign_name, model: meta.model, dailySubs: {} });
       }
       const entry = sourceGroups[meta.sourceKey].get(lid)!;
       for (const [date, subs] of Object.entries(dateSubs)) {
@@ -166,25 +365,20 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
       }
     }
 
-    // Step 3: compute totals per source (for ordering and pct)
     const sourceTotals: Record<string, number> = {};
     for (const [key, linksMap] of Object.entries(sourceGroups)) {
       let t = 0;
-      for (const link of linksMap.values()) {
-        for (const s of Object.values(link.dailySubs)) t += s;
-      }
+      for (const link of linksMap.values()) for (const s of Object.values(link.dailySubs)) t += s;
       sourceTotals[key] = t;
     }
     const grandTotal = Object.values(sourceTotals).reduce((a, b) => a + b, 0);
     const daysCount = allDatesInRange.length || 1;
 
-    // Step 4: build SourceRow[]
     const sourceRowsRaw: SourceRow[] = Object.entries(sourceGroups)
       .sort(([ka], [kb]) => sourceTotals[kb] - sourceTotals[ka])
       .map(([key, linksMap], i) => {
         const dailySubs: Record<string, number> = {};
         const linkRows: LinkRow[] = [];
-
         for (const [lid, linkData] of linksMap.entries()) {
           const linkTotal = Object.values(linkData.dailySubs).reduce((a, b) => a + b, 0);
           linkRows.push({
@@ -200,7 +394,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
           }
         }
         linkRows.sort((a, b) => b.total - a.total);
-
         const total = sourceTotals[key];
         return {
           key,
@@ -213,23 +406,31 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
         };
       });
 
-    // Step 5: chart data — one entry per date
     const chartData = allDatesInRange.map(date => {
       const entry: Record<string, any> = { date };
-      for (const row of sourceRowsRaw) {
-        entry[row.key] = row.dailySubs[date] || 0;
-      }
+      for (const row of sourceRowsRaw) entry[row.key] = row.dailySubs[date] || 0;
       return entry;
     });
 
     return { sourceRows: sourceRowsRaw, chartData };
   }, [snapshots, linkMetaMap, allDatesInRange]);
 
-  // Apply source filter
-  const displayRows = useMemo(
-    () => sourceFilter === "all" ? sourceRows : sourceRows.filter(r => r.key === sourceFilter),
-    [sourceRows, sourceFilter],
+  // Only dates that have at least one data point
+  const displayDates = useMemo(
+    () => allDatesInRange.filter(d => sourceRows.some(r => (r.dailySubs[d] || 0) > 0)),
+    [allDatesInRange, sourceRows],
   );
+
+  // Apply source + active filters
+  const displayRows = useMemo(() => {
+    let rows = sourceFilter === "all" ? sourceRows : sourceRows.filter(r => r.key === sourceFilter);
+    if (activeFilter === "active") {
+      rows = rows
+        .map(row => ({ ...row, links: row.links.filter(l => activeLinksSet.has(l.id)) }))
+        .filter(row => row.links.length > 0);
+    }
+    return rows;
+  }, [sourceRows, sourceFilter, activeFilter, activeLinksSet]);
 
   const toggleSource = (key: string) => {
     setExpandedSources(prev => {
@@ -263,7 +464,24 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {/* Source filter — only show when data loaded */}
+          {/* Active toggle */}
+          <div className="flex border border-border rounded-lg overflow-hidden">
+            {(["all", "active"] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setActiveFilter(f)}
+                className={`px-2.5 py-1.5 text-xs font-medium border-r border-border last:border-r-0 transition-colors ${
+                  activeFilter === f
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                }`}
+              >
+                {f === "all" ? "All" : "Active"}
+              </button>
+            ))}
+          </div>
+
+          {/* Source filter */}
           {sourceRows.length > 1 && (
             <select
               value={sourceFilter}
@@ -289,22 +507,11 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
             ))}
           </select>
 
-          {/* Period */}
-          <div className="flex border border-border rounded-lg overflow-hidden">
-            {RANGES.map(r => (
-              <button
-                key={r.label}
-                onClick={() => { setDays(r.days); setExpandedSources(new Set()); }}
-                className={`px-2.5 py-1.5 text-xs font-medium border-r border-border last:border-r-0 transition-colors ${
-                  days === r.days
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
+          {/* Date range picker */}
+          <SubsDatePicker
+            value={dateRange}
+            onChange={r => { setDateRange(r); setExpandedSources(new Set()); }}
+          />
         </div>
       </div>
 
@@ -360,23 +567,25 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
             </BarChart>
           </ResponsiveContainer>
 
-          {/* Pivot table — horizontally scrollable */}
+          {/* Pivot table */}
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="min-w-full" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr className="bg-secondary border-b border-border">
-                  {/* Fixed columns */}
                   <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 200 }}>
                     Source / Campaign
                   </th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 70 }}>Total</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 70 }}>Avg/Day</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 60 }}>Share</th>
-                  {/* Date columns */}
-                  {allDatesInRange.map(d => (
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 64 }}>Total</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 64 }}>Avg/Day</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 56 }}>Share</th>
+                  {displayDates.map(d => (
                     <th
                       key={d}
-                      className="text-right px-2 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap"
+                      className={`text-right px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${
+                        d === todayStr
+                          ? "text-primary bg-primary/10"
+                          : "text-muted-foreground"
+                      }`}
                       style={{ minWidth: 52 }}
                     >
                       {fmtDate(d)}
@@ -387,7 +596,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
               <tbody>
                 {displayRows.map(row => (
                   <React.Fragment key={row.key}>
-                    {/* Source row */}
                     <tr
                       className="border-b border-border hover:bg-secondary/30 cursor-pointer transition-colors"
                       onClick={() => toggleSource(row.key)}
@@ -405,8 +613,11 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] font-semibold text-foreground">{fmtN(row.total)}</td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{row.avgPerDay.toFixed(1)}</td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{row.pct.toFixed(1)}%</td>
-                      {allDatesInRange.map(d => (
-                        <td key={d} className="px-2 py-2.5 text-right font-mono text-[12px]">
+                      {displayDates.map(d => (
+                        <td
+                          key={d}
+                          className={`px-2 py-2.5 text-right font-mono text-[12px] ${d === todayStr ? "bg-primary/5" : ""}`}
+                        >
                           {row.dailySubs[d]
                             ? <span className="text-foreground">{fmtN(row.dailySubs[d])}</span>
                             : <span className="text-muted-foreground/40">—</span>
@@ -415,7 +626,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                       ))}
                     </tr>
 
-                    {/* Campaign rows — shown when expanded */}
                     {expandedSources.has(row.key) && row.links.map(link => (
                       <tr key={link.id} className="border-b border-border/50 bg-secondary/10 hover:bg-secondary/20 transition-colors">
                         <td className="px-3 py-2">
@@ -432,8 +642,11 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                         <td className="px-3 py-2 text-right font-mono text-[11px] text-foreground">{fmtN(link.total)}</td>
                         <td className="px-3 py-2 text-right font-mono text-[11px] text-muted-foreground">{link.avgPerDay.toFixed(1)}</td>
                         <td className="px-3 py-2 text-right text-[11px] text-muted-foreground/40">—</td>
-                        {allDatesInRange.map(d => (
-                          <td key={d} className="px-2 py-2 text-right font-mono text-[11px]">
+                        {displayDates.map(d => (
+                          <td
+                            key={d}
+                            className={`px-2 py-2 text-right font-mono text-[11px] ${d === todayStr ? "bg-primary/5" : ""}`}
+                          >
                             {link.dailySubs[d]
                               ? <span className="text-muted-foreground">{fmtN(link.dailySubs[d])}</span>
                               : <span className="text-muted-foreground/30">—</span>
