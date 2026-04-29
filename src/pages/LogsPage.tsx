@@ -3,11 +3,11 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchSyncLogs, fetchAccounts, triggerSync } from "@/lib/supabase-helpers";
 import { streamSync } from "@/lib/api";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, addDays, setHours, setMinutes, setSeconds } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2, AlertCircle,
   ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
-  BarChart3, Camera, Users, Truck, Play, Square, Zap, History, GitMerge,
+  BarChart3, Camera, Users, Truck, Play, Square, Zap, History, GitMerge, Bot, Hand,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SortableTh } from "@/components/SortableTh";
@@ -56,6 +56,27 @@ const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
   revenue_breakdown: BarChart3,
   fans: Users,
 };
+
+function isAutoTriggered(log: any): boolean {
+  const t = (log.triggered_by || "").toLowerCase();
+  return t.includes("cron") || t.includes("scheduler") || t.includes("auto") || t.includes("interval");
+}
+
+function friendlyTriggeredBy(log: any): string {
+  const t = (log.triggered_by || "").toLowerCase();
+  if (t.includes("cron_daily"))     return "Auto — Daily (02:00 UTC)";
+  if (t.includes("cron_dashboard")) return "Auto — Daily (01:00 UTC)";
+  if (t.includes("cron_interval"))  return "Auto — OT Interval";
+  if (t.includes("cron"))           return "Auto — Scheduled";
+  return "Manual";
+}
+
+function nextUtcHour(hour: number): Date {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 0, 0, 0));
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
 
 function classifySyncType(log: any): SyncType {
   const msg = (log.message || "").toLowerCase();
@@ -665,10 +686,42 @@ export default function LogsPage() {
           })}
         </div>
 
-        {/* ═══ MANUAL SYNC NOTE ═══ */}
-        <p className="text-center text-muted-foreground" style={{ fontSize: 11 }}>
-          ⓘ Snapshot sync saves today's incremental stats for all active tracking links. Dashboard sync updates accounts, links, and transactions.
-        </p>
+        {/* ═══ SCHEDULER STATUS ═══ */}
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bot className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Auto-Sync Schedule</h3>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 font-medium">Active</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-muted-foreground mb-1 font-medium">Dashboard Sync</div>
+              <div className="font-bold text-foreground">Daily at 01:00 UTC</div>
+              <div className="text-muted-foreground mt-1">Accounts + tracking links</div>
+              <div className="mt-2 text-primary font-medium">
+                Next: {formatDistanceToNow(nextUtcHour(1), { addSuffix: true })}
+              </div>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-muted-foreground mb-1 font-medium">Full Daily Sync</div>
+              <div className="font-bold text-foreground">Daily at 02:00 UTC</div>
+              <div className="text-muted-foreground mt-1">Rev Breakdown → Snapshots → Fans</div>
+              <div className="mt-2 text-primary font-medium">
+                Next: {formatDistanceToNow(nextUtcHour(2), { addSuffix: true })}
+              </div>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-muted-foreground mb-1 font-medium">OnlyTraffic</div>
+              <div className="font-bold text-foreground">Every 30 min (interval-based)</div>
+              <div className="text-muted-foreground mt-1">Only runs when interval has elapsed</div>
+              <div className="mt-2 text-primary font-medium">
+                {statusCards.onlytraffic?.started_at
+                  ? `Last: ${formatDistanceToNow(new Date(statusCards.onlytraffic.started_at), { addSuffix: true })}`
+                  : "Never run"}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* ═══ SYNC HISTORY TABLE ═══ */}
         <div className="space-y-3">
@@ -793,8 +846,16 @@ export default function LogsPage() {
                             <td className="py-2.5 px-4 text-center">
                               <StatusBadge status={status} />
                             </td>
-                            <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
-                              {log.triggered_by ? (log.triggered_by === "manual" ? "LIZA (manual)" : log.triggered_by) : "—"}
+                            <td className="py-2.5 px-4 whitespace-nowrap">
+                              {isAutoTriggered(log) ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary">
+                                  <Bot className="h-2.5 w-2.5" /> {friendlyTriggeredBy(log)}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground">
+                                  <Hand className="h-2.5 w-2.5" /> Manual
+                                </span>
+                              )}
                             </td>
                             <td className="py-2.5 px-4 text-muted-foreground max-w-[250px] truncate">
                               {status === "error" ? (
