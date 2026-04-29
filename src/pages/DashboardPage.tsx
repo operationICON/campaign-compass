@@ -27,6 +27,7 @@ import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ModelRevenueBreakdown } from "@/components/dashboard/ModelRevenueBreakdown";
+import { RevenueTrendChart } from "@/components/dashboard/RevenueTrendChart";
 
 interface OverviewSnapshotRange {
   from: string;
@@ -608,6 +609,15 @@ export default function DashboardPage() {
           snapshotSpend={snapshotSpend}
           snapshotSubs={snapshotSubs}
           txTypeTotalsByAccount={txTypeTotalsByAccount}
+        />
+
+        {/* ═══ REVENUE TREND CHART ═══ */}
+        <RevenueTrendChart
+          snapshotRows={overviewSnapshotRows}
+          isLoading={overviewSnapshotsLoading}
+          isAllTime={isAllTime}
+          agencyAccountIds={agencyAccountIds}
+          revMultiplier={revMultiplier}
         />
 
         {/* ═══ REVENUE BREAKDOWN BY MODEL ═══ */}
