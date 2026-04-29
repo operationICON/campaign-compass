@@ -12,10 +12,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const mainNav = [
   { to: "/", icon: LayoutDashboard, label: "Overview", adminOnly: true },
   { to: "/campaigns", icon: LayoutGrid, label: "Tracking Links", adminOnly: false },
-  { to: "/cross-poll", icon: GitBranch, label: "Cross-Poll", adminOnly: true },
   { to: "/accounts", icon: Users, label: "Models", adminOnly: true },
-  { to: "/fans", icon: Heart, label: "Fans", adminOnly: true },
   { to: "/traffic-sources", icon: Tag, label: "Sources", adminOnly: true },
+  { to: "/cross-poll", icon: GitBranch, label: "Cross-Poll", adminOnly: true },
+  { to: "/fans", icon: Heart, label: "Fans", adminOnly: true },
   { to: "/audit", icon: ShieldCheck, label: "Audit", adminOnly: true },
   { to: "/charts", icon: BarChart3, label: "Charts", adminOnly: true },
 ];
