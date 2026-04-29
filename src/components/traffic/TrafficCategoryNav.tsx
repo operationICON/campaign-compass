@@ -445,18 +445,31 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
     const groups: Record<string, { marketer: string; sourceTag: string; offerId: number | null; links: any[]; isUnknown: boolean }> = {};
     const UNKNOWN_KEY = "__unknown__";
     for (const link of categoryLinksRaw) {
-      const info = (linkMarketerMap as any)[link.id];
-      const rawMarketer = info?.marketer || link.onlytraffic_marketer || "";
-      const rawSource = getEffectiveSource(link) || link.source || "";
-      const isUnknown = !rawMarketer.trim() || !rawSource.trim();
-      if (isUnknown) {
-        if (!groups[UNKNOWN_KEY]) groups[UNKNOWN_KEY] = { marketer: "Unknown", sourceTag: "Untagged", offerId: null, links: [], isUnknown: true };
-        groups[UNKNOWN_KEY].links.push(link);
+      if (!isOT) {
+        // Manual category: group purely by source_tag
+        const rawSource = (link.source_tag || "").trim();
+        if (!rawSource) {
+          if (!groups[UNKNOWN_KEY]) groups[UNKNOWN_KEY] = { marketer: "Untagged", sourceTag: "", offerId: null, links: [], isUnknown: true };
+          groups[UNKNOWN_KEY].links.push(link);
+        } else {
+          if (!groups[rawSource]) groups[rawSource] = { marketer: rawSource, sourceTag: "", offerId: null, links: [], isUnknown: false };
+          groups[rawSource].links.push(link);
+        }
       } else {
-        const offerId = info?.offer_id ?? null;
-        const key = `${rawMarketer}__${rawSource}__${offerId ?? "none"}`;
-        if (!groups[key]) groups[key] = { marketer: rawMarketer, sourceTag: rawSource, offerId, links: [], isUnknown: false };
-        groups[key].links.push(link);
+        // OnlyTraffic category: group by marketer + source + offerId
+        const info = (linkMarketerMap as any)[link.id];
+        const rawMarketer = info?.marketer || link.onlytraffic_marketer || "";
+        const rawSource = getEffectiveSource(link) || link.source || "";
+        const isUnknown = !rawMarketer.trim() || !rawSource.trim();
+        if (isUnknown) {
+          if (!groups[UNKNOWN_KEY]) groups[UNKNOWN_KEY] = { marketer: "Unknown", sourceTag: "Untagged", offerId: null, links: [], isUnknown: true };
+          groups[UNKNOWN_KEY].links.push(link);
+        } else {
+          const offerId = info?.offer_id ?? null;
+          const key = `${rawMarketer}__${rawSource}__${offerId ?? "none"}`;
+          if (!groups[key]) groups[key] = { marketer: rawMarketer, sourceTag: rawSource, offerId, links: [], isUnknown: false };
+          groups[key].links.push(link);
+        }
       }
     }
     return Object.entries(groups).map(([key, g]) => {
@@ -486,7 +499,7 @@ export function TrafficCategoryNav({ links, allLinks, onTagLink, unmatchedOrders
       const offerIdStr = g.offerId != null ? `#${g.offerId}` : null;
       return { key, ...g, spend, revenue, profit, subs, clicks, roi, cpl: costMetric.value, cplDisplay: costMetric.display, costLabel: costMetric.label, cvr, ltvSub, campaigns: g.links.length, offerIdStr };
     });
-  }, [categoryLinksRaw, linkMarketerMap]);
+  }, [categoryLinksRaw, linkMarketerMap, isOT]);
 
   // Tag each group with isActive flag (any link in group is active by snapshot logic)
   const groupedWithActivity = useMemo(() => {

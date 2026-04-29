@@ -391,7 +391,7 @@ function DrawerBodyInner({
       </div>
 
       {/* MANUAL LINK BANNER */}
-      {(d.manually_tagged === true || !d.external_tracking_link_id) && (
+      {(d.manually_tagged === true && (!d.external_tracking_link_id || d.external_tracking_link_id === "")) && (
         <div className="mx-6 mt-2 flex items-start gap-2 rounded-lg bg-blue-500/10 border border-blue-500/25 px-3 py-2">
           <Info className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
           <p className="text-[12px] text-blue-300 leading-relaxed">
