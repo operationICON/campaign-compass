@@ -336,7 +336,6 @@ function DrawerBodyInner({
       roi: roiValue,
       cvr: cvrValue,
       spender_rate: spenderRateValue,
-      arpu: linkSpenders > 0 ? round(linkRevenue / linkSpenders, 4) : null,
       status: statusValue,
     };
   };
@@ -733,7 +732,6 @@ function DrawerBodyInner({
             />
             <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
             <DataRow label="Cost Per Click" value={paymentType === "CPC" && configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
-            <DataRow label="ARPU" value={d.arpu != null && Number(d.arpu) > 0 ? fmtC2(Number(d.arpu)) : "—"} />
             <DataRow label="EPC" value={totalClicks > 0 ? fmtC2(campaignRevenue / totalClicks) : "—"} />
             <DataRow label="Cost/Sub" value={cost > 0 && tlSubscribers > 0 ? fmtC2(cost / tlSubscribers) : "—"} />
           </div>
