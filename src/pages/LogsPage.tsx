@@ -3,7 +3,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchSyncLogs, fetchAccounts, triggerSync } from "@/lib/supabase-helpers";
 import { streamSync } from "@/lib/api";
-import { format, formatDistanceToNow, addDays, setHours, setMinutes, setSeconds } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2, AlertCircle,
   ChevronDown, ChevronRight, Filter, ChevronLeft, ChevronRight as ChevronRightIcon,
@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PAGE_SIZE = 25;
 
@@ -728,32 +729,35 @@ export default function LogsPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Sync History</h2>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                <select
-                  value={typeFilter}
-                  onChange={e => setTypeFilter(e.target.value as TypeFilter)}
-                  className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 text-foreground"
-                >
-                  <option value="all">All Types</option>
-                  <option value="dashboard">Dashboard</option>
-                  <option value="snapshot">Snapshots</option>
-                  <option value="ltv">Analytics</option>
-                  <option value="onlytraffic">OnlyTraffic</option>
-                  <option value="ot_snapshot">OT Snapshots</option>
-                  <option value="revenue_breakdown">Rev Breakdown</option>
-                  <option value="fans">Fans</option>
-                </select>
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-                  className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 text-foreground"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="success">Success</option>
-                  <option value="error">Failed</option>
-                  <option value="running">Running</option>
-                </select>
+                <Select value={typeFilter} onValueChange={v => setTypeFilter(v as TypeFilter)}>
+                  <SelectTrigger className="h-8 w-40 text-xs">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="dashboard">Dashboard</SelectItem>
+                    <SelectItem value="snapshot">Snapshots</SelectItem>
+                    <SelectItem value="ltv">Analytics</SelectItem>
+                    <SelectItem value="onlytraffic">OnlyTraffic</SelectItem>
+                    <SelectItem value="ot_snapshot">OT Snapshots</SelectItem>
+                    <SelectItem value="revenue_breakdown">Rev Breakdown</SelectItem>
+                    <SelectItem value="fans">Fans</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={v => setStatusFilter(v as StatusFilter)}>
+                  <SelectTrigger className="h-8 w-36 text-xs">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="success">Success</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="error">Failed</SelectItem>
+                    <SelectItem value="running">Running</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {hasFilters && (
                 <button
