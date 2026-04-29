@@ -8,6 +8,11 @@ const API_BASE = "https://app.onlyfansapi.com/api";
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
+function normalizeUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("?")[0].split("#")[0].replace(/\/$/, "").toLowerCase();
+}
+
 async function fetchAllTrackingLinks(ofAccountId: string, apiKey: string): Promise<{ items: any[]; apiCalls: number }> {
   const items: any[] = [];
   let url: string | null = `/${ofAccountId}/tracking-links?limit=50`;
@@ -122,6 +127,33 @@ router.post("/", async (c) => {
         await db.insert(daily_metrics).values({ tracking_link_id: upsertedLink.id, account_id, date: today, clicks, subscribers: subs, revenue: String(rev) }).onConflictDoUpdate({ target: [daily_metrics.tracking_link_id, daily_metrics.date], set: { clicks: sql`excluded.clicks`, subscribers: sql`excluded.subscribers`, revenue: sql`excluded.revenue` } });
       }
       linkCount++;
+    }
+
+    // Connect manual links (no external_tracking_link_id) to API data by URL match
+    const apiUrlMap: Record<string, any> = {};
+    for (const link of items) {
+      const norm = normalizeUrl(link.campaignUrl ?? "");
+      if (norm) apiUrlMap[norm] = link;
+    }
+    const manualLinks = await db.select({ id: tracking_links.id, url: tracking_links.url })
+      .from(tracking_links)
+      .where(and(eq(tracking_links.account_id, account_id), isNull(tracking_links.deleted_at), isNull(tracking_links.external_tracking_link_id)));
+    for (const ml of manualLinks) {
+      const norm = normalizeUrl(ml.url);
+      if (!norm) continue;
+      const matched = apiUrlMap[norm];
+      if (!matched) continue;
+      const extId = String(matched.id ?? "");
+      // Don't connect if another link already owns this external ID
+      const [existing] = await db.select({ id: tracking_links.id }).from(tracking_links).where(eq(tracking_links.external_tracking_link_id, extId));
+      if (existing) continue;
+      await db.update(tracking_links).set({
+        external_tracking_link_id: extId,
+        clicks: Number(matched.clicksCount ?? 0),
+        subscribers: Number(matched.subscribersCount ?? 0),
+        revenue: String(Number(matched.revenue?.total ?? 0)),
+        updated_at: new Date(),
+      }).where(eq(tracking_links.id, ml.id));
     }
 
     // Aggregate totals from all tracking links for this account

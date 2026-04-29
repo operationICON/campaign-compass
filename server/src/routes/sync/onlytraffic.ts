@@ -88,7 +88,7 @@ router.post("/", async (c) => {
       const allLinks: any[] = [];
       let offset = 0;
       while (true) {
-        const batch = await db.select({ id: tracking_links.id, url: tracking_links.url, campaign_name: tracking_links.campaign_name, account_id: tracking_links.account_id, traffic_category: tracking_links.traffic_category, source_tag: tracking_links.source_tag, onlytraffic_order_id: tracking_links.onlytraffic_order_id }).from(tracking_links).where(isNull(tracking_links.deleted_at)).limit(1000).offset(offset);
+        const batch = await db.select({ id: tracking_links.id, url: tracking_links.url, campaign_name: tracking_links.campaign_name, account_id: tracking_links.account_id, traffic_category: tracking_links.traffic_category, source_tag: tracking_links.source_tag, onlytraffic_order_id: tracking_links.onlytraffic_order_id, manually_tagged: tracking_links.manually_tagged }).from(tracking_links).where(isNull(tracking_links.deleted_at)).limit(1000).offset(offset);
         if (!batch.length) break;
         allLinks.push(...batch);
         if (batch.length < 1000) break;
@@ -169,7 +169,9 @@ router.post("/", async (c) => {
         const weightedCPL = entry.type === "CPL" ? deriveWeightedCPL(orders) : null;
         const weightedCPC = entry.type === "CPC" ? deriveWeightedCPC(orders) : null;
         const cappedSpend = weightedCPL && totalDelivered > 0 ? Math.round(totalDelivered * weightedCPL * 100) / 100 : 0;
-        const updateData: Record<string, any> = { traffic_category: "OnlyTraffic", source_tag: entry.link.source_tag || entry.source || null, cost_total: String(totalSpend), capped_spend: String(cappedSpend), onlytraffic_order_id: orders[orders.length - 1].order_id, onlytraffic_order_type: entry.type.toLowerCase(), onlytraffic_status: deriveStatus(orders), onlytraffic_marketer: entry.marketer || null, offer_id: entry.offer_id ? parseInt(entry.offer_id) : null, updated_at: new Date() };
+        const isManual = entry.link.manually_tagged;
+        const updateData: Record<string, any> = { traffic_category: "OnlyTraffic", cost_total: String(totalSpend), capped_spend: String(cappedSpend), onlytraffic_order_id: orders[orders.length - 1].order_id, onlytraffic_order_type: entry.type.toLowerCase(), onlytraffic_status: deriveStatus(orders), onlytraffic_marketer: entry.marketer || null, offer_id: entry.offer_id ? parseInt(entry.offer_id) : null, updated_at: new Date() };
+        if (!isManual) updateData.source_tag = entry.link.source_tag || entry.source || null;
         if (weightedCPL !== null) { updateData.cost_per_lead = String(weightedCPL); updateData.payment_type = "CPL"; }
         if (weightedCPC !== null) { updateData.cost_per_click = String(weightedCPC); updateData.payment_type = "CPC"; }
         try { await db.update(tracking_links).set(updateData).where(eq(tracking_links.id, linkId)); stats.updated++; }
@@ -177,7 +179,7 @@ router.post("/", async (c) => {
       }
 
       // Zero stale OT links
-      const staleLinks = allLinks.filter(tl => tl.traffic_category === "OnlyTraffic" && !linkMap[tl.id]);
+      const staleLinks = allLinks.filter(tl => tl.traffic_category === "OnlyTraffic" && !linkMap[tl.id] && !tl.manually_tagged);
       if (staleLinks.length > 0) {
         await send({ step: "stale", message: `Zeroing ${staleLinks.length} stale links...` });
         const staleIds = staleLinks.map(tl => tl.id);

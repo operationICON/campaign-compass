@@ -9,6 +9,7 @@ import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CsvCostImportModal } from "@/components/dashboard/CsvCostImportModal";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
+import { AddTrackingLinkPanel } from "@/components/dashboard/AddTrackingLinkPanel";
 import { TagBadge, useTagColors } from "@/components/TagBadge";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { TrafficSourceDropdown } from "@/components/TrafficSourceDropdown";
@@ -175,6 +176,7 @@ export default function CampaignsPage() {
   const [noteText, setNoteText] = useState("");
   const [syncLabel, setSyncLabel] = useState("Sync Now");
   const [drawerCampaign, setDrawerCampaign] = useState<any>(null);
+  const [showAddPanel, setShowAddPanel] = useState(false);
 
   // ─── Snapshot-based time filtering (shared hook) ───
   const { snapshotLookup, isLoading: snapshotsLoading } = useSnapshotMetrics(timePeriod, customRange);
@@ -693,6 +695,12 @@ export default function CampaignsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddPanel(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/50 bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+            >
+              <Plus className="h-4 w-4" /> New Link
+            </button>
             <button onClick={exportCampaignsCsv}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors">
               <Download className="h-4 w-4" /> Export CSV
@@ -1518,6 +1526,7 @@ export default function CampaignsPage() {
 
         <CsvCostImportModal open={csvOpen} onClose={() => setCsvOpen(false)} onComplete={() => { setCsvOpen(false); queryClient.invalidateQueries({ queryKey: ["tracking_links"] }); }} trackingLinks={links} />
         <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} onCampaignUpdated={setDrawerCampaign} />
+        {showAddPanel && <AddTrackingLinkPanel onClose={() => setShowAddPanel(false)} />}
       </div>
     </DashboardLayout>
   );
