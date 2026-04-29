@@ -562,60 +562,69 @@ router.post("/", async (c) => {
       await send({ step: "reconcile", message: "Reconciling fan revenue from transaction history..." });
 
       // 4a: Update existing fans' total_revenue from actual transaction records.
-      // Match on fans.fan_id OR fans.username — some fans (bootstrap path) have their
-      // real OF username in fans.username while fans.fan_id holds a legacy numeric ID.
+      // Canonical identifier: fan_username when available, else 'u' || fan_id (numeric).
+      // This covers all three fan types:
+      //   - username fans (tips/messages/posts):  fan_username = 'noster4041'
+      //   - numeric-ID fans (subs, no username):  fan_id = '468812253' → identifier = 'u468812253'
+      //   - bootstrap fans with separate username: fans.username != fans.fan_id
       const reconcileResult = await db.execute(sql`
         UPDATE fans f
         SET
-          total_revenue       = sub.tx_revenue,
-          total_transactions  = sub.tx_count,
+          total_revenue        = sub.tx_revenue,
+          total_transactions   = sub.tx_count,
           first_transaction_at = LEAST(f.first_transaction_at, sub.first_tx::timestamptz),
           last_transaction_at  = GREATEST(f.last_transaction_at, sub.last_tx::timestamptz),
           updated_at           = NOW()
         FROM (
           SELECT
-            fan_username,
-            SUM(revenue::numeric)  AS tx_revenue,
-            COUNT(*)               AS tx_count,
-            MIN(date)              AS first_tx,
-            MAX(date)              AS last_tx
+            COALESCE(
+              NULLIF(fan_username, ''),
+              CASE WHEN fan_id ~ '^[0-9]+$' THEN 'u' || fan_id ELSE fan_id END
+            )                    AS identifier,
+            SUM(revenue::numeric) AS tx_revenue,
+            COUNT(*)              AS tx_count,
+            MIN(date)             AS first_tx,
+            MAX(date)             AS last_tx
           FROM transactions
-          WHERE fan_username IS NOT NULL AND fan_username != ''
-            AND revenue::numeric > 0
-          GROUP BY fan_username
+          WHERE revenue::numeric > 0
+            AND (fan_username IS NOT NULL OR fan_id IS NOT NULL)
+          GROUP BY identifier
         ) sub
-        WHERE f.fan_id = sub.fan_username
-           OR (f.username IS NOT NULL AND f.username != '' AND f.username = sub.fan_username)
+        WHERE f.fan_id = sub.identifier
+           OR (f.username IS NOT NULL AND f.username != '' AND f.username = sub.identifier)
       `);
       const reconciledCount = Number((reconcileResult as any).rowCount ?? 0);
 
       // 4b: Discover fans in transactions that the fan sync missed entirely
-      //     (e.g. subscribers whose descriptions never contained the fan URL)
+      //     Uses same canonical identifier as 4a so numeric-ID fans are also created.
       const discoverResult = await db.execute(sql`
         INSERT INTO fans (fan_id, username, total_revenue, total_transactions, first_transaction_at, last_transaction_at)
         SELECT
-          sub.fan_username,
-          sub.fan_username,
+          sub.identifier,
+          NULLIF(split_part(sub.identifier, 'u', 2), ''),
           sub.tx_revenue,
           sub.tx_count,
           sub.first_tx::timestamptz,
           sub.last_tx::timestamptz
         FROM (
           SELECT
-            fan_username,
-            SUM(revenue::numeric)  AS tx_revenue,
-            COUNT(*)               AS tx_count,
-            MIN(date)              AS first_tx,
-            MAX(date)              AS last_tx
+            COALESCE(
+              NULLIF(fan_username, ''),
+              CASE WHEN fan_id ~ '^[0-9]+$' THEN 'u' || fan_id ELSE fan_id END
+            )                    AS identifier,
+            SUM(revenue::numeric) AS tx_revenue,
+            COUNT(*)              AS tx_count,
+            MIN(date)             AS first_tx,
+            MAX(date)             AS last_tx
           FROM transactions
-          WHERE fan_username IS NOT NULL AND fan_username != ''
-            AND revenue::numeric > 0
-          GROUP BY fan_username
+          WHERE revenue::numeric > 0
+            AND (fan_username IS NOT NULL OR fan_id IS NOT NULL)
+          GROUP BY identifier
         ) sub
         WHERE NOT EXISTS (
           SELECT 1 FROM fans f
-          WHERE f.fan_id = sub.fan_username
-             OR (f.username IS NOT NULL AND f.username = sub.fan_username)
+          WHERE f.fan_id = sub.identifier
+             OR (f.username IS NOT NULL AND f.username = sub.identifier)
         )
         ON CONFLICT (fan_id) DO NOTHING
       `);

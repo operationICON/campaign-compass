@@ -137,18 +137,21 @@ router.get("/:id", async (c) => {
     .leftJoin(accounts, eq(fan_account_stats.account_id, accounts.id))
     .where(eq(fan_account_stats.fan_id, fanRow.id));
 
-  // Match transactions by fan_username against both fans.fan_id and fans.username.
-  // Some fans (e.g. from bootstrap) have their OF username in fans.username while
-  // fans.fan_id holds a legacy numeric-style ID like "u468812253".
+  // fans.fan_id can be a username ("noster4041") or a numeric-style ID ("u468812253").
+  // transactions.fan_id is the raw numeric OF user ID ("468812253").
+  // transactions.fan_username is the username when returned by the API (null for many subs).
+  // Try all three vectors so no revenue is missed.
+  const numericId = /^u(\d+)$/.exec(fanRow.fan_id)?.[1] ?? null;
   const altUsername = fanRow.username && fanRow.username !== fanRow.fan_id ? fanRow.username : null;
+
   const txRows = await db
     .select()
     .from(transactions)
-    .where(
-      altUsername
-        ? sql`${transactions.fan_username} = ${fanRow.fan_id} OR ${transactions.fan_username} = ${altUsername}`
-        : sql`${transactions.fan_username} = ${fanRow.fan_id}`
-    )
+    .where(sql`
+      ${transactions.fan_username} = ${fanRow.fan_id}
+      ${altUsername   ? sql`OR ${transactions.fan_username} = ${altUsername}` : sql``}
+      ${numericId     ? sql`OR ${transactions.fan_id} = ${numericId}` : sql``}
+    `)
     .orderBy(desc(transactions.date))
     .limit(500);
 
