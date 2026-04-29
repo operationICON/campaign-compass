@@ -161,7 +161,7 @@ export function CampaignDetailSlideIn({ link, cost, onClose, onSetCost }: Campai
                     <RechartsTooltip
                       contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }}
                       labelFormatter={(v) => format(new Date(v), "MMM d, yyyy")}
-                      formatter={(value: number) => [`$${value.toFixed(2)}`, "LTV"]}
+                      formatter={(value: number) => [`$${value.toFixed(2)}`, "Revenue"]}
                     />
                     <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#revGradientDetail)" />
                   </AreaChart>
