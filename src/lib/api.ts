@@ -101,6 +101,9 @@ export const getTransactions = (filters?: { account_id?: string; date_from?: str
 
 export const getTransactionTypeTotals = () => apiFetch("/transactions/type-totals");
 
+export const getTransactionsByMonth = (account_id: string) =>
+  apiFetch<Array<{ month: string; type: string | null; revenue: number; tx_count: number }>>(`/transactions/by-month?account_id=${account_id}`);
+
 export const getTransactionTotals = (filters?: { account_id?: string; date_from?: string }) =>
   apiFetch<{ total: number; count: number }>(`/transactions/totals${buildQuery({ account_id: filters?.account_id, date_from: filters?.date_from })}`);
 

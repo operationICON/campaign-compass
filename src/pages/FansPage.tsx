@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTrackingLinks } from "@/lib/api";
+import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks } from "@/lib/api";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { format } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +105,116 @@ function RevenueBreakdown({ txs }: { txs: any[] }) {
       <div className="mt-3 pt-2 border-t border-border/40 flex justify-between text-xs">
         <span className="text-muted-foreground">{txs.filter(tx => Number(tx.revenue ?? 0) > 0).length} revenue transactions</span>
         <span className="font-bold tabular-nums text-emerald-500">{fmt$(total)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Account revenue chart ────────────────────────────────────────────────────
+function AccountRevenueChart({ accountId }: { accountId: string }) {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["tx_by_month", accountId],
+    queryFn: () => getTransactionsByMonth(accountId),
+    staleTime: 300_000,
+  });
+
+  const chartData = useMemo(() => {
+    const byMonth = new Map<string, { month: string; total: number; message: number; tip: number; subscription: number; post: number }>();
+    for (const row of data) {
+      const m = row.month?.slice(0, 7) ?? "";
+      if (!m) continue;
+      const cur = byMonth.get(m) ?? { month: m, total: 0, message: 0, tip: 0, subscription: 0, post: 0 };
+      const rev = Number(row.revenue ?? 0);
+      const t = (row.type ?? "").toLowerCase();
+      cur.total += rev;
+      if (t.includes("message") || t === "ppv" || t === "chat") cur.message += rev;
+      else if (t.includes("tip")) cur.tip += rev;
+      else if (t.includes("sub")) cur.subscription += rev;
+      else if (t.includes("post")) cur.post += rev;
+      byMonth.set(m, cur);
+    }
+    return [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
+  }, [data]);
+
+  const typeTotals = useMemo(() => {
+    return chartData.reduce((acc, d) => ({
+      total: acc.total + d.total,
+      message: acc.message + d.message,
+      tip: acc.tip + d.tip,
+      subscription: acc.subscription + d.subscription,
+      post: acc.post + d.post,
+    }), { total: 0, message: 0, tip: 0, subscription: 0, post: 0 });
+  }, [chartData]);
+
+  if (isLoading) return <Skeleton className="h-56 w-full rounded-xl" />;
+  if (chartData.length === 0) return (
+    <div className="bg-card border border-border rounded-xl p-6 flex items-center justify-center h-40 text-xs text-muted-foreground">
+      No transaction history — run Rev Breakdown sync first
+    </div>
+  );
+
+  const fmtY = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v.toFixed(0)}`;
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Header row: total + type chips */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex flex-wrap items-end gap-4 mb-1">
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">Total Earnings</div>
+            <div className="text-3xl font-bold tabular-nums text-emerald-500">{fmt$(typeTotals.total)}</div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 mt-3">
+          {[
+            { label: "Messages", value: typeTotals.message, color: "text-emerald-400", dot: "#10b981" },
+            { label: "Tips",     value: typeTotals.tip,     color: "text-amber-400",   dot: "#f59e0b" },
+            { label: "Subs",     value: typeTotals.subscription, color: "text-indigo-400", dot: "#6366f1" },
+            { label: "Posts",    value: typeTotals.post,    color: "text-violet-400",  dot: "#8b5cf6" },
+          ].filter(b => b.value > 0).map(b => (
+            <div key={b.label} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: b.dot }} />
+              <div>
+                <div className="text-[10px] text-muted-foreground">{b.label}</div>
+                <div className={cn("text-sm font-bold tabular-nums", b.color)}>{fmt$(b.value)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart */}
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={chartData} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="acRevGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <XAxis dataKey="month" tickLine={false} axisLine={false}
+            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tickFormatter={m => { try { return format(new Date(m + "-01"), "MMM yy"); } catch { return m; } }}
+          />
+          <YAxis tickLine={false} axisLine={false}
+            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tickFormatter={fmtY} width={44}
+          />
+          <Tooltip
+            contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 10, fontSize: 12, boxShadow: "0 4px 24px rgba(0,0,0,0.3)" }}
+            labelStyle={{ color: "hsl(var(--muted-foreground))", fontWeight: 600 }}
+            labelFormatter={m => { try { return format(new Date(m + "-01"), "MMMM yyyy"); } catch { return m; } }}
+            formatter={(v: number) => [fmt$(v), "Revenue"]}
+          />
+          <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2.5}
+            fill="url(#acRevGrad)" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: "#10b981" }} />
+        </AreaChart>
+      </ResponsiveContainer>
+
+      {/* Historical label */}
+      <div className="px-5 pb-3 text-[10px] text-muted-foreground">
+        Historical performance · {chartData.length} month{chartData.length !== 1 ? "s" : ""} of data
       </div>
     </div>
   );
@@ -878,10 +990,13 @@ export default function FansPage() {
           // ── DETAIL VIEW ────────────────────────────────────────────────────
           <div className="p-6 flex flex-col gap-5">
 
-            {/* Per-account KPI cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Revenue trend chart — monthly from transactions */}
+            <AccountRevenueChart accountId={selectedAccountId!} />
+
+            {/* Fan metrics row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {selectedStatsQuery.isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+                Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
               ) : (
                 <>
                   <KpiCard label="Total Fans" value={fmtNum(selectedStats?.total_fans)} icon={Users} />
@@ -890,7 +1005,6 @@ export default function FansPage() {
                       ? `${((selectedStats.spenders / subsPerAccount[selectedAccountId]) * 100).toFixed(1)}% of ${fmtNum(subsPerAccount[selectedAccountId])} subs`
                       : undefined}
                     icon={DollarSign} color="bg-emerald-500" />
-                  <KpiCard label="Fan Revenue" value={fmt$(selectedStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
                   <KpiCard label="Avg / Spender" value={fmt$(selectedStats?.avg_per_spender)} icon={DollarSign} />
                   <KpiCard label="Cross-Poll" value={fmtNum(selectedStats?.cross_poll_fans)} sub={fmt$(selectedStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
                 </>

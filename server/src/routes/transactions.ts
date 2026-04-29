@@ -38,6 +38,27 @@ router.get("/type-totals", async (c) => {
   return c.json(rows);
 });
 
+// GET /transactions/by-month?account_id= — monthly revenue + type breakdown for one account
+router.get("/by-month", async (c) => {
+  const accountId = c.req.query("account_id");
+  if (!accountId) return c.json({ error: "account_id required" }, 400);
+
+  const rows = await db.execute(sql`
+    SELECT
+      TO_CHAR(DATE_TRUNC('month', date::date), 'YYYY-MM-DD') AS month,
+      type,
+      COALESCE(SUM(revenue::numeric), 0)                     AS revenue,
+      COUNT(*)                                               AS tx_count
+    FROM transactions
+    WHERE account_id = ${accountId}::uuid
+      AND revenue::numeric > 0
+      AND date IS NOT NULL
+    GROUP BY DATE_TRUNC('month', date::date), type
+    ORDER BY month ASC
+  `);
+  return c.json(rows.rows);
+});
+
 // GET /transactions/totals?account_id=&date_from=&date_to=
 router.get("/totals", async (c) => {
   const accountId = c.req.query("account_id");
