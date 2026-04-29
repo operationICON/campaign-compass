@@ -83,6 +83,7 @@ const ALL_COLUMNS = [
   { id: "last_synced", label: "Last Synced", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
+  { id: "notes", label: "Notes", defaultOn: false },
 ];
 
 // ─── Constants ───
@@ -900,6 +901,7 @@ export default function CampaignsPage() {
                             case "last_synced": return <SortHeader key={c.id} label="Last Synced" sortKeyName="last_synced" width="90px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
                             case "avg_expenses": return <SortHeader key={c.id} label="Avg Expenses" sortKeyName="avg_expenses" width="90px" />;
+                            case "notes": return <th key={c.id} className="whitespace-nowrap bg-card text-muted-foreground text-left" style={{ height: "44px", padding: "8px 12px", width: "160px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Notes</th>;
                             default: return null;
                           }
                         })}
@@ -1249,6 +1251,14 @@ export default function CampaignsPage() {
                                 case "avg_expenses": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {hasCost ? <span className="text-muted-foreground">{fmtC(costTotal)}</span> : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                                case "notes": return (
+                                  <td key={c.id} style={{ padding: "8px 12px", fontSize: "12px", maxWidth: "160px" }}>
+                                    {link.notes
+                                      ? <span className="text-muted-foreground truncate block max-w-[140px]" title={link.notes}>{link.notes}</span>
+                                      : <span className="text-muted-foreground">—</span>
+                                    }
                                   </td>
                                 );
                                 case "org_pct": {

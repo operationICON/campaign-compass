@@ -22,6 +22,7 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
   const [trafficSourceId, setTrafficSourceId] = useState("");
   const [costType, setCostType] = useState<CostType>("Free");
   const [costValue, setCostValue] = useState("");
+  const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [showNewSource, setShowNewSource] = useState(false);
@@ -96,6 +97,7 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
       body.cost_type = costType;
       if (costValue) body.cost_value = parseFloat(costValue);
     }
+    if (notes.trim()) body.notes = notes.trim();
 
     mutation.mutate(body);
   }
@@ -254,6 +256,18 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
               />
             </div>
           )}
+
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add notes, paste reference links, context..."
+              rows={3}
+              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-colors resize-none"
+            />
+          </div>
 
           <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 leading-relaxed">
             This link will appear immediately with <span className="text-blue-400 font-medium">MANUAL</span> status. On the next sync, it will automatically connect to OFAPI data if the URL matches.

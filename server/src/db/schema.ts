@@ -106,6 +106,7 @@ export const tracking_links = pgTable("tracking_links", {
   onlytraffic_order_type:    text("onlytraffic_order_type"),
   onlytraffic_status:        text("onlytraffic_status"),
   onlytraffic_marketer:      text("onlytraffic_marketer"),
+  notes:                     text("notes"),
   deleted_at:                timestamp("deleted_at", { withTimezone: true }),
   calculated_at:             timestamp("calculated_at", { withTimezone: true }),
   fans_last_synced_at:       timestamp("fans_last_synced_at", { withTimezone: true }),

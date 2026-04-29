@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
   Copy, ExternalLink, XCircle, Coins, Trash2,
   ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
-  Pencil, Info, Plus, X,
+  Pencil, Info, Plus, X, StickyNote,
 } from "lucide-react";
 
 import { format } from "date-fns";
@@ -90,6 +90,9 @@ function DrawerBodyInner({
   const [showNewSource, setShowNewSource] = useState(false);
   const [newSourceName, setNewSourceName] = useState("");
 
+  // Notes state
+  const [noteText, setNoteText] = useState(d.notes || "");
+
   const { data: allAccounts = [] } = useQuery({
     queryKey: ["accounts_list"],
     queryFn: getAccounts,
@@ -108,6 +111,7 @@ function DrawerBodyInner({
     setEditCampaignName(nextCampaign.campaign_name || "");
     setEditUrl(nextCampaign.url || "");
     setEditAccountId(nextCampaign.account_id || "");
+    setNoteText(nextCampaign.notes || "");
   };
 
   const mergeDrawerCampaign = (baseCampaign: any, rawLink: any) => ({
@@ -415,6 +419,7 @@ function DrawerBodyInner({
             { key: "edit", icon: <Pencil className="h-3.5 w-3.5" />, label: "Edit" },
             { key: "spend", icon: <Coins className="h-3.5 w-3.5" />, label: "Spend" },
             { key: "source", icon: <DollarSign className="h-3.5 w-3.5" />, label: "Source" },
+            { key: "notes", icon: <StickyNote className="h-3.5 w-3.5" />, label: d.notes ? "Notes ·" : "Notes" },
             { key: "delete", icon: <Trash2 className="h-3.5 w-3.5" />, label: "Delete" },
           ].map(btn => (
             <Button
@@ -579,6 +584,40 @@ function DrawerBodyInner({
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setActiveAction(null)}>Cancel</Button>
               <Button size="sm" variant="destructive" className="h-8 text-xs flex-1" onClick={confirmDelete} disabled={actionSaving}>
                 {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm Delete"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* NOTES PANEL */}
+        {activeAction === "notes" && (
+          <div className="mt-2 rounded-lg border border-border overflow-hidden" style={{ background: "#0D1117" }}>
+            <div className="p-3 space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Notes</span>
+              <textarea
+                value={noteText}
+                onChange={e => setNoteText(e.target.value)}
+                placeholder="Add notes, paste links, or anything useful for reference..."
+                rows={5}
+                className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none leading-relaxed"
+              />
+              <Button
+                size="sm"
+                className="w-full h-8 text-xs"
+                disabled={actionSaving}
+                onClick={async () => {
+                  setActionSaving(true);
+                  try {
+                    const updated = await updateTrackingLink(d.id, { notes: noteText || null });
+                    const merged = mergeDrawerCampaign(d, updated);
+                    setD(merged);
+                    await refreshTrackingQueries();
+                    toast.success("Note saved");
+                  } catch { toast.error("Failed to save note"); }
+                  finally { setActionSaving(false); }
+                }}
+              >
+                {actionSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save Note"}
               </Button>
             </div>
           </div>
