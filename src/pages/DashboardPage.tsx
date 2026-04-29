@@ -612,15 +612,6 @@ export default function DashboardPage() {
           txTypeTotalsByAccount={txTypeTotalsByAccount}
         />
 
-        {/* ═══ REVENUE TREND CHART ═══ */}
-        <RevenueTrendChart
-          snapshotRows={overviewSnapshotRows}
-          isLoading={overviewSnapshotsLoading}
-          isAllTime={isAllTime}
-          agencyAccountIds={agencyAccountIds}
-          revMultiplier={revMultiplier}
-        />
-
         {/* ═══ DAILY SUBS BY SOURCE ═══ */}
         <DailySubsBreakdown accounts={accounts as any[]} allLinks={allLinks as any[]} />
 
