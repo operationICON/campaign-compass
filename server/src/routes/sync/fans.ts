@@ -561,7 +561,9 @@ router.post("/", async (c) => {
       // field and covers ALL transaction types — use it as the authoritative revenue source.
       await send({ step: "reconcile", message: "Reconciling fan revenue from transaction history..." });
 
-      // 4a: Update existing fans' total_revenue from actual transaction records
+      // 4a: Update existing fans' total_revenue from actual transaction records.
+      // Match on fans.fan_id OR fans.username — some fans (bootstrap path) have their
+      // real OF username in fans.username while fans.fan_id holds a legacy numeric ID.
       const reconcileResult = await db.execute(sql`
         UPDATE fans f
         SET
@@ -583,6 +585,7 @@ router.post("/", async (c) => {
           GROUP BY fan_username
         ) sub
         WHERE f.fan_id = sub.fan_username
+           OR (f.username IS NOT NULL AND f.username != '' AND f.username = sub.fan_username)
       `);
       const reconciledCount = Number((reconcileResult as any).rowCount ?? 0);
 
@@ -609,7 +612,11 @@ router.post("/", async (c) => {
             AND revenue::numeric > 0
           GROUP BY fan_username
         ) sub
-        WHERE NOT EXISTS (SELECT 1 FROM fans f WHERE f.fan_id = sub.fan_username)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM fans f
+          WHERE f.fan_id = sub.fan_username
+             OR (f.username IS NOT NULL AND f.username = sub.fan_username)
+        )
         ON CONFLICT (fan_id) DO NOTHING
       `);
       const discoveredCount = Number((discoverResult as any).rowCount ?? 0);

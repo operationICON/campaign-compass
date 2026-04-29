@@ -137,12 +137,18 @@ router.get("/:id", async (c) => {
     .leftJoin(accounts, eq(fan_account_stats.account_id, accounts.id))
     .where(eq(fan_account_stats.fan_id, fanRow.id));
 
-  // transactions.fan_id is the numeric OnlyFans user ID; fans.fan_id is the username.
-  // Join on fan_username which stores the username string matching fans.fan_id.
+  // Match transactions by fan_username against both fans.fan_id and fans.username.
+  // Some fans (e.g. from bootstrap) have their OF username in fans.username while
+  // fans.fan_id holds a legacy numeric-style ID like "u468812253".
+  const altUsername = fanRow.username && fanRow.username !== fanRow.fan_id ? fanRow.username : null;
   const txRows = await db
     .select()
     .from(transactions)
-    .where(sql`${transactions.fan_username} = ${fanRow.fan_id}`)
+    .where(
+      altUsername
+        ? sql`${transactions.fan_username} = ${fanRow.fan_id} OR ${transactions.fan_username} = ${altUsername}`
+        : sql`${transactions.fan_username} = ${fanRow.fan_id}`
+    )
     .orderBy(desc(transactions.date))
     .limit(500);
 
