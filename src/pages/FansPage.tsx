@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTrackingLinks } from "@/lib/api";
+import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTrackingLinks } from "@/lib/api";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,68 @@ const TX_TYPE_META: Record<string, { label: string; color: string }> = {
 };
 function txMeta(type: string | null) {
   return TX_TYPE_META[type ?? ""] ?? { label: type ?? "Other", color: "bg-muted text-muted-foreground" };
+}
+
+const TYPE_BAR_COLOR: Record<string, string> = {
+  new_subscription:       "#6366f1",
+  recurring_subscription: "#22d3ee",
+  tip:                    "#f59e0b",
+  message:                "#10b981",
+  post:                   "#8b5cf6",
+};
+
+// ─── Revenue breakdown by type ────────────────────────────────────────────────
+function RevenueBreakdown({ txs }: { txs: any[] }) {
+  const breakdown = useMemo(() => {
+    const map = new Map<string, { revenue: number; count: number }>();
+    for (const tx of txs) {
+      const type = tx.type ?? "other";
+      const rev = Number(tx.revenue ?? 0);
+      if (rev <= 0) continue;
+      const cur = map.get(type) ?? { revenue: 0, count: 0 };
+      cur.revenue += rev;
+      cur.count += 1;
+      map.set(type, cur);
+    }
+    return [...map.entries()].map(([type, d]) => ({ type, ...d })).sort((a, b) => b.revenue - a.revenue);
+  }, [txs]);
+
+  const total = breakdown.reduce((s, b) => s + b.revenue, 0);
+  if (breakdown.length === 0) return null;
+
+  return (
+    <div className="px-4 py-3 border-b border-border/40 bg-muted/10">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2.5">Revenue by Source</div>
+      <div className="space-y-2.5">
+        {breakdown.map(b => {
+          const meta = txMeta(b.type);
+          const pct = total > 0 ? (b.revenue / total) * 100 : 0;
+          const color = TYPE_BAR_COLOR[b.type] ?? "#64748b";
+          return (
+            <div key={b.type}>
+              <div className="flex items-center justify-between mb-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
+                  <span className="text-muted-foreground">{b.count} tx</span>
+                </div>
+                <div className="flex items-center gap-2 tabular-nums">
+                  <span className="font-semibold">{fmt$(b.revenue)}</span>
+                  <span className="text-muted-foreground w-8 text-right">{pct.toFixed(0)}%</span>
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 pt-2 border-t border-border/40 flex justify-between text-xs">
+        <span className="text-muted-foreground">{txs.filter(tx => Number(tx.revenue ?? 0) > 0).length} revenue transactions</span>
+        <span className="font-bold tabular-nums text-emerald-500">{fmt$(total)}</span>
+      </div>
+    </div>
+  );
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
@@ -211,7 +273,9 @@ function InlineTxList({ fanDbId, showAccount, accountMap }: {
   );
 
   return (
-    <div className="px-4 pb-3 pt-1">
+    <div className="pb-3">
+      <RevenueBreakdown txs={transactions} />
+      <div className="px-4 pt-3">
       <div className="rounded-lg border border-border/60 overflow-hidden">
         <table className="w-full text-xs">
           <thead>
@@ -253,6 +317,7 @@ function InlineTxList({ fanDbId, showAccount, accountMap }: {
           </p>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -261,6 +326,13 @@ function InlineTxList({ fanDbId, showAccount, accountMap }: {
 function FanEditPanel({ fan, onClose, onUpdated }: { fan: any; onClose: () => void; onUpdated: () => void }) {
   const [notesInput, setNotesInput] = useState(fan.notes ?? "");
   const [saving, setSaving] = useState(false);
+
+  const { data: fanDetail } = useQuery({
+    queryKey: ["fan_detail", fan.id],
+    queryFn: () => getFan(fan.id),
+    staleTime: 60_000,
+  });
+  const detailTxs = fanDetail?.transactions ?? [];
 
   async function saveNotes() {
     setSaving(true);
@@ -308,6 +380,12 @@ function FanEditPanel({ fan, onClose, onUpdated }: { fan: any; onClose: () => vo
             <div className="text-xs text-muted-foreground">Transactions</div>
           </div>
         </div>
+
+        {detailTxs.length > 0 && (
+          <div className="rounded-xl border border-border overflow-hidden -mx-1">
+            <RevenueBreakdown txs={detailTxs} />
+          </div>
+        )}
 
         <div className="text-xs text-muted-foreground space-y-1">
           <div className="flex justify-between"><span>First seen</span><span className="text-foreground">{fmtDate(fan.first_transaction_at)}</span></div>
@@ -491,12 +569,33 @@ export default function FansPage() {
     enabled: selectedAccountId === null,
   });
 
+  const txTypeTotalsQuery = useQuery({
+    queryKey: ["tx_type_totals"],
+    queryFn: () => getTransactionTypeTotals() as Promise<Array<{ account_id: string | null; type: string | null; revenue: number }>>,
+    staleTime: 60_000,
+    enabled: selectedAccountId === null,
+  });
+
   const rawFans = fansQuery.data?.fans ?? [];
   const totalFans = fansQuery.data?.total ?? 0;
   const globalStats = globalStatsQuery.data;
   const selectedStats = selectedStatsQuery.data;
   const isLoadingFans = fansQuery.isLoading;
   const txCount = txTotalsQuery.data?.count ?? 0;
+  const txGrandTotal = txTotalsQuery.data?.total ?? 0;
+
+  const txTypeSummary = useMemo(() => {
+    const rows = txTypeTotalsQuery.data ?? [];
+    const map = new Map<string, { revenue: number; count: number }>();
+    for (const r of rows) {
+      const type = r.type ?? "other";
+      const rev = Number(r.revenue ?? 0);
+      const cur = map.get(type) ?? { revenue: 0, count: 0 };
+      cur.revenue += rev;
+      map.set(type, cur);
+    }
+    return [...map.entries()].map(([type, d]) => ({ type, ...d })).sort((a, b) => b.revenue - a.revenue);
+  }, [txTypeTotalsQuery.data]);
 
   // Client-side sort
   const sortedFans = useMemo(() => {
@@ -618,6 +717,60 @@ export default function FansPage() {
                 </>
               )}
             </div>
+
+            {/* Revenue breakdown + reconciliation */}
+            {txTypeSummary.length > 0 && (
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+                  <h3 className="text-sm font-semibold">Revenue by Transaction Type</h3>
+                  {(() => {
+                    const fanTotal = globalStats?.total_revenue ?? 0;
+                    const delta = Math.abs(txGrandTotal - fanTotal);
+                    const pct = txGrandTotal > 0 ? (delta / txGrandTotal) * 100 : 0;
+                    const matched = pct < 1;
+                    return (
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", matched ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500")}>
+                        {matched ? "✓ Reconciled" : `⚠ ${fmt$(delta)} delta — run Fan Sync`}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="px-5 py-4 space-y-3">
+                  {txTypeSummary.map(b => {
+                    const meta = txMeta(b.type);
+                    const pct = txGrandTotal > 0 ? (b.revenue / txGrandTotal) * 100 : 0;
+                    const color = TYPE_BAR_COLOR[b.type] ?? "#64748b";
+                    return (
+                      <div key={b.type}>
+                        <div className="flex items-center justify-between mb-1 text-xs">
+                          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
+                          <div className="flex items-center gap-3 tabular-nums">
+                            <span className="font-semibold">{fmt$(b.revenue)}</span>
+                            <span className="text-muted-foreground w-8 text-right">{pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="pt-2 border-t border-border/40 flex justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <div className="flex gap-2 text-muted-foreground">
+                        <span>Transactions total:</span>
+                        <span className="font-semibold text-foreground tabular-nums">{fmt$(txGrandTotal)}</span>
+                      </div>
+                      <div className="flex gap-2 text-muted-foreground">
+                        <span>Fan profiles total:</span>
+                        <span className="font-semibold text-foreground tabular-nums">{fmt$(globalStats?.total_revenue)}</span>
+                      </div>
+                    </div>
+                    <span className="text-muted-foreground self-end">{fmtNum(txCount)} transactions</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Account cards — sorted by fan revenue */}
             <div>
