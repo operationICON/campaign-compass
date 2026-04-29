@@ -395,31 +395,31 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     [allDatesInRange, sourceRows],
   );
 
-  const sortVal = (row: SourceRow | LinkRow) => {
-    if (sortCol === "name") return ("key" in row ? row.key : row.campaign_name).toLowerCase();
-    if (sortCol === "total") return row.total;
-    if (sortCol === "avgPerDay") return row.avgPerDay;
-    if (sortCol === "ltv") return row.total > 0 ? row.totalRevenue / row.total : 0;
-    if (sortCol === "cvr") return row.totalClicks > 0 ? row.total / row.totalClicks : 0;
-    return 0;
-  };
-
-  const sortRows = <T extends SourceRow | LinkRow>(arr: T[]): T[] => {
-    return [...arr].sort((a, b) => {
-      const va = sortVal(a), vb = sortVal(b);
+  const displayRows = useMemo(() => {
+    const getVal = (row: SourceRow | LinkRow): number | string => {
+      const name = "key" in row ? row.key : row.campaign_name;
+      if (sortCol === "name")    return name.toLowerCase();
+      if (sortCol === "total")   return row.total;
+      if (sortCol === "avgPerDay") return row.avgPerDay;
+      if (sortCol === "ltv")     return row.total > 0 ? row.totalRevenue / row.total : 0;
+      if (sortCol === "cvr")     return row.totalClicks > 0 ? row.total / row.totalClicks : 0;
+      return row.total;
+    };
+    const cmp = (a: SourceRow | LinkRow, b: SourceRow | LinkRow) => {
+      const va = getVal(a), vb = getVal(b);
       if (typeof va === "string") return sortDir === "asc" ? va.localeCompare(vb as string) : (vb as string).localeCompare(va);
       return sortDir === "asc" ? (va as number) - (vb as number) : (vb as number) - (va as number);
-    });
-  };
+    };
 
-  const displayRows = useMemo(() => {
     let rows = sourceFilter === "all" ? sourceRows : sourceRows.filter(r => r.key === sourceFilter);
     if (activeFilter === "active") {
       rows = rows
         .map(row => ({ ...row, links: row.links.filter(l => activeLinksSet.has(l.id)) }))
         .filter(row => row.links.length > 0);
     }
-    return sortRows(rows).map(row => ({ ...row, links: sortRows(row.links) }));
+    return [...rows]
+      .sort(cmp)
+      .map(row => ({ ...row, links: [...row.links].sort(cmp) }));
   }, [sourceRows, sourceFilter, activeFilter, activeLinksSet, sortCol, sortDir]);
 
   function handleSort(col: typeof sortCol) {
