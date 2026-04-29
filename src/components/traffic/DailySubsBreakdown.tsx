@@ -228,7 +228,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [drawerLink, setDrawerLink] = useState<any | null>(null);
-  const [sortCol, setSortCol] = useState<"name" | "total" | "avgPerDay" | "ltv" | "cvr">("total");
+  const [sortCol, setSortCol] = useState<string>("total");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 14),
@@ -403,7 +403,8 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
       if (sortCol === "avgPerDay") return row.avgPerDay;
       if (sortCol === "ltv")     return row.total > 0 ? row.totalRevenue / row.total : 0;
       if (sortCol === "cvr")     return row.totalClicks > 0 ? row.total / row.totalClicks : 0;
-      return row.total;
+      // date column — sort by subs on that date
+      return (row.dailySubs as Record<string, number>)[sortCol] || 0;
     };
     const cmp = (a: SourceRow | LinkRow, b: SourceRow | LinkRow) => {
       const va = getVal(a), vb = getVal(b);
@@ -422,7 +423,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
       .map(row => ({ ...row, links: [...row.links].sort(cmp) }));
   }, [sourceRows, sourceFilter, activeFilter, activeLinksSet, sortCol, sortDir]);
 
-  function handleSort(col: typeof sortCol) {
+  function handleSort(col: string) {
     if (sortCol === col) setSortDir(d => d === "desc" ? "asc" : "desc");
     else { setSortCol(col); setSortDir("desc"); }
   }
@@ -562,9 +563,17 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                   ))}
                   {displayDates.map(d => (
                     <th key={d}
-                      className={`text-right px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${d === todayStr ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+                      onClick={() => handleSort(d)}
+                      className={`text-right px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none ${
+                        d === todayStr ? "bg-primary/10" : ""
+                      } ${sortCol === d ? "text-foreground" : d === todayStr ? "text-primary" : "text-muted-foreground"}`}
                       style={{ minWidth: 52 }}>
-                      {fmtDate(d)}
+                      <span className="inline-flex items-center gap-0.5 justify-end">
+                        {fmtDate(d)}
+                        {sortCol === d
+                          ? (sortDir === "desc" ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />)
+                          : <ChevronDown className="h-3 w-3 opacity-20" />}
+                      </span>
                     </th>
                   ))}
                   <th style={{ minWidth: 24 }} />
