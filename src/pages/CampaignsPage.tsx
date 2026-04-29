@@ -358,7 +358,10 @@ export default function CampaignsPage() {
       // STEP 4: Fixed status logic
       let computedStatus: string;
       const linkClicks = l.clicks || 0;
-      if (costTotalVal > 0 && computedRoi !== null) {
+      const isManualPending = (l.manually_tagged === true || !l.external_tracking_link_id) && !l.revenue;
+      if (isManualPending && costTotalVal <= 0 && linkClicks === 0) {
+        computedStatus = "MANUAL";
+      } else if (costTotalVal > 0 && computedRoi !== null) {
         if (computedRoi > 150) computedStatus = "SCALE";
         else if (computedRoi >= 50) computedStatus = "WATCH";
         else if (computedRoi >= 0) computedStatus = "LOW";
@@ -1130,7 +1133,7 @@ export default function CampaignsPage() {
                                 case "status": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
                                     <div className="flex items-center gap-1.5">
-                                      {!hasCost && (
+                                      {!hasCost && status !== "MANUAL" && (
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
@@ -1138,8 +1141,13 @@ export default function CampaignsPage() {
                                           <TooltipContent>No spend set</TooltipContent>
                                         </Tooltip>
                                       )}
-                                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
-                                        style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap min-w-[70px] text-center"
+                                          style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}>{displayStatus}</span>
+                                        {status === "MANUAL" && (
+                                          <span className="text-[9px] text-muted-foreground leading-none">Awaiting sync</span>
+                                        )}
+                                      </div>
                                     </div>
                                   </td>
                                 );

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
   Copy, ExternalLink, XCircle, Coins, Trash2,
   ArrowUpRight, Loader2, DollarSign, Calculator, User, CheckCircle,
-  Pencil,
+  Pencil, Info, Plus, X,
 } from "lucide-react";
 
 import { format } from "date-fns";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   getTrackingLink, updateTrackingLink, deleteTrackingLink,
   getTrafficSources, createTrafficSource, deleteTrafficSource,
@@ -86,6 +87,8 @@ function DrawerBodyInner({
   const [editCampaignName, setEditCampaignName] = useState(d.campaign_name || "");
   const [editUrl, setEditUrl] = useState(d.url || "");
   const [editAccountId, setEditAccountId] = useState(d.account_id || "");
+  const [showNewSource, setShowNewSource] = useState(false);
+  const [newSourceName, setNewSourceName] = useState("");
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ["accounts_list"],
@@ -188,6 +191,28 @@ function DrawerBodyInner({
   const refetchTrackingLinkAndSync = async (baseCampaign: any = d) => {
     const refreshed = await fetchTrackingLink(baseCampaign?.id || d.id);
     return applyFreshTrackingLink(refreshed, baseCampaign);
+  };
+
+  const createAndAssignSource = async () => {
+    const trimmed = newSourceName.trim();
+    if (!trimmed) return;
+    const exists = (sourceTags as any[]).find((t: any) => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      setSourceVal(exists.name);
+      setShowNewSource(false);
+      toast.info(`"${trimmed}" already exists — selected`);
+      return;
+    }
+    setActionSaving(true);
+    try {
+      const data = await createTrafficSource({ name: trimmed, category: "Manual", color: "#3b82f6", keywords: [] });
+      setSourceVal(data.name);
+      setShowNewSource(false);
+      setNewSourceName("");
+      await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+      toast.success(`Source "${trimmed}" created`);
+    } catch { toast.error("Failed to create source"); }
+    setActionSaving(false);
   };
 
   const saveSource = async () => {
@@ -365,6 +390,16 @@ function DrawerBodyInner({
         </button>
       </div>
 
+      {/* MANUAL LINK BANNER */}
+      {(d.manually_tagged === true || !d.external_tracking_link_id) && (
+        <div className="mx-6 mt-2 flex items-start gap-2 rounded-lg bg-blue-500/10 border border-blue-500/25 px-3 py-2">
+          <Info className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-[12px] text-blue-300 leading-relaxed">
+            This link was added manually. Data will appear after the next sync.
+          </p>
+        </div>
+      )}
+
       {/* ACTION BUTTONS */}
       <div className="px-6 py-2 border-b border-border">
         <div className="flex gap-1.5">
@@ -461,66 +496,52 @@ function DrawerBodyInner({
           <div className="mt-2 rounded-lg border border-border overflow-hidden" style={{ background: "#0D1117" }}>
             <div className="p-3 space-y-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source</span>
-              <select
-                value={sourceVal}
-                onChange={e => setSourceVal(e.target.value)}
-                className="w-full h-8 rounded-md border border-border bg-card px-2 text-sm text-foreground"
-              >
-                <option value="">— Select source —</option>
-                {sourceTags.map((t: any) => (
-                  <option key={t.id} value={t.name}>{t.name}</option>
-                ))}
-              </select>
-              <Input
-                type="text"
-                value={sourceVal}
-                onChange={e => setSourceVal(e.target.value)}
-                placeholder="CREATE NEW SOURCE NAME"
-                className="h-8 text-sm bg-card border-border"
-              />
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 h-8 text-[11px]"
-                  disabled={!sourceVal.trim() || actionSaving}
-                  onClick={async () => {
-                    if (!sourceVal.trim()) return;
-                    const trimmed = sourceVal.trim();
-                    const exists = sourceTags.find((t: any) => t.name.toLowerCase() === trimmed.toLowerCase());
-                    if (exists) { toast.info(`"${trimmed}" already exists`); return; }
-                    setActionSaving(true);
-                    try {
-                      const data = await createTrafficSource({
-                        name: trimmed,
-                        category: "Manual",
-                        color: "#0891b2",
-                        keywords: [],
-                      });
-                      await updateTrackingLink(d.id, {
-                        source_tag: data.name,
-                        traffic_source_id: data.id,
-                        manually_tagged: true,
-                        traffic_category: d.traffic_category === "OnlyTraffic" ? "OnlyTraffic" : "Manual",
-                      });
-
-                      await refetchTrackingLinkAndSync();
-                      await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
-                      await refreshTrackingQueries();
-                      toast.success(`Source "${trimmed}" created & assigned`);
-                    } catch (err) { console.error(err); toast.error("Failed to create"); }
-                    setActionSaving(false);
-                  }}
+              <div className="flex gap-1.5">
+                <Select value={sourceVal || "__none__"} onValueChange={v => setSourceVal(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="flex-1 h-8 text-sm bg-card border-border">
+                    <SelectValue placeholder="— Select source —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {(sourceTags as any[]).map((t: any) => (
+                      <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  onClick={() => { setShowNewSource(v => !v); setNewSourceName(""); }}
+                  className="h-8 w-8 flex items-center justify-center rounded-md border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  title="Create new source"
                 >
-                  Create
-                </Button>
+                  {showNewSource ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              {showNewSource && (
+                <div className="flex gap-1.5">
+                  <Input
+                    type="text"
+                    value={newSourceName}
+                    onChange={e => setNewSourceName(e.target.value)}
+                    placeholder="New source name..."
+                    className="h-8 text-sm bg-card border-border flex-1"
+                    onKeyDown={async e => { if (e.key === "Enter") await createAndAssignSource(); }}
+                    autoFocus
+                  />
+                  <Button size="sm" className="h-8 text-[11px] px-3" disabled={!newSourceName.trim() || actionSaving}
+                    onClick={async () => createAndAssignSource()}>
+                    {actionSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              )}
+              <div className="flex gap-1">
                 <Button
                   size="sm"
                   variant="outline"
                   className="flex-1 h-8 text-[11px] text-destructive hover:text-destructive"
                   disabled={!sourceVal.trim() || actionSaving}
                   onClick={async () => {
-                    const src = sourceTags.find((t: any) => t.name === sourceVal);
+                    const src = (sourceTags as any[]).find((t: any) => t.name === sourceVal);
                     if (!src) { toast.error("Source not found in list"); return; }
                     setActionSaving(true);
                     try {

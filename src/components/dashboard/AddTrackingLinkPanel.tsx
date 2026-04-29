@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X, Link2, Loader2 } from "lucide-react";
+import { X, Link2, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { createTrackingLink, getTrafficSources } from "@/lib/api";
+import { createTrackingLink, getTrafficSources, createTrafficSource } from "@/lib/api";
 import { fetchAccounts } from "@/lib/supabase-helpers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -24,8 +24,12 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
   const [costValue, setCostValue] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [showNewSource, setShowNewSource] = useState(false);
+  const [newSourceName, setNewSourceName] = useState("");
+  const [creatingSource, setCreatingSource] = useState(false);
+
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const { data: trafficSources = [] } = useQuery({ queryKey: ["traffic_sources"], queryFn: getTrafficSources });
+  const { data: trafficSources = [], refetch: refetchSources } = useQuery({ queryKey: ["traffic_sources"], queryFn: getTrafficSources });
 
   const activeAccounts = (accounts as any[]).filter((a: any) => a.is_active !== false);
 
@@ -38,6 +42,28 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
     },
     onError: (err: any) => toast.error(`Failed: ${err.message}`),
   });
+
+  async function handleCreateSource() {
+    const trimmed = newSourceName.trim();
+    if (!trimmed) return;
+    const exists = (trafficSources as any[]).find((t: any) => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      setTrafficSourceId(exists.id);
+      setShowNewSource(false);
+      toast.info(`"${trimmed}" already exists — selected`);
+      return;
+    }
+    setCreatingSource(true);
+    try {
+      const data = await createTrafficSource({ name: trimmed, category: "Manual", color: "#3b82f6", keywords: [] });
+      await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
+      setTrafficSourceId(data.id);
+      setNewSourceName("");
+      setShowNewSource(false);
+      toast.success(`Source "${trimmed}" created`);
+    } catch { toast.error("Failed to create source"); }
+    setCreatingSource(false);
+  }
 
   function validate() {
     const e: Record<string, string> = {};
@@ -53,13 +79,19 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
     if (Object.keys(e).length > 0) { setErrors(e); return; }
     setErrors({});
 
+    const selectedSource = (trafficSources as any[]).find((t: any) => t.id === trafficSourceId);
+
     const body: Record<string, any> = {
       url: url.trim(),
       campaign_name: campaignName.trim(),
       account_id: accountId,
       manually_tagged: true,
+      traffic_category: "Manual",
     };
-    if (trafficSourceId) body.traffic_source_id = trafficSourceId;
+    if (trafficSourceId) {
+      body.traffic_source_id = trafficSourceId;
+      if (selectedSource) body.source_tag = selectedSource.name;
+    }
     if (costType !== "Free") {
       body.cost_type = costType;
       if (costValue) body.cost_value = parseFloat(costValue);
@@ -141,17 +173,47 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
           {/* Traffic Source */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Traffic Source</label>
-            <Select value={trafficSourceId || "__none__"} onValueChange={(v) => setTrafficSourceId(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="w-full bg-secondary border-border">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                {(trafficSources as any[]).filter((ts: any) => !ts.is_archived).map((ts: any) => (
-                  <SelectItem key={ts.id} value={ts.id}>{ts.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-1.5">
+              <Select value={trafficSourceId || "__none__"} onValueChange={(v) => setTrafficSourceId(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="flex-1 bg-secondary border-border">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {(trafficSources as any[]).filter((ts: any) => !ts.is_archived).map((ts: any) => (
+                    <SelectItem key={ts.id} value={ts.id}>{ts.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => { setShowNewSource(v => !v); setNewSourceName(""); }}
+                className="h-10 w-10 flex items-center justify-center rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                title="Create new source"
+              >
+                {showNewSource ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+            {showNewSource && (
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={newSourceName}
+                  onChange={(e) => setNewSourceName(e.target.value)}
+                  placeholder="New source name..."
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") handleCreateSource(); if (e.key === "Escape") setShowNewSource(false); }}
+                  className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+                />
+                <button
+                  onClick={handleCreateSource}
+                  disabled={!newSourceName.trim() || creatingSource}
+                  className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0"
+                >
+                  {creatingSource ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Cost Type */}
@@ -194,7 +256,7 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
           )}
 
           <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 leading-relaxed">
-            This link will appear immediately with <span className="text-foreground font-medium">NO_DATA</span> status. On the next sync, it will automatically connect to OFAPI data if the URL matches.
+            This link will appear immediately with <span className="text-blue-400 font-medium">MANUAL</span> status. On the next sync, it will automatically connect to OFAPI data if the URL matches.
           </p>
         </div>
 

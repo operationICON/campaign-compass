@@ -24,6 +24,7 @@ export const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   NO_DATA: { bg: "#f9fafb", text: "#94a3b8" },
   DEAD: { bg: "#f3f4f6", text: "#9ca3af" },
   DELETED: { bg: "#f3f4f6", text: "#9ca3af" },
+  MANUAL: { bg: "#eff6ff", text: "#3b82f6" },
 };
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -37,6 +38,7 @@ export const STATUS_LABELS: Record<string, string> = {
   "NO SPEND": "NO SPEND",
   NO_DATA: "NO DATA",
   DEAD: "DEAD",
+  MANUAL: "MANUAL",
 };
 
 // ─── Effective Revenue ───
