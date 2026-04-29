@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { isActiveAccount } from "@/lib/calc-helpers";
-import { Clock, ChevronRight, CalendarDays, ChevronLeft, ArrowRight } from "lucide-react";
+import { Clock, ChevronRight, CalendarDays, ChevronLeft, ArrowRight, ChevronUp, ChevronDown } from "lucide-react";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 
 const COLOR_CYCLE = [
@@ -228,6 +228,8 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [drawerLink, setDrawerLink] = useState<any | null>(null);
+  const [sortCol, setSortCol] = useState<"name" | "total" | "avgPerDay" | "ltv" | "cvr">("total");
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 14),
     to: new Date(),
@@ -393,6 +395,23 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
     [allDatesInRange, sourceRows],
   );
 
+  const sortVal = (row: SourceRow | LinkRow) => {
+    if (sortCol === "name") return ("key" in row ? row.key : row.campaign_name).toLowerCase();
+    if (sortCol === "total") return row.total;
+    if (sortCol === "avgPerDay") return row.avgPerDay;
+    if (sortCol === "ltv") return row.total > 0 ? row.totalRevenue / row.total : 0;
+    if (sortCol === "cvr") return row.totalClicks > 0 ? row.total / row.totalClicks : 0;
+    return 0;
+  };
+
+  const sortRows = <T extends SourceRow | LinkRow>(arr: T[]): T[] => {
+    return [...arr].sort((a, b) => {
+      const va = sortVal(a), vb = sortVal(b);
+      if (typeof va === "string") return sortDir === "asc" ? va.localeCompare(vb as string) : (vb as string).localeCompare(va);
+      return sortDir === "asc" ? (va as number) - (vb as number) : (vb as number) - (va as number);
+    });
+  };
+
   const displayRows = useMemo(() => {
     let rows = sourceFilter === "all" ? sourceRows : sourceRows.filter(r => r.key === sourceFilter);
     if (activeFilter === "active") {
@@ -400,8 +419,13 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
         .map(row => ({ ...row, links: row.links.filter(l => activeLinksSet.has(l.id)) }))
         .filter(row => row.links.length > 0);
     }
-    return rows;
-  }, [sourceRows, sourceFilter, activeFilter, activeLinksSet]);
+    return sortRows(rows).map(row => ({ ...row, links: sortRows(row.links) }));
+  }, [sourceRows, sourceFilter, activeFilter, activeLinksSet, sortCol, sortDir]);
+
+  function handleSort(col: typeof sortCol) {
+    if (sortCol === col) setSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setSortCol(col); setSortDir("desc"); }
+  }
 
   const toggleSource = (key: string) => {
     setExpandedSources(prev => {
@@ -419,9 +443,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
   if (!activeAccounts.length) return null;
 
   const selectedAccountName = activeAccounts.find((a: any) => a.id === accountId)?.display_name ?? "";
-
-  // Column count: Source/Campaign + Total + Avg/Day + LTV/Sub + CVR + Share + dates
-  const fixedColCount = 6;
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 space-y-4">
@@ -518,14 +539,27 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
             <table className="min-w-full" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr className="bg-secondary border-b border-border">
-                  <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap sticky left-0 bg-secondary z-10" style={{ minWidth: 200 }}>
-                    Source / Campaign
+                  <th className="text-left px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap sticky left-0 bg-secondary z-10 cursor-pointer select-none"
+                    style={{ minWidth: 200 }} onClick={() => handleSort("name")}>
+                    <span className={`inline-flex items-center gap-1 ${sortCol === "name" ? "text-foreground" : "text-muted-foreground"}`}>
+                      Source / Campaign
+                      {sortCol === "name" ? (sortDir === "desc" ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />) : <ChevronDown className="h-3 w-3 opacity-30" />}
+                    </span>
                   </th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 62 }}>Total</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 62 }}>Avg/Day</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 72 }}>LTV/Sub</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 58 }}>CVR</th>
-                  <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap" style={{ minWidth: 54 }}>Share</th>
+                  {([
+                    { col: "total" as const,   label: "Total",   w: 62 },
+                    { col: "avgPerDay" as const, label: "Avg/Day", w: 62 },
+                    { col: "ltv" as const,     label: "LTV/Sub", w: 72 },
+                    { col: "cvr" as const,     label: "CVR",     w: 58 },
+                  ] as const).map(({ col, label, w }) => (
+                    <th key={col} className="text-right px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none"
+                      style={{ minWidth: w }} onClick={() => handleSort(col)}>
+                      <span className={`inline-flex items-center gap-1 justify-end ${sortCol === col ? "text-foreground" : "text-muted-foreground"}`}>
+                        {label}
+                        {sortCol === col ? (sortDir === "desc" ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />) : <ChevronDown className="h-3 w-3 opacity-30" />}
+                      </span>
+                    </th>
+                  ))}
                   {displayDates.map(d => (
                     <th key={d}
                       className={`text-right px-2 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${d === todayStr ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
@@ -533,7 +567,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                       {fmtDate(d)}
                     </th>
                   ))}
-                  {/* spacer for arrow column */}
                   <th style={{ minWidth: 24 }} />
                 </tr>
               </thead>
@@ -555,7 +588,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{row.avgPerDay.toFixed(1)}</td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{fmtLtv(row.totalRevenue, row.total)}</td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{fmtCvr(row.total, row.totalClicks)}</td>
-                      <td className="px-3 py-2.5 text-right font-mono text-[12px] text-muted-foreground">{row.pct.toFixed(1)}%</td>
                       {displayDates.map(d => (
                         <td key={d} className={`px-2 py-2.5 text-right font-mono text-[12px] ${d === todayStr ? "bg-primary/5" : ""}`}>
                           {row.dailySubs[d]
@@ -586,7 +618,6 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                         <td className="px-3 py-2 text-right font-mono text-[11px] text-muted-foreground">{link.avgPerDay.toFixed(1)}</td>
                         <td className="px-3 py-2 text-right font-mono text-[11px] text-muted-foreground">{fmtLtv(link.totalRevenue, link.total)}</td>
                         <td className="px-3 py-2 text-right font-mono text-[11px] text-muted-foreground">{fmtCvr(link.total, link.totalClicks)}</td>
-                        <td className="px-3 py-2 text-right text-[11px] text-muted-foreground/40">—</td>
                         {displayDates.map(d => (
                           <td key={d} className={`px-2 py-2 text-right font-mono text-[11px] ${d === todayStr ? "bg-primary/5" : ""}`}>
                             {link.dailySubs[d]
