@@ -20,6 +20,7 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
   const [campaignName, setCampaignName] = useState("");
   const [accountId, setAccountId] = useState("");
   const [trafficSourceId, setTrafficSourceId] = useState("");
+  const [trafficSourceName, setTrafficSourceName] = useState("");
   const [costType, setCostType] = useState<CostType>("Free");
   const [costValue, setCostValue] = useState("");
   const [notes, setNotes] = useState("");
@@ -59,6 +60,7 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
       const data = await createTrafficSource({ name: trimmed, category: "Manual", color: "#3b82f6", keywords: [] });
       await queryClient.invalidateQueries({ queryKey: ["traffic_sources"] });
       setTrafficSourceId(data.id);
+      setTrafficSourceName(trimmed);
       setNewSourceName("");
       setShowNewSource(false);
       toast.success(`Source "${trimmed}" created`);
@@ -80,8 +82,6 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
     if (Object.keys(e).length > 0) { setErrors(e); return; }
     setErrors({});
 
-    const selectedSource = (trafficSources as any[]).find((t: any) => t.id === trafficSourceId);
-
     const body: Record<string, any> = {
       url: url.trim(),
       campaign_name: campaignName.trim(),
@@ -91,7 +91,7 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
     };
     if (trafficSourceId) {
       body.traffic_source_id = trafficSourceId;
-      if (selectedSource) body.source_tag = selectedSource.name;
+      if (trafficSourceName) body.source_tag = trafficSourceName;
     }
     if (costType !== "Free") {
       body.cost_type = costType;
@@ -176,7 +176,12 @@ export function AddTrackingLinkPanel({ onClose }: Props) {
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Traffic Source</label>
             <div className="flex gap-1.5">
-              <Select value={trafficSourceId || "__none__"} onValueChange={(v) => setTrafficSourceId(v === "__none__" ? "" : v)}>
+              <Select value={trafficSourceId || "__none__"} onValueChange={(v) => {
+                const id = v === "__none__" ? "" : v;
+                const src = id ? (trafficSources as any[]).find((t: any) => t.id === id) : null;
+                setTrafficSourceId(id);
+                setTrafficSourceName(src?.name || "");
+              }}>
                 <SelectTrigger className="flex-1 bg-secondary border-border">
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
