@@ -114,8 +114,16 @@ function DrawerBodyInner({
     ...baseCampaign,
     ...rawLink,
     accounts: rawLink?.accounts ?? baseCampaign?.accounts,
-    modelName: baseCampaign?.modelName || rawLink?.accounts?.display_name || rawLink?.accounts?.username || "",
-    avatarUrl: baseCampaign?.avatarUrl || rawLink?.accounts?.avatar_thumb_url || null,
+    modelName: baseCampaign?.modelName
+      || rawLink?.accounts?.display_name
+      || rawLink?.accounts?.username
+      || baseCampaign?.account_display_name
+      || baseCampaign?.account_username
+      || "",
+    avatarUrl: baseCampaign?.avatarUrl
+      || rawLink?.accounts?.avatar_thumb_url
+      || baseCampaign?.account_avatar_thumb_url
+      || null,
   });
 
   const fetchTrackingLink = async (linkId: string) => {
@@ -361,13 +369,13 @@ function DrawerBodyInner({
     <div className="overflow-y-auto flex-1">
       {/* HEADER */}
       <div className="px-6 pt-2.5 pb-2 border-b border-border flex items-center gap-4">
-        <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url} name={d.modelName || d.accounts?.display_name || ""} size={64} />
+        <ModelAvatar avatarUrl={d.avatarUrl || d.accounts?.avatar_thumb_url || d.account_avatar_thumb_url} name={d.modelName || d.accounts?.display_name || d.account_display_name || ""} size={64} />
         <div className="flex-1 min-w-0">
           <DrawerHeader className="p-0">
             <DrawerTitle className="truncate text-lg font-bold leading-tight text-foreground">
               {d.campaign_name || "Unknown"}
             </DrawerTitle>
-            <span className="text-[13px] font-medium text-primary">{d.modelName || d.accounts?.display_name || ""}</span>
+            <span className="text-[13px] font-medium text-primary">{d.modelName || d.accounts?.display_name || d.account_display_name || ""}</span>
           </DrawerHeader>
           <DrawerDescription asChild>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-xs text-muted-foreground">
