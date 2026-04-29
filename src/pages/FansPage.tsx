@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Users, DollarSign, TrendingUp, RefreshCw,
-  Search, ChevronDown, ChevronRight, GitMerge, X,
-  ExternalLink, ArrowLeft,
+  Search, ChevronDown, ChevronRight, ChevronLeft, GitMerge, X,
+  ExternalLink, ArrowLeft, Award,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -64,64 +64,70 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
   );
 }
 
-// ─── Account fan card (grid view) ─────────────────────────────────────────────
-function AccountFanCard({ account, stats, isLoading, totalSubs, onClick }: {
-  account: any;
-  stats: any | null;
-  isLoading: boolean;
-  totalSubs: number;
-  onClick: () => void;
+// ─── Account fan card ─────────────────────────────────────────────────────────
+function AccountFanCard({ account, stats, isLoading, totalSubs, rank, onClick }: {
+  account: any; stats: any | null; isLoading: boolean;
+  totalSubs: number; rank: number; onClick: () => void;
 }) {
-  const spenderPct = totalSubs > 0
-    ? (stats?.spenders ?? 0) / totalSubs * 100
-    : 0;
+  const spenderPct = totalSubs > 0 ? (stats?.spenders ?? 0) / totalSubs * 100 : 0;
+  const hasData = stats && (stats.total_fans > 0 || stats.total_revenue > 0);
 
   return (
     <div
       onClick={onClick}
-      className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/50 hover:shadow-lg transition-all group"
+      className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/50 hover:shadow-lg transition-all group relative overflow-hidden"
     >
+      {/* Rank badge */}
+      {rank <= 3 && hasData && (
+        <div className={cn(
+          "absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+          rank === 1 ? "bg-amber-500/20 text-amber-400" :
+          rank === 2 ? "bg-slate-400/20 text-slate-400" :
+                       "bg-orange-600/20 text-orange-500"
+        )}>
+          {rank}
+        </div>
+      )}
+
       {/* Account header */}
       <div className="flex items-center gap-3 mb-4">
         {account.avatar_thumb_url ? (
-          <img
-            src={account.avatar_thumb_url}
-            alt={account.display_name}
-            className="w-12 h-12 rounded-full object-cover border-2 border-border flex-shrink-0"
-          />
+          <img src={account.avatar_thumb_url} alt={account.display_name}
+            className="w-12 h-12 rounded-full object-cover border-2 border-border flex-shrink-0" />
         ) : (
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground flex-shrink-0">
             {account.display_name.slice(0, 2).toUpperCase()}
           </div>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pr-6">
           <div className="font-bold text-sm truncate">{account.display_name}</div>
           {isLoading ? (
             <Skeleton className="h-4 w-24 mt-1" />
-          ) : stats?.total_revenue > 0 ? (
-            <div className="text-sm font-semibold text-emerald-500 tabular-nums">{fmt$(stats.total_revenue)}</div>
+          ) : hasData ? (
+            <div className="text-base font-bold text-emerald-500 tabular-nums">{fmt$(stats.total_revenue)}</div>
           ) : (
-            <div className="text-xs text-muted-foreground">No revenue yet</div>
+            <div className="text-xs text-muted-foreground">No fan data yet</div>
           )}
         </div>
       </div>
 
-      {/* Stats grid */}
+      {/* Stats */}
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-3/4" />
         </div>
-      ) : stats ? (
+      ) : hasData ? (
         <>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3">
+          {/* 4-stat grid */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 mb-4">
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Subs</div>
-              <div className="text-xl font-bold tabular-nums">{totalSubs > 0 ? fmtNum(totalSubs) : "—"}</div>
+              <div className="text-lg font-bold tabular-nums">{totalSubs > 0 ? fmtNum(totalSubs) : "—"}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Spenders</div>
-              <div className="text-xl font-bold tabular-nums text-emerald-500">{fmtNum(stats.spenders)}</div>
+              <div className="text-lg font-bold tabular-nums text-emerald-500">{fmtNum(stats.spenders)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg / Spender</div>
@@ -133,28 +139,30 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, onClick }: {
             </div>
           </div>
 
-          {/* Spender conversion bar */}
-          {totalSubs > 0 && (
+          {/* Conversion bar */}
+          {totalSubs > 0 ? (
             <div>
-              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                <span>{fmtNum(stats.spenders ?? 0)} spenders of {fmtNum(totalSubs)} subs</span>
-                <span className="font-semibold">{spenderPct.toFixed(1)}%</span>
+              <div className="flex justify-between text-[10px] text-muted-foreground mb-1.5">
+                <span>{fmtNum(stats.spenders)} spenders of {fmtNum(totalSubs)} subs</span>
+                <span className="font-bold text-foreground">{spenderPct.toFixed(1)}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, spenderPct)}%` }}
-                />
+                <div className="h-full bg-emerald-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, spenderPct)}%` }} />
               </div>
             </div>
+          ) : (
+            <div className="text-[10px] text-muted-foreground">No subscriber count — sync tracking links first</div>
           )}
         </>
       ) : (
-        <div className="text-xs text-muted-foreground py-2">No fan data — run a fan sync first</div>
+        <div className="text-xs text-muted-foreground py-2">Run a fan sync to load data</div>
       )}
 
       <div className="mt-4 flex items-center justify-end">
-        <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">View fans →</span>
+        <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+          View fans <ChevronRight className="w-3 h-3" />
+        </span>
       </div>
     </div>
   );
@@ -181,7 +189,9 @@ function FanAvatar({ fan, size = 28 }: { fan: any; size?: number }) {
 }
 
 // ─── Inline transaction list ──────────────────────────────────────────────────
-function InlineTxList({ fanDbId, showAccount, accountMap }: { fanDbId: string; showAccount: boolean; accountMap: Record<string, any> }) {
+function InlineTxList({ fanDbId, showAccount, accountMap }: {
+  fanDbId: string; showAccount: boolean; accountMap: Record<string, any>;
+}) {
   const { data, isLoading } = useQuery({
     queryKey: ["fan_detail", fanDbId],
     queryFn: () => getFan(fanDbId),
@@ -190,16 +200,15 @@ function InlineTxList({ fanDbId, showAccount, accountMap }: { fanDbId: string; s
 
   const transactions = data?.transactions ?? [];
 
-  if (isLoading) {
-    return (
-      <div className="px-4 pb-3 pt-1 space-y-1.5">
-        {[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full rounded" />)}
-      </div>
-    );
-  }
-  if (transactions.length === 0) {
-    return <p className="px-4 pb-3 text-xs text-muted-foreground">No transactions found</p>;
-  }
+  if (isLoading) return (
+    <div className="px-4 pb-3 pt-1 space-y-1.5">
+      {[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full rounded" />)}
+    </div>
+  );
+
+  if (transactions.length === 0) return (
+    <p className="px-4 pb-3 text-xs text-muted-foreground">No transactions found</p>
+  );
 
   return (
     <div className="px-4 pb-3 pt-1">
@@ -207,7 +216,7 @@ function InlineTxList({ fanDbId, showAccount, accountMap }: { fanDbId: string; s
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-muted/40 border-b border-border/60">
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-28">Date</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-24">Date</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground w-28">Type</th>
               {showAccount && <th className="text-left px-3 py-2 font-medium text-muted-foreground">Account</th>}
               <th className="text-right px-3 py-2 font-medium text-muted-foreground w-24">Amount</th>
@@ -307,13 +316,9 @@ function FanEditPanel({ fan, onClose, onUpdated }: { fan: any; onClose: () => vo
 
         <div>
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Notes</div>
-          <textarea
-            value={notesInput}
-            onChange={e => setNotesInput(e.target.value)}
-            rows={4}
+          <textarea value={notesInput} onChange={e => setNotesInput(e.target.value)} rows={4}
             className="w-full text-sm border border-border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary bg-background"
-            placeholder="Add notes about this fan..."
-          />
+            placeholder="Add notes about this fan..." />
           <div className="flex justify-end mt-2">
             <Button size="sm" onClick={saveNotes} disabled={saving}>Save notes</Button>
           </div>
@@ -328,12 +333,8 @@ function FanEditPanel({ fan, onClose, onUpdated }: { fan: any; onClose: () => vo
         )}
 
         {fan.username && (
-          <a
-            href={`https://onlyfans.com/${fan.username}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-primary hover:underline"
-          >
+          <a href={`https://onlyfans.com/${fan.username}`} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-primary hover:underline">
             <ExternalLink className="w-3.5 h-3.5" /> View on OnlyFans
           </a>
         )}
@@ -342,7 +343,22 @@ function FanEditPanel({ fan, onClose, onUpdated }: { fan: any; onClose: () => vo
   );
 }
 
+// ─── Sort pill ────────────────────────────────────────────────────────────────
+type FanSortKey = "revenue" | "transactions" | "last_seen";
+function SortPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={cn("px-3 py-1 rounded-full text-xs font-medium transition-colors border",
+        active ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+      )}>
+      {label}
+    </button>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
+const FANS_PER_PAGE = 50;
+
 export default function FansPage() {
   const queryClient = useQueryClient();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -350,6 +366,8 @@ export default function FansPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [spendersOnly, setSpendersOnly] = useState(true);
+  const [sortKey, setSortKey] = useState<FanSortKey>("revenue");
+  const [fanPage, setFanPage] = useState(1);
   const [expandedFans, setExpandedFans] = useState<Set<string>>(new Set());
   const [editFan, setEditFan] = useState<any | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -360,19 +378,21 @@ export default function FansPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset filters when navigating between accounts
   useEffect(() => {
     setCampaignFilter("all");
     setSearch("");
     setExpandedFans(new Set());
+    setFanPage(1);
+    setSortKey("revenue");
   }, [selectedAccountId]);
+
+  useEffect(() => { setFanPage(1); }, [debouncedSearch, campaignFilter, spendersOnly, sortKey]);
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => (await getAccounts() || []).filter((a: any) => a.is_active),
   });
 
-  // Global stats (all accounts combined)
   const globalStatsQuery = useQuery({
     queryKey: ["fan_stats", "all"],
     queryFn: () => getFanStats(),
@@ -380,7 +400,6 @@ export default function FansPage() {
     enabled: selectedAccountId === null,
   });
 
-  // Per-account stats for grid cards (parallel)
   const accountStatsQueries = useQueries({
     queries: accounts.map((acc: any) => ({
       queryKey: ["fan_stats", acc.id],
@@ -398,13 +417,20 @@ export default function FansPage() {
     return map;
   }, [accounts, accountStatsQueries]);
 
-  // Selected account
+  // Sort accounts by fan revenue descending for the grid
+  const sortedAccounts = useMemo(() => {
+    return [...accounts].sort((a: any, b: any) => {
+      const revA = Number(accountStatsMap[a.id]?.total_revenue ?? 0);
+      const revB = Number(accountStatsMap[b.id]?.total_revenue ?? 0);
+      return revB - revA;
+    });
+  }, [accounts, accountStatsMap]);
+
   const selectedAccount = useMemo(
     () => selectedAccountId ? accounts.find((a: any) => a.id === selectedAccountId) : null,
     [accounts, selectedAccountId]
   );
 
-  // Per-account stats for detail view
   const selectedStatsQuery = useQuery({
     queryKey: ["fan_stats", selectedAccountId],
     queryFn: () => getFanStats({ account_id: selectedAccountId! }),
@@ -412,7 +438,6 @@ export default function FansPage() {
     enabled: !!selectedAccountId,
   });
 
-  // All tracking links — used to derive real subscriber counts per account
   const { data: allTrackingLinks = [] } = useQuery({
     queryKey: ["tracking_links_all"],
     queryFn: () => getTrackingLinks(),
@@ -432,7 +457,6 @@ export default function FansPage() {
     [subsPerAccount]
   );
 
-  // Tracking links for campaign filter (selected account only)
   const { data: trackingLinks = [] } = useQuery({
     queryKey: ["tracking_links", selectedAccountId],
     queryFn: () => getTrackingLinks({ account_id: selectedAccountId! }),
@@ -445,7 +469,6 @@ export default function FansPage() {
     return m;
   }, [trackingLinks]);
 
-  // Fan list (only when account selected)
   const fansQuery = useQuery({
     queryKey: ["fans_list", selectedAccountId, campaignFilter, debouncedSearch, spendersOnly],
     queryFn: () => getFans({
@@ -455,7 +478,7 @@ export default function FansPage() {
       spenders_only: spendersOnly || undefined,
       sort_by: "total_revenue",
       sort_dir: "desc",
-      limit: 5000,
+      limit: 500,
     }),
     enabled: !!selectedAccountId,
     staleTime: 30_000,
@@ -468,12 +491,32 @@ export default function FansPage() {
     enabled: selectedAccountId === null,
   });
 
-  const fans = fansQuery.data?.fans ?? [];
+  const rawFans = fansQuery.data?.fans ?? [];
   const totalFans = fansQuery.data?.total ?? 0;
   const globalStats = globalStatsQuery.data;
   const selectedStats = selectedStatsQuery.data;
   const isLoadingFans = fansQuery.isLoading;
   const txCount = txTotalsQuery.data?.count ?? 0;
+
+  // Client-side sort
+  const sortedFans = useMemo(() => {
+    return [...rawFans].sort((a, b) => {
+      if (sortKey === "revenue")      return Number(b.total_revenue ?? 0) - Number(a.total_revenue ?? 0);
+      if (sortKey === "transactions") return (b.total_transactions ?? 0) - (a.total_transactions ?? 0);
+      if (sortKey === "last_seen")    return (b.last_transaction_at ?? "").localeCompare(a.last_transaction_at ?? "");
+      return 0;
+    });
+  }, [rawFans, sortKey]);
+
+  const totalFanPages = Math.max(1, Math.ceil(sortedFans.length / FANS_PER_PAGE));
+  const safePage = Math.min(fanPage, totalFanPages);
+  const paginatedFans = sortedFans.slice((safePage - 1) * FANS_PER_PAGE, safePage * FANS_PER_PAGE);
+
+  // Max revenue for relative bar per fan
+  const maxFanRevenue = useMemo(
+    () => Math.max(...rawFans.map(f => Number(f.total_revenue ?? 0)), 1),
+    [rawFans]
+  );
 
   const accountMap = useMemo(() => {
     const m: Record<string, any> = {};
@@ -484,8 +527,7 @@ export default function FansPage() {
   function toggleExpand(fanId: string) {
     setExpandedFans(prev => {
       const next = new Set(prev);
-      if (next.has(fanId)) next.delete(fanId);
-      else next.add(fanId);
+      if (next.has(fanId)) next.delete(fanId); else next.add(fanId);
       return next;
     });
   }
@@ -503,6 +545,9 @@ export default function FansPage() {
     } finally { setSyncing(false); setSyncProgress(null); }
   }
 
+  const showStart = (safePage - 1) * FANS_PER_PAGE + 1;
+  const showEnd   = Math.min(safePage * FANS_PER_PAGE, sortedFans.length);
+
   return (
     <DashboardLayout>
       <div className="flex flex-col gap-0">
@@ -511,22 +556,34 @@ export default function FansPage() {
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             {selectedAccountId && (
-              <button
-                onClick={() => setSelectedAccountId(null)}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mr-1"
-              >
+              <button onClick={() => setSelectedAccountId(null)}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Accounts</span>
+                <span className="hidden sm:inline text-xs">Accounts</span>
               </button>
             )}
-            <div>
-              <h1 className="text-xl font-bold">
-                {selectedAccount ? selectedAccount.display_name : "Fans"}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {selectedAccount ? "Fan analytics · click a fan to see transactions" : "Select an account to view fan analytics"}
-              </p>
-            </div>
+
+            {selectedAccount ? (
+              <div className="flex items-center gap-3">
+                {selectedAccount.avatar_thumb_url ? (
+                  <img src={selectedAccount.avatar_thumb_url} alt={selectedAccount.display_name}
+                    className="w-9 h-9 rounded-full object-cover border border-border" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
+                    {selectedAccount.display_name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-xl font-bold">{selectedAccount.display_name}</h1>
+                  <p className="text-xs text-muted-foreground">Fan analytics · click a fan to expand transactions</p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h1 className="text-xl font-bold">Fans</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Select a model to view fan analytics</p>
+              </div>
+            )}
           </div>
           <Button size="sm" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
@@ -534,7 +591,6 @@ export default function FansPage() {
           </Button>
         </div>
 
-        {/* sync progress */}
         {syncProgress && (
           <div className="mx-6 mt-4 bg-primary/10 border border-primary/20 rounded-lg px-4 py-2.5 flex items-center gap-3">
             <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary flex-shrink-0" />
@@ -553,12 +609,9 @@ export default function FansPage() {
               ) : (
                 <>
                   <KpiCard label="Total Fans" value={fmtNum(globalStats?.total_fans)} icon={Users} />
-                  <KpiCard
-                    label="Spenders"
-                    value={fmtNum(globalStats?.spenders)}
+                  <KpiCard label="Spenders" value={fmtNum(globalStats?.spenders)}
                     sub={totalSubsAll > 0 ? `${((globalStats.spenders / totalSubsAll) * 100).toFixed(1)}% of ${fmtNum(totalSubsAll)} subs` : undefined}
-                    icon={DollarSign} color="bg-emerald-500"
-                  />
+                    icon={DollarSign} color="bg-emerald-500" />
                   <KpiCard label="Fan Revenue" value={fmt$(globalStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
                   <KpiCard label="Avg / Spender" value={fmt$(globalStats?.avg_per_spender)} icon={DollarSign} />
                   <KpiCard label="Cross-Poll" value={fmtNum(globalStats?.cross_poll_fans)} sub={fmt$(globalStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
@@ -566,18 +619,19 @@ export default function FansPage() {
               )}
             </div>
 
-            {/* Account cards */}
+            {/* Account cards — sorted by fan revenue */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Accounts
-                </h2>
-                <span className="text-xs text-muted-foreground">{accounts.length} active</span>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{accounts.length}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
               </div>
 
               {accountsLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-52 rounded-xl" />)}
+                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
                 </div>
               ) : accounts.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
@@ -587,16 +641,20 @@ export default function FansPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {accounts.map((acc: any, i: number) => (
-                    <AccountFanCard
-                      key={acc.id}
-                      account={acc}
-                      stats={accountStatsMap[acc.id] ?? null}
-                      isLoading={accountStatsQueries[i]?.isLoading ?? false}
-                      totalSubs={subsPerAccount[acc.id] ?? 0}
-                      onClick={() => setSelectedAccountId(acc.id)}
-                    />
-                  ))}
+                  {sortedAccounts.map((acc: any, i: number) => {
+                    const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
+                    return (
+                      <AccountFanCard
+                        key={acc.id}
+                        account={acc}
+                        stats={accountStatsMap[acc.id] ?? null}
+                        isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
+                        totalSubs={subsPerAccount[acc.id] ?? 0}
+                        rank={i + 1}
+                        onClick={() => setSelectedAccountId(acc.id)}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -613,14 +671,11 @@ export default function FansPage() {
               ) : (
                 <>
                   <KpiCard label="Total Fans" value={fmtNum(selectedStats?.total_fans)} icon={Users} />
-                  <KpiCard
-                    label="Spenders"
-                    value={fmtNum(selectedStats?.spenders)}
+                  <KpiCard label="Spenders" value={fmtNum(selectedStats?.spenders)}
                     sub={selectedAccountId && subsPerAccount[selectedAccountId] > 0
                       ? `${((selectedStats.spenders / subsPerAccount[selectedAccountId]) * 100).toFixed(1)}% of ${fmtNum(subsPerAccount[selectedAccountId])} subs`
                       : undefined}
-                    icon={DollarSign} color="bg-emerald-500"
-                  />
+                    icon={DollarSign} color="bg-emerald-500" />
                   <KpiCard label="Fan Revenue" value={fmt$(selectedStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
                   <KpiCard label="Avg / Spender" value={fmt$(selectedStats?.avg_per_spender)} icon={DollarSign} />
                   <KpiCard label="Cross-Poll" value={fmtNum(selectedStats?.cross_poll_fans)} sub={fmt$(selectedStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
@@ -628,16 +683,13 @@ export default function FansPage() {
               )}
             </div>
 
-            {/* Filter bar */}
+            {/* Filter + sort bar */}
             <div className="flex flex-wrap items-center gap-2">
+              {/* Search */}
               <div className="relative flex-1 min-w-48">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search fan or username..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-8 h-8 text-sm"
-                />
+                <Input placeholder="Search fan or username..." value={search}
+                  onChange={e => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
                 {search && (
                   <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
                     <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
@@ -645,9 +697,10 @@ export default function FansPage() {
                 )}
               </div>
 
+              {/* Campaign filter */}
               {(trackingLinks as any[]).length > 0 && (
                 <Select value={campaignFilter} onValueChange={setCampaignFilter}>
-                  <SelectTrigger className="w-56 h-8 text-sm">
+                  <SelectTrigger className="w-52 h-8 text-sm">
                     <SelectValue placeholder="All campaigns" />
                   </SelectTrigger>
                   <SelectContent>
@@ -661,20 +714,34 @@ export default function FansPage() {
                 </Select>
               )}
 
-              <button
-                onClick={() => setSpendersOnly(v => !v)}
-                className={cn(
-                  "h-8 px-3 rounded-md border text-xs font-medium transition-colors",
+              {/* Spenders toggle */}
+              <button onClick={() => setSpendersOnly(v => !v)}
+                className={cn("h-8 px-3 rounded-md border text-xs font-medium transition-colors",
                   spendersOnly
                     ? "bg-emerald-50 border-emerald-400 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-400"
                     : "border-border text-muted-foreground hover:border-foreground/30"
-                )}
-              >
+                )}>
                 Spenders only
               </button>
 
-              <span className="text-xs text-muted-foreground ml-auto">{fmtNum(totalFans)} fans</span>
+              {/* Sort pills */}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-xs text-muted-foreground mr-1">Sort:</span>
+                <SortPill label="Revenue"  active={sortKey === "revenue"}      onClick={() => setSortKey("revenue")} />
+                <SortPill label="Txns"     active={sortKey === "transactions"} onClick={() => setSortKey("transactions")} />
+                <SortPill label="Recent"   active={sortKey === "last_seen"}    onClick={() => setSortKey("last_seen")} />
+              </div>
             </div>
+
+            {/* Fan count + pagination summary */}
+            {!isLoadingFans && sortedFans.length > 0 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground -mb-2">
+                <span>Showing {fmtNum(showStart)}–{fmtNum(showEnd)} of {fmtNum(sortedFans.length)} fans</span>
+                {totalFans > 500 && (
+                  <span className="text-amber-500">Showing top 500 — use search to find specific fans</span>
+                )}
+              </div>
+            )}
 
             {/* Fan table */}
             <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -687,7 +754,7 @@ export default function FansPage() {
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">First seen</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Last seen</th>
                     <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Revenue</th>
-                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground w-16">Txns</th>
+                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground w-14">Txns</th>
                     <th className="w-12 px-3 py-2.5" />
                   </tr>
                 </thead>
@@ -695,23 +762,20 @@ export default function FansPage() {
                   {isLoadingFans ? (
                     Array.from({ length: 15 }).map((_, i) => (
                       <tr key={i} className="border-b border-border/50">
-                        <td className="px-3 py-3"><Skeleton className="h-3 w-3" /></td>
-                        <td className="px-3 py-3"><Skeleton className="h-4 w-40" /></td>
-                        <td className="px-3 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-32" /></td>
-                        <td className="px-3 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
-                        <td className="px-3 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
-                        <td className="px-3 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
-                        <td className="px-3 py-3"><Skeleton className="h-4 w-8 ml-auto" /></td>
-                        <td />
+                        {[28, 160, 120, 80, 80, 80, 32, 0].map((w, j) => (
+                          <td key={j} className={cn("px-3 py-3", j === 2 ? "hidden lg:table-cell" : j === 3 || j === 4 ? "hidden md:table-cell" : "")}>
+                            {w > 0 && <Skeleton className={`h-4 rounded`} style={{ width: w }} />}
+                          </td>
+                        ))}
                       </tr>
                     ))
-                  ) : fans.length === 0 ? (
+                  ) : paginatedFans.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-16 text-center">
                         <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                        {selectedStats?.total_fans === 0 && txCount > 0 ? (
+                        {totalFans === 0 && txCount > 0 ? (
                           <>
-                            <p className="font-semibold text-sm">No fan profiles yet for this account</p>
+                            <p className="font-semibold text-sm">No fan profiles for this account</p>
                             <p className="text-xs text-muted-foreground mt-1">Run a Fan Sync to build profiles.</p>
                             <Button size="sm" className="mt-3" onClick={handleSync} disabled={syncing}>
                               <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
@@ -719,26 +783,28 @@ export default function FansPage() {
                             </Button>
                           </>
                         ) : (
-                          <p className="text-sm text-muted-foreground font-medium">No fans match your filters</p>
+                          <p className="text-sm text-muted-foreground">No fans match your filters</p>
                         )}
                       </td>
                     </tr>
                   ) : (
-                    fans.map((fan: any) => {
+                    paginatedFans.map((fan: any, rowIdx: number) => {
                       const rev = Number(fan.total_revenue ?? 0);
                       const isSpender = rev > 0;
                       const isExpanded = expandedFans.has(fan.id);
                       const campaignTl = fan.first_subscribe_link_id ? tlMap[fan.first_subscribe_link_id] : null;
+                      const revPct = isSpender ? (rev / maxFanRevenue) * 100 : 0;
+                      const globalRank = (safePage - 1) * FANS_PER_PAGE + rowIdx + 1;
+                      const isTopFan = globalRank === 1 && sortKey === "revenue";
+
                       return (
                         <>
-                          <tr
-                            key={fan.id}
+                          <tr key={fan.id}
                             onClick={() => toggleExpand(fan.id)}
                             className={cn(
                               "border-b border-border/50 cursor-pointer hover:bg-muted/30 transition-colors",
                               isExpanded && "bg-muted/20"
-                            )}
-                          >
+                            )}>
                             <td className="px-3 py-2.5 text-muted-foreground">
                               {isExpanded
                                 ? <ChevronDown className="w-3.5 h-3.5" />
@@ -748,8 +814,13 @@ export default function FansPage() {
                               <div className="flex items-center gap-2">
                                 <FanAvatar fan={fan} size={26} />
                                 <div className="min-w-0">
-                                  <div className="font-medium text-sm truncate max-w-44">
-                                    {fan.username ? `@${fan.username}` : fan.fan_id}
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-medium text-sm truncate max-w-40">
+                                      {fan.username ? `@${fan.username}` : fan.fan_id}
+                                    </span>
+                                    {isTopFan && (
+                                      <Award className="w-3 h-3 text-amber-400 flex-shrink-0" title="Top spender" />
+                                    )}
                                   </div>
                                   {fan.is_cross_poll && (
                                     <span className="text-[10px] text-violet-500 flex items-center gap-0.5">
@@ -761,11 +832,11 @@ export default function FansPage() {
                             </td>
                             <td className="px-3 py-2.5 hidden lg:table-cell">
                               {campaignTl ? (
-                                <span className="text-xs text-muted-foreground truncate max-w-40 block">
+                                <span className="text-xs text-muted-foreground truncate max-w-36 block">
                                   {campaignTl.campaign_name || campaignTl.external_tracking_link_id || "—"}
                                 </span>
                               ) : (
-                                <span className="text-xs text-muted-foreground/50">—</span>
+                                <span className="text-xs text-muted-foreground/40">—</span>
                               )}
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
@@ -778,14 +849,18 @@ export default function FansPage() {
                               <span className={cn("font-semibold tabular-nums text-sm", isSpender ? "text-emerald-500" : "text-muted-foreground")}>
                                 {isSpender ? fmt$(rev) : "—"}
                               </span>
+                              {isSpender && (
+                                <div className="w-full h-1 bg-muted rounded-full mt-1">
+                                  <div className="h-full bg-emerald-500/50 rounded-full"
+                                    style={{ width: `${revPct}%` }} />
+                                </div>
+                              )}
                             </td>
                             <td className="px-3 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
                               {fan.total_transactions ?? "—"}
                             </td>
-                            <td
-                              className="px-3 py-2.5 text-right"
-                              onClick={e => { e.stopPropagation(); setEditFan(fan); }}
-                            >
+                            <td className="px-3 py-2.5 text-right"
+                              onClick={e => { e.stopPropagation(); setEditFan(fan); }}>
                               <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Edit</span>
                             </td>
                           </tr>
@@ -803,6 +878,39 @@ export default function FansPage() {
                   )}
                 </tbody>
               </table>
+
+              {/* Bottom pagination */}
+              {totalFanPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
+                  <span className="text-xs text-muted-foreground">
+                    Page {safePage} of {totalFanPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setFanPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+                      className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
+                      <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                    {Array.from({ length: Math.min(totalFanPages, 7) }, (_, i) => {
+                      const pg = totalFanPages <= 7 ? i + 1
+                        : safePage <= 4 ? i + 1
+                        : safePage >= totalFanPages - 3 ? totalFanPages - 6 + i
+                        : safePage - 3 + i;
+                      return (
+                        <button key={pg} onClick={() => setFanPage(pg)}
+                          className={cn("w-8 h-8 rounded text-xs font-medium transition-colors",
+                            pg === safePage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          )}>
+                          {pg}
+                        </button>
+                      );
+                    })}
+                    <button onClick={() => setFanPage(p => Math.min(totalFanPages, p + 1))} disabled={safePage >= totalFanPages}
+                      className="p-1.5 rounded hover:bg-secondary disabled:opacity-30">
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -812,14 +920,11 @@ export default function FansPage() {
       <Sheet open={!!editFan} onOpenChange={open => { if (!open) setEditFan(null); }}>
         <SheetContent className="w-[380px] sm:max-w-[380px] overflow-y-auto p-0">
           {editFan && (
-            <FanEditPanel
-              fan={editFan}
-              onClose={() => setEditFan(null)}
+            <FanEditPanel fan={editFan} onClose={() => setEditFan(null)}
               onUpdated={() => {
                 queryClient.invalidateQueries({ queryKey: ["fans_list"] });
                 queryClient.invalidateQueries({ queryKey: ["fan_detail", editFan.id] });
-              }}
-            />
+              }} />
           )}
         </SheetContent>
       </Sheet>
