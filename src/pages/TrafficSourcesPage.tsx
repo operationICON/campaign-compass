@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useLocation } from "react-router-dom";
 import { usePageFilters } from "@/hooks/usePageFilters";
 import { TrafficCategoryNav } from "@/components/traffic/TrafficCategoryNav";
+import { DailySubsBreakdown } from "@/components/traffic/DailySubsBreakdown";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
@@ -921,6 +922,11 @@ export default function TrafficSourcesPage() {
           </div>
           )}
         </div>
+        )}
+
+        {/* DAILY SUBS BREAKDOWN */}
+        {navLevel === 1 && (
+          <DailySubsBreakdown accounts={accounts as any[]} allLinks={allLinks as any[]} />
         )}
 
         {/* TRAFFIC CATEGORY NAVIGATION */}
