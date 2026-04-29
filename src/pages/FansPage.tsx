@@ -127,12 +127,14 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
 }
 
 // ─── Account fan card ─────────────────────────────────────────────────────────
-function AccountFanCard({ account, stats, isLoading, totalSubs, rank, onClick }: {
+function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals, onClick }: {
   account: any; stats: any | null; isLoading: boolean;
-  totalSubs: number; rank: number; onClick: () => void;
+  totalSubs: number; rank: number; typeTotals?: Array<{ type: string; revenue: number }>; onClick: () => void;
 }) {
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const spenderPct = totalSubs > 0 ? (stats?.spenders ?? 0) / totalSubs * 100 : 0;
   const hasData = stats && (stats.total_fans > 0 || stats.total_revenue > 0);
+  const breakdownTotal = typeTotals?.reduce((s, b) => s + b.revenue, 0) ?? 0;
 
   return (
     <div
@@ -215,6 +217,46 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, onClick }:
             </div>
           ) : (
             <div className="text-[10px] text-muted-foreground">No subscriber count — sync tracking links first</div>
+          )}
+
+          {/* Revenue breakdown dropdown */}
+          {typeTotals && typeTotals.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-border/40">
+              <button
+                onClick={e => { e.stopPropagation(); setShowBreakdown(v => !v); }}
+                className="flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground transition-colors group/btn"
+              >
+                <span className="uppercase tracking-wide font-semibold">Revenue by type</span>
+                <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", showBreakdown && "rotate-180")} />
+              </button>
+              {showBreakdown && (
+                <div className="mt-2.5 space-y-2">
+                  {typeTotals.map(b => {
+                    const meta = txMeta(b.type);
+                    const pct = breakdownTotal > 0 ? (b.revenue / breakdownTotal) * 100 : 0;
+                    const color = TYPE_BAR_COLOR[b.type] ?? "#64748b";
+                    return (
+                      <div key={b.type}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
+                          <div className="flex items-center gap-2 text-[10px] tabular-nums">
+                            <span className="font-semibold">{fmt$(b.revenue)}</span>
+                            <span className="text-muted-foreground w-7 text-right">{pct.toFixed(0)}%</span>
+                          </div>
+                        </div>
+                        <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between text-[10px] pt-1 border-t border-border/30">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="font-bold tabular-nums text-emerald-500">{fmt$(breakdownTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </>
       ) : (
@@ -597,6 +639,24 @@ export default function FansPage() {
     return [...map.entries()].map(([type, d]) => ({ type, ...d })).sort((a, b) => b.revenue - a.revenue);
   }, [txTypeTotalsQuery.data]);
 
+  const txTypePerAccount = useMemo(() => {
+    const map = new Map<string, Array<{ type: string; revenue: number }>>();
+    for (const r of (txTypeTotalsQuery.data ?? [])) {
+      const accId = r.account_id;
+      if (!accId) continue;
+      const type = r.type ?? "other";
+      const rev = Number(r.revenue ?? 0);
+      if (rev <= 0) continue;
+      const arr = map.get(accId) ?? [];
+      arr.push({ type, revenue: rev });
+      map.set(accId, arr);
+    }
+    for (const [key, arr] of map.entries()) {
+      map.set(key, arr.sort((a, b) => b.revenue - a.revenue));
+    }
+    return map;
+  }, [txTypeTotalsQuery.data]);
+
   // Client-side sort
   const sortedFans = useMemo(() => {
     return [...rawFans].sort((a, b) => {
@@ -804,6 +864,7 @@ export default function FansPage() {
                         isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
                         totalSubs={subsPerAccount[acc.id] ?? 0}
                         rank={i + 1}
+                        typeTotals={txTypePerAccount.get(acc.id)}
                         onClick={() => setSelectedAccountId(acc.id)}
                       />
                     );
