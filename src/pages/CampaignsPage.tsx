@@ -34,7 +34,7 @@ import {
   Search, Link2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   RefreshCw, DollarSign, TrendingUp, Star, Trash2, Download, X, Tag,
   Users, Activity, Info, BarChart3, Target, ChevronRight as ChevronR,
-  Upload, Plus, Award, AlertTriangle
+  Upload, Plus, Award, AlertTriangle, Copy, Check
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import { KpiCardCustomizer, useKpiCardVisibility } from "@/components/dashboard/KpiCardCustomizer";
@@ -64,6 +64,7 @@ const ALL_COLUMNS = [
   { id: "marketer", label: "Marketer", defaultOn: true },
   { id: "clicks", label: "Clicks", defaultOn: true },
   { id: "subscribers", label: "Subs", defaultOn: true },
+  { id: "daily_subs", label: "Daily Subs", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
   { id: "cvr", label: "CVR", defaultOn: true },
   { id: "expenses", label: "Spend", defaultOn: true },
@@ -215,7 +216,10 @@ export default function CampaignsPage() {
   // Per-link delta-from-cumulative metrics for the selected window. Used for
   // Subs/Day on the table when the activity filter is "all".
   const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
+  // Always-daily delta for the "Daily Subs" column (last snapshot vs previous, regardless of period filter)
+  const { deltaLookup: dailyDeltaLookup } = useSnapshotDeltaMetrics("day", null);
   const multiWindowRates = useMultiWindowRates("all");
+  const [copiedUrlId, setCopiedUrlId] = useState<string | null>(null);
 
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
@@ -350,9 +354,10 @@ export default function CampaignsPage() {
         computedProfit = revForProfit - costTotalVal;
         computedRoi = costTotalVal > 0 ? (computedProfit / costTotalVal) * 100 : null;
       }
-      // Profit/Sub uses new_subs_total from tracking_link_ltv
+      // Profit/Sub = (revenue - cost_total) / subscribers
       const newSubsTotal = ltvRecord ? Number(ltvRecord.new_subs_total || 0) : 0;
-      const profitPerSub = newSubsTotal > 0 && computedProfit !== null ? computedProfit / newSubsTotal : null;
+      const subsCount = Number(l.subscribers || 0);
+      const profitPerSub = subsCount > 0 && computedProfit !== null ? computedProfit / subsCount : null;
       // LTV/Sub from tracking_link_ltv
       const ltvPerSubFromRecord = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
       // STEP 4: Fixed status logic
@@ -895,6 +900,7 @@ export default function CampaignsPage() {
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
                             case "status": return <SortHeader key={c.id} label="Status" sortKeyName="status" width="80px" />;
+                            case "daily_subs": return <SortHeader key={c.id} label="Daily Subs" sortKeyName="subs_day" width="80px" />;
                             case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "last_synced": return <SortHeader key={c.id} label="Last Synced" sortKeyName="last_synced" width="90px" />;
@@ -948,7 +954,24 @@ export default function CampaignsPage() {
                                 <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: linkIsActive ? "#16a34a" : "#94a3b8" }} title={linkIsActive ? "Active" : "Inactive"} />
                                 <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
                               </div>
-                              <p className="truncate text-muted-foreground" style={{ fontSize: "11px", paddingLeft: "14px" }} title={link.url}>{link.url}</p>
+                              <div className="flex items-center gap-1" style={{ paddingLeft: "14px" }}>
+                                <p className="truncate text-muted-foreground" style={{ fontSize: "11px", maxWidth: "160px" }} title={link.url}>{link.url}</p>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(link.url || "").then(() => {
+                                      setCopiedUrlId(link.id);
+                                      setTimeout(() => setCopiedUrlId(id => id === link.id ? null : id), 2000);
+                                    });
+                                  }}
+                                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-secondary"
+                                  title="Copy URL"
+                                >
+                                  {copiedUrlId === link.id
+                                    ? <Check className="h-3 w-3 text-primary" />
+                                    : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                </button>
+                              </div>
                             </td>
                             {columnOrder.visibleOrderedColumns.map(c => {
                               switch (c.id) {
@@ -1022,28 +1045,21 @@ export default function CampaignsPage() {
                                   return null;
                                 }
                                 case "ltv_sub_all": {
-                                  // LTV/Sub: revenue / subscribers for selected period
+                                  // LTV/Sub = total_ltv (fan-attributed) / subscribers; fallback to revenue/subscribers
+                                  const totalSubs = Number(link.subscribers || 0);
+                                  const ltvTotal = link.ltvRecord ? Number(link.ltvRecord.total_ltv || 0) : null;
                                   let ltvSubAllVal: number | null = null;
-                                  if (isAllTime) {
+                                  if (ltvTotal && ltvTotal > 0 && totalSubs > 0) {
+                                    ltvSubAllVal = ltvTotal / totalSubs;
+                                  } else if (totalSubs > 0) {
                                     const totalRev = Number(link.revenue || 0) * revMultiplier;
-                                    const totalSubs = Number(link.subscribers || 0);
-                                    ltvSubAllVal = totalSubs > 0 ? totalRev / totalSubs : null;
-                                  } else {
-                                    const pRev = Number(link.revenue || 0) * revMultiplier;
-                                    const pSubs = Number(link.subscribers || 0);
-                                    ltvSubAllVal = pSubs > 0 ? pRev / pSubs : null;
+                                    ltvSubAllVal = totalRev > 0 ? totalRev / totalSubs : null;
                                   }
-                                  const showAllDash = ltvSubAllVal === null || ltvSubAllVal === 0;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="text-foreground">
-                                          {showAllDash ? "—" : fmtC(ltvSubAllVal!)}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Total revenue divided by all subscribers for the selected period</TooltipContent>
-                                    </Tooltip>
+                                    <span className="text-foreground">
+                                      {ltvSubAllVal ? fmtC(ltvSubAllVal) : "—"}
+                                    </span>
                                   </td>
                                   );
                                 }
@@ -1152,6 +1168,17 @@ export default function CampaignsPage() {
                                     </div>
                                   </td>
                                 );
+                                case "daily_subs": {
+                                  const dd = getDelta(link.id, dailyDeltaLookup);
+                                  const gained = dd?.subsGained ?? null;
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {gained !== null && gained > 0
+                                        ? <span className="text-primary font-bold">+{gained}</span>
+                                        : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                  );
+                                }
                                 case "subs_day": {
                                   if (!isDeltaAllTime) {
                                     // Date filter active → single rate from delta window

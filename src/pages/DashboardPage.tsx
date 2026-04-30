@@ -28,7 +28,6 @@ import { RevenueModeBadge } from "@/components/RevenueModeBadge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ModelRevenueBreakdown } from "@/components/dashboard/ModelRevenueBreakdown";
 import { RevenueTrendChart } from "@/components/dashboard/RevenueTrendChart";
-import { DailySubsBreakdown } from "@/components/traffic/DailySubsBreakdown";
 
 interface OverviewSnapshotRange {
   from: string;
@@ -611,9 +610,6 @@ export default function DashboardPage() {
           snapshotSubs={snapshotSubs}
           txTypeTotalsByAccount={txTypeTotalsByAccount}
         />
-
-        {/* ═══ DAILY SUBS BY SOURCE ═══ */}
-        <DailySubsBreakdown accounts={accounts as any[]} allLinks={allLinks as any[]} />
 
         {/* ═══ REVENUE BREAKDOWN BY MODEL ═══ */}
         <ModelRevenueBreakdown
