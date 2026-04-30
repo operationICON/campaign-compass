@@ -175,6 +175,24 @@ function SubsDatePicker({ value, onChange }: { value: DateRange; onChange: (r: D
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+const DATE_RANGE_KEY = "dailySubs_dateRange";
+
+function loadSavedDateRange(): DateRange {
+  try {
+    const raw = localStorage.getItem(DATE_RANGE_KEY);
+    if (raw) {
+      const { from, to } = JSON.parse(raw);
+      const f = new Date(from), t = new Date(to);
+      if (!isNaN(f.getTime()) && !isNaN(t.getTime())) return { from: f, to: t };
+    }
+  } catch {}
+  return { from: subDays(new Date(), 14), to: new Date() };
+}
+
+function saveDateRange(r: DateRange) {
+  try { localStorage.setItem(DATE_RANGE_KEY, JSON.stringify({ from: r.from.toISOString(), to: r.to.toISOString() })); } catch {}
+}
+
 const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtDate = (d: string) => {
   const [y, m, day] = d.split("-").map(Number);
@@ -230,10 +248,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
   const [drawerLink, setDrawerLink] = useState<any | null>(null);
   const [sortCol, setSortCol] = useState<string>("total");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: subDays(new Date(), 14),
-    to: new Date(),
-  });
+  const [dateRange, setDateRange] = useState<DateRange>(loadSavedDateRange);
 
   const dateFrom = format(dateRange.from, "yyyy-MM-dd");
   const dateTo = format(dateRange.to, "yyyy-MM-dd");
@@ -423,6 +438,16 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
       .map(row => ({ ...row, links: [...row.links].sort(cmp) }));
   }, [sourceRows, sourceFilter, activeFilter, activeLinksSet, sortCol, sortDir]);
 
+  const dateTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const row of displayRows) {
+      for (const [d, v] of Object.entries(row.dailySubs)) {
+        totals[d] = (totals[d] || 0) + v;
+      }
+    }
+    return totals;
+  }, [displayRows]);
+
   function handleSort(col: string) {
     if (sortCol === col) setSortDir(d => d === "desc" ? "asc" : "desc");
     else { setSortCol(col); setSortDir("desc"); }
@@ -499,7 +524,7 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
           {/* Date range picker */}
           <SubsDatePicker
             value={dateRange}
-            onChange={r => { setDateRange(r); setExpandedSources(new Set()); }}
+            onChange={r => { setDateRange(r); saveDateRange(r); setExpandedSources(new Set()); }}
           />
         </div>
       </div>
@@ -580,6 +605,27 @@ export function DailySubsBreakdown({ accounts, allLinks }: Props) {
                 </tr>
               </thead>
               <tbody>
+                {/* Totals row */}
+                <tr className="border-b-2 border-border bg-secondary/40">
+                  <td className="px-3 py-2 sticky left-0 bg-secondary/40 z-10 text-[10px] font-bold text-muted-foreground uppercase tracking-wider" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                    All Sources
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-[12px] font-bold text-foreground">
+                    {fmtN(displayRows.reduce((a, r) => a + r.total, 0))}
+                  </td>
+                  <td className="px-3 py-2" />
+                  <td className="px-3 py-2" />
+                  <td className="px-3 py-2" />
+                  {displayDates.map(d => (
+                    <td key={d} className={`px-2 py-2 text-right font-mono text-[12px] font-bold ${d === todayStr ? "bg-primary/10" : ""}`}>
+                      {dateTotals[d]
+                        ? <span className="text-foreground">{fmtN(dateTotals[d])}</span>
+                        : <span className="text-muted-foreground/30">—</span>}
+                    </td>
+                  ))}
+                  <td />
+                </tr>
+
                 {displayRows.map(row => (
                   <React.Fragment key={row.key}>
                     {/* Source header row — expand/collapse only */}
