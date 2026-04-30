@@ -308,50 +308,38 @@ async function updateCrosspollLtv() {
 // Runs as a single bulk UPDATE — no per-fan queries.
 async function attributeFansToLinks(send: (data: any) => any): Promise<number> {
   await send({ step: "attribute", message: "Attributing fans to tracking links..." });
+  // fan_spend stores (fan_id text, account_id uuid, revenue) — matches fans.fan_id directly.
+  // transactions is populated by revenue-breakdown sync and has no fan identifiers, so we
+  // must use fan_spend as the source of fan→account relationships.
   const result = await db.execute(sql`
-    WITH fan_first_tx AS (
-      -- For each fan, find the account where they had their earliest transaction
-      SELECT DISTINCT ON (fan_key)
-        fan_key,
-        account_id,
-        first_date
-      FROM (
-        SELECT
-          COALESCE(
-            NULLIF(t.fan_username, ''),
-            CASE WHEN t.fan_id ~ '^[0-9]+$' THEN 'u' || t.fan_id ELSE t.fan_id END
-          )                       AS fan_key,
-          t.account_id::text      AS account_id,
-          MIN(t.date)             AS first_date
-        FROM transactions t
-        WHERE t.date IS NOT NULL
-          AND t.revenue::numeric > 0
-          AND (t.fan_username IS NOT NULL OR t.fan_id IS NOT NULL)
-        GROUP BY fan_key, t.account_id
-      ) grouped
-      ORDER BY fan_key, first_date ASC
+    WITH fan_primary_account AS (
+      -- Pick one account per fan from fan_spend.
+      -- Single-account fans: only one row, trivially correct.
+      -- Multi-account fans: pick the highest-revenue account as a proxy for primary origin.
+      SELECT DISTINCT ON (fs.fan_id)
+        fs.fan_id,
+        fs.account_id::text AS account_id
+      FROM fan_spend fs
+      ORDER BY fs.fan_id, fs.revenue::numeric DESC
     ),
     ranked_links AS (
-      -- For each unattributed fan, rank the candidate tracking links for their first account
+      -- For each unattributed fan, rank candidate tracking links for their primary account.
       SELECT
         f.id          AS fan_uuid,
         tl.id         AS tracking_link_id,
         ROW_NUMBER() OVER (
           PARTITION BY f.id
           ORDER BY
-            -- prefer links created before or on the fan's first spend date
-            CASE WHEN tl.created_at::date <= fft.first_date::date THEN 0 ELSE 1 END ASC,
-            -- then pick the one closest in time to first spend
-            ABS(EXTRACT(EPOCH FROM (tl.created_at - fft.first_date::date::timestamptz))) ASC,
+            -- prefer links created before the fan's first transaction
+            CASE WHEN tl.created_at <= COALESCE(f.first_transaction_at, NOW()) THEN 0 ELSE 1 END ASC,
+            -- then pick the one closest in time
+            ABS(EXTRACT(EPOCH FROM (tl.created_at - COALESCE(f.first_transaction_at, NOW())))) ASC,
             -- tiebreak: link with more subscribers wins
             COALESCE(tl.subscribers, 0) DESC
         ) AS rn
       FROM fans f
-      JOIN fan_first_tx fft
-        ON f.fan_id = fft.fan_key
-        OR (f.username IS NOT NULL AND f.username != '' AND f.username = fft.fan_key)
-      JOIN tracking_links tl
-        ON tl.account_id::text = fft.account_id
+      JOIN fan_primary_account fpa ON f.fan_id = fpa.fan_id
+      JOIN tracking_links tl ON tl.account_id::text = fpa.account_id
       WHERE tl.deleted_at IS NULL
         AND tl.external_tracking_link_id IS NOT NULL
         AND f.first_subscribe_link_id IS NULL
