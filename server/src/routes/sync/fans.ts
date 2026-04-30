@@ -297,6 +297,76 @@ async function updateCrosspollLtv() {
   return updated;
 }
 
+// ── Phase 5: attribute fans to tracking links ────────────────────────────────
+// For each fan whose first_subscribe_link_id is NULL:
+//   1. Find which account had their earliest transaction (from transactions table)
+//   2. Find the best-matching tracking link for that account
+//      - prefer links created before the fan's first spend date
+//      - among those, pick the one closest in time to first spend
+//      - tiebreak: most subscribers
+// Runs as a single bulk UPDATE — no per-fan queries.
+async function attributeFansToLinks(send: (data: any) => any): Promise<number> {
+  await send({ step: "attribute", message: "Attributing fans to tracking links..." });
+  const result = await db.execute(sql`
+    WITH fan_first_tx AS (
+      -- For each fan, find the account where they had their earliest transaction
+      SELECT DISTINCT ON (fan_key)
+        fan_key,
+        account_id,
+        first_date
+      FROM (
+        SELECT
+          COALESCE(
+            NULLIF(t.fan_username, ''),
+            CASE WHEN t.fan_id ~ '^[0-9]+$' THEN 'u' || t.fan_id ELSE t.fan_id END
+          )                       AS fan_key,
+          t.account_id::text      AS account_id,
+          MIN(t.date)             AS first_date
+        FROM transactions t
+        WHERE t.date IS NOT NULL
+          AND t.revenue::numeric > 0
+          AND (t.fan_username IS NOT NULL OR t.fan_id IS NOT NULL)
+        GROUP BY fan_key, t.account_id
+      ) grouped
+      ORDER BY fan_key, first_date ASC
+    ),
+    ranked_links AS (
+      -- For each unattributed fan, rank the candidate tracking links for their first account
+      SELECT
+        f.id          AS fan_uuid,
+        tl.id         AS tracking_link_id,
+        ROW_NUMBER() OVER (
+          PARTITION BY f.id
+          ORDER BY
+            -- prefer links created before or on the fan's first spend date
+            CASE WHEN tl.created_at::date <= fft.first_date::date THEN 0 ELSE 1 END ASC,
+            -- then pick the one closest in time to first spend
+            ABS(EXTRACT(EPOCH FROM (tl.created_at - fft.first_date::date::timestamptz))) ASC,
+            -- tiebreak: link with more subscribers wins
+            COALESCE(tl.subscribers, 0) DESC
+        ) AS rn
+      FROM fans f
+      JOIN fan_first_tx fft
+        ON f.fan_id = fft.fan_key
+        OR (f.username IS NOT NULL AND f.username != '' AND f.username = fft.fan_key)
+      JOIN tracking_links tl
+        ON tl.account_id::text = fft.account_id
+      WHERE tl.deleted_at IS NULL
+        AND tl.external_tracking_link_id IS NOT NULL
+        AND f.first_subscribe_link_id IS NULL
+    )
+    UPDATE fans
+    SET first_subscribe_link_id = rl.tracking_link_id,
+        updated_at               = NOW()
+    FROM ranked_links rl
+    WHERE fans.id = rl.fan_uuid
+      AND rl.rn   = 1
+  `);
+  const matched = Number((result as any).rowCount ?? 0);
+  await send({ step: "attribute_done", message: `Attributed ${matched} fans to tracking links` });
+  return matched;
+}
+
 // ── POST /sync/fans/bootstrap ─────────────────────────────────────────────────
 router.post("/bootstrap", async (c) => {
   const body = await c.req.json().catch(() => ({}));
@@ -632,6 +702,9 @@ router.post("/", async (c) => {
 
       await send({ step: "reconcile_done", message: `Reconciled ${reconciledCount} fan revenue totals, discovered ${discoveredCount} new fans from transaction history` });
 
+      // Phase 5: attribute fans to tracking links so cross-poll has data
+      const attributedCount = await attributeFansToLinks(send);
+
       await send({ step: "crosspoll", message: "Updating cross-poll data..." });
       const ltvUpdated = await updateCrosspollLtv();
 
@@ -642,12 +715,12 @@ router.post("/", async (c) => {
           success: errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: upsertedFans,
-          message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} tx processed, ${reconciledCount} revenue totals reconciled, ${discoveredCount} new fans discovered${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}${authErrors.length ? `. Auth issues (skipped): ${authErrors.map(e => e.split(":")[0]).join(", ")}` : ""}`,
+          message: `${upsertedFans} fan profiles (${mode}) — ${totalTxProcessed} tx processed, ${reconciledCount} reconciled, ${discoveredCount} discovered, ${attributedCount} attributed to links, ${ltvUpdated} LTV links${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}${authErrors.length ? `. Auth issues (skipped): ${authErrors.map(e => e.split(":")[0]).join(", ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
-          details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, ltv_links: ltvUpdated, account_results: accountResults },
+          details: { tx_processed: totalTxProcessed, unique_fans: totalUniqueFans, profiles_built: upsertedFans, fans_attributed: attributedCount, ltv_links: ltvUpdated, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
       }
-      await send({ step: "done", message: `Done — ${upsertedFans} fans, ${totalTxProcessed} transactions processed`, errors: errors.length > 0 ? errors : undefined, auth_warnings: authErrors.length > 0 ? authErrors : undefined });
+      await send({ step: "done", message: `Done — ${upsertedFans} fans, ${attributedCount} attributed to tracking links, ${ltvUpdated} cross-poll LTV links updated`, errors: errors.length > 0 ? errors : undefined, auth_warnings: authErrors.length > 0 ? authErrors : undefined });
     } catch (err: any) {
       if (syncLogId) {
         await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
