@@ -56,35 +56,35 @@ type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH"
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
 
 // Standard column order: Tracking Link is rendered as a fixed column.
-// Order below: Source | Marketer | Clicks | Subs | Subs/Day | CVR | Spend |
-//              Revenue | Cross-Poll | Profit | Profit/Sub | LTV/Sub | CPL |
-//              CPC | ROI | Status | Created
+// Order below: Created | Marketer | Clicks | Subs | Daily Subs | Subs/Day |
+//              LTV/Sub | CVR | Spend | Revenue | Profit | Profit/Sub |
+//              CPL | CPC | ROI | Last Synced | Notes
 const ALL_COLUMNS = [
-  { id: "source", label: "Source", defaultOn: true },
+  { id: "created", label: "Created", defaultOn: true },
   { id: "marketer", label: "Marketer", defaultOn: true },
   { id: "clicks", label: "Clicks", defaultOn: true },
   { id: "subscribers", label: "Subs", defaultOn: true },
   { id: "daily_subs", label: "Daily Subs", defaultOn: true },
   { id: "subs_day", label: "Subs/Day", defaultOn: true },
+  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "cvr", label: "CVR", defaultOn: true },
   { id: "expenses", label: "Spend", defaultOn: true },
   { id: "revenue", label: "Revenue", defaultOn: true },
-  { id: "cross_poll", label: "Cross-Poll", defaultOn: true },
   { id: "profit", label: "Profit", defaultOn: true },
   { id: "profit_sub", label: "Profit/Sub", defaultOn: true, alwaysOn: true },
-  { id: "ltv_sub_all", label: "LTV/Sub", defaultOn: true },
   { id: "cpl", label: "CPL", defaultOn: true },
   { id: "cpc", label: "CPC", defaultOn: true },
   { id: "roi", label: "ROI", defaultOn: true },
-  { id: "status", label: "Status", defaultOn: true },
-  { id: "created", label: "Created", defaultOn: true },
+  { id: "last_synced", label: "Last Synced", defaultOn: true },
+  { id: "notes", label: "Notes", defaultOn: true },
   // Optional / hidden by default
+  { id: "source", label: "Source", defaultOn: false },
+  { id: "cross_poll", label: "Cross-Poll", defaultOn: false },
+  { id: "status", label: "Status", defaultOn: false },
   { id: "model", label: "Model", defaultOn: false },
   { id: "spender_rate", label: "Spender %", defaultOn: false },
-  { id: "last_synced", label: "Last Synced", defaultOn: false },
   { id: "media_buyer", label: "Media Buyer", defaultOn: false },
   { id: "avg_expenses", label: "Avg Expenses", defaultOn: false },
-  { id: "notes", label: "Notes", defaultOn: false },
 ];
 
 // ─── Constants ───
@@ -139,8 +139,8 @@ export default function CampaignsPage() {
   const campaignKpi = useKpiCardVisibility("campaigns_kpi_cards");
   const { timePeriod, setTimePeriod, modelFilter: pageModelFilter, setModelFilter: setPageModelFilter, customRange, setCustomRange, dateFilter, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
 
-  // ─── Column order + visibility (v2 = standard order rolled out) ───
-  const columnOrder = useColumnOrder("campaigns_columns_v2", ALL_COLUMNS);
+  // ─── Column order + visibility (v3 = default order reset to user-defined layout) ───
+  const columnOrder = useColumnOrder("campaigns_columns_v3", ALL_COLUMNS);
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
   const col = (id: string) => columnOrder.isVisible(id);
 
