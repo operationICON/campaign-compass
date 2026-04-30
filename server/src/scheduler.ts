@@ -37,12 +37,12 @@ async function drainSSE(path: string, triggeredBy: string) {
 async function getOTSyncIntervalHours(): Promise<number> {
   try {
     const [row] = await db.select().from(sync_settings).where(eq(sync_settings.key, "ot_sync_interval_hours"));
-    const hours = row?.value ? Math.max(1, Number(row.value)) : 24;
+    const hours = row?.value ? Math.max(1, Number(row.value)) : 4;
     console.log(`[Scheduler] OT interval from DB: ${hours}h`);
     return hours;
   } catch (err: any) {
     console.error("[Scheduler] Failed to read OT interval:", err.message);
-    return 24;
+    return 4;
   }
 }
 
