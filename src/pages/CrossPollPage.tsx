@@ -87,6 +87,7 @@ export default function CrossPollPage() {
   const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(trackingLinks), [trackingLinks]);
   const ltvData = useMemo(() => {
     // RULE: only keep LTV rows whose tracking_link is non-deleted (shared helper).
+    // Cross-Poll is always agency-wide — no model filter applied.
     let data = filterLtvByActiveLinks(allLtvData, activeLinkIdSet);
     if (!isAllTime && snapshotLookup) {
       data = data.filter((r: any) => {
@@ -94,11 +95,8 @@ export default function CrossPollPage() {
         return snapshotLookup[tlId] !== undefined;
       });
     }
-    if (modelFilter !== "all") {
-      data = data.filter((r: any) => String(r.account_id).toLowerCase() === String(modelFilter).toLowerCase());
-    }
     return data;
-  }, [allLtvData, modelFilter, isAllTime, snapshotLookup, activeLinkIdSet]);
+  }, [allLtvData, isAllTime, snapshotLookup, activeLinkIdSet]);
 
   const filteredLtv = ltvData;
 
@@ -186,6 +184,7 @@ export default function CrossPollPage() {
           modelFilter={modelFilter}
           onModelFilterChange={setModelFilter}
           accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+          hideModelFilter
         />
 
         {/* Summary Cards */}
@@ -241,7 +240,7 @@ export default function CrossPollPage() {
           </Card>
         </div>
 
-        {/* Top Campaigns Table — with LTV, Total LTV, Received By */}
+        {/* Top Campaigns Table */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-foreground">Top Campaigns by Cross-Poll Revenue</CardTitle>
@@ -253,9 +252,8 @@ export default function CrossPollPage() {
                   <SortHead label="Campaign" k="campaignName" />
                   <SortHead label="Source Model" k="modelName" />
                   <SortHead label="New Fans" k="new_subs_total" align="right" />
-                  <SortHead label="LTV" k="directLtv" align="right" />
                   <SortHead label="Cross-Poll Revenue" k="cross_poll_revenue" align="right" />
-                  <SortHead label="Total LTV" k="totalLtv" align="right" />
+                  <SortHead label="Total Fan Rev" k="totalLtv" align="right" />
                   <SortHead label="Cross-Poll Fans" k="cross_poll_fans" align="right" />
                   <SortHead label="Conversion %" k="cross_poll_conversion_pct" align="right" />
                   <TableHead className="text-muted-foreground">Received By</TableHead>
@@ -263,9 +261,9 @@ export default function CrossPollPage() {
               </TableHeader>
               <TableBody>
                 {ltvLoading ? (
-                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
                 ) : topCampaigns.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
                 ) : topCampaigns.map((r: any) => {
                   // "Received By" = all other models (exclude source)
                   const otherModels = accounts.filter((a: any) => String(a.id).toLowerCase() !== String(r.account_id).toLowerCase());
@@ -279,7 +277,6 @@ export default function CrossPollPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right text-foreground">{Number(r.new_subs_total || 0).toLocaleString()}</TableCell>
-                      <TableCell className="text-right text-foreground">{fmtC(r.directLtv)}</TableCell>
                       <TableCell className="text-right font-medium text-primary">{fmtC(Number(r.cross_poll_revenue || 0))}</TableCell>
                       <TableCell className="text-right font-semibold text-foreground">{fmtC(r.totalLtv)}</TableCell>
                       <TableCell className="text-right text-foreground">{Number(r.cross_poll_fans || 0).toLocaleString()}</TableCell>

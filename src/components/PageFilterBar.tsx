@@ -13,6 +13,7 @@ interface PageFilterBarProps {
   accounts: { id: string; username: string; display_name: string; avatar_thumb_url?: string | null }[];
   revenueMode?: RevenueMode;
   onRevenueModeChange?: (mode: RevenueMode) => void;
+  hideModelFilter?: boolean;
 }
 
 export function PageFilterBar({
@@ -25,6 +26,7 @@ export function PageFilterBar({
   accounts,
   revenueMode,
   onRevenueModeChange,
+  hideModelFilter,
 }: PageFilterBarProps) {
   const showPreliminaryWarning =
     !customRange && (timePeriod === "month" || timePeriod === "prev_month");
@@ -32,11 +34,13 @@ export function PageFilterBar({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-3">
-        <AccountFilterDropdown
-          value={modelFilter}
-          onChange={onModelFilterChange}
-          accounts={accounts}
-        />
+        {!hideModelFilter && (
+          <AccountFilterDropdown
+            value={modelFilter}
+            onChange={onModelFilterChange}
+            accounts={accounts}
+          />
+        )}
 
         <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
           {TIME_PERIODS.map((tp) => {
