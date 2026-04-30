@@ -528,8 +528,10 @@ export default function CampaignsPage() {
         case "cross_poll": aVal = a.crossPollRevenue ?? -Infinity; bVal = b.crossPollRevenue ?? -Infinity; break;
         case "spender_rate": aVal = Number(a.spender_rate ?? -Infinity); bVal = Number(b.spender_rate ?? -Infinity); break;
         case "cpl": {
-          const aTypes = costTypeMap[a.id]; const aLabel = deriveCostLabel(aTypes || new Set());
-          const bTypes = costTypeMap[b.id]; const bLabel = deriveCostLabel(bTypes || new Set());
+          const aTypes = costTypeMap[a.id];
+          const aLabel = (aTypes && aTypes.size > 0) ? deriveCostLabel(aTypes) : ((a.cost_type || a.payment_type || null) as "CPL" | "CPC" | null);
+          const bTypes = costTypeMap[b.id];
+          const bLabel = (bTypes && bTypes.size > 0) ? deriveCostLabel(bTypes) : ((b.cost_type || b.payment_type || null) as "CPL" | "CPC" | null);
           aVal = calcCostMetric(aLabel, Number(a.cost_total || 0), Number(a.subscribers || 0), Number(a.clicks || 0)).value ?? -Infinity;
           bVal = calcCostMetric(bLabel, Number(b.cost_total || 0), Number(b.subscribers || 0), Number(b.clicks || 0)).value ?? -Infinity;
           break;
@@ -1127,7 +1129,10 @@ export default function CampaignsPage() {
                                 }
                                 case "cpl": {
                                   const types = costTypeMap[link.id];
-                                  const label = deriveCostLabel(types || new Set());
+                                  const hasOTTypes = types && types.size > 0;
+                                  const label = hasOTTypes
+                                    ? deriveCostLabel(types)
+                                    : ((link.cost_type || link.payment_type || null) as "CPL" | "CPC" | null);
                                   const subs = link.subscribers || 0;
                                   const clicks = link.clicks || 0;
                                   const metric = calcCostMetric(label, costTotal, subs, clicks);
