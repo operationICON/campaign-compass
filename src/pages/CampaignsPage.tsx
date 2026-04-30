@@ -50,7 +50,7 @@ import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetri
 import { useMultiWindowRates, getWindowRates } from "@/hooks/useMultiWindowRates";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses" | "notes";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "daily_subs" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses" | "notes";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
@@ -217,9 +217,25 @@ export default function CampaignsPage() {
   // Subs/Day on the table when the activity filter is "all".
   const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
   // Always-daily delta for the "Daily Subs" column (last snapshot vs previous, regardless of period filter)
-  const { deltaLookup: dailyDeltaLookup } = useSnapshotDeltaMetrics("day", null);
+  const { deltaLookup: dailyDeltaLookup, windowEnd: dailyWindowEnd } = useSnapshotDeltaMetrics("day", null);
   const multiWindowRates = useMultiWindowRates("all");
   const [copiedUrlId, setCopiedUrlId] = useState<string | null>(null);
+
+  // Period label shown below Subs/Day value so Martin knows which window the avg covers
+  const subsDayPeriodLabel = useMemo(() => {
+    if (isDeltaAllTime) return null;
+    if (customRange) {
+      const days = Math.round((customRange.to.getTime() - customRange.from.getTime()) / 86400000);
+      return `${days}d avg`;
+    }
+    switch (timePeriod) {
+      case "day": return "last sync";
+      case "week": return "7d avg";
+      case "month": return "30d avg";
+      case "prev_month": return "prev mo";
+      default: return null;
+    }
+  }, [timePeriod, customRange, isDeltaAllTime]);
 
   const { data: otOrders = [] } = useQuery({
     queryKey: ["ot_orders_for_cost_type"],
@@ -475,15 +491,34 @@ export default function CampaignsPage() {
         case "roi": aVal = Number(a.computedRoi ?? -Infinity); bVal = Number(b.computedRoi ?? -Infinity); break;
         case "profit_per_sub": aVal = a.profitPerSub ?? -Infinity; bVal = b.profitPerSub ?? -Infinity; break;
         case "created_at": aVal = new Date(a.created_at).getTime(); bVal = new Date(b.created_at).getTime(); break;
-        case "subs_day": aVal = a.subsDay ?? -Infinity; bVal = b.subsDay ?? -Infinity; break;
+        case "subs_day": {
+          if (!isDeltaAllTime) {
+            aVal = getDelta(a.id, deltaLookup)?.subsPerDay ?? -Infinity;
+            bVal = getDelta(b.id, deltaLookup)?.subsPerDay ?? -Infinity;
+          } else {
+            const aAge = Math.max(1, a.daysSinceCreated ?? 1);
+            const bAge = Math.max(1, b.daysSinceCreated ?? 1);
+            aVal = Number(a.subscribers || 0) > 0 ? Number(a.subscribers) / aAge : -Infinity;
+            bVal = Number(b.subscribers || 0) > 0 ? Number(b.subscribers) / bAge : -Infinity;
+          }
+          break;
+        }
+        case "daily_subs": {
+          aVal = getDelta(a.id, dailyDeltaLookup)?.subsGained ?? -Infinity;
+          bVal = getDelta(b.id, dailyDeltaLookup)?.subsGained ?? -Infinity;
+          break;
+        }
         case "clicks": aVal = Number(a.clicks || 0); bVal = Number(b.clicks || 0); break;
         case "subscribers": aVal = Number(a.subscribers || 0); bVal = Number(b.subscribers || 0); break;
         case "cvr": aVal = Number(a.clicks) > 0 ? (a.subscribers / a.clicks) : -Infinity; bVal = Number(b.clicks) > 0 ? (b.subscribers / b.clicks) : -Infinity; break;
         case "media_buyer": aVal = (a.media_buyer || "zzz").toLowerCase(); bVal = (b.media_buyer || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "ltv_sub_all": {
-          const aR = Number(a.revenue || 0), aS = Number(a.subscribers || 0);
-          const bR = Number(b.revenue || 0), bS = Number(b.subscribers || 0);
-          aVal = aS > 0 ? aR / aS : -Infinity; bVal = bS > 0 ? bR / bS : -Infinity; break;
+          const aS = Number(a.subscribers || 0), bS = Number(b.subscribers || 0);
+          const aLtv = a.ltvRecord ? Number(a.ltvRecord.total_ltv || 0) : 0;
+          const bLtv = b.ltvRecord ? Number(b.ltvRecord.total_ltv || 0) : 0;
+          aVal = aS > 0 ? (aLtv > 0 ? aLtv / aS : Number(a.revenue || 0) > 0 ? Number(a.revenue) / aS : -Infinity) : -Infinity;
+          bVal = bS > 0 ? (bLtv > 0 ? bLtv / bS : Number(b.revenue || 0) > 0 ? Number(b.revenue) / bS : -Infinity) : -Infinity;
+          break;
         }
         case "model": {
           aVal = (a.accounts?.username || a.accounts?.display_name || "zzz").toLowerCase();
@@ -492,7 +527,13 @@ export default function CampaignsPage() {
         }
         case "cross_poll": aVal = a.crossPollRevenue ?? -Infinity; bVal = b.crossPollRevenue ?? -Infinity; break;
         case "spender_rate": aVal = Number(a.spender_rate ?? -Infinity); bVal = Number(b.spender_rate ?? -Infinity); break;
-        case "cpl": aVal = Number(a.cpl_real ?? a.cost_per_lead ?? -Infinity); bVal = Number(b.cpl_real ?? b.cost_per_lead ?? -Infinity); break;
+        case "cpl": {
+          const aTypes = costTypeMap[a.id]; const aLabel = deriveCostLabel(aTypes || new Set());
+          const bTypes = costTypeMap[b.id]; const bLabel = deriveCostLabel(bTypes || new Set());
+          aVal = calcCostMetric(aLabel, Number(a.cost_total || 0), Number(a.subscribers || 0), Number(a.clicks || 0)).value ?? -Infinity;
+          bVal = calcCostMetric(bLabel, Number(b.cost_total || 0), Number(b.subscribers || 0), Number(b.clicks || 0)).value ?? -Infinity;
+          break;
+        }
         case "cpc": {
           const aSpend = Number(a.cost_total || 0); const aClk = Number(a.clicks || 0);
           const bSpend = Number(b.cost_total || 0); const bClk = Number(b.clicks || 0);
@@ -507,10 +548,8 @@ export default function CampaignsPage() {
           return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         }
         case "last_synced": {
-          const at = a.fans_last_synced_at || a.accounts?.last_synced_at;
-          const bt = b.fans_last_synced_at || b.accounts?.last_synced_at;
-          aVal = at ? new Date(at).getTime() : -Infinity;
-          bVal = bt ? new Date(bt).getTime() : -Infinity;
+          aVal = a.updated_at ? new Date(a.updated_at).getTime() : -Infinity;
+          bVal = b.updated_at ? new Date(b.updated_at).getTime() : -Infinity;
           break;
         }
         case "avg_expenses": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
@@ -519,7 +558,7 @@ export default function CampaignsPage() {
       }
       return sortAsc ? aVal - bVal : bVal - aVal;
     });
-  }, [filtered, sortKey, sortAsc]);
+  }, [filtered, sortKey, sortAsc, deltaLookup, dailyDeltaLookup, isDeltaAllTime, costTypeMap]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / perPage));
   const safePage = Math.min(page, totalPages);
@@ -621,7 +660,7 @@ export default function CampaignsPage() {
   }, [accounts]);
 
   // ─── Sort Header Component ───
-  const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => {
+  const SortHeader = ({ label, sortKeyName, width, sub, primary, info }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean; info?: string }) => {
     const isActive = sortKey === sortKeyName;
     return (
       <th
@@ -633,6 +672,16 @@ export default function CampaignsPage() {
           <span className="flex items-center gap-0.5">
             {primary && <Star className="h-2.5 w-2.5 text-primary mr-0.5" />}
             {label}
+            {info && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-2.5 w-2.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help shrink-0 ml-0.5" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] text-[11px] normal-case font-normal tracking-normal">{info}</TooltipContent>
+                </Tooltip>
+              </span>
+            )}
             {isActive
               ? (sortAsc ? <ChevronUp className="h-3 w-3 text-primary shrink-0" /> : <ChevronDown className="h-3 w-3 text-primary shrink-0" />)
               : <ChevronDown className="h-3 w-3 opacity-25 shrink-0" />}
@@ -879,7 +928,7 @@ export default function CampaignsPage() {
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
                             case "status": return <SortHeader key={c.id} label="Status" sortKeyName="status" width="80px" />;
-                            case "daily_subs": return <SortHeader key={c.id} label="Daily Subs" sortKeyName="subs_day" width="80px" />;
+                            case "daily_subs": return <SortHeader key={c.id} label="Daily Subs" sortKeyName="daily_subs" width="80px" info="Subs gained in the last 24 hours based on the latest snapshot" />;
                             case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "last_synced": return <SortHeader key={c.id} label="Last Synced" sortKeyName="last_synced" width="90px" />;
@@ -1150,10 +1199,13 @@ export default function CampaignsPage() {
                                 case "daily_subs": {
                                   const dd = getDelta(link.id, dailyDeltaLookup);
                                   const gained = dd?.subsGained ?? null;
+                                  const isDailyStale = dailyWindowEnd
+                                    ? differenceInDays(new Date(), new Date(dailyWindowEnd + "T00:00:00Z")) > 2
+                                    : false;
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                       {gained !== null && gained > 0
-                                        ? <span className="text-primary font-bold">+{gained}</span>
+                                        ? <span className={`font-bold ${isDailyStale ? "text-amber-400" : "text-primary"}`}>+{gained}</span>
                                         : <span className="text-muted-foreground">—</span>}
                                     </td>
                                   );
@@ -1164,10 +1216,13 @@ export default function CampaignsPage() {
                                     const d = getDelta(link.id, deltaLookup);
                                     const spd = d?.subsPerDay ?? null;
                                     return (
-                                      <td key={c.id} className="font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                        {spd != null && spd > 0
-                                          ? <span className="text-primary font-bold">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day</span>
-                                          : <span className="text-muted-foreground">—</span>}
+                                      <td key={c.id} style={{ padding: "8px 12px" }}>
+                                        {spd != null && spd > 0 ? (
+                                          <div className="flex flex-col items-end gap-0">
+                                            <span className="font-mono font-bold text-primary text-[12px]">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day</span>
+                                            {subsDayPeriodLabel && <span className="text-[9px] text-muted-foreground font-mono">{subsDayPeriodLabel}</span>}
+                                          </div>
+                                        ) : <span className="text-muted-foreground">—</span>}
                                       </td>
                                     );
                                   }
