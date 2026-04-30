@@ -8,6 +8,7 @@ export interface SnapshotMetrics {
   subscribers: number;
   revenue: number;
   days: number;
+  hasData: boolean; // false if fewer than 2 snapshots in period → show "—" in cells
 }
 
 interface SnapshotRow {
@@ -23,26 +24,37 @@ function toMetricValue(value: number | string | null | undefined) {
 }
 
 export function buildSnapshotLookup(snapshotRows: SnapshotRow[]): Record<string, SnapshotMetrics> {
-  const lookup: Record<string, SnapshotMetrics> = {};
-  const datesPerLink: Record<string, Set<string>> = {};
-
+  // Group rows by tracking_link_id
+  const byLink: Record<string, SnapshotRow[]> = {};
   for (const row of snapshotRows) {
     const id = String(row.tracking_link_id ?? "").toLowerCase();
     if (!id) continue;
-
-    if (!lookup[id]) {
-      lookup[id] = { clicks: 0, subscribers: 0, revenue: 0, days: 0 };
-      datesPerLink[id] = new Set();
-    }
-
-    lookup[id].clicks += toMetricValue(row.clicks);
-    lookup[id].subscribers += toMetricValue(row.subscribers);
-    lookup[id].revenue += toMetricValue(row.revenue);
-    if (row.snapshot_date) datesPerLink[id].add(row.snapshot_date);
+    if (!byLink[id]) byLink[id] = [];
+    byLink[id].push(row);
   }
 
-  for (const id of Object.keys(lookup)) {
-    lookup[id].days = datesPerLink[id]?.size || 0;
+  // Delta approach: latest snapshot value - earliest snapshot value within period.
+  // daily_snapshots stores cumulative totals; delta gives the gain over the window.
+  const lookup: Record<string, SnapshotMetrics> = {};
+  for (const [id, rows] of Object.entries(byLink)) {
+    const distinctDates = new Set(rows.map(r => r.snapshot_date).filter(Boolean));
+    if (rows.length < 2) {
+      // Can't compute a meaningful delta — show "—" in period cells
+      lookup[id] = { clicks: 0, subscribers: 0, revenue: 0, days: distinctDates.size, hasData: false };
+      continue;
+    }
+    const sorted = [...rows].sort((a, b) =>
+      (a.snapshot_date ?? "").localeCompare(b.snapshot_date ?? "")
+    );
+    const earliest = sorted[0];
+    const latest = sorted[sorted.length - 1];
+    lookup[id] = {
+      clicks: Math.max(0, toMetricValue(latest.clicks) - toMetricValue(earliest.clicks)),
+      subscribers: Math.max(0, toMetricValue(latest.subscribers) - toMetricValue(earliest.subscribers)),
+      revenue: Math.max(0, toMetricValue(latest.revenue) - toMetricValue(earliest.revenue)),
+      days: distinctDates.size,
+      hasData: true,
+    };
   }
 
   return lookup;
@@ -132,10 +144,11 @@ export function getSnapshotMetrics(
       subscribers: Number(link.subscribers || 0),
       revenue: Number(link.revenue || 0),
       days: 0,
+      hasData: true,
     };
   }
   const id = String(link.id ?? "").toLowerCase();
-  return snapshotLookup[id] || { clicks: 0, subscribers: 0, revenue: 0, days: 0 };
+  return snapshotLookup[id] || { clicks: 0, subscribers: 0, revenue: 0, days: 0, hasData: false };
 }
 
 export function applySnapshotToLinks(
@@ -145,6 +158,6 @@ export function applySnapshotToLinks(
   if (!snapshotLookup) return links;
   return links.map(l => {
     const m = getSnapshotMetrics(l, snapshotLookup);
-    return { ...l, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue, snapshotDays: m.days };
+    return { ...l, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue, snapshotDays: m.days, snapshotHasData: m.hasData };
   });
 }
