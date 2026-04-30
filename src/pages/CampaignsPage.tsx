@@ -50,7 +50,7 @@ import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetri
 import { useMultiWindowRates, getWindowRates } from "@/hooks/useMultiWindowRates";
 
 // ─── Types ───
-type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses";
+type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "roi" | "profit_per_sub" | "created_at" | "subs_day" | "source_tag" | "clicks" | "subscribers" | "cvr" | "media_buyer" | "ltv_sub_all" | "model" | "cross_poll" | "spender_rate" | "cpl" | "cpc" | "marketer" | "status" | "last_synced" | "avg_expenses" | "notes";
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
@@ -514,6 +514,7 @@ export default function CampaignsPage() {
           break;
         }
         case "avg_expenses": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
+        case "notes": aVal = (a.notes || "zzz").toLowerCase(); bVal = (b.notes || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         default: aVal = 0; bVal = 0;
       }
       return sortAsc ? aVal - bVal : bVal - aVal;
@@ -620,22 +621,27 @@ export default function CampaignsPage() {
   }, [accounts]);
 
   // ─── Sort Header Component ───
-  const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
-    <th
-      className={`h-[44px] text-left uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap bg-card text-muted-foreground`}
-      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.04em", padding: "8px 12px", ...(width ? { width } : {}) }}
-      onClick={() => handleSort(sortKeyName)}
-    >
-      <span className="flex flex-col">
-        <span className="flex items-center gap-0.5">
-          {primary && <Star className="h-2.5 w-2.5 text-primary mr-0.5" />}
-          {label}
-          {sortKey === sortKeyName ? (sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />) : <ChevronDown className="h-3 w-3 opacity-30" />}
+  const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => {
+    const isActive = sortKey === sortKeyName;
+    return (
+      <th
+        className={`h-[44px] text-left uppercase cursor-pointer select-none transition-colors whitespace-nowrap ${isActive ? "bg-primary/10 text-foreground" : "bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/50"}`}
+        style={{ fontSize: "11px", fontWeight: isActive ? 700 : 600, letterSpacing: "0.04em", padding: "8px 12px", ...(width ? { width } : {}) }}
+        onClick={() => handleSort(sortKeyName)}
+      >
+        <span className="flex flex-col">
+          <span className="flex items-center gap-0.5">
+            {primary && <Star className="h-2.5 w-2.5 text-primary mr-0.5" />}
+            {label}
+            {isActive
+              ? (sortAsc ? <ChevronUp className="h-3 w-3 text-primary shrink-0" /> : <ChevronDown className="h-3 w-3 text-primary shrink-0" />)
+              : <ChevronDown className="h-3 w-3 opacity-25 shrink-0" />}
+          </span>
+          {sub && <span className="text-[9px] font-normal text-muted-foreground normal-case tracking-normal">{sub}</span>}
         </span>
-        {sub && <span className="text-[9px] font-normal text-muted-foreground normal-case tracking-normal">{sub}</span>}
-      </span>
-    </th>
-  );
+      </th>
+    );
+  };
 
   const handleRowClick = (link: any) => {
     // Open bottom drawer with enriched link data
@@ -879,7 +885,7 @@ export default function CampaignsPage() {
                             case "last_synced": return <SortHeader key={c.id} label="Last Synced" sortKeyName="last_synced" width="90px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
                             case "avg_expenses": return <SortHeader key={c.id} label="Avg Expenses" sortKeyName="avg_expenses" width="90px" />;
-                            case "notes": return <th key={c.id} className="whitespace-nowrap bg-card text-muted-foreground text-left" style={{ height: "44px", padding: "8px 12px", width: "160px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Notes</th>;
+                            case "notes": return <SortHeader key={c.id} label="Notes" sortKeyName="notes" width="160px" />;
                             default: return null;
                           }
                         })}
