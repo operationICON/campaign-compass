@@ -265,8 +265,6 @@ function DrawerBodyInner({
   const profitPerSub = cost > 0 && tlSubscribers > 0 && profit != null ? profit / tlSubscribers : null;
   const cvr = d.cvr != null ? Number(d.cvr) : (totalClicks > 100 ? (tlSubscribers / totalClicks) * 100 : null);
   const costPerLead = Number(d.cost_per_lead ?? d.cpl_real ?? 0);
-  const costPerClick = Number(d.cost_per_click ?? d.cpc_real ?? 0);
-  const configuredUnitCost = Number(d.cost_value ?? 0);
   const paymentType = configuredCostType;
 
   const daysRunning = d.created_at
@@ -730,10 +728,8 @@ function DrawerBodyInner({
               label="Payment Type"
               value={paymentType ? <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold">{paymentType === "FIXED" ? "Fixed" : paymentType}</span> : "—"}
             />
-            <DataRow label="Cost Per Lead" value={costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
-            <DataRow label="Cost Per Click" value={paymentType === "CPC" && configuredUnitCost > 0 ? fmtC2(configuredUnitCost) : costPerClick > 0 ? fmtC2(costPerClick) : "—"} />
-            <DataRow label="EPC" value={totalClicks > 0 ? fmtC2(campaignRevenue / totalClicks) : "—"} />
-            <DataRow label="Cost/Sub" value={cost > 0 && tlSubscribers > 0 ? fmtC2(cost / tlSubscribers) : "—"} />
+            <DataRow label="Cost Per Lead" value={cost > 0 && tlSubscribers > 0 ? fmtC2(cost / tlSubscribers) : costPerLead > 0 ? fmtC2(costPerLead) : "—"} />
+            <DataRow label="Cost Per Click" value={cost > 0 && totalClicks > 0 ? fmtC2(cost / totalClicks) : "—"} />
           </div>
           {/* COL 3 — CAMPAIGN INFO */}
           <div>
