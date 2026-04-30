@@ -905,7 +905,7 @@ export default function CampaignsPage() {
                     <thead className="sticky top-0 z-10 bg-card">
                       <tr className="border-b border-border">
                         <th className="w-8 bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
-                        <SortHeader label="Tracking Link" sortKeyName="campaign_name" width="200px" />
+                        <SortHeader label="Tracking Link" sortKeyName="campaign_name" width="280px" />
                         {columnOrder.visibleOrderedColumns.map(c => {
                           const thStyle = { height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600 as const, textTransform: "uppercase" as const, letterSpacing: "0.04em" };
                           switch (c.id) {
@@ -974,7 +974,7 @@ export default function CampaignsPage() {
                                 ? "border-l-2 border-l-muted-foreground/40"
                                 : ""
                             }`}
-                            style={{ height: "46px", opacity: isInactive ? 0.6 : 1 }}
+                            style={{ minHeight: "46px", opacity: isInactive ? 0.6 : 1 }}
                           >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
@@ -982,10 +982,10 @@ export default function CampaignsPage() {
                             <td style={{ padding: "8px 12px" }}>
                               <div className="flex items-center gap-1.5">
                                 <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: linkIsActive ? "#16a34a" : "#94a3b8" }} title={linkIsActive ? "Active" : "Inactive"} />
-                                <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
+                                <p className="font-bold text-foreground" style={{ fontSize: "13px", wordBreak: "break-word" }}>{link.campaign_name || "—"}</p>
                               </div>
                               <div className="flex items-center gap-1" style={{ paddingLeft: "14px" }}>
-                                <p className="truncate text-muted-foreground" style={{ fontSize: "11px", maxWidth: "160px" }} title={link.url}>{link.url}</p>
+                                <p className="truncate text-muted-foreground" style={{ fontSize: "11px" }} title={link.url}>{link.url}</p>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
