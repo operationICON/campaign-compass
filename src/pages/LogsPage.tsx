@@ -597,17 +597,6 @@ export default function LogsPage() {
                     <span className="text-[10px] text-muted-foreground text-center">Running…</span>
                   )}
                 </Button>
-                {type === "revenue_breakdown" && (
-                  <button
-                    onClick={runRevenueFullScan}
-                    disabled={running.revenue_breakdown || Object.values(running).some(Boolean)}
-                    className="w-full flex items-center justify-center gap-1 py-1 text-[10px] text-amber-500 hover:text-amber-400 disabled:opacity-40 transition-colors"
-                    title="Fetch ALL historical transactions — use to recover missing unattributed revenue"
-                  >
-                    <History className="h-3 w-3" />
-                    Full History Scan
-                  </button>
-                )}
               </div>
             );
           })}
