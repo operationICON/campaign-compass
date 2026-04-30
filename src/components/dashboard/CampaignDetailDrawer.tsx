@@ -90,6 +90,8 @@ function DrawerBodyInner({
   const [showNewSource, setShowNewSource] = useState(false);
   const [newSourceName, setNewSourceName] = useState("");
 
+  const [editMarketer, setEditMarketer] = useState(d.onlytraffic_marketer || "");
+
   // Notes state
   const [noteText, setNoteText] = useState(d.notes || "");
 
@@ -111,6 +113,7 @@ function DrawerBodyInner({
     setEditCampaignName(nextCampaign.campaign_name || "");
     setEditUrl(nextCampaign.url || "");
     setEditAccountId(nextCampaign.account_id || "");
+    setEditMarketer(nextCampaign.onlytraffic_marketer || "");
     setNoteText(nextCampaign.notes || "");
   };
 
@@ -669,6 +672,17 @@ function DrawerBodyInner({
                 </div>
               </div>
 
+              {/* Marketer */}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Marketer</label>
+                <Input
+                  value={editMarketer}
+                  onChange={e => setEditMarketer(e.target.value)}
+                  placeholder="Marketer name..."
+                  className="h-8 text-sm bg-card border-border mt-0.5"
+                />
+              </div>
+
               <Button
                 size="sm"
                 className="w-full h-8 text-xs"
@@ -680,6 +694,7 @@ function DrawerBodyInner({
                       campaign_name: editCampaignName.trim(),
                       url: editUrl.trim(),
                       account_id: editAccountId,
+                      onlytraffic_marketer: editMarketer.trim() || null,
                     });
 
                     await refetchTrackingLinkAndSync();
