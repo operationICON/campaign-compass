@@ -597,27 +597,20 @@ export default function LogsPage() {
                     <span className="text-[10px] text-muted-foreground text-center">Running…</span>
                   )}
                 </Button>
+                {type === "revenue_breakdown" && (
+                  <button
+                    onClick={runRevenueFullScan}
+                    disabled={running.revenue_breakdown || Object.values(running).some(Boolean)}
+                    className="w-full flex items-center justify-center gap-1 py-1 text-[10px] text-amber-500 hover:text-amber-400 disabled:opacity-40 transition-colors"
+                    title="Fetch ALL historical transactions — use to recover missing unattributed revenue"
+                  >
+                    <History className="h-3 w-3" />
+                    Full History Scan
+                  </button>
+                )}
               </div>
             );
           })}
-        </div>
-
-        {/* ═══ FULL HISTORY SCAN ═══ */}
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Revenue Full History Scan</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Fetches ALL transactions from the beginning — use this once to recover missing unattributed revenue. Ignores the incremental date filter. May take 10–30 min depending on account history.</p>
-          </div>
-          <Button
-            onClick={runRevenueFullScan}
-            disabled={running.revenue_breakdown || Object.values(running).some(Boolean)}
-            variant="outline"
-            className="shrink-0 border-amber-500/50 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 gap-2"
-          >
-            {running.revenue_breakdown
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</>
-              : <><History className="h-4 w-4" /> Full History Scan</>}
-          </Button>
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
