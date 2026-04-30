@@ -40,6 +40,13 @@ router.post("/", async (c) => {
   const body = await c.req.json() as any;
   const { account_id, onlyfans_account_id, display_name } = body;
 
+  // Skip excluded accounts (e.g. inactive credentials that always 401)
+  const [acctRow] = await db.select({ sync_excluded: accounts.sync_excluded }).from(accounts).where(eq(accounts.id, account_id)).limit(1);
+  if (acctRow?.sync_excluded) {
+    console.log(`[AccountSync] Skipping excluded account: ${display_name}`);
+    return c.json({ message: `Skipped excluded account: ${display_name}`, skipped: true, links: 0, api_calls: 0 }, 200);
+  }
+
   const [syncLog] = await db.insert(sync_logs).values({
     account_id, started_at: new Date(), status: "running", success: false,
     message: `Syncing ${display_name}`, records_processed: 0,

@@ -45,7 +45,7 @@ router.post("/", async (c) => {
     try {
       await send({ step: "start", message: `Syncing snapshots ${DATE_START} → ${DATE_END}...` });
 
-      const accountList = await db.select().from(accounts).where(eq(accounts.is_active, true));
+      const accountList = await db.select().from(accounts).where(and(eq(accounts.is_active, true), sql`accounts.sync_excluded IS NOT TRUE`));
       await send({ step: "accounts", message: `Found ${accountList.length} accounts`, total: accountList.length });
 
       for (const acct of accountList) {
@@ -175,7 +175,7 @@ router.post("/backfill", async (c) => {
     try {
       await send({ step: "start", message: `Backfilling ${DATE_START} → ${DATE_END}` });
 
-      const accountList = await db.select().from(accounts).where(eq(accounts.is_active, true));
+      const accountList = await db.select().from(accounts).where(and(eq(accounts.is_active, true), sql`accounts.sync_excluded IS NOT TRUE`));
       await send({ step: "accounts", message: `${accountList.length} accounts`, total: accountList.length });
 
       for (const acct of accountList) {

@@ -27,6 +27,7 @@ export const accounts = pgTable("accounts", {
   ltv_updated_at:       timestamp("ltv_updated_at", { withTimezone: true }),
   is_active:            boolean("is_active").notNull().default(true),
   sync_enabled:         boolean("sync_enabled").default(true),
+  sync_excluded:        boolean("sync_excluded").default(false),
   last_seen:            timestamp("last_seen", { withTimezone: true }),
   last_synced_at:       timestamp("last_synced_at", { withTimezone: true }),
   created_at:           timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

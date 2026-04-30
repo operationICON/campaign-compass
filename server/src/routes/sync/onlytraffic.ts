@@ -80,7 +80,7 @@ router.post("/", async (c) => {
     try {
       await send({ step: "loading", message: "Loading accounts and tracking links..." });
 
-      const accountList = await db.select({ id: accounts.id, display_name: accounts.display_name, numeric_of_id: accounts.numeric_of_id }).from(accounts);
+      const accountList = await db.select({ id: accounts.id, display_name: accounts.display_name, numeric_of_id: accounts.numeric_of_id }).from(accounts).where(sql`accounts.sync_excluded IS NOT TRUE`);
       const accountNumericIdMap: Record<string, string> = {};
       for (const a of accountList) if (a.numeric_of_id) accountNumericIdMap[a.id] = a.numeric_of_id.toString();
 

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
 import { accounts, sync_logs } from "../../db/schema.js";
-import { eq, lt, and } from "drizzle-orm";
+import { eq, lt, and, sql } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 
 const router = new Hono();
@@ -81,7 +81,7 @@ router.post("/", async (c) => {
         }
       } catch (err: any) { console.error("Discovery error:", err.message); }
 
-      const enabledAccounts = await db.select().from(accounts).where(eq(accounts.is_active, true));
+      const enabledAccounts = await db.select().from(accounts).where(and(eq(accounts.is_active, true), sql`accounts.sync_excluded IS NOT TRUE`));
       await send({ step: "syncing", message: `Syncing ${enabledAccounts.length} accounts...`, total: enabledAccounts.length });
 
       // Sync accounts in batches of 3 by calling the /sync/account endpoint internally

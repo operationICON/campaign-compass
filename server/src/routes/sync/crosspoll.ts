@@ -47,6 +47,7 @@ router.post("/", async (c) => {
         WHERE f.first_subscribe_link_id IS NOT NULL
           AND tl.deleted_at IS NULL
           AND tl.external_tracking_link_id IS NOT NULL
+          AND tl.account_id NOT IN (SELECT id FROM accounts WHERE sync_excluded = true)
         GROUP BY f.first_subscribe_link_id, tl.account_id, tl.campaign_name, tl.external_tracking_link_id
       `);
 

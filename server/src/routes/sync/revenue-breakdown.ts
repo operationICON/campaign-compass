@@ -91,7 +91,7 @@ router.post("/", async (c) => {
       const accountList = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })
         .from(accounts)
-        .where(eq(accounts.is_active, true));
+        .where(and(eq(accounts.is_active, true), sql`accounts.sync_excluded IS NOT TRUE`));
 
       await send({ step: "start", message: `Syncing ${accountList.length} accounts...` });
 

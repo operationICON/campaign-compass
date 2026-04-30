@@ -4,7 +4,7 @@ import {
   accounts, fans, fan_spend, fan_attributions, fan_account_stats,
   tracking_link_ltv, sync_logs,
 } from "../../db/schema.js";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 
 const router = new Hono();
@@ -250,6 +250,7 @@ async function updateCrosspollLtv() {
     WHERE f.first_subscribe_link_id IS NOT NULL
       AND tl.deleted_at IS NULL
       AND tl.external_tracking_link_id IS NOT NULL
+      AND tl.account_id NOT IN (SELECT id FROM accounts WHERE sync_excluded = true)
     GROUP BY f.first_subscribe_link_id, tl.account_id, tl.campaign_name, tl.external_tracking_link_id
   `);
 
@@ -354,6 +355,7 @@ async function attributeFansToLinks(send: (data: any) => any): Promise<number> {
       WHERE tl.deleted_at IS NULL
         AND tl.external_tracking_link_id IS NOT NULL
         AND f.first_subscribe_link_id IS NULL
+        AND tl.account_id NOT IN (SELECT id FROM accounts WHERE sync_excluded = true)
     )
     UPDATE fans
     SET first_subscribe_link_id = rl.tracking_link_id,
@@ -463,7 +465,7 @@ router.post("/", async (c) => {
       const enabledAccounts = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })
         .from(accounts)
-        .where(eq(accounts.is_active, true));
+        .where(and(eq(accounts.is_active, true), sql`accounts.sync_excluded IS NOT TRUE`));
 
       const mode = cutoffDate ? `incremental from ${cutoffDate.toISOString().split("T")[0]}` : "full historical";
       await send({ step: "start", message: `${enabledAccounts.length} accounts — ${mode}` });
