@@ -123,8 +123,8 @@ export function startScheduler() {
   // 01:00 UTC daily — full dashboard sync (accounts + tracking links)
   cron.schedule("0 1 * * *", () => { runDashboardSync().catch(console.error); }, { timezone: "UTC" });
 
-  // 02:00 UTC daily — snapshots + crosspoll (runs after dashboard so data is fresh)
-  cron.schedule("0 2 * * *", () => { runDailySync().catch(console.error); }, { timezone: "UTC" });
+  // 03:00 UTC daily — snapshots (runs after dashboard; fetches yesterday+today so complete prior day is always captured)
+  cron.schedule("0 3 * * *", () => { runDailySync().catch(console.error); }, { timezone: "UTC" });
 
   // Every 30 min — check if OT sync interval has elapsed and run if due
   setInterval(async () => {
@@ -136,5 +136,5 @@ export function startScheduler() {
     try { await runOTSyncIfDue(); } catch (err: any) { console.error("[Scheduler] OT startup check error:", err.message); }
   }, 30_000);
 
-  console.log("[Scheduler] Active — dashboard daily 01:00 UTC, rev-breakdown+snapshots+fans daily 02:00 UTC, OT checked every 30min");
+  console.log("[Scheduler] Active — dashboard daily 01:00 UTC, rev-breakdown+snapshots+fans daily 03:00 UTC, OT checked every 30min");
 }

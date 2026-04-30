@@ -11,14 +11,22 @@ const DELAY_MS = 200;
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 // POST /sync/snapshots — daily snapshot sync (runs automatically at 02:00 UTC via scheduler)
-// Fetches today's incremental stats from OFAPI and upserts into daily_snapshots.
+// Fetches yesterday (complete day) + today (current progress) in one API call per link.
+// Critical: at 02:00 UTC "today" is only 2 hrs old — yesterday is the complete day we must capture.
 router.post("/", async (c) => {
   const apiKey = process.env.ONLYFANS_API_KEY;
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
 
   const body = await c.req.json().catch(() => ({}));
   const triggeredBy = body.triggered_by ?? "manual";
-  const TODAY = new Date().toISOString().split("T")[0];
+
+  const now = new Date();
+  const DATE_TODAY = now.toISOString().split("T")[0];
+  const DATE_YESTERDAY = new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+  // Fetch yesterday + today in one call: yesterday captures the complete prior day,
+  // today keeps current-day progress live so the dashboard isn't stale.
+  const DATE_START = DATE_YESTERDAY;
+  const DATE_END = DATE_TODAY;
 
   const { stream, send, close } = createSSEStream();
 
@@ -27,7 +35,7 @@ router.post("/", async (c) => {
     status: "running",
     success: false,
     triggered_by: `snapshot_sync_${triggeredBy}`,
-    message: `Snapshot sync started for ${TODAY}`,
+    message: `Snapshot sync: ${DATE_YESTERDAY} → ${DATE_TODAY}`,
     records_processed: 0,
   }).returning();
   const syncLogId = syncLog?.id;
@@ -35,7 +43,7 @@ router.post("/", async (c) => {
   (async () => {
     let totalSaved = 0, totalErrors = 0, apiCalls = 0;
     try {
-      await send({ step: "start", message: `Syncing snapshots for ${TODAY}...` });
+      await send({ step: "start", message: `Syncing snapshots ${DATE_START} → ${DATE_END}...` });
 
       const accountList = await db.select().from(accounts).where(eq(accounts.is_active, true));
       await send({ step: "accounts", message: `Found ${accountList.length} accounts`, total: accountList.length });
@@ -67,64 +75,62 @@ router.post("/", async (c) => {
 
         for (const link of links) {
           try {
-            const statsUrl = `${API_BASE}/${acct.onlyfans_account_id}/tracking-links/${link.external_tracking_link_id}/stats?date_start=${TODAY}&date_end=${TODAY}`;
+            const statsUrl = `${API_BASE}/${acct.onlyfans_account_id}/tracking-links/${link.external_tracking_link_id}/stats?date_start=${DATE_START}&date_end=${DATE_END}`;
             const res = await fetch(statsUrl, { headers: { Authorization: `Bearer ${apiKey}` } });
             apiCalls++;
             if (!res.ok) { totalErrors++; await sleep(DELAY_MS); continue; }
 
             const json = await res.json() as any;
-            const dayData = (json?.data?.daily_metrics ?? []).find((d: any) => d.timestamp === TODAY);
-            if (!dayData) { await sleep(DELAY_MS); continue; }
+            const daily: any[] = json?.data?.daily_metrics ?? [];
 
-            // OFAPI returns true daily incremental values — save directly
-            const clicks = Number(dayData.clicks ?? 0);
-            const subscribers = Number(dayData.subs ?? 0);
-            const revenue = Number(dayData.revenue ?? 0);
+            const rows = daily
+              .filter((d: any) => Number(d.clicks ?? 0) > 0 || Number(d.subs ?? 0) > 0 || Number(d.revenue ?? 0) > 0)
+              .map((d: any) => ({
+                tracking_link_id: link.id,
+                account_id: acct.id,
+                external_tracking_link_id: link.external_tracking_link_id!,
+                snapshot_date: d.timestamp,
+                clicks: Number(d.clicks ?? 0),
+                subscribers: Number(d.subs ?? 0),
+                revenue: String(d.revenue ?? 0),
+                raw_clicks: Number(d.clicks ?? 0),
+                raw_subscribers: Number(d.subs ?? 0),
+                raw_revenue: String(d.revenue ?? 0),
+                synced_at: new Date(),
+              }));
 
-            if (clicks === 0 && subscribers === 0 && revenue === 0) { await sleep(DELAY_MS); continue; }
-
-            await db.insert(daily_snapshots).values({
-              tracking_link_id: link.id,
-              account_id: acct.id,
-              external_tracking_link_id: link.external_tracking_link_id!,
-              snapshot_date: TODAY,
-              clicks,
-              subscribers,
-              revenue: String(revenue),
-              raw_clicks: clicks,
-              raw_subscribers: subscribers,
-              raw_revenue: String(revenue),
-              synced_at: new Date(),
-            }).onConflictDoUpdate({
-              target: [daily_snapshots.tracking_link_id, daily_snapshots.snapshot_date],
-              set: {
-                clicks: sql`excluded.clicks`,
-                subscribers: sql`excluded.subscribers`,
-                revenue: sql`excluded.revenue`,
-                raw_clicks: sql`excluded.raw_clicks`,
-                raw_subscribers: sql`excluded.raw_subscribers`,
-                raw_revenue: sql`excluded.raw_revenue`,
-                synced_at: sql`excluded.synced_at`,
-              },
-            });
-            totalSaved++;
+            if (rows.length > 0) {
+              await db.insert(daily_snapshots).values(rows).onConflictDoUpdate({
+                target: [daily_snapshots.tracking_link_id, daily_snapshots.snapshot_date],
+                set: {
+                  clicks: sql`excluded.clicks`,
+                  subscribers: sql`excluded.subscribers`,
+                  revenue: sql`excluded.revenue`,
+                  raw_clicks: sql`excluded.raw_clicks`,
+                  raw_subscribers: sql`excluded.raw_subscribers`,
+                  raw_revenue: sql`excluded.raw_revenue`,
+                  synced_at: sql`excluded.synced_at`,
+                },
+              });
+              totalSaved += rows.length;
+            }
           } catch { totalErrors++; }
           await sleep(DELAY_MS);
         }
 
         if (syncLogId) {
-          await db.update(sync_logs).set({ records_processed: totalSaved, message: `${acct.display_name} done — ${totalSaved} saved` }).where(eq(sync_logs.id, syncLogId));
+          await db.update(sync_logs).set({ records_processed: totalSaved, message: `${acct.display_name} done — ${totalSaved} rows saved` }).where(eq(sync_logs.id, syncLogId));
         }
       }
 
-      const now = new Date();
+      const done = new Date();
       if (syncLogId) {
         await db.update(sync_logs).set({
           status: totalErrors > 0 && totalSaved === 0 ? "error" : "success",
           success: totalSaved > 0 || totalErrors === 0,
-          finished_at: now, completed_at: now,
+          finished_at: done, completed_at: done,
           records_processed: totalSaved,
-          message: `${totalSaved} snapshots saved, ${apiCalls} API calls`,
+          message: `${totalSaved} snapshots saved (${DATE_START}→${DATE_END}), ${apiCalls} API calls`,
           error_message: totalErrors > 0 ? `${totalErrors} errors` : null,
         }).where(eq(sync_logs.id, syncLogId));
       }
