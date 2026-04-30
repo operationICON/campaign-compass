@@ -535,25 +535,6 @@ export default function LogsPage() {
           <RefreshButton queryKeys={["sync_logs", "accounts"]} />
         </div>
 
-        {/* ═══ SYNC ALL ═══ */}
-        <div className="flex flex-col gap-1.5">
-          <Button
-            onClick={runAllSync}
-            disabled={allRunning || Object.values(running).some(Boolean)}
-            className="h-auto py-4 px-6 flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-          >
-            {allRunning
-              ? <Loader2 className="h-5 w-5 animate-spin" />
-              : <Zap className="h-5 w-5" />}
-            <div className="text-left">
-              <div className="text-sm font-bold">Sync All</div>
-              <div className="text-xs opacity-75">
-                {allRunning && allProgress ? allProgress : "Dashboard → Snapshots → OnlyTraffic"}
-              </div>
-            </div>
-          </Button>
-        </div>
-
         {/* ═══ SYNC BUTTONS ═══ */}
         <div className="grid grid-cols-7 gap-3">
           {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown", "fans"] as SyncType[]).map((type) => {
