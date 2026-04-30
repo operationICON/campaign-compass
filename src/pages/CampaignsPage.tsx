@@ -623,7 +623,7 @@ export default function CampaignsPage() {
   const SortHeader = ({ label, sortKeyName, width, sub, primary }: { label: string; sortKeyName: SortKey; width?: string; sub?: string; primary?: boolean }) => (
     <th
       className={`h-[44px] text-left uppercase cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap bg-card text-muted-foreground`}
-      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.04em", padding: "8px 12px", ...(width ? { width, minWidth: width, maxWidth: width } : {}) }}
+      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.04em", padding: "8px 12px", ...(width ? { width } : {}) }}
       onClick={() => handleSort(sortKeyName)}
     >
       <span className="flex flex-col">
@@ -781,38 +781,6 @@ export default function CampaignsPage() {
           </Tooltip>
         </div>
 
-        {/* ═══ FILTER BAR ═══ */}
-        <div className="flex flex-wrap items-center" style={{ gap: "8px" }}>
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input type="text" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors" />
-          </div>
-          
-          <select value={campaignFilter} onChange={(e) => { setCampaignFilter(e.target.value as CampaignFilter); setPage(1); }}
-            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-            <option value="all">All Campaigns</option>
-            <option value="active">Active Only</option>
-            <option value="zero">Zero Clicks</option>
-            <option value="no_spend">No Spend Set</option>
-            <option value="SCALE">SCALE</option>
-            <option value="WATCH">WATCH</option>
-            <option value="KILL">KILL</option>
-            <option value="TESTING">TESTING</option>
-            <option value="INACTIVE">INACTIVE</option>
-          </select>
-          <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-            <option value="all">All Sources</option>
-            {sourceOptions.map((s) => (<option key={s} value={s}>{s}</option>))}
-            <option value="untagged">Untagged</option>
-          </select>
-          {activeFilterCount > 0 && (
-            <button onClick={clearAllFilters} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
-              <span className="px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-bold">{activeFilterCount}</span> filters · <X className="h-3 w-3" /> clear
-            </button>
-          )}
-        </div>
 
 
         {/* Activity filter — All / Active / Inactive (snapshot-derived) */}
@@ -846,8 +814,13 @@ export default function CampaignsPage() {
                     queryClient.invalidateQueries({ queryKey: ["tracking_links"] });
                   }}
                 />
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-                  <span className="text-xs text-muted-foreground">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
+                <div className="flex items-center gap-3 px-3 py-2 border-b border-border">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <input type="text" placeholder="Search…" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                      className="pl-8 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary transition-colors w-44" />
+                  </div>
+                  <span className="text-xs text-muted-foreground flex-1">Showing {showStart}–{showEnd} of {sorted.length} tracking links</span>
                   <div className="relative">
                     <button onClick={() => setColDropdownOpen(!colDropdownOpen)}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-secondary text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -871,7 +844,7 @@ export default function CampaignsPage() {
                   </div>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[12px]">
+                  <table className="w-full text-[12px]" style={{ tableLayout: "fixed" }}>
                     <thead className="sticky top-0 z-10 bg-card">
                       <tr className="border-b border-border">
                         <th className="w-8 bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}><input type="checkbox" checked={selectedRows.size === paginated.length && paginated.length > 0} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-border cursor-pointer" /></th>
@@ -949,7 +922,7 @@ export default function CampaignsPage() {
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
                             </td>
-                            <td style={{ padding: "8px 12px", maxWidth: "200px" }}>
+                            <td style={{ padding: "8px 12px" }}>
                               <div className="flex items-center gap-1.5">
                                 <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: linkIsActive ? "#16a34a" : "#94a3b8" }} title={linkIsActive ? "Active" : "Inactive"} />
                                 <p className="font-bold text-foreground truncate" style={{ fontSize: "13px" }} title={link.campaign_name}>{link.campaign_name || "—"}</p>
