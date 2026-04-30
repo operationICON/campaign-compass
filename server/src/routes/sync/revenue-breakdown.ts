@@ -55,6 +55,7 @@ router.post("/", async (c) => {
 
   const body = await c.req.json().catch(() => ({}));
   const triggeredBy = body.triggered_by ?? "manual";
+  const forceFull: boolean = !!body.force_full;
 
   // Clean up stuck previous runs
   const stuckRows = await db
@@ -75,7 +76,7 @@ router.post("/", async (c) => {
   const [parentLog] = await db.insert(sync_logs).values({
     started_at: new Date(), status: "running", success: false,
     triggered_by: `revenue_breakdown_sync_${triggeredBy}`,
-    message: "Revenue breakdown sync started",
+    message: forceFull ? "Revenue breakdown FULL HISTORY scan started" : "Revenue breakdown sync started",
     records_processed: 0,
   }).returning();
   const parentLogId = parentLog?.id;
@@ -121,14 +122,17 @@ router.post("/", async (c) => {
         const accountLogId = accountLog?.id;
 
         try {
-          // Find the latest transaction date we already have — only fetch newer ones
-          const latestRow = await db.execute(sql`
-            SELECT MAX(date) AS latest FROM transactions WHERE account_id = ${account.id}
-          `);
-          const latestDate = (latestRow.rows[0] as any)?.latest as string | null;
+          // Find the latest transaction date we already have — only fetch newer ones (unless force_full)
+          let latestDate: string | null = null;
+          if (!forceFull) {
+            const latestRow = await db.execute(sql`
+              SELECT MAX(date) AS latest FROM transactions WHERE account_id = ${account.id}
+            `);
+            latestDate = (latestRow.rows[0] as any)?.latest as string | null;
+          }
           const isIncremental = !!latestDate;
 
-          await send({ step: "fetching", message: `Fetching ${account.display_name}${isIncremental ? ` (incremental from ${latestDate})` : " (full scan)"}...` });
+          await send({ step: "fetching", message: `Fetching ${account.display_name}${forceFull ? " (FULL HISTORY SCAN)" : isIncremental ? ` (incremental from ${latestDate})` : " (full scan)"}...` });
           const { items: txList, apiCalls } = await fetchTransactions(account.onlyfans_account_id, apiKey, latestDate ?? undefined);
           totalApiCalls += apiCalls;
           await send({ step: "fetched", message: `${account.display_name}: ${txList.length} transactions (${apiCalls} API calls${isIncremental ? ", incremental" : ", full scan"})` });

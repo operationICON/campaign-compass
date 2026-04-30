@@ -455,6 +455,34 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
+  const runRevenueFullScan = useCallback(async () => {
+    const ctrl = new AbortController();
+    abortRefs.current.revenue_breakdown = ctrl;
+    setRunning(r => ({ ...r, revenue_breakdown: true }));
+    setProgress(p => ({ ...p, revenue_breakdown: "Full history scan — fetching all transactions..." }));
+    try {
+      const lastData = await streamSync(
+        "/sync/revenue-breakdown",
+        { triggered_by: "manual_full_scan", force_full: true },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, revenue_breakdown: msg })); },
+        ctrl.signal,
+      );
+      if (ctrl.signal.aborted) return;
+      if (lastData?.step === "error") throw new Error(lastData.error ?? "Unknown error");
+      const updated = lastData?.accounts_updated ?? 0;
+      toast.success(`Full history scan complete — ${updated} accounts updated with all historical transactions`);
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      toast.error(`Full history scan failed: ${err.message}`);
+    } finally {
+      delete abortRefs.current.revenue_breakdown;
+      setRunning(r => ({ ...r, revenue_breakdown: false }));
+      setProgress(p => ({ ...p, revenue_breakdown: "" }));
+    }
+  }, [queryClient]);
+
   const runFanSync = useCallback(async () => {
     const ctrl = new AbortController();
     abortRefs.current.fans = ctrl;
@@ -572,6 +600,24 @@ export default function LogsPage() {
               </div>
             );
           })}
+        </div>
+
+        {/* ═══ FULL HISTORY SCAN ═══ */}
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Revenue Full History Scan</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Fetches ALL transactions from the beginning — use this once to recover missing unattributed revenue. Ignores the incremental date filter. May take 10–30 min depending on account history.</p>
+          </div>
+          <Button
+            onClick={runRevenueFullScan}
+            disabled={running.revenue_breakdown || Object.values(running).some(Boolean)}
+            variant="outline"
+            className="shrink-0 border-amber-500/50 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 gap-2"
+          >
+            {running.revenue_breakdown
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</>
+              : <><History className="h-4 w-4" /> Full History Scan</>}
+          </Button>
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
