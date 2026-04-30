@@ -53,6 +53,7 @@ type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
+const OT_SPEND_STATUSES = new Set(["completed", "accepted", "active", "waiting"]);
 
 // ─── Unified page preferences ─────────────────────────────────────────────────
 // All filter/sort settings for this page are stored in a single JSON object
@@ -263,7 +264,7 @@ export default function CampaignsPage() {
 
   // Per-link delta-from-cumulative metrics for the selected window. Used for
   // Subs/Day on the table when the activity filter is "all".
-  const { deltaLookup, isAllTime: isDeltaAllTime } = useSnapshotDeltaMetrics(timePeriod, customRange);
+  const { deltaLookup, isAllTime: isDeltaAllTime, windowStart: deltaWindowStart, windowEnd: deltaWindowEnd } = useSnapshotDeltaMetrics(timePeriod, customRange);
   // Always-daily delta for the "Daily Subs" column (last snapshot vs previous, regardless of period filter)
   const { deltaLookup: dailyDeltaLookup, windowEnd: dailyWindowEnd } = useSnapshotDeltaMetrics("day", null);
   const multiWindowRates = useMultiWindowRates("all");
@@ -303,6 +304,23 @@ export default function CampaignsPage() {
     }
     return m;
   }, [otOrders]);
+
+  // Period-accurate spend: SUM(total_spent) from OT orders within the selected window.
+  // null = All Time view (use cost_total instead).
+  // Empty map entry = no orders found for this link in the period (fallback to cost_total with ⚠️).
+  const periodSpendMap = useMemo<Record<string, number> | null>(() => {
+    if (isDeltaAllTime || !deltaWindowStart || !deltaWindowEnd) return null;
+    const map: Record<string, number> = {};
+    for (const o of otOrders as any[]) {
+      if (!o.tracking_link_id || !o.total_spent) continue;
+      if (!OT_SPEND_STATUSES.has((o.status || "").toLowerCase())) continue;
+      const orderDate = o.order_created_at ? String(o.order_created_at).slice(0, 10) : null;
+      if (!orderDate || orderDate < deltaWindowStart || orderDate > deltaWindowEnd) continue;
+      const id = String(o.tracking_link_id).toLowerCase();
+      map[id] = (map[id] || 0) + Number(o.total_spent);
+    }
+    return map;
+  }, [otOrders, isDeltaAllTime, deltaWindowStart, deltaWindowEnd]);
 
   
   const tagColorMap = useTagColors();
@@ -406,34 +424,43 @@ export default function CampaignsPage() {
       const ltvFromTable = hasLtvRecord ? Number(ltvRecord.total_ltv || 0) : null;
       const crossPollRevenue = hasLtvRecord ? Number(ltvRecord.cross_poll_revenue || 0) : null;
       const ltvBased = ltvFromTable !== null && ltvFromTable > 0;
-      // FIX 4/5: Profit = tracking_links.revenue - cost_total; ROI = profit / cost_total * 100
+      // Period-aware spend: use OT orders in window if available, else fall back to all-time cost_total.
+      const linkIdNorm = String(l.id).toLowerCase();
+      const periodSpend = periodSpendMap !== null ? (periodSpendMap[linkIdNorm] ?? null) : null;
+      // All-time spend (used for status so status stays stable regardless of period)
       const costTotalVal = Number(l.cost_total || 0);
+      // Effective spend for financial display columns
+      const effectiveCostTotal = periodSpend !== null ? periodSpend : costTotalVal;
+      // Show ⚠️ on Spend cell when period view has no OT orders for this link but it has all-time spend
+      const isSpendFallback = periodSpendMap !== null && periodSpend === null && costTotalVal > 0;
+
       const hasLtvData = ltvFromTable !== null;
       let computedProfit: number | null = null;
       let computedRoi: number | null = null;
-      let profitIsEstimate = false;
-      let roiIsEstimate = false;
-      if (costTotalVal > 0) {
+      const profitIsEstimate = false;
+      const roiIsEstimate = false;
+      if (effectiveCostTotal > 0) {
         const revForProfit = Number(l.revenue || 0);
-        computedProfit = revForProfit - costTotalVal;
-        computedRoi = costTotalVal > 0 ? (computedProfit / costTotalVal) * 100 : null;
+        computedProfit = revForProfit - effectiveCostTotal;
+        computedRoi = (computedProfit / effectiveCostTotal) * 100;
       }
-      // Profit/Sub = (revenue - cost_total) / subscribers
+      // Profit/Sub = (period revenue - period spend) / period subs
       const newSubsTotal = ltvRecord ? Number(ltvRecord.new_subs_total || 0) : 0;
       const subsCount = Number(l.subscribers || 0);
       const profitPerSub = subsCount > 0 && computedProfit !== null ? computedProfit / subsCount : null;
       // LTV/Sub from tracking_link_ltv
       const ltvPerSubFromRecord = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
-      // STEP 4: Fixed status logic
+      // Status uses all-time cost_total so it stays stable on period views
+      const storedRoi = l.roi != null ? Number(l.roi) : null;
       let computedStatus: string;
       const linkClicks = l.clicks || 0;
       const isManualPending = (l.manually_tagged === true || !l.external_tracking_link_id) && !l.revenue;
       if (isManualPending && costTotalVal <= 0 && linkClicks === 0) {
         computedStatus = "MANUAL";
-      } else if (costTotalVal > 0 && computedRoi !== null) {
-        if (computedRoi > 150) computedStatus = "SCALE";
-        else if (computedRoi >= 50) computedStatus = "WATCH";
-        else if (computedRoi >= 0) computedStatus = "LOW";
+      } else if (costTotalVal > 0 && storedRoi !== null) {
+        if (storedRoi > 150) computedStatus = "SCALE";
+        else if (storedRoi >= 50) computedStatus = "WATCH";
+        else if (storedRoi >= 0) computedStatus = "LOW";
         else computedStatus = "KILL";
       } else if (linkClicks === 0 && daysSinceCreated > 3) {
         computedStatus = "DEAD";
@@ -444,9 +471,9 @@ export default function CampaignsPage() {
       } else {
         computedStatus = calcStatus(l);
       }
-      return { ...l, isActive, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord, newSubsTotal, ltvPerSubFromRecord };
+      return { ...l, isActive, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord, newSubsTotal, ltvPerSubFromRecord, effectiveCostTotal, isSpendFallback };
     });
-  }, [links, manualOverrides, dailyMetrics, ltvLookup, activeLookup]);
+  }, [links, manualOverrides, dailyMetrics, ltvLookup, activeLookup, periodSpendMap]);
 
   // ─── Source filter options ───
   const sourceOptions = useMemo(() => {
@@ -532,7 +559,7 @@ export default function CampaignsPage() {
       switch (sortKey) {
         case "campaign_name": aVal = (a.campaign_name || "").toLowerCase(); bVal = (b.campaign_name || "").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "source_tag": aVal = (getEffectiveSource(a) || "zzz").toLowerCase(); bVal = (getEffectiveSource(b) || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        case "cost_total": aVal = Number(a.cost_total || 0); bVal = Number(b.cost_total || 0); break;
+        case "cost_total": aVal = a.effectiveCostTotal ?? Number(a.cost_total || 0); bVal = b.effectiveCostTotal ?? Number(b.cost_total || 0); break;
         case "revenue": aVal = Number(a.revenue || 0); bVal = Number(b.revenue || 0); break;
         case "ltv": aVal = a.ltvFromTable ?? -1; bVal = b.ltvFromTable ?? -1; break;
         case "profit": aVal = Number(a.computedProfit ?? -Infinity); bVal = Number(b.computedProfit ?? -Infinity); break;
@@ -580,13 +607,13 @@ export default function CampaignsPage() {
           const aLabel = (aTypes && aTypes.size > 0) ? deriveCostLabel(aTypes) : ((a.cost_type || a.payment_type || null) as "CPL" | "CPC" | null);
           const bTypes = costTypeMap[b.id];
           const bLabel = (bTypes && bTypes.size > 0) ? deriveCostLabel(bTypes) : ((b.cost_type || b.payment_type || null) as "CPL" | "CPC" | null);
-          aVal = calcCostMetric(aLabel, Number(a.cost_total || 0), Number(a.subscribers || 0), Number(a.clicks || 0)).value ?? -Infinity;
-          bVal = calcCostMetric(bLabel, Number(b.cost_total || 0), Number(b.subscribers || 0), Number(b.clicks || 0)).value ?? -Infinity;
+          aVal = calcCostMetric(aLabel, a.effectiveCostTotal ?? Number(a.cost_total || 0), Number(a.subscribers || 0), Number(a.clicks || 0)).value ?? -Infinity;
+          bVal = calcCostMetric(bLabel, b.effectiveCostTotal ?? Number(b.cost_total || 0), Number(b.subscribers || 0), Number(b.clicks || 0)).value ?? -Infinity;
           break;
         }
         case "cpc": {
-          const aSpend = Number(a.cost_total || 0); const aClk = Number(a.clicks || 0);
-          const bSpend = Number(b.cost_total || 0); const bClk = Number(b.clicks || 0);
+          const aSpend = a.effectiveCostTotal ?? Number(a.cost_total || 0); const aClk = Number(a.clicks || 0);
+          const bSpend = b.effectiveCostTotal ?? Number(b.cost_total || 0); const bClk = Number(b.clicks || 0);
           aVal = aSpend > 0 && aClk > 0 ? aSpend / aClk : -Infinity;
           bVal = bSpend > 0 && bClk > 0 ? bSpend / bClk : -Infinity;
           break;
@@ -998,8 +1025,9 @@ export default function CampaignsPage() {
                         const username = link.accounts?.username || link.accounts?.display_name || "—";
                         const modelColor = getModelColor(link.accounts?.username);
                         const initials = username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?";
-                        const costTotal = Number(link.cost_total || 0);
+                        const costTotal = link.effectiveCostTotal ?? Number(link.cost_total || 0);
                         const hasCost = costTotal > 0;
+                        const isSpendFallback = !!link.isSpendFallback;
                         const profit = link.computedProfit ?? 0;
                         const ltvBased = link.ltvBased;
                         const roi = link.computedRoi ?? 0;
@@ -1165,7 +1193,17 @@ export default function CampaignsPage() {
                                         </span>
                                       )}
                                       {hasCost ? (
-                                        <span className="text-foreground">{fmtC(costTotal)}</span>
+                                        <span className="inline-flex items-center gap-1">
+                                          <span className="text-foreground">{fmtC(costTotal)}</span>
+                                          {isSpendFallback && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
+                                              </TooltipTrigger>
+                                              <TooltipContent>Spend is all-time — no period orders found</TooltipContent>
+                                            </Tooltip>
+                                          )}
+                                        </span>
                                       ) : (
                                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[hsl(38_92%_50%/0.15)] text-[hsl(38_92%_50%)]">
                                           No Spend
