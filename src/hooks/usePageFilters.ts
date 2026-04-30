@@ -31,7 +31,7 @@ function loadTimePeriod(): TimePeriod {
     const v = localStorage.getItem(STORAGE_KEY_TIME);
     if (v && TIME_PERIODS.some(tp => tp.key === v)) return v as TimePeriod;
   } catch {}
-  return "all";
+  return "week";
 }
 
 function loadModelFilter(): string {

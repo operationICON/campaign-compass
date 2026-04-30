@@ -45,7 +45,6 @@ import { Pencil } from "lucide-react";
 import { SourceSelector } from "@/components/SourceSelector";
 import { LinkActivityFilter, type LinkActivityFilterValue } from "@/components/LinkActivityFilter";
 import { useActiveLinkStatus, getActiveInfo } from "@/hooks/useActiveLinkStatus";
-import { usePersistedState } from "@/hooks/usePersistedState";
 import { useSnapshotDeltaMetrics, getDelta } from "@/hooks/useSnapshotDeltaMetrics";
 import { useMultiWindowRates, getWindowRates } from "@/hooks/useMultiWindowRates";
 
@@ -54,6 +53,49 @@ type SortKey = "campaign_name" | "cost_total" | "revenue" | "ltv" | "profit" | "
 type CampaignFilter = "all" | "active" | "zero" | "no_spend" | "SCALE" | "WATCH" | "KILL" | "TESTING" | "INACTIVE";
 
 const KPI_COLLAPSED_KEY = "campaigns_kpi_collapsed";
+
+// ─── Unified page preferences ─────────────────────────────────────────────────
+// All filter/sort settings for this page are stored in a single JSON object
+// under this key. Saved synchronously on every setter call so navigation away
+// mid-interaction never loses state.
+const TL_PREFS_KEY = "tracking_links_preferences";
+
+type TLPrefs = {
+  accountFilter: string;
+  activityFilter: LinkActivityFilterValue;
+  campaignFilter: CampaignFilter;
+  sourceFilter: string;
+  groupFilter: string;
+  sortKey: SortKey;
+  sortAsc: boolean;
+  perPage: number;
+};
+
+const TL_PREFS_DEFAULTS: TLPrefs = {
+  accountFilter: "all",
+  activityFilter: "all",
+  campaignFilter: "all",
+  sourceFilter: "all",
+  groupFilter: "all",
+  sortKey: "created_at",
+  sortAsc: false,
+  perPage: 25,
+};
+
+function loadTLPrefs(): TLPrefs {
+  try {
+    const raw = localStorage.getItem(TL_PREFS_KEY);
+    if (raw) return { ...TL_PREFS_DEFAULTS, ...JSON.parse(raw) };
+  } catch {}
+  return { ...TL_PREFS_DEFAULTS };
+}
+
+function saveTLPref(update: Partial<TLPrefs>): void {
+  try {
+    const current = loadTLPrefs();
+    localStorage.setItem(TL_PREFS_KEY, JSON.stringify({ ...current, ...update }));
+  } catch {}
+}
 
 // Standard column order: Tracking Link is rendered as a fixed column.
 // Order below: Created | Marketer | Clicks | Subs | Daily Subs | Subs/Day |
@@ -150,20 +192,26 @@ export default function CampaignsPage() {
   });
   useEffect(() => { try { localStorage.setItem(KPI_COLLAPSED_KEY, String(kpiCollapsed)); } catch {} }, [kpiCollapsed]);
 
-  // ─── Filter/sort state (persisted to localStorage) ───
-  const PREFS = "ct_table_prefs_tracking_links_main";
+  // ─── Filter/sort state (persisted to tracking_links_preferences) ───
   const [searchQuery, setSearchQuery] = useState("");
-  const [campaignFilter, setCampaignFilter] = usePersistedState<CampaignFilter>(`${PREFS}_campaignFilter`, "all");
-  const [activityFilter, setActivityFilter] = usePersistedState<LinkActivityFilterValue>(`${PREFS}_activityFilter`, "all");
-  const [sourceFilter, setSourceFilter] = usePersistedState<string>(`${PREFS}_sourceFilter`, "all");
-
-  const [groupFilter, setGroupFilter] = usePersistedState<string>(`${PREFS}_groupFilter`, "all");
-  const [accountFilter, setAccountFilter] = usePersistedState<string>(`${PREFS}_accountFilter`, "all");
-
-  const [sortKey, setSortKey] = usePersistedState<SortKey>(`${PREFS}_sortKey`, "created_at");
-  const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${PREFS}_sortAsc`, false);
+  const [campaignFilter, setCampaignFilterRaw] = useState<CampaignFilter>(() => loadTLPrefs().campaignFilter);
+  const [activityFilter, setActivityFilterRaw] = useState<LinkActivityFilterValue>(() => loadTLPrefs().activityFilter);
+  const [sourceFilter, setSourceFilterRaw] = useState<string>(() => loadTLPrefs().sourceFilter);
+  const [groupFilter, setGroupFilterRaw] = useState<string>(() => loadTLPrefs().groupFilter);
+  const [accountFilter, setAccountFilterRaw] = useState<string>(() => loadTLPrefs().accountFilter);
+  const [sortKey, setSortKeyRaw] = useState<SortKey>(() => loadTLPrefs().sortKey);
+  const [sortAsc, setSortAscRaw] = useState<boolean>(() => loadTLPrefs().sortAsc);
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = usePersistedState<number>(`${PREFS}_perPage`, 25);
+  const [perPage, setPerPageRaw] = useState<number>(() => loadTLPrefs().perPage);
+
+  const setCampaignFilter = useCallback((v: CampaignFilter) => { setCampaignFilterRaw(v); saveTLPref({ campaignFilter: v }); }, []);
+  const setActivityFilter = useCallback((v: LinkActivityFilterValue) => { setActivityFilterRaw(v); saveTLPref({ activityFilter: v }); }, []);
+  const setSourceFilter = useCallback((v: string) => { setSourceFilterRaw(v); saveTLPref({ sourceFilter: v }); }, []);
+  const setGroupFilter = useCallback((v: string) => { setGroupFilterRaw(v); saveTLPref({ groupFilter: v }); }, []);
+  const setAccountFilter = useCallback((v: string) => { setAccountFilterRaw(v); saveTLPref({ accountFilter: v }); }, []);
+  const setSortKey = useCallback((v: SortKey) => { setSortKeyRaw(v); saveTLPref({ sortKey: v }); }, []);
+  const setSortAsc = useCallback((v: boolean) => { setSortAscRaw(v); saveTLPref({ sortAsc: v }); }, []);
+  const setPerPage = useCallback((v: number) => { setPerPageRaw(v); saveTLPref({ perPage: v }); }, []);
 
   // ─── Selection/interaction state ───
   const [csvOpen, setCsvOpen] = useState(false);
