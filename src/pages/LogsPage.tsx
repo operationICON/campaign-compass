@@ -704,11 +704,11 @@ export default function LogsPage() {
               </div>
             </div>
             <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-muted-foreground mb-1 font-medium">Full Daily Sync</div>
-              <div className="font-bold text-foreground">Daily at 02:00 UTC</div>
-              <div className="text-muted-foreground mt-1">Rev Breakdown → Snapshots → Fans</div>
+              <div className="text-muted-foreground mb-1 font-medium">Snapshot Sync</div>
+              <div className="font-bold text-foreground">Daily at 03:00 UTC</div>
+              <div className="text-muted-foreground mt-1">Yesterday + today subscriber data</div>
               <div className="mt-2 text-primary font-medium">
-                Next: {formatDistanceToNow(nextUtcHour(2), { addSuffix: true })}
+                Next: {formatDistanceToNow(nextUtcHour(3), { addSuffix: true })}
               </div>
             </div>
             <div className="bg-muted/30 rounded-lg p-3">
