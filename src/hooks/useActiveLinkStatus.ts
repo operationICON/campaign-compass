@@ -40,11 +40,11 @@ export function useActiveLinkStatus(accountId?: string | null) {
       byLink[id].clicks += Number(r.clicks || 0);
     }
 
-    // Active = any subs OR any clicks recorded in the 5-day window
+    // Active = at least 1 subscriber in the window (clicks alone don't count)
     for (const id of Object.keys(byLink)) {
-      const { subs, clicks } = byLink[id];
+      const { subs } = byLink[id];
       const spd = subs / WINDOW_DAYS;
-      map.set(id, { subsPerDay: spd, isActive: subs > 0 || clicks > 0 });
+      map.set(id, { subsPerDay: spd, isActive: subs > 0 });
     }
 
     return map;

@@ -309,9 +309,8 @@ export default function CampaignsPage() {
   const enrichedLinks = useMemo(() => {
     return links.map((l: any) => {
       const daysSinceCreated = differenceInDays(new Date(), new Date(l.created_at));
-      const calcDate = l.calculated_at ? new Date(l.calculated_at) : null;
-      const daysSinceActivity = calcDate ? differenceInDays(new Date(), calcDate) : 999;
-      const isNaturallyActive = (l.clicks > 0 || Number(l.revenue) > 0) && daysSinceActivity <= 30;
+      // Active = at least 1 subscriber in the last 5 days (snapshot-based, same as activity toggle)
+      const isNaturallyActive = activeLookup.get(String(l.id).toLowerCase())?.isActive ?? false;
       const hasOverride = manualOverrides[l.id] !== undefined;
       const isActive = hasOverride ? manualOverrides[l.id] : isNaturallyActive;
       // Delta-based subs/day from daily_metrics snapshots
@@ -376,9 +375,9 @@ export default function CampaignsPage() {
       } else {
         computedStatus = calcStatus(l);
       }
-      return { ...l, isActive, daysSinceActivity, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord, newSubsTotal, ltvPerSubFromRecord };
+      return { ...l, isActive, subsDay, subsDayLabel, daysSinceCreated, profitPerSub, ltvBased, computedProfit, computedRoi, profitIsEstimate, roiIsEstimate, computedStatus, ltvFromTable, crossPollRevenue, ltvRecord, hasLtvRecord, newSubsTotal, ltvPerSubFromRecord };
     });
-  }, [links, manualOverrides, dailyMetrics, ltvLookup]);
+  }, [links, manualOverrides, dailyMetrics, ltvLookup, activeLookup]);
 
   // ─── Source filter options ───
   const sourceOptions = useMemo(() => {
