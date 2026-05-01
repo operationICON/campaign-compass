@@ -30,6 +30,8 @@ router.post("/", async (c) => {
   (async () => {
     let accountsSynced = 0, totalLinksSynced = 0, totalApiCalls = 0;
     const errors: string[] = [];
+    type OrchestratorAccountResult = { account: string; status: string; links: number; api_calls: number; note?: string };
+    const accountResults: OrchestratorAccountResult[] = [];
 
     try {
       await send({ step: "cleanup", message: "Cleaning up stuck syncs..." });
@@ -101,15 +103,20 @@ router.post("/", async (c) => {
               if (res.ok) {
                 const result = await res.json() as any;
                 accountsSynced++;
-                totalLinksSynced += result.links ?? 0;
-                totalApiCalls += result.api_calls ?? 0;
+                const links = result.links ?? 0;
+                const calls = result.api_calls ?? 0;
+                totalLinksSynced += links;
+                totalApiCalls += calls;
+                accountResults.push({ account: account.display_name ?? account.id, status: "ok", links, api_calls: calls });
                 return;
               }
               if (attempt === 0) continue;
               errors.push(`${account.display_name}: HTTP ${res.status}`);
+              accountResults.push({ account: account.display_name ?? account.id, status: "error", links: 0, api_calls: 0, note: `HTTP ${res.status}` });
             } catch (err: any) {
               if (attempt === 0) continue;
               errors.push(`${account.display_name}: ${err.message}`);
+              accountResults.push({ account: account.display_name ?? account.id, status: "error", links: 0, api_calls: 0, note: err.message });
             }
           }
         }));
@@ -119,7 +126,7 @@ router.post("/", async (c) => {
 
       const now = new Date();
       const hasErrors = errors.length > 0;
-      if (orchLogId) await db.update(sync_logs).set({ status: hasErrors ? "partial" : "success", success: !hasErrors, finished_at: now, completed_at: now, accounts_synced: accountsSynced, tracking_links_synced: totalLinksSynced, records_processed: totalLinksSynced, message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts, ${totalLinksSynced} links`, error_message: hasErrors ? errors.join("; ") : null, details: { api_calls: totalApiCalls } }).where(eq(sync_logs.id, orchLogId));
+      if (orchLogId) await db.update(sync_logs).set({ status: hasErrors ? "partial" : "success", success: !hasErrors, finished_at: now, completed_at: now, accounts_synced: accountsSynced, tracking_links_synced: totalLinksSynced, records_processed: totalLinksSynced, message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts, ${totalLinksSynced} links`, error_message: hasErrors ? errors.join("; ") : null, details: { api_calls: totalApiCalls, account_results: accountResults } }).where(eq(sync_logs.id, orchLogId));
 
       await send({ step: "done", message: `Synced ${accountsSynced}/${enabledAccounts.length} accounts`, accounts_synced: accountsSynced, tracking_links_synced: totalLinksSynced, api_calls: totalApiCalls, errors: errors.length > 0 ? errors : undefined });
     } catch (err: any) {

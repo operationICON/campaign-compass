@@ -86,6 +86,8 @@ router.post("/", async (c) => {
     let totalApiCalls = 0;
     let accountsUpdated = 0;
     const errors: string[] = [];
+    type AccountRevResult = { account: string; status: string; transactions: number; api_calls: number; note?: string };
+    const accountResults: AccountRevResult[] = [];
 
     try {
       const accountList = await db
@@ -196,6 +198,7 @@ router.post("/", async (c) => {
           }).where(eq(accounts.id, account.id));
 
           accountsUpdated++;
+          accountResults.push({ account: account.display_name ?? account.id, status: "ok", transactions: txList.length, api_calls: apiCalls, note: `$${ltvTotal.toFixed(2)}` });
 
           // Mark this account's log as success
           if (accountLogId) {
@@ -209,6 +212,7 @@ router.post("/", async (c) => {
 
           await send({ step: "account_done", message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)}` });
         } catch (err: any) {
+          accountResults.push({ account: account.display_name ?? account.id, status: "error", transactions: 0, api_calls: 0, note: err.message });
           errors.push(`${account.display_name}: ${err.message}`);
           await send({ step: "account_error", message: `${account.display_name}: ${err.message}` });
           if (accountLogId) {
@@ -232,7 +236,7 @@ router.post("/", async (c) => {
           accounts_synced: accountsUpdated,
           message: `${accountsUpdated} accounts · ${totalTx} transactions synced`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
-          details: { api_calls: totalApiCalls },
+          details: { api_calls: totalApiCalls, account_results: accountResults },
         }).where(eq(sync_logs.id, parentLogId));
       }
 

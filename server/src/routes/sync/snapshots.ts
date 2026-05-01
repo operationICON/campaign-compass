@@ -42,6 +42,8 @@ router.post("/", async (c) => {
 
   (async () => {
     let totalSaved = 0, totalErrors = 0, apiCalls = 0;
+    type AccountSnapshotResult = { account: string; links: number; snapshots: number; api_calls: number; errors: number };
+    const accountResults: AccountSnapshotResult[] = [];
     try {
       await send({ step: "start", message: `Syncing snapshots ${DATE_START} → ${DATE_END}...` });
 
@@ -73,12 +75,15 @@ router.post("/", async (c) => {
           offset += 100;
         }
 
+        let acctSaved = 0, acctErrors = 0, acctCalls = 0;
+
         for (const link of links) {
           try {
             const statsUrl = `${API_BASE}/${acct.onlyfans_account_id}/tracking-links/${link.external_tracking_link_id}/stats?date_start=${DATE_START}&date_end=${DATE_END}`;
             const res = await fetch(statsUrl, { headers: { Authorization: `Bearer ${apiKey}` } });
             apiCalls++;
-            if (!res.ok) { totalErrors++; await sleep(DELAY_MS); continue; }
+            acctCalls++;
+            if (!res.ok) { totalErrors++; acctErrors++; await sleep(DELAY_MS); continue; }
 
             const json = await res.json() as any;
             const daily: any[] = json?.data?.daily_metrics ?? [];
@@ -113,13 +118,15 @@ router.post("/", async (c) => {
                 },
               });
               totalSaved += rows.length;
+              acctSaved += rows.length;
             }
-          } catch { totalErrors++; }
+          } catch { totalErrors++; acctErrors++; }
           await sleep(DELAY_MS);
         }
 
+        accountResults.push({ account: acct.display_name ?? acct.id, links: links.length, snapshots: acctSaved, api_calls: acctCalls, errors: acctErrors });
         if (syncLogId) {
-          await db.update(sync_logs).set({ records_processed: totalSaved, message: `${acct.display_name} done — ${totalSaved} rows saved` }).where(eq(sync_logs.id, syncLogId));
+          await db.update(sync_logs).set({ records_processed: totalSaved, message: `${acct.display_name} done — ${acctSaved} rows from ${links.length} links` }).where(eq(sync_logs.id, syncLogId));
         }
       }
 
@@ -132,6 +139,7 @@ router.post("/", async (c) => {
           records_processed: totalSaved,
           message: `${totalSaved} snapshots saved (${DATE_START}→${DATE_END}), ${apiCalls} API calls`,
           error_message: totalErrors > 0 ? `${totalErrors} errors` : null,
+          details: { api_calls: apiCalls, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
       }
       await send({ step: "done", message: `${totalSaved} snapshots saved`, snapshots_saved: totalSaved, api_calls: apiCalls, errors: totalErrors });

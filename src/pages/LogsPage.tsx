@@ -1036,44 +1036,67 @@ export default function LogsPage() {
                           </div>
                         </div>
                       )}
-                      {details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (
-                        <div>
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">Per-Account Results</p>
-                          <div className="rounded border border-border overflow-hidden">
-                            <table className="w-full text-[11px]">
-                              <thead>
-                                <tr className="bg-muted/40 border-b border-border">
-                                  <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Account</th>
-                                  <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Status</th>
-                                  <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">Fans</th>
-                                  <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">Pages</th>
-                                  <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Note</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(details.account_results as any[]).map((r: any, i: number) => (
-                                  <tr key={i} className="border-b border-border/40 last:border-0">
-                                    <td className="px-2 py-1.5 font-medium">{r.account}</td>
-                                    <td className="px-2 py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                        r.status === "ok" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                                        : r.status === "auth_error" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                                        : r.status === "skipped" ? "bg-muted text-muted-foreground"
-                                        : "bg-destructive/15 text-destructive"
-                                      }`}>
-                                        {r.status === "ok" ? "OK" : r.status === "auth_error" ? "AUTH ERR" : r.status === "skipped" ? "SKIP" : "ERR"}
-                                      </span>
-                                    </td>
-                                    <td className="px-2 py-1.5 text-right tabular-nums">{r.fans ?? "—"}</td>
-                                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{r.pages ?? "—"}</td>
-                                    <td className="px-2 py-1.5 text-muted-foreground truncate max-w-48">{r.note ?? ""}</td>
+                      {details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
+                        const rows = details.account_results as any[];
+                        // Derive numeric/string columns dynamically from the first row (exclude account, status, note)
+                        const sample = rows[0] ?? {};
+                        const dataCols = Object.keys(sample).filter(k => k !== "account" && k !== "status" && k !== "note");
+                        const hasNote = rows.some((r: any) => r.note != null && r.note !== "");
+                        const hasStatus = rows.some((r: any) => r.status != null);
+                        const LABELS: Record<string, string> = {
+                          fans: "Fans", pages: "Pages", attributed: "Attributed", api_calls: "API Calls",
+                          links: "Links", snapshots: "Snapshots", errors: "Errors",
+                          transactions: "Transactions", mode: "Mode",
+                        };
+                        return (
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">Per-Account Results</p>
+                            <div className="rounded border border-border overflow-hidden">
+                              <table className="w-full text-[11px]">
+                                <thead>
+                                  <tr className="bg-muted/40 border-b border-border">
+                                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Account</th>
+                                    {hasStatus && <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Status</th>}
+                                    {dataCols.map(k => (
+                                      <th key={k} className="text-right px-2 py-1.5 font-medium text-muted-foreground">{LABELS[k] ?? k}</th>
+                                    ))}
+                                    {hasNote && <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Note</th>}
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {rows.map((r: any, i: number) => (
+                                    <tr key={i} className="border-b border-border/40 last:border-0 hover:bg-muted/20">
+                                      <td className="px-2 py-1.5 font-medium text-foreground">{r.account}</td>
+                                      {hasStatus && (
+                                        <td className="px-2 py-1.5 text-center">
+                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                            r.status === "ok" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                            : r.status === "auth_error" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                            : r.status === "skipped" ? "bg-muted text-muted-foreground"
+                                            : "bg-destructive/15 text-destructive"
+                                          }`}>
+                                            {r.status === "ok" ? "OK" : r.status === "auth_error" ? "AUTH" : r.status === "skipped" ? "SKIP" : "ERR"}
+                                          </span>
+                                        </td>
+                                      )}
+                                      {dataCols.map(k => (
+                                        <td key={k} className="px-2 py-1.5 text-right tabular-nums font-mono text-foreground">
+                                          {r[k] != null
+                                            ? (typeof r[k] === "number"
+                                                ? r[k].toLocaleString()
+                                                : String(r[k]))
+                                            : <span className="text-muted-foreground">—</span>}
+                                        </td>
+                                      ))}
+                                      {hasNote && <td className="px-2 py-1.5 text-muted-foreground truncate max-w-48">{r.note ?? ""}</td>}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                       {details && typeof details === "object" && !details.probe_results && !details.account_results && (
                         <div>
                           <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Details</p>

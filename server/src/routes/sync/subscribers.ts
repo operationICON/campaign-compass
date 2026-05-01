@@ -112,6 +112,8 @@ router.post("/", async (c) => {
     const errors: string[] = [];
     let totalAttributed = 0;
     let totalApiCalls = 0;
+    type AccountResult = { account: string; status: string; attributed: number; api_calls: number; mode: string; note?: string };
+    const accountResults: AccountResult[] = [];
 
     try {
       // Build external_tracking_link_id → UUID lookup for fast mapping
@@ -156,6 +158,8 @@ router.post("/", async (c) => {
         let apiCalls = 0;
         let accountAttributed = 0;
         let newestDate: string | null = null;
+        let accountStatus = "ok";
+        let accountNote: string | undefined;
 
         while (url && apiCalls < 2000) {
           apiCalls++;
@@ -171,10 +175,14 @@ router.post("/", async (c) => {
             continue;
           }
           if (res.status === 401 || res.status === 403) {
+            accountStatus = "auth_error";
+            accountNote = `HTTP ${res.status}`;
             errors.push(`${account.display_name}: HTTP ${res.status} (auth)`);
             break;
           }
           if (!res.ok) {
+            accountStatus = "error";
+            accountNote = `HTTP ${res.status}`;
             errors.push(`${account.display_name}: HTTP ${res.status}`);
             break;
           }
@@ -239,7 +247,8 @@ router.post("/", async (c) => {
         `);
 
         totalAttributed += accountAttributed;
-        await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans with tracking links (${apiCalls} API calls)` });
+        accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: apiCalls, mode, note: accountNote });
+        await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed (${apiCalls} API calls, ${mode})` });
       }
 
       await send({ step: "crosspoll", message: "Updating cross-poll revenue data..." });
@@ -254,7 +263,7 @@ router.post("/", async (c) => {
           records_processed: totalAttributed,
           message: `${totalAttributed} fans attributed via subscriber endpoint (${totalApiCalls} API calls, ${forceFull ? "full" : "incremental"}), ${ltvUpdated} cross-poll links updated${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
-          details: { attributed: totalAttributed, api_calls: totalApiCalls, ltv_links: ltvUpdated, force_full: forceFull },
+          details: { attributed: totalAttributed, api_calls: totalApiCalls, ltv_links: ltvUpdated, force_full: forceFull, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
       }
 
