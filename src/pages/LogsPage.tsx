@@ -177,15 +177,16 @@ export default function LogsPage() {
     effectiveStatus: getEffectiveStatus(log),
   })), [logs]);
 
-  // Dashboard per-account child logs (account_id set, syncType=dashboard) are noise.
-  // They're surfaced inside the parent orchestrator row's expand panel via account_results.
-  const isDashboardChild = (log: any) => log.syncType === "dashboard" && !!log.account_id;
+  // Per-account child logs (account_id set) spawned by grouped sync types.
+  // They're surfaced inside the parent row's expand panel — not as top-level table rows.
+  const GROUPED_TYPES = new Set<SyncType>(["dashboard", "revenue_breakdown"]);
+  const isChildLog = (log: any) => !!log.account_id && GROUPED_TYPES.has(log.syncType as SyncType);
 
-  // Build status cards from last log per type — skip dashboard children
+  // Build status cards from last log per type — skip child logs
   const statusCards = useMemo(() => {
     const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null, revenue_breakdown: null, fans: null, subscribers: null };
     for (const log of classifiedLogs) {
-      if (isDashboardChild(log)) continue;
+      if (isChildLog(log)) continue;
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
     }
@@ -200,7 +201,7 @@ export default function LogsPage() {
       onlytraffic: zero(), ot_snapshot: zero(), crosspoll: zero(), revenue_breakdown: zero(), fans: zero(), subscribers: zero(),
     };
     for (const log of classifiedLogs) {
-      if (isDashboardChild(log)) continue;
+      if (isChildLog(log)) continue;
       if (log.effectiveStatus !== "success" && log.effectiveStatus !== "partial") continue;
       const t = totals[log.syncType as SyncType];
       t.runs++;
@@ -216,7 +217,7 @@ export default function LogsPage() {
   const totalCredits = useMemo(() => {
     const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0, fans: 0, subscribers: 0 };
     for (const log of classifiedLogs) {
-      if (isDashboardChild(log)) continue;
+      if (isChildLog(log)) continue;
       const calls = log.details?.api_calls ?? 0;
       if (calls > 0) totals[log.syncType as SyncType] += calls;
     }
@@ -226,7 +227,7 @@ export default function LogsPage() {
   // Filter logs — hide per-account dashboard children from the history table
   const filteredLogs = useMemo(() => {
     return classifiedLogs.filter((log: any) => {
-      if (isDashboardChild(log)) return false;
+      if (isChildLog(log)) return false;
       if (statusFilter !== "all" && log.effectiveStatus !== statusFilter) return false;
       if (typeFilter !== "all" && log.syncType !== typeFilter) return false;
       return true;
@@ -870,7 +871,9 @@ export default function LogsPage() {
                             ? Math.round(Math.min(Date.now() - new Date(log.started_at).getTime(), 10 * 60 * 1000) / 1000)
                             : null;
                         const isExpanded = expandedLogId === log.id;
-                        const displayMessage = log.error_message || log.message || "";
+                        const rawMessage = log.error_message || log.message || "";
+                        const displayMessage = rawMessage.length > 80 ? rawMessage.slice(0, 80) + "…" : rawMessage;
+                        const isGroupedParent = GROUPED_TYPES.has(syncType) && !log.account_id;
 
                         return (
                           <tr
@@ -890,14 +893,16 @@ export default function LogsPage() {
                               </span>
                             </td>
                             <td className="py-2.5 px-4 text-foreground">
-                              {log.account_display_name || "—"}
+                              {isGroupedParent
+                                ? <span className="text-[10px] text-muted-foreground italic">All accounts</span>
+                                : (log.account_display_name || "—")}
                             </td>
                             <td className="py-2.5 px-4 text-right font-mono text-foreground">
-                              {log.records_processed ?? 0}
+                              {(log.records_processed ?? 0).toLocaleString()}
                             </td>
                             <td className="py-2.5 px-4 text-right font-mono">
                               {(log.details?.api_calls ?? 0) > 0
-                                ? <span className="text-primary font-bold">{log.details.api_calls}</span>
+                                ? <span className="text-primary font-bold">{Number(log.details.api_calls).toLocaleString()}</span>
                                 : <span className="text-muted-foreground">—</span>}
                             </td>
                             <td className="py-2.5 px-4 text-right font-mono text-muted-foreground">
@@ -917,11 +922,11 @@ export default function LogsPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-4 text-muted-foreground max-w-[250px] truncate">
+                            <td className="py-2.5 px-4 text-muted-foreground max-w-[220px]" title={rawMessage || undefined}>
                               {status === "error" ? (
-                                <span className="text-destructive">{displayMessage || "Unknown error"}</span>
+                                <span className="text-destructive truncate block">{displayMessage || "Unknown error"}</span>
                               ) : (
-                                displayMessage || "—"
+                                <span className="truncate block">{displayMessage || "—"}</span>
                               )}
                             </td>
                             <td className="py-2.5 px-2" onClick={e => e.stopPropagation()}>
@@ -947,25 +952,48 @@ export default function LogsPage() {
                   const log = syncPageLogs.find((l: any) => l.id === expandedLogId);
                   if (!log) return null;
                   const details = log.details;
+                  const syncT = log.syncType as SyncType;
+                  const isGroupedParent = GROUPED_TYPES.has(syncT) && !log.account_id;
+
+                  // For grouped types, pull child logs from the full classified set (within 2 min)
+                  const TWO_MIN_MS = 2 * 60 * 1000;
+                  const parentTime = new Date(log.started_at).getTime();
+                  const childLogs = isGroupedParent
+                    ? classifiedLogs
+                        .filter((l: any) =>
+                          isChildLog(l) &&
+                          l.syncType === syncT &&
+                          Math.abs(new Date(l.started_at).getTime() - parentTime) < TWO_MIN_MS
+                        )
+                        .sort((a: any, b: any) =>
+                          (a.account_display_name ?? "").localeCompare(b.account_display_name ?? "")
+                        )
+                    : [];
+
+                  const avatarMap = new Map<string, string | null>(
+                    (accounts as any[]).map((a: any) => [a.display_name, a.avatar_thumb_url ?? null])
+                  );
+
                   return (
-                    <div className="border-t border-border bg-secondary/20 p-4 space-y-2">
+                    <div className="border-t border-border bg-secondary/20 p-4 space-y-3">
+                      {/* ── Summary stats ── */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                         {log.accounts_synced != null && (
                           <div>
                             <p className="text-muted-foreground">Accounts synced</p>
-                            <p className="font-mono font-bold text-foreground">{log.accounts_synced}</p>
+                            <p className="font-mono font-bold text-foreground">{Number(log.accounts_synced).toLocaleString()}</p>
                           </div>
                         )}
                         {log.tracking_links_synced != null && (
                           <div>
                             <p className="text-muted-foreground">Links synced</p>
-                            <p className="font-mono font-bold text-foreground">{log.tracking_links_synced}</p>
+                            <p className="font-mono font-bold text-foreground">{Number(log.tracking_links_synced).toLocaleString()}</p>
                           </div>
                         )}
                         {(log.details?.api_calls ?? 0) > 0 && (
                           <div>
                             <p className="flex items-center gap-1 text-muted-foreground"><Zap className="h-3 w-3" />Credits used</p>
-                            <p className="font-mono font-bold text-primary">{log.details.api_calls}</p>
+                            <p className="font-mono font-bold text-primary">{Number(log.details.api_calls).toLocaleString()}</p>
                           </div>
                         )}
                         <div>
@@ -979,12 +1007,15 @@ export default function LogsPage() {
                           </div>
                         )}
                       </div>
+
                       {log.error_message && (
                         <div>
                           <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Error</p>
                           <p className="text-xs text-destructive">{log.error_message}</p>
                         </div>
                       )}
+
+                      {/* ── API probe results ── */}
                       {details?.probe_results && Array.isArray(details.probe_results) && details.probe_results.length > 0 && (
                         <div>
                           <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">API Probe Results</p>
@@ -996,23 +1027,83 @@ export default function LogsPage() {
                                 </span>
                                 <span className="text-muted-foreground shrink-0">{r.account}</span>
                                 <span className="text-foreground font-mono shrink-0">/{r.endpoint}</span>
-                                {r.working && r.item_keys && (
-                                  <span className="text-primary truncate">fields: {r.item_keys}</span>
-                                )}
-                                {!r.working && r.raw && (
-                                  <span className="text-muted-foreground truncate">{r.raw}</span>
-                                )}
+                                {r.working && r.item_keys && <span className="text-primary truncate">fields: {r.item_keys}</span>}
+                                {!r.working && r.raw && <span className="text-muted-foreground truncate">{r.raw}</span>}
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
-                      {details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
+
+                      {/* ── Per-account rows: GROUPED TYPES (dashboard, rev breakdown) — from child logs ── */}
+                      {isGroupedParent && childLogs.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">
+                            Per-Account Results <span className="font-normal normal-case text-muted-foreground">({childLogs.length})</span>
+                          </p>
+                          <div className="rounded border border-border overflow-hidden">
+                            {childLogs.map((child: any, i: number) => {
+                              const childEnd = child.completed_at || child.finished_at;
+                              const dur = childEnd
+                                ? Math.round((new Date(childEnd).getTime() - new Date(child.started_at).getTime()) / 1000)
+                                : null;
+                              const childStatus = child.effectiveStatus;
+                              const name = child.account_display_name ?? "—";
+                              const avatarUrl = avatarMap.get(name) ?? null;
+                              const stat = (child.records_processed ?? 0) > 0 ? Number(child.records_processed) : null;
+                              const credits = child.details?.api_calls ?? 0;
+                              const err = child.error_message;
+                              const statLabel = syncT === "dashboard" ? "links" : "txns";
+
+                              const StatusIcon = childStatus === "success" ? CheckCircle
+                                : childStatus === "error" ? XCircle
+                                : childStatus === "partial" ? AlertCircle
+                                : childStatus === "running" ? Loader2
+                                : Clock;
+                              const iconCls = childStatus === "success" ? "text-emerald-500"
+                                : childStatus === "error" ? "text-destructive"
+                                : childStatus === "partial" ? "text-amber-500"
+                                : "text-muted-foreground";
+
+                              return (
+                                <div
+                                  key={child.id}
+                                  className={`flex items-center gap-2.5 px-3 py-2 border-b border-border/40 last:border-b-0 ${i % 2 === 1 ? "bg-muted/20" : ""}`}
+                                >
+                                  <StatusIcon className={`h-3.5 w-3.5 shrink-0 ${iconCls}${childStatus === "running" ? " animate-spin" : ""}`} />
+                                  {avatarUrl
+                                    ? <img src={avatarUrl} alt={name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                    : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{name.charAt(0).toUpperCase()}</div>
+                                  }
+                                  <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={name}>{name}</span>
+                                  <div className="flex items-center gap-3 min-w-0 text-[10px]">
+                                    {stat != null && (
+                                      <span className="text-muted-foreground">
+                                        <span className="font-mono font-semibold text-foreground">{stat.toLocaleString()}</span> {statLabel}
+                                      </span>
+                                    )}
+                                    {credits > 0 && (
+                                      <span className="text-muted-foreground">
+                                        <span className="font-mono font-semibold text-foreground">{Number(credits).toLocaleString()}</span> credits
+                                      </span>
+                                    )}
+                                    {dur != null && <span className="font-mono text-muted-foreground">{dur}s</span>}
+                                    {err && childStatus === "error" && (
+                                      <span className="text-destructive truncate max-w-[220px]" title={err}>
+                                        {err.length > 80 ? err.slice(0, 80) + "…" : err}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Fallback: account_results for grouped parents with no child logs found (old data) */}
+                      {isGroupedParent && childLogs.length === 0 && details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
                         const rows = details.account_results as any[];
-                        const syncT = log.syncType as SyncType;
-                        const avatarMap = new Map<string, string | null>(
-                          (accounts as any[]).map((a: any) => [a.display_name, a.avatar_thumb_url ?? null])
-                        );
                         const borderCls = (status: string | undefined) => {
                           if (status === "ok" || status === "success") return "border-l-emerald-500";
                           if (status === "error") return "border-l-destructive";
@@ -1021,38 +1112,61 @@ export default function LogsPage() {
                         };
                         return (
                           <div>
-                            <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">Per-Account Results</p>
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">Per-Account Results <span className="font-normal normal-case">({rows.length})</span></p>
+                            <div className="rounded border border-border overflow-hidden">
+                              {rows.map((r: any, i: number) => {
+                                const avatarUrl = avatarMap.get(r.account) ?? null;
+                                const noteText: string | null = typeof r.note === "string" ? r.note : null;
+                                const noteIsRevenue = noteText?.startsWith("$") ?? false;
+                                const isErrStatus = r.status === "error" || r.status === "auth_error";
+                                const truncNote = noteText && noteText.length > 80 ? noteText.slice(0, 80) + "…" : noteText;
+                                return (
+                                  <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r.status)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                                    {avatarUrl ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>}
+                                    <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={r.account}>{r.account}</span>
+                                    <div className="flex items-center gap-3 text-[10px]">
+                                      {syncT === "dashboard" && r.links != null && <span><span className="text-muted-foreground">Links </span><span className="font-mono font-semibold">{Number(r.links).toLocaleString()}</span></span>}
+                                      {syncT === "revenue_breakdown" && r.transactions != null && <span><span className="text-muted-foreground">Txns </span><span className="font-mono font-semibold">{Number(r.transactions).toLocaleString()}</span></span>}
+                                      {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold">{Number(r.api_calls).toLocaleString()}</span></span>}
+                                      {truncNote && <span className={`truncate max-w-[200px] ${noteIsRevenue ? "text-emerald-600 dark:text-emerald-400 font-semibold" : isErrStatus ? "text-destructive" : "text-muted-foreground"}`} title={noteText ?? ""}>{truncNote}</span>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Per-account rows: NON-GROUPED TYPES — from account_results ── */}
+                      {!isGroupedParent && details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
+                        const rows = details.account_results as any[];
+                        const borderCls = (status: string | undefined) => {
+                          if (status === "ok" || status === "success") return "border-l-emerald-500";
+                          if (status === "error") return "border-l-destructive";
+                          if (status === "auth_error" || status === "partial") return "border-l-amber-500";
+                          return "border-l-border";
+                        };
+                        return (
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">Per-Account Results <span className="font-normal normal-case">({rows.length})</span></p>
                             <div className="rounded border border-border overflow-hidden">
                               {rows.map((r: any, i: number) => {
                                 const avatarUrl = avatarMap.get(r.account) ?? null;
                                 const isErrStatus = r.status === "error" || r.status === "auth_error";
                                 const noteText: string | null = typeof r.note === "string" ? r.note : null;
                                 const noteIsRevenue = noteText?.startsWith("$") ?? false;
-                                const truncNote = noteText && noteText.length > 120 ? noteText.slice(0, 120) + "…" : noteText;
+                                const truncNote = noteText && noteText.length > 80 ? noteText.slice(0, 80) + "…" : noteText;
                                 return (
-                                  <div
-                                    key={i}
-                                    className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r.status)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}
-                                  >
-                                    {avatarUrl
-                                      ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                                      : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>
-                                    }
+                                  <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r.status)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                                    {avatarUrl ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>}
                                     <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={r.account}>{r.account}</span>
                                     <div className="flex items-center gap-3 flex-wrap min-w-0 text-[10px]">
-                                      {syncT === "dashboard" && <>
-                                        {r.links != null && <span><span className="text-muted-foreground">Links </span><span className="font-mono font-semibold tabular-nums">{Number(r.links).toLocaleString()}</span></span>}
-                                        {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
-                                      </>}
                                       {syncT === "snapshot" && <>
                                         {r.links != null && <span><span className="text-muted-foreground">Links </span><span className="font-mono font-semibold tabular-nums">{Number(r.links).toLocaleString()}</span></span>}
                                         {r.snapshots != null && <span><span className="text-muted-foreground">Snapshots </span><span className="font-mono font-semibold tabular-nums">{Number(r.snapshots).toLocaleString()}</span></span>}
                                         {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
                                         {r.errors != null && r.errors > 0 && <span><span className="text-muted-foreground">Errors </span><span className="font-mono font-semibold tabular-nums text-destructive">{Number(r.errors).toLocaleString()}</span></span>}
-                                      </>}
-                                      {syncT === "revenue_breakdown" && <>
-                                        {r.transactions != null && <span><span className="text-muted-foreground">Txns </span><span className="font-mono font-semibold tabular-nums">{Number(r.transactions).toLocaleString()}</span></span>}
-                                        {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
                                       </>}
                                       {syncT === "fans" && <>
                                         {r.fans != null && <span><span className="text-muted-foreground">Fans </span><span className="font-mono font-semibold tabular-nums">{Number(r.fans).toLocaleString()}</span></span>}
@@ -1079,7 +1193,9 @@ export default function LogsPage() {
                           </div>
                         );
                       })()}
-                      {details && typeof details === "object" && !details.probe_results && !details.account_results && (
+
+                      {/* ── Raw details fallback ── */}
+                      {details && typeof details === "object" && !details.probe_results && !details.account_results && !isGroupedParent && (
                         <div>
                           <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Details</p>
                           <pre className="text-[11px] text-muted-foreground bg-secondary/50 p-2 rounded overflow-x-auto max-h-40">
