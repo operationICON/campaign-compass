@@ -33,6 +33,7 @@ import syncOnlytrafficRouter from "./routes/sync/onlytraffic.js";
 import syncCrosspollRouter from "./routes/sync/crosspoll.js";
 import syncFansRouter from "./routes/sync/fans.js";
 import syncRevenueBreakdownRouter from "./routes/sync/revenue-breakdown.js";
+import syncSubscribersRouter from "./routes/sync/subscribers.js";
 import syncCancelRouter from "./routes/sync/cancel.js";
 import authRouter from "./routes/auth.js";
 import { startScheduler } from "./scheduler.js";
@@ -99,6 +100,7 @@ app.route("/sync/onlytraffic", syncOnlytrafficRouter);
 app.route("/sync/crosspoll", syncCrosspollRouter);
 app.route("/sync/fans", syncFansRouter);
 app.route("/sync/revenue-breakdown", syncRevenueBreakdownRouter);
+app.route("/sync/subscribers", syncSubscribersRouter);
 app.route("/sync/cancel", syncCancelRouter);
 
 const port = Number(process.env.PORT ?? 3000);

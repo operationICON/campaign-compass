@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const PAGE_SIZE = 25;
 
-type SyncType = "dashboard" | "snapshot" | "snapshot_backfill" | "ltv" | "onlytraffic" | "ot_snapshot" | "crosspoll" | "revenue_breakdown" | "fans";
+type SyncType = "dashboard" | "snapshot" | "snapshot_backfill" | "ltv" | "onlytraffic" | "ot_snapshot" | "crosspoll" | "revenue_breakdown" | "fans" | "subscribers";
 
 const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; badge: string }> = {
   dashboard:         { bg: "bg-blue-500/10",    text: "text-blue-600 dark:text-blue-400",      border: "border-blue-500/30",   badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
@@ -32,6 +32,7 @@ const SYNC_COLORS: Record<SyncType, { bg: string; text: string; border: string; 
   crosspoll:         { bg: "bg-pink-500/10",     text: "text-pink-600 dark:text-pink-400",       border: "border-pink-500/30",    badge: "bg-pink-500/15 text-pink-700 dark:text-pink-300" },
   revenue_breakdown: { bg: "bg-green-500/10",    text: "text-green-600 dark:text-green-400",     border: "border-green-500/30",   badge: "bg-green-500/15 text-green-700 dark:text-green-300" },
   fans:              { bg: "bg-rose-500/10",      text: "text-rose-600 dark:text-rose-400",       border: "border-rose-500/30",    badge: "bg-rose-500/15 text-rose-700 dark:text-rose-300" },
+  subscribers:       { bg: "bg-violet-500/10",    text: "text-violet-600 dark:text-violet-400",   border: "border-violet-500/30",  badge: "bg-violet-500/15 text-violet-700 dark:text-violet-300" },
 };
 
 const SYNC_LABELS: Record<SyncType, string> = {
@@ -44,6 +45,7 @@ const SYNC_LABELS: Record<SyncType, string> = {
   crosspoll: "Cross-Poll",
   revenue_breakdown: "Rev Breakdown",
   fans: "Fans",
+  subscribers: "Sub Attribution",
 };
 
 const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
@@ -56,6 +58,7 @@ const SYNC_ICONS: Record<SyncType, typeof BarChart3> = {
   crosspoll: GitMerge,
   revenue_breakdown: BarChart3,
   fans: Users,
+  subscribers: GitMerge,
 };
 
 function isAutoTriggered(log: any): boolean {
@@ -85,6 +88,7 @@ function classifySyncType(log: any): SyncType {
   const triggered = (log.triggered_by || "").toLowerCase();
   if (triggered.includes("ot_snapshot") || triggered.includes("onlytraffic_snapshot") || msg.includes("ot snapshot") || details.includes("ot_snapshot")) return "ot_snapshot";
   if (triggered.includes("revenue_breakdown") || msg.includes("revenue breakdown")) return "revenue_breakdown";
+  if (triggered.includes("subscriber_sync")) return "subscribers";
   if (triggered.includes("fan_sync") || triggered.includes("fan_bootstrap")) return "fans";
   if (triggered.includes("ltv") || msg.includes("ltv")) return "ltv";
   if (triggered.includes("crosspoll") || msg.includes("cross-poll") || msg.includes("crosspoll")) return "crosspoll";
@@ -152,8 +156,8 @@ export default function LogsPage() {
   
 
   // Running state per sync type
-  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, snapshot_backfill: false, ltv: false, onlytraffic: false, ot_snapshot: false, crosspoll: false, revenue_breakdown: false, fans: false });
-  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", snapshot_backfill: "", ltv: "", onlytraffic: "", ot_snapshot: "", crosspoll: "", revenue_breakdown: "", fans: "" });
+  const [running, setRunning] = useState<Record<SyncType, boolean>>({ dashboard: false, snapshot: false, snapshot_backfill: false, ltv: false, onlytraffic: false, ot_snapshot: false, crosspoll: false, revenue_breakdown: false, fans: false, subscribers: false });
+  const [progress, setProgress] = useState<Record<SyncType, string>>({ dashboard: "", snapshot: "", snapshot_backfill: "", ltv: "", onlytraffic: "", ot_snapshot: "", crosspoll: "", revenue_breakdown: "", fans: "", subscribers: "" });
   const abortRefs = useRef<Record<string, AbortController>>({});
 
   const [allRunning, setAllRunning] = useState(false);
@@ -175,7 +179,7 @@ export default function LogsPage() {
 
   // Build status cards from last log per type
   const statusCards = useMemo(() => {
-    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null, revenue_breakdown: null, fans: null };
+    const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null, revenue_breakdown: null, fans: null, subscribers: null };
     for (const log of classifiedLogs) {
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
@@ -188,7 +192,7 @@ export default function LogsPage() {
     const zero = () => ({ runs: 0, records: 0, links: 0, accounts: 0, credits: 0 });
     const totals: Record<SyncType, ReturnType<typeof zero>> = {
       dashboard: zero(), snapshot: zero(), snapshot_backfill: zero(), ltv: zero(),
-      onlytraffic: zero(), ot_snapshot: zero(), crosspoll: zero(), revenue_breakdown: zero(), fans: zero(),
+      onlytraffic: zero(), ot_snapshot: zero(), crosspoll: zero(), revenue_breakdown: zero(), fans: zero(), subscribers: zero(),
     };
     for (const log of classifiedLogs) {
       if (log.effectiveStatus !== "success" && log.effectiveStatus !== "partial") continue;
@@ -204,7 +208,7 @@ export default function LogsPage() {
 
   // Total credits consumed per sync type across all runs
   const totalCredits = useMemo(() => {
-    const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0, fans: 0 };
+    const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0, fans: 0, subscribers: 0 };
     for (const log of classifiedLogs) {
       const calls = log.details?.api_calls ?? 0;
       if (calls > 0) totals[log.syncType as SyncType] += calls;
@@ -520,6 +524,39 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
+  const runSubscriberSync = useCallback(async (forceFull = false) => {
+    const ctrl = new AbortController();
+    abortRefs.current.subscribers = ctrl;
+    setRunning(r => ({ ...r, subscribers: true }));
+    setProgress(p => ({ ...p, subscribers: forceFull ? "Full history scan..." : "Starting incremental..." }));
+    try {
+      const lastData = await streamSync(
+        "/sync/subscribers",
+        { triggered_by: forceFull ? "manual_full" : "manual", force_full: forceFull },
+        (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, subscribers: msg })); },
+        ctrl.signal,
+      );
+      if (ctrl.signal.aborted) return;
+      if (lastData?.step === "error") throw new Error(lastData.error ?? "Unknown error");
+      const attributed = lastData?.attributed ?? 0;
+      const apiCalls = lastData?.api_calls ?? 0;
+      if (attributed === 0) {
+        toast.warning(`Subscriber sync — 0 fans attributed. Check if API supports /subscribers endpoint.`);
+      } else {
+        toast.success(`Subscriber sync complete — ${attributed.toLocaleString()} fans attributed (${apiCalls} API calls)`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking_link_ltv"] });
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      toast.error(`Subscriber sync failed: ${err.message}`);
+    } finally {
+      delete abortRefs.current.subscribers;
+      setRunning(r => ({ ...r, subscribers: false }));
+      setProgress(p => ({ ...p, subscribers: "" }));
+    }
+  }, [queryClient]);
+
   const runAllSync = useCallback(async () => {
     setAllRunning(true);
     const steps = [
@@ -547,6 +584,7 @@ export default function LogsPage() {
     crosspoll: runCrosspollSync,
     revenue_breakdown: runRevenueBreakdownSync,
     fans: runFanSync,
+    subscribers: () => runSubscriberSync(false),
   };
 
   const hasFilters = statusFilter !== "all" || typeFilter !== "all";
@@ -564,8 +602,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC BUTTONS ═══ */}
-        <div className="grid grid-cols-7 gap-3">
-          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown", "fans"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-4 xl:grid-cols-8 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown", "fans", "subscribers"] as SyncType[]).map((type) => {
             const Icon = SYNC_ICONS[type];
             const colors = SYNC_COLORS[type];
             const isRunning = running[type];
@@ -603,8 +641,8 @@ export default function LogsPage() {
         </div>
 
         {/* ═══ SYNC STATUS CARDS ═══ */}
-        <div className="grid grid-cols-7 gap-3">
-          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown", "fans"] as SyncType[]).map((type) => {
+        <div className="grid grid-cols-4 xl:grid-cols-8 gap-3">
+          {(["dashboard", "onlytraffic", "snapshot", "snapshot_backfill", "crosspoll", "revenue_breakdown", "fans", "subscribers"] as SyncType[]).map((type) => {
             const colors = SYNC_COLORS[type];
             const Icon = SYNC_ICONS[type];
             const last = statusCards[type];
@@ -696,6 +734,43 @@ export default function LogsPage() {
           })}
         </div>
 
+        {/* ═══ FULL HISTORY SCANS ═══ */}
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Full History Scans</h3>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 font-medium">One-time / Reset</span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => runSubscriberSync(true)}
+                disabled={running.subscribers || allRunning}
+                className="border-violet-500/30 text-xs gap-1.5"
+              >
+                {running.subscribers ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : <GitMerge className="h-3.5 w-3.5 text-violet-500" />}
+                Full Subscriber Attribution
+              </Button>
+              <p className="text-[10px] text-muted-foreground px-0.5">Re-attributes all 418K subscribers from scratch. ~4,200 API calls (one-time).</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={runRevenueFullScan}
+                disabled={running.revenue_breakdown || allRunning}
+                className="border-green-500/30 text-xs gap-1.5"
+              >
+                {running.revenue_breakdown ? <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" /> : <BarChart3 className="h-3.5 w-3.5 text-green-500" />}
+                Full Revenue History Scan
+              </Button>
+              <p className="text-[10px] text-muted-foreground px-0.5">Re-pulls all historical transactions. Can take 60-90 min.</p>
+            </div>
+          </div>
+        </div>
+
         {/* ═══ SCHEDULER STATUS ═══ */}
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -753,6 +828,7 @@ export default function LogsPage() {
                     <SelectItem value="ot_snapshot">OT Snapshots</SelectItem>
                     <SelectItem value="revenue_breakdown">Rev Breakdown</SelectItem>
                     <SelectItem value="fans">Fans</SelectItem>
+                    <SelectItem value="subscribers">Sub Attribution</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={v => setStatusFilter(v as StatusFilter)}>
