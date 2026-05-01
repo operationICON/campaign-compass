@@ -1009,61 +1009,72 @@ export default function LogsPage() {
                       )}
                       {details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
                         const rows = details.account_results as any[];
-                        // Derive numeric/string columns dynamically from the first row (exclude account, status, note)
-                        const sample = rows[0] ?? {};
-                        const dataCols = Object.keys(sample).filter(k => k !== "account" && k !== "status" && k !== "note");
-                        const hasNote = rows.some((r: any) => r.note != null && r.note !== "");
-                        const hasStatus = rows.some((r: any) => r.status != null);
-                        const LABELS: Record<string, string> = {
-                          fans: "Fans", pages: "Pages", attributed: "Attributed", api_calls: "API Calls",
-                          links: "Links", snapshots: "Snapshots", errors: "Errors",
-                          transactions: "Transactions", mode: "Mode",
+                        const syncT = log.syncType as SyncType;
+                        const avatarMap = new Map<string, string | null>(
+                          (accounts as any[]).map((a: any) => [a.display_name, a.avatar_thumb_url ?? null])
+                        );
+                        const borderCls = (status: string | undefined) => {
+                          if (status === "ok" || status === "success") return "border-l-emerald-500";
+                          if (status === "error") return "border-l-destructive";
+                          if (status === "auth_error" || status === "partial") return "border-l-amber-500";
+                          return "border-l-border";
                         };
                         return (
                           <div>
                             <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">Per-Account Results</p>
                             <div className="rounded border border-border overflow-hidden">
-                              <table className="w-full text-[11px]">
-                                <thead>
-                                  <tr className="bg-muted/40 border-b border-border">
-                                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Account</th>
-                                    {hasStatus && <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Status</th>}
-                                    {dataCols.map(k => (
-                                      <th key={k} className="text-right px-2 py-1.5 font-medium text-muted-foreground">{LABELS[k] ?? k}</th>
-                                    ))}
-                                    {hasNote && <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Note</th>}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {rows.map((r: any, i: number) => (
-                                    <tr key={i} className="border-b border-border/40 last:border-0 hover:bg-muted/20">
-                                      <td className="px-2 py-1.5 font-medium text-foreground">{r.account}</td>
-                                      {hasStatus && (
-                                        <td className="px-2 py-1.5 text-center">
-                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                            r.status === "ok" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                                            : r.status === "auth_error" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                                            : r.status === "skipped" ? "bg-muted text-muted-foreground"
-                                            : "bg-destructive/15 text-destructive"
-                                          }`}>
-                                            {r.status === "ok" ? "OK" : r.status === "auth_error" ? "AUTH" : r.status === "skipped" ? "SKIP" : "ERR"}
-                                          </span>
-                                        </td>
+                              {rows.map((r: any, i: number) => {
+                                const avatarUrl = avatarMap.get(r.account) ?? null;
+                                const isErrStatus = r.status === "error" || r.status === "auth_error";
+                                const noteText: string | null = typeof r.note === "string" ? r.note : null;
+                                const noteIsRevenue = noteText?.startsWith("$") ?? false;
+                                const truncNote = noteText && noteText.length > 120 ? noteText.slice(0, 120) + "…" : noteText;
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r.status)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}
+                                  >
+                                    {avatarUrl
+                                      ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                      : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>
+                                    }
+                                    <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={r.account}>{r.account}</span>
+                                    <div className="flex items-center gap-3 flex-wrap min-w-0 text-[10px]">
+                                      {syncT === "dashboard" && <>
+                                        {r.links != null && <span><span className="text-muted-foreground">Links </span><span className="font-mono font-semibold tabular-nums">{Number(r.links).toLocaleString()}</span></span>}
+                                        {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
+                                      </>}
+                                      {syncT === "snapshot" && <>
+                                        {r.links != null && <span><span className="text-muted-foreground">Links </span><span className="font-mono font-semibold tabular-nums">{Number(r.links).toLocaleString()}</span></span>}
+                                        {r.snapshots != null && <span><span className="text-muted-foreground">Snapshots </span><span className="font-mono font-semibold tabular-nums">{Number(r.snapshots).toLocaleString()}</span></span>}
+                                        {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
+                                        {r.errors != null && r.errors > 0 && <span><span className="text-muted-foreground">Errors </span><span className="font-mono font-semibold tabular-nums text-destructive">{Number(r.errors).toLocaleString()}</span></span>}
+                                      </>}
+                                      {syncT === "revenue_breakdown" && <>
+                                        {r.transactions != null && <span><span className="text-muted-foreground">Txns </span><span className="font-mono font-semibold tabular-nums">{Number(r.transactions).toLocaleString()}</span></span>}
+                                        {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
+                                      </>}
+                                      {syncT === "fans" && <>
+                                        {r.fans != null && <span><span className="text-muted-foreground">Fans </span><span className="font-mono font-semibold tabular-nums">{Number(r.fans).toLocaleString()}</span></span>}
+                                        {r.pages != null && <span><span className="text-muted-foreground">Pages </span><span className="font-mono font-semibold tabular-nums">{Number(r.pages).toLocaleString()}</span></span>}
+                                      </>}
+                                      {syncT === "subscribers" && <>
+                                        {r.attributed != null && <span><span className="text-muted-foreground">Attributed </span><span className="font-mono font-semibold tabular-nums">{Number(r.attributed).toLocaleString()}</span></span>}
+                                        {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
+                                        {r.mode && <span><span className="text-muted-foreground">Mode </span><span className="font-semibold">{r.mode}</span></span>}
+                                      </>}
+                                      {truncNote && (
+                                        <span
+                                          className={`truncate max-w-[200px] ${noteIsRevenue ? "text-emerald-600 dark:text-emerald-400 font-semibold" : isErrStatus ? "text-destructive" : "text-muted-foreground"}`}
+                                          title={noteText ?? ""}
+                                        >
+                                          {truncNote}
+                                        </span>
                                       )}
-                                      {dataCols.map(k => (
-                                        <td key={k} className="px-2 py-1.5 text-right tabular-nums font-mono text-foreground">
-                                          {r[k] != null
-                                            ? (typeof r[k] === "number"
-                                                ? r[k].toLocaleString()
-                                                : String(r[k]))
-                                            : <span className="text-muted-foreground">—</span>}
-                                        </td>
-                                      ))}
-                                      {hasNote && <td className="px-2 py-1.5 text-muted-foreground truncate max-w-48">{r.note ?? ""}</td>}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         );
