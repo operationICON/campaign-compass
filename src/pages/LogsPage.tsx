@@ -742,43 +742,6 @@ export default function LogsPage() {
           })}
         </div>
 
-        {/* ═══ FULL HISTORY SCANS ═══ */}
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <History className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Full History Scans</h3>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 font-medium">One-time / Reset</span>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => runSubscriberSync(true)}
-                disabled={running.subscribers || allRunning}
-                className="border-violet-500/30 text-xs gap-1.5"
-              >
-                {running.subscribers ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : <GitMerge className="h-3.5 w-3.5 text-violet-500" />}
-                Full Subscriber Attribution
-              </Button>
-              <p className="text-[10px] text-muted-foreground px-0.5">Re-attributes all 418K subscribers from scratch. ~4,200 API calls (one-time).</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={runRevenueFullScan}
-                disabled={running.revenue_breakdown || allRunning}
-                className="border-green-500/30 text-xs gap-1.5"
-              >
-                {running.revenue_breakdown ? <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" /> : <BarChart3 className="h-3.5 w-3.5 text-green-500" />}
-                Full Revenue History Scan
-              </Button>
-              <p className="text-[10px] text-muted-foreground px-0.5">Re-pulls all historical transactions. Can take 60-90 min.</p>
-            </div>
-          </div>
-        </div>
-
         {/* ═══ SCHEDULER STATUS ═══ */}
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
