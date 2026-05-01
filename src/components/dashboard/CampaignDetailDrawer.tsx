@@ -24,6 +24,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { calcStatusFromRoi } from "@/lib/calc-helpers";
 import { CampaignGrowthTable } from "./CampaignGrowthTable";
+import { SyncHistoryDropdown } from "./SyncHistoryDropdown";
 
 /* ─── Data Row helper ─── */
 function DataRow({ label, value, tone = "neutral" }: { label: string; value: string | React.ReactNode; tone?: "positive" | "negative" | "neutral" }) {
@@ -769,6 +770,16 @@ function DrawerBodyInner({
               });
               return `${relative} (${exact})`;
             })() : "—"} />
+            <DataRow 
+              label="Sync History" 
+              value={
+                d.account_id ? (
+                  <div className="w-full">
+                    <SyncHistoryDropdown accountId={d.account_id} />
+                  </div>
+                ) : "—"
+              } 
+            />
             <DataRow label="Status" value={
               d.status
                 ? <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span>

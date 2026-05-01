@@ -86,6 +86,9 @@ export const getActiveLinkCount = (account_ids?: string[]) =>
 // ─── Sync Logs ────────────────────────────────────────────────────────────────
 export const getSyncLogs = () => apiFetch("/sync-logs");
 
+export const getSyncLogsByAccount = (accountId: string) =>
+  apiFetch(`/sync-logs${buildQuery({ account_id: accountId })}`);
+
 // ─── Alerts ───────────────────────────────────────────────────────────────────
 export const getAlerts = (unresolvedOnly = true) =>
   apiFetch(`/alerts${buildQuery({ unresolved: unresolvedOnly ? "true" : undefined })}`);
