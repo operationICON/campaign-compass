@@ -177,17 +177,22 @@ export default function LogsPage() {
     effectiveStatus: getEffectiveStatus(log),
   })), [logs]);
 
-  // Build status cards from last log per type
+  // Dashboard per-account child logs (account_id set, syncType=dashboard) are noise.
+  // They're surfaced inside the parent orchestrator row's expand panel via account_results.
+  const isDashboardChild = (log: any) => log.syncType === "dashboard" && !!log.account_id;
+
+  // Build status cards from last log per type — skip dashboard children
   const statusCards = useMemo(() => {
     const cards: Record<SyncType, any> = { dashboard: null, snapshot: null, snapshot_backfill: null, ltv: null, onlytraffic: null, ot_snapshot: null, crosspoll: null, revenue_breakdown: null, fans: null, subscribers: null };
     for (const log of classifiedLogs) {
+      if (isDashboardChild(log)) continue;
       const t = log.syncType as SyncType;
       if (!cards[t]) cards[t] = log;
     }
     return cards;
   }, [classifiedLogs]);
 
-  // All-time aggregates per sync type across all successful runs
+  // All-time aggregates per sync type — skip dashboard children to avoid double-counting
   const allTimeStats = useMemo(() => {
     const zero = () => ({ runs: 0, records: 0, links: 0, accounts: 0, credits: 0 });
     const totals: Record<SyncType, ReturnType<typeof zero>> = {
@@ -195,6 +200,7 @@ export default function LogsPage() {
       onlytraffic: zero(), ot_snapshot: zero(), crosspoll: zero(), revenue_breakdown: zero(), fans: zero(), subscribers: zero(),
     };
     for (const log of classifiedLogs) {
+      if (isDashboardChild(log)) continue;
       if (log.effectiveStatus !== "success" && log.effectiveStatus !== "partial") continue;
       const t = totals[log.syncType as SyncType];
       t.runs++;
@@ -206,19 +212,21 @@ export default function LogsPage() {
     return totals;
   }, [classifiedLogs]);
 
-  // Total credits consumed per sync type across all runs
+  // Total credits consumed per sync type — skip dashboard children
   const totalCredits = useMemo(() => {
     const totals: Record<SyncType, number> = { dashboard: 0, snapshot: 0, snapshot_backfill: 0, ltv: 0, onlytraffic: 0, ot_snapshot: 0, crosspoll: 0, revenue_breakdown: 0, fans: 0, subscribers: 0 };
     for (const log of classifiedLogs) {
+      if (isDashboardChild(log)) continue;
       const calls = log.details?.api_calls ?? 0;
       if (calls > 0) totals[log.syncType as SyncType] += calls;
     }
     return totals;
   }, [classifiedLogs]);
 
-  // Filter logs
+  // Filter logs — hide per-account dashboard children from the history table
   const filteredLogs = useMemo(() => {
     return classifiedLogs.filter((log: any) => {
+      if (isDashboardChild(log)) return false;
       if (statusFilter !== "all" && log.effectiveStatus !== statusFilter) return false;
       if (typeFilter !== "all" && log.syncType !== typeFilter) return false;
       return true;
