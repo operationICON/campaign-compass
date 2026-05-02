@@ -247,8 +247,8 @@ export const deleteManualNote = (id: string) =>
   apiFetch(`/manual-notes/${id}`, { method: "DELETE" });
 
 // ─── Campaign Analytics ───────────────────────────────────────────────────────
-export const getCampaignAnalyticsList = (account_id: string) =>
-  apiFetch<any[]>(`/campaign-analytics/campaigns?account_id=${account_id}`);
+export const getCampaignAnalyticsList = (account_id?: string) =>
+  apiFetch<any[]>(`/campaign-analytics/campaigns${account_id ? `?account_id=${account_id}` : ""}`);
 
 export const getCampaignTrend = (id: string, days = 30) =>
   apiFetch<any[]>(`/campaign-analytics/${id}/trend?days=${days}`);

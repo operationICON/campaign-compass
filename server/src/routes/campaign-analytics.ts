@@ -5,16 +5,19 @@ import { eq, and, isNull, sql, desc, asc } from "drizzle-orm";
 
 const router = new Hono();
 
-// GET /campaign-analytics/campaigns?account_id=UUID
+// GET /campaign-analytics/campaigns?account_id=UUID  (omit for all accounts)
 router.get("/campaigns", async (c) => {
   const accountId = c.req.query("account_id");
-  if (!accountId) return c.json({ error: "account_id required" }, 400);
 
   const rows = await db
     .select()
     .from(tracking_links)
-    .where(and(eq(tracking_links.account_id, accountId), isNull(tracking_links.deleted_at)))
-    .orderBy(desc(tracking_links.created_at));
+    .where(
+      accountId
+        ? and(eq(tracking_links.account_id, accountId), isNull(tracking_links.deleted_at))
+        : isNull(tracking_links.deleted_at)
+    )
+    .orderBy(desc(tracking_links.subscribers));
 
   return c.json(rows);
 });

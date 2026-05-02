@@ -7,8 +7,8 @@ import {
   ResponsiveContainer, Cell,
 } from "recharts";
 import {
-  ChevronLeft, Search, Plus, Info, Copy, Check,
-  MousePointer, Users, TrendingUp, DollarSign,
+  ChevronLeft, Search, Info, Copy, Check,
+  TrendingUp, ChevronDown,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModelAvatar } from "@/components/ModelAvatar";
@@ -64,25 +64,110 @@ function InfoTip({ text }: { text: string }) {
   );
 }
 
+// ─── ACCOUNT DROPDOWN ────────────────────────────────────────────────────────
+function AccountDropdown({
+  accounts,
+  selected,           // "all" | account UUID
+  onChange,
+}: {
+  accounts: any[];
+  selected: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = selected === "all" ? null : accounts.find((a: any) => a.id === selected);
+  const label = current
+    ? (current.display_name || current.username)
+    : `All Accounts (${accounts.length})`;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:bg-muted/40 transition-colors min-w-[200px]"
+      >
+        {current ? (
+          <ModelAvatar avatarUrl={current.avatar_thumb_url} name={label} size={20} />
+        ) : (
+          <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+            {accounts.length}
+          </span>
+        )}
+        <span className="flex-1 text-left truncate">{label}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-xl shadow-xl z-20 py-1 min-w-[240px] max-h-[360px] overflow-y-auto">
+            {/* Select All */}
+            <button
+              onClick={() => { onChange("all"); setOpen(false); }}
+              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
+                selected === "all" ? "text-primary bg-primary/10" : "text-foreground hover:bg-muted/40"
+              }`}
+            >
+              <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                {accounts.length}
+              </span>
+              <span className="font-medium">All Accounts</span>
+              {selected === "all" && <span className="ml-auto text-primary text-xs">✓</span>}
+            </button>
+            <div className="h-px bg-border mx-3 my-1" />
+            {accounts.map((a: any) => (
+              <button
+                key={a.id}
+                onClick={() => { onChange(a.id); setOpen(false); }}
+                className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
+                  selected === a.id ? "text-primary bg-primary/10" : "text-foreground hover:bg-muted/40"
+                }`}
+              >
+                <ModelAvatar avatarUrl={a.avatar_thumb_url} name={a.display_name || a.username} size={24} />
+                <span className="flex-1 text-left truncate">{a.display_name || a.username}</span>
+                {a.subscribers_count != null && (
+                  <span className="text-[11px] text-muted-foreground tabular-nums ml-1">
+                    {fmtN(a.subscribers_count)}
+                  </span>
+                )}
+                {selected === a.id && <span className="ml-1 text-primary text-xs">✓</span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── LIST VIEW ────────────────────────────────────────────────────────────────
 function ListView({
   accounts,
-  selectedAccountId,
+  selectedAccount,
   onSelectAccount,
   onOpenCampaign,
 }: {
   accounts: any[];
-  selectedAccountId: string | null;
-  onSelectAccount: (id: string) => void;
+  selectedAccount: string;   // "all" | account UUID
+  onSelectAccount: (v: string) => void;
   onOpenCampaign: (c: any) => void;
 }) {
   const [search, setSearch] = useState("");
+  const accountId = selectedAccount === "all" ? undefined : selectedAccount;
 
   const { data: campaigns = [], isLoading } = useQuery({
-    queryKey: ["ca_campaigns", selectedAccountId],
-    queryFn: () => getCampaignAnalyticsList(selectedAccountId!),
-    enabled: !!selectedAccountId,
+    queryKey: ["ca_campaigns", selectedAccount],
+    queryFn: () => getCampaignAnalyticsList(accountId),
   });
+
+  // Build a lookup so we can show the account name in multi-account mode
+  const accountMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    accounts.forEach((a: any) => { m[a.id] = a; });
+    return m;
+  }, [accounts]);
+
+  const showAccountCol = selectedAccount === "all";
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -90,6 +175,8 @@ function ListView({
       !q || (c.campaign_name ?? "").toLowerCase().includes(q)
     );
   }, [campaigns, search]);
+
+  const colCount = showAccountCol ? 11 : 10;
 
   return (
     <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
@@ -103,33 +190,13 @@ function ListView({
         </div>
       </div>
 
-      {/* Account selector */}
-      <div className="flex flex-wrap gap-2">
-        {accounts.map((a: any) => (
-          <button
-            key={a.id}
-            onClick={() => onSelectAccount(a.id)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
-              a.id === selectedAccountId
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-muted-foreground/50"
-            }`}
-          >
-            <ModelAvatar avatarUrl={a.avatar_thumb_url} name={a.display_name || a.username} size={22} />
-            <span>{a.display_name || a.username}</span>
-            {a.subscribers_count != null && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                a.id === selectedAccountId ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-              }`}>
-                {fmtN(a.subscribers_count)}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Search + filters */}
+      {/* Controls row: account dropdown + search */}
       <div className="flex items-center gap-3 flex-wrap">
+        <AccountDropdown
+          accounts={accounts}
+          selected={selectedAccount}
+          onChange={onSelectAccount}
+        />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
@@ -148,6 +215,9 @@ function ListView({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
+                {showAccountCol && (
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[100px]">Account</th>
+                )}
                 <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide min-w-[220px]">Name</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Clicks</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Subscribers</th>
@@ -162,9 +232,9 @@ function ListView({
             </thead>
             <tbody>
               {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
+                Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-border/60">
-                    {Array.from({ length: 10 }).map((__, j) => (
+                    {Array.from({ length: colCount }).map((__, j) => (
                       <td key={j} className="px-4 py-3">
                         <Skeleton className="h-4 w-full rounded" />
                       </td>
@@ -173,8 +243,8 @@ function ListView({
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground text-sm">
-                    {search ? "No campaigns match your search." : "No campaigns found for this account."}
+                  <td colSpan={colCount} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                    {search ? "No campaigns match your search." : "No campaigns found."}
                   </td>
                 </tr>
               ) : (
@@ -185,12 +255,25 @@ function ListView({
                   const roi = cost > 0 ? (profit / cost) * 100 : null;
                   const arps = (c.subscribers ?? 0) > 0 ? revenue / c.subscribers : 0;
                   const color = CAMPAIGN_COLORS[idx % CAMPAIGN_COLORS.length];
+                  const acct = accountMap[c.account_id];
                   return (
                     <tr
                       key={c.id}
                       className="border-b border-border/60 hover:bg-muted/30 cursor-pointer transition-colors group"
                       onClick={() => onOpenCampaign(c)}
                     >
+                      {showAccountCol && (
+                        <td className="px-4 py-3">
+                          {acct ? (
+                            <div className="flex items-center gap-1.5">
+                              <ModelAvatar avatarUrl={acct.avatar_thumb_url} name={acct.display_name || acct.username} size={20} />
+                              <span className="text-xs text-muted-foreground truncate max-w-[70px]">
+                                {acct.display_name || acct.username}
+                              </span>
+                            </div>
+                          ) : <span className="text-muted-foreground/40 text-xs">—</span>}
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex items-start gap-3">
                           <div
@@ -200,11 +283,11 @@ function ListView({
                             {(c.campaign_name ?? "?").charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-medium text-foreground truncate max-w-[180px] group-hover:text-primary transition-colors">
+                            <div className="font-medium text-foreground truncate max-w-[200px] group-hover:text-primary transition-colors">
                               {c.campaign_name || "—"}
                             </div>
                             {c.url && (
-                              <div className="text-[11px] text-muted-foreground truncate max-w-[180px] mt-0.5">
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[200px] mt-0.5">
                                 {c.url}
                               </div>
                             )}
@@ -214,24 +297,31 @@ function ListView({
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">{fmtN(c.clicks ?? 0)}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">{fmtN(c.subscribers ?? 0)}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {cost > 0 ? fmtC(cost) : <span className="text-muted-foreground/60">—</span>}
+                        {cost > 0 ? fmtC(cost) : <span className="text-muted-foreground/40">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-medium text-green-400">
                         {fmtC(revenue)}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-foreground">{fmtN(c.spenders ?? 0)}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        <span className={profit >= 0 ? "text-green-400" : "text-red-400"}>
-                          {cost > 0 ? fmtC(profit) : <span className="text-muted-foreground/60">—</span>}
-                        </span>
+                        <div className="flex items-center justify-end gap-1 text-foreground">
+                          <span>{fmtN(c.spenders ?? 0)}</span>
+                          {(c.spenders ?? 0) > 0 && (
+                            <span className="text-[10px] text-muted-foreground">spenders</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {cost > 0
+                          ? <span className={profit >= 0 ? "text-green-400" : "text-red-400"}>{fmtC(profit)}</span>
+                          : <span className="text-muted-foreground/40">N/A</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {roi !== null
                           ? <span className={roi >= 0 ? "text-green-400" : "text-red-400"}>{fmtPct(roi)}</span>
-                          : <span className="text-muted-foreground/60">N/A</span>}
+                          : <span className="text-muted-foreground/40">N/A</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                        {arps > 0 ? fmtC(arps) : <span className="text-muted-foreground/60">$0.00</span>}
+                        {arps > 0 ? fmtC(arps) : <span className="text-muted-foreground/40">$0.00</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-muted-foreground whitespace-nowrap text-xs">
                         {c.created_at ? format(parseISO(c.created_at), "MMM d, h:mmaaa") : "—"}
@@ -871,7 +961,7 @@ type View = "list" | "performance" | "cohort";
 
 export default function CampaignAnalyticsPage() {
   const [view, setView] = useState<View>("list");
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<string>("all");
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
 
   const { data: rawAccounts = [] } = useQuery({
@@ -887,8 +977,6 @@ export default function CampaignAnalyticsPage() {
     [rawAccounts]
   );
 
-  const activeAccountId = selectedAccountId ?? accounts[0]?.id ?? null;
-
   const handleOpenCampaign = (c: any) => {
     setSelectedCampaign(c);
     setView("performance");
@@ -899,8 +987,8 @@ export default function CampaignAnalyticsPage() {
       {view === "list" && (
         <ListView
           accounts={accounts}
-          selectedAccountId={activeAccountId}
-          onSelectAccount={id => setSelectedAccountId(id)}
+          selectedAccount={selectedAccount}
+          onSelectAccount={setSelectedAccount}
           onOpenCampaign={handleOpenCampaign}
         />
       )}
