@@ -1364,127 +1364,6 @@ export default function AccountsPage() {
   const slideAcc = sortedAccounts[safeIndex] as any;
   const slideStats = slideAcc ? (accountStats[slideAcc.id] || {}) : {};
 
-  const ModelCard = ({ acc }: { acc: any }) => {
-    const stats = accountStats[acc.id] || {};
-    const category = getGender(acc);
-    const isEditing = editingGenderFor === acc.id;
-    const totalRev = ((stats.hasLtvData && stats.totalLtvAllTime > 0 ? stats.totalLtvAllTime : stats.campaignRevAllTime) || 0) * revMultiplier;
-    const spend = stats.totalSpendAllTime || 0;
-    const profit = (stats.totalProfit || 0) * revMultiplier;
-    const profitPositive = profit >= 0;
-
-    return (
-      <div
-        className="bg-card border border-border rounded-2xl overflow-hidden transition-all duration-200 hover:border-primary/35 hover:shadow-2xl hover:-translate-y-1 cursor-pointer group"
-        onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
-      >
-        {/* Avatar header strip */}
-        <div className="relative h-20 overflow-hidden"
-          style={{ background: "linear-gradient(135deg, hsl(220 18% 13%), hsl(220 16% 9%))" }}
-        >
-          <div className="absolute inset-0 opacity-30"
-            style={{ background: "radial-gradient(ellipse 120% 100% at 80% 50%, hsl(168 65% 52% / 0.25), transparent 70%)" }}
-          />
-          {acc.avatar_thumb_url && (
-            <img
-              src={acc.avatar_thumb_url}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover opacity-15 blur-sm scale-110"
-            />
-          )}
-          {/* Subscriber badge top-right */}
-          <div className="absolute top-3 right-4 text-right">
-            <div className="text-[11px] text-white/50 font-medium">OF Subs</div>
-            <div className="text-sm font-bold text-white">{fmtNum(acc.subscribers_count || 0)}</div>
-          </div>
-          {/* Avatar bottom-left overlapping */}
-          <div className="absolute -bottom-7 left-5">
-            <AvatarCircle account={acc} size={56} />
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="pt-9 px-5 pb-4">
-          {/* Name + category + gender edit */}
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <div className="min-w-0">
-              <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">{acc.display_name}</h3>
-              {displayUsername(acc) && (
-                <p className="text-[12px] text-muted-foreground mt-0.5">{displayUsername(acc)}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 relative" onClick={(e) => e.stopPropagation()}>
-              {isEditing ? (
-                <>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
-                  <button onClick={() => setEditingGenderFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
-                  <div className="flex flex-col bg-card border border-border rounded-xl shadow-2xl overflow-hidden absolute top-6 right-0 z-20 min-w-[130px]">
-                    {GENDER_OPTIONS.map((g) => (
-                      <button key={g} onClick={() => handleSaveGender(acc.id, g === "Uncategorized" ? null : g)}
-                        className={`px-4 py-2 text-[11px] text-left hover:bg-muted/40 transition-colors ${category === g ? "font-bold text-primary" : "text-foreground"}`}>
-                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${g === "Female" ? "bg-pink-400" : g === "Trans" ? "bg-purple-400" : g === "Male" ? "bg-blue-400" : "bg-muted-foreground/40"}`} />
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
-                  <button onClick={() => setEditingGenderFor(acc.id)} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                </>
-              )}
-              {acc.performer_top != null && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">Top {acc.performer_top}%</span>
-              )}
-            </div>
-          </div>
-
-          {/* Stat tiles */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Total Revenue</div>
-              <div className="text-[14px] font-bold text-foreground font-mono">{fmtCurrency(totalRev)}</div>
-            </div>
-            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">LTV/Sub</div>
-              <div className="text-[14px] font-bold text-primary font-mono">{stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—"}</div>
-            </div>
-            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Spend</div>
-              <div className="text-[14px] font-bold text-foreground font-mono">{spend > 0 ? fmtCurrency(spend) : "—"}</div>
-            </div>
-            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Profit</div>
-              <div className={`text-[14px] font-bold font-mono ${spend > 0 ? (profitPositive ? "text-emerald-400" : "text-destructive") : "text-muted-foreground/40"}`}>
-                {spend > 0 ? fmtCurrency(profit) : "—"}
-              </div>
-            </div>
-          </div>
-
-          {/* CVR row */}
-          <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-background/40 border border-border/50 mb-3">
-            <span className="text-[11px] text-muted-foreground">CVR</span>
-            <span className="text-[12px] font-semibold text-foreground font-mono">{stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}</span>
-            <span className="text-border/50 text-xs">·</span>
-            <span className="text-[11px] text-muted-foreground">Subs/Day</span>
-            <span className="text-[12px] font-semibold text-foreground font-mono">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}` : "—"}</span>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center gap-3 pt-3 border-t border-border/60 text-[11px] text-muted-foreground">
-            <span><span className="font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span> subs</span>
-            <span className="opacity-30">·</span>
-            <span><span className="font-semibold text-emerald-400">{stats.activeCampaigns || 0}</span> active</span>
-            <span className="opacity-30">·</span>
-            <span><span className="font-semibold text-foreground">{stats.totalCampaigns || 0}</span> links</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <DashboardLayout>
@@ -1595,12 +1474,210 @@ export default function AccountsPage() {
           </div>
         </div>
 
-        {/* GRID VIEW */}
-        {viewMode === "grid" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedAccounts.map((acc: any) => <ModelCard key={acc.id} acc={acc} />)}
-          </div>
-        )}
+        {/* HERO + TABLE VIEW */}
+        {viewMode === "grid" && sortedAccounts.length > 0 && (() => {
+          const featuredAcc = sortedAccounts[0] as any;
+          const featuredStats = accountStats[featuredAcc.id] || {};
+          const featuredRev = ((featuredStats.hasLtvData && featuredStats.totalLtvAllTime > 0 ? featuredStats.totalLtvAllTime : featuredStats.campaignRevAllTime) || 0) * revMultiplier;
+          const featuredProfit = (featuredStats.totalProfit || 0) * revMultiplier;
+
+          const agencyRev = (sortedAccounts as any[]).reduce((s, a) => s + ((accountStats[a.id]?.campaignRevAllTime || 0) * revMultiplier), 0);
+          const agencySubs = (sortedAccounts as any[]).reduce((s, a) => s + (accountStats[a.id]?.apiSubs || 0), 0);
+
+          const topFive = [...sortedAccounts]
+            .sort((a: any, b: any) => (accountStats[b.id]?.apiSubs || 0) - (accountStats[a.id]?.apiSubs || 0))
+            .slice(0, 5) as any[];
+          const maxTopSubs = accountStats[topFive[0]?.id]?.apiSubs || 1;
+
+          return (
+            <div className="space-y-4">
+              {/* Bento hero row */}
+              <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 1fr', height: '400px' }}>
+
+                {/* Featured model card */}
+                <div
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                  onClick={() => { setSelectedAccount(featuredAcc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
+                >
+                  {featuredAcc.avatar_thumb_url ? (
+                    <img
+                      src={featuredAcc.avatar_thumb_url}
+                      alt={featuredAcc.display_name}
+                      className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[0]}`} style={{ opacity: 0.7 }} />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
+
+                  {/* Top label */}
+                  <div className="absolute top-5 left-6 flex items-center gap-2">
+                    <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider">Featured Model</span>
+                    {featuredAcc.performer_top != null && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">
+                        Top {featuredAcc.performer_top}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Model name */}
+                  <div className="absolute left-6 bottom-[108px]">
+                    <h2 className="text-[38px] font-black text-white leading-none tracking-tight drop-shadow-lg">
+                      {featuredAcc.display_name}
+                    </h2>
+                    {displayUsername(featuredAcc) && (
+                      <p className="text-white/50 text-sm mt-1.5 font-medium">{displayUsername(featuredAcc)}</p>
+                    )}
+                  </div>
+
+                  {/* Frosted stats strip */}
+                  <div
+                    className="absolute bottom-0 left-0 right-0 px-6 py-4"
+                    style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <div className="flex items-center gap-6">
+                      <div className="flex flex-col">
+                        <span className="text-[20px] font-bold text-white leading-none font-mono">{fmtNum(featuredStats.apiSubs || 0)}</span>
+                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" /> OF Subs
+                        </span>
+                      </div>
+                      <div className="w-px h-8 bg-white/10" />
+                      <div className="flex flex-col">
+                        <span className="text-[20px] font-bold text-white leading-none font-mono">${(featuredRev / 1000).toFixed(0)}k</span>
+                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 inline-block" /> Revenue
+                        </span>
+                      </div>
+                      <div className="w-px h-8 bg-white/10" />
+                      <div className="flex flex-col">
+                        <span className={`text-[20px] font-bold leading-none font-mono ${featuredProfit >= 0 ? 'text-white' : 'text-red-400'}`}>
+                          ${(Math.abs(featuredProfit) / 1000).toFixed(0)}k
+                        </span>
+                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full inline-block ${featuredProfit >= 0 ? 'bg-amber-400' : 'bg-red-400'}`} /> Profit
+                        </span>
+                      </div>
+                      <div className="w-px h-8 bg-white/10" />
+                      <div className="flex flex-col">
+                        <span className="text-[20px] font-bold text-white leading-none">{featuredStats.activeCampaigns || 0}</span>
+                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block" /> Active Links
+                        </span>
+                      </div>
+                      <div className="ml-auto">
+                        <div className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center transition-colors">
+                          <ChevronRight className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right column */}
+                <div className="flex flex-col gap-4">
+                  {/* Top: Top models by subs */}
+                  <div className="flex-1 rounded-2xl border border-border p-5 overflow-hidden" style={{ background: 'hsl(220 14% 10%)' }}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Top Models</p>
+                        <p className="text-[13px] font-semibold text-foreground mt-0.5">By Subscribers</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" /> Live
+                      </div>
+                    </div>
+                    <div className="space-y-2.5">
+                      {topFive.map((a: any, i: number) => {
+                        const aSubs = accountStats[a.id]?.apiSubs || 0;
+                        return (
+                          <div key={a.id} className="flex items-center gap-3">
+                            <span className="text-[10px] text-muted-foreground/60 w-3 text-right shrink-0">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px] font-medium text-foreground truncate">{a.display_name?.split(' ')[0]}</span>
+                                <span className="text-[10px] text-muted-foreground font-mono ml-2 shrink-0">{fmtNum(aSubs)}</span>
+                              </div>
+                              <div className="h-1 rounded-full bg-border overflow-hidden">
+                                <div className="h-full rounded-full bg-primary" style={{ width: `${(aSubs / maxTopSubs) * 100}%`, opacity: 1 - i * 0.12 }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Bottom: Agency revenue */}
+                  <div className="rounded-2xl border border-border p-5" style={{ background: 'hsl(220 14% 10%)' }}>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Agency Revenue</p>
+                    <p className="text-[30px] font-black text-primary mt-2 leading-none font-mono">
+                      ${(agencyRev / 1000000).toFixed(2)}M
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-1.5">{fmtNum(agencySubs)} total OF subscribers</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Models table */}
+              <div className="rounded-2xl border border-border overflow-hidden" style={{ background: 'hsl(220 14% 10%)' }}>
+                <div className="px-5 py-4 border-b border-border">
+                  <h3 className="text-[13px] font-semibold text-foreground">All Models in this period</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        {(['Model', 'OF Subs', 'Revenue', 'LTV/Sub', 'Spend', 'Profit', 'CVR', 'Subs/Day', 'Active'] as const).map((col, ci) => (
+                          <th key={col} className={`${ci === 0 ? 'px-5 text-left' : ci === 8 ? 'px-5 text-right' : 'px-4 text-right'} py-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium`}>{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(sortedAccounts as any[]).map((a) => {
+                        const s = accountStats[a.id] || {};
+                        const rev = (s.campaignRevAllTime || 0) * revMultiplier;
+                        const spend = s.totalSpendAllTime || 0;
+                        const profit = (s.totalProfit || 0) * revMultiplier;
+                        return (
+                          <tr
+                            key={a.id}
+                            className="border-b border-border/40 hover:bg-white/[0.025] cursor-pointer transition-colors"
+                            onClick={() => { setSelectedAccount(a); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
+                          >
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-3">
+                                <AvatarCircle account={a} size={32} />
+                                <div>
+                                  <p className="font-semibold text-foreground text-[12px] leading-tight">{a.display_name}</p>
+                                  {displayUsername(a) && <p className="text-[10px] text-muted-foreground">{displayUsername(a)}</p>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtNum(s.apiSubs || 0)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtCurrency(rev)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-primary">{s.ltvPerSub != null ? fmtCurrency(s.ltvPerSub * revMultiplier) : '—'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{spend > 0 ? fmtCurrency(spend) : '—'}</td>
+                            <td className={`px-4 py-3 text-right font-mono text-[12px] ${spend > 0 ? (profit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/30'}`}>
+                              {spend > 0 ? fmtCurrency(profit) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : '—'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : '—'}</td>
+                            <td className="px-5 py-3 text-right text-[12px] font-mono">
+                              <span className="text-primary font-semibold">{s.activeCampaigns || 0}</span>
+                              <span className="text-muted-foreground"> / {s.totalCampaigns || 0}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* SLIDE / CAROUSEL VIEW */}
         {viewMode === "slide" && sortedAccounts.length > 0 && (() => {
