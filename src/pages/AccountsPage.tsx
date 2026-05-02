@@ -769,36 +769,60 @@ export default function AccountsPage() {
             <ArrowLeft className="h-4 w-4" /> All Models
           </button>
 
-          {/* Row 1: Profile sidebar + KPI grid */}
-          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex flex-col md:flex-row">
-              <div className="md:w-[30%] p-6 border-b md:border-b-0 md:border-r border-border flex flex-col items-center text-center">
-                <AvatarCircle account={acc} size={120} />
-                <p className="text-[10px] text-muted-foreground mt-1.5">Synced from OnlyFans</p>
-                <h2 className="text-xl font-bold text-foreground mt-4">{acc.display_name}</h2>
-                {displayUsername(acc) && (
-                  <p className="text-sm text-primary font-medium">{displayUsername(acc)}</p>
-                )}
-                <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${getGenderBadgeStyle(category)}`}>
-                  {category}
-                </span>
-                {acc.performer_top != null && (
-                  <span className="mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                    Top {acc.performer_top}%
-                  </span>
-                )}
+          {/* Hero: photo card + KPI panel */}
+          <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 3fr' }}>
 
-                <div className="w-full border-t border-border mt-5 pt-4 space-y-3 text-left text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Gender</span><span className="text-foreground font-medium">{category}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={`font-medium ${acc.is_active ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>{acc.is_active ? "Active" : "Inactive"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Date added</span><span className="text-foreground">{safeFormat(acc.created_at, "MMM d, yyyy")}</span></div>
-                  {acc.subscribe_price != null && acc.subscribe_price > 0 && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Sub price</span><span className="text-foreground">${Number(acc.subscribe_price).toFixed(2)}</span></div>
+            {/* Left: full-bleed photo */}
+            <div className="relative rounded-2xl overflow-hidden min-h-[360px]">
+              {acc.avatar_thumb_url ? (
+                <img src={acc.avatar_thumb_url} alt={acc.display_name} className="absolute inset-0 w-full h-full object-cover object-top" />
+              ) : (
+                <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[accounts.indexOf(acc) % AVATAR_COLORS.length]}`} style={{ opacity: 0.8 }} />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/10 to-transparent" />
+
+              {/* Name + badges */}
+              <div className="absolute left-6 bottom-[108px]">
+                <h2 className="text-[38px] font-black text-white leading-none tracking-tight drop-shadow-2xl">{acc.display_name}</h2>
+                {displayUsername(acc) && <p className="text-white/50 text-sm mt-1.5 font-medium">{displayUsername(acc)}</p>}
+                <div className="flex items-center gap-2 mt-2">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
+                  {acc.performer_top != null && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">Top {acc.performer_top}%</span>
                   )}
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${acc.is_active ? 'bg-primary/20 text-primary' : 'bg-white/10 text-white/40'}`}>
+                    {acc.is_active ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
               </div>
 
-              <div className="md:w-[70%] p-6">
+              {/* Frosted stats strip */}
+              <div className="absolute bottom-0 left-0 right-0 px-5 py-3.5"
+                style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(14px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="flex items-center gap-5">
+                  {[
+                    { val: fmtNum(subsKpiValue), label: 'OF Subs', dot: 'bg-blue-400' },
+                    { val: String(stats.activeCampaigns || 0), label: 'Active Links', dot: 'bg-purple-400' },
+                    { val: subsPerDayKpiValue != null ? `${subsPerDayKpiValue.toFixed(1)}` : '—', label: 'Subs/Day', dot: 'bg-teal-400' },
+                    { val: cvrKpiValue != null ? `${cvrKpiValue.toFixed(1)}%` : '—', label: 'CVR', dot: 'bg-amber-400' },
+                  ].map(({ val, label, dot }, idx, arr) => (
+                    <div key={label} className="flex items-center gap-5">
+                      <div className="flex flex-col">
+                        <span className="text-[17px] font-bold text-white leading-none font-mono">{val}</span>
+                        <span className="text-[9px] text-white/40 mt-0.5 flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full inline-block ${dot}`} /> {label}
+                        </span>
+                      </div>
+                      {idx < arr.length - 1 && <div className="w-px h-7 bg-white/10" />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: KPI grid + revenue breakdown */}
+            <div className="rounded-2xl border border-border p-5 overflow-y-auto" style={{ background: 'hsl(220 14% 10%)' }}>
+              <div className="md:w-[70%] p-0 md:w-full">
                 {/* PART 2 — 5×5 KPI Grid (13 cards, rows 4-5 empty) */}
                 <div className="grid grid-cols-5 gap-3 mb-4">
                   {/* Row 1: Primary financials — period-aware when filter active */}
@@ -915,7 +939,7 @@ export default function AccountsPage() {
             </div>
           </div>
 
-                {/* Tabs */}
+          {/* Tabs */}
                 <div className="border-b border-border mb-4">
                   <div className="flex gap-6">
                     {(["campaigns", "sources", "performance"] as const).map((tab) => (
