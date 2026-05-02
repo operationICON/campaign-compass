@@ -36,6 +36,7 @@ import syncRevenueBreakdownRouter from "./routes/sync/revenue-breakdown.js";
 import syncSubscribersRouter from "./routes/sync/subscribers.js";
 import syncCancelRouter from "./routes/sync/cancel.js";
 import authRouter from "./routes/auth.js";
+import campaignAnalyticsRouter from "./routes/campaign-analytics.js";
 import { startScheduler } from "./scheduler.js";
 
 const app = new Hono();
@@ -92,6 +93,7 @@ app.route("/traffic-sources", trafficSourcesRouter);
 app.route("/source-tag-rules", sourceTagRulesRouter);
 app.route("/sync-settings", syncSettingsRouter);
 app.route("/ad-spend", adSpendRouter);
+app.route("/campaign-analytics", campaignAnalyticsRouter);
 app.route("/debug", debugRouter);
 app.route("/sync/orchestrate", syncOrchestratorRouter);
 app.route("/sync/account", syncAccountRouter);

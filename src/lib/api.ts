@@ -246,6 +246,33 @@ export const updateManualNote = (id: string, body: any) =>
 export const deleteManualNote = (id: string) =>
   apiFetch(`/manual-notes/${id}`, { method: "DELETE" });
 
+// ─── Campaign Analytics ───────────────────────────────────────────────────────
+export const getCampaignAnalyticsList = (account_id: string) =>
+  apiFetch<any[]>(`/campaign-analytics/campaigns?account_id=${account_id}`);
+
+export const getCampaignTrend = (id: string, days = 30) =>
+  apiFetch<any[]>(`/campaign-analytics/${id}/trend?days=${days}`);
+
+export const getCampaignSpenders = (id: string, limit = 20) =>
+  apiFetch<any[]>(`/campaign-analytics/${id}/spenders?limit=${limit}`);
+
+export const getCampaignCohortArps = (
+  id: string,
+  params: { acq_start?: string; acq_end?: string; revenue_basis?: "net" | "gross" } = {}
+) =>
+  apiFetch<{
+    cohort_size: number; total_source_subs: number; coverage: number;
+    arps_48h: number; arps_7d: number; arps_14d: number; arps_21d: number; arps_30d: number; arps_all_time: number;
+    rev_48h: number; rev_7d: number; rev_14d: number; rev_21d: number; rev_30d: number; rev_all_time: number;
+    curve: { period: string; days: number; revenue: number; arps: number }[];
+  }>(
+    `/campaign-analytics/${id}/cohort-arps${buildQuery({
+      acq_start: params.acq_start,
+      acq_end: params.acq_end,
+      revenue_basis: params.revenue_basis,
+    })}`
+  );
+
 // ─── Debug ────────────────────────────────────────────────────────────────────
 export const debugCallEndpoint = (url: string) =>
   apiFetch("/debug", { method: "POST", body: JSON.stringify({ action: "call_endpoint", url }) });

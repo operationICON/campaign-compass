@@ -386,7 +386,7 @@ function DrawerBodyInner({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-xs text-muted-foreground">
               {d.created_at && <span>Created {new Date(d.created_at).toLocaleDateString()}</span>}
               {daysRunning && <><span>·</span><span className="font-semibold text-foreground">{daysRunning}d running</span></>}
-              {d.status && <><span>·</span><span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span></>}
+              {d.status && <><span>·</span><span className="rounded-full borde r border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-[11px]">{d.status}</span></>}
               {d.source_tag && <><span>·</span><span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px]">{d.source_tag}</span></>}
             </div>
           </DrawerDescription>

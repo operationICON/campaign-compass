@@ -24,7 +24,9 @@
       "Bash(curl -s -X POST http://localhost:3000/sync/cancel -H \"Content-Type: application/json\" -d \"{\\\\\"sync_type\\\\\":\\\\\"revenue_breakdown\\\\\"}\")",
       "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3000/sync/cancel\" -Method POST -ContentType \"application/json\" -Body '{\"sync_type\":\"revenue_breakdown\"}')",
       "PowerShell(psql *)",
-      "PowerShell(ls C:\\\\Users\\\\Ern\\\\campaign-compass\\\\server\\\\node_modules | Where-Object { $_.Name -match \"pg|neon|postgres\" } | Select-Object Name)"
+      "PowerShell(ls C:\\\\Users\\\\Ern\\\\campaign-compass\\\\server\\\\node_modules | Where-Object { $_.Name -match \"pg|neon|postgres\" } | Select-Object Name)",
+      "Bash(git commit *)",
+      "Bash(grep -v \"//.*traffic_category\")"
     ]
   }
 }
