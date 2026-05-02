@@ -772,20 +772,22 @@ export default function AccountsPage() {
           {/* Hero: photo card + KPI panel */}
           <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 3fr' }}>
 
-            {/* Left: full-bleed photo */}
-            <div className="relative rounded-2xl overflow-hidden min-h-[360px]">
-              {acc.avatar_thumb_url ? (
-                <img src={acc.avatar_thumb_url} alt={acc.display_name} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: '50% 20%' }} />
-              ) : (
-                <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[accounts.indexOf(acc) % AVATAR_COLORS.length]}`} style={{ opacity: 0.8 }} />
+            {/* Left: blurred bg + big circle */}
+            <div className="relative rounded-2xl overflow-hidden min-h-[360px]" style={{ background: 'hsl(220 18% 8%)' }}>
+              {/* Blurred ambient background */}
+              {acc.avatar_thumb_url && (
+                <img src={acc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-35 pointer-events-none" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-              {/* Name + badges */}
-              <div className="absolute left-6 bottom-[108px]">
-                <h2 className="text-[38px] font-black text-white leading-none tracking-tight drop-shadow-2xl">{acc.display_name}</h2>
-                {displayUsername(acc) && <p className="text-white/50 text-sm mt-1.5 font-medium">{displayUsername(acc)}</p>}
-                <div className="flex items-center gap-2 mt-2">
+              {/* Big circle + name centered */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pb-16 px-6 text-center">
+                <div className="ring-[3px] ring-primary/40 ring-offset-2 ring-offset-transparent rounded-full shadow-2xl mb-5">
+                  <AvatarCircle account={acc} size={156} />
+                </div>
+                <h2 className="text-[28px] font-black text-white leading-tight tracking-tight">{acc.display_name}</h2>
+                {displayUsername(acc) && <p className="text-primary text-sm mt-1 font-medium">{displayUsername(acc)}</p>}
+                <div className="flex items-center gap-2 mt-2.5 flex-wrap justify-center">
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
                   {acc.performer_top != null && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">Top {acc.performer_top}%</span>
@@ -798,7 +800,7 @@ export default function AccountsPage() {
 
               {/* Frosted stats strip */}
               <div className="absolute bottom-0 left-0 right-0 px-5 py-3.5"
-                style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(14px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(14px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="flex items-center gap-5">
                   {[
                     { val: fmtNum(subsKpiValue), label: 'OF Subs', dot: 'bg-blue-400' },
@@ -1659,22 +1661,22 @@ export default function AccountsPage() {
               {/* Main bento: photo card + right column */}
               <div className="grid gap-4" style={{ gridTemplateColumns: '3fr 2fr', height: '480px' }}>
 
-                {/* Left: full-bleed photo + name overlay + frosted stats strip */}
+                {/* Left: blurred bg + big circle */}
                 <div
                   className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                  style={{ background: 'hsl(220 18% 8%)' }}
                   onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
                 >
                   {acc.avatar_thumb_url ? (
                     <img
                       src={acc.avatar_thumb_url}
-                      alt={acc.display_name}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      style={{ objectPosition: '50% 20%' }}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-35 pointer-events-none"
                     />
                   ) : (
-                    <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[colorIdx]}`} style={{ opacity: 0.8 }} />
+                    <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[colorIdx]}`} style={{ opacity: 0.25 }} />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
                   {/* Top: username + nav controls */}
                   <div className="absolute top-5 left-6 right-5 flex items-center justify-between">
@@ -1700,9 +1702,12 @@ export default function AccountsPage() {
                     </div>
                   </div>
 
-                  {/* Model name + badges */}
-                  <div className="absolute left-6 bottom-[112px]">
-                    <h2 className="text-[44px] font-black text-white leading-none tracking-tight drop-shadow-2xl">
+                  {/* Centered: big circle + name + badges */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pb-[112px] px-6 text-center">
+                    <div className="ring-[3px] ring-primary/40 ring-offset-2 ring-offset-transparent rounded-full shadow-2xl mb-4">
+                      <AvatarCircle account={acc} size={140} />
+                    </div>
+                    <h2 className="text-[32px] font-black text-white leading-none tracking-tight drop-shadow-2xl">
                       {acc.display_name}
                     </h2>
                     <div className="flex items-center gap-2 mt-2">
