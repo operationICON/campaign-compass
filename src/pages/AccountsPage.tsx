@@ -1387,95 +1387,21 @@ export default function AccountsPage() {
           </div>
         </div>
 
-        <PageFilterBar
-          timePeriod={timePeriod}
-          onTimePeriodChange={setTimePeriod}
-          customRange={customRange}
-          onCustomRangeChange={setCustomRange}
-          modelFilter={pageModelFilter}
-          onModelFilterChange={setPageModelFilter}
-          accounts={accountOptions}
-          revenueMode={revenueMode}
-          onRevenueModeChange={setRevenueMode}
-        />
-
-        {/* Controls row */}
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          {/* Category pills */}
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setCategoryFilter("all")}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
-                categoryFilter === "all"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-              }`}
-            >
-              All <span className="ml-1 text-xs opacity-70">{accounts.length}</span>
-            </button>
-            {allCategories.map((cat) => {
-              const count = accounts.filter((a: any) => getGender(a) === cat).length;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    categoryFilter === cat
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                  }`}
-                >
-                  {cat} <span className="ml-1 text-xs opacity-70">{count}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right: sort + view toggle */}
-          <div className="flex items-center gap-2">
-            <select
-              value={cardSort}
-              onChange={(e) => setCardSort(e.target.value as CardSortKey)}
-              className="h-9 px-3 rounded-xl border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-            >
-              {CARD_SORT_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key}>{o.label}</option>
-              ))}
-            </select>
-
-            {/* View mode toggle */}
-            <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
-              <button
-                onClick={() => setViewMode("grid")}
-                title="Grid view"
-                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium transition-colors ${
-                  viewMode === "grid"
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Grid
-              </button>
-              <div className="w-px h-5 bg-border" />
-              <button
-                onClick={() => { setViewMode("slide"); setCarouselIndex(0); }}
-                title="Slide view"
-                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium transition-colors ${
-                  viewMode === "slide"
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Rows3 className="h-3.5 w-3.5" />
-                Slide
-              </button>
-            </div>
-          </div>
+        {/* Sort control */}
+        <div className="flex items-center justify-end">
+          <select
+            value={cardSort}
+            onChange={(e) => setCardSort(e.target.value as CardSortKey)}
+            className="h-9 px-3 rounded-xl border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            {CARD_SORT_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
         </div>
 
-        {/* HERO + TABLE VIEW */}
-        {viewMode === "grid" && sortedAccounts.length > 0 && (() => {
+        {/* ── MODELS VIEW (always slide) ── */}
+        {sortedAccounts.length > 0 && false && (() => {
           const featuredAcc = sortedAccounts[0] as any;
           const featuredStats = accountStats[featuredAcc.id] || {};
           const featuredRev = ((featuredStats.hasLtvData && featuredStats.totalLtvAllTime > 0 ? featuredStats.totalLtvAllTime : featuredStats.campaignRevAllTime) || 0) * revMultiplier;
@@ -1676,8 +1602,8 @@ export default function AccountsPage() {
           );
         })()}
 
-        {/* SLIDE / CAROUSEL VIEW */}
-        {viewMode === "slide" && sortedAccounts.length > 0 && (() => {
+        {/* SLIDE / MODELS VIEW */}
+        {sortedAccounts.length > 0 && (() => {
           const acc = slideAcc;
           const stats = slideStats;
           const category = getGender(acc);
@@ -1723,7 +1649,7 @@ export default function AccountsPage() {
                   ) : (
                     <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[colorIdx]}`} style={{ opacity: 0.8 }} />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/30 to-black/15" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/10 to-transparent" />
 
                   {/* Top: username + nav controls */}
                   <div className="absolute top-5 left-6 right-5 flex items-center justify-between">
@@ -1844,6 +1770,57 @@ export default function AccountsPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* All Models table */}
+              <div className="rounded-2xl border border-border overflow-hidden" style={{ background: 'hsl(220 14% 10%)' }}>
+                <div className="px-5 py-4 border-b border-border">
+                  <h3 className="text-[13px] font-semibold text-foreground">All Models</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        {(['Model', 'OF Subs', 'Revenue', 'LTV/Sub', 'Spend', 'Profit', 'CVR', 'Subs/Day', 'Active'] as const).map((col, ci) => (
+                          <th key={col} className={`${ci === 0 ? 'px-5 text-left' : ci === 8 ? 'px-5 text-right' : 'px-4 text-right'} py-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium`}>{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(sortedAccounts as any[]).map((a) => {
+                        const s = accountStats[a.id] || {};
+                        const rev = (s.campaignRevAllTime || 0) * revMultiplier;
+                        const sp = s.totalSpendAllTime || 0;
+                        const pr = (s.totalProfit || 0) * revMultiplier;
+                        return (
+                          <tr key={a.id} className="border-b border-border/40 hover:bg-white/[0.025] cursor-pointer transition-colors"
+                            onClick={() => { setSelectedAccount(a); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-3">
+                                <AvatarCircle account={a} size={32} />
+                                <div>
+                                  <p className="font-semibold text-foreground text-[12px] leading-tight">{a.display_name}</p>
+                                  {displayUsername(a) && <p className="text-[10px] text-muted-foreground">{displayUsername(a)}</p>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtNum(s.apiSubs || 0)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtCurrency(rev)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-primary">{s.ltvPerSub != null ? fmtCurrency(s.ltvPerSub * revMultiplier) : '—'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{sp > 0 ? fmtCurrency(sp) : '—'}</td>
+                            <td className={`px-4 py-3 text-right font-mono text-[12px] ${sp > 0 ? (pr >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/30'}`}>{sp > 0 ? fmtCurrency(pr) : '—'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : '—'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : '—'}</td>
+                            <td className="px-5 py-3 text-right text-[12px] font-mono">
+                              <span className="text-primary font-semibold">{s.activeCampaigns || 0}</span>
+                              <span className="text-muted-foreground"> / {s.totalCampaigns || 0}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
