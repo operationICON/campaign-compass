@@ -776,14 +776,14 @@ export default function AccountsPage() {
             <div className="relative rounded-2xl overflow-hidden min-h-[360px]" style={{ background: 'hsl(220 18% 8%)' }}>
               {/* Blurred ambient background */}
               {acc.avatar_thumb_url && (
-                <img src={acc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-35 pointer-events-none" />
+                <img src={acc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-75 pointer-events-none" />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
               {/* Big circle + name centered */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pb-16 px-6 text-center">
-                <div className="ring-[3px] ring-primary/40 ring-offset-2 ring-offset-transparent rounded-full shadow-2xl mb-5">
-                  <AvatarCircle account={acc} size={156} />
+                <div className="ring-4 ring-white/30 ring-offset-4 ring-offset-transparent rounded-full shadow-2xl mb-5">
+                  <AvatarCircle account={acc} size={200} />
                 </div>
                 <h2 className="text-[28px] font-black text-white leading-tight tracking-tight">{acc.display_name}</h2>
                 {displayUsername(acc) && <p className="text-primary text-sm mt-1 font-medium">{displayUsername(acc)}</p>}
@@ -1671,7 +1671,7 @@ export default function AccountsPage() {
                     <img
                       src={acc.avatar_thumb_url}
                       alt=""
-                      className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-35 pointer-events-none"
+                      className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-75 pointer-events-none"
                     />
                   ) : (
                     <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[colorIdx]}`} style={{ opacity: 0.25 }} />
@@ -1704,8 +1704,8 @@ export default function AccountsPage() {
 
                   {/* Centered: big circle + name + badges */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pb-[112px] px-6 text-center">
-                    <div className="ring-[3px] ring-primary/40 ring-offset-2 ring-offset-transparent rounded-full shadow-2xl mb-4">
-                      <AvatarCircle account={acc} size={140} />
+                    <div className="ring-4 ring-white/30 ring-offset-4 ring-offset-transparent rounded-full shadow-2xl mb-4">
+                      <AvatarCircle account={acc} size={200} />
                     </div>
                     <h2 className="text-[32px] font-black text-white leading-none tracking-tight drop-shadow-2xl">
                       {acc.display_name}
