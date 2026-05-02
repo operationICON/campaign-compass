@@ -30,7 +30,7 @@ function safeFormat(dateStr: string | null | undefined, fmt: string, fallback = 
   const d = new Date(dateStr);
   return isValid(d) ? format(d, fmt) : fallback;
 }
-import { ArrowLeft, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pencil, X, UserPlus, Loader2, Info } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pencil, X, UserPlus, Loader2, Info, LayoutGrid, Rows3 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { RefreshButton } from "@/components/RefreshButton";
 import { toast } from "sonner";
@@ -98,6 +98,8 @@ export default function AccountsPage() {
   const [activityFilter, setActivityFilter] = usePersistedState<"all" | "active" | "inactive">(`${A_PREFS}_activityFilter`, "all");
   const [linksPage, setLinksPage] = useState(1);
   const [linksPerPage, setLinksPerPage] = usePersistedState<number>(`${A_PREFS}_perPage`, 25);
+  const [viewMode, setViewMode] = usePersistedState<"grid" | "slide">("accounts_view_mode", "grid");
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   // Reset to page 1 whenever account, filter, or sort changes
   useEffect(() => { setLinksPage(1); }, [selectedAccount?.id, activityFilter, sortKey, sortAsc]);
@@ -1356,19 +1358,148 @@ export default function AccountsPage() {
   }
 
   // ============ VIEW 1 — All Models Overview ============
+
+  // Clamp carousel index
+  const safeIndex = sortedAccounts.length > 0 ? Math.min(carouselIndex, sortedAccounts.length - 1) : 0;
+  const slideAcc = sortedAccounts[safeIndex] as any;
+  const slideStats = slideAcc ? (accountStats[slideAcc.id] || {}) : {};
+
+  const ModelCard = ({ acc }: { acc: any }) => {
+    const stats = accountStats[acc.id] || {};
+    const category = getGender(acc);
+    const isEditing = editingGenderFor === acc.id;
+    const totalRev = ((stats.hasLtvData && stats.totalLtvAllTime > 0 ? stats.totalLtvAllTime : stats.campaignRevAllTime) || 0) * revMultiplier;
+    const spend = stats.totalSpendAllTime || 0;
+    const profit = (stats.totalProfit || 0) * revMultiplier;
+    const profitPositive = profit >= 0;
+
+    return (
+      <div
+        className="bg-card border border-border rounded-2xl overflow-hidden transition-all duration-200 hover:border-primary/35 hover:shadow-2xl hover:-translate-y-1 cursor-pointer group"
+        onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
+      >
+        {/* Avatar header strip */}
+        <div className="relative h-20 overflow-hidden"
+          style={{ background: "linear-gradient(135deg, hsl(220 18% 13%), hsl(220 16% 9%))" }}
+        >
+          <div className="absolute inset-0 opacity-30"
+            style={{ background: "radial-gradient(ellipse 120% 100% at 80% 50%, hsl(168 65% 52% / 0.25), transparent 70%)" }}
+          />
+          {acc.avatar_thumb_url && (
+            <img
+              src={acc.avatar_thumb_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover opacity-15 blur-sm scale-110"
+            />
+          )}
+          {/* Subscriber badge top-right */}
+          <div className="absolute top-3 right-4 text-right">
+            <div className="text-[11px] text-white/50 font-medium">OF Subs</div>
+            <div className="text-sm font-bold text-white">{fmtNum(acc.subscribers_count || 0)}</div>
+          </div>
+          {/* Avatar bottom-left overlapping */}
+          <div className="absolute -bottom-7 left-5">
+            <AvatarCircle account={acc} size={56} />
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="pt-9 px-5 pb-4">
+          {/* Name + category + gender edit */}
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">{acc.display_name}</h3>
+              {displayUsername(acc) && (
+                <p className="text-[12px] text-muted-foreground mt-0.5">{displayUsername(acc)}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 relative" onClick={(e) => e.stopPropagation()}>
+              {isEditing ? (
+                <>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
+                  <button onClick={() => setEditingGenderFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                  <div className="flex flex-col bg-card border border-border rounded-xl shadow-2xl overflow-hidden absolute top-6 right-0 z-20 min-w-[130px]">
+                    {GENDER_OPTIONS.map((g) => (
+                      <button key={g} onClick={() => handleSaveGender(acc.id, g === "Uncategorized" ? null : g)}
+                        className={`px-4 py-2 text-[11px] text-left hover:bg-muted/40 transition-colors ${category === g ? "font-bold text-primary" : "text-foreground"}`}>
+                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${g === "Female" ? "bg-pink-400" : g === "Trans" ? "bg-purple-400" : g === "Male" ? "bg-blue-400" : "bg-muted-foreground/40"}`} />
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
+                  <button onClick={() => setEditingGenderFor(acc.id)} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </>
+              )}
+              {acc.performer_top != null && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">Top {acc.performer_top}%</span>
+              )}
+            </div>
+          </div>
+
+          {/* Stat tiles */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Total Revenue</div>
+              <div className="text-[14px] font-bold text-foreground font-mono">{fmtCurrency(totalRev)}</div>
+            </div>
+            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">LTV/Sub</div>
+              <div className="text-[14px] font-bold text-primary font-mono">{stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—"}</div>
+            </div>
+            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Spend</div>
+              <div className="text-[14px] font-bold text-foreground font-mono">{spend > 0 ? fmtCurrency(spend) : "—"}</div>
+            </div>
+            <div className="bg-background/60 rounded-xl p-3 border border-border/60">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Profit</div>
+              <div className={`text-[14px] font-bold font-mono ${spend > 0 ? (profitPositive ? "text-emerald-400" : "text-destructive") : "text-muted-foreground/40"}`}>
+                {spend > 0 ? fmtCurrency(profit) : "—"}
+              </div>
+            </div>
+          </div>
+
+          {/* CVR row */}
+          <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-background/40 border border-border/50 mb-3">
+            <span className="text-[11px] text-muted-foreground">CVR</span>
+            <span className="text-[12px] font-semibold text-foreground font-mono">{stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}</span>
+            <span className="text-border/50 text-xs">·</span>
+            <span className="text-[11px] text-muted-foreground">Subs/Day</span>
+            <span className="text-[12px] font-semibold text-foreground font-mono">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}` : "—"}</span>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center gap-3 pt-3 border-t border-border/60 text-[11px] text-muted-foreground">
+            <span><span className="font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span> subs</span>
+            <span className="opacity-30">·</span>
+            <span><span className="font-semibold text-emerald-400">{stats.activeCampaigns || 0}</span> active</span>
+            <span className="opacity-30">·</span>
+            <span><span className="font-semibold text-foreground">{stats.totalCampaigns || 0}</span> links</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-5">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[22px] font-medium text-foreground">Models</h1>
+            <h1 className="text-[22px] font-bold text-foreground">Models</h1>
             <p className="text-sm text-muted-foreground">All accounts connected to Campaign Tracker</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleDiscoverAccounts}
               disabled={discovering}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium border border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
             >
               {discovering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
               {discovering ? "Discovering…" : "Discover New Accounts"}
@@ -1389,17 +1520,19 @@ export default function AccountsPage() {
           onRevenueModeChange={setRevenueMode}
         />
 
+        {/* Controls row */}
         <div className="flex items-center justify-between flex-wrap gap-2">
+          {/* Category pills */}
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setCategoryFilter("all")}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
                 categoryFilter === "all"
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
               }`}
             >
-              All <span className="ml-1.5 text-xs opacity-70">{accounts.length}</span>
+              All <span className="ml-1 text-xs opacity-70">{accounts.length}</span>
             </button>
             {allCategories.map((cat) => {
               const count = accounts.filter((a: any) => getGender(a) === cat).length;
@@ -1407,222 +1540,207 @@ export default function AccountsPage() {
                 <button
                   key={cat}
                   onClick={() => setCategoryFilter(cat)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
                     categoryFilter === cat
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
                   }`}
                 >
-                  {cat} <span className="ml-1.5 text-xs opacity-70">{count}</span>
+                  {cat} <span className="ml-1 text-xs opacity-70">{count}</span>
                 </button>
               );
             })}
           </div>
 
-          <select
-            value={cardSort}
-            onChange={(e) => setCardSort(e.target.value as CardSortKey)}
-            className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-          >
-            {CARD_SORT_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>{o.label}</option>
-            ))}
-          </select>
+          {/* Right: sort + view toggle */}
+          <div className="flex items-center gap-2">
+            <select
+              value={cardSort}
+              onChange={(e) => setCardSort(e.target.value as CardSortKey)}
+              className="h-9 px-3 rounded-xl border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            >
+              {CARD_SORT_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>{o.label}</option>
+              ))}
+            </select>
+
+            {/* View mode toggle */}
+            <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
+              <button
+                onClick={() => setViewMode("grid")}
+                title="Grid view"
+                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium transition-colors ${
+                  viewMode === "grid"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Grid
+              </button>
+              <div className="w-px h-5 bg-border" />
+              <button
+                onClick={() => { setViewMode("slide"); setCarouselIndex(0); }}
+                title="Slide view"
+                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium transition-colors ${
+                  viewMode === "slide"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Rows3 className="h-3.5 w-3.5" />
+                Slide
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Model cards grid — PART 1: added total subs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedAccounts.map((acc: any) => {
-            const stats = accountStats[acc.id] || {};
-            const category = getGender(acc);
-            const isEditing = editingGenderFor === acc.id;
-            return (
+        {/* GRID VIEW */}
+        {viewMode === "grid" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sortedAccounts.map((acc: any) => <ModelCard key={acc.id} acc={acc} />)}
+          </div>
+        )}
+
+        {/* SLIDE / CAROUSEL VIEW */}
+        {viewMode === "slide" && sortedAccounts.length > 0 && (() => {
+          const acc = slideAcc;
+          const stats = slideStats;
+          const category = getGender(acc);
+          const totalRev = ((stats.hasLtvData && stats.totalLtvAllTime > 0 ? stats.totalLtvAllTime : stats.campaignRevAllTime) || 0) * revMultiplier;
+          const spend = stats.totalSpendAllTime || 0;
+          const profit = (stats.totalProfit || 0) * revMultiplier;
+          const profitPositive = profit >= 0;
+
+          return (
+            <div className="space-y-4">
+              {/* Navigation bar */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCarouselIndex(i => Math.max(0, i - 1))}
+                    disabled={safeIndex === 0}
+                    className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setCarouselIndex(i => Math.min(sortedAccounts.length - 1, i + 1))}
+                    disabled={safeIndex === sortedAccounts.length - 1}
+                    className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <span className="text-sm text-muted-foreground ml-1">
+                    <span className="font-bold text-foreground">{safeIndex + 1}</span> / {sortedAccounts.length}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground">Click any thumbnail to jump</span>
+              </div>
+
+              {/* Featured card */}
               <div
-                key={acc.id}
-                className="bg-card border border-border rounded-2xl p-5 transition-all duration-200 hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
+                className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer"
                 onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
               >
-                <div className="flex items-start gap-4 mb-4">
-                  <AvatarCircle account={acc} size={72} />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-bold text-foreground">{acc.display_name}</h3>
-                    {displayUsername(acc) && (
-                      <p className="text-[13px] text-muted-foreground">{displayUsername(acc)}</p>
+                <div className="flex flex-col lg:flex-row">
+                  {/* Left — profile */}
+                  <div className="lg:w-[320px] shrink-0 relative flex flex-col items-center justify-center p-8 border-b lg:border-b-0 lg:border-r border-border overflow-hidden">
+                    {/* Blurred bg */}
+                    {acc.avatar_thumb_url && (
+                      <img src={acc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-10 blur-xl scale-110 pointer-events-none" />
                     )}
-                    <div className="flex items-center gap-2 mt-1.5 relative">
-                      {isEditing ? (
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>
-                            {category}
-                          </span>
-                          <button onClick={() => setEditingGenderFor(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
-                          <div className="flex flex-col bg-card border border-border rounded-lg shadow-lg overflow-hidden absolute top-6 left-0 z-10 min-w-[120px]">
-                            {GENDER_OPTIONS.map((g) => (
-                              <button
-                                key={g}
-                                onClick={() => handleSaveGender(acc.id, g === "Uncategorized" ? null : g)}
-                                className={`px-4 py-1.5 text-[11px] text-left hover:bg-secondary transition-colors ${category === g ? "font-bold text-primary" : "text-foreground"}`}
-                              >
-                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${g === "Female" ? "bg-pink-400" : g === "Trans" ? "bg-purple-400" : g === "Male" ? "bg-blue-400" : "bg-muted-foreground"}`} />
-                                {g}
-                              </button>
-                            ))}
-                          </div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-card/20 via-card/60 to-card pointer-events-none" />
+                    <div className="relative z-10 flex flex-col items-center text-center">
+                      <AvatarCircle account={acc} size={110} />
+                      <h2 className="text-xl font-bold text-foreground mt-4 leading-tight">{acc.display_name}</h2>
+                      {displayUsername(acc) && <p className="text-[13px] text-primary mt-0.5">{displayUsername(acc)}</p>}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
+                        {acc.performer_top != null && (
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">Top {acc.performer_top}%</span>
+                        )}
+                      </div>
+                      <div className="mt-5 pt-4 border-t border-border/50 w-full grid grid-cols-2 gap-4 text-center">
+                        <div>
+                          <div className="text-xl font-bold text-foreground">{fmtNum(acc.subscribers_count || 0)}</div>
+                          <div className="text-[11px] text-muted-foreground">OF Subscribers</div>
                         </div>
-                      ) : (
-                        <>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>
-                            {category}
-                          </span>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingGenderFor(acc.id); }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-3 w-3" /></button>
-                        </>
-                      )}
-                      {acc.performer_top != null && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
-                          Top {acc.performer_top}%
-                        </span>
-                      )}
+                        <div>
+                          <div className="text-xl font-bold text-emerald-400">{stats.activeCampaigns || 0}</div>
+                          <div className="text-[11px] text-muted-foreground">Active Links</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-foreground">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}` : "—"}</div>
+                          <div className="text-[11px] text-muted-foreground">Subs/Day</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-foreground">{stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}</div>
+                          <div className="text-[11px] text-muted-foreground">CVR</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right — stats */}
+                  <div className="flex-1 p-8">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-[0.12em] font-semibold mb-5">Performance Overview — All Time</div>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        { label: "Total Revenue", value: fmtCurrency(totalRev), color: "text-foreground" },
+                        { label: "LTV/Sub", value: stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—", color: "text-primary" },
+                        { label: "Total Spend", value: spend > 0 ? fmtCurrency(spend) : "—", color: "text-foreground" },
+                        { label: "Profit", value: spend > 0 ? fmtCurrency(profit) : "—", color: spend > 0 ? (profitPositive ? "text-emerald-400" : "text-destructive") : "text-muted-foreground/40" },
+                        { label: "Total Links", value: String(stats.totalCampaigns || 0), color: "text-foreground" },
+                        { label: "Total Subs", value: fmtNum(stats.totalSubs || 0), color: "text-foreground" },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className="bg-background/60 rounded-xl border border-border/60 p-4">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">{label}</div>
+                          <div className={`text-xl font-bold font-mono ${color}`}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Subs/day + CVR bar */}
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3 bg-background/40 rounded-xl border border-border/50 px-4 py-3">
+                        <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Subs / Day</div>
+                          <div className="text-base font-bold text-foreground font-mono">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(2)}/day` : "—"}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 bg-background/40 rounded-xl border border-border/50 px-4 py-3">
+                        <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                        <div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Conversion Rate</div>
+                          <div className="text-base font-bold text-foreground font-mono">{stats.allCvr != null ? `${stats.allCvr.toFixed(2)}%` : "—"}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                {/* KPI grid */}
-                {(() => {
-                  const periodLabel = customRange ? "Custom" : (TIME_PERIODS.find(t => t.key === timePeriod)?.label ?? "");
-                  const showPeriod = !isDeltaAllTime && stats.periodRevenue != null;
-                  return (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] mb-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Revenue <span className="text-[10px] opacity-50">(all time)</span></span>
-                        <span className="font-mono font-semibold text-foreground">
-                          {fmtCurrency(((stats.hasLtvData && stats.totalLtvAllTime > 0 ? stats.totalLtvAllTime : stats.campaignRevAllTime) || 0) * revMultiplier)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">LTV/Sub <RevenueModeBadge mode={revenueMode} /></span>
-                        <span className="font-mono font-semibold text-primary">
-                          {stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—"}
-                        </span>
-                      </div>
-                      {/* Period revenue — only shown when a time period is selected and data exists */}
-                      {showPeriod && (
-                        <div className="flex justify-between col-span-2 py-1 px-2 rounded-md bg-primary/5 border border-primary/20">
-                          <span className="text-muted-foreground">Rev <span className="text-primary font-semibold">{periodLabel}</span></span>
-                          <span className="font-mono font-semibold text-primary">
-                            {fmtCurrency((stats.periodRevenue || 0) * revMultiplier)}
-                            {stats.periodSubs != null && stats.periodSubs > 0 && (
-                              <span className="text-[10px] text-muted-foreground ml-1">· {stats.periodSubs.toLocaleString()} subs</span>
-                            )}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Spend</span>
-                        <span className="font-mono font-semibold text-foreground">{fmtCurrency(stats.totalSpendAllTime || 0)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">CVR</span>
-                        <span className="font-mono font-semibold text-foreground">
-                          {stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between col-span-2">
-                        <span className="text-muted-foreground">Profit</span>
-                        <span className={`font-mono font-semibold ${(stats.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-destructive"}`}>
-                          {stats.totalSpendAllTime > 0 ? fmtCurrency((stats.totalProfit || 0) * revMultiplier) : "—"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Revenue breakdown expandable */}
-                {(() => {
-                  const isExp = expandedBreakdown.has(acc.id);
-                  const accLinksAll = allLinks.filter((l: any) => l.account_id === acc.id);
-                  const campRev = accLinksAll.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-                  if (campRev <= 0) return null;
-
-                  const accMsg = Number(acc.ltv_messages || 0);
-                  const accTips = Number(acc.ltv_tips || 0);
-                  const accSubs = Number(acc.ltv_subscriptions || 0);
-                  const accPosts = Number(acc.ltv_posts || 0);
-                  const hasAccBreakdown = accMsg > 0 || accTips > 0 || accSubs > 0 || accPosts > 0;
-                  const txB = (txBreakdowns as Record<string, any>)[acc.id];
-                  const typeRows = hasAccBreakdown
-                    ? [
-                        { label: "Messages / PPV", value: accMsg, color: "hsl(var(--primary))" },
-                        { label: "Tips", value: accTips, color: "hsl(38 92% 50%)" },
-                        { label: "Subscriptions", value: accSubs, color: "hsl(280 60% 55%)" },
-                        { label: "Posts", value: accPosts, color: "hsl(210 80% 55%)" },
-                      ].filter(r => r.value > 0)
-                    : txB
-                      ? [
-                          { label: "Messages / PPV", value: txB.messages, color: "hsl(var(--primary))" },
-                          { label: "Tips", value: txB.tips, color: "hsl(38 92% 50%)" },
-                          { label: "Subscriptions", value: txB.subscriptions, color: "hsl(280 60% 55%)" },
-                          { label: "Posts", value: txB.posts, color: "hsl(210 80% 55%)" },
-                        ].filter(r => r.value > 0)
-                      : [];
-
-                  return (
-                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => {
-                          setExpandedBreakdown(prev => {
-                            const next = new Set(prev);
-                            if (next.has(acc.id)) next.delete(acc.id); else next.add(acc.id);
-                            return next;
-                          });
-                        }}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isExp ? "rotate-180" : ""}`} />
-                        {isExp ? "Hide breakdown" : "Revenue breakdown"}
-                      </button>
-                      {isExp && (
-                        <div className="mt-1.5 space-y-1.5 text-[12px]">
-                          {/* Campaign Rev line */}
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Campaign Rev</span>
-                            <span className="font-mono text-foreground font-semibold">{fmtCurrency(campRev * revMultiplier)}</span>
-                          </div>
-                          {typeRows.length > 0 && (
-                            <div className="space-y-1">
-                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">By Type</span>
-                              {typeRows.map(r => (
-                                <div key={r.label} className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: r.color }} />
-                                    <span className="text-muted-foreground">{r.label}</span>
-                                  </div>
-                                  <span className="font-mono text-foreground/80">
-                                    {fmtCurrency(r.value * revMultiplier)} · {campRev > 0 ? ((r.value / campRev) * 100).toFixed(1) : "0"}%
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Footer stats — one line */}
-                <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border text-[11px] text-muted-foreground">
-                  <span><span className="font-mono font-semibold text-foreground">{fmtNum(stats.totalSubs || 0)}</span> subs</span>
-                  <span className="text-border">·</span>
-                  <span><span className="font-mono font-semibold text-foreground">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}` : "—"}</span> subs/day</span>
-                  <span className="text-border">·</span>
-                  <span><span className="font-mono font-semibold text-emerald-400">{stats.activeCampaigns || 0}</span> active links</span>
-                  <span className="text-border">·</span>
-                  <span><span className="font-mono font-semibold text-foreground">{stats.totalCampaigns || 0}</span> total links</span>
-                </div>
               </div>
-            );
-          })}
-        </div>
+
+              {/* Thumbnail strip */}
+              <div className="flex gap-2 overflow-x-auto pb-1 pt-1">
+                {sortedAccounts.map((a: any, i: number) => (
+                  <button
+                    key={a.id}
+                    onClick={() => setCarouselIndex(i)}
+                    className={`shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+                      i === safeIndex
+                        ? "bg-primary/15 ring-1 ring-primary/40"
+                        : "bg-card border border-border hover:border-primary/30"
+                    }`}
+                  >
+                    <AvatarCircle account={a} size={36} />
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[56px]">{a.display_name?.split(" ")[0]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </DashboardLayout>
   );
