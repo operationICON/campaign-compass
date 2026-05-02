@@ -1481,8 +1481,8 @@ export default function AccountsPage() {
           const featuredRev = ((featuredStats.hasLtvData && featuredStats.totalLtvAllTime > 0 ? featuredStats.totalLtvAllTime : featuredStats.campaignRevAllTime) || 0) * revMultiplier;
           const featuredProfit = (featuredStats.totalProfit || 0) * revMultiplier;
 
-          const agencyRev = (sortedAccounts as any[]).reduce((s, a) => s + ((accountStats[a.id]?.campaignRevAllTime || 0) * revMultiplier), 0);
-          const agencySubs = (sortedAccounts as any[]).reduce((s, a) => s + (accountStats[a.id]?.apiSubs || 0), 0);
+          const featuredSpend = featuredStats.totalSpendAllTime || 0;
+          const featuredRoi = featuredSpend > 0 ? ((featuredProfit / featuredSpend) * 100) : null;
 
           const topFive = [...sortedAccounts]
             .sort((a: any, b: any) => (accountStats[b.id]?.apiSubs || 0) - (accountStats[a.id]?.apiSubs || 0))
@@ -1494,82 +1494,60 @@ export default function AccountsPage() {
               {/* Bento hero row */}
               <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 1fr', height: '400px' }}>
 
-                {/* Featured model card */}
+                {/* Featured model card — split: circle photo left, stats right */}
                 <div
-                  className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                  className="rounded-2xl overflow-hidden cursor-pointer group border border-border hover:border-primary/30 transition-colors"
+                  style={{ background: 'hsl(220 14% 10%)' }}
                   onClick={() => { setSelectedAccount(featuredAcc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
                 >
-                  {featuredAcc.avatar_thumb_url ? (
-                    <img
-                      src={featuredAcc.avatar_thumb_url}
-                      alt={featuredAcc.display_name}
-                      className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[0]}`} style={{ opacity: 0.7 }} />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
-
-                  {/* Top label */}
-                  <div className="absolute top-5 left-6 flex items-center gap-2">
-                    <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider">Featured Model</span>
-                    {featuredAcc.performer_top != null && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">
-                        Top {featuredAcc.performer_top}%
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Model name */}
-                  <div className="absolute left-6 bottom-[108px]">
-                    <h2 className="text-[38px] font-black text-white leading-none tracking-tight drop-shadow-lg">
-                      {featuredAcc.display_name}
-                    </h2>
-                    {displayUsername(featuredAcc) && (
-                      <p className="text-white/50 text-sm mt-1.5 font-medium">{displayUsername(featuredAcc)}</p>
-                    )}
-                  </div>
-
-                  {/* Frosted stats strip */}
-                  <div
-                    className="absolute bottom-0 left-0 right-0 px-6 py-4"
-                    style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
-                  >
-                    <div className="flex items-center gap-6">
-                      <div className="flex flex-col">
-                        <span className="text-[20px] font-bold text-white leading-none font-mono">{fmtNum(featuredStats.apiSubs || 0)}</span>
-                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" /> OF Subs
-                        </span>
-                      </div>
-                      <div className="w-px h-8 bg-white/10" />
-                      <div className="flex flex-col">
-                        <span className="text-[20px] font-bold text-white leading-none font-mono">${(featuredRev / 1000).toFixed(0)}k</span>
-                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 inline-block" /> Revenue
-                        </span>
-                      </div>
-                      <div className="w-px h-8 bg-white/10" />
-                      <div className="flex flex-col">
-                        <span className={`text-[20px] font-bold leading-none font-mono ${featuredProfit >= 0 ? 'text-white' : 'text-red-400'}`}>
-                          ${(Math.abs(featuredProfit) / 1000).toFixed(0)}k
-                        </span>
-                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full inline-block ${featuredProfit >= 0 ? 'bg-amber-400' : 'bg-red-400'}`} /> Profit
-                        </span>
-                      </div>
-                      <div className="w-px h-8 bg-white/10" />
-                      <div className="flex flex-col">
-                        <span className="text-[20px] font-bold text-white leading-none">{featuredStats.activeCampaigns || 0}</span>
-                        <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block" /> Active Links
-                        </span>
-                      </div>
-                      <div className="ml-auto">
-                        <div className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center transition-colors">
-                          <ChevronRight className="h-4 w-4 text-white" />
+                  <div className="flex h-full">
+                    {/* Left: big circle photo panel */}
+                    <div className="w-[260px] shrink-0 relative flex flex-col items-center justify-center border-r border-border/50 overflow-hidden">
+                      {featuredAcc.avatar_thumb_url && (
+                        <img src={featuredAcc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.07] blur-2xl scale-150 pointer-events-none" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
+                      <div className="relative z-10 flex flex-col items-center text-center px-6">
+                        <div className="ring-4 ring-primary/25 rounded-full shadow-2xl mb-4">
+                          <AvatarCircle account={featuredAcc} size={148} />
                         </div>
+                        <div className="text-[22px] font-bold text-white leading-none font-mono">{fmtNum(featuredStats.apiSubs || 0)}</div>
+                        <div className="text-[11px] text-white/40 mt-1 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" /> OF Subscribers
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: name + 6-stat grid */}
+                    <div className="flex-1 flex flex-col justify-between p-7">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-[0.14em] font-semibold">Featured Model</span>
+                        <h2 className="text-[32px] font-black text-white leading-tight mt-1 tracking-tight">{featuredAcc.display_name}</h2>
+                        {displayUsername(featuredAcc) && (
+                          <p className="text-[13px] text-primary mt-0.5 font-medium">{displayUsername(featuredAcc)}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(getGender(featuredAcc))}`}>{getGender(featuredAcc)}</span>
+                          {featuredAcc.performer_top != null && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">Top {featuredAcc.performer_top}%</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: 'Revenue', value: fmtCurrency(featuredRev), color: 'text-foreground' },
+                          { label: 'Profit', value: featuredSpend > 0 ? fmtCurrency(featuredProfit) : '—', color: featuredSpend > 0 ? (featuredProfit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40' },
+                          { label: 'LTV/Sub', value: featuredStats.ltvPerSub != null ? fmtCurrency(featuredStats.ltvPerSub * revMultiplier) : '—', color: 'text-primary' },
+                          { label: 'Active Links', value: String(featuredStats.activeCampaigns || 0), color: 'text-foreground' },
+                          { label: 'CVR', value: featuredStats.allCvr != null ? `${featuredStats.allCvr.toFixed(1)}%` : '—', color: 'text-foreground' },
+                          { label: 'Subs/Day', value: featuredStats.subsPerDay != null ? featuredStats.subsPerDay.toFixed(1) : '—', color: 'text-foreground' },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} className="bg-white/[0.04] rounded-xl px-3 py-2.5 border border-white/[0.06]">
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
+                            <div className={`text-[15px] font-bold font-mono ${color}`}>{value}</div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -1609,13 +1587,32 @@ export default function AccountsPage() {
                     </div>
                   </div>
 
-                  {/* Bottom: Agency revenue */}
+                  {/* Bottom: Featured model revenue */}
                   <div className="rounded-2xl border border-border p-5" style={{ background: 'hsl(220 14% 10%)' }}>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Agency Revenue</p>
-                    <p className="text-[30px] font-black text-primary mt-2 leading-none font-mono">
-                      ${(agencyRev / 1000000).toFixed(2)}M
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-1.5">{fmtNum(agencySubs)} total OF subscribers</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.14em] font-semibold">{featuredAcc.display_name?.split(' ')[0]} · Revenue</p>
+                    <p className="text-[28px] font-black text-primary mt-1.5 leading-none font-mono">{fmtCurrency(featuredRev)}</p>
+                    <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Spend</p>
+                        <p className="text-[13px] font-bold text-foreground font-mono">{featuredSpend > 0 ? fmtCurrency(featuredSpend) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Profit</p>
+                        <p className={`text-[13px] font-bold font-mono ${featuredSpend > 0 ? (featuredProfit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40'}`}>
+                          {featuredSpend > 0 ? fmtCurrency(featuredProfit) : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">ROI</p>
+                        <p className={`text-[13px] font-bold font-mono ${featuredRoi != null ? (featuredRoi >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40'}`}>
+                          {featuredRoi != null ? `${featuredRoi.toFixed(0)}%` : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Campaigns</p>
+                        <p className="text-[13px] font-bold text-foreground">{featuredStats.totalCampaigns || 0}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
