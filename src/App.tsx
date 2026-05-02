@@ -21,6 +21,7 @@ import MarketerDrilldownPage from "./pages/MarketerDrilldownPage";
 import MarketerModelCampaignsPage from "./pages/MarketerModelCampaignsPage";
 import CrossPollPage from "./pages/CrossPollPage";
 import FansPage from "./pages/FansPage";
+import CampaignAnalyticsPage from "./pages/CampaignAnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/sources/onlytraffic/:marketer/:offer_id/:model_username" element={<ProtectedRoute adminOnly><MarketerModelCampaignsPage /></ProtectedRoute>} />
             <Route path="/cross-poll" element={<ProtectedRoute adminOnly><CrossPollPage /></ProtectedRoute>} />
             <Route path="/fans" element={<ProtectedRoute adminOnly><FansPage /></ProtectedRoute>} />
+            <Route path="/campaign-analytics" element={<ProtectedRoute adminOnly><CampaignAnalyticsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchDailyMetrics, fetchTrackingLinks, fetchAccounts, fetchTransactions } from "@/lib/supabase-helpers";
@@ -6,7 +6,6 @@ import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CampaignAnalyticsTab } from "@/components/campaign-analytics/CampaignAnalyticsTab";
 import {
   ComposedChart, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -42,7 +41,6 @@ const TT: any = {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ChartsPage() {
-  const [tab, setTab] = useState<"charts" | "analytics">("charts");
   const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, revenueMode, setRevenueMode } = usePageFilters();
   const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
 
@@ -227,26 +225,6 @@ export default function ChartsPage() {
           <RefreshButton queryKeys={["daily_metrics", "tracking_links", "accounts", "transactions"]} />
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit border border-border">
-          {(["charts", "analytics"] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
-                tab === t
-                  ? "bg-card text-foreground shadow-sm border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t === "charts" ? "Performance Charts" : "Campaign Analytics"}
-            </button>
-          ))}
-        </div>
-
-        {tab === "analytics" && <CampaignAnalyticsTab />}
-
-        {tab === "charts" && <>
         <PageFilterBar
           timePeriod={timePeriod}
           onTimePeriodChange={setTimePeriod}
@@ -485,7 +463,6 @@ export default function ChartsPage() {
           </ChartCard>
         </div>
 
-        </>}
       </div>
     </DashboardLayout>
   );
