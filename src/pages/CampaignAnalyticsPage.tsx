@@ -176,7 +176,7 @@ function ListView({
     );
   }, [campaigns, search]);
 
-  const colCount = showAccountCol ? 11 : 10;
+  const colCount = showAccountCol ? 12 : 11;
 
   return (
     <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
@@ -226,7 +226,8 @@ function ListView({
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Spenders</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Profit</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ROI</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ARPS</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">CVR</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ARPS/Sub</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Created at</th>
               </tr>
             </thead>
@@ -254,6 +255,7 @@ function ListView({
                   const profit = revenue - cost;
                   const roi = cost > 0 ? (profit / cost) * 100 : null;
                   const arps = (c.subscribers ?? 0) > 0 ? revenue / c.subscribers : 0;
+                  const cvr = (c.clicks ?? 0) > 0 ? ((c.subscribers ?? 0) / c.clicks) * 100 : null;
                   const color = CAMPAIGN_COLORS[idx % CAMPAIGN_COLORS.length];
                   const acct = accountMap[c.account_id];
                   return (
@@ -319,6 +321,9 @@ function ListView({
                         {roi !== null
                           ? <span className={roi >= 0 ? "text-green-400" : "text-red-400"}>{fmtPct(roi)}</span>
                           : <span className="text-muted-foreground/40">N/A</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                        {cvr !== null ? fmtPct(cvr) : <span className="text-muted-foreground/40">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">
                         {arps > 0 ? fmtC(arps) : <span className="text-muted-foreground/40">$0.00</span>}
