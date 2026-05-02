@@ -1705,7 +1705,7 @@ export default function AccountsPage() {
                   {/* Centered: big circle + name + badges */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pb-[112px] px-6 text-center">
                     <div className="ring-4 ring-white/30 ring-offset-4 ring-offset-transparent rounded-full shadow-2xl mb-4">
-                      <AvatarCircle account={acc} size={200} />
+                      <AvatarCircle account={acc} size={420} />
                     </div>
                     <h2 className="text-[32px] font-black text-white leading-none tracking-tight drop-shadow-2xl">
                       {acc.display_name}
