@@ -775,11 +775,11 @@ export default function AccountsPage() {
             {/* Left: full-bleed photo */}
             <div className="relative rounded-2xl overflow-hidden min-h-[360px]">
               {acc.avatar_thumb_url ? (
-                <img src={acc.avatar_thumb_url} alt={acc.display_name} className="absolute inset-0 w-full h-full object-cover object-top" />
+                <img src={acc.avatar_thumb_url} alt={acc.display_name} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: '50% 20%' }} />
               ) : (
                 <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[accounts.indexOf(acc) % AVATAR_COLORS.length]}`} style={{ opacity: 0.8 }} />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
 
               {/* Name + badges */}
               <div className="absolute left-6 bottom-[108px]">
@@ -1668,12 +1668,13 @@ export default function AccountsPage() {
                     <img
                       src={acc.avatar_thumb_url}
                       alt={acc.display_name}
-                      className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      style={{ objectPosition: '50% 20%' }}
                     />
                   ) : (
                     <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[colorIdx]}`} style={{ opacity: 0.8 }} />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
 
                   {/* Top: username + nav controls */}
                   <div className="absolute top-5 left-6 right-5 flex items-center justify-between">
