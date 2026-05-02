@@ -252,10 +252,10 @@ function ListView({
                 filtered.map((c: any, idx: number) => {
                   const revenue = Number(c.revenue ?? 0);
                   const cost = Number(c.cost_total ?? 0);
-                  const profit = revenue - cost;
-                  const roi = cost > 0 ? (profit / cost) * 100 : null;
-                  const arps = (c.subscribers ?? 0) > 0 ? revenue / c.subscribers : 0;
-                  const cvr = (c.clicks ?? 0) > 0 ? ((c.subscribers ?? 0) / c.clicks) * 100 : null;
+                  const profit = c.profit != null ? Number(c.profit) : revenue - cost;
+                  const roi = c.roi != null ? Number(c.roi) : (cost > 0 ? (profit / cost) * 100 : null);
+                  const arps = c.revenue_per_subscriber != null ? Number(c.revenue_per_subscriber) : ((c.subscribers ?? 0) > 0 ? revenue / c.subscribers : 0);
+                  const cvr = c.cvr != null ? Number(c.cvr) : ((c.clicks ?? 0) > 0 ? ((c.subscribers ?? 0) / c.clicks) * 100 : null);
                   const color = CAMPAIGN_COLORS[idx % CAMPAIGN_COLORS.length];
                   const acct = accountMap[c.account_id];
                   return (
@@ -266,11 +266,15 @@ function ListView({
                     >
                       {showAccountCol && (
                         <td className="px-4 py-3">
-                          {acct ? (
+                          {(c.account_display_name || c.account_username || acct) ? (
                             <div className="flex items-center gap-1.5">
-                              <ModelAvatar avatarUrl={acct.avatar_thumb_url} name={acct.display_name || acct.username} size={20} />
+                              <ModelAvatar
+                                avatarUrl={c.account_avatar_thumb_url || acct?.avatar_thumb_url}
+                                name={c.account_display_name || c.account_username || acct?.display_name}
+                                size={20}
+                              />
                               <span className="text-xs text-muted-foreground truncate max-w-[70px]">
-                                {acct.display_name || acct.username}
+                                {c.account_display_name || c.account_username || acct?.display_name}
                               </span>
                             </div>
                           ) : <span className="text-muted-foreground/40 text-xs">—</span>}
