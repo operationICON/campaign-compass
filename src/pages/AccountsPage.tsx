@@ -1684,133 +1684,167 @@ export default function AccountsPage() {
           const totalRev = ((stats.hasLtvData && stats.totalLtvAllTime > 0 ? stats.totalLtvAllTime : stats.campaignRevAllTime) || 0) * revMultiplier;
           const spend = stats.totalSpendAllTime || 0;
           const profit = (stats.totalProfit || 0) * revMultiplier;
-          const profitPositive = profit >= 0;
+          const colorIdx = (sortedAccounts as any[]).indexOf(acc) % AVATAR_COLORS.length;
 
           return (
-            <div className="space-y-4">
-              {/* Navigation bar */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCarouselIndex(i => Math.max(0, i - 1))}
-                    disabled={safeIndex === 0}
-                    className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setCarouselIndex(i => Math.min(sortedAccounts.length - 1, i + 1))}
-                    disabled={safeIndex === sortedAccounts.length - 1}
-                    className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <span className="text-sm text-muted-foreground ml-1">
-                    <span className="font-bold text-foreground">{safeIndex + 1}</span> / {sortedAccounts.length}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground">Click any thumbnail to jump</span>
-              </div>
-
-              {/* Featured card */}
-              <div
-                className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer"
-                onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
-              >
-                <div className="flex flex-col lg:flex-row">
-                  {/* Left — profile */}
-                  <div className="lg:w-[320px] shrink-0 relative flex flex-col items-center justify-center p-8 border-b lg:border-b-0 lg:border-r border-border overflow-hidden">
-                    {/* Blurred bg */}
-                    {acc.avatar_thumb_url && (
-                      <img src={acc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-10 blur-xl scale-110 pointer-events-none" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-b from-card/20 via-card/60 to-card pointer-events-none" />
-                    <div className="relative z-10 flex flex-col items-center text-center">
-                      <AvatarCircle account={acc} size={110} />
-                      <h2 className="text-xl font-bold text-foreground mt-4 leading-tight">{acc.display_name}</h2>
-                      {displayUsername(acc) && <p className="text-[13px] text-primary mt-0.5">{displayUsername(acc)}</p>}
-                      <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
-                        {acc.performer_top != null && (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">Top {acc.performer_top}%</span>
-                        )}
-                      </div>
-                      <div className="mt-5 pt-4 border-t border-border/50 w-full grid grid-cols-2 gap-4 text-center">
-                        <div>
-                          <div className="text-xl font-bold text-foreground">{fmtNum(acc.subscribers_count || 0)}</div>
-                          <div className="text-[11px] text-muted-foreground">OF Subscribers</div>
-                        </div>
-                        <div>
-                          <div className="text-xl font-bold text-emerald-400">{stats.activeCampaigns || 0}</div>
-                          <div className="text-[11px] text-muted-foreground">Active Links</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold text-foreground">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(1)}` : "—"}</div>
-                          <div className="text-[11px] text-muted-foreground">Subs/Day</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold text-foreground">{stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : "—"}</div>
-                          <div className="text-[11px] text-muted-foreground">CVR</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right — stats */}
-                  <div className="flex-1 p-8">
-                    <div className="text-[11px] text-muted-foreground uppercase tracking-[0.12em] font-semibold mb-5">Performance Overview — All Time</div>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                      {[
-                        { label: "Total Revenue", value: fmtCurrency(totalRev), color: "text-foreground" },
-                        { label: "LTV/Sub", value: stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : "—", color: "text-primary" },
-                        { label: "Total Spend", value: spend > 0 ? fmtCurrency(spend) : "—", color: "text-foreground" },
-                        { label: "Profit", value: spend > 0 ? fmtCurrency(profit) : "—", color: spend > 0 ? (profitPositive ? "text-emerald-400" : "text-destructive") : "text-muted-foreground/40" },
-                        { label: "Total Links", value: String(stats.totalCampaigns || 0), color: "text-foreground" },
-                        { label: "Total Subs", value: fmtNum(stats.totalSubs || 0), color: "text-foreground" },
-                      ].map(({ label, value, color }) => (
-                        <div key={label} className="bg-background/60 rounded-xl border border-border/60 p-4">
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">{label}</div>
-                          <div className={`text-xl font-bold font-mono ${color}`}>{value}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Subs/day + CVR bar */}
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-3 bg-background/40 rounded-xl border border-border/50 px-4 py-3">
-                        <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                        <div>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Subs / Day</div>
-                          <div className="text-base font-bold text-foreground font-mono">{stats.subsPerDay != null ? `${stats.subsPerDay.toFixed(2)}/day` : "—"}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 bg-background/40 rounded-xl border border-border/50 px-4 py-3">
-                        <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                        <div>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Conversion Rate</div>
-                          <div className="text-base font-bold text-foreground font-mono">{stats.allCvr != null ? `${stats.allCvr.toFixed(2)}%` : "—"}</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Thumbnail strip */}
-              <div className="flex gap-2 overflow-x-auto pb-1 pt-1">
-                {sortedAccounts.map((a: any, i: number) => (
+            <div className="space-y-3">
+              {/* Thumbnail strip — TOP */}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {(sortedAccounts as any[]).map((a, i) => (
                   <button
                     key={a.id}
                     onClick={() => setCarouselIndex(i)}
-                    className={`shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+                    className={`shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition-all ${
                       i === safeIndex
-                        ? "bg-primary/15 ring-1 ring-primary/40"
-                        : "bg-card border border-border hover:border-primary/30"
+                        ? "ring-2 ring-primary/60 bg-primary/10"
+                        : "opacity-50 hover:opacity-90"
                     }`}
                   >
-                    <AvatarCircle account={a} size={36} />
-                    <span className="text-[10px] text-muted-foreground truncate max-w-[56px]">{a.display_name?.split(" ")[0]}</span>
+                    <AvatarCircle account={a} size={40} />
+                    <span className="text-[9px] text-muted-foreground truncate max-w-[44px]">{a.display_name?.split(" ")[0]}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* Main bento: photo card + right column */}
+              <div className="grid gap-4" style={{ gridTemplateColumns: '3fr 2fr', height: '480px' }}>
+
+                {/* Left: full-bleed photo + name overlay + frosted stats strip */}
+                <div
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                  onClick={() => { setSelectedAccount(acc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
+                >
+                  {acc.avatar_thumb_url ? (
+                    <img
+                      src={acc.avatar_thumb_url}
+                      alt={acc.display_name}
+                      className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[colorIdx]}`} style={{ opacity: 0.8 }} />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/30 to-black/15" />
+
+                  {/* Top: username + nav controls */}
+                  <div className="absolute top-5 left-6 right-5 flex items-center justify-between">
+                    <span className="text-[12px] text-white/50 font-medium">
+                      {displayUsername(acc) || "Model Profile"}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={e => { e.stopPropagation(); setCarouselIndex(i => Math.max(0, i - 1)); }}
+                        disabled={safeIndex === 0}
+                        className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 border border-white/15 flex items-center justify-center disabled:opacity-25 transition-colors"
+                      >
+                        <ChevronLeft className="h-4 w-4 text-white" />
+                      </button>
+                      <span className="text-[11px] text-white/40 font-mono tabular-nums">{safeIndex + 1} / {sortedAccounts.length}</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); setCarouselIndex(i => Math.min((sortedAccounts as any[]).length - 1, i + 1)); }}
+                        disabled={safeIndex === (sortedAccounts as any[]).length - 1}
+                        className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 border border-white/15 flex items-center justify-center disabled:opacity-25 transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4 text-white" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Model name + badges */}
+                  <div className="absolute left-6 bottom-[112px]">
+                    <h2 className="text-[44px] font-black text-white leading-none tracking-tight drop-shadow-2xl">
+                      {acc.display_name}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
+                      {acc.performer_top != null && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">Top {acc.performer_top}%</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Frosted stats strip */}
+                  <div
+                    className="absolute bottom-0 left-0 right-0 px-6 py-4"
+                    style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(14px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <div className="flex items-center gap-5">
+                      {[
+                        { val: fmtNum(acc.subscribers_count || 0), label: 'OF Subs', dot: 'bg-blue-400' },
+                        { val: `$${(totalRev / 1000).toFixed(0)}k`, label: 'Revenue', dot: 'bg-teal-400' },
+                        { val: spend > 0 ? `$${(Math.abs(profit) / 1000).toFixed(0)}k` : '—', label: 'Profit', dot: profit >= 0 ? 'bg-amber-400' : 'bg-red-400' },
+                        { val: stats.allCvr != null ? `${stats.allCvr.toFixed(1)}%` : '—', label: 'CVR', dot: 'bg-purple-400' },
+                      ].map(({ val, label, dot }, idx, arr) => (
+                        <div key={label} className="flex items-center gap-5">
+                          <div className="flex flex-col">
+                            <span className="text-[20px] font-bold text-white leading-none font-mono">{val}</span>
+                            <span className="text-[10px] text-white/40 mt-0.5 flex items-center gap-1.5">
+                              <span className={`w-1.5 h-1.5 rounded-full inline-block ${dot}`} /> {label}
+                            </span>
+                          </div>
+                          {idx < arr.length - 1 && <div className="w-px h-8 bg-white/10" />}
+                        </div>
+                      ))}
+                      <div className="ml-auto">
+                        <button
+                          onClick={e => { e.stopPropagation(); setCarouselIndex(i => Math.min((sortedAccounts as any[]).length - 1, i + 1)); }}
+                          disabled={safeIndex === (sortedAccounts as any[]).length - 1}
+                          className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 flex items-center justify-center disabled:opacity-30 transition-colors"
+                        >
+                          <ChevronRight className="h-5 w-5 text-white" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right column — per-model only */}
+                <div className="flex flex-col gap-4">
+                  {/* Top: Subscribers */}
+                  <div className="flex-1 rounded-2xl border border-border p-6" style={{ background: 'hsl(220 14% 10%)' }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[12px] font-semibold text-foreground">Subscribers</p>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" /> Live
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mb-4">OnlyFans profile</p>
+                    <div className="text-[42px] font-black text-white leading-none font-mono">{fmtNum(acc.subscribers_count || 0)}</div>
+                    <div className="mt-4 pt-4 border-t border-border/50 grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Subs / Day</div>
+                        <div className="text-[20px] font-bold text-primary font-mono">{stats.subsPerDay != null ? stats.subsPerDay.toFixed(1) : '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Active Links</div>
+                        <div className="text-[20px] font-bold text-foreground">{stats.activeCampaigns || 0}
+                          <span className="text-[13px] text-muted-foreground font-normal"> / {stats.totalCampaigns || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom: Revenue */}
+                  <div className="rounded-2xl border border-border p-6" style={{ background: 'hsl(220 14% 10%)' }}>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.14em] font-semibold mb-1">Model Revenue</p>
+                    <p className="text-[30px] font-black text-primary leading-none font-mono">{fmtCurrency(totalRev)}</p>
+                    <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Spend</div>
+                        <div className="text-[13px] font-bold text-foreground font-mono">{spend > 0 ? fmtCurrency(spend) : '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Profit</div>
+                        <div className={`text-[13px] font-bold font-mono ${spend > 0 ? (profit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40'}`}>
+                          {spend > 0 ? fmtCurrency(profit) : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">LTV/Sub</div>
+                        <div className="text-[13px] font-bold text-primary font-mono">{stats.ltvPerSub != null ? fmtCurrency(stats.ltvPerSub * revMultiplier) : '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           );
