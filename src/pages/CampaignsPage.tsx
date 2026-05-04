@@ -278,7 +278,7 @@ export default function CampaignsPage() {
       return `${days}d`;
     }
     switch (timePeriod) {
-      case "day": return "last sync";
+      case "day": return "1d";
       case "week": return "7d";
       case "month": return "30d";
       case "prev_month": return "prev mo";
