@@ -987,7 +987,7 @@ export default function CampaignsPage() {
                             case "model": return <SortHeader key={c.id} label="Model" sortKeyName="model" width="100px" />;
                             case "source": return <SortHeader key={c.id} label="Source" sortKeyName="source_tag" width="100px" />;
                             case "clicks": return <SortHeader key={c.id} label="Clicks" sortKeyName="clicks" width="70px" />;
-                            case "subscribers": return <SortHeader key={c.id} label="Subs" sortKeyName="subscribers" width="70px" />;
+                            case "subscribers": return <SortHeader key={c.id} label={isDeltaAllTime ? "Subs" : "New Subs"} sortKeyName="subscribers" width="70px" />;
                             case "cvr": return <SortHeader key={c.id} label="CVR" sortKeyName="cvr" width="65px" />;
                             case "revenue": return <SortHeader key={c.id} label="Revenue" sortKeyName="revenue" width="90px" />;
                             case "cross_poll": return (
@@ -1112,13 +1112,26 @@ export default function CampaignsPage() {
                                       : (link.clicks || 0).toLocaleString()}
                                   </td>
                                 );
-                                case "subscribers": return (
-                                  <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {!isAllTime && !link.snapshotHasData
-                                      ? <span className="text-muted-foreground">—</span>
-                                      : (link.subscribers || 0).toLocaleString()}
-                                  </td>
-                                );
+                                case "subscribers": {
+                                  // Period active → show new subs gained in the period (from snapshots)
+                                  // All Time → show current active subscribers from tracking link
+                                  if (!isDeltaAllTime) {
+                                    const d = getDelta(link.id, deltaLookup);
+                                    const gained = d?.subsGained ?? null;
+                                    return (
+                                      <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                        {gained != null && gained > 0
+                                          ? <span className="text-foreground">{gained.toLocaleString()}</span>
+                                          : <span className="text-muted-foreground">—</span>}
+                                      </td>
+                                    );
+                                  }
+                                  return (
+                                    <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
+                                      {(link.subscribers || 0).toLocaleString()}
+                                    </td>
+                                  );
+                                }
                                 case "cvr": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     {link.clicks > 100 ? <span className="text-primary">{((link.subscribers / link.clicks) * 100).toFixed(1)}%</span> : <span className="text-muted-foreground">—</span>}
@@ -1309,18 +1322,15 @@ export default function CampaignsPage() {
                                 }
                                 case "subs_day": {
                                   if (!isDeltaAllTime) {
-                                    // Date filter active → show total subs gained + per-day rate
+                                    // Date filter active → show per-day rate (total is in SUBS column)
                                     const d = getDelta(link.id, deltaLookup);
-                                    const gained = d?.subsGained ?? null;
                                     const spd = d?.subsPerDay ?? null;
                                     return (
                                       <td key={c.id} style={{ padding: "8px 12px" }}>
-                                        {gained != null && gained > 0 ? (
+                                        {spd != null && spd > 0 ? (
                                           <div className="flex flex-col items-end gap-0">
-                                            <span className="font-mono font-bold text-primary text-[12px]">{gained.toLocaleString()}</span>
-                                            {spd != null && spd > 0 && subsDayPeriodLabel && (
-                                              <span className="text-[9px] text-muted-foreground font-mono">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day · {subsDayPeriodLabel}</span>
-                                            )}
+                                            <span className="font-mono font-bold text-primary text-[12px]">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day</span>
+                                            {subsDayPeriodLabel && <span className="text-[9px] text-muted-foreground font-mono">{subsDayPeriodLabel}</span>}
                                           </div>
                                         ) : <span className="text-muted-foreground">—</span>}
                                       </td>
