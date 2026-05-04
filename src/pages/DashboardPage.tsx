@@ -897,19 +897,24 @@ function KpiCards({
         );
       }
 
-      // ═══ CARD 4 — SUBS/DAY ═══
+      // ═══ CARD 4 — NEW SUBS + SUBS/DAY ═══
       case "subs_per_day": {
+        let totalNewSubs: number | null = null;
         let subsPerDay: number | null = null;
         let label = "";
         if (isAllTime) {
-          if (earliestCreated) {
+          // Use all-time snapshot totals — daily_snapshots.subscribers = new subs/day from OFAPI
+          const snapSubs = allTimeSnapshotTotals?.subscribers ?? 0;
+          if (snapSubs > 0 && earliestCreated) {
             const daysSince = Math.max(1, differenceInDays(new Date(), earliestCreated));
-            subsPerDay = allTimeTotalSubs > 0 ? allTimeTotalSubs / daysSince : null;
+            totalNewSubs = snapSubs;
+            subsPerDay = snapSubs / daysSince;
           }
           label = "All time average";
         } else if (noDataForPeriod) {
           label = "No data for this period";
         } else if (periodDayCount && periodDayCount > 0) {
+          totalNewSubs = snapshotSubs;
           subsPerDay = snapshotSubs / periodDayCount;
           label = periodLabel;
         } else {
@@ -921,14 +926,18 @@ function KpiCards({
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <BarChart3 className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Subs/Day</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">New Subs</span>
             </div>
-            {subsPerDay !== null && subsPerDay > 0 ? (
-              <p className="text-[20px] font-medium font-mono text-primary">{Math.round(subsPerDay)}/day</p>
+            {totalNewSubs !== null && totalNewSubs > 0 ? (
+              <p className="text-[20px] font-medium font-mono text-primary">{totalNewSubs.toLocaleString()}</p>
             ) : (
               <p className="text-[20px] font-medium font-mono text-muted-foreground">—</p>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">{label}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {subsPerDay !== null && subsPerDay > 0
+                ? `${subsPerDay.toFixed(1)}/day · ${label}`
+                : label}
+            </p>
           </div>
         );
       }
