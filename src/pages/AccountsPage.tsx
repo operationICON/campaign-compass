@@ -773,7 +773,7 @@ export default function AccountsPage() {
           <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 3fr' }}>
 
             {/* Left: blurred bg + big circle */}
-            <div className="relative rounded-2xl overflow-hidden min-h-[360px]" style={{ background: 'hsl(220 18% 8%)' }}>
+            <div className="relative rounded-2xl overflow-hidden min-h-[480px]" style={{ background: 'hsl(220 18% 8%)' }}>
               {/* Blurred ambient background */}
               {acc.avatar_thumb_url && (
                 <img src={acc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-75 pointer-events-none" />
@@ -783,7 +783,7 @@ export default function AccountsPage() {
               {/* Big circle + name centered */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pb-16 px-6 text-center">
                 <div className="ring-4 ring-white/30 ring-offset-4 ring-offset-transparent rounded-full shadow-2xl mb-5">
-                  <AvatarCircle account={acc} size={200} />
+                  <AvatarCircle account={acc} size={320} />
                 </div>
                 <h2 className="text-[28px] font-black text-white leading-tight tracking-tight">{acc.display_name}</h2>
                 {displayUsername(acc) && <p className="text-primary text-sm mt-1 font-medium">{displayUsername(acc)}</p>}
