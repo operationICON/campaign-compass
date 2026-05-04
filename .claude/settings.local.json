@@ -26,7 +26,12 @@
       "PowerShell(psql *)",
       "PowerShell(ls C:\\\\Users\\\\Ern\\\\campaign-compass\\\\server\\\\node_modules | Where-Object { $_.Name -match \"pg|neon|postgres\" } | Select-Object Name)",
       "Bash(git commit *)",
-      "Bash(grep -v \"//.*traffic_category\")"
+      "Bash(grep -v \"//.*traffic_category\")",
+      "Bash(curl -v \"http://localhost:3000/campaign-analytics/campaigns\")",
+      "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/campaign-analytics/campaigns\")",
+      "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/health\")",
+      "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/\")",
+      "Bash(railway --version)"
     ]
   }
 }

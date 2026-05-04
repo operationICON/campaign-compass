@@ -237,14 +237,17 @@ function DrawerBodyInner({
       const selected = sourceTags.find((t: any) => t.name === sourceVal);
       // Don't overwrite traffic_category if the link is already OT-synced
       const newCategory = d.traffic_category === "OnlyTraffic" ? "OnlyTraffic" : "Manual";
-      await updateTrackingLink(d.id, {
+      const updated = await updateTrackingLink(d.id, {
         source_tag: sourceVal || null,
         traffic_source_id: (selected as any)?.id || null,
         manually_tagged: true,
         traffic_category: newCategory,
       });
 
-      await refetchTrackingLinkAndSync();
+      const merged = mergeDrawerCampaign(d, updated);
+      syncDrawerState(merged);
+      updateCachedLink(merged);
+      onCampaignUpdated?.(merged);
 
       toast.success("Source saved");
       await refreshTrackingQueries();
