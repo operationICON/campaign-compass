@@ -1005,8 +1005,8 @@ export default function CampaignsPage() {
                             case "profit_sub": return <SortHeader key={c.id} label="Profit/Sub" sortKeyName="profit_per_sub" width="85px" primary />;
                             case "roi": return <SortHeader key={c.id} label="ROI" sortKeyName="roi" width="70px" />;
                             case "status": return <SortHeader key={c.id} label="Status" sortKeyName="status" width="80px" />;
-                            case "daily_subs": return <SortHeader key={c.id} label="Daily Subs" sortKeyName="daily_subs" width="80px" info="Subs gained in the last 24 hours based on the latest snapshot" />;
-                            case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="80px" />;
+                            case "daily_subs": return <SortHeader key={c.id} label="Daily Subs" sortKeyName="daily_subs" width="90px" info="Subs gained in the last 24 hours based on the latest snapshot" />;
+                            case "subs_day": return <SortHeader key={c.id} label="Subs/Day" sortKeyName="subs_day" width="110px" />;
                             case "created": return <SortHeader key={c.id} label="Created" sortKeyName="created_at" width="100px" />;
                             case "last_synced": return <SortHeader key={c.id} label="Last Synced" sortKeyName="last_synced" width="90px" />;
                             case "media_buyer": return <SortHeader key={c.id} label="Buyer" sortKeyName="media_buyer" width="90px" />;
@@ -1317,7 +1317,7 @@ export default function CampaignsPage() {
                                           <div className="flex flex-col items-end gap-0.5">
                                             <span className="font-mono font-bold text-primary text-[13px]">{gained.toLocaleString()}</span>
                                             {spd != null && spd > 0 && subsDayPeriodLabel && (
-                                              <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                                              <span className="font-mono text-[11px] text-white/40 whitespace-nowrap">
                                                 {spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day · {subsDayPeriodLabel}
                                               </span>
                                             )}
