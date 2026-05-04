@@ -22,11 +22,12 @@ interface RawRow {
 async function resolveWindow(
   timePeriod: TimePeriod,
   customRange: { from: Date; to: Date } | null
-): Promise<{ start: string; end: string } | null> {
+): Promise<{ start: string; end: string; exclusiveStart: boolean } | null> {
   if (customRange) {
     return {
       start: customRange.from.toISOString().slice(0, 10),
       end: customRange.to.toISOString().slice(0, 10),
+      exclusiveStart: false,
     };
   }
 
@@ -37,23 +38,24 @@ async function resolveWindow(
     case "day": {
       const dates = await getSnapshotDistinctDates(2);
       if (dates.length < 2) return null;
-      return { start: dates[1], end: dates[0] };
+      // "day" uses two anchor dates; exclusive start so only the latest day's row is summed
+      return { start: dates[1], end: dates[0], exclusiveStart: true };
     }
     case "week": {
       const d = new Date(maxDate + "T00:00:00Z");
       d.setUTCDate(d.getUTCDate() - 7);
-      return { start: d.toISOString().slice(0, 10), end: maxDate };
+      return { start: d.toISOString().slice(0, 10), end: maxDate, exclusiveStart: false };
     }
     case "month": {
       const d = new Date(maxDate + "T00:00:00Z");
       d.setUTCDate(d.getUTCDate() - 30);
-      return { start: d.toISOString().slice(0, 10), end: maxDate };
+      return { start: d.toISOString().slice(0, 10), end: maxDate, exclusiveStart: false };
     }
     case "prev_month": {
       const ref = new Date(maxDate + "T00:00:00Z");
       const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - 1, 1));
       const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0));
-      return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+      return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10), exclusiveStart: false };
     }
     case "all":
     default:
@@ -107,9 +109,12 @@ export function useSnapshotDeltaMetrics(
       for (const id of Object.keys(byLink)) {
         const series = byLink[id].sort((a, b) => (a.snapshot_date! > b.snapshot_date! ? 1 : -1));
 
-        // Sum all daily incremental values strictly inside the window (exclusive start, inclusive end).
-        // Each row already stores the daily increment — do NOT subtract endpoints.
-        const inWindow = series.filter(r => r.snapshot_date! > win.start && r.snapshot_date! <= win.end);
+        // Sum daily incremental rows inside the window.
+        // "day" period uses exclusive start (two anchor dates); all other periods inclusive.
+        const inWindow = series.filter(r =>
+          (win.exclusiveStart ? r.snapshot_date! > win.start : r.snapshot_date! >= win.start)
+          && r.snapshot_date! <= win.end
+        );
         if (!inWindow.length) {
           lookup[id] = { subsGained: 0, clicksGained: 0, revenueGained: 0, subsPerDay: null, daysBetween: null };
           continue;

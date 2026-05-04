@@ -1324,18 +1324,20 @@ export default function CampaignsPage() {
                                       </td>
                                     );
                                   }
-                                  // All Time → lifetime rate (total subs / age in days)
+                                  // All Time → total subs as main number, lifetime rate as subtitle
                                   const ageDays = Math.max(1, link.daysSinceCreated ?? 1);
-                                  const totalSubs = link.subscribers || 0;
+                                  const totalSubs = link._subscribers ?? link.subscribers ?? 0;
                                   const lifetimeRate = totalSubs > 0 ? totalSubs / ageDays : null;
                                   return (
                                     <td key={c.id} style={{ padding: "8px 12px" }}>
-                                      {lifetimeRate !== null ? (
-                                        <div className="flex items-baseline gap-1">
-                                          <span className={`font-mono font-semibold text-[12px] ${lifetimeRate >= 1 ? "text-emerald-400" : lifetimeRate >= 0.3 ? "text-amber-400" : "text-muted-foreground"}`}>
-                                            {lifetimeRate < 1 ? lifetimeRate.toFixed(2) : lifetimeRate.toFixed(1)}
-                                          </span>
-                                          <span className="text-[10px] text-muted-foreground font-mono">{ageDays}d</span>
+                                      {totalSubs > 0 ? (
+                                        <div className="flex flex-col items-end gap-0.5">
+                                          <span className="font-mono font-bold text-primary text-[13px]">{totalSubs.toLocaleString()}</span>
+                                          {lifetimeRate !== null && (
+                                            <span className="font-mono text-[11px] text-white/40 whitespace-nowrap">
+                                              {lifetimeRate < 1 ? lifetimeRate.toFixed(2) : lifetimeRate.toFixed(1)}/day · {ageDays}d
+                                            </span>
+                                          )}
                                         </div>
                                       ) : (
                                         <span className="text-muted-foreground text-[12px]">—</span>
