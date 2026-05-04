@@ -158,6 +158,6 @@ export function applySnapshotToLinks(
   if (!snapshotLookup) return links;
   return links.map(l => {
     const m = getSnapshotMetrics(l, snapshotLookup);
-    return { ...l, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue, snapshotDays: m.days, snapshotHasData: m.hasData };
+    return { ...l, _subscribers: l.subscribers, _clicks: l.clicks, clicks: m.clicks, subscribers: m.subscribers, revenue: m.revenue, snapshotDays: m.days, snapshotHasData: m.hasData };
   });
 }

@@ -1107,14 +1107,12 @@ export default function CampaignsPage() {
                                 );
                                 case "clicks": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {!isAllTime && !link.snapshotHasData
-                                      ? <span className="text-muted-foreground">—</span>
-                                      : (link.clicks || 0).toLocaleString()}
+                                    {(link._clicks ?? link.clicks ?? 0).toLocaleString()}
                                   </td>
                                 );
                                 case "subscribers": return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
-                                    {(link.subscribers || 0).toLocaleString()}
+                                    {(link._subscribers ?? link.subscribers ?? 0).toLocaleString()}
                                   </td>
                                 );
                                 case "cvr": return (
