@@ -1307,17 +1307,21 @@ export default function CampaignsPage() {
                                 }
                                 case "subs_day": {
                                   if (!isDeltaAllTime) {
-                                    // Date filter active → show per-day rate (total is in SUBS column)
+                                    // Date filter active → big number = total gained, subtitle = rate · period
                                     const d = getDelta(link.id, deltaLookup);
+                                    const gained = d?.subsGained ?? null;
                                     const spd = d?.subsPerDay ?? null;
                                     return (
                                       <td key={c.id} style={{ padding: "8px 12px" }}>
-                                        {spd != null && spd > 0 ? (
-                                          <span className="font-mono font-bold text-primary text-[12px] whitespace-nowrap">
-                                            {spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}
-                                            <span className="font-normal text-primary/60">/day</span>
-                                            {subsDayPeriodLabel && <span className="text-muted-foreground font-normal"> · {subsDayPeriodLabel}</span>}
-                                          </span>
+                                        {gained != null && gained > 0 ? (
+                                          <div className="flex flex-col items-end gap-0.5">
+                                            <span className="font-mono font-bold text-primary text-[13px]">{gained.toLocaleString()}</span>
+                                            {spd != null && spd > 0 && subsDayPeriodLabel && (
+                                              <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                                                {spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day · {subsDayPeriodLabel}
+                                              </span>
+                                            )}
+                                          </div>
                                         ) : <span className="text-muted-foreground">—</span>}
                                       </td>
                                     );
