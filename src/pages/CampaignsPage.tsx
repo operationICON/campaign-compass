@@ -270,17 +270,17 @@ export default function CampaignsPage() {
   const multiWindowRates = useMultiWindowRates("all");
   const [copiedUrlId, setCopiedUrlId] = useState<string | null>(null);
 
-  // Period label shown below Subs/Day value so Martin knows which window the avg covers
+  // Period label shown below Subs/Day value
   const subsDayPeriodLabel = useMemo(() => {
     if (isDeltaAllTime) return null;
     if (customRange) {
-      const days = Math.round((customRange.to.getTime() - customRange.from.getTime()) / 86400000);
-      return `${days}d avg`;
+      const days = Math.round((customRange.to.getTime() - customRange.from.getTime()) / 86400000) + 1;
+      return `${days}d`;
     }
     switch (timePeriod) {
       case "day": return "last sync";
-      case "week": return "7d avg";
-      case "month": return "30d avg";
+      case "week": return "7d";
+      case "month": return "30d";
       case "prev_month": return "prev mo";
       default: return null;
     }
@@ -1309,15 +1309,18 @@ export default function CampaignsPage() {
                                 }
                                 case "subs_day": {
                                   if (!isDeltaAllTime) {
-                                    // Date filter active → single rate from delta window
+                                    // Date filter active → show total subs gained + per-day rate
                                     const d = getDelta(link.id, deltaLookup);
+                                    const gained = d?.subsGained ?? null;
                                     const spd = d?.subsPerDay ?? null;
                                     return (
                                       <td key={c.id} style={{ padding: "8px 12px" }}>
-                                        {spd != null && spd > 0 ? (
+                                        {gained != null && gained > 0 ? (
                                           <div className="flex flex-col items-end gap-0">
-                                            <span className="font-mono font-bold text-primary text-[12px]">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day</span>
-                                            {subsDayPeriodLabel && <span className="text-[9px] text-muted-foreground font-mono">{subsDayPeriodLabel}</span>}
+                                            <span className="font-mono font-bold text-primary text-[12px]">{gained.toLocaleString()}</span>
+                                            {spd != null && spd > 0 && subsDayPeriodLabel && (
+                                              <span className="text-[9px] text-muted-foreground font-mono">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day · {subsDayPeriodLabel}</span>
+                                            )}
                                           </div>
                                         ) : <span className="text-muted-foreground">—</span>}
                                       </td>
