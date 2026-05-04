@@ -40,10 +40,14 @@ router.post("/", async (c) => {
           COUNT(DISTINCT f.id)                                                     AS fans_total,
           COUNT(DISTINCT CASE WHEN t.account_id::text != tl.account_id::text THEN f.id END) AS cross_poll_fans,
           COALESCE(SUM(CASE WHEN t.account_id::text != tl.account_id::text THEN t.revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue,
+          COALESCE(SUM(t.revenue::numeric), 0)                                   AS total_fan_revenue,
           tl.external_tracking_link_id
         FROM fans f
         JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
-        LEFT JOIN transactions t ON t.fan_id = f.fan_id
+        LEFT JOIN transactions t ON (
+          t.fan_id = f.fan_id
+          OR (f.username IS NOT NULL AND f.username != '' AND t.fan_username = f.username)
+        )
         WHERE f.first_subscribe_link_id IS NOT NULL
           AND tl.deleted_at IS NULL
           AND tl.external_tracking_link_id IS NOT NULL
@@ -59,8 +63,10 @@ router.post("/", async (c) => {
         const crossFans = Number(row.cross_poll_fans ?? 0);
         const crossRevenue = Number(row.cross_poll_revenue ?? 0);
         const fansTotal = Number(row.fans_total ?? 0);
+        const totalFanRevenue = Number(row.total_fan_revenue ?? 0);
         const avgPerFan = crossFans > 0 ? Math.round(crossRevenue / crossFans * 100) / 100 : 0;
         const conversionPct = fansTotal > 0 ? Math.round(crossFans / fansTotal * 10000) / 100 : 0;
+        const ltvPerSub = fansTotal > 0 ? Math.round(totalFanRevenue / fansTotal * 100) / 100 : 0;
 
         try {
           const trackingLinkIdStr = String(row.tracking_link_id);
@@ -73,6 +79,8 @@ router.post("/", async (c) => {
           if (existing) {
             await db.update(tracking_link_ltv).set({
               new_subs_total: fansTotal,
+              total_ltv: String(totalFanRevenue),
+              ltv_per_sub: String(ltvPerSub),
               cross_poll_fans: crossFans,
               cross_poll_revenue: String(crossRevenue),
               cross_poll_avg_per_fan: String(avgPerFan),
@@ -85,6 +93,8 @@ router.post("/", async (c) => {
               external_tracking_link_id: String(row.external_tracking_link_id),
               account_id: String(row.link_account_id),
               new_subs_total: fansTotal,
+              total_ltv: String(totalFanRevenue),
+              ltv_per_sub: String(ltvPerSub),
               cross_poll_fans: crossFans,
               cross_poll_revenue: String(crossRevenue),
               cross_poll_avg_per_fan: String(avgPerFan),
