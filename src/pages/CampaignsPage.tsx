@@ -1153,15 +1153,18 @@ export default function CampaignsPage() {
                                   return null;
                                 }
                                 case "ltv_sub_all": {
-                                  // LTV/Sub = total_ltv (fan-attributed) / subscribers; fallback to revenue/subscribers
-                                  const totalSubs = Number(link.subscribers || 0);
-                                  const ltvTotal = link.ltvRecord ? Number(link.ltvRecord.total_ltv || 0) : null;
                                   let ltvSubAllVal: number | null = null;
-                                  if (ltvTotal && ltvTotal > 0 && totalSubs > 0) {
-                                    ltvSubAllVal = ltvTotal / totalSubs;
-                                  } else if (totalSubs > 0) {
+                                  if (!isDeltaAllTime) {
+                                    // Period: revenue gained / new subs gained in the window (both from snapshots)
+                                    const d = getDelta(link.id, deltaLookup);
+                                    const periodSubs = d?.subsGained ?? 0;
+                                    const periodRev = (d?.revenueGained ?? 0) * revMultiplier;
+                                    ltvSubAllVal = periodSubs > 0 ? periodRev / periodSubs : null;
+                                  } else {
+                                    // All-time: total revenue / total subscribers for this link
+                                    const totalSubs = Number(link._subscribers ?? link.subscribers ?? 0);
                                     const totalRev = Number(link.revenue || 0) * revMultiplier;
-                                    ltvSubAllVal = totalRev > 0 ? totalRev / totalSubs : null;
+                                    ltvSubAllVal = totalSubs > 0 && totalRev > 0 ? totalRev / totalSubs : null;
                                   }
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
