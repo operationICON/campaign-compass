@@ -38,6 +38,28 @@ router.get("/distinct-dates", async (c) => {
   return c.json(rows.map(r => r.snapshot_date).filter(Boolean));
 });
 
+// GET /daily-snapshots/alltime-totals?account_ids=
+// Returns SUM(revenue) and SUM(subscribers) across all snapshots — used for correct all-time LTV/Sub
+router.get("/alltime-totals", async (c) => {
+  const accountIdsParam = c.req.query("account_ids");
+  const accountIds = accountIdsParam ? accountIdsParam.split(",").filter(Boolean) : [];
+
+  const condition = accountIds.length ? inArray(daily_snapshots.account_id, accountIds) : undefined;
+
+  const [row] = await db
+    .select({
+      revenue: sql<string>`COALESCE(SUM(${daily_snapshots.revenue}), 0)`,
+      subscribers: sql<string>`COALESCE(SUM(${daily_snapshots.subscribers}), 0)`,
+    })
+    .from(daily_snapshots)
+    .where(condition);
+
+  return c.json({
+    revenue: Number(row?.revenue ?? 0),
+    subscribers: Number(row?.subscribers ?? 0),
+  });
+});
+
 // GET /daily-snapshots?tracking_link_ids=&account_ids=&date_from=&date_to=&cols=
 router.get("/", async (c) => {
   const idsParam = c.req.query("tracking_link_ids");

@@ -157,6 +157,11 @@ export const getSnapshotEarliestDate = () =>
   apiFetch<{ date: string | null }>("/daily-snapshots/earliest-date");
 export const getSnapshotDistinctDates = (limit = 10) =>
   apiFetch<string[]>(`/daily-snapshots/distinct-dates?limit=${limit}`);
+export const getSnapshotAllTimeTotals = (account_ids?: string[]) =>
+  apiFetch<{ revenue: number; subscribers: number }>(
+    `/daily-snapshots/alltime-totals${account_ids?.length ? `?account_ids=${account_ids.join(",")}` : ""}`
+  );
+
 export const getSnapshotsByDateRange = (params: {
   date_from?: string;
   date_to?: string;

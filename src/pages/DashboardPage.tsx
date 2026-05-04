@@ -8,7 +8,7 @@ import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlid
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
-import { getSnapshotsByDateRange, getSnapshotLatestDate } from "@/lib/api";
+import { getSnapshotsByDateRange, getSnapshotLatestDate, getSnapshotAllTimeTotals } from "@/lib/api";
 import { toast } from "sonner";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import {
@@ -233,6 +233,12 @@ export default function DashboardPage() {
     },
   });
 
+  const { data: allTimeSnapshotTotals } = useQuery({
+    queryKey: ["snapshot_alltime_totals", agencyAccountIds?.join(",") ?? "all"],
+    queryFn: () => getSnapshotAllTimeTotals(agencyAccountIds ?? undefined),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const isLoading = linksLoading || overviewSnapshotsLoading || overviewSnapshotsFetching;
 
   const syncFrequency = useMemo(() => {
@@ -339,13 +345,18 @@ export default function DashboardPage() {
     }
 
     const totalProfit = totalLtv - expenses;
-    // LTV/Sub: tracking_links.revenue / subscribers (consistent across all pages)
-    const ltvPerSub = subs > 0 ? trackingRevenue / subs : null;
+    // LTV/Sub: use all-time snapshot new subs (daily_snapshots.subscribers = new subs/day from OFAPI)
+    // Fall back to tracking_links.subscribers only if snapshot data not yet loaded
+    const snapSubs = allTimeSnapshotTotals?.subscribers ?? 0;
+    const snapRev = allTimeSnapshotTotals?.revenue ?? 0;
+    const ltvDenominator = snapSubs > 0 ? snapSubs : subs;
+    const ltvNumerator = snapSubs > 0 ? snapRev : trackingRevenue;
+    const ltvPerSub = ltvDenominator > 0 ? ltvNumerator / ltvDenominator : null;
     const avgCpl = subs > 0 ? expenses / subs : null;
     const roi = expenses > 0 ? (totalProfit / expenses) * 100 : null;
 
     return { ltv, crossPoll, totalLtv, expenses, subs, ltvSubs, clicks, totalProfit, ltvPerSub, avgCpl, roi };
-  }, [isAllTime, trackingLinkLtv, filteredLinksForKpi, agencyAccountIds]);
+  }, [isAllTime, trackingLinkLtv, filteredLinksForKpi, agencyAccountIds, allTimeSnapshotTotals]);
 
   // Get distinct active link IDs from snapshot rows for period expense query
   const periodActiveLinkIds = useMemo(() => {
@@ -827,10 +838,18 @@ function KpiCards({
         let ltvPerSub: number | null = null;
         let subtitle = "";
         if (isAllTime) {
-          const totalRev2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-          const totalSubs2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
-          ltvPerSub = totalSubs2 > 0 ? (totalRev2 * revMultiplier) / totalSubs2 : null;
-          subtitle = "All time · revenue per subscriber";
+          // Use all-time snapshot totals: daily_snapshots.subscribers = new subs/day (correct denominator)
+          const snapSubs = allTimeSnapshotTotals?.subscribers ?? 0;
+          const snapRev = allTimeSnapshotTotals?.revenue ?? 0;
+          if (snapSubs > 0) {
+            ltvPerSub = (snapRev * revMultiplier) / snapSubs;
+          } else {
+            // Fallback while snapshot totals load
+            const totalRev2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+            const totalSubs2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+            ltvPerSub = totalSubs2 > 0 ? (totalRev2 * revMultiplier) / totalSubs2 : null;
+          }
+          subtitle = "All time · revenue per new subscriber";
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
         } else {
