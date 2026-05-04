@@ -1313,9 +1313,9 @@ export default function CampaignsPage() {
                                     return (
                                       <td key={c.id} style={{ padding: "8px 12px" }}>
                                         {spd != null && spd > 0 ? (
-                                          <div className="flex flex-col items-end gap-0">
-                                            <span className="font-mono font-bold text-primary text-[12px]">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}/day</span>
-                                            {subsDayPeriodLabel && <span className="text-[9px] text-muted-foreground font-mono">{subsDayPeriodLabel}</span>}
+                                          <div className="flex flex-col items-end gap-1">
+                                            <span className="font-mono font-bold text-primary text-[13px]">{spd < 1 ? spd.toFixed(2) : spd.toFixed(1)}<span className="text-[10px] font-normal text-primary/70">/day</span></span>
+                                            {subsDayPeriodLabel && <span className="text-[10px] text-muted-foreground/70 tracking-wide">{subsDayPeriodLabel}</span>}
                                           </div>
                                         ) : <span className="text-muted-foreground">—</span>}
                                       </td>
