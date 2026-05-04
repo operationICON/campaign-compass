@@ -910,7 +910,7 @@ function KpiCards({
             totalNewSubs = snapSubs;
             subsPerDay = snapSubs / daysSince;
           }
-          label = "All time average";
+          label = "All time";
         } else if (noDataForPeriod) {
           label = "No data for this period";
         } else if (periodDayCount && periodDayCount > 0) {
@@ -935,7 +935,7 @@ function KpiCards({
             )}
             <p className="text-[11px] text-muted-foreground mt-1">
               {subsPerDay !== null && subsPerDay > 0
-                ? `${subsPerDay.toFixed(1)}/day · ${label}`
+                ? `${subsPerDay.toFixed(1)} subs/day · ${label}`
                 : label}
             </p>
           </div>
