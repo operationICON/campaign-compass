@@ -459,6 +459,11 @@ export default function AccountsPage() {
     return { label: "No Spend", cls: "bg-muted text-muted-foreground" };
   };
 
+  const isNewAccount = (account: any) => {
+    if (!account?.created_at) return false;
+    return differenceInDays(new Date(), new Date(account.created_at)) < 5;
+  };
+
   const selectedAccLinks = useMemo(() => {
     if (!selectedAccount) return [];
     return links.filter((l: any) => l.account_id === selectedAccount.id);
@@ -1657,6 +1662,9 @@ export default function AccountsPage() {
                     {a.is_active === false && (
                       <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-slate-950" />
                     )}
+                    {a.is_active !== false && isNewAccount(a) && (
+                      <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-slate-950" />
+                    )}
                     <span className="text-[9px] text-muted-foreground truncate max-w-[44px]">{a.display_name?.split(" ")[0]}</span>
                   </button>
                 ))}
@@ -1718,6 +1726,9 @@ export default function AccountsPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
                       {acc.performer_top != null && (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">Top {acc.performer_top}%</span>
+                      )}
+                      {acc.is_active !== false && isNewAccount(acc) && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-500/30">New</span>
                       )}
                       {!acc.is_active && (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/30 text-red-300 border border-red-500/40">Ex-Model</span>
@@ -1843,6 +1854,11 @@ export default function AccountsPage() {
                                   <p className="font-semibold text-foreground text-[12px] leading-tight">{a.display_name}</p>
                                   <div className="mt-1 flex flex-wrap items-center gap-2">
                                     {displayUsername(a) && <p className="text-[10px] text-muted-foreground">{displayUsername(a)}</p>}
+                                    {a.is_active !== false && isNewAccount(a) && (
+                                      <span className="rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                                        New
+                                      </span>
+                                    )}
                                     {a.is_active === false && (
                                       <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
                                         Ex-Model
