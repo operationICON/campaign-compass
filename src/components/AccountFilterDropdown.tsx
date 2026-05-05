@@ -6,6 +6,7 @@ interface AccountOption {
   username: string;
   display_name: string;
   avatar_thumb_url?: string | null;
+  is_active?: boolean;
 }
 
 interface AccountFilterDropdownProps {
@@ -56,6 +57,11 @@ export function AccountFilterDropdown({ value, onChange, accounts, className }: 
               </span>
             )}
             <span className="truncate">@{(selected.username || "").replace("@", "")}</span>
+            {selected.is_active === false && (
+              <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                Ex-Model
+              </span>
+            )}
           </>
         ) : (
           <span>All Accounts</span>
@@ -84,6 +90,11 @@ export function AccountFilterDropdown({ value, onChange, accounts, className }: 
                 </span>
               )}
               <span>@{(acc.username || "").replace("@", "")}</span>
+              {acc.is_active === false && (
+                <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                  Ex-Model
+                </span>
+              )}
             </button>
           ))}
         </div>

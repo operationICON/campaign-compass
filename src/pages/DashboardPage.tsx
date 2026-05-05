@@ -492,7 +492,7 @@ export default function DashboardPage() {
           <AccountFilterDropdown
             value={selectedModel}
             onChange={(v) => setSelectedModel(v)}
-            accounts={groupFilteredAccounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+            accounts={groupFilteredAccounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url, is_active: a.is_active }))}
           />
 
           {/* Time period pills */}

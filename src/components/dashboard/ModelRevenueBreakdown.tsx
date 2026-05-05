@@ -145,15 +145,22 @@ export function ModelRevenueBreakdown({ accounts, allLinks, txTypeTotalsByAccoun
                         name={acc.display_name || acc.username || "?"}
                         size={24}
                       />
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium text-foreground truncate max-w-[130px]">
                           {acc.display_name || acc.username || "—"}
                         </p>
-                        {acc.username && (
-                          <p className="text-[10px] text-muted-foreground">
-                            @{acc.username.replace("@", "")}
-                          </p>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {acc.username && (
+                            <p className="text-[10px] text-muted-foreground">
+                              @{acc.username.replace("@", "")}
+                            </p>
+                          )}
+                          {acc.is_active === false && (
+                            <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                              Ex-Model
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
