@@ -377,8 +377,9 @@ export default function AccountsPage() {
   }, [accounts, links, allLinks, dailyMetrics, agencyAvgCvr, trackingLinkLtv, snapshotLookup, isAllTime, activeLookup, deltaLookup, isDeltaAllTime]);
 
   const afterAccountFilter = useMemo(() => {
-    // Rule 4: exclude inactive/test accounts (subscribers_count=0)
-    const active = accounts.filter(isActiveAccount);
+    // Rule 4: keep all subscriber-bearing accounts on the Models page,
+    // including accounts marked inactive/ex-model.
+    const active = accounts.filter((a: any) => Number(a?.subscribers_count || 0) > 0);
     if (pageModelFilter === "all") return active;
     return active.filter((a: any) => a.id === pageModelFilter);
   }, [accounts, pageModelFilter]);
@@ -1646,13 +1647,16 @@ export default function AccountsPage() {
                   <button
                     key={a.id}
                     onClick={() => setCarouselIndex(i)}
-                    className={`shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition-all ${
+                    className={`relative shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition-all ${
                       i === safeIndex
                         ? "ring-2 ring-primary/60 bg-primary/10"
                         : "opacity-50 hover:opacity-90"
-                    }`}
+                    } ${a.is_active === false ? 'border border-red-500/20' : ''}`}
                   >
                     <AvatarCircle account={a} size={40} />
+                    {a.is_active === false && (
+                      <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-slate-950" />
+                    )}
                     <span className="text-[9px] text-muted-foreground truncate max-w-[44px]">{a.display_name?.split(" ")[0]}</span>
                   </button>
                 ))}
