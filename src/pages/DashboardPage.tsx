@@ -600,6 +600,7 @@ export default function DashboardPage() {
           snapshotSpend={snapshotSpend}
           snapshotSubs={snapshotSubs}
           txTypeTotalsByAccount={txTypeTotalsByAccount}
+          allTimeSnapshotTotals={allTimeSnapshotTotals}
         />
 
         {/* ═══ REVENUE BREAKDOWN BY MODEL ═══ */}
@@ -649,7 +650,7 @@ function KpiCards({
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData,
   trackingLinkLtv, revMultiplier, revenueMode,
   snapshotSpend, snapshotSubs,
-  txTypeTotalsByAccount,
+  txTypeTotalsByAccount, allTimeSnapshotTotals,
 }: {
   isLoading: boolean;
   isVisible: (id: string) => boolean;
@@ -677,6 +678,7 @@ function KpiCards({
   snapshotSpend: number;
   snapshotSubs: number;
   txTypeTotalsByAccount: Record<string, { messages: number; tips: number; subscriptions: number; posts: number }>;
+  allTimeSnapshotTotals: { revenue: number; subscribers: number } | undefined;
 }) {
   const periodLabel = customRange
     ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`
