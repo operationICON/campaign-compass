@@ -305,22 +305,8 @@ export default function CampaignsPage() {
     return m;
   }, [otOrders]);
 
-  // Period-accurate spend: SUM(total_spent) from OT orders within the selected window.
-  // null = All Time view (use cost_total instead).
-  // Empty map entry = no orders found for this link in the period (fallback to cost_total with ⚠️).
-  const periodSpendMap = useMemo<Record<string, number> | null>(() => {
-    if (isDeltaAllTime || !deltaWindowStart || !deltaWindowEnd) return null;
-    const map: Record<string, number> = {};
-    for (const o of otOrders as any[]) {
-      if (!o.tracking_link_id || !o.total_spent) continue;
-      if (!OT_SPEND_STATUSES.has((o.status || "").toLowerCase())) continue;
-      const orderDate = o.order_created_at ? String(o.order_created_at).slice(0, 10) : null;
-      if (!orderDate || orderDate < deltaWindowStart || orderDate > deltaWindowEnd) continue;
-      const id = String(o.tracking_link_id).toLowerCase();
-      map[id] = (map[id] || 0) + Number(o.total_spent);
-    }
-    return map;
-  }, [otOrders, isDeltaAllTime, deltaWindowStart, deltaWindowEnd]);
+  // Spend is always all-time — date range does not scope per-link financials.
+  const periodSpendMap = useMemo<Record<string, number> | null>(() => null, []);
 
   
   const tagColorMap = useTagColors();
@@ -1153,19 +1139,10 @@ export default function CampaignsPage() {
                                   return null;
                                 }
                                 case "ltv_sub_all": {
-                                  let ltvSubAllVal: number | null = null;
-                                  if (!isDeltaAllTime) {
-                                    // Period: revenue gained / new subs gained in the window (both from snapshots)
-                                    const d = getDelta(link.id, deltaLookup);
-                                    const periodSubs = d?.subsGained ?? 0;
-                                    const periodRev = (d?.revenueGained ?? 0) * revMultiplier;
-                                    ltvSubAllVal = periodSubs > 0 ? periodRev / periodSubs : null;
-                                  } else {
-                                    // All-time: total revenue / total subscribers for this link
-                                    const totalSubs = Number(link._subscribers ?? link.subscribers ?? 0);
-                                    const totalRev = Number(link.revenue || 0) * revMultiplier;
-                                    ltvSubAllVal = totalSubs > 0 && totalRev > 0 ? totalRev / totalSubs : null;
-                                  }
+                                  // Always all-time: total revenue / total subscribers
+                                  const totalSubs = Number(link._subscribers ?? link.subscribers ?? 0);
+                                  const totalRev = Number(link.revenue || 0) * revMultiplier;
+                                  const ltvSubAllVal: number | null = totalSubs > 0 && totalRev > 0 ? totalRev / totalSubs : null;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
                                     <span className="text-foreground">
