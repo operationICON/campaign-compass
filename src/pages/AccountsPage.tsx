@@ -394,6 +394,11 @@ export default function AccountsPage() {
 
   const sortedAccounts = useMemo(() => {
     return [...filteredAccounts].sort((a: any, b: any) => {
+      // Ex-models always last
+      const aEx = a.is_active === false ? 1 : 0;
+      const bEx = b.is_active === false ? 1 : 0;
+      if (aEx !== bEx) return aEx - bEx;
+
       const sa = accountStats[a.id] || {};
       const sb = accountStats[b.id] || {};
       switch (cardSort) {
@@ -1688,7 +1693,7 @@ export default function AccountsPage() {
             return (
               <div
                 key={a.id}
-                className={`rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group border ${isExModel ? "border-red-500/40 opacity-80" : "border-border hover:border-primary/30"}`}
+                className={`rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group border ${isExModel ? "border-border grayscale opacity-50 hover:opacity-70" : "border-border hover:border-primary/30"}`}
                 onClick={() => { setSelectedAccount(a); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
               >
                 {/* Photo header */}
@@ -1720,7 +1725,7 @@ export default function AccountsPage() {
                 </div>
 
                 {/* Card body */}
-                <div className={`p-4 ${isExModel ? "bg-red-950/20" : "bg-card"}`}>
+                <div className="p-4 bg-card">
                   {/* Name row */}
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="min-w-0">
