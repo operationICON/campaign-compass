@@ -1166,8 +1166,8 @@ export default function LogsPage() {
                   </table>
                 </div>
 
-                {/* Expanded detail row rendered below table */}
-                {expandedLogId && (() => {
+                {/* expanded detail renders inline as <tr> inside the tbody above */}
+                {false && (() => {
                   const log = syncPageLogs.find((l: any) => l.id === expandedLogId);
                   if (!log) return null;
                   const details = log.details;
