@@ -136,5 +136,14 @@ export function startScheduler() {
     try { await runOTSyncIfDue(); } catch (err: any) { console.error("[Scheduler] OT startup check error:", err.message); }
   }, 30_000);
 
+  // Keep-alive ping every 4 minutes so Railway doesn't put the service to sleep
+  setInterval(async () => {
+    try {
+      await fetch(`${BASE_URL}/health`);
+    } catch {
+      // ignore — if it fails, nothing to do
+    }
+  }, 4 * 60 * 1000);
+
   console.log("[Scheduler] Active — dashboard daily 01:00 UTC, rev-breakdown+snapshots+fans daily 03:00 UTC, OT checked every 30min");
 }
