@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchDailyMetrics, fetchTrackingLinks, fetchAccounts, fetchTransactions } from "@/lib/supabase-helpers";
@@ -6,11 +6,13 @@ import { usePageFilters } from "@/hooks/usePageFilters";
 import { useSnapshotMetrics, applySnapshotToLinks } from "@/hooks/useSnapshotMetrics";
 import { PageFilterBar } from "@/components/PageFilterBar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
+import { getSnapshotsByDateRange } from "@/lib/api";
 import {
   ComposedChart, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { format, subDays } from "date-fns";
+import { format, subDays, eachDayOfInterval, parseISO } from "date-fns";
 import { RefreshButton } from "@/components/RefreshButton";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { calcStatus } from "@/lib/calc-helpers";
@@ -197,6 +199,55 @@ export default function ChartsPage() {
   }, [transactions]);
   const totalTx = txByType.reduce((s, r) => s + r.value, 0);
 
+  // ── Daily Trends: date range state (independent of page filter) ──────────
+  const TREND_PRESETS = [
+    { label: "7d",  days: 7  },
+    { label: "14d", days: 14 },
+    { label: "30d", days: 30 },
+    { label: "90d", days: 90 },
+  ] as const;
+  const [trendDays, setTrendDays] = useState<number>(30);
+  const [trendCustom, setTrendCustom] = useState<{ from: Date; to: Date } | null>(null);
+
+  const { trendFrom, trendTo } = useMemo(() => {
+    if (trendCustom) {
+      return {
+        trendFrom: format(trendCustom.from, "yyyy-MM-dd"),
+        trendTo:   format(trendCustom.to,   "yyyy-MM-dd"),
+      };
+    }
+    const to   = new Date();
+    const from = subDays(to, trendDays - 1);
+    return { trendFrom: format(from, "yyyy-MM-dd"), trendTo: format(to, "yyyy-MM-dd") };
+  }, [trendDays, trendCustom]);
+
+  const { data: trendRows = [], isLoading: trendLoading } = useQuery({
+    queryKey: ["snapshots_trend", trendFrom, trendTo],
+    queryFn: () => getSnapshotsByDateRange({ date_from: trendFrom, date_to: trendTo, cols: "slim" }),
+  });
+
+  const dailyTrendData = useMemo(() => {
+    const from = parseISO(trendFrom);
+    const to   = parseISO(trendTo);
+    const days = eachDayOfInterval({ start: from, end: to });
+    const byDate: Record<string, { revenue: number; subscribers: number; clicks: number; expenses: number }> = {};
+    for (const d of days) byDate[format(d, "yyyy-MM-dd")] = { revenue: 0, subscribers: 0, clicks: 0, expenses: 0 };
+
+    for (const r of trendRows as any[]) {
+      const d = r.snapshot_date;
+      if (!d || !byDate[d]) continue;
+      byDate[d].revenue     += Number(r.revenue    || 0);
+      byDate[d].subscribers += Number(r.subscribers || 0);
+      byDate[d].clicks      += Number(r.clicks      || 0);
+      byDate[d].expenses    += Number(r.cost_total  || 0);
+    }
+
+    return days.map(d => {
+      const key = format(d, "yyyy-MM-dd");
+      return { date: format(d, "MMM d"), ...byDate[key] };
+    });
+  }, [trendRows, trendFrom, trendTo]);
+
   // ── Model legend renderer ─────────────────────────────────────────────────
   const ModelLegend = ({ payload }: any) => (
     <div className="flex flex-wrap gap-3 justify-center mt-1">
@@ -253,30 +304,125 @@ export default function ChartsPage() {
           </div>
         )}
 
-        {/* Row 1 — Full-width: Revenue & Subscriber Trend */}
-        <ChartCard title="Revenue & Subscribers — Last 30 Days" description="Daily total revenue (area) and new subscribers (line)">
-          <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={dailyTrend} margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#16a34a" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
-              <YAxis yAxisId="left" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={fmtCShort} width={56} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} width={36} />
-              <Tooltip {...TT} formatter={(v: number, name: string) => name === "revenue" ? [fmtC(v), "Revenue"] : [fmtN(v), "Subs"]} />
-              <Area yAxisId="left" type="monotone" dataKey="revenue" stroke="#16a34a" strokeWidth={2} fill="url(#revGrad)" />
-              <Line yAxisId="right" type="monotone" dataKey="subscribers" stroke="#7c3aed" strokeWidth={2} dot={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        {/* ═══ DAILY TRENDS — with date range picker ═══ */}
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          {/* Header + range controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Daily Trends</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Revenue · Subscribers · Clicks · Expenses per day</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Preset buttons */}
+              <div className="flex items-center bg-secondary border border-border rounded-lg overflow-hidden">
+                {TREND_PRESETS.map(p => (
+                  <button
+                    key={p.days}
+                    onClick={() => { setTrendDays(p.days); setTrendCustom(null); }}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      !trendCustom && trendDays === p.days
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              {/* Custom date range */}
+              <DateRangePicker
+                value={trendCustom}
+                onChange={(r) => { setTrendCustom(r); if (r) setTrendDays(0); }}
+              />
+            </div>
+          </div>
+
+          {trendLoading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {[0,1,2,3].map(i => <Skeleton key={i} className="h-[180px] rounded-lg" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Revenue */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Revenue</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={dailyTrendData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={fmtCShort} width={52} />
+                    <Tooltip {...TT} formatter={(v: number) => [fmtC(v), "Revenue"]} />
+                    <Area type="monotone" dataKey="revenue" stroke="#16a34a" strokeWidth={2} fill="url(#gRev)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Subscribers */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">New Subscribers</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={dailyTrendData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} allowDecimals={false} width={36} />
+                    <Tooltip {...TT} formatter={(v: number) => [fmtN(v), "Subscribers"]} />
+                    <Bar dataKey="subscribers" fill="#7c3aed" fillOpacity={0.85} radius={[3,3,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Clicks */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Clicks</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={dailyTrendData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gClk" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0891b2" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#0891b2" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} width={36} />
+                    <Tooltip {...TT} formatter={(v: number) => [fmtN(v), "Clicks"]} />
+                    <Area type="monotone" dataKey="clicks" stroke="#0891b2" strokeWidth={2} fill="url(#gClk)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Expenses */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Expenses (Ad Spend)</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={dailyTrendData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#dc2626" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickFormatter={fmtCShort} width={52} />
+                    <Tooltip {...TT} formatter={(v: number) => [fmtC(v), "Expenses"]} />
+                    <Area type="monotone" dataKey="expenses" stroke="#dc2626" strokeWidth={2} fill="url(#gExp)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Row 2 — Revenue by Model | Subscribers by Model */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartCard title="Revenue by Model — Last 30 Days" description="Stacked daily revenue per model">
+          <ChartCard title="Revenue by Model — Last 30 Days" description="Stacked daily revenue per model (uses daily_metrics)">
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={dailyRevenueByModel} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
