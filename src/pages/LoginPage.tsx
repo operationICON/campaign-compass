@@ -39,8 +39,10 @@ export default function LoginPage() {
       const msg = err.message ?? "";
       if (msg.includes("401") || msg.toLowerCase().includes("invalid")) {
         setError("Incorrect email or password.");
+      } else if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("networkerror") || msg.toLowerCase().includes("load failed")) {
+        setError("Cannot reach server. Check your connection or try again.");
       } else {
-        setError("Login failed. Please try again.");
+        setError(`Login failed: ${msg || "Unknown error"}`);
       }
     } finally {
       setLoading(false);
