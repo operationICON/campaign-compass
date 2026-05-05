@@ -43,7 +43,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Suspense fallback={null}>
+          <Suspense fallback={
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh", background:"#09090b" }}>
+              <div style={{ width:28, height:28, border:"2px solid #27272a", borderTopColor:"#a855f7", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
+            </div>
+          }>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             {/* Accessible to all authenticated users */}
