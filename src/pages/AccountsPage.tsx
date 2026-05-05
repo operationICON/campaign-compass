@@ -1827,14 +1827,24 @@ export default function AccountsPage() {
                         const sp = s.totalSpendAllTime || 0;
                         const pr = (s.totalProfit || 0) * revMultiplier;
                         return (
-                          <tr key={a.id} className="border-b border-border/40 hover:bg-white/[0.025] cursor-pointer transition-colors"
-                            onClick={() => { setSelectedAccount(a); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}>
+                          <tr
+                            key={a.id}
+                            className={`border-b border-border/40 cursor-pointer transition-colors ${a.is_active === false ? 'bg-red-500/5 hover:bg-red-500/10' : 'hover:bg-white/[0.025]'}`}
+                            onClick={() => { setSelectedAccount(a); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
+                          >
                             <td className="px-5 py-3">
                               <div className="flex items-center gap-3">
                                 <AvatarCircle account={a} size={32} />
-                                <div>
+                                <div className="min-w-0">
                                   <p className="font-semibold text-foreground text-[12px] leading-tight">{a.display_name}</p>
-                                  {displayUsername(a) && <p className="text-[10px] text-muted-foreground">{displayUsername(a)}</p>}
+                                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    {displayUsername(a) && <p className="text-[10px] text-muted-foreground">{displayUsername(a)}</p>}
+                                    {a.is_active === false && (
+                                      <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                                        Ex-Model
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </td>
