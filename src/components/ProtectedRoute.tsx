@@ -13,8 +13,9 @@ export function ProtectedRoute({ children, adminOnly = false }: Props) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-7 w-7 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Connecting to server...</p>
       </div>
     );
   }

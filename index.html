@@ -14,13 +14,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   </head>
+  <style>@keyframes ct-spin{to{transform:rotate(360deg)}}</style>
   <body>
-    <div id="root">
-      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#09090b;">
-        <div style="width:28px;height:28px;border:2px solid #27272a;border-top-color:#a855f7;border-radius:50%;animation:spin 0.7s linear infinite;"></div>
-      </div>
-      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-    </div>
+    <div id="root"></div>
     <script>fetch("https://upbeat-bravery-production-3ec1.up.railway.app/health").catch(()=>{});</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
