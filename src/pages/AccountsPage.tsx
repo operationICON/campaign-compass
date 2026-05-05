@@ -25,7 +25,7 @@ import { TrendChip } from "@/components/TrendChip";
 
 import { format, differenceInDays, subDays, isValid } from "date-fns";
 
-function safeFormat(dateStr: string | null | undefined, fmt: string, fallback = "â€”"): string {
+function safeFormat(dateStr: string | null | undefined, fmt: string, fallback = "—"): string {
   if (!dateStr) return fallback;
   const d = new Date(dateStr);
   return isValid(d) ? format(d, fmt) : fallback;
@@ -78,7 +78,7 @@ export default function AccountsPage() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"campaigns" | "sources" | "performance">("campaigns");
-  // Persisted table prefs â€” model detail tracking links + traffic sources tabs
+  // Persisted table prefs â€" model detail tracking links + traffic sources tabs
   const A_PREFS = "ct_table_prefs_accounts_campaigns";
   const S_PREFS = "ct_table_prefs_accounts_sources";
   const [sortKey, setSortKey] = usePersistedState<SortKey>(`${A_PREFS}_sortKey`, "created_at");
@@ -115,7 +115,7 @@ export default function AccountsPage() {
         toast.success(`Found ${created} new account${created > 1 ? "s" : ""}: ${newNames}`);
         queryClient.invalidateQueries({ queryKey: ["accounts"] });
       } else {
-        toast.info(`All ${total} accounts already synced â€” no new accounts found`);
+        toast.info(`All ${total} accounts already synced â€" no new accounts found`);
       }
     } catch (err: any) {
       toast.error(`Discovery failed: ${err.message}`);
@@ -168,7 +168,7 @@ export default function AccountsPage() {
     queryFn: fetchTrackingLinkLtv,
   });
   // RULE: exclude tracking_link_ltv rows whose tracking link has deleted_at IS NOT NULL.
-  // Shared helper â€” see src/lib/calc-helpers.ts.
+  // Shared helper â€" see src/lib/calc-helpers.ts.
   const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(allLinks), [allLinks]);
   const trackingLinkLtv = useMemo(
     () => filterLtvByActiveLinks(trackingLinkLtvRaw, activeLinkIdSet),
@@ -255,7 +255,7 @@ export default function AccountsPage() {
 
   const displayUsername = (acc: any) => {
     const u = acc.username;
-    if (!u || u === "â€”" || u.trim() === "") return null;
+    if (!u || u === "—" || u.trim() === "") return null;
     return `@${u.replace("@", "")}`;
   };
 
@@ -284,7 +284,7 @@ export default function AccountsPage() {
       const totalSubs = accLinks.reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
       const totalClicks = accLinks.reduce((s: number, l: any) => s + (l.clicks || 0), 0);
 
-      // Active links â€” snapshot-derived: >= 1 sub/day over last 5 days.
+      // Active links â€" snapshot-derived: >= 1 sub/day over last 5 days.
       const activeLinks = accLinks.filter((l: any) => {
         if (l.deleted_at) return false;
         return getActiveInfo(l.id, activeLookup).isActive;
@@ -298,7 +298,7 @@ export default function AccountsPage() {
       const daysSinceEarliest = earliestCreated ? Math.max(1, differenceInDays(now, earliestCreated)) : 0;
       const subsPerDayLifetime = daysSinceEarliest > 0 && totalSubs > 0 ? totalSubs / daysSinceEarliest : null;
 
-      // Delta-based subs/day for the current date filter window â€” sum each link's
+      // Delta-based subs/day for the current date filter window â€" sum each link's
       // (subsGained / daysBetween) when available, else 0. If All Time selected,
       // fall back to lifetime average (subs / days_since_earliest_link).
       let subsPerDay: number | null = subsPerDayLifetime;
@@ -315,7 +315,7 @@ export default function AccountsPage() {
         subsPerDay = anySpd ? totalSpd : null;
       }
 
-      // Period revenue + subs from snapshot deltas â€” only valid when NOT All Time.
+      // Period revenue + subs from snapshot deltas â€" only valid when NOT All Time.
       // Guard: only set when at least one link has delta data in the window.
       let periodRevenue: number | null = null;
       let periodSubs: number | null = null;
@@ -418,7 +418,7 @@ export default function AccountsPage() {
   const accountOptions = useMemo(() => {
     const accountIdsWithLinks = new Set(allLinks.map((l: any) => l.account_id));
     return accounts
-      .filter((a: any) => accountIdsWithLinks.has(a.id) && a.username && a.username.trim() !== "" && a.username !== "â€”")
+      .filter((a: any) => accountIdsWithLinks.has(a.id) && a.username && a.username.trim() !== "" && a.username !== "—")
       .map((a: any) => ({ id: a.id, username: a.username || "", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))
       .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name));
   }, [accounts, allLinks]);
@@ -469,7 +469,7 @@ export default function AccountsPage() {
     return links.filter((l: any) => l.account_id === selectedAccount.id);
   }, [selectedAccount, links]);
 
-  // PART 4 â€” Source groups with 10 columns
+  // PART 4 â€" Source groups with 10 columns
   const sourceGroups = useMemo(() => {
     const groups: Record<string, { source: string; links: any[]; activeLinks: number; subs: number; clicks: number; spend: number; revenue: number; profit: number; roi: number | null; costTypes: Record<string, number> }> = {};
     const now = new Date();
@@ -552,7 +552,7 @@ export default function AccountsPage() {
     return result;
   }, [selectedAccount, dailySnapshots, selectedAccLinks]);
 
-  // PART 5 â€” Performance data from daily_snapshots (daily deltas)
+  // PART 5 â€" Performance data from daily_snapshots (daily deltas)
   const perfData = useMemo(() => {
     if (!selectedAccount || dailySnapshots.length === 0) return [];
     const byDate: Record<string, { date: string; revenue: number; subs: number }> = {};
@@ -569,7 +569,7 @@ export default function AccountsPage() {
   // CPL/CPC label for a source
   const getCplCpcLabel = (costTypes: Record<string, number>) => {
     const entries = Object.entries(costTypes);
-    if (entries.length === 0) return "â€”";
+    if (entries.length === 0) return "—";
     const total = entries.reduce((s, [, c]) => s + c, 0);
     const cplCount = (costTypes["CPL"] || 0);
     const cpcCount = (costTypes["CPC"] || 0);
@@ -579,10 +579,10 @@ export default function AccountsPage() {
     // Fixed or other
     const fixedCount = (costTypes["Fixed"] || 0) + (costTypes["fixed"] || 0);
     if (fixedCount > 0) return "Fixed";
-    return "â€”";
+    return "—";
   };
 
-  // ============ VIEW 2 â€” Individual Model Profile ============
+  // ============ VIEW 2 â€" Individual Model Profile ============
   if (selectedAccount) {
     const acc = selectedAccount;
     const stats = accountStats[acc.id] || {};
@@ -694,7 +694,7 @@ export default function AccountsPage() {
     );
 
 
-    // â”€â”€ Period-aware mode (shared by table cells, KPI cards, headers) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â"€â"€ Period-aware mode (shared by table cells, KPI cards, headers) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     // When ANY date filter is active (not "All Time"), every numeric column re-scopes
     // to the selected window using `accountDeltas`. Trend chips compare to the
     // previous-period delta. When "All Time" is selected, lifetime values from
@@ -811,8 +811,8 @@ export default function AccountsPage() {
                   {[
                     { val: fmtNum(subsKpiValue), label: 'OF Subs', dot: 'bg-blue-400' },
                     { val: String(stats.activeCampaigns || 0), label: 'Active Links', dot: 'bg-purple-400' },
-                    { val: subsPerDayKpiValue != null ? `${subsPerDayKpiValue.toFixed(1)}` : 'â€”', label: 'Subs/Day', dot: 'bg-teal-400' },
-                    { val: cvrKpiValue != null ? `${cvrKpiValue.toFixed(1)}%` : 'â€”', label: 'CVR', dot: 'bg-amber-400' },
+                    { val: subsPerDayKpiValue != null ? `${subsPerDayKpiValue.toFixed(1)}` : 'â€"', label: 'Subs/Day', dot: 'bg-teal-400' },
+                    { val: cvrKpiValue != null ? `${cvrKpiValue.toFixed(1)}%` : 'â€"', label: 'CVR', dot: 'bg-amber-400' },
                   ].map(({ val, label, dot }, idx, arr) => (
                     <div key={label} className="flex items-center gap-5">
                       <div className="flex flex-col">
@@ -831,21 +831,21 @@ export default function AccountsPage() {
             {/* Right: KPI grid + revenue breakdown */}
             <div className="rounded-2xl border border-border p-5 overflow-y-auto" style={{ background: 'hsl(220 14% 10%)' }}>
               <div className="md:w-[70%] p-0 md:w-full">
-                {/* PART 2 â€” 5Ã—5 KPI Grid (13 cards, rows 4-5 empty) */}
+                {/* PART 2 â€" 5Ã—5 KPI Grid (13 cards, rows 4-5 empty) */}
                 <div className="grid grid-cols-5 gap-3 mb-4">
-                  {/* Row 1: Primary financials â€” period-aware when filter active */}
+                  {/* Row 1: Primary financials â€" period-aware when filter active */}
                   <KpiCard label={headerLabel("Total Revenue")} value={fmtCurrency(totalRevenue)} trend={periodActive ? totalRevenueTrend : undefined} />
                   <KpiCard label={headerLabel("Campaign Rev")} value={fmtCurrency(campaignRev)} trend={periodActive ? campaignRevTrend : undefined} />
                   <KpiCard label={headerLabel("Total Spend")} value={fmtCurrency(totalSpend)} trend={periodActive ? totalSpendTrend : undefined} reverseTrend />
                   <KpiCard label={headerLabel("Total Profit")} value={fmtCurrency(totalProfit)} colored positive={totalProfit >= 0} trend={periodActive ? totalProfitTrend : undefined} />
-                  <KpiCard label={headerLabel("ROI %")} value={roi != null ? fmtPct(roi) : "â€”"} colored positive={roi != null && roi >= 0} trend={periodActive ? roiTrend : undefined} />
+                  <KpiCard label={headerLabel("ROI %")} value={roi != null ? fmtPct(roi) : "—"} colored positive={roi != null && roi >= 0} trend={periodActive ? roiTrend : undefined} />
 
-                  {/* Row 2: Scale/subs â€” period-aware when filter active */}
+                  {/* Row 2: Scale/subs â€" period-aware when filter active */}
                   <KpiCard label={headerLabel("Subscribers")} value={fmtNum(subsKpiValue)} trend={periodActive ? subsKpiTrend : undefined} />
-                  <KpiCard label={headerLabel("Subs/Day")} value={subsPerDayKpiValue != null ? `${subsPerDayKpiValue.toFixed(1)}/day` : "â€”"} trend={periodActive ? subsPerDayKpiTrend : undefined} />
-                  <KpiCard label={headerLabel("CVR")} value={cvrKpiValue != null ? fmtPct(cvrKpiValue) : "â€”"} trend={periodActive ? cvrKpiTrend : undefined} />
-                  <KpiCard label={headerLabel("CPL")} value={cpl != null ? fmtCurrency(cpl) : "â€”"} trend={periodActive ? cplTrend : undefined} reverseTrend />
-                  <KpiCard label={headerLabel("CPC")} value={cpc != null ? `$${cpc.toFixed(4)}` : "â€”"} trend={periodActive ? cpcTrend : undefined} reverseTrend />
+                  <KpiCard label={headerLabel("Subs/Day")} value={subsPerDayKpiValue != null ? `${subsPerDayKpiValue.toFixed(1)}/day` : "—"} trend={periodActive ? subsPerDayKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("CVR")} value={cvrKpiValue != null ? fmtPct(cvrKpiValue) : "—"} trend={periodActive ? cvrKpiTrend : undefined} />
+                  <KpiCard label={headerLabel("CPL")} value={cpl != null ? fmtCurrency(cpl) : "—"} trend={periodActive ? cplTrend : undefined} reverseTrend />
+                  <KpiCard label={headerLabel("CPC")} value={cpc != null ? `$${cpc.toFixed(4)}` : "—"} trend={periodActive ? cpcTrend : undefined} reverseTrend />
 
                   {/* Row 3: Traffic health + Unattributed */}
                   <KpiCard label="Total Tracking Links" value={String(stats.totalCampaigns || 0)} />
@@ -853,7 +853,7 @@ export default function AccountsPage() {
                   <div className="bg-secondary/50 dark:bg-secondary rounded-xl p-4">
                     <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">Unattributed Rev</p>
                     <p className="text-lg font-bold font-mono text-foreground">
-                      {lifetimeUnattrib > 0 ? `$${lifetimeUnattrib.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "â€”"}
+                      {lifetimeUnattrib > 0 ? `$${lifetimeUnattrib.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
                     </p>
                     {lifetimeRevenue > 0 && lifetimeUnattrib > 0 && (
                       <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -865,7 +865,7 @@ export default function AccountsPage() {
                   <div />
                 </div>
 
-                {/* Revenue Breakdown â€” compact, under KPI cards */}
+                {/* Revenue Breakdown â€" compact, under KPI cards */}
                 {(() => {
                   const campRevRaw = stats.campaignRevAllTime || 0;
                   const tx = (txBreakdowns as any)[acc.id] as any;
@@ -968,10 +968,10 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
-                {/* PART 3 â€” Tracking Links tab with clickable rows */}
+                {/* PART 3 â€" Tracking Links tab with clickable rows */}
                 {activeTab === "campaigns" && (
                   <div className="overflow-x-auto">
-                    {/* Date period pills â€” drives useAccountLinkDeltas window for ALL numeric columns.
+                    {/* Date period pills â€" drives useAccountLinkDeltas window for ALL numeric columns.
                         Maps to global usePageFilters so KPI cards stay in sync. "2 weeks" uses customRange. */}
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                       {([
@@ -1047,7 +1047,7 @@ export default function AccountsPage() {
                         <tbody>
                           {paginatedLinks.map((l: any) => {
                             const status = getStatus(l);
-                            // â”€â”€ Lifetime values from tracking_links â”€â”€
+                            // â"€â"€ Lifetime values from tracking_links â"€â"€
                             const lifetimeSpend = Number(l.cost_total || 0);
                             const lifetimeRev = Number(l.revenue || 0);
                             const lifetimeSubs = Number(l.subscribers || 0);
@@ -1057,7 +1057,7 @@ export default function AccountsPage() {
                             const paymentType = (l.payment_type || "").toUpperCase();
                             const activeInfo = getActiveInfo(l.id, activeLookup);
 
-                            // â”€â”€ Period vs lifetime resolution â”€â”€
+                            // â"€â"€ Period vs lifetime resolution â"€â"€
                             // When date filter is active, every numeric column shows the
                             // delta in that window from useAccountLinkDeltas (snapshots).
                             // Spend comes from onlytraffic_orders within the window.
@@ -1122,7 +1122,7 @@ export default function AccountsPage() {
                                 <td className="py-3 px-3">
                                   <div className="flex items-center gap-1.5">
                                     <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: isLinkActive(l) ? "#16a34a" : "#94a3b8" }} title={isLinkActive(l) ? "Active" : "Inactive"} />
-                                    <p className="font-bold text-foreground text-[12px] truncate max-w-[220px]">{l.campaign_name || "â€”"}</p>
+                                    <p className="font-bold text-foreground text-[12px] truncate max-w-[220px]">{l.campaign_name || "—"}</p>
                                   </div>
                                   <p className="text-[10px] text-muted-foreground truncate max-w-[220px]" style={{ paddingLeft: "14px" }}>{l.url}</p>
                                 </td>
@@ -1130,7 +1130,7 @@ export default function AccountsPage() {
                                   <TagBadge tagName={getEffectiveSource(l)} />
                                 </td>
                                 <td className="py-3 px-3 text-[12px] text-foreground/80">
-                                  {l.onlytraffic_marketer || <span className="text-muted-foreground">â€”</span>}
+                                  {l.onlytraffic_marketer || <span className="text-muted-foreground">â€"</span>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {fmtNum(clicksVal)}
@@ -1145,7 +1145,7 @@ export default function AccountsPage() {
                                     if (periodActive) {
                                       return (
                                         <div className="font-mono text-[12px] text-muted-foreground text-right">
-                                          {subsPerDay != null ? `${subsPerDay < 1 ? subsPerDay.toFixed(2) : subsPerDay.toFixed(1)}/day` : "â€”"}
+                                          {subsPerDay != null ? `${subsPerDay < 1 ? subsPerDay.toFixed(2) : subsPerDay.toFixed(1)}/day` : "—"}
                                           {subsPerDayPrev !== null && <div><TrendChip value={pctChange(subsPerDay ?? 0, subsPerDayPrev)} /></div>}
                                         </div>
                                       );
@@ -1160,15 +1160,15 @@ export default function AccountsPage() {
                                         </span>
                                         <span className="text-[10px] text-muted-foreground font-mono">{ageDays}d</span>
                                       </div>
-                                    ) : <span className="text-muted-foreground text-[12px]">â€”</span>;
+                                    ) : <span className="text-muted-foreground text-[12px]">â€"</span>;
                                   })()}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  {cvr != null ? fmtPct(cvr) : <span className="text-muted-foreground">â€”</span>}
+                                  {cvr != null ? fmtPct(cvr) : <span className="text-muted-foreground">â€"</span>}
                                   {periodActive && <div><TrendChip value={pctChange(cvr ?? 0, cvrPrev ?? 0)} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  {hasSpend ? fmtCurrency(spend) : <span className="text-muted-foreground">â€”</span>}
+                                  {hasSpend ? fmtCurrency(spend) : <span className="text-muted-foreground">â€"</span>}
                                   {periodActive && <div><TrendChip value={pctChange(spend, spendPrev)} reverse /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
@@ -1178,29 +1178,29 @@ export default function AccountsPage() {
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
                                   {crossPoll !== null && crossPoll > 0 ? (
                                     <span className="text-[#7c3aed] font-semibold">{fmtCurrency(crossPoll)}</span>
-                                  ) : <span className="text-muted-foreground">â€”</span>}
+                                  ) : <span className="text-muted-foreground">â€"</span>}
                                 </td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${hasSpend ? (profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                                  {hasSpend ? fmtCurrency(profit) : "â€”"}
+                                  {hasSpend ? fmtCurrency(profit) : "—"}
                                   {periodActive && <div><TrendChip value={pctChange(profit, profitPrev)} /></div>}
                                 </td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${profitSub != null ? (profitSub >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                                  {profitSub != null ? fmtCurrency(profitSub) : "â€”"}
+                                  {profitSub != null ? fmtCurrency(profitSub) : "—"}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  {ltvSub != null ? <span className="text-primary font-semibold">{fmtCurrency(ltvSub)}</span> : <span className="text-muted-foreground">â€”</span>}
+                                  {ltvSub != null ? <span className="text-primary font-semibold">{fmtCurrency(ltvSub)}</span> : <span className="text-muted-foreground">â€"</span>}
                                   {periodActive && <div><TrendChip value={pctChange(ltvSub ?? 0, ltvSubPrev ?? 0)} /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  {cplVal != null ? fmtCurrency(cplVal) : <span className="text-muted-foreground">â€”</span>}
+                                  {cplVal != null ? fmtCurrency(cplVal) : <span className="text-muted-foreground">â€"</span>}
                                   {periodActive && <div><TrendChip value={pctChange(cplVal ?? 0, cplPrev ?? 0)} reverse /></div>}
                                 </td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">
-                                  {cpcVal != null ? `$${cpcVal.toFixed(4)}` : <span className="text-muted-foreground">â€”</span>}
+                                  {cpcVal != null ? `$${cpcVal.toFixed(4)}` : <span className="text-muted-foreground">â€"</span>}
                                   {periodActive && <div><TrendChip value={pctChange(cpcVal ?? 0, cpcPrev ?? 0)} reverse /></div>}
                                 </td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${roiVal != null ? (roiVal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>
-                                  {roiVal != null ? fmtPct(roiVal) : "â€”"}
+                                  {roiVal != null ? fmtPct(roiVal) : "—"}
                                   {periodActive && <div><TrendChip value={pctChange(roiVal ?? 0, roiPrev ?? 0)} /></div>}
                                 </td>
                                 <td className="text-center py-3 px-3">
@@ -1216,7 +1216,7 @@ export default function AccountsPage() {
                       </table>
                       {/* Bottom pagination bar */}
                       <div className="flex items-center justify-between px-1 py-2 border-t border-border">
-                        <span className="text-xs text-muted-foreground">Showing {showStart}â€“{showEnd} of {displayLinks.length} tracking links</span>
+                        <span className="text-xs text-muted-foreground">Showing {showStart}â€"{showEnd} of {displayLinks.length} tracking links</span>
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-muted-foreground">Rows:</span>
@@ -1255,11 +1255,11 @@ export default function AccountsPage() {
                   </div>
                 )}
 
-                {/* PART 4 â€” Traffic Sources tab with 10 columns */}
+                {/* PART 4 â€" Traffic Sources tab with 10 columns */}
                 {activeTab === "sources" && (
                   <div className="overflow-x-auto">
                     {sourceGroups.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-8 text-center">No source tags assigned yet â€” go to Tracking Links to tag campaigns</p>
+                      <p className="text-sm text-muted-foreground py-8 text-center">No source tags assigned yet â€" go to Tracking Links to tag campaigns</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
@@ -1292,24 +1292,24 @@ export default function AccountsPage() {
                             const cplCpcType = getCplCpcLabel(g.costTypes);
                             // CPL = spend per sub; shown when source primarily uses CPL/Fixed pricing
                             const cplShow = (cplCpcType === "CPL" || cplCpcType === "Fixed" || cplCpcType === "Mixed") && g.subs > 0 && g.spend > 0;
-                            const cplValue = cplShow ? `$${(g.spend / g.subs).toFixed(2)}` : "â€”";
+                            const cplValue = cplShow ? `$${(g.spend / g.subs).toFixed(2)}` : "—";
                             // CPC = spend per click; shown when source primarily uses CPC/Fixed pricing
                             const cpcShow = (cplCpcType === "CPC" || cplCpcType === "Fixed" || cplCpcType === "Mixed") && g.clicks > 0 && g.spend > 0;
-                            const cpcValue = cpcShow ? `$${(g.spend / g.clicks).toFixed(2)}` : "â€”";
+                            const cpcValue = cpcShow ? `$${(g.spend / g.clicks).toFixed(2)}` : "—";
                             const spd = sourceSubsPerDay[g.source];
                             return (
                               <tr key={g.source} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                                 <td className="py-3 px-3 font-medium text-[12px]"><TagBadge tagName={g.source} /></td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{g.activeLinks}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtNum(g.subs)}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{spd != null && spd > 0 ? `${spd.toFixed(1)}/day` : "â€”"}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{spd != null && spd > 0 ? `${spd.toFixed(1)}/day` : "—"}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px]">{fmtCurrency(g.spend)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] font-semibold text-primary">{fmtCurrency(g.revenue)}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{cplValue}</td>
                                 <td className="text-right py-3 px-3 font-mono text-[12px] text-muted-foreground">{cpcValue}</td>
-                                <td className="text-right py-3 px-3 font-mono text-[12px]">{cvr != null ? fmtPct(cvr) : "â€”"}</td>
+                                <td className="text-right py-3 px-3 font-mono text-[12px]">{cvr != null ? fmtPct(cvr) : "—"}</td>
                                 <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>{fmtCurrency(g.profit)}</td>
-                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.roi != null ? (g.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>{g.roi != null ? fmtPct(g.roi) : "â€”"}</td>
+                                <td className={`text-right py-3 px-3 font-mono text-[12px] font-semibold ${g.roi != null ? (g.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive") : "text-muted-foreground"}`}>{g.roi != null ? fmtPct(g.roi) : "—"}</td>
                               </tr>
                             );
                           })}
@@ -1319,7 +1319,7 @@ export default function AccountsPage() {
                   </div>
                 )}
 
-                {/* PART 5 â€” Performance tab with fixed charts */}
+                {/* PART 5 â€" Performance tab with fixed charts */}
                 {activeTab === "performance" && (
                   <div className="space-y-6">
                     {/* Date range selector */}
@@ -1389,7 +1389,7 @@ export default function AccountsPage() {
     );
   }
 
-  // ============ VIEW 1 â€” All Models Overview ============
+  // ============ VIEW 1 â€" All Models Overview ============
 
   // Agency-wide stats for the stats row
   const exModelCount = (filteredAccounts as any[]).filter((a: any) => a.is_active === false).length;
@@ -1422,7 +1422,7 @@ export default function AccountsPage() {
           </div>
         </div>
 
-        {/* Agency stats row â€” Nixtio-inspired */}
+        {/* Agency stats row â€" Nixtio-inspired */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {([
             { label: "Total Models", value: String(filteredAccounts.length), sub: "in roster", accent: false },
@@ -1476,7 +1476,7 @@ export default function AccountsPage() {
           </select>
         </div>
 
-        {/* â”€â”€ MODELS VIEW (old bento â€” retired) â”€â”€ */}
+        {/* â"€â"€ MODELS VIEW (old bento â€" retired) â"€â"€ */}
         {sortedAccounts.length > 0 && false && (() => {
           const featuredAcc = sortedAccounts[0] as any;
           const featuredStats = accountStats[featuredAcc.id] || {};
@@ -1496,7 +1496,7 @@ export default function AccountsPage() {
               {/* Bento hero row */}
               <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 1fr', height: '400px' }}>
 
-                {/* Featured model card â€” split: circle photo left, stats right */}
+                {/* Featured model card â€" split: circle photo left, stats right */}
                 <div
                   className="rounded-2xl overflow-hidden cursor-pointer group border border-border hover:border-primary/30 transition-colors"
                   style={{ background: 'hsl(220 14% 10%)' }}
@@ -1539,11 +1539,11 @@ export default function AccountsPage() {
                       <div className="grid grid-cols-3 gap-3">
                         {[
                           { label: 'Revenue', value: fmtCurrency(featuredRev), color: 'text-foreground' },
-                          { label: 'Profit', value: featuredSpend > 0 ? fmtCurrency(featuredProfit) : 'â€”', color: featuredSpend > 0 ? (featuredProfit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40' },
-                          { label: 'LTV/Sub', value: featuredStats.ltvPerSub != null ? fmtCurrency(featuredStats.ltvPerSub * revMultiplier) : 'â€”', color: 'text-primary' },
+                          { label: 'Profit', value: featuredSpend > 0 ? fmtCurrency(featuredProfit) : 'â€"', color: featuredSpend > 0 ? (featuredProfit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40' },
+                          { label: 'LTV/Sub', value: featuredStats.ltvPerSub != null ? fmtCurrency(featuredStats.ltvPerSub * revMultiplier) : 'â€"', color: 'text-primary' },
                           { label: 'Active Links', value: String(featuredStats.activeCampaigns || 0), color: 'text-foreground' },
-                          { label: 'CVR', value: featuredStats.allCvr != null ? `${featuredStats.allCvr.toFixed(1)}%` : 'â€”', color: 'text-foreground' },
-                          { label: 'Subs/Day', value: featuredStats.subsPerDay != null ? featuredStats.subsPerDay.toFixed(1) : 'â€”', color: 'text-foreground' },
+                          { label: 'CVR', value: featuredStats.allCvr != null ? `${featuredStats.allCvr.toFixed(1)}%` : 'â€"', color: 'text-foreground' },
+                          { label: 'Subs/Day', value: featuredStats.subsPerDay != null ? featuredStats.subsPerDay.toFixed(1) : 'â€"', color: 'text-foreground' },
                         ].map(({ label, value, color }) => (
                           <div key={label} className="bg-white/[0.04] rounded-xl px-3 py-2.5 border border-white/[0.06]">
                             <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
@@ -1596,18 +1596,18 @@ export default function AccountsPage() {
                     <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-3">
                       <div>
                         <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Spend</p>
-                        <p className="text-[13px] font-bold text-foreground font-mono">{featuredSpend > 0 ? fmtCurrency(featuredSpend) : 'â€”'}</p>
+                        <p className="text-[13px] font-bold text-foreground font-mono">{featuredSpend > 0 ? fmtCurrency(featuredSpend) : 'â€"'}</p>
                       </div>
                       <div>
                         <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Profit</p>
                         <p className={`text-[13px] font-bold font-mono ${featuredSpend > 0 ? (featuredProfit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40'}`}>
-                          {featuredSpend > 0 ? fmtCurrency(featuredProfit) : 'â€”'}
+                          {featuredSpend > 0 ? fmtCurrency(featuredProfit) : 'â€"'}
                         </p>
                       </div>
                       <div>
                         <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">ROI</p>
                         <p className={`text-[13px] font-bold font-mono ${featuredRoi != null ? (featuredRoi >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/40'}`}>
-                          {featuredRoi != null ? `${featuredRoi.toFixed(0)}%` : 'â€”'}
+                          {featuredRoi != null ? `${featuredRoi.toFixed(0)}%` : 'â€"'}
                         </p>
                       </div>
                       <div>
@@ -1656,13 +1656,13 @@ export default function AccountsPage() {
                             </td>
                             <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtNum(s.apiSubs || 0)}</td>
                             <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtCurrency(rev)}</td>
-                            <td className="px-4 py-3 text-right font-mono text-[12px] text-primary">{s.ltvPerSub != null ? fmtCurrency(s.ltvPerSub * revMultiplier) : 'â€”'}</td>
-                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{spend > 0 ? fmtCurrency(spend) : 'â€”'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-primary">{s.ltvPerSub != null ? fmtCurrency(s.ltvPerSub * revMultiplier) : 'â€"'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{spend > 0 ? fmtCurrency(spend) : 'â€"'}</td>
                             <td className={`px-4 py-3 text-right font-mono text-[12px] ${spend > 0 ? (profit >= 0 ? 'text-primary' : 'text-destructive') : 'text-muted-foreground/30'}`}>
-                              {spend > 0 ? fmtCurrency(profit) : 'â€”'}
+                              {spend > 0 ? fmtCurrency(profit) : 'â€"'}
                             </td>
-                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : 'â€”'}</td>
-                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : 'â€”'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : 'â€"'}</td>
+                            <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : 'â€"'}</td>
                             <td className="px-5 py-3 text-right text-[12px] font-mono">
                               <span className="text-primary font-semibold">{s.activeCampaigns || 0}</span>
                               <span className="text-muted-foreground"> / {s.totalCampaigns || 0}</span>
@@ -1679,7 +1679,7 @@ export default function AccountsPage() {
         })()}
 
         {/* ── Model cards grid ── Nixtio-inspired ── */}
-        {viewMode === “grid” && <div className=”grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4”>
+        {viewMode === "grid" && <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {(sortedAccounts as any[]).map((a) => {
             const s = accountStats[a.id] || {};
             const rev = (s.campaignRevAllTime || 0) * revMultiplier;
@@ -1730,7 +1730,7 @@ export default function AccountsPage() {
                     <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${getGenderBadgeStyle(getGender(a))}`}>{getGender(a)}</span>
                   </div>
 
-                  {/* Key metric â€” subscriber count highlighted (like $1,200 pill in Nixtio) */}
+                  {/* Key metric â€" subscriber count highlighted (like $1,200 pill in Nixtio) */}
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="text-[22px] font-black text-foreground leading-none font-mono">{fmtNum(s.apiSubs || 0)}</p>
@@ -1746,11 +1746,11 @@ export default function AccountsPage() {
                   {/* Footer stats grid */}
                   <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-1 text-center">
                     <div>
-                      <p className="text-[11px] font-semibold text-foreground font-mono">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : "â€”"}</p>
+                      <p className="text-[11px] font-semibold text-foreground font-mono">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : "—"}</p>
                       <p className="text-[9px] text-muted-foreground">CVR</p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold text-foreground font-mono">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : "â€”"}</p>
+                      <p className="text-[11px] font-semibold text-foreground font-mono">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : "—"}</p>
                       <p className="text-[9px] text-muted-foreground">Subs/Day</p>
                     </div>
                     <div>
@@ -1911,11 +1911,11 @@ export default function AccountsPage() {
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtNum(s.apiSubs || 0)}</td>
                       <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{fmtCurrency(rev)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-[12px] text-primary">{s.ltvPerSub != null ? fmtCurrency(s.ltvPerSub * revMultiplier) : "â€”"}</td>
-                      <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{sp > 0 ? fmtCurrency(sp) : "â€”"}</td>
-                      <td className={`px-4 py-3 text-right font-mono text-[12px] ${sp > 0 ? (pr >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground/30"}`}>{sp > 0 ? fmtCurrency(pr) : "â€”"}</td>
-                      <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : "â€”"}</td>
-                      <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : "â€”"}</td>
+                      <td className="px-4 py-3 text-right font-mono text-[12px] text-primary">{s.ltvPerSub != null ? fmtCurrency(s.ltvPerSub * revMultiplier) : "—"}</td>
+                      <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{sp > 0 ? fmtCurrency(sp) : "—"}</td>
+                      <td className={`px-4 py-3 text-right font-mono text-[12px] ${sp > 0 ? (pr >= 0 ? "text-primary" : "text-destructive") : "text-muted-foreground/30"}`}>{sp > 0 ? fmtCurrency(pr) : "—"}</td>
+                      <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.allCvr != null ? `${s.allCvr.toFixed(1)}%` : "—"}</td>
+                      <td className="px-4 py-3 text-right font-mono text-[12px] text-foreground">{s.subsPerDay != null ? s.subsPerDay.toFixed(1) : "—"}</td>
                       <td className="px-5 py-3 text-right text-[12px] font-mono">
                         <span className="text-primary font-semibold">{s.activeCampaigns || 0}</span>
                         <span className="text-muted-foreground"> / {s.totalCampaigns || 0}</span>
