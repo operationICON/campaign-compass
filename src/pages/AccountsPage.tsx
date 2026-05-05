@@ -1396,6 +1396,9 @@ export default function AccountsPage() {
   const agencyActiveCampaigns = (filteredAccounts as any[]).reduce((s: number, a: any) => s + (accountStats[a.id]?.activeCampaigns || 0), 0);
   const agencyTotalSubs = (filteredAccounts as any[]).reduce((s: number, a: any) => s + (accountStats[a.id]?.apiSubs || 0), 0);
   const agencyTotalRevenue = (filteredAccounts as any[]).reduce((s: number, a: any) => s + ((accountStats[a.id]?.campaignRevAllTime || 0) * revMultiplier), 0);
+  const safeIndex = Math.max(0, Math.min(carouselIndex, (sortedAccounts as any[]).length - 1));
+  const slideAcc = (sortedAccounts as any[])[safeIndex] as any;
+  const slideStats = (slideAcc ? accountStats[slideAcc.id] : null) || {} as any;
 
   return (
     <DashboardLayout>
@@ -1437,6 +1440,21 @@ export default function AccountsPage() {
 
         {/* Sort + filter controls */}
         <div className="flex items-center gap-3 justify-end">
+          {/* View mode toggle */}
+          <div className="flex rounded-xl border border-border overflow-hidden">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-medium transition-colors ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"}`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" /> Grid
+            </button>
+            <button
+              onClick={() => setViewMode("slide")}
+              className={`px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-medium transition-colors border-l border-border ${viewMode === "slide" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"}`}
+            >
+              <Rows3 className="h-3.5 w-3.5" /> Slide
+            </button>
+          </div>
           {allCategories.length > 1 && (
             <select
               value={categoryFilter}
@@ -1660,8 +1678,8 @@ export default function AccountsPage() {
           );
         })()}
 
-        {/* â”€â”€ Model cards grid â€” Nixtio-inspired â”€â”€ */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {/* ── Model cards grid ── Nixtio-inspired ── */}
+        {viewMode === “grid” && <div className=”grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4”>
           {(sortedAccounts as any[]).map((a) => {
             const s = accountStats[a.id] || {};
             const rev = (s.campaignRevAllTime || 0) * revMultiplier;
@@ -1744,7 +1762,106 @@ export default function AccountsPage() {
               </div>
             );
           })}
-        </div>
+        </div>}
+
+        {/* ── Slide view ── */}
+        {viewMode === "slide" && (
+          <div className="space-y-4">
+            {/* Thumbnail strip */}
+            <div className="flex gap-2 overflow-x-auto pb-1 items-center">
+              {(sortedAccounts as any[]).map((a: any, i: number) => (
+                <button
+                  key={a.id}
+                  onClick={() => setCarouselIndex(i)}
+                  className={`relative shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition-all ${
+                    i === safeIndex ? "ring-2 ring-primary/60 bg-primary/10" : "opacity-50 hover:opacity-80"
+                  } ${a.is_active === false ? "border border-red-500/20" : ""}`}
+                >
+                  <AvatarCircle account={a} size={36} />
+                  {a.is_active === false && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border border-background" />}
+                  <span className="text-[9px] text-muted-foreground truncate max-w-[40px]">{a.display_name?.split(" ")[0]}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Main featured card */}
+            {slideAcc && (
+              <div
+                className="relative rounded-2xl overflow-hidden cursor-pointer"
+                style={{ background: "hsl(220 18% 8%)", minHeight: "420px" }}
+                onClick={() => { setSelectedAccount(slideAcc); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
+              >
+                {/* Blurred background */}
+                {slideAcc.avatar_thumb_url ? (
+                  <img src={slideAcc.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-60 pointer-events-none" />
+                ) : (
+                  <div className={`absolute inset-0 bg-gradient-to-br ${AVATAR_COLORS[safeIndex % AVATAR_COLORS.length]} opacity-20 pointer-events-none`} />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10 pointer-events-none" />
+
+                {/* Navigation arrows */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCarouselIndex(i => Math.max(0, i - 1)); }}
+                  disabled={safeIndex === 0}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/50 border border-white/15 flex items-center justify-center disabled:opacity-20 hover:bg-black/70 transition-colors"
+                >
+                  <ChevronLeft className="h-5 w-5 text-white" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCarouselIndex(i => Math.min((sortedAccounts as any[]).length - 1, i + 1)); }}
+                  disabled={safeIndex === (sortedAccounts as any[]).length - 1}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/50 border border-white/15 flex items-center justify-center disabled:opacity-20 hover:bg-black/70 transition-colors"
+                >
+                  <ChevronRight className="h-5 w-5 text-white" />
+                </button>
+
+                {/* Center content */}
+                <div className="relative z-10 flex flex-col items-center justify-center py-12 px-16 text-center">
+                  <div className="text-[11px] text-white/30 font-mono mb-5">{safeIndex + 1} / {sortedAccounts.length}</div>
+                  <div className="ring-4 ring-white/20 ring-offset-4 ring-offset-transparent rounded-full shadow-2xl mb-5">
+                    <AvatarCircle account={slideAcc} size={120} />
+                  </div>
+                  {slideAcc.is_active === false && (
+                    <span className="mb-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/70 text-white tracking-wider">EX-MODEL</span>
+                  )}
+                  <h2 className="text-[30px] font-black text-white leading-none drop-shadow-2xl">{slideAcc.display_name}</h2>
+                  {displayUsername(slideAcc) && <p className="text-[13px] text-white/50 mt-1.5">{displayUsername(slideAcc)}</p>}
+                  <div className="flex items-center gap-2 mt-2.5">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(getGender(slideAcc))}`}>{getGender(slideAcc)}</span>
+                    {slideAcc.is_active !== false && isNewAccount(slideAcc) && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/60 text-white">New</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Frosted stats strip */}
+                <div
+                  className="relative z-10 px-8 py-4 border-t border-white/10"
+                  style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(14px)" }}
+                >
+                  <div className="flex items-center justify-center gap-8 flex-wrap">
+                    {[
+                      { label: "OF Subs", val: fmtNum(slideAcc.subscribers_count || 0) },
+                      { label: "Revenue", val: fmtCurrency((slideStats.campaignRevAllTime || 0) * revMultiplier) },
+                      { label: "Spend", val: (slideStats.totalSpendAllTime || 0) > 0 ? fmtCurrency(slideStats.totalSpendAllTime) : "—" },
+                      { label: "Profit", val: (slideStats.totalSpendAllTime || 0) > 0 ? fmtCurrency((slideStats.totalProfit || 0) * revMultiplier) : "—" },
+                      { label: "CVR", val: slideStats.allCvr != null ? `${slideStats.allCvr.toFixed(1)}%` : "—" },
+                      { label: "Active", val: String(slideStats.activeCampaigns || 0) },
+                    ].map(({ label, val }, i, arr) => (
+                      <div key={label} className="flex items-center gap-8">
+                        <div className="text-center">
+                          <p className="text-[18px] font-bold text-white leading-none font-mono">{val}</p>
+                          <p className="text-[9px] text-white/40 mt-1 uppercase tracking-wider">{label}</p>
+                        </div>
+                        {i < arr.length - 1 && <div className="w-px h-6 bg-white/10" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* All Models table */}
         <div className="rounded-2xl border border-border overflow-hidden" style={{ background: "hsl(220 14% 10%)" }}>
