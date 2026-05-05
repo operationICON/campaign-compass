@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { startOfMonth, endOfMonth, subMonths, getDaysInMonth } from "date-fns";
 import { getEffectiveSource } from "@/lib/source-helpers";
-import { subDays, format, differenceInDays } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CampaignDetailSlideIn } from "@/components/dashboard/CampaignDetailSlideIn";
 import { CostSettingSlideIn } from "@/components/dashboard/CostSettingSlideIn";
-import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchSyncSettings, triggerSync, fetchTrackingLinkLtv, fetchActiveLinkCount, fetchTransactionTypeTotalsByAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { getSnapshotsByDateRange, getSnapshotLatestDate, getSnapshotAllTimeTotals } from "@/lib/api";
 import { toast } from "sonner";
@@ -99,7 +99,6 @@ export default function DashboardPage() {
       }));
     },
   });
-  const { data: dailyMetrics = [] } = useQuery({ queryKey: ["daily_metrics"], queryFn: () => fetchDailyMetrics() });
   const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: fetchSyncSettings });
   const { data: trackingLinkLtvRaw = [] } = useQuery({
     queryKey: ["tracking_link_ltv"],
@@ -152,7 +151,6 @@ export default function DashboardPage() {
   const {
     data: overviewSnapshotRows = [],
     isLoading: overviewSnapshotsLoading,
-    isFetching: overviewSnapshotsFetching,
   } = useQuery({
     queryKey: [
       "daily_snapshots",
@@ -215,31 +213,13 @@ export default function DashboardPage() {
 
   const links = useMemo(() => applySnapshotToLinks(allLinks, overviewSnapshotLookup), [allLinks, overviewSnapshotLookup]);
 
-  // Fetch today's snapshots for Daily Decision View
-  const todayStr = format(new Date(), "yyyy-MM-dd");
-  const lastWeekStr = format(subDays(new Date(), 7), "yyyy-MM-dd");
-
-  const { data: todaySnapshots = [] } = useQuery({
-    queryKey: ["daily_snapshots", "today", todayStr, agencyAccountIds?.join(",") ?? "all"],
-    queryFn: async () => {
-      return getSnapshotsByDateRange({ date_from: todayStr, date_to: todayStr, account_ids: agencyAccountIds ?? undefined, cols: "slim" });
-    },
-  });
-
-  const { data: lastWeekSnapshots = [] } = useQuery({
-    queryKey: ["daily_snapshots", "lastweek", lastWeekStr, agencyAccountIds?.join(",") ?? "all"],
-    queryFn: async () => {
-      return getSnapshotsByDateRange({ date_from: lastWeekStr, date_to: lastWeekStr, account_ids: agencyAccountIds ?? undefined, cols: "slim" });
-    },
-  });
-
   const { data: allTimeSnapshotTotals } = useQuery({
     queryKey: ["snapshot_alltime_totals", agencyAccountIds?.join(",") ?? "all"],
     queryFn: () => getSnapshotAllTimeTotals(agencyAccountIds ?? undefined),
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = linksLoading || overviewSnapshotsLoading || overviewSnapshotsFetching;
+  const isLoading = linksLoading || overviewSnapshotsLoading;
 
   const syncFrequency = useMemo(() => {
     const s = syncSettings.find((s: any) => s.key === "sync_frequency_days");

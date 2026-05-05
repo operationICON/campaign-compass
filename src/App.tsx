@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -5,26 +6,35 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
-import AccountsPage from "./pages/AccountsPage";
-import CampaignsPage from "./pages/CampaignsPage";
-import AuditPage from "./pages/AuditPage";
-import CalculationsPage from "./pages/CalculationsPage";
-import ChartsPage from "./pages/ChartsPage";
-import AlertsPage from "./pages/AlertsPage";
-import SettingsPage from "./pages/SettingsPage";
-import LogsPage from "./pages/LogsPage";
-import DebugPage from "./pages/DebugPage";
-import TrafficSourcesPage from "./pages/TrafficSourcesPage";
-import MarketerDrilldownPage from "./pages/MarketerDrilldownPage";
-import MarketerModelCampaignsPage from "./pages/MarketerModelCampaignsPage";
-import CrossPollPage from "./pages/CrossPollPage";
-import FansPage from "./pages/FansPage";
-import CampaignAnalyticsPage from "./pages/CampaignAnalyticsPage";
-import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const LoginPage                  = lazy(() => import("./pages/LoginPage"));
+const DashboardPage              = lazy(() => import("./pages/DashboardPage"));
+const AccountsPage               = lazy(() => import("./pages/AccountsPage"));
+const CampaignsPage              = lazy(() => import("./pages/CampaignsPage"));
+const AuditPage                  = lazy(() => import("./pages/AuditPage"));
+const CalculationsPage           = lazy(() => import("./pages/CalculationsPage"));
+const ChartsPage                 = lazy(() => import("./pages/ChartsPage"));
+const AlertsPage                 = lazy(() => import("./pages/AlertsPage"));
+const SettingsPage               = lazy(() => import("./pages/SettingsPage"));
+const LogsPage                   = lazy(() => import("./pages/LogsPage"));
+const DebugPage                  = lazy(() => import("./pages/DebugPage"));
+const TrafficSourcesPage         = lazy(() => import("./pages/TrafficSourcesPage"));
+const MarketerDrilldownPage      = lazy(() => import("./pages/MarketerDrilldownPage"));
+const MarketerModelCampaignsPage = lazy(() => import("./pages/MarketerModelCampaignsPage"));
+const CrossPollPage              = lazy(() => import("./pages/CrossPollPage"));
+const FansPage                   = lazy(() => import("./pages/FansPage"));
+const CampaignAnalyticsPage      = lazy(() => import("./pages/CampaignAnalyticsPage"));
+const NotFound                   = lazy(() => import("./pages/NotFound"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 3 * 60 * 1000,      // data stays fresh 3 min — no refetch on every focus
+      refetchOnWindowFocus: false,    // stop refetching every time user switches tabs
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -33,6 +43,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <Suspense fallback={null}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             {/* Accessible to all authenticated users */}
@@ -55,6 +66,7 @@ const App = () => (
             <Route path="/campaign-analytics" element={<ProtectedRoute adminOnly><CampaignAnalyticsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
