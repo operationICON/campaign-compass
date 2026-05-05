@@ -792,8 +792,8 @@ export default function AccountsPage() {
                   {acc.performer_top != null && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">Top {acc.performer_top}%</span>
                   )}
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${acc.is_active ? 'bg-primary/20 text-primary' : 'bg-white/10 text-white/40'}`}>
-                    {acc.is_active ? 'Active' : 'Inactive'}
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${acc.is_active ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                    {acc.is_active ? 'Active' : 'Ex-Model'}
                   </span>
                 </div>
               </div>
@@ -1714,6 +1714,9 @@ export default function AccountsPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getGenderBadgeStyle(category)}`}>{category}</span>
                       {acc.performer_top != null && (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/70 border border-white/15">Top {acc.performer_top}%</span>
+                      )}
+                      {!acc.is_active && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/30 text-red-300 border border-red-500/40">Ex-Model</span>
                       )}
                     </div>
                   </div>

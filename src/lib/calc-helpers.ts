@@ -6,6 +6,7 @@
 // ─── Active account filter (single source of truth) ───
 // Excludes test/inactive accounts from all aggregates and lists.
 export function isActiveAccount(a: any): boolean {
+  if (a?.is_active === false) return false;
   return Number(a?.subscribers_count || 0) > 0;
 }
 

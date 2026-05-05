@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
 import { accounts, sync_logs } from "../../db/schema.js";
-import { eq, lt, and, sql } from "drizzle-orm";
+import { eq, lt, and, sql, inArray, notInArray } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 
 const router = new Hono();
@@ -55,30 +55,53 @@ router.post("/", async (c) => {
         if (res.ok) {
           const data = await res.json() as any;
           const list = Array.isArray(data) ? data : (data.data ?? []);
+          const seenOfIds = new Set<string>();
+
           for (const acc of list) {
+            const ofId = String(acc.id);
+            seenOfIds.add(ofId);
             const ud = acc.onlyfans_user_data ?? {};
             const numericId = ud.id ? Number(ud.id) : null;
             const freshSubCount = ud.subscribersCount && ud.subscribersCount > 0 ? ud.subscribersCount : null;
+            const now = new Date();
             const updateSet: Record<string, any> = {
               display_name: ud.name ?? acc.display_name ?? String(acc.id),
               avatar_url: ud.avatar ?? null,
               avatar_thumb_url: ud.avatarThumbs?.c144 ?? null,
               username: acc.onlyfans_username ?? ud.username ?? null,
               numeric_of_id: numericId,
-              updated_at: new Date(),
+              is_active: true,   // re-activate if they were previously marked ex-model
+              last_seen: now,
+              updated_at: now,
             };
-            // Only overwrite subscribers_count when the API returns a real positive value
             if (freshSubCount !== null) updateSet.subscribers_count = freshSubCount;
             await db.insert(accounts).values({
-              onlyfans_account_id: String(acc.id),
+              onlyfans_account_id: ofId,
               username: acc.onlyfans_username ?? ud.username ?? null,
               display_name: acc.display_name ?? ud.name ?? String(acc.id),
               is_active: true,
+              last_seen: now,
               subscribers_count: freshSubCount ?? 0,
               avatar_url: ud.avatar ?? null,
               avatar_thumb_url: ud.avatarThumbs?.c144 ?? null,
               numeric_of_id: numericId,
             }).onConflictDoUpdate({ target: accounts.onlyfans_account_id, set: updateSet });
+          }
+
+          // Mark accounts missing from the OFAPI response as ex-model (is_active = false)
+          // Only do this when we got a valid non-empty list — avoids false positives on API errors
+          if (seenOfIds.size > 0) {
+            const seenArray = Array.from(seenOfIds);
+            await db.update(accounts)
+              .set({ is_active: false, updated_at: new Date() })
+              .where(and(
+                eq(accounts.is_active, true),
+                notInArray(accounts.onlyfans_account_id, seenArray)
+              ));
+            const exCount = await db.select({ id: accounts.id }).from(accounts).where(eq(accounts.is_active, false));
+            if (exCount.length > 0) {
+              await send({ step: "ex_model", message: `${exCount.length} account(s) no longer in OFAPI — marked as ex-model` });
+            }
           }
         }
       } catch (err: any) { console.error("Discovery error:", err.message); }
