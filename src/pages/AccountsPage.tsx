@@ -428,11 +428,11 @@ export default function AccountsPage() {
     const thumbUrl = account.avatar_thumb_url;
     const initial = (account.display_name || "?").charAt(0).toUpperCase();
     return (
-      <div style={{ width: size, height: size }}>
+      <div className="rounded-full overflow-hidden" style={{ width: size, height: size }} title={account.display_name || account.username || "Model"}>
         {thumbUrl ? (
-          <img src={thumbUrl} alt={account.display_name} className="rounded-full object-cover border-[3px] border-white shadow-md" style={{ width: size, height: size }} />
+          <img src={thumbUrl} alt={account.display_name} className="w-full h-full object-cover border-[3px] border-white shadow-md" />
         ) : (
-          <div className={`rounded-full bg-gradient-to-br ${AVATAR_COLORS[colorIdx]} flex items-center justify-center text-white font-bold border-[3px] border-white shadow-md`} style={{ width: size, height: size, fontSize: size * 0.35 }}>
+          <div className={`w-full h-full rounded-full bg-gradient-to-br ${AVATAR_COLORS[colorIdx]} flex items-center justify-center text-white font-bold border-[3px] border-white shadow-md`} style={{ fontSize: size * 0.35 }}>
             {initial}
           </div>
         )}
@@ -1647,12 +1647,12 @@ export default function AccountsPage() {
           return (
             <div className="space-y-3">
               {/* Thumbnail strip — TOP */}
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex gap-2 overflow-x-auto pb-2 pt-1 items-center min-h-[70px]">
                 {(sortedAccounts as any[]).map((a, i) => (
                   <button
                     key={a.id}
                     onClick={() => setCarouselIndex(i)}
-                    className={`relative shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition-all ${
+                    className={`relative shrink-0 flex flex-col items-center justify-center gap-1 p-1.5 rounded-xl transition-all ${
                       i === safeIndex
                         ? "ring-2 ring-primary/60 bg-primary/10"
                         : "opacity-50 hover:opacity-90"
@@ -1691,7 +1691,7 @@ export default function AccountsPage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
                   {/* Top: username + nav controls */}
-                  <div className="absolute top-5 left-6 right-5 flex items-center justify-between">
+                  <div className="absolute top-5 left-6 right-6 flex items-center justify-between">
                     <span className="text-[12px] text-white/50 font-medium">
                       {displayUsername(acc) || "Model Profile"}
                     </span>
