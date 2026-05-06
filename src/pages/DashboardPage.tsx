@@ -112,6 +112,9 @@ export default function DashboardPage() {
     [trackingLinkLtvRaw, activeLinkIdSet]
   );
 
+  // Active accounts only — ex-models (is_active === false) are excluded from all agency totals.
+  const activeAccounts = useMemo(() => accounts.filter(isActiveAccount), [accounts]);
+
 
   // Category mapping for group filter
   const CATEGORY_MAP: Record<string, string> = {
@@ -124,21 +127,21 @@ export default function DashboardPage() {
     return CATEGORY_MAP[username] || "Female";
   };
 
-  // Accounts filtered by group
+  // Accounts filtered by group — start from active accounts so ex-models are never included.
   const groupFilteredAccounts = useMemo(() => {
-    if (groupFilter === "all") return accounts;
-    return accounts.filter((a: any) => getAccountCategory(a) === groupFilter);
-  }, [accounts, groupFilter]);
+    if (groupFilter === "all") return activeAccounts;
+    return activeAccounts.filter((a: any) => getAccountCategory(a) === groupFilter);
+  }, [activeAccounts, groupFilter]);
 
   // Active filter count (excluding time period)
   const activeFilterCount = (groupFilter !== "all" ? 1 : 0) + (selectedModel !== "all" ? 1 : 0);
 
   const modelParam = selectedModel !== "all" ? selectedModel : null;
+  // Never null — always scoped to active accounts so snapshot queries never include ex-model data.
   const agencyAccountIds = useMemo(() => {
     if (modelParam) return [modelParam];
-    if (groupFilter !== "all") return groupFilteredAccounts.map((a: any) => a.id);
-    return null;
-  }, [modelParam, groupFilter, groupFilteredAccounts]);
+    return groupFilteredAccounts.map((a: any) => a.id);
+  }, [modelParam, groupFilteredAccounts]);
 
   const overviewSnapshotRange = useMemo(
     () => getOverviewSnapshotRange(timePeriod, customRange),
@@ -688,66 +691,38 @@ function KpiCards({
     : groupFilter !== "all" ? activeAccounts.filter((a: any) => getAccountCategory(a) === groupFilter)
     : activeAccounts;
 
+  // ── Active account set — ex-models excluded from every allLinks computation ──
+  const accountIdSet = useMemo(() => new Set(filtAccounts.map((a: any) => a.id)), [filtAccounts]);
+
   // ── All Time base values from tracking_links ──
   const allTimeRevenue = allLinks
-    .filter((l: any) => {
-      if (modelParam) return l.account_id === modelParam;
-      if (groupFilter !== "all") {
-        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
-        return acctIds.has(l.account_id);
-      }
-      return true;
-    })
+    .filter((l: any) => accountIdSet.has(l.account_id))
     .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
-
   const allTimeSpend = allLinks
-    .filter((l: any) => {
-      const cost = Number(l.cost_total || 0);
-      if (cost <= 0) return false;
-      if (modelParam) return l.account_id === modelParam;
-      if (groupFilter !== "all") {
-        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
-        return acctIds.has(l.account_id);
-      }
-      return true;
-    })
+    .filter((l: any) => accountIdSet.has(l.account_id) && Number(l.cost_total || 0) > 0)
     .reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
 
   const allTimePaidSubs = allLinks
-    .filter((l: any) => {
-      const cost = Number(l.cost_total || 0);
-      if (cost <= 0) return false;
-      if (modelParam) return l.account_id === modelParam;
-      if (groupFilter !== "all") {
-        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
-        return acctIds.has(l.account_id);
-      }
-      return true;
-    })
+    .filter((l: any) => accountIdSet.has(l.account_id) && Number(l.cost_total || 0) > 0)
     .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
 
   const allTimeTotalSubs = filtAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
   const allTimeTrackingSubs = allLinks
-    .filter((l: any) => {
-      if (modelParam) return l.account_id === modelParam;
-      if (groupFilter !== "all") {
-        const acctIds = new Set(filtAccounts.map((a: any) => a.id));
-        return acctIds.has(l.account_id);
-      }
-      return true;
-    })
+    .filter((l: any) => accountIdSet.has(l.account_id))
     .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
 
-  // ── Snapshot period values (snapshotSpend, snapshotSubs passed as props from actual snapshot rows) ──
+  // ── Snapshot period values ──
   const snapshotRevenue = links.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
 
   // ── Earliest tracking link date for All Time subs/day ──
-  const earliestCreated = allLinks.reduce((earliest: Date | null, l: any) => {
-    if (!l.created_at) return earliest;
-    const d = new Date(l.created_at);
-    return !earliest || d < earliest ? d : earliest;
-  }, null as Date | null);
+  const earliestCreated = allLinks
+    .filter((l: any) => accountIdSet.has(l.account_id))
+    .reduce((earliest: Date | null, l: any) => {
+      if (!l.created_at) return earliest;
+      const d = new Date(l.created_at);
+      return !earliest || d < earliest ? d : earliest;
+    }, null as Date | null);
 
   if (isLoading) {
     return (
@@ -821,8 +796,8 @@ function KpiCards({
             ltvPerSub = (snapRev * revMultiplier) / snapSubs;
           } else {
             // Fallback while snapshot totals load
-            const totalRev2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-            const totalSubs2 = allLinks.filter((l: any) => { if (modelParam) return l.account_id === modelParam; if (groupFilter !== "all") { const acctIds = new Set(filtAccounts.map((a: any) => a.id)); return acctIds.has(l.account_id); } return true; }).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
+            const totalRev2 = allLinks.filter((l: any) => accountIdSet.has(l.account_id)).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+            const totalSubs2 = allLinks.filter((l: any) => accountIdSet.has(l.account_id)).reduce((s: number, l: any) => s + (l.subscribers || 0), 0);
             ltvPerSub = totalSubs2 > 0 ? (totalRev2 * revMultiplier) / totalSubs2 : null;
           }
           subtitle = "All time · revenue per new subscriber";
@@ -1037,16 +1012,9 @@ function KpiCards({
 
       // ═══ AVG EXPENSES ═══
       case "avg_expenses": {
-        const activePaidLinks = allLinks.filter((l: any) => {
-          const cost = Number(l.cost_total || 0);
-          if (cost <= 0) return false;
-          if (modelParam) return l.account_id === modelParam;
-          if (groupFilter !== "all") {
-            const acctIds = new Set(filtAccounts.map((a: any) => a.id));
-            return acctIds.has(l.account_id);
-          }
-          return true;
-        });
+        const activePaidLinks = allLinks.filter((l: any) =>
+          accountIdSet.has(l.account_id) && Number(l.cost_total || 0) > 0
+        );
         const avgExp = activePaidLinks.length > 0 ? allTimeSpend / activePaidLinks.length : null;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
@@ -1120,14 +1088,7 @@ function KpiCards({
 
       // ═══ ACTIVE TRACKING LINKS ═══
       case "active_campaigns": {
-        const activeCount = allLinks.filter((l: any) => {
-          if (modelParam) return l.account_id === modelParam;
-          if (groupFilter !== "all") {
-            const acctIds = new Set(filtAccounts.map((a: any) => a.id));
-            return acctIds.has(l.account_id);
-          }
-          return true;
-        }).length;
+        const activeCount = allLinks.filter((l: any) => accountIdSet.has(l.account_id)).length;
         return (
           <div key={id} className="bg-card border border-border rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-2">
@@ -1145,14 +1106,7 @@ function KpiCards({
       // ═══ BEST SOURCE ═══
       case "best_source": {
         const sourceMap: Record<string, number> = {};
-        const relevantLinks = allLinks.filter((l: any) => {
-          if (modelParam) return l.account_id === modelParam;
-          if (groupFilter !== "all") {
-            const acctIds = new Set(filtAccounts.map((a: any) => a.id));
-            return acctIds.has(l.account_id);
-          }
-          return true;
-        });
+        const relevantLinks = allLinks.filter((l: any) => accountIdSet.has(l.account_id));
         for (const l of relevantLinks) {
           const src = l.source || l.traffic_source || "Unknown";
           const rev = Number(l.revenue || 0);
