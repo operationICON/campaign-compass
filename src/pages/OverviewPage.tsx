@@ -194,6 +194,7 @@ export default function OverviewPage() {
       expenses: Math.round(d.expenses),
       subs:     Math.round(d.subs),
       clicks:   Math.round(d.clicks),
+      ltv:      d.subs > 0 ? Math.round((d.rev / d.subs) * 100) / 100 : 0,
     }));
   }, [monthlyRows, revMultiplier]);
 
@@ -272,7 +273,8 @@ export default function OverviewPage() {
     const fans    = filteredRows.reduce((s, r) => s + r.fans, 0);
     const spend   = filteredRows.reduce((s, r) => s + r.spend, 0);
     const profit  = revenue - spend;
-    return { revenue, fans, spend, profit, roi: spend > 0 ? (profit / spend) * 100 : null };
+    const ltvPerSub = fans > 0 ? revenue / fans : null;
+    return { revenue, fans, spend, profit, roi: spend > 0 ? (profit / spend) * 100 : null, ltvPerSub };
   }, [filteredRows]);
 
   // ── Marketer breakdown ────────────────────────────────────────────────────
@@ -390,6 +392,11 @@ export default function OverviewPage() {
               value={isLoading ? "…" : fmtN(totals.fans)}
               sub={periodLabel} sparkData={sparkLast6} sparkKey="subs"
               accent="#818cf8" />
+            <KpiCard label="LTV / Sub"
+              value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
+              sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
+              sparkData={sparkLast6} sparkKey="ltv"
+              accent="#e879f9" badge={revenueMode === "net" ? "NET" : undefined} />
           </div>
 
           {/* Chart */}
