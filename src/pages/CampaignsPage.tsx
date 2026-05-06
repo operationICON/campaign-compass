@@ -426,13 +426,13 @@ export default function CampaignsPage() {
       const profitIsEstimate = false;
       const roiIsEstimate = false;
       if (effectiveCostTotal > 0) {
-        const revForProfit = Number(l.revenue || 0);
+        const revForProfit = Number((l._revenue ?? l.revenue) || 0);
         computedProfit = revForProfit - effectiveCostTotal;
         computedRoi = (computedProfit / effectiveCostTotal) * 100;
       }
-      // Profit/Sub = (period revenue - period spend) / period subs
+      // Profit/Sub uses all-time revenue and all-time subs
       const newSubsTotal = ltvRecord ? Number(ltvRecord.new_subs_total || 0) : 0;
-      const subsCount = Number(l.subscribers || 0);
+      const subsCount = Number((l._subscribers ?? l.subscribers) || 0);
       const profitPerSub = subsCount > 0 && computedProfit !== null ? computedProfit / subsCount : null;
       // LTV/Sub from tracking_link_ltv
       const ltvPerSubFromRecord = ltvRecord ? Number(ltvRecord.ltv_per_sub || 0) : null;
@@ -574,11 +574,11 @@ export default function CampaignsPage() {
         case "cvr": aVal = Number(a.clicks) > 0 ? (a.subscribers / a.clicks) : -Infinity; bVal = Number(b.clicks) > 0 ? (b.subscribers / b.clicks) : -Infinity; break;
         case "media_buyer": aVal = (a.media_buyer || "zzz").toLowerCase(); bVal = (b.media_buyer || "zzz").toLowerCase(); return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         case "ltv_sub_all": {
-          const aS = Number(a.subscribers || 0), bS = Number(b.subscribers || 0);
+          const aS = Number((a._subscribers ?? a.subscribers) || 0), bS = Number((b._subscribers ?? b.subscribers) || 0);
           const aLtv = a.ltvRecord ? Number(a.ltvRecord.total_ltv || 0) : 0;
           const bLtv = b.ltvRecord ? Number(b.ltvRecord.total_ltv || 0) : 0;
-          aVal = aS > 0 ? (aLtv > 0 ? aLtv / aS : Number(a.revenue || 0) > 0 ? Number(a.revenue) / aS : -Infinity) : -Infinity;
-          bVal = bS > 0 ? (bLtv > 0 ? bLtv / bS : Number(b.revenue || 0) > 0 ? Number(b.revenue) / bS : -Infinity) : -Infinity;
+          aVal = aS > 0 ? (aLtv > 0 ? aLtv / aS : Number((a._revenue ?? a.revenue) || 0) > 0 ? Number(a._revenue ?? a.revenue) / aS : -Infinity) : -Infinity;
+          bVal = bS > 0 ? (bLtv > 0 ? bLtv / bS : Number((b._revenue ?? b.revenue) || 0) > 0 ? Number(b._revenue ?? b.revenue) / bS : -Infinity) : -Infinity;
           break;
         }
         case "model": {
@@ -593,13 +593,13 @@ export default function CampaignsPage() {
           const aLabel = (aTypes && aTypes.size > 0) ? deriveCostLabel(aTypes) : ((a.cost_type || a.payment_type || null) as "CPL" | "CPC" | null);
           const bTypes = costTypeMap[b.id];
           const bLabel = (bTypes && bTypes.size > 0) ? deriveCostLabel(bTypes) : ((b.cost_type || b.payment_type || null) as "CPL" | "CPC" | null);
-          aVal = calcCostMetric(aLabel, a.effectiveCostTotal ?? Number(a.cost_total || 0), Number(a.subscribers || 0), Number(a.clicks || 0)).value ?? -Infinity;
-          bVal = calcCostMetric(bLabel, b.effectiveCostTotal ?? Number(b.cost_total || 0), Number(b.subscribers || 0), Number(b.clicks || 0)).value ?? -Infinity;
+          aVal = calcCostMetric(aLabel, a.effectiveCostTotal ?? Number(a.cost_total || 0), Number((a._subscribers ?? a.subscribers) || 0), Number((a._clicks ?? a.clicks) || 0)).value ?? -Infinity;
+          bVal = calcCostMetric(bLabel, b.effectiveCostTotal ?? Number(b.cost_total || 0), Number((b._subscribers ?? b.subscribers) || 0), Number((b._clicks ?? b.clicks) || 0)).value ?? -Infinity;
           break;
         }
         case "cpc": {
-          const aSpend = a.effectiveCostTotal ?? Number(a.cost_total || 0); const aClk = Number(a.clicks || 0);
-          const bSpend = b.effectiveCostTotal ?? Number(b.cost_total || 0); const bClk = Number(b.clicks || 0);
+          const aSpend = a.effectiveCostTotal ?? Number(a.cost_total || 0); const aClk = Number((a._clicks ?? a.clicks) || 0);
+          const bSpend = b.effectiveCostTotal ?? Number(b.cost_total || 0); const bClk = Number((b._clicks ?? b.clicks) || 0);
           aVal = aSpend > 0 && aClk > 0 ? aSpend / aClk : -Infinity;
           bVal = bSpend > 0 && bClk > 0 ? bSpend / bClk : -Infinity;
           break;
@@ -1141,7 +1141,7 @@ export default function CampaignsPage() {
                                 case "ltv_sub_all": {
                                   // Always all-time: total revenue / total subscribers
                                   const totalSubs = Number(link._subscribers ?? link.subscribers ?? 0);
-                                  const totalRev = Number(link.revenue || 0) * revMultiplier;
+                                  const totalRev = Number((link._revenue ?? link.revenue) || 0) * revMultiplier;
                                   const ltvSubAllVal: number | null = totalSubs > 0 && totalRev > 0 ? totalRev / totalSubs : null;
                                   return (
                                   <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
@@ -1201,8 +1201,8 @@ export default function CampaignsPage() {
                                   const label = hasOTTypes
                                     ? deriveCostLabel(types)
                                     : ((link.cost_type || link.payment_type || null) as "CPL" | "CPC" | null);
-                                  const subs = link.subscribers || 0;
-                                  const clicks = link.clicks || 0;
+                                  const subs = link._subscribers ?? link.subscribers ?? 0;
+                                  const clicks = link._clicks ?? link.clicks ?? 0;
                                   const metric = calcCostMetric(label, costTotal, subs, clicks);
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
@@ -1375,7 +1375,7 @@ export default function CampaignsPage() {
                                   </td>
                                 );
                                 case "cpc": {
-                                  const clk = Number(link.clicks || 0);
+                                  const clk = Number((link._clicks ?? link.clicks) || 0);
                                   const cpcVal = hasCost && clk > 0 ? costTotal / clk : null;
                                   return (
                                     <td key={c.id} className="text-right font-mono" style={{ padding: "8px 12px", fontSize: "12px" }}>
