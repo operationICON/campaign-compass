@@ -394,27 +394,27 @@ export default function OverviewPage() {
         </div>
 
         {/* ═══ MAIN ROW ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 items-stretch">
 
           {/* KPI cards */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 h-full">
             <KpiCard label="Revenue" value={isLoading ? "…" : fmtShort(totals.revenue)}
               sub={periodLabel} accent="#10b981" icon={<DollarSign className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} />
+              badge={revenueMode === "net" ? "NET" : undefined} grow />
             <KpiCard label="Ad Spend" value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
               sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
-              accent="#f97316" icon={<TrendingDown className="h-4 w-4" />} />
+              accent="#f97316" icon={<TrendingDown className="h-4 w-4" />} grow />
             <KpiCard label="Profit" value={isLoading ? "…" : fmtShort(totals.profit)}
               sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
               accent={totals.profit >= 0 ? "#10b981" : "#ef4444"} icon={<TrendingUp className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} />
+              badge={revenueMode === "net" ? "NET" : undefined} grow />
             <KpiCard label="Subscribers" value={isLoading ? "…" : fmtN(allTimeFans)}
               sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
-              accent="#818cf8" icon={<Users className="h-4 w-4" />} />
+              accent="#818cf8" icon={<Users className="h-4 w-4" />} grow />
             <KpiCard label="LTV / Sub" value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
               sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
               accent="#e879f9" icon={<Zap className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} />
+              badge={revenueMode === "net" ? "NET" : undefined} grow />
           </div>
 
           {/* Right column: chart + marketer + models */}
@@ -466,7 +466,7 @@ export default function OverviewPage() {
           </div>
 
           {/* Marketer + Models */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
           {/* Revenue by Marketer */}
           {(() => {
@@ -674,11 +674,11 @@ function ChartTooltip({ active, payload, label, isCurrency }: any) {
   );
 }
 
-function KpiCard({ label, value, sub, accent, badge, icon }: {
-  label: string; value: string; sub: string; accent: string; badge?: string; icon?: React.ReactNode;
+function KpiCard({ label, value, sub, accent, badge, icon, grow }: {
+  label: string; value: string; sub: string; accent: string; badge?: string; icon?: React.ReactNode; grow?: boolean;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl px-5 pt-4 pb-3.5 overflow-hidden"
+    <div className={`bg-card border border-border rounded-2xl px-5 pt-4 pb-3.5 overflow-hidden flex flex-col justify-center${grow ? " flex-1" : ""}`}
       style={{ borderBottom: `3px solid ${accent}` }}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
