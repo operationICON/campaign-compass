@@ -530,7 +530,7 @@ export default function OverviewPage() {
                         })}
                       </div>
                       {/* Donut */}
-                      <div className="shrink-0 flex items-center justify-center" style={{ width: "58%" }}>
+                      <div className="shrink-0 flex items-start justify-center" style={{ width: "58%" }}>
                         <div className="relative w-full" style={{ paddingBottom: "100%" }}>
                           <div className="absolute inset-0">
                             <ResponsiveContainer width="100%" height="100%">
