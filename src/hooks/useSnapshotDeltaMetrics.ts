@@ -100,10 +100,13 @@ export function useSnapshotDeltaMetrics(
         (byLink[id] ||= []).push(r);
       }
 
-      // days = calendar size of the window (used as the per-day denominator)
-      const windowDays = Math.max(1, Math.round(
+      // days = calendar size of the window (used as the per-day denominator).
+      // Custom ranges are inclusive on both ends (May 1–2 = 2 days), so add 1.
+      // Preset ranges (week/month) set start = maxDate - N, so diff already equals N — no +1.
+      const rawDays = Math.round(
         (new Date(win.end + "T00:00:00Z").getTime() - new Date(win.start + "T00:00:00Z").getTime()) / 86400000
-      ));
+      );
+      const windowDays = Math.max(1, customRange ? rawDays + 1 : rawDays);
 
       const lookup: Record<string, SnapshotDelta> = {};
       for (const id of Object.keys(byLink)) {
