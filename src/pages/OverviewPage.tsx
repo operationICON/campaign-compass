@@ -413,9 +413,9 @@ export default function OverviewPage() {
           </div>
 
           {/* Chart */}
-          <div className="bg-card border border-border rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
             {/* Series toggles */}
-            <div className="flex items-center gap-5 mb-4">
+            <div className="flex items-center gap-5 mb-4 shrink-0">
               {SERIES_META.map(({ key, label, color }) => (
                 <button key={key} onClick={() => toggleSeries(key)}
                   className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-opacity ${vis[key] ? "opacity-100" : "opacity-25"}`}>
@@ -426,11 +426,11 @@ export default function OverviewPage() {
             </div>
 
             {chartData.length === 0 ? (
-              <div className="h-[210px] flex items-center justify-center text-muted-foreground text-sm">
+              <div className="flex-1 min-h-[180px] flex items-center justify-center text-muted-foreground text-sm">
                 {isLoading ? "Loading…" : "No data"}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={210}>
+              <ResponsiveContainer width="100%" height="100%" minHeight={180} className="flex-1">
                 <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
@@ -579,13 +579,13 @@ function KpiCard({ label, value, sub, accent, badge }: {
   label: string; value: string; sub: string; accent: string; badge?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl px-6 pt-5 pb-4 overflow-hidden flex-1"
+    <div className="bg-card border border-border rounded-2xl px-5 pt-4 pb-3.5 overflow-hidden"
       style={{ borderBottom: `3px solid ${accent}` }}>
-      <div className="flex items-center gap-1.5 mb-2">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
         {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
       </div>
-      <p className="text-[32px] font-bold font-mono text-foreground leading-none">{value}</p>
+      <p className="text-[28px] font-bold font-mono text-foreground leading-none">{value}</p>
       <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
     </div>
   );
