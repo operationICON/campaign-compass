@@ -121,7 +121,11 @@ export default function OverviewPage() {
   } = usePageFilters();
 
   const [activeSeries, setActiveSeries] = useState<SeriesKey>("rev");
-  // MARKETER_PER_PAGE and MODEL_PER_PAGE removed - no longer needed
+  const [marketerPage, setMarketerPage] = useState(0);
+  const [modelPage, setModelPage] = useState(0);
+  const [marketerSort, setMarketerSort] = useState<{ key: "value" | "name" | "pct"; dir: "asc" | "desc" }>({ key: "value", dir: "desc" });
+  const MARKETER_PER_PAGE = 8;
+  const MODEL_PER_PAGE = 6;
 
   const isAllTime  = timePeriod === "all" && !customRange;
   const periodKey  = customRange
@@ -391,13 +395,34 @@ export default function OverviewPage() {
         </div>
 
         {/* ═══ MAIN ROW ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 items-stretch">
 
-          {/* Left: Chart */}
+          {/* KPI cards */}
+          <div className="flex flex-col gap-3 h-full">
+            <KpiCard label="Revenue" value={isLoading ? "…" : fmtShort(totals.revenue)}
+              sub={periodLabel} accent="#10b981" icon={<DollarSign className="h-4 w-4" />}
+              badge={revenueMode === "net" ? "NET" : undefined} grow />
+            <KpiCard label="Ad Spend" value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
+              sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
+              accent="#f97316" icon={<TrendingDown className="h-4 w-4" />} grow />
+            <KpiCard label="Profit" value={isLoading ? "…" : fmtShort(totals.profit)}
+              sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
+              accent={totals.profit >= 0 ? "#10b981" : "#ef4444"} icon={<TrendingUp className="h-4 w-4" />}
+              badge={revenueMode === "net" ? "NET" : undefined} grow />
+            <KpiCard label="Subscribers" value={isLoading ? "…" : fmtN(allTimeFans)}
+              sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
+              accent="#818cf8" icon={<Users className="h-4 w-4" />} grow />
+            <KpiCard label="LTV / Sub" value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
+              sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
+              accent="#e879f9" icon={<Zap className="h-4 w-4" />}
+              badge={revenueMode === "net" ? "NET" : undefined} grow />
+          </div>
+
+          {/* Right column: chart + marketer + models */}
           <div className="flex flex-col gap-4">
 
           {/* Chart */}
-          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 380 }}>
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 340 }}>
             {/* Chart header: title + total + pill tabs */}
             <div className="flex items-start justify-between mb-4 shrink-0 gap-3">
               <div>
@@ -427,7 +452,7 @@ export default function OverviewPage() {
                 {isLoading ? "Loading…" : "No data"}
               </div>
             ) : (
-              <div style={{ height: 260 }}>
+              <div style={{ height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="25%">
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -440,61 +465,210 @@ export default function OverviewPage() {
               </div>
             )}
           </div>
-          </div>
 
-          {/* Right: KPI Cards with Donut */}
-          <div className="flex flex-col gap-3 h-full">
-            <KpiCard label="Revenue" value={isLoading ? "…" : fmtShort(totals.revenue)}
-              sub={periodLabel} accent="#10b981" icon={<DollarSign className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} grow />
-            <KpiCard label="Ad Spend" value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
-              sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
-              accent="#f97316" icon={<TrendingDown className="h-4 w-4" />} grow />
-            <KpiCard label="Profit" value={isLoading ? "…" : fmtShort(totals.profit)}
-              sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
-              accent={totals.profit >= 0 ? "#10b981" : "#ef4444"} icon={<TrendingUp className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} grow />
-            <KpiCard label="Subscribers" value={isLoading ? "…" : fmtN(allTimeFans)}
-              sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
-              accent="#818cf8" icon={<Users className="h-4 w-4" />} grow />
-            <KpiCard label="LTV / Sub" value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
-              sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
-              accent="#e879f9" icon={<Zap className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} grow />
-            
-            {/* Marketer Breakdown with Enhanced Donut */}
-            <KpiCard 
-              label="Marketers"
-              value={marketerBreakdown.length}
-              sub={fmtC(marketerTotal)}
-              accent="#8b5cf6"
-              donut={
-                marketerBreakdown.length === 0 ? (
-                  <div className="flex items-center justify-center text-muted-foreground text-sm h-48">No tagged links</div>
+          {/* Marketer + Models */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* Revenue by Marketer */}
+          {(() => {
+            const sortedBreakdown = [...marketerBreakdown].sort((a, b) => {
+              const mul = marketerSort.dir === "asc" ? 1 : -1;
+              if (marketerSort.key === "name") return mul * a.name.localeCompare(b.name);
+              if (marketerSort.key === "pct")  return mul * (a.pct - b.pct);
+              return mul * (a.value - b.value);
+            });
+            const mTotalPages = Math.ceil(sortedBreakdown.length / MARKETER_PER_PAGE);
+            const mSlice = sortedBreakdown.slice(marketerPage * MARKETER_PER_PAGE, (marketerPage + 1) * MARKETER_PER_PAGE);
+            const toggleSort = (key: typeof marketerSort.key) =>
+              setMarketerSort(s => s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" });
+            const SortBtn = ({ k, label }: { k: typeof marketerSort.key; label: string }) => (
+              <button onClick={() => toggleSort(k)}
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded transition-all ${marketerSort.key === k ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}>
+                {label}{marketerSort.key === k ? (marketerSort.dir === "desc" ? " ↓" : " ↑") : ""}
+              </button>
+            );
+            return (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[13px] font-semibold text-foreground">Revenue by Marketer</h2>
+                  <span className="text-[11px] text-muted-foreground font-mono">{fmtC(marketerTotal)}</span>
+                </div>
+                {marketerBreakdown.length === 0 ? (
+                  <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
                 ) : (
-                  <div className="relative w-full h-full min-h-[220px] flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={58} outerRadius={90}
-                          dataKey="value" strokeWidth={2} stroke="hsl(var(--card))" paddingAngle={1.2}>
-                          {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[40px] font-black text-foreground leading-none" style={{ letterSpacing: "-0.02em" }}>
-                        {marketerBreakdown.length}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1.5 font-bold">Active</span>
+                  <>
+                    {/* Sort controls */}
+                    <div className="flex items-center gap-1 mb-3">
+                      <span className="text-[10px] text-muted-foreground mr-1">Sort:</span>
+                      <SortBtn k="value" label="Revenue" />
+                      <SortBtn k="pct" label="%" />
+                      <SortBtn k="name" label="Name" />
                     </div>
+                    <div className="flex items-center gap-4">
+                      {/* Bars */}
+                      <div className="flex-1 min-w-0 space-y-3.5">
+                        {mSlice.map((src, i) => {
+                          const globalIdx = marketerPage * MARKETER_PER_PAGE + i;
+                          return (
+                            <div key={src.name}>
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
+                                  <span className="text-[13px] font-semibold text-foreground truncate">{src.name}</span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0 ml-2">
+                                  <span className="text-[13px] font-mono font-semibold text-foreground">{fmtShort(src.value)}</span>
+                                  <span className="text-[12px] font-mono font-bold w-9 text-right" style={{ color: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }}>{(src.pct * 100).toFixed(1)}%</span>
+                                </div>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Donut */}
+                      <div className="shrink-0" style={{ width: 160, height: 160 }}>
+                        <div className="relative" style={{ width: 160, height: 160 }}>
+                          <ResponsiveContainer width={160} height={160}>
+                            <PieChart>
+                              <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={46} outerRadius={72}
+                                dataKey="value" strokeWidth={0} paddingAngle={2}>
+                                {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-[36px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Pagination */}
+                    {mTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                        <button onClick={() => setMarketerPage(p => Math.max(0, p - 1))} disabled={marketerPage === 0}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: mTotalPages }, (_, i) => (
+                            <button key={i} onClick={() => setMarketerPage(i)}
+                              className={`w-6 h-6 rounded text-[11px] font-semibold transition-all ${
+                                i === marketerPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                              }`}>
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setMarketerPage(p => Math.min(mTotalPages - 1, p + 1))} disabled={marketerPage === mTotalPages - 1}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          Next <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Revenue vs Spend by Model */}
+          {(() => {
+            const mTotalPages = Math.ceil(accountRows.length / MODEL_PER_PAGE);
+            const mSlice = accountRows.slice(modelPage * MODEL_PER_PAGE, (modelPage + 1) * MODEL_PER_PAGE);
+            return (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-[13px] font-semibold text-foreground">Models</h2>
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.revenue }} />Revenue</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.spend }} />Spend</span>
                   </div>
-                )
-              }
-              grow
-            />
+                </div>
+
+                {isLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(MODEL_PER_PAGE)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="skeleton-shimmer h-7 w-7 rounded-full shrink-0" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="skeleton-shimmer h-2 w-28 rounded" />
+                          <div className="skeleton-shimmer h-1.5 rounded" />
+                          <div className="skeleton-shimmer h-1.5 w-2/3 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : accountRows.length === 0 ? (
+                  <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No data</div>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      {mSlice.map(row => {
+                        const revW   = Math.min((row.revenue / maxValue) * 100, 100);
+                        const spendW = Math.min((row.spend   / maxValue) * 100, 100);
+                        const roiPos = row.roi !== null && row.roi >= 0;
+                        return (
+                          <div key={row.id} className="flex items-center gap-3">
+                            <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={28} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <p className="text-[12px] font-semibold text-foreground truncate">{row.displayName}</p>
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                  <span className="text-[11px] font-mono text-muted-foreground">{fmtShort(row.revenue)}</span>
+                                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${roiPos ? "bg-emerald-500/10 text-emerald-500" : row.roi !== null ? "bg-red-500/10 text-red-500" : "text-muted-foreground"}`}>
+                                    {row.roi !== null ? `${Math.round(row.roi)}%` : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="h-[5px] bg-muted rounded-full mb-1 overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${revW}%`, background: CHART_COLORS.revenue }} />
+                              </div>
+                              <div className="h-[5px] bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${spendW}%`, background: CHART_COLORS.spend }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Pagination */}
+                    {mTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                        <button onClick={() => setModelPage(p => Math.max(0, p - 1))} disabled={modelPage === 0}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: mTotalPages }, (_, i) => (
+                            <button key={i} onClick={() => setModelPage(i)}
+                              className={`w-6 h-6 rounded text-[11px] font-semibold transition-all ${
+                                i === modelPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                              }`}>
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setModelPage(p => Math.min(mTotalPages - 1, p + 1))} disabled={modelPage === mTotalPages - 1}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          Next <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
+          </div>
           </div>
         </div>
-
 
       </div>
     </DashboardLayout>
@@ -522,54 +696,28 @@ function ChartTooltip({ active, payload, label, isCurrency }: any) {
   );
 }
 
-function KpiCard({ label, value, sub, accent, badge, icon, grow, donut }: {
-  label: string; value: string | number; sub: string; accent: string; badge?: string; icon?: React.ReactNode; grow?: boolean; donut?: React.ReactNode;
+function KpiCard({ label, value, sub, accent, badge, icon, grow }: {
+  label: string; value: string; sub: string; accent: string; badge?: string; icon?: React.ReactNode; grow?: boolean;
 }) {
   return (
-    <div className={`bg-card border border-border rounded-2xl overflow-hidden flex flex-col justify-center${grow ? " flex-1" : ""}`}
+    <div className={`bg-card border border-border rounded-2xl px-5 pt-4 pb-3.5 overflow-hidden flex flex-col justify-center${grow ? " flex-1" : ""}`}
       style={{ borderBottom: `3px solid ${accent}` }}>
-      {donut ? (
-        <div className="flex h-full min-h-[260px]">
-          {/* Left content */}
-          <div className="flex-1 px-7 py-6 flex flex-col justify-center border-r border-border/50">
-            <div className="flex items-center gap-2.5 mb-3">
-              <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-widest leading-none">{label}</p>
-              {badge && <span className="px-2.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
-            </div>
-            <p className="text-4xl font-black font-mono text-foreground leading-none mb-4" style={{ letterSpacing: "-0.02em" }}>
-              {typeof value === 'number' ? value.toLocaleString() : value}
-            </p>
-            <p className="text-[13px] text-muted-foreground leading-relaxed font-medium">{sub}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+            {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
           </div>
-          {/* Right donut */}
-          <div className="flex-1 flex items-center justify-center p-7">
-            <div className="w-full h-full max-w-[240px] flex items-center justify-center">
-              {donut}
-            </div>
-          </div>
+          <p className="text-[28px] font-bold font-mono text-foreground leading-none">{value}</p>
+          <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
         </div>
-      ) : (
-        <div className="px-6 pt-5 pb-4 flex flex-col justify-center">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
-                {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
-              </div>
-              <p className="text-3xl font-black font-mono text-foreground leading-tight" style={{ letterSpacing: "-0.01em" }}>
-                {typeof value === 'number' ? value.toLocaleString() : value}
-              </p>
-              <p className="text-[12px] text-muted-foreground mt-2 truncate font-medium">{sub}</p>
-            </div>
-            {icon && (
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 flex-col justify-center"
-                style={{ background: accent + "22", color: accent }}>
-                {icon}
-              </div>
-            )}
+        {icon && (
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: accent + "22", color: accent }}>
+            {icon}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
