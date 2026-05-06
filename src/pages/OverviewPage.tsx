@@ -27,7 +27,7 @@ const SOURCE_COLORS = [
   "#dc2626", "#2563eb", "#64748b", "#f97316", "#84cc16", "#06b6d4",
 ];
 
-const CHART_COLORS = { subs: "#818cf8", clicks: "#10b981", rev: "#10b981", expenses: "#f97316" };
+const CHART_COLORS = { subs: "#818cf8", clicks: "#06b6d4", rev: "#10b981", expenses: "#f97316", revenue: "#10b981", spend: "#f97316" };
 const SERIES_META = [
   { key: "subs",     label: "Subs",     color: "#818cf8" },
   { key: "clicks",   label: "Clicks",   color: "#06b6d4" },
@@ -120,7 +120,7 @@ export default function OverviewPage() {
     customRange, setCustomRange, revenueMode, setRevenueMode, revMultiplier,
   } = usePageFilters();
 
-  const [vis, setVis] = useState<Record<SeriesKey, boolean>>({ subs: true, clicks: false, rev: false, expenses: false });
+  const [vis, setVis] = useState<Record<SeriesKey, boolean>>({ subs: false, clicks: false, rev: true, expenses: false });
 
   const isAllTime  = timePeriod === "all" && !customRange;
   const periodKey  = customRange
@@ -429,11 +429,11 @@ export default function OverviewPage() {
             </div>
 
             {chartData.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+              <div className="flex items-center justify-center text-muted-foreground text-sm" style={{ height: 260 }}>
                 {isLoading ? "Loading…" : "No data"}
               </div>
             ) : (
-              <div className="flex-1" style={{ minHeight: 260 }}>
+              <div style={{ height: 260 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
