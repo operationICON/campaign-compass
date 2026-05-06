@@ -7,7 +7,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  PieChart, Pie, Cell,
 } from "recharts";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -226,7 +226,6 @@ export default function OverviewPage() {
     [isAllTime, monthlyChartData, periodChartData],
   );
 
-  const sparkLast6 = monthlyChartData.slice(-6);
 
   // ── Per-account rows ──────────────────────────────────────────────────────
 
@@ -376,26 +375,23 @@ export default function OverviewPage() {
           <div className="flex flex-col gap-3">
             <KpiCard label="Total Revenue"
               value={isLoading ? "…" : fmtShort(totals.revenue)}
-              sub={periodLabel} sparkData={sparkLast6} sparkKey="rev"
-              accent="#10b981" badge={revenueMode === "net" ? "NET" : undefined} />
+              sub={periodLabel} accent="#10b981" badge={revenueMode === "net" ? "NET" : undefined} />
             <KpiCard label="Total Spend"
               value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
               sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
-              sparkData={sparkLast6} sparkKey="expenses" accent="#f97316" />
+              accent="#f97316" />
             <KpiCard label="Profit"
               value={isLoading ? "…" : fmtShort(totals.profit)}
               sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
-              sparkData={sparkLast6} sparkKey="rev"
               accent={totals.profit >= 0 ? "#10b981" : "#ef4444"}
               badge={revenueMode === "net" ? "NET" : undefined} />
             <KpiCard label="Subscribers"
               value={isLoading ? "…" : fmtN(totals.fans)}
-              sub={periodLabel} sparkData={sparkLast6} sparkKey="subs"
+              sub={periodLabel}
               accent="#818cf8" />
             <KpiCard label="LTV / Sub"
               value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
               sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
-              sparkData={sparkLast6} sparkKey="ltv"
               accent="#e879f9" badge={revenueMode === "net" ? "NET" : undefined} />
           </div>
 
@@ -562,32 +558,18 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-function KpiCard({ label, value, sub, sparkData, sparkKey, accent, badge }: {
-  label: string; value: string; sub: string;
-  sparkData: any[]; sparkKey: string; accent: string; badge?: string;
+function KpiCard({ label, value, sub, accent, badge }: {
+  label: string; value: string; sub: string; accent: string; badge?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl px-6 pt-5 pb-0 overflow-hidden flex-1"
+    <div className="bg-card border border-border rounded-2xl px-6 pt-5 pb-4 overflow-hidden flex-1"
       style={{ borderBottom: `3px solid ${accent}` }}>
-      <div className="flex items-start justify-between gap-3 pb-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 mb-2">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
-            {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
-          </div>
-          <p className="text-[32px] font-bold font-mono text-foreground leading-none">{value}</p>
-          <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
-        </div>
-        {sparkData.length > 1 && (
-          <div className="shrink-0 mt-1" style={{ width: 90, height: 44 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sparkData}>
-                <Line type="monotone" dataKey={sparkKey} stroke={accent} strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+      <div className="flex items-center gap-1.5 mb-2">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+        {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
       </div>
+      <p className="text-[32px] font-bold font-mono text-foreground leading-none">{value}</p>
+      <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
     </div>
   );
 }
