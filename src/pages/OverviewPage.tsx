@@ -276,6 +276,23 @@ export default function OverviewPage() {
     return { revenue, fans, spend, profit, roi: spend > 0 ? (profit / spend) * 100 : null, ltvPerSub };
   }, [filteredRows]);
 
+  // All-time fans + subs/day — always ignores period filter
+  const allTimeFans = useMemo(() =>
+    (allLinks as any[]).filter((l: any) => acctIds.has(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0),
+  [allLinks, acctIds]);
+
+  const allTimeSubsPerDay = useMemo(() => {
+    const earliest = (allLinks as any[])
+      .filter((l: any) => acctIds.has(l.account_id) && l.created_at)
+      .reduce((min: Date | null, l: any) => {
+        const d = new Date(l.created_at);
+        return !min || d < min ? d : min;
+      }, null as Date | null);
+    if (!earliest || allTimeFans === 0) return null;
+    return allTimeFans / Math.max(1, differenceInDays(new Date(), earliest));
+  }, [allLinks, acctIds, allTimeFans]);
+
   // ── Marketer breakdown ────────────────────────────────────────────────────
 
   const marketerBreakdown = useMemo(() => {
@@ -386,8 +403,8 @@ export default function OverviewPage() {
               accent={totals.profit >= 0 ? "#10b981" : "#ef4444"}
               badge={revenueMode === "net" ? "NET" : undefined} />
             <KpiCard label="Subscribers"
-              value={isLoading ? "…" : fmtN(totals.fans)}
-              sub={periodLabel}
+              value={isLoading ? "…" : fmtN(allTimeFans)}
+              sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
               accent="#818cf8" />
             <KpiCard label="LTV / Sub"
               value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
