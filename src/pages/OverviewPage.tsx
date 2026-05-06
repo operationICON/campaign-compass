@@ -361,11 +361,8 @@ export default function OverviewPage() {
       <div className="space-y-5">
 
         {/* Header + filters */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-[20px] font-bold text-foreground tracking-tight">Overview</h1>
-            <p className="text-[12px] text-muted-foreground mt-0.5">{periodLabel}</p>
-          </div>
+        <div className="flex flex-col gap-3">
+          <h1 className="text-[20px] font-bold text-foreground tracking-tight">Overview</h1>
           <div className="flex flex-wrap items-center gap-2">
             <CombinedDatePicker
               timePeriod={timePeriod}
