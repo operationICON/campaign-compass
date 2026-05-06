@@ -21,7 +21,11 @@ import { usePageFilters } from "@/hooks/usePageFilters";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SOURCE_COLORS = ["#6366f1", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#64748b"];
+const SOURCE_COLORS = [
+  "#6366f1", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#0891b2",
+  "#e11d48", "#16a34a", "#ea580c", "#7c3aed", "#0d9488", "#c026d3",
+  "#dc2626", "#2563eb", "#64748b", "#f97316", "#84cc16", "#06b6d4",
+];
 
 const CHART_COLORS = { revenue: "#10b981", spend: "#f97316", subs: "#818cf8" };
 
@@ -306,7 +310,7 @@ export default function OverviewPage() {
         map[src] = (map[src] || 0) + (acctPeriodRev[l.account_id] || 0) * portion * revMultiplier;
       }
     }
-    const entries = Object.entries(map).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a).slice(0, 6);
+    const entries = Object.entries(map).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
     const total   = entries.reduce((s, [, v]) => s + v, 0);
     return entries.map(([name, value]) => ({ name, value, pct: total > 0 ? value / total : 0 }));
   }, [isAllTime, allLinks, periodData, acctIds, revMultiplier]);
@@ -454,7 +458,7 @@ export default function OverviewPage() {
               <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
             ) : (
               <div className="flex items-start gap-4">
-                <div className="flex-1 space-y-4 min-w-0">
+                <div className="flex-1 min-w-0 overflow-y-auto space-y-3.5 pr-1" style={{ maxHeight: 340, scrollbarWidth: "thin" }}>
                   {marketerBreakdown.map((src, i) => (
                     <div key={src.name}>
                       <div className="flex items-center justify-between text-[12px] mb-1.5">
@@ -463,7 +467,7 @@ export default function OverviewPage() {
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[i] ?? "#6b7280" }} />
+                          style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
                       </div>
                     </div>
                   ))}
@@ -474,7 +478,7 @@ export default function OverviewPage() {
                       <PieChart>
                         <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={35} outerRadius={52}
                           dataKey="value" strokeWidth={0} paddingAngle={2}>
-                          {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i] ?? "#6b7280"} />)}
+                          {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
