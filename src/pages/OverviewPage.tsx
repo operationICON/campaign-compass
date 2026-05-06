@@ -120,7 +120,7 @@ export default function OverviewPage() {
     customRange, setCustomRange, revenueMode, setRevenueMode, revMultiplier,
   } = usePageFilters();
 
-  const [vis, setVis] = useState<Record<SeriesKey, boolean>>({ subs: false, clicks: false, rev: true, expenses: false });
+  const [activeSeries, setActiveSeries] = useState<SeriesKey>("rev");
 
   const isAllTime  = timePeriod === "all" && !customRange;
   const periodKey  = customRange
@@ -351,8 +351,15 @@ export default function OverviewPage() {
     avatar_thumb_url: a.avatar_thumb_url, is_active: a.is_active,
   })), [activeAccounts]);
 
-  const toggleSeries = (key: keyof typeof vis) =>
-    setVis(prev => ({ ...prev, [key]: !prev[key] }));
+  const activeMeta = SERIES_META.find(s => s.key === activeSeries)!;
+  const isCurrency = activeSeries === "rev" || activeSeries === "expenses";
+  const activeTotal = chartData.reduce((s, d) => s + (d[activeSeries] as number), 0);
+  const activeTotalFmt = isCurrency ? fmtShort(activeTotal) : fmtN(activeTotal);
+  const activeAxisFmt = isCurrency ? fmtAxis : (v: number) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+    return String(v);
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -408,17 +415,26 @@ export default function OverviewPage() {
 
           {/* Chart */}
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 340 }}>
-            <div className="flex items-center justify-between mb-5 shrink-0">
-              <h2 className="text-[13px] font-semibold text-foreground">Performance</h2>
-              <div className="flex items-center gap-1.5">
+            {/* Chart header: title + total + tab pills */}
+            <div className="flex items-start justify-between mb-4 shrink-0 gap-3">
+              <div>
+                <h2 className="text-[13px] font-semibold text-foreground">Performance</h2>
+                {chartData.length > 0 && (
+                  <p className="text-[22px] font-bold font-mono leading-tight mt-0.5" style={{ color: activeMeta.color }}>
+                    {isLoading ? "…" : activeTotalFmt}
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-0.5">{activeMeta.label} · {periodLabel}</p>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap justify-end">
                 {SERIES_META.map(({ key, label, color }) => (
-                  <button key={key} onClick={() => toggleSeries(key)}
+                  <button key={key} onClick={() => setActiveSeries(key)}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
-                      vis[key]
-                        ? "text-white border-transparent"
+                      activeSeries === key
+                        ? "text-white border-transparent shadow-sm"
                         : "bg-transparent border-border text-muted-foreground hover:text-foreground"
                     }`}
-                    style={vis[key] ? { background: color, borderColor: color } : {}}>
+                    style={activeSeries === key ? { background: color, borderColor: color } : {}}>
                     {label}
                   </button>
                 ))}
@@ -426,20 +442,18 @@ export default function OverviewPage() {
             </div>
 
             {chartData.length === 0 ? (
-              <div className="flex items-center justify-center text-muted-foreground text-sm" style={{ height: 260 }}>
+              <div className="flex items-center justify-center text-muted-foreground text-sm" style={{ height: 220 }}>
                 {isLoading ? "Loading…" : "No data"}
               </div>
             ) : (
-              <div style={{ height: 260 }}>
+              <div style={{ height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="25%">
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={52} />
-                    <RechartsTooltip content={<ChartTooltip />} />
-                    {SERIES_META.map(({ key, label, color }) =>
-                      vis[key] ? <Bar key={key} dataKey={key} name={label} fill={color} radius={[3, 3, 0, 0]} maxBarSize={28} /> : null
-                    )}
+                    <YAxis tickFormatter={activeAxisFmt} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={52} />
+                    <RechartsTooltip content={<ChartTooltip isCurrency={isCurrency} />} />
+                    <Bar dataKey={activeSeries} name={activeMeta.label} fill={activeMeta.color} radius={[4, 4, 0, 0]} maxBarSize={32} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -570,10 +584,11 @@ export default function OverviewPage() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label, isCurrency }: any) {
   if (!active || !payload?.length) return null;
+  const fmt = (v: number) => isCurrency ? fmtAxis(v) : v >= 1_000 ? `${(v / 1_000).toFixed(1)}K` : String(v);
   return (
-    <div className="bg-card border border-border rounded-xl p-3 shadow-lg text-[12px] min-w-[140px]">
+    <div className="bg-card border border-border rounded-xl p-3 shadow-lg text-[12px] min-w-[130px]">
       <p className="font-semibold text-foreground mb-2">{label}</p>
       {payload.map((p: any) => (
         <div key={p.name} className="flex items-center justify-between gap-3">
@@ -581,7 +596,7 @@ function ChartTooltip({ active, payload, label }: any) {
             <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
             <span className="text-muted-foreground">{p.name}</span>
           </div>
-          <span className="font-mono text-foreground">{fmtAxis(p.value)}</span>
+          <span className="font-mono font-semibold text-foreground">{fmt(p.value)}</span>
         </div>
       ))}
     </div>
