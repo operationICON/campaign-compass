@@ -417,6 +417,9 @@ export default function OverviewPage() {
               badge={revenueMode === "net" ? "NET" : undefined} />
           </div>
 
+          {/* Right column: chart + marketer + models */}
+          <div className="flex flex-col gap-4">
+
           {/* Chart */}
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 340 }}>
             {/* Chart header: title + total + pill tabs */}
@@ -461,10 +464,9 @@ export default function OverviewPage() {
               </div>
             )}
           </div>
-        </div>
 
-        {/* ═══ BOTTOM ROW ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-4">
+          {/* Marketer + Models */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-4">
 
           {/* Revenue by Marketer */}
           {(() => {
@@ -642,6 +644,8 @@ export default function OverviewPage() {
               </div>
             );
           })()}
+          </div>
+          </div>
         </div>
 
       </div>
