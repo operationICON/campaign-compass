@@ -121,6 +121,10 @@ export default function OverviewPage() {
   } = usePageFilters();
 
   const [activeSeries, setActiveSeries] = useState<SeriesKey>("rev");
+  const [marketerPage, setMarketerPage] = useState(0);
+  const [modelPage, setModelPage] = useState(0);
+  const MARKETER_PER_PAGE = 8;
+  const MODEL_PER_PAGE = 6;
 
   const isAllTime  = timePeriod === "all" && !customRange;
   const periodKey  = customRange
@@ -415,8 +419,8 @@ export default function OverviewPage() {
 
           {/* Chart */}
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 340 }}>
-            {/* Chart header: metric total + pagination */}
-            <div className="flex items-start justify-between mb-4 shrink-0">
+            {/* Chart header: title + total + pill tabs */}
+            <div className="flex items-start justify-between mb-4 shrink-0 gap-3">
               <div>
                 <h2 className="text-[13px] font-semibold text-foreground">Performance</h2>
                 <p className="text-[24px] font-bold font-mono leading-tight mt-1" style={{ color: activeMeta.color }}>
@@ -424,45 +428,18 @@ export default function OverviewPage() {
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{activeMeta.label} · {periodLabel}</p>
               </div>
-
-              {/* Pagination controls */}
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      const idx = SERIES_META.findIndex(s => s.key === activeSeries);
-                      setActiveSeries(SERIES_META[(idx - 1 + SERIES_META.length) % SERIES_META.length].key);
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                {SERIES_META.map(({ key, label, color }) => (
+                  <button key={key} onClick={() => setActiveSeries(key)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                      activeSeries === key
+                        ? "text-white border-transparent shadow-sm"
+                        : "bg-transparent border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                    style={activeSeries === key ? { background: color, borderColor: color } : {}}>
+                    {label}
                   </button>
-                  <span className="text-[11px] font-semibold text-foreground px-1 min-w-[64px] text-center" style={{ color: activeMeta.color }}>
-                    {activeMeta.label}
-                  </span>
-                  <button
-                    onClick={() => {
-                      const idx = SERIES_META.findIndex(s => s.key === activeSeries);
-                      setActiveSeries(SERIES_META[(idx + 1) % SERIES_META.length].key);
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                {/* Dot indicators */}
-                <div className="flex items-center gap-1.5">
-                  {SERIES_META.map(({ key, color }) => (
-                    <button key={key} onClick={() => setActiveSeries(key)}
-                      className="rounded-full transition-all duration-200"
-                      style={{
-                        width: activeSeries === key ? 16 : 6,
-                        height: 6,
-                        background: activeSeries === key ? color : "hsl(var(--border))",
-                      }}
-                    />
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
 
@@ -490,116 +467,181 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-4">
 
           {/* Revenue by Marketer */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[13px] font-semibold text-foreground">Revenue by Marketer</h2>
-              <span className="text-[11px] text-muted-foreground font-mono">{fmtC(marketerTotal)}</span>
-            </div>
-            {marketerBreakdown.length === 0 ? (
-              <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
-            ) : (
-              <div className="flex items-start gap-5">
-                {/* Bars */}
-                <div className="flex-1 min-w-0 overflow-y-auto space-y-3 pr-1" style={{ maxHeight: 320, scrollbarWidth: "thin" }}>
-                  {marketerBreakdown.map((src, i) => (
-                    <div key={src.name}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
-                          <span className="text-[12px] font-medium text-foreground truncate">{src.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <span className="text-[11px] text-muted-foreground">{fmtShort(src.value)}</span>
-                          <span className="text-[11px] font-mono text-muted-foreground w-7 text-right">{(src.pct * 100).toFixed(0)}%</span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
-                      </div>
-                    </div>
-                  ))}
+          {(() => {
+            const mTotalPages = Math.ceil(marketerBreakdown.length / MARKETER_PER_PAGE);
+            const mSlice = marketerBreakdown.slice(marketerPage * MARKETER_PER_PAGE, (marketerPage + 1) * MARKETER_PER_PAGE);
+            return (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-[13px] font-semibold text-foreground">Revenue by Marketer</h2>
+                  <span className="text-[11px] text-muted-foreground font-mono">{fmtC(marketerTotal)}</span>
                 </div>
-                {/* Donut */}
-                <div className="shrink-0 flex flex-col items-center" style={{ width: 130 }}>
-                  <div className="relative" style={{ width: 130, height: 130 }}>
-                    <ResponsiveContainer width={130} height={130}>
-                      <PieChart>
-                        <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={38} outerRadius={58}
-                          dataKey="value" strokeWidth={0} paddingAngle={2}>
-                          {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[20px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
-                      <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Marketers</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Revenue vs Spend by Model */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[13px] font-semibold text-foreground">Models</h2>
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.revenue }} />Revenue</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.spend }} />Spend</span>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-4">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="skeleton-shimmer h-7 w-7 rounded-full shrink-0" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="skeleton-shimmer h-2 w-28 rounded" />
-                      <div className="skeleton-shimmer h-1.5 rounded" />
-                      <div className="skeleton-shimmer h-1.5 w-2/3 rounded" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : accountRows.length === 0 ? (
-              <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No data</div>
-            ) : (
-              <div className="overflow-y-auto space-y-3 pr-0.5" style={{ maxHeight: 380, scrollbarWidth: "thin" }}>
-                {accountRows.map(row => {
-                  const revW   = Math.min((row.revenue / maxValue) * 100, 100);
-                  const spendW = Math.min((row.spend   / maxValue) * 100, 100);
-                  const roiPos = row.roi !== null && row.roi >= 0;
-                  return (
-                    <div key={row.id} className="flex items-center gap-3">
-                      <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={28} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-[12px] font-semibold text-foreground truncate">{row.displayName}</p>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <span className="text-[11px] font-mono text-muted-foreground">{fmtShort(row.revenue)}</span>
-                            <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${roiPos ? "bg-emerald-500/10 text-emerald-500" : row.roi !== null ? "bg-red-500/10 text-red-500" : "text-muted-foreground"}`}>
-                              {row.roi !== null ? `${Math.round(row.roi)}%` : "—"}
-                            </span>
+                {marketerBreakdown.length === 0 ? (
+                  <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-5">
+                      {/* Bars */}
+                      <div className="flex-1 min-w-0 space-y-3">
+                        {mSlice.map((src, i) => {
+                          const globalIdx = marketerPage * MARKETER_PER_PAGE + i;
+                          return (
+                            <div key={src.name}>
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
+                                  <span className="text-[12px] font-medium text-foreground truncate">{src.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                  <span className="text-[11px] text-muted-foreground">{fmtShort(src.value)}</span>
+                                  <span className="text-[11px] font-mono text-muted-foreground w-7 text-right">{(src.pct * 100).toFixed(0)}%</span>
+                                </div>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Donut */}
+                      <div className="shrink-0 flex flex-col items-center" style={{ width: 130 }}>
+                        <div className="relative" style={{ width: 130, height: 130 }}>
+                          <ResponsiveContainer width={130} height={130}>
+                            <PieChart>
+                              <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={38} outerRadius={58}
+                                dataKey="value" strokeWidth={0} paddingAngle={2}>
+                                {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-[20px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
+                            <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Marketers</span>
                           </div>
                         </div>
-                        <div className="h-[5px] bg-muted rounded-full mb-1 overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${revW}%`, background: CHART_COLORS.revenue }} />
-                        </div>
-                        <div className="h-[5px] bg-muted rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${spendW}%`, background: CHART_COLORS.spend }} />
-                        </div>
                       </div>
                     </div>
-                  );
-                })}
+                    {/* Pagination */}
+                    {mTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                        <button onClick={() => setMarketerPage(p => Math.max(0, p - 1))} disabled={marketerPage === 0}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: mTotalPages }, (_, i) => (
+                            <button key={i} onClick={() => setMarketerPage(i)}
+                              className={`w-6 h-6 rounded text-[11px] font-semibold transition-all ${
+                                i === marketerPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                              }`}>
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setMarketerPage(p => Math.min(mTotalPages - 1, p + 1))} disabled={marketerPage === mTotalPages - 1}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          Next <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
+
+          {/* Revenue vs Spend by Model */}
+          {(() => {
+            const mTotalPages = Math.ceil(accountRows.length / MODEL_PER_PAGE);
+            const mSlice = accountRows.slice(modelPage * MODEL_PER_PAGE, (modelPage + 1) * MODEL_PER_PAGE);
+            return (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-[13px] font-semibold text-foreground">Models</h2>
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.revenue }} />Revenue</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.spend }} />Spend</span>
+                  </div>
+                </div>
+
+                {isLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(MODEL_PER_PAGE)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="skeleton-shimmer h-7 w-7 rounded-full shrink-0" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="skeleton-shimmer h-2 w-28 rounded" />
+                          <div className="skeleton-shimmer h-1.5 rounded" />
+                          <div className="skeleton-shimmer h-1.5 w-2/3 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : accountRows.length === 0 ? (
+                  <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No data</div>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      {mSlice.map(row => {
+                        const revW   = Math.min((row.revenue / maxValue) * 100, 100);
+                        const spendW = Math.min((row.spend   / maxValue) * 100, 100);
+                        const roiPos = row.roi !== null && row.roi >= 0;
+                        return (
+                          <div key={row.id} className="flex items-center gap-3">
+                            <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={28} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <p className="text-[12px] font-semibold text-foreground truncate">{row.displayName}</p>
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                  <span className="text-[11px] font-mono text-muted-foreground">{fmtShort(row.revenue)}</span>
+                                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${roiPos ? "bg-emerald-500/10 text-emerald-500" : row.roi !== null ? "bg-red-500/10 text-red-500" : "text-muted-foreground"}`}>
+                                    {row.roi !== null ? `${Math.round(row.roi)}%` : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="h-[5px] bg-muted rounded-full mb-1 overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${revW}%`, background: CHART_COLORS.revenue }} />
+                              </div>
+                              <div className="h-[5px] bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${spendW}%`, background: CHART_COLORS.spend }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Pagination */}
+                    {mTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                        <button onClick={() => setModelPage(p => Math.max(0, p - 1))} disabled={modelPage === 0}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: mTotalPages }, (_, i) => (
+                            <button key={i} onClick={() => setModelPage(i)}
+                              className={`w-6 h-6 rounded text-[11px] font-semibold transition-all ${
+                                i === modelPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                              }`}>
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setModelPage(p => Math.min(mTotalPages - 1, p + 1))} disabled={modelPage === mTotalPages - 1}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          Next <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
       </div>
