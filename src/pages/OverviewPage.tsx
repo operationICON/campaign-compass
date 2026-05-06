@@ -217,6 +217,30 @@ export default function OverviewPage() {
     return { revenue, fans, spend, profit, roi };
   }, [filteredRows]);
 
+  // All-time subscriber stats — always from allLinks regardless of period filter
+  const allTimeFans = useMemo(() => {
+    const acctIds = modelFilter === "all"
+      ? new Set(activeAccounts.map((a: any) => a.id))
+      : new Set([modelFilter]);
+    return (allLinks as any[])
+      .filter((l: any) => acctIds.has(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+  }, [allLinks, activeAccounts, modelFilter]);
+
+  const allTimeSubsPerDay = useMemo(() => {
+    const acctIds = modelFilter === "all"
+      ? new Set(activeAccounts.map((a: any) => a.id))
+      : new Set([modelFilter]);
+    const earliest = (allLinks as any[])
+      .filter((l: any) => acctIds.has(l.account_id) && l.created_at)
+      .reduce((min: Date | null, l: any) => {
+        const d = new Date(l.created_at);
+        return !min || d < min ? d : min;
+      }, null as Date | null);
+    if (!earliest || allTimeFans === 0) return null;
+    return allTimeFans / Math.max(1, differenceInDays(new Date(), earliest));
+  }, [allLinks, activeAccounts, modelFilter, allTimeFans]);
+
   // Global LTV/Sub — always all-time from snapshot totals
   const globalLtvPerFan = useMemo(() => {
     if (allTimeTotals?.subscribers && allTimeTotals.subscribers > 0) {
@@ -310,13 +334,19 @@ export default function OverviewPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <KpiCard hero label="Revenue" value={fmtC(totals.revenue)} sub={periodLabel}
             badge={revenueMode === "net" ? "NET" : "GROSS"}
             icon={<DollarSign className="h-4 w-4 text-white" />} loading={isLoading} />
 
           <KpiCard label="New Fans" value={isLoading ? "…" : fmtN(totals.fans)}
             sub={isAllTime ? "All time" : periodLabel}
+            icon={<Users className="h-4 w-4 text-primary" />} loading={isLoading} />
+
+          <KpiCard
+            label="Subscribers"
+            value={isLoading ? "…" : fmtN(allTimeFans)}
+            sub={allTimeSubsPerDay !== null ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
             icon={<Users className="h-4 w-4 text-primary" />} loading={isLoading} />
 
           <KpiCard label="LTV/Sub" value={globalLtvPerFan !== null ? fmtC2(globalLtvPerFan) : "—"}
