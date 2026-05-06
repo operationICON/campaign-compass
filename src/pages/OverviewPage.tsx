@@ -529,21 +529,21 @@ export default function OverviewPage() {
                           );
                         })}
                       </div>
-                      {/* Donut — ~45% of card width */}
-                      <div className="shrink-0 flex items-center justify-center" style={{ width: "42%" }}>
+                      {/* Donut */}
+                      <div className="shrink-0 flex items-center justify-center" style={{ width: "58%" }}>
                         <div className="relative w-full" style={{ paddingBottom: "100%" }}>
                           <div className="absolute inset-0">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
-                                <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius="44%" outerRadius="68%"
+                                <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius="42%" outerRadius="66%"
                                   dataKey="value" strokeWidth={0} paddingAngle={2}>
                                   {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
                                 </Pie>
                               </PieChart>
                             </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                              <span className="text-[36px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
+                              <span className="text-[44px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
                             </div>
                           </div>
                         </div>
