@@ -11,6 +11,7 @@ export function getEffectiveSource(link: {
   onlytraffic_marketer?: string | null;
 }): string | null {
   if (link.source_tag && link.source_tag.trim()) return link.source_tag;
+  if (link.traffic_category === "OnlyTraffic" && link.onlytraffic_marketer?.trim()) return link.onlytraffic_marketer;
   return null;
 }
 
