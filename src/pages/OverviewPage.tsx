@@ -508,19 +508,19 @@ export default function OverviewPage() {
                         })}
                       </div>
                       {/* Donut */}
-                      <div className="shrink-0 flex flex-col items-center" style={{ width: 130 }}>
-                        <div className="relative" style={{ width: 130, height: 130 }}>
-                          <ResponsiveContainer width={130} height={130}>
+                      <div className="shrink-0 flex flex-col items-center" style={{ width: 180 }}>
+                        <div className="relative" style={{ width: 180, height: 180 }}>
+                          <ResponsiveContainer width={180} height={180}>
                             <PieChart>
-                              <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={38} outerRadius={58}
+                              <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={54} outerRadius={80}
                                 dataKey="value" strokeWidth={0} paddingAngle={2}>
                                 {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
                               </Pie>
                             </PieChart>
                           </ResponsiveContainer>
                           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-[20px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
-                            <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Marketers</span>
+                            <span className="text-[32px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
                           </div>
                         </div>
                       </div>
