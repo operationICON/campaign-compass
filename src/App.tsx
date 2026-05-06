@@ -22,6 +22,7 @@ import MarketerModelCampaignsPage from "./pages/MarketerModelCampaignsPage";
 import CrossPollPage from "./pages/CrossPollPage";
 import FansPage from "./pages/FansPage";
 import CampaignAnalyticsPage from "./pages/CampaignAnalyticsPage";
+import OverviewPage from "./pages/OverviewPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/cross-poll" element={<ProtectedRoute adminOnly><CrossPollPage /></ProtectedRoute>} />
             <Route path="/fans" element={<ProtectedRoute adminOnly><FansPage /></ProtectedRoute>} />
             <Route path="/campaign-analytics" element={<ProtectedRoute adminOnly><CampaignAnalyticsPage /></ProtectedRoute>} />
+            <Route path="/overview" element={<ProtectedRoute adminOnly><OverviewPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
