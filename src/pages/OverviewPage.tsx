@@ -9,7 +9,7 @@ import {
   Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, DollarSign, TrendingDown, TrendingUp, Users, Zap } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
@@ -358,133 +358,148 @@ export default function OverviewPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4">
+      <div className="space-y-5">
 
-        {/* Header */}
-        <div>
-          <h1 className="text-[22px] font-bold text-foreground">Overview</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">{periodLabel}</p>
-        </div>
-
-        {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-2">
-          <CombinedDatePicker
-            timePeriod={timePeriod}
-            customRange={customRange}
-            onSelectCustom={(range) => { setCustomRange(range); setTimePeriod("all"); }}
-            onSelectTp={(tp) => { setTimePeriod(tp); setCustomRange(null); }}
-          />
-          <AccountFilterDropdown value={modelFilter} onChange={setModelFilter} accounts={accountOptions} />
-          <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-            {(["gross", "net"] as const).map(m => (
-              <button key={m} onClick={() => setRevenueMode(m)}
-                className={`px-3 py-2 text-xs font-medium capitalize transition-colors ${revenueMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                {m[0].toUpperCase() + m.slice(1)}
-              </button>
-            ))}
+        {/* Header + filters */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-[20px] font-bold text-foreground tracking-tight">Overview</h1>
+            <p className="text-[12px] text-muted-foreground mt-0.5">{periodLabel}</p>
           </div>
-        </div>
-
-        {/* ═══ MAIN ROW: KPI cards left, chart right ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
-
-          {/* 4 KPI cards */}
-          <div className="flex flex-col gap-3">
-            <KpiCard label="Total Revenue"
-              value={isLoading ? "…" : fmtShort(totals.revenue)}
-              sub={periodLabel} accent="#10b981" badge={revenueMode === "net" ? "NET" : undefined} />
-            <KpiCard label="Total Spend"
-              value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
-              sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
-              accent="#f97316" />
-            <KpiCard label="Profit"
-              value={isLoading ? "…" : fmtShort(totals.profit)}
-              sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
-              accent={totals.profit >= 0 ? "#10b981" : "#ef4444"}
-              badge={revenueMode === "net" ? "NET" : undefined} />
-            <KpiCard label="Subscribers"
-              value={isLoading ? "…" : fmtN(allTimeFans)}
-              sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
-              accent="#818cf8" />
-            <KpiCard label="LTV / Sub"
-              value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
-              sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
-              accent="#e879f9" badge={revenueMode === "net" ? "NET" : undefined} />
-          </div>
-
-          {/* Chart */}
-          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
-            {/* Series toggles */}
-            <div className="flex items-center gap-5 mb-4 shrink-0">
-              {SERIES_META.map(({ key, label, color }) => (
-                <button key={key} onClick={() => toggleSeries(key)}
-                  className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-opacity ${vis[key] ? "opacity-100" : "opacity-25"}`}>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-                  {label}
+          <div className="flex flex-wrap items-center gap-2">
+            <CombinedDatePicker
+              timePeriod={timePeriod}
+              customRange={customRange}
+              onSelectCustom={(range) => { setCustomRange(range); setTimePeriod("all"); }}
+              onSelectTp={(tp) => { setTimePeriod(tp); setCustomRange(null); }}
+            />
+            <AccountFilterDropdown value={modelFilter} onChange={setModelFilter} accounts={accountOptions} />
+            <div className="flex items-center bg-muted/50 border border-border rounded-xl overflow-hidden">
+              {(["gross", "net"] as const).map(m => (
+                <button key={m} onClick={() => setRevenueMode(m)}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-all ${revenueMode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                  {m[0].toUpperCase() + m.slice(1)}
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* ═══ MAIN ROW ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 items-start">
+
+          {/* KPI cards */}
+          <div className="flex flex-col gap-3">
+            <KpiCard label="Revenue" value={isLoading ? "…" : fmtShort(totals.revenue)}
+              sub={periodLabel} accent="#10b981" icon={<DollarSign className="h-4 w-4" />}
+              badge={revenueMode === "net" ? "NET" : undefined} />
+            <KpiCard label="Ad Spend" value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
+              sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
+              accent="#f97316" icon={<TrendingDown className="h-4 w-4" />} />
+            <KpiCard label="Profit" value={isLoading ? "…" : fmtShort(totals.profit)}
+              sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
+              accent={totals.profit >= 0 ? "#10b981" : "#ef4444"} icon={<TrendingUp className="h-4 w-4" />}
+              badge={revenueMode === "net" ? "NET" : undefined} />
+            <KpiCard label="Subscribers" value={isLoading ? "…" : fmtN(allTimeFans)}
+              sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
+              accent="#818cf8" icon={<Users className="h-4 w-4" />} />
+            <KpiCard label="LTV / Sub" value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
+              sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
+              accent="#e879f9" icon={<Zap className="h-4 w-4" />}
+              badge={revenueMode === "net" ? "NET" : undefined} />
+          </div>
+
+          {/* Chart */}
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 340 }}>
+            <div className="flex items-center justify-between mb-5 shrink-0">
+              <h2 className="text-[13px] font-semibold text-foreground">Performance</h2>
+              <div className="flex items-center gap-1.5">
+                {SERIES_META.map(({ key, label, color }) => (
+                  <button key={key} onClick={() => toggleSeries(key)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                      vis[key]
+                        ? "text-white border-transparent"
+                        : "bg-transparent border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                    style={vis[key] ? { background: color, borderColor: color } : {}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {chartData.length === 0 ? (
-              <div className="flex-1 min-h-[180px] flex items-center justify-center text-muted-foreground text-sm">
+              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
                 {isLoading ? "Loading…" : "No data"}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%" minHeight={180} className="flex-1">
-                <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={54} />
-                  <RechartsTooltip content={<ChartTooltip />} />
-                  {SERIES_META.map(({ key, label, color }) =>
-                    vis[key] ? <Bar key={key} dataKey={key} name={label} fill={color} radius={[3, 3, 0, 0]} maxBarSize={32} /> : null
-                  )}
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="flex-1" style={{ minHeight: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={52} />
+                    <RechartsTooltip content={<ChartTooltip />} />
+                    {SERIES_META.map(({ key, label, color }) =>
+                      vis[key] ? <Bar key={key} dataKey={key} name={label} fill={color} radius={[3, 3, 0, 0]} maxBarSize={28} /> : null
+                    )}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </div>
         </div>
 
         {/* ═══ BOTTOM ROW ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-4">
 
           {/* Revenue by Marketer */}
           <div className="bg-card border border-border rounded-2xl p-5">
-            <h2 className="text-[14px] font-semibold text-foreground mb-5">Revenue by Marketer</h2>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[13px] font-semibold text-foreground">Revenue by Marketer</h2>
+              <span className="text-[11px] text-muted-foreground font-mono">{fmtC(marketerTotal)}</span>
+            </div>
             {marketerBreakdown.length === 0 ? (
               <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
             ) : (
-              <div className="flex items-start gap-4">
-                <div className="flex-1 min-w-0 overflow-y-auto space-y-3.5 pr-1" style={{ maxHeight: 340, scrollbarWidth: "thin" }}>
+              <div className="flex items-start gap-5">
+                {/* Bars */}
+                <div className="flex-1 min-w-0 overflow-y-auto space-y-3 pr-1" style={{ maxHeight: 320, scrollbarWidth: "thin" }}>
                   {marketerBreakdown.map((src, i) => (
                     <div key={src.name}>
-                      <div className="flex items-center justify-between text-[12px] mb-1.5">
-                        <span className="font-medium text-foreground truncate max-w-[150px]">{src.name}</span>
-                        <span className="text-muted-foreground font-mono shrink-0 ml-2">{(src.pct * 100).toFixed(0)}%</span>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
+                          <span className="text-[12px] font-medium text-foreground truncate">{src.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-[11px] text-muted-foreground">{fmtShort(src.value)}</span>
+                          <span className="text-[11px] font-mono text-muted-foreground w-7 text-right">{(src.pct * 100).toFixed(0)}%</span>
+                        </div>
                       </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-500"
                           style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="shrink-0 flex flex-col items-center" style={{ width: 120 }}>
-                  <div className="relative" style={{ width: 120, height: 120 }}>
-                    <ResponsiveContainer width={120} height={120}>
+                {/* Donut */}
+                <div className="shrink-0 flex flex-col items-center" style={{ width: 130 }}>
+                  <div className="relative" style={{ width: 130, height: 130 }}>
+                    <ResponsiveContainer width={130} height={130}>
                       <PieChart>
-                        <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={35} outerRadius={52}
+                        <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={38} outerRadius={58}
                           dataKey="value" strokeWidth={0} paddingAngle={2}>
                           {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[18px] font-bold text-foreground leading-tight">{marketerBreakdown.length}</span>
-                      <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Marketers</span>
+                      <span className="text-[20px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
+                      <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Marketers</span>
                     </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">{fmtC(marketerTotal)}</p>
                 </div>
               </div>
             )}
@@ -493,26 +508,22 @@ export default function OverviewPage() {
           {/* Revenue vs Spend by Model */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[14px] font-semibold text-foreground">Revenue vs Spend by Model</h2>
+              <h2 className="text-[13px] font-semibold text-foreground">Models</h2>
               <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.revenue }} /> Revenue
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.spend }} /> Spend
-                </span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.revenue }} />Revenue</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.spend }} />Spend</span>
               </div>
             </div>
 
             {isLoading ? (
               <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
+                {[...Array(6)].map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="skeleton-shimmer h-6 w-6 rounded-full shrink-0" />
+                    <div className="skeleton-shimmer h-7 w-7 rounded-full shrink-0" />
                     <div className="flex-1 space-y-1.5">
-                      <div className="skeleton-shimmer h-2 w-24 rounded" />
+                      <div className="skeleton-shimmer h-2 w-28 rounded" />
                       <div className="skeleton-shimmer h-1.5 rounded" />
-                      <div className="skeleton-shimmer h-1.5 w-3/4 rounded" />
+                      <div className="skeleton-shimmer h-1.5 w-2/3 rounded" />
                     </div>
                   </div>
                 ))}
@@ -520,28 +531,33 @@ export default function OverviewPage() {
             ) : accountRows.length === 0 ? (
               <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No data</div>
             ) : (
-              <div className="overflow-y-auto space-y-3.5 pr-0.5" style={{ maxHeight: 380, scrollbarWidth: "thin" }}>
+              <div className="overflow-y-auto space-y-3 pr-0.5" style={{ maxHeight: 380, scrollbarWidth: "thin" }}>
                 {accountRows.map(row => {
                   const revW   = Math.min((row.revenue / maxValue) * 100, 100);
                   const spendW = Math.min((row.spend   / maxValue) * 100, 100);
                   const roiPos = row.roi !== null && row.roi >= 0;
                   return (
                     <div key={row.id} className="flex items-center gap-3">
-                      <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={26} />
+                      <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={28} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-medium text-foreground mb-1.5 truncate">{row.displayName}</p>
-                        <div className="h-[6px] bg-muted rounded-sm mb-1 overflow-hidden">
-                          <div className="h-full rounded-sm transition-all duration-500"
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-[12px] font-semibold text-foreground truncate">{row.displayName}</p>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <span className="text-[11px] font-mono text-muted-foreground">{fmtShort(row.revenue)}</span>
+                            <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${roiPos ? "bg-emerald-500/10 text-emerald-500" : row.roi !== null ? "bg-red-500/10 text-red-500" : "text-muted-foreground"}`}>
+                              {row.roi !== null ? `${Math.round(row.roi)}%` : "—"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-[5px] bg-muted rounded-full mb-1 overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500"
                             style={{ width: `${revW}%`, background: CHART_COLORS.revenue }} />
                         </div>
-                        <div className="h-[6px] bg-muted rounded-sm overflow-hidden">
-                          <div className="h-full rounded-sm transition-all duration-500"
+                        <div className="h-[5px] bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500"
                             style={{ width: `${spendW}%`, background: CHART_COLORS.spend }} />
                         </div>
                       </div>
-                      <span className={`text-[12px] font-mono font-semibold shrink-0 w-16 text-right ${row.roi !== null ? (roiPos ? "text-[#10b981]" : "text-destructive") : "text-muted-foreground"}`}>
-                        {row.roi !== null ? `${Math.round(row.roi)}%` : "—"}
-                      </span>
                     </div>
                   );
                 })}
@@ -575,18 +591,28 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-function KpiCard({ label, value, sub, accent, badge }: {
-  label: string; value: string; sub: string; accent: string; badge?: string;
+function KpiCard({ label, value, sub, accent, badge, icon }: {
+  label: string; value: string; sub: string; accent: string; badge?: string; icon?: React.ReactNode;
 }) {
   return (
     <div className="bg-card border border-border rounded-2xl px-5 pt-4 pb-3.5 overflow-hidden"
       style={{ borderBottom: `3px solid ${accent}` }}>
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
-        {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+            {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
+          </div>
+          <p className="text-[28px] font-bold font-mono text-foreground leading-none">{value}</p>
+          <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
+        </div>
+        {icon && (
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: accent + "22", color: accent }}>
+            {icon}
+          </div>
+        )}
       </div>
-      <p className="text-[28px] font-bold font-mono text-foreground leading-none">{value}</p>
-      <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
     </div>
   );
 }
