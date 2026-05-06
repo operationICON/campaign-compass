@@ -1,40 +1,31 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, differenceInDays } from "date-fns";
+import {
+  format, differenceInDays, subDays, startOfMonth, endOfMonth, subMonths,
+  startOfYear, endOfYear, addMonths, isBefore, isSameDay, isWithinInterval, startOfDay,
+} from "date-fns";
 import {
   ComposedChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
-import { Users, DollarSign, TrendingUp, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
-import { fetchAccounts, fetchTrackingLinks, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
-import { getSnapshotsByDateRange, getSnapshotLatestDate, getSnapshotAllTimeTotals } from "@/lib/api";
-import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
+import { fetchAccounts, fetchTrackingLinks } from "@/lib/supabase-helpers";
+import { getSnapshotsByDateRange, getSnapshotLatestDate } from "@/lib/api";
+import { isActiveAccount } from "@/lib/calc-helpers";
 import { getEffectiveSource } from "@/lib/source-helpers";
-import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
+import { usePageFilters } from "@/hooks/usePageFilters";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const MODEL_COLORS: Record<string, string> = {
-  j: "#e11d48", m: "#0891b2", z: "#7c3aed", e: "#ea580c", a: "#2563eb",
-  s: "#16a34a", d: "#9333ea", r: "#dc2626", k: "#0d9488", l: "#c026d3",
-  f: "#f59e0b", b: "#6366f1",
-};
 const SOURCE_COLORS = ["#6366f1", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#64748b"];
 
-function modelColor(name: string) {
-  const first = (name || "?").replace("@", "").charAt(0).toLowerCase();
-  return MODEL_COLORS[first] || "#6b7280";
-}
+const CHART_COLORS = { revenue: "#10b981", spend: "#f97316", subs: "#818cf8" };
 
-const fmtC = (v: number) =>
-  "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const fmtC2 = (v: number) =>
-  "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtC = (v: number) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 const fmtN = (v: number) => v.toLocaleString("en-US");
 const fmtShort = (v: number) => {
   const a = Math.abs(v);
@@ -48,6 +39,31 @@ const fmtAxis = (v: number) => {
   return v === 0 ? "0" : `$${v}`;
 };
 
+// ── Date Picker helpers ───────────────────────────────────────────────────────
+
+type Preset = { label: string; tp?: string; fn?: () => { from: Date; to: Date } };
+const DATE_PRESETS: Preset[] = [
+  { label: "Today",           fn: () => ({ from: startOfDay(new Date()), to: new Date() }) },
+  { label: "Yesterday",       fn: () => { const y = subDays(new Date(), 1); return { from: startOfDay(y), to: y }; } },
+  { label: "Last 7 Days",     tp: "week" },
+  { label: "Last 30 Days",    tp: "month" },
+  { label: "This Month",      fn: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
+  { label: "Previous Month",  tp: "prev_month" },
+  { label: "This Year",       fn: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+  { label: "Previous Year",   fn: () => { const y = subMonths(new Date(), 12); return { from: startOfYear(y), to: endOfYear(y) }; } },
+];
+
+const WEEK_DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+function getMonthDays(year: number, month: number) {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0).getDate();
+  const days: (Date | null)[] = [];
+  for (let i = 0; i < first.getDay(); i++) days.push(null);
+  for (let d = 1; d <= last; d++) days.push(new Date(year, month, d));
+  return days;
+}
+
 async function resolvePeriodDates(
   timePeriod: string,
   customRange: { from: Date; to: Date } | null,
@@ -55,7 +71,7 @@ async function resolvePeriodDates(
   if (timePeriod === "all" && !customRange) return null;
   if (customRange) {
     const from = customRange.from.toISOString().slice(0, 10);
-    const to = customRange.to.toISOString().slice(0, 10);
+    const to   = customRange.to.toISOString().slice(0, 10);
     return { from, to, days: Math.max(1, differenceInDays(customRange.to, customRange.from) + 1) };
   }
   const { date: serverMax } = await getSnapshotLatestDate();
@@ -67,14 +83,13 @@ async function resolvePeriodDates(
       return { from: d.toISOString().slice(0, 10), to: max, days: 7 };
     }
     case "month": {
-      const dS = new Date(max + "T00:00:00Z"); dS.setUTCDate(dS.getUTCDate() - 30);
-      const dE = new Date(max + "T00:00:00Z"); dE.setUTCDate(dE.getUTCDate() - 1);
-      return { from: dS.toISOString().slice(0, 10), to: dE.toISOString().slice(0, 10), days: 30 };
+      const d = new Date(max + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - 30);
+      return { from: d.toISOString().slice(0, 10), to: max, days: 30 };
     }
     case "prev_month": {
-      const ref = new Date(max + "T00:00:00Z");
+      const ref   = new Date(max + "T00:00:00Z");
       const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - 1, 1));
-      const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0));
+      const end   = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0));
       return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10), days: Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1) };
     }
     default: return null;
@@ -83,26 +98,32 @@ async function resolvePeriodDates(
 
 interface AccountRow {
   id: string; displayName: string; username: string; avatarUrl: string | null;
-  revenue: number; fans: number; spend: number; profit: number; roi: number | null; ltvPerFan: number | null;
+  revenue: number; fans: number; spend: number; profit: number; roi: number | null;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OverviewPage() {
-  const { timePeriod, setTimePeriod, modelFilter, setModelFilter, customRange, setCustomRange, revenueMode, setRevenueMode, revMultiplier } = usePageFilters();
+  const {
+    timePeriod, setTimePeriod, modelFilter, setModelFilter,
+    customRange, setCustomRange, revenueMode, setRevenueMode, revMultiplier,
+  } = usePageFilters();
 
-  const isAllTime = timePeriod === "all" && !customRange;
-  const periodKey = customRange ? `custom_${customRange.from.toISOString()}_${customRange.to.toISOString()}` : timePeriod;
+  const [chartMode, setChartMode] = useState<"daily" | "cumulative">("cumulative");
+  const [vis, setVis] = useState({ revenue: true, spend: true, subs: false });
+
+  const isAllTime  = timePeriod === "all" && !customRange;
+  const periodKey  = customRange
+    ? `custom_${customRange.from.toISOString()}_${customRange.to.toISOString()}`
+    : timePeriod;
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
+  const { data: accounts = [] }                      = useQuery({ queryKey: ["accounts"],       queryFn: fetchAccounts });
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: fetchTrackingLinks });
-  const { data: ltvRaw = [] } = useQuery({ queryKey: ["tracking_link_ltv"], queryFn: fetchTrackingLinkLtv });
-  const { data: allTimeTotals } = useQuery({ queryKey: ["snapshot_alltime_totals", "all"], queryFn: () => getSnapshotAllTimeTotals(), staleTime: 5 * 60 * 1000 });
 
-  const { data: periodData, isLoading: snapshotsLoading } = useQuery({
-    queryKey: ["overview_snapshots", periodKey],
+  const { data: periodData, isLoading: snapLoading } = useQuery({
+    queryKey: ["ov2_snapshots", periodKey],
     enabled: !isAllTime,
     queryFn: async () => {
       const range = await resolvePeriodDates(timePeriod, customRange);
@@ -112,56 +133,115 @@ export default function OverviewPage() {
     },
   });
 
-  const activeAccounts = useMemo(() => accounts.filter(isActiveAccount), [accounts]);
-  const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(allLinks as any[]), [allLinks]);
-  // keep LTV available for future use
-  const _ltv = useMemo(() => filterLtvByActiveLinks(ltvRaw as any[], activeLinkIdSet), [ltvRaw, activeLinkIdSet]); void _ltv;
+  const activeAccounts = useMemo(() => (accounts as any[]).filter(isActiveAccount), [accounts]);
 
-  // Monthly trend — last 12 months, always scoped to active accounts
-  const activeAccountIds = useMemo(() => activeAccounts.map((a: any) => a.id), [activeAccounts]);
+  const acctIds = useMemo(() => {
+    if (modelFilter !== "all") return new Set([modelFilter]);
+    return new Set(activeAccounts.map((a: any) => a.id));
+  }, [modelFilter, activeAccounts]);
+
+  // Monthly trend last 12 months (for sparklines + all-time chart)
   const trendAccountIds = useMemo(() => {
     if (modelFilter !== "all") return [modelFilter];
-    return activeAccountIds;
-  }, [modelFilter, activeAccountIds]);
+    return activeAccounts.map((a: any) => a.id);
+  }, [modelFilter, activeAccounts]);
 
   const { data: monthlyRows = [] } = useQuery({
-    queryKey: ["monthly_trend_rows", trendAccountIds.join(",")],
+    queryKey: ["ov2_monthly", trendAccountIds.join(",")],
     enabled: trendAccountIds.length > 0,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const end = new Date();
-      const start = new Date(end);
-      start.setMonth(start.getMonth() - 11);
-      start.setDate(1);
+      const start = new Date(end); start.setMonth(start.getMonth() - 11); start.setDate(1);
       return getSnapshotsByDateRange({
         date_from: start.toISOString().slice(0, 10),
-        date_to: end.toISOString().slice(0, 10),
+        date_to:   end.toISOString().slice(0, 10),
         account_ids: trendAccountIds,
         cols: "slim",
       });
     },
   });
 
-  const isLoading = linksLoading || (!isAllTime && snapshotsLoading);
+  const isLoading = linksLoading || (!isAllTime && snapLoading);
 
-  // ── Derived: per-account rows ─────────────────────────────────────────────
+  // ── Monthly chart data (all-time + sparklines) ───────────────────────────
+
+  const monthlyChartData = useMemo(() => {
+    const byMonth: Record<string, { revenue: number; spend: number; subs: number }> = {};
+    for (const r of monthlyRows as any[]) {
+      const d = r.snapshot_date as string;
+      if (!d || d.length < 7) continue;
+      const m = d.slice(0, 7);
+      if (!byMonth[m]) byMonth[m] = { revenue: 0, spend: 0, subs: 0 };
+      byMonth[m].revenue += Number(r.revenue  || 0) * revMultiplier;
+      byMonth[m].spend   += Number(r.cost_total || 0);
+      byMonth[m].subs    += Number(r.subscribers || 0);
+    }
+    return Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, d]) => ({
+      label:   format(new Date(month + "-15T12:00:00Z"), "MMM yy"),
+      revenue: Math.round(d.revenue),
+      spend:   Math.round(d.spend),
+      profit:  Math.round(d.revenue - d.spend),
+      subs:    Math.round(d.subs),
+    }));
+  }, [monthlyRows, revMultiplier]);
+
+  // ── Period daily chart data ───────────────────────────────────────────────
+
+  const periodChartData = useMemo(() => {
+    if (!periodData?.rows?.length) return [];
+    const byDay: Record<string, { revenue: number; spend: number; subs: number }> = {};
+    for (const r of periodData.rows as any[]) {
+      const day = (r.snapshot_date as string)?.slice(0, 10);
+      if (!day || !acctIds.has(r.account_id)) continue;
+      if (!byDay[day]) byDay[day] = { revenue: 0, spend: 0, subs: 0 };
+      byDay[day].revenue += Number(r.revenue  || 0) * revMultiplier;
+      byDay[day].spend   += Number(r.cost_total || 0);
+      byDay[day].subs    += Number(r.subscribers || 0);
+    }
+    return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([day, d]) => ({
+      label:   format(new Date(day + "T12:00:00Z"), "MMM d"),
+      revenue: Math.round(d.revenue),
+      spend:   Math.round(d.spend),
+      profit:  Math.round(d.revenue - d.spend),
+      subs:    Math.round(d.subs),
+    }));
+  }, [periodData, acctIds, revMultiplier]);
+
+  // Apply cumulative transform for period data
+  const chartData = useMemo(() => {
+    if (isAllTime) return monthlyChartData;
+    const base = periodChartData;
+    if (chartMode === "cumulative" && base.length > 1) {
+      let cr = 0, cs = 0, csubs = 0;
+      return base.map(d => {
+        cr += d.revenue; cs += d.spend; csubs += d.subs;
+        return { ...d, revenue: cr, spend: cs, subs: csubs, profit: cr - cs };
+      });
+    }
+    return base;
+  }, [isAllTime, monthlyChartData, periodChartData, chartMode]);
+
+  const sparkLast6 = monthlyChartData.slice(-6);
+
+  // ── Per-account rows ──────────────────────────────────────────────────────
 
   const accountRows = useMemo<AccountRow[]>(() => {
     const today = new Date();
     const periodDays = periodData?.days ?? 1;
-    const snapRows = (periodData?.rows ?? []) as any[];
+    const snapRows   = (periodData?.rows ?? []) as any[];
     return activeAccounts.map((acc: any) => {
       const accLinks = (allLinks as any[]).filter((l: any) => l.account_id === acc.id);
       let revenue: number, fans: number, spend: number;
       if (isAllTime) {
         revenue = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier;
-        fans = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-        spend = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
+        fans    = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+        spend   = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
       } else {
-        const accSnaps = snapRows.filter((r: any) => r.account_id === acc.id);
-        revenue = accSnaps.reduce((s: number, r: any) => s + Number(r.revenue || 0), 0) * revMultiplier;
-        fans = accSnaps.reduce((s: number, r: any) => s + Number(r.subscribers || 0), 0);
-        spend = accLinks.reduce((s: number, l: any) => {
+        const snaps = snapRows.filter((r: any) => r.account_id === acc.id);
+        revenue = snaps.reduce((s: number, r: any) => s + Number(r.revenue || 0), 0) * revMultiplier;
+        fans    = snaps.reduce((s: number, r: any) => s + Number(r.subscribers || 0), 0);
+        spend   = accLinks.reduce((s: number, l: any) => {
           const cost = Number(l.cost_total || 0);
           if (!cost) return s;
           return s + (cost / Math.max(1, differenceInDays(today, new Date(l.created_at)))) * periodDays;
@@ -175,91 +255,71 @@ export default function OverviewPage() {
         avatarUrl: acc.avatar_thumb_url ?? null,
         revenue, fans, spend, profit,
         roi: spend > 0 ? (profit / spend) * 100 : null,
-        ltvPerFan: fans > 0 ? revenue / fans : null,
       };
     }).sort((a, b) => b.revenue - a.revenue);
   }, [activeAccounts, allLinks, periodData, isAllTime, revMultiplier]);
 
   const filteredRows = useMemo(
     () => modelFilter === "all" ? accountRows : accountRows.filter(r => r.id === modelFilter),
-    [accountRows, modelFilter]
+    [accountRows, modelFilter],
   );
 
   const totals = useMemo(() => {
     const revenue = filteredRows.reduce((s, r) => s + r.revenue, 0);
-    const fans = filteredRows.reduce((s, r) => s + r.fans, 0);
-    const spend = filteredRows.reduce((s, r) => s + r.spend, 0);
-    const profit = revenue - spend;
+    const fans    = filteredRows.reduce((s, r) => s + r.fans, 0);
+    const spend   = filteredRows.reduce((s, r) => s + r.spend, 0);
+    const profit  = revenue - spend;
     return { revenue, fans, spend, profit, roi: spend > 0 ? (profit / spend) * 100 : null };
   }, [filteredRows]);
 
-  // All-time subs + subs/day
-  const allTimeFans = useMemo(() => {
-    const acctIds = modelFilter === "all" ? new Set(activeAccounts.map((a: any) => a.id)) : new Set([modelFilter]);
-    return (allLinks as any[]).filter((l: any) => acctIds.has(l.account_id)).reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-  }, [allLinks, activeAccounts, modelFilter]);
+  // ── Marketer breakdown ────────────────────────────────────────────────────
 
-  const allTimeSubsPerDay = useMemo(() => {
-    const acctIds = modelFilter === "all" ? new Set(activeAccounts.map((a: any) => a.id)) : new Set([modelFilter]);
-    const earliest = (allLinks as any[]).filter((l: any) => acctIds.has(l.account_id) && l.created_at)
-      .reduce((min: Date | null, l: any) => { const d = new Date(l.created_at); return !min || d < min ? d : min; }, null as Date | null);
-    if (!earliest || allTimeFans === 0) return null;
-    return allTimeFans / Math.max(1, differenceInDays(new Date(), earliest));
-  }, [allLinks, activeAccounts, modelFilter, allTimeFans]);
-
-  // Global LTV/Sub
-  const globalLtvPerFan = useMemo(() => {
-    if (allTimeTotals?.subscribers && allTimeTotals.subscribers > 0) return (allTimeTotals.revenue * revMultiplier) / allTimeTotals.subscribers;
-    const totalRev = (allLinks as any[]).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier;
-    const totalSubs = (allLinks as any[]).reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-    return totalSubs > 0 ? totalRev / totalSubs : null;
-  }, [allTimeTotals, allLinks, revMultiplier]);
-
-  // Monthly chart data
-  const monthlyChartData = useMemo(() => {
-    const byMonth: Record<string, { revenue: number; spend: number; subs: number }> = {};
-    for (const r of monthlyRows as any[]) {
-      const d = r.snapshot_date as string;
-      if (!d || d.length < 7) continue;
-      const m = d.slice(0, 7);
-      if (!byMonth[m]) byMonth[m] = { revenue: 0, spend: 0, subs: 0 };
-      byMonth[m].revenue += Number(r.revenue || 0) * revMultiplier;
-      byMonth[m].spend += Number(r.cost_total || 0);
-      byMonth[m].subs += Number(r.subscribers || 0);
-    }
-    return Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, d]) => ({
-      month: format(new Date(month + "-15T12:00:00Z"), "MMM yy"),
-      revenue: Math.round(d.revenue),
-      spend: Math.round(d.spend),
-      profit: Math.round(d.revenue - d.spend),
-      subs: d.subs,
-    }));
-  }, [monthlyRows, revMultiplier]);
-
-  const sparkLast6 = monthlyChartData.slice(-6);
-
-  // Source breakdown
-  const sourceBreakdown = useMemo(() => {
-    const acctIds = modelFilter === "all" ? new Set(activeAccounts.map((a: any) => a.id)) : new Set([modelFilter]);
+  const marketerBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const l of allLinks as any[]) {
-      if (!acctIds.has(l.account_id)) continue;
-      const src = getEffectiveSource(l) || "Untagged";
-      map[src] = (map[src] || 0) + Number(l.revenue || 0) * revMultiplier;
+    if (isAllTime) {
+      for (const l of allLinks as any[]) {
+        if (!acctIds.has(l.account_id)) continue;
+        const src = getEffectiveSource(l) || "Unassigned";
+        map[src] = (map[src] || 0) + Number(l.revenue || 0) * revMultiplier;
+      }
+    } else {
+      const periodRows = (periodData?.rows ?? []) as any[];
+      const acctPeriodRev: Record<string, number> = {};
+      for (const r of periodRows) {
+        if (!acctIds.has(r.account_id)) continue;
+        acctPeriodRev[r.account_id] = (acctPeriodRev[r.account_id] || 0) + Number(r.revenue || 0);
+      }
+      const acctTotalRev: Record<string, number> = {};
+      for (const l of allLinks as any[]) {
+        if (!acctIds.has(l.account_id)) continue;
+        acctTotalRev[l.account_id] = (acctTotalRev[l.account_id] || 0) + Number(l.revenue || 0);
+      }
+      for (const l of allLinks as any[]) {
+        if (!acctIds.has(l.account_id)) continue;
+        const total = acctTotalRev[l.account_id] || 0;
+        if (!total) continue;
+        const portion = Number(l.revenue || 0) / total;
+        const src = getEffectiveSource(l) || "Unassigned";
+        map[src] = (map[src] || 0) + (acctPeriodRev[l.account_id] || 0) * portion * revMultiplier;
+      }
     }
     const entries = Object.entries(map).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a).slice(0, 6);
-    const total = entries.reduce((s, [, v]) => s + v, 0);
+    const total   = entries.reduce((s, [, v]) => s + v, 0);
     return entries.map(([name, value]) => ({ name, value, pct: total > 0 ? value / total : 0 }));
-  }, [allLinks, activeAccounts, modelFilter, revMultiplier]);
+  }, [isAllTime, allLinks, periodData, acctIds, revMultiplier]);
 
-  const sourcePieTotal = sourceBreakdown.reduce((s, r) => s + r.value, 0);
-
-  // Per-model bar scale
+  const marketerTotal = marketerBreakdown.reduce((s, r) => s + r.value, 0);
   const maxValue = Math.max(...accountRows.map(r => Math.max(r.revenue, r.spend)), 1);
 
   const periodLabel = useMemo(() => {
-    if (customRange) return `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`;
-    return TIME_PERIODS.find(t => t.key === timePeriod)?.label ?? "All Time";
+    if (customRange) return `${format(customRange.from, "MMM d, yyyy")} – ${format(customRange.to, "MMM d, yyyy")}`;
+    switch (timePeriod) {
+      case "day":        return "Last Sync";
+      case "week":       return "Last 7 Days";
+      case "month":      return "Last 30 Days";
+      case "prev_month": return "Previous Month";
+      default:           return "All Time";
+    }
   }, [timePeriod, customRange]);
 
   const accountOptions = useMemo(() => activeAccounts.map((a: any) => ({
@@ -267,272 +327,223 @@ export default function OverviewPage() {
     avatar_thumb_url: a.avatar_thumb_url, is_active: a.is_active,
   })), [activeAccounts]);
 
+  const toggleSeries = (key: keyof typeof vis) =>
+    setVis(prev => ({ ...prev, [key]: !prev[key] }));
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+      <div className="space-y-4">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[22px] font-medium text-foreground">Overview</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
-          </div>
+        <div>
+          <h1 className="text-[22px] font-bold text-foreground">Overview</h1>
+          <p className="text-[13px] text-muted-foreground mt-0.5">{periodLabel}</p>
         </div>
 
         {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-            {TIME_PERIODS.map(tp => {
-              const active = timePeriod === tp.key && !customRange;
-              return (
-                <button key={tp.key} onClick={() => { setTimePeriod(tp.key); setCustomRange(null); }}
-                  className={`px-4 py-2 text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                  {tp.label}
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <CombinedDatePicker
+            timePeriod={timePeriod}
+            customRange={customRange}
+            onSelectCustom={(range) => { setCustomRange(range); setTimePeriod("all"); }}
+            onSelectTp={(tp) => { setTimePeriod(tp); setCustomRange(null); }}
+          />
           <AccountFilterDropdown value={modelFilter} onChange={setModelFilter} accounts={accountOptions} />
-          <DateRangePicker value={customRange} onChange={setCustomRange} />
           <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden">
-            {(["gross", "net"] as const).map(mode => (
-              <button key={mode} onClick={() => setRevenueMode(mode)}
-                className={`px-3 py-2 text-xs font-medium capitalize transition-colors ${revenueMode === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                {mode[0].toUpperCase() + mode.slice(1)}
+            {(["gross", "net"] as const).map(m => (
+              <button key={m} onClick={() => setRevenueMode(m)}
+                className={`px-3 py-2 text-xs font-medium capitalize transition-colors ${revenueMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                {m[0].toUpperCase() + m.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="ml-auto flex items-center bg-card border border-border rounded-xl overflow-hidden">
+            {(["daily", "cumulative"] as const).map(m => (
+              <button key={m} onClick={() => setChartMode(m)}
+                className={`px-3 py-2 text-xs font-medium capitalize transition-colors ${chartMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                {m[0].toUpperCase() + m.slice(1)}
               </button>
             ))}
           </div>
         </div>
 
-        {/* ═══ MAIN ROW: chart + KPI cards ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_268px] gap-4">
+        {/* ═══ MAIN ROW ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_252px] gap-4">
 
-          {/* Monthly cash flow chart */}
+          {/* Chart */}
           <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[14px] font-semibold text-foreground">Monthly Cash Flow</h2>
-              <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />
-                  Revenue
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#ef4444" }} />
-                  Spend
-                </span>
-              </div>
+            {/* Series toggles */}
+            <div className="flex items-center gap-5 mb-4">
+              {(["revenue", "spend", "subs"] as const).map(key => (
+                <button key={key} onClick={() => toggleSeries(key)}
+                  className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-opacity ${vis[key] ? "opacity-100" : "opacity-25"}`}>
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: CHART_COLORS[key] }} />
+                  {key}
+                </button>
+              ))}
             </div>
 
-            {monthlyChartData.length === 0 ? (
-              <div className="h-[260px] flex items-center justify-center text-muted-foreground text-sm">
-                {isLoading ? "Loading…" : "No data yet"}
+            {chartData.length === 0 ? (
+              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+                {isLoading ? "Loading…" : "No data"}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <ComposedChart data={monthlyChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    <linearGradient id="ov2RevGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={CHART_COLORS.revenue} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    <linearGradient id="ov2SpendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={CHART_COLORS.spend} stopOpacity={0.25} />
+                      <stop offset="95%" stopColor={CHART_COLORS.spend} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="ov2SubsGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={CHART_COLORS.subs} stopOpacity={0.2} />
+                      <stop offset="95%" stopColor={CHART_COLORS.subs} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={56} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={54} />
                   <RechartsTooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#revGrad)" dot={false} activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="spend" name="Spend" stroke="#ef4444" strokeWidth={2} fill="url(#spendGrad)" dot={false} activeDot={{ r: 4 }} />
+                  {vis.revenue && <Area type="monotone" dataKey="revenue" name="Revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#ov2RevGrad)"   dot={false} activeDot={{ r: 4 }} />}
+                  {vis.spend   && <Area type="monotone" dataKey="spend"   name="Spend"   stroke={CHART_COLORS.spend}   strokeWidth={2} fill="url(#ov2SpendGrad)" dot={false} activeDot={{ r: 4 }} />}
+                  {vis.subs    && <Area type="monotone" dataKey="subs"    name="Subs"    stroke={CHART_COLORS.subs}    strokeWidth={2} fill="url(#ov2SubsGrad)"  dot={false} activeDot={{ r: 4 }} />}
                 </ComposedChart>
               </ResponsiveContainer>
             )}
           </div>
 
-          {/* Right KPI cards */}
-          <div className="flex flex-col gap-4">
-            <SummaryCard
-              label="Total Revenue"
+          {/* 4 KPI cards */}
+          <div className="flex flex-col gap-3">
+            <KpiCard label="Total Revenue"
               value={isLoading ? "…" : fmtShort(totals.revenue)}
-              sub={periodLabel}
-              icon={<DollarSign className="h-4 w-4" />}
-              bg="hsl(var(--primary) / 0.08)"
-              iconColor="hsl(var(--primary))"
-              sparkData={sparkLast6}
-              sparkKey="revenue"
-              sparkColor="hsl(var(--primary))"
-              badge={revenueMode === "net" ? "NET" : undefined}
-            />
-            <SummaryCard
-              label="Total Spend"
+              sub={periodLabel} sparkData={sparkLast6} sparkKey="revenue"
+              accent={CHART_COLORS.revenue} badge={revenueMode === "net" ? "NET" : undefined} />
+            <KpiCard label="Total Spend"
               value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
-              sub={isAllTime ? "All time · ad spend" : `Est. · ${periodLabel}`}
-              icon={<TrendingUp className="h-4 w-4" />}
-              bg="hsl(38 92% 50% / 0.08)"
-              iconColor="#f59e0b"
-              sparkData={sparkLast6}
-              sparkKey="spend"
-              sparkColor="#f59e0b"
-            />
-            <SummaryCard
-              label="Profit"
-              value={isLoading ? "…" : totals.spend > 0 || totals.revenue > 0 ? fmtShort(totals.profit) : "—"}
-              sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : isAllTime ? "All time" : periodLabel}
-              icon={<TrendingUp className="h-4 w-4" />}
-              bg={totals.profit >= 0 ? "hsl(142 76% 36% / 0.08)" : "hsl(0 84% 60% / 0.08)"}
-              iconColor={totals.profit >= 0 ? "#16a34a" : "#ef4444"}
-              sparkData={sparkLast6}
-              sparkKey="profit"
-              sparkColor={totals.profit >= 0 ? "#16a34a" : "#ef4444"}
-              badge={revenueMode === "net" ? "NET" : undefined}
-            />
+              sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
+              sparkData={sparkLast6} sparkKey="spend" accent={CHART_COLORS.spend} />
+            <KpiCard label="Profit"
+              value={isLoading ? "…" : fmtShort(totals.profit)}
+              sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
+              sparkData={sparkLast6} sparkKey="profit"
+              accent={totals.profit >= 0 ? CHART_COLORS.revenue : "#ef4444"}
+              badge={revenueMode === "net" ? "NET" : undefined} />
+            <KpiCard label="Subscribers"
+              value={isLoading ? "…" : fmtN(totals.fans)}
+              sub={periodLabel} sparkData={sparkLast6} sparkKey="subs"
+              accent={CHART_COLORS.subs} />
           </div>
         </div>
 
-        {/* ═══ BOTTOM ROW: source breakdown + per-model bars ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-4">
+        {/* ═══ BOTTOM ROW ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-4">
 
-          {/* Source breakdown */}
+          {/* Revenue by Marketer */}
           <div className="bg-card border border-border rounded-2xl p-5">
-            <h2 className="text-[14px] font-semibold text-foreground mb-5">Revenue by Source</h2>
-
-            {sourceBreakdown.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No tagged links</div>
+            <h2 className="text-[14px] font-semibold text-foreground mb-5">Revenue by Marketer</h2>
+            {marketerBreakdown.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
             ) : (
               <div className="flex items-start gap-4">
-                {/* Bars */}
                 <div className="flex-1 space-y-4 min-w-0">
-                  {sourceBreakdown.map((src, i) => (
+                  {marketerBreakdown.map((src, i) => (
                     <div key={src.name}>
                       <div className="flex items-center justify-between text-[12px] mb-1.5">
-                        <span className="text-foreground font-medium truncate max-w-[160px]">{src.name}</span>
+                        <span className="font-medium text-foreground truncate max-w-[150px]">{src.name}</span>
                         <span className="text-muted-foreground font-mono shrink-0 ml-2">{(src.pct * 100).toFixed(0)}%</span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[i] ?? "#6b7280" }}
-                        />
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[i] ?? "#6b7280" }} />
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {/* Donut */}
-                <div className="shrink-0 flex flex-col items-center justify-center" style={{ width: 140 }}>
-                  <div className="relative" style={{ width: 140, height: 140 }}>
-                    <ResponsiveContainer width={140} height={140}>
+                <div className="shrink-0 flex flex-col items-center" style={{ width: 120 }}>
+                  <div className="relative" style={{ width: 120, height: 120 }}>
+                    <ResponsiveContainer width={120} height={120}>
                       <PieChart>
-                        <Pie data={sourceBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={62} dataKey="value" strokeWidth={0} paddingAngle={2}>
-                          {sourceBreakdown.map((_, i) => (
-                            <Cell key={i} fill={SOURCE_COLORS[i] ?? "#6b7280"} />
-                          ))}
+                        <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={35} outerRadius={52}
+                          dataKey="value" strokeWidth={0} paddingAngle={2}>
+                          {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i] ?? "#6b7280"} />)}
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[18px] font-bold text-foreground leading-tight">{sourceBreakdown.length}</span>
-                      <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Sources</span>
+                      <span className="text-[18px] font-bold text-foreground leading-tight">{marketerBreakdown.length}</span>
+                      <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Marketers</span>
                     </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 text-center">{fmtC(sourcePieTotal)}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{fmtC(marketerTotal)}</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Per-model revenue vs spend */}
+          {/* Revenue vs Spend by Model */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-[14px] font-semibold text-foreground">Revenue vs Spend by Model</h2>
               <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-primary inline-block" /> Revenue</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: "#f97316" }} /> Spend</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.revenue }} /> Revenue
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.spend }} /> Spend
+                </span>
               </div>
             </div>
 
             {isLoading ? (
-              <div className="space-y-5">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i}>
-                    <div className="skeleton-shimmer h-3 w-32 rounded mb-2" />
-                    <div className="skeleton-shimmer h-2 rounded mb-1.5" />
-                    <div className="skeleton-shimmer h-2 w-3/4 rounded" />
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="skeleton-shimmer h-6 w-6 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="skeleton-shimmer h-2 w-24 rounded" />
+                      <div className="skeleton-shimmer h-1.5 rounded" />
+                      <div className="skeleton-shimmer h-1.5 w-3/4 rounded" />
+                    </div>
                   </div>
                 ))}
               </div>
             ) : accountRows.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No data</div>
+              <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No data</div>
             ) : (
-              <div className="space-y-4">
+              <div className="overflow-y-auto space-y-3.5 pr-0.5" style={{ maxHeight: 380, scrollbarWidth: "thin" }}>
                 {accountRows.map(row => {
-                  const revW = Math.min((row.revenue / maxValue) * 100, 100);
-                  const spendW = Math.min((row.spend / maxValue) * 100, 100);
-                  const isNeg = row.roi !== null && row.roi < 0;
-                  const hasSpend = row.spend > 0;
+                  const revW   = Math.min((row.revenue / maxValue) * 100, 100);
+                  const spendW = Math.min((row.spend   / maxValue) * 100, 100);
+                  const roiPos = row.roi !== null && row.roi >= 0;
                   return (
-                    <div key={row.id}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={24} />
-                          <span className="text-[13px] font-medium text-foreground truncate">{row.displayName}</span>
+                    <div key={row.id} className="flex items-center gap-3">
+                      <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={26} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium text-foreground mb-1.5 truncate">{row.displayName}</p>
+                        <div className="h-[6px] bg-muted rounded-sm mb-1 overflow-hidden">
+                          <div className="h-full rounded-sm transition-all duration-500"
+                            style={{ width: `${revW}%`, background: CHART_COLORS.revenue }} />
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                          {isNeg && <AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
-                          <span className={`text-[12px] font-mono font-semibold ${isNeg ? "text-destructive" : hasSpend ? "text-primary" : "text-muted-foreground"}`}>
-                            {row.roi !== null ? `${row.roi.toFixed(0)}%` : "—"}
-                          </span>
+                        <div className="h-[6px] bg-muted rounded-sm overflow-hidden">
+                          <div className="h-full rounded-sm transition-all duration-500"
+                            style={{ width: `${spendW}%`, background: CHART_COLORS.spend }} />
                         </div>
                       </div>
-                      {/* Revenue bar */}
-                      <div className="h-[7px] bg-muted rounded-sm mb-1 overflow-hidden">
-                        <div className="h-full bg-primary rounded-sm transition-all duration-500" style={{ width: `${revW}%` }} />
-                      </div>
-                      {/* Spend bar */}
-                      <div className="h-[7px] bg-muted rounded-sm overflow-hidden">
-                        <div
-                          className="h-full rounded-sm transition-all duration-500"
-                          style={{ width: `${spendW}%`, background: isNeg ? "#ef4444" : "#f97316" }}
-                        />
-                      </div>
+                      <span className={`text-[12px] font-mono font-semibold shrink-0 w-16 text-right ${row.roi !== null ? (roiPos ? "text-[#10b981]" : "text-destructive") : "text-muted-foreground"}`}>
+                        {row.roi !== null ? `${Math.round(row.roi)}%` : "—"}
+                      </span>
                     </div>
                   );
                 })}
               </div>
             )}
-
-            {/* Bottom totals */}
-            {!isLoading && accountRows.length > 0 && (
-              <div className="mt-5 pt-4 border-t border-border flex items-center justify-between text-[12px]">
-                <span className="text-muted-foreground">Total</span>
-                <div className="flex items-center gap-4">
-                  <span className="font-mono text-foreground">{fmtC(accountRows.reduce((s, r) => s + r.revenue, 0))}</span>
-                  <span className="text-muted-foreground">rev</span>
-                  <span className="font-mono text-muted-foreground">{fmtC(accountRows.reduce((s, r) => s + r.spend, 0))}</span>
-                  <span className="text-muted-foreground">spend</span>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
-
-        {/* ═══ EXTRA ROW: 5 summary pills ═══ */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <PillStat label="New Fans" value={isLoading ? "…" : fmtN(totals.fans)} sub={isAllTime ? "All time" : periodLabel} />
-          <PillStat label="Subscribers" value={isLoading ? "…" : fmtN(allTimeFans)}
-            sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)}/day · All time` : "All time"} />
-          <PillStat label="LTV/Sub" value={globalLtvPerFan ? fmtC2(globalLtvPerFan) : "—"}
-            sub={`All time · ${revenueMode === "net" ? "net" : "gross"}`} />
-          <PillStat label="Profit" value={totals.spend > 0 ? fmtC(totals.profit) : "—"}
-            sub={isAllTime ? "All time" : periodLabel}
-            positive={totals.profit >= 0} />
-          <PillStat label="ROI" value={totals.roi !== null ? `${totals.roi.toFixed(1)}%` : "—"}
-            sub={isAllTime ? "All time" : periodLabel}
-            positive={totals.roi !== null && totals.roi >= 0} />
         </div>
 
       </div>
@@ -560,47 +571,183 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-function SummaryCard({
-  label, value, sub, icon, bg, iconColor, sparkData, sparkKey, sparkColor, badge,
-}: {
-  label: string; value: string; sub: string; icon: React.ReactNode;
-  bg: string; iconColor: string; sparkData: any[]; sparkKey: string; sparkColor: string; badge?: string;
+function KpiCard({ label, value, sub, sparkData, sparkKey, accent, badge }: {
+  label: string; value: string; sub: string;
+  sparkData: any[]; sparkKey: string; accent: string; badge?: string;
 }) {
   return (
-    <div className="rounded-2xl p-4 flex flex-col justify-between flex-1" style={{ background: bg, border: "1px solid hsl(var(--border))" }}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+    <div className="bg-card border border-border rounded-xl px-4 pt-3.5 pb-0 overflow-hidden"
+      style={{ borderBottom: `2px solid ${accent}` }}>
+      <div className="flex items-start justify-between gap-2 pb-3">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 mb-1">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-            {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary">{badge}</span>}
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+            {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
           </div>
-          <p className="text-[22px] font-semibold font-mono text-foreground leading-tight">{value}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>
+          <p className="text-[21px] font-bold font-mono text-foreground leading-tight">{value}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</p>
         </div>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: iconColor + "22", color: iconColor }}>
-          {icon}
-        </div>
+        {sparkData.length > 1 && (
+          <div className="shrink-0 mt-0.5" style={{ width: 72, height: 36 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={sparkData}>
+                <Line type="monotone" dataKey={sparkKey} stroke={accent} strokeWidth={1.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
-      {sparkData.length > 1 && (
-        <div className="-mx-1 mt-3">
-          <ResponsiveContainer width="100%" height={44}>
-            <LineChart data={sparkData}>
-              <Line type="monotone" dataKey={sparkKey} stroke={sparkColor} strokeWidth={1.5} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
     </div>
   );
 }
 
-function PillStat({ label, value, sub, positive }: { label: string; value: string; sub: string; positive?: boolean }) {
-  const valueColor = positive === true ? "text-primary" : positive === false ? "text-destructive" : "text-foreground";
+// ── CombinedDatePicker ────────────────────────────────────────────────────────
+
+function CombinedDatePicker({ timePeriod, customRange, onSelectCustom, onSelectTp }: {
+  timePeriod: string;
+  customRange: { from: Date; to: Date } | null;
+  onSelectCustom: (r: { from: Date; to: Date }) => void;
+  onSelectTp: (tp: string) => void;
+}) {
+  const [open, setOpen]       = useState(false);
+  const [leftMonth, setLeft]  = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
+  const [sel, setSel]         = useState<{ from: Date; to: Date | null } | null>(null);
+  const [hover, setHover]     = useState<Date | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const rightMonth = addMonths(leftMonth, 1);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  const buttonLabel = useMemo(() => {
+    if (customRange) return `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`;
+    switch (timePeriod) {
+      case "day":        return "Last Sync";
+      case "week":       return "Last 7 Days";
+      case "month":      return "Last 30 Days";
+      case "prev_month": return "Prev Month";
+      case "all":        return "All Time";
+      default:           return "Select range";
+    }
+  }, [timePeriod, customRange]);
+
+  const handleDayClick = (day: Date) => {
+    if (!sel || sel.to !== null) { setSel({ from: day, to: null }); setHover(null); }
+    else {
+      const from = isBefore(day, sel.from) ? day : sel.from;
+      const to   = isBefore(day, sel.from) ? sel.from : day;
+      setSel({ from, to });
+    }
+  };
+
+  const handleApply = () => {
+    if (sel?.from && sel?.to) {
+      onSelectCustom({ from: startOfDay(sel.from), to: startOfDay(sel.to) });
+      setOpen(false);
+    }
+  };
+
+  const handlePreset = (p: Preset) => {
+    if (p.tp) { onSelectTp(p.tp); setOpen(false); return; }
+    if (p.fn) { const r = p.fn(); setSel({ from: r.from, to: r.to }); }
+  };
+
+  const inRange = (day: Date) => {
+    if (!sel) return false;
+    const end = sel.to ?? hover;
+    if (!end) return false;
+    const from = isBefore(end, sel.from) ? end : sel.from;
+    const to   = isBefore(end, sel.from) ? sel.from : end;
+    return isWithinInterval(day, { start: from, end: to });
+  };
+  const isStart = (d: Date) => !!(sel?.from && isSameDay(d, sel.from));
+  const isEnd   = (d: Date) => { const e = sel?.to ?? hover; return !!(e && isSameDay(d, e)); };
+
+  const renderMonth = (m: Date) => {
+    const days = getMonthDays(m.getFullYear(), m.getMonth());
+    return (
+      <div className="w-[196px]">
+        <p className="text-center text-[12px] font-semibold text-foreground mb-2">{format(m, "MMMM yyyy")}</p>
+        <div className="grid grid-cols-7">
+          {WEEK_DAYS.map(d => <div key={d} className="text-center text-[10px] text-muted-foreground py-1">{d}</div>)}
+          {days.map((day, i) => {
+            if (!day) return <div key={`e${i}`} />;
+            const start = isStart(day), end = isEnd(day), range = inRange(day) && !start && !end;
+            return (
+              <button key={day.toISOString()} onClick={() => handleDayClick(day)}
+                onMouseEnter={() => { if (sel && !sel.to) setHover(day); }}
+                className={`h-7 text-[11px] transition-colors
+                  ${start || end ? "bg-primary text-primary-foreground rounded-full font-bold" : ""}
+                  ${range ? "bg-primary/15 text-foreground rounded-none" : ""}
+                  ${!start && !end && !range ? "hover:bg-secondary rounded-full" : ""}
+                `}>
+                {day.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="bg-card border border-border rounded-xl px-4 py-3">
-      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{label}</p>
-      <p className={`text-[16px] font-semibold font-mono ${valueColor}`}>{value}</p>
-      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</p>
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/25 text-primary text-[12px] font-medium hover:bg-primary/15 transition-colors">
+        {buttonLabel}
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-2 z-50 bg-card rounded-2xl p-4 shadow-2xl"
+          style={{ border: "1px solid hsl(var(--border))" }}>
+          {/* Nav */}
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => setLeft(subMonths(leftMonth, 1))} className="p-1 rounded hover:bg-secondary">
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <div className="flex-1" />
+            <button onClick={() => setLeft(addMonths(leftMonth, 1))} className="p-1 rounded hover:bg-secondary">
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+
+          <div className="flex gap-3">
+            {/* Calendars */}
+            <div className="flex gap-3">
+              {renderMonth(leftMonth)}
+              {renderMonth(rightMonth)}
+            </div>
+            {/* Presets */}
+            <div className="w-[136px] flex flex-col border-l border-border pl-3 gap-0.5">
+              {DATE_PRESETS.map(p => (
+                <button key={p.label} onClick={() => handlePreset(p)}
+                  className="text-left px-2 py-1.5 text-[12px] text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
+                  {p.label}
+                </button>
+              ))}
+              <div className="h-px bg-border my-1" />
+              <button onClick={() => { onSelectTp("all"); setOpen(false); }}
+                className="text-left px-2 py-1.5 text-[12px] text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
+                All Time
+              </button>
+            </div>
+          </div>
+
+          {/* Apply */}
+          <div className="flex justify-end pt-3 mt-3 border-t border-border">
+            <button onClick={handleApply} disabled={!sel?.from || !sel?.to}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 transition-all">
+              Apply ✓
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
