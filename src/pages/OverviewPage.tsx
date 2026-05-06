@@ -415,29 +415,54 @@ export default function OverviewPage() {
 
           {/* Chart */}
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 340 }}>
-            {/* Chart header: title + total + tab pills */}
-            <div className="flex items-start justify-between mb-4 shrink-0 gap-3">
+            {/* Chart header: metric total + pagination */}
+            <div className="flex items-start justify-between mb-4 shrink-0">
               <div>
                 <h2 className="text-[13px] font-semibold text-foreground">Performance</h2>
-                {chartData.length > 0 && (
-                  <p className="text-[22px] font-bold font-mono leading-tight mt-0.5" style={{ color: activeMeta.color }}>
-                    {isLoading ? "…" : activeTotalFmt}
-                  </p>
-                )}
+                <p className="text-[24px] font-bold font-mono leading-tight mt-1" style={{ color: activeMeta.color }}>
+                  {isLoading ? "…" : chartData.length > 0 ? activeTotalFmt : "—"}
+                </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{activeMeta.label} · {periodLabel}</p>
               </div>
-              <div className="flex items-center gap-1 flex-wrap justify-end">
-                {SERIES_META.map(({ key, label, color }) => (
-                  <button key={key} onClick={() => setActiveSeries(key)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
-                      activeSeries === key
-                        ? "text-white border-transparent shadow-sm"
-                        : "bg-transparent border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                    style={activeSeries === key ? { background: color, borderColor: color } : {}}>
-                    {label}
+
+              {/* Pagination controls */}
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const idx = SERIES_META.findIndex(s => s.key === activeSeries);
+                      setActiveSeries(SERIES_META[(idx - 1 + SERIES_META.length) % SERIES_META.length].key);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
-                ))}
+                  <span className="text-[11px] font-semibold text-foreground px-1 min-w-[64px] text-center" style={{ color: activeMeta.color }}>
+                    {activeMeta.label}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const idx = SERIES_META.findIndex(s => s.key === activeSeries);
+                      setActiveSeries(SERIES_META[(idx + 1) % SERIES_META.length].key);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {/* Dot indicators */}
+                <div className="flex items-center gap-1.5">
+                  {SERIES_META.map(({ key, color }) => (
+                    <button key={key} onClick={() => setActiveSeries(key)}
+                      className="rounded-full transition-all duration-200"
+                      style={{
+                        width: activeSeries === key ? 16 : 6,
+                        height: 6,
+                        background: activeSeries === key ? color : "hsl(var(--border))",
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
 
