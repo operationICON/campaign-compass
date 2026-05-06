@@ -367,40 +367,8 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* ═══ MAIN ROW ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_252px] gap-4">
-
-          {/* Chart */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            {/* Series toggles */}
-            <div className="flex items-center gap-5 mb-4">
-              {SERIES_META.map(({ key, label, color }) => (
-                <button key={key} onClick={() => toggleSeries(key)}
-                  className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-opacity ${vis[key] ? "opacity-100" : "opacity-25"}`}>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {chartData.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
-                {isLoading ? "Loading…" : "No data"}
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={54} />
-                  <RechartsTooltip content={<ChartTooltip />} />
-                  {SERIES_META.map(({ key, label, color }) =>
-                    vis[key] ? <Bar key={key} dataKey={key} name={label} fill={color} radius={[3, 3, 0, 0]} maxBarSize={32} /> : null
-                  )}
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+        {/* ═══ MAIN ROW: KPI cards left, chart right ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
 
           {/* 4 KPI cards */}
           <div className="flex flex-col gap-3">
@@ -422,6 +390,38 @@ export default function OverviewPage() {
               value={isLoading ? "…" : fmtN(totals.fans)}
               sub={periodLabel} sparkData={sparkLast6} sparkKey="subs"
               accent="#818cf8" />
+          </div>
+
+          {/* Chart */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            {/* Series toggles */}
+            <div className="flex items-center gap-5 mb-4">
+              {SERIES_META.map(({ key, label, color }) => (
+                <button key={key} onClick={() => toggleSeries(key)}
+                  className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-opacity ${vis[key] ? "opacity-100" : "opacity-25"}`}>
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {chartData.length === 0 ? (
+              <div className="h-[210px] flex items-center justify-center text-muted-foreground text-sm">
+                {isLoading ? "Loading…" : "No data"}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={54} />
+                  <RechartsTooltip content={<ChartTooltip />} />
+                  {SERIES_META.map(({ key, label, color }) =>
+                    vis[key] ? <Bar key={key} dataKey={key} name={label} fill={color} radius={[3, 3, 0, 0]} maxBarSize={32} /> : null
+                  )}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -560,22 +560,22 @@ function KpiCard({ label, value, sub, sparkData, sparkKey, accent, badge }: {
   sparkData: any[]; sparkKey: string; accent: string; badge?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-xl px-4 pt-3.5 pb-0 overflow-hidden"
-      style={{ borderBottom: `2px solid ${accent}` }}>
-      <div className="flex items-start justify-between gap-2 pb-3">
+    <div className="bg-card border border-border rounded-2xl px-6 pt-5 pb-0 overflow-hidden flex-1"
+      style={{ borderBottom: `3px solid ${accent}` }}>
+      <div className="flex items-start justify-between gap-3 pb-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 mb-1">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+          <div className="flex items-center gap-1.5 mb-2">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
             {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
           </div>
-          <p className="text-[21px] font-bold font-mono text-foreground leading-tight">{value}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</p>
+          <p className="text-[32px] font-bold font-mono text-foreground leading-none">{value}</p>
+          <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
         </div>
         {sparkData.length > 1 && (
-          <div className="shrink-0 mt-0.5" style={{ width: 72, height: 36 }}>
+          <div className="shrink-0 mt-1" style={{ width: 90, height: 44 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkData}>
-                <Line type="monotone" dataKey={sparkKey} stroke={accent} strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey={sparkKey} stroke={accent} strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
