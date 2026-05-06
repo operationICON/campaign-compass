@@ -123,6 +123,7 @@ export default function OverviewPage() {
   const [activeSeries, setActiveSeries] = useState<SeriesKey>("rev");
   const [marketerPage, setMarketerPage] = useState(0);
   const [modelPage, setModelPage] = useState(0);
+  const [marketerSort, setMarketerSort] = useState<{ key: "value" | "name" | "pct"; dir: "asc" | "desc" }>({ key: "value", dir: "desc" });
   const MARKETER_PER_PAGE = 8;
   const MODEL_PER_PAGE = 6;
 
@@ -470,11 +471,25 @@ export default function OverviewPage() {
 
           {/* Revenue by Marketer */}
           {(() => {
-            const mTotalPages = Math.ceil(marketerBreakdown.length / MARKETER_PER_PAGE);
-            const mSlice = marketerBreakdown.slice(marketerPage * MARKETER_PER_PAGE, (marketerPage + 1) * MARKETER_PER_PAGE);
+            const sortedBreakdown = [...marketerBreakdown].sort((a, b) => {
+              const mul = marketerSort.dir === "asc" ? 1 : -1;
+              if (marketerSort.key === "name") return mul * a.name.localeCompare(b.name);
+              if (marketerSort.key === "pct")  return mul * (a.pct - b.pct);
+              return mul * (a.value - b.value);
+            });
+            const mTotalPages = Math.ceil(sortedBreakdown.length / MARKETER_PER_PAGE);
+            const mSlice = sortedBreakdown.slice(marketerPage * MARKETER_PER_PAGE, (marketerPage + 1) * MARKETER_PER_PAGE);
+            const toggleSort = (key: typeof marketerSort.key) =>
+              setMarketerSort(s => s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" });
+            const SortBtn = ({ k, label }: { k: typeof marketerSort.key; label: string }) => (
+              <button onClick={() => toggleSort(k)}
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded transition-all ${marketerSort.key === k ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}>
+                {label}{marketerSort.key === k ? (marketerSort.dir === "desc" ? " ↓" : " ↑") : ""}
+              </button>
+            );
             return (
               <div className="bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-[13px] font-semibold text-foreground">Revenue by Marketer</h2>
                   <span className="text-[11px] text-muted-foreground font-mono">{fmtC(marketerTotal)}</span>
                 </div>
@@ -482,21 +497,28 @@ export default function OverviewPage() {
                   <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
                 ) : (
                   <>
-                    <div className="flex items-start gap-5">
+                    {/* Sort controls */}
+                    <div className="flex items-center gap-1 mb-3">
+                      <span className="text-[10px] text-muted-foreground mr-1">Sort:</span>
+                      <SortBtn k="value" label="Revenue" />
+                      <SortBtn k="pct" label="%" />
+                      <SortBtn k="name" label="Name" />
+                    </div>
+                    <div className="flex items-start gap-4">
                       {/* Bars */}
-                      <div className="flex-1 min-w-0 space-y-3">
+                      <div className="flex-1 min-w-0 space-y-3.5">
                         {mSlice.map((src, i) => {
                           const globalIdx = marketerPage * MARKETER_PER_PAGE + i;
                           return (
                             <div key={src.name}>
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
-                                  <span className="text-[12px] font-medium text-foreground truncate">{src.name}</span>
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
+                                  <span className="text-[13px] font-semibold text-foreground truncate">{src.name}</span>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0 ml-2">
-                                  <span className="text-[11px] text-muted-foreground">{fmtShort(src.value)}</span>
-                                  <span className="text-[11px] font-mono text-muted-foreground w-7 text-right">{(src.pct * 100).toFixed(0)}%</span>
+                                <div className="flex items-center gap-3 shrink-0 ml-2">
+                                  <span className="text-[13px] font-mono font-semibold text-foreground">{fmtShort(src.value)}</span>
+                                  <span className="text-[12px] font-mono font-bold w-9 text-right" style={{ color: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }}>{(src.pct * 100).toFixed(1)}%</span>
                                 </div>
                               </div>
                               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -507,20 +529,22 @@ export default function OverviewPage() {
                           );
                         })}
                       </div>
-                      {/* Donut */}
-                      <div className="shrink-0 flex flex-col items-center" style={{ width: 180 }}>
-                        <div className="relative" style={{ width: 180, height: 180 }}>
-                          <ResponsiveContainer width={180} height={180}>
-                            <PieChart>
-                              <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={54} outerRadius={80}
-                                dataKey="value" strokeWidth={0} paddingAngle={2}>
-                                {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-[32px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
+                      {/* Donut — ~45% of card width */}
+                      <div className="shrink-0 flex items-center justify-center" style={{ width: "42%" }}>
+                        <div className="relative w-full" style={{ paddingBottom: "100%" }}>
+                          <div className="absolute inset-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius="44%" outerRadius="68%"
+                                  dataKey="value" strokeWidth={0} paddingAngle={2}>
+                                  {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
+                                </Pie>
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                              <span className="text-[36px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
+                            </div>
                           </div>
                         </div>
                       </div>
