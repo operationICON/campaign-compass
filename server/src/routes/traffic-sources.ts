@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { traffic_sources } from "../db/schema.js";
-import { eq, asc } from "drizzle-orm";
+import { traffic_sources, tracking_links } from "../db/schema.js";
+import { eq, asc, sql } from "drizzle-orm";
 
 const router = new Hono();
 
@@ -27,8 +27,15 @@ router.put("/:id", async (c) => {
 });
 
 router.delete("/:id", async (c) => {
-  await db.delete(traffic_sources).where(eq(traffic_sources.id, c.req.param("id")));
-  return c.json({ success: true });
+  const id = c.req.param("id");
+  // Clear FK references first — otherwise Postgres rejects the delete
+  const updated = await db
+    .update(tracking_links)
+    .set({ traffic_source_id: null })
+    .where(eq(tracking_links.traffic_source_id, id))
+    .returning({ id: tracking_links.id });
+  await db.delete(traffic_sources).where(eq(traffic_sources.id, id));
+  return c.json({ success: true, untagged: updated.length });
 });
 
 export default router;
