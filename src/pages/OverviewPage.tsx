@@ -504,7 +504,7 @@ export default function OverviewPage() {
                       <SortBtn k="pct" label="%" />
                       <SortBtn k="name" label="Name" />
                     </div>
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-center gap-4">
                       {/* Bars */}
                       <div className="flex-1 min-w-0 space-y-3.5">
                         {mSlice.map((src, i) => {
@@ -530,21 +530,19 @@ export default function OverviewPage() {
                         })}
                       </div>
                       {/* Donut */}
-                      <div className="shrink-0 flex items-start justify-center" style={{ width: "58%" }}>
-                        <div className="relative w-full" style={{ paddingBottom: "100%" }}>
-                          <div className="absolute inset-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius="42%" outerRadius="66%"
-                                  dataKey="value" strokeWidth={0} paddingAngle={2}>
-                                  {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
-                                </Pie>
-                              </PieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                              <span className="text-[44px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
-                              <span className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
-                            </div>
+                      <div className="shrink-0" style={{ width: 160, height: 160 }}>
+                        <div className="relative" style={{ width: 160, height: 160 }}>
+                          <ResponsiveContainer width={160} height={160}>
+                            <PieChart>
+                              <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={46} outerRadius={72}
+                                dataKey="value" strokeWidth={0} paddingAngle={2}>
+                                {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-[36px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
                           </div>
                         </div>
                       </div>
