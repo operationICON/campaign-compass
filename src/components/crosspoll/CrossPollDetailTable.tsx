@@ -53,7 +53,7 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
     queryKey: ["crosspoll_new_fans"],
     queryFn: async () => {
       const data = await getFans();
-      return (data || []).filter((f: any) => f.is_new_fan);
+      return ((data as any)?.fans || []).filter((f: any) => f.is_new_fan);
     },
   });
 
@@ -97,7 +97,7 @@ export function CrossPollDetailTable({ accounts, accountLookup, linkLookup, glob
             destAvatarUrl: destAcc?.avatar_thumb_url,
             destAccountId: dest.account_id,
             spentOnCampaign: destLink?.campaign_name || dest.tracking_link_id || "—",
-            revenue: Number(dest.revenue_total || 0),
+            revenue: Number(dest.revenue || 0),
           });
         }
       }
