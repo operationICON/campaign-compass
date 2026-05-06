@@ -5,7 +5,7 @@ import {
   startOfYear, endOfYear, addMonths, isBefore, isSameDay, isWithinInterval, startOfDay,
 } from "date-fns";
 import {
-  ComposedChart, Area, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
@@ -27,7 +27,14 @@ const SOURCE_COLORS = [
   "#dc2626", "#2563eb", "#64748b", "#f97316", "#84cc16", "#06b6d4",
 ];
 
-const CHART_COLORS = { revenue: "#10b981", spend: "#f97316", subs: "#818cf8" };
+const CHART_COLORS = { subs: "#818cf8", clicks: "#10b981", rev: "#10b981", expenses: "#f97316" };
+const SERIES_META = [
+  { key: "subs",     label: "Subs",     color: "#818cf8" },
+  { key: "clicks",   label: "Clicks",   color: "#06b6d4" },
+  { key: "rev",      label: "Rev",      color: "#10b981" },
+  { key: "expenses", label: "Expenses", color: "#f97316" },
+] as const;
+type SeriesKey = typeof SERIES_META[number]["key"];
 
 const fmtC = (v: number) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -114,7 +121,7 @@ export default function OverviewPage() {
   } = usePageFilters();
 
   const [chartMode, setChartMode] = useState<"daily" | "cumulative">("cumulative");
-  const [vis, setVis] = useState({ revenue: true, spend: true, subs: false });
+  const [vis, setVis] = useState<Record<SeriesKey, boolean>>({ subs: true, clicks: false, rev: false, expenses: false });
 
   const isAllTime  = timePeriod === "all" && !customRange;
   const periodKey  = customRange
@@ -171,22 +178,23 @@ export default function OverviewPage() {
   // ── Monthly chart data (all-time + sparklines) ───────────────────────────
 
   const monthlyChartData = useMemo(() => {
-    const byMonth: Record<string, { revenue: number; spend: number; subs: number }> = {};
+    const byMonth: Record<string, { rev: number; expenses: number; subs: number; clicks: number }> = {};
     for (const r of monthlyRows as any[]) {
       const d = r.snapshot_date as string;
       if (!d || d.length < 7) continue;
       const m = d.slice(0, 7);
-      if (!byMonth[m]) byMonth[m] = { revenue: 0, spend: 0, subs: 0 };
-      byMonth[m].revenue += Number(r.revenue  || 0) * revMultiplier;
-      byMonth[m].spend   += Number(r.cost_total || 0);
-      byMonth[m].subs    += Number(r.subscribers || 0);
+      if (!byMonth[m]) byMonth[m] = { rev: 0, expenses: 0, subs: 0, clicks: 0 };
+      byMonth[m].rev      += Number(r.revenue    || 0) * revMultiplier;
+      byMonth[m].expenses += Number(r.cost_total || 0);
+      byMonth[m].subs     += Number(r.subscribers || 0);
+      byMonth[m].clicks   += Number(r.clicks     || 0);
     }
     return Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, d]) => ({
-      label:   format(new Date(month + "-15T12:00:00Z"), "MMM yy"),
-      revenue: Math.round(d.revenue),
-      spend:   Math.round(d.spend),
-      profit:  Math.round(d.revenue - d.spend),
-      subs:    Math.round(d.subs),
+      label:    format(new Date(month + "-15T12:00:00Z"), "MMM yy"),
+      rev:      Math.round(d.rev),
+      expenses: Math.round(d.expenses),
+      subs:     Math.round(d.subs),
+      clicks:   Math.round(d.clicks),
     }));
   }, [monthlyRows, revMultiplier]);
 
@@ -194,21 +202,22 @@ export default function OverviewPage() {
 
   const periodChartData = useMemo(() => {
     if (!periodData?.rows?.length) return [];
-    const byDay: Record<string, { revenue: number; spend: number; subs: number }> = {};
+    const byDay: Record<string, { rev: number; expenses: number; subs: number; clicks: number }> = {};
     for (const r of periodData.rows as any[]) {
       const day = (r.snapshot_date as string)?.slice(0, 10);
       if (!day || !acctIds.has(r.account_id)) continue;
-      if (!byDay[day]) byDay[day] = { revenue: 0, spend: 0, subs: 0 };
-      byDay[day].revenue += Number(r.revenue  || 0) * revMultiplier;
-      byDay[day].spend   += Number(r.cost_total || 0);
-      byDay[day].subs    += Number(r.subscribers || 0);
+      if (!byDay[day]) byDay[day] = { rev: 0, expenses: 0, subs: 0, clicks: 0 };
+      byDay[day].rev      += Number(r.revenue    || 0) * revMultiplier;
+      byDay[day].expenses += Number(r.cost_total || 0);
+      byDay[day].subs     += Number(r.subscribers || 0);
+      byDay[day].clicks   += Number(r.clicks     || 0);
     }
     return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([day, d]) => ({
-      label:   format(new Date(day + "T12:00:00Z"), "MMM d"),
-      revenue: Math.round(d.revenue),
-      spend:   Math.round(d.spend),
-      profit:  Math.round(d.revenue - d.spend),
-      subs:    Math.round(d.subs),
+      label:    format(new Date(day + "T12:00:00Z"), "MMM d"),
+      rev:      Math.round(d.rev),
+      expenses: Math.round(d.expenses),
+      subs:     Math.round(d.subs),
+      clicks:   Math.round(d.clicks),
     }));
   }, [periodData, acctIds, revMultiplier]);
 
@@ -217,10 +226,10 @@ export default function OverviewPage() {
     if (isAllTime) return monthlyChartData;
     const base = periodChartData;
     if (chartMode === "cumulative" && base.length > 1) {
-      let cr = 0, cs = 0, csubs = 0;
+      let cr = 0, ce = 0, cs = 0, cc = 0;
       return base.map(d => {
-        cr += d.revenue; cs += d.spend; csubs += d.subs;
-        return { ...d, revenue: cr, spend: cs, subs: csubs, profit: cr - cs };
+        cr += d.rev; ce += d.expenses; cs += d.subs; cc += d.clicks;
+        return { ...d, rev: cr, expenses: ce, subs: cs, clicks: cc };
       });
     }
     return base;
@@ -383,11 +392,11 @@ export default function OverviewPage() {
           <div className="bg-card border border-border rounded-2xl p-5">
             {/* Series toggles */}
             <div className="flex items-center gap-5 mb-4">
-              {(["revenue", "spend", "subs"] as const).map(key => (
+              {SERIES_META.map(({ key, label, color }) => (
                 <button key={key} onClick={() => toggleSeries(key)}
                   className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-opacity ${vis[key] ? "opacity-100" : "opacity-25"}`}>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: CHART_COLORS[key] }} />
-                  {key}
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+                  {label}
                 </button>
               ))}
             </div>
@@ -398,29 +407,15 @@ export default function OverviewPage() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="ov2RevGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={CHART_COLORS.revenue} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="ov2SpendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={CHART_COLORS.spend} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={CHART_COLORS.spend} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="ov2SubsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={CHART_COLORS.subs} stopOpacity={0.2} />
-                      <stop offset="95%" stopColor={CHART_COLORS.subs} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={54} />
                   <RechartsTooltip content={<ChartTooltip />} />
-                  {vis.revenue && <Area type="monotone" dataKey="revenue" name="Revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#ov2RevGrad)"   dot={false} activeDot={{ r: 4 }} />}
-                  {vis.spend   && <Area type="monotone" dataKey="spend"   name="Spend"   stroke={CHART_COLORS.spend}   strokeWidth={2} fill="url(#ov2SpendGrad)" dot={false} activeDot={{ r: 4 }} />}
-                  {vis.subs    && <Area type="monotone" dataKey="subs"    name="Subs"    stroke={CHART_COLORS.subs}    strokeWidth={2} fill="url(#ov2SubsGrad)"  dot={false} activeDot={{ r: 4 }} />}
-                </ComposedChart>
+                  {SERIES_META.map(({ key, label, color }) =>
+                    vis[key] ? <Bar key={key} dataKey={key} name={label} fill={color} radius={[3, 3, 0, 0]} maxBarSize={32} /> : null
+                  )}
+                </BarChart>
               </ResponsiveContainer>
             )}
           </div>
@@ -429,22 +424,22 @@ export default function OverviewPage() {
           <div className="flex flex-col gap-3">
             <KpiCard label="Total Revenue"
               value={isLoading ? "…" : fmtShort(totals.revenue)}
-              sub={periodLabel} sparkData={sparkLast6} sparkKey="revenue"
-              accent={CHART_COLORS.revenue} badge={revenueMode === "net" ? "NET" : undefined} />
+              sub={periodLabel} sparkData={sparkLast6} sparkKey="rev"
+              accent="#10b981" badge={revenueMode === "net" ? "NET" : undefined} />
             <KpiCard label="Total Spend"
               value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
               sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
-              sparkData={sparkLast6} sparkKey="spend" accent={CHART_COLORS.spend} />
+              sparkData={sparkLast6} sparkKey="expenses" accent="#f97316" />
             <KpiCard label="Profit"
               value={isLoading ? "…" : fmtShort(totals.profit)}
               sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
-              sparkData={sparkLast6} sparkKey="profit"
-              accent={totals.profit >= 0 ? CHART_COLORS.revenue : "#ef4444"}
+              sparkData={sparkLast6} sparkKey="rev"
+              accent={totals.profit >= 0 ? "#10b981" : "#ef4444"}
               badge={revenueMode === "net" ? "NET" : undefined} />
             <KpiCard label="Subscribers"
               value={isLoading ? "…" : fmtN(totals.fans)}
               sub={periodLabel} sparkData={sparkLast6} sparkKey="subs"
-              accent={CHART_COLORS.subs} />
+              accent="#818cf8" />
           </div>
         </div>
 
