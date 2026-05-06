@@ -276,10 +276,13 @@ export default function OverviewPage() {
 
   const marketerBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
+    const marketerKey = (l: any): string =>
+      (l.onlytraffic_marketer as string | null)?.trim() || "Unassigned";
+
     if (isAllTime) {
       for (const l of allLinks as any[]) {
         if (!acctIds.has(l.account_id)) continue;
-        const src = getEffectiveSource(l) || "Unassigned";
+        const src = marketerKey(l);
         map[src] = (map[src] || 0) + Number(l.revenue || 0) * revMultiplier;
       }
     } else {
@@ -299,7 +302,7 @@ export default function OverviewPage() {
         const total = acctTotalRev[l.account_id] || 0;
         if (!total) continue;
         const portion = Number(l.revenue || 0) / total;
-        const src = getEffectiveSource(l) || "Unassigned";
+        const src = marketerKey(l);
         map[src] = (map[src] || 0) + (acctPeriodRev[l.account_id] || 0) * portion * revMultiplier;
       }
     }
