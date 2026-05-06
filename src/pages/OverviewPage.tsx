@@ -120,7 +120,6 @@ export default function OverviewPage() {
     customRange, setCustomRange, revenueMode, setRevenueMode, revMultiplier,
   } = usePageFilters();
 
-  const [chartMode, setChartMode] = useState<"daily" | "cumulative">("cumulative");
   const [vis, setVis] = useState<Record<SeriesKey, boolean>>({ subs: true, clicks: false, rev: false, expenses: false });
 
   const isAllTime  = timePeriod === "all" && !customRange;
@@ -221,19 +220,10 @@ export default function OverviewPage() {
     }));
   }, [periodData, acctIds, revMultiplier]);
 
-  // Apply cumulative transform for period data
-  const chartData = useMemo(() => {
-    if (isAllTime) return monthlyChartData;
-    const base = periodChartData;
-    if (chartMode === "cumulative" && base.length > 1) {
-      let cr = 0, ce = 0, cs = 0, cc = 0;
-      return base.map(d => {
-        cr += d.rev; ce += d.expenses; cs += d.subs; cc += d.clicks;
-        return { ...d, rev: cr, expenses: ce, subs: cs, clicks: cc };
-      });
-    }
-    return base;
-  }, [isAllTime, monthlyChartData, periodChartData, chartMode]);
+  const chartData = useMemo(
+    () => isAllTime ? monthlyChartData : periodChartData,
+    [isAllTime, monthlyChartData, periodChartData],
+  );
 
   const sparkLast6 = monthlyChartData.slice(-6);
 
@@ -371,14 +361,6 @@ export default function OverviewPage() {
             {(["gross", "net"] as const).map(m => (
               <button key={m} onClick={() => setRevenueMode(m)}
                 className={`px-3 py-2 text-xs font-medium capitalize transition-colors ${revenueMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                {m[0].toUpperCase() + m.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="ml-auto flex items-center bg-card border border-border rounded-xl overflow-hidden">
-            {(["daily", "cumulative"] as const).map(m => (
-              <button key={m} onClick={() => setChartMode(m)}
-                className={`px-3 py-2 text-xs font-medium capitalize transition-colors ${chartMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                 {m[0].toUpperCase() + m.slice(1)}
               </button>
             ))}
