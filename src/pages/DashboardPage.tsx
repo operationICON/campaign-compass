@@ -392,10 +392,6 @@ export default function DashboardPage() {
     return overviewSnapshotRows.reduce((s, r) => s + Number(r.revenue || 0), 0);
   }, [isAllTime, overviewSnapshotRows]);
 
-  const snapshotSpend = useMemo(() => {
-    if (isAllTime) return 0;
-    return overviewSnapshotRows.reduce((s, r) => s + Number((r as any).cost_total || 0), 0);
-  }, [isAllTime, overviewSnapshotRows]);
 
   const snapshotSubs = useMemo(() => {
     if (isAllTime) return 0;
@@ -597,7 +593,6 @@ export default function DashboardPage() {
           trackingLinkLtv={trackingLinkLtv}
           revMultiplier={revMultiplier}
           revenueMode={revenueMode}
-          snapshotSpend={snapshotSpend}
           snapshotSubs={snapshotSubs}
           txTypeTotalsByAccount={txTypeTotalsByAccount}
           allTimeSnapshotTotals={allTimeSnapshotTotals}
@@ -649,7 +644,7 @@ function KpiCards({
   unattributedStats, timePeriod, customRange, TIME_PERIODS,
   modelParam, groupFilter, getAccountCategory, fmtC, hasSnapshotData,
   trackingLinkLtv, revMultiplier, revenueMode,
-  snapshotSpend, snapshotSubs,
+  snapshotSubs,
   txTypeTotalsByAccount, allTimeSnapshotTotals,
 }: {
   isLoading: boolean;
@@ -675,7 +670,6 @@ function KpiCards({
   trackingLinkLtv: any[];
   revMultiplier: number;
   revenueMode: "gross" | "net";
-  snapshotSpend: number;
   snapshotSubs: number;
   txTypeTotalsByAccount: Record<string, { messages: number; tips: number; subscriptions: number; posts: number }>;
   allTimeSnapshotTotals: { revenue: number; subscribers: number } | undefined;
@@ -790,7 +784,7 @@ function KpiCards({
         } else if (noDataForPeriod) {
           subtitle = "No data for this period";
         } else {
-          const periodProfit = snapshotRevenue * revMultiplier - snapshotSpend;
+          const periodProfit = snapshotRevenue * revMultiplier - totalSpend;
           profitPerSub = snapshotSubs > 0 ? periodProfit / snapshotSubs : null;
           subtitle = periodLabel;
         }
@@ -1020,7 +1014,7 @@ function KpiCards({
 
       // ═══ EXPENSES ═══
       case "expenses": {
-        const expVal = isAllTime ? allTimeSpend : snapshotSpend;
+        const expVal = isAllTime ? allTimeSpend : totalSpend;
         const expSubtitle = isAllTime ? "All time · total ad spend" : noDataForPeriod ? "No data for this period" : periodLabel;
         const expShowDash = !isAllTime && noDataForPeriod;
         return (
@@ -1075,7 +1069,7 @@ function KpiCards({
       // ═══ TOTAL PROFIT ═══
       case "total_profit": {
         const tpRev = isAllTime ? allTimeRevenue * revMultiplier : snapshotRevenue * revMultiplier;
-        const tpSpend = isAllTime ? allTimeSpend : snapshotSpend;
+        const tpSpend = isAllTime ? allTimeSpend : totalSpend;
         const tpVal = tpRev - tpSpend;
         const showDash = !isAllTime && noDataForPeriod;
         const isPositive = tpVal >= 0;
@@ -1101,7 +1095,7 @@ function KpiCards({
       // ═══ ROI ═══
       case "blended_roi": {
         const roiRev = isAllTime ? allTimeRevenue * revMultiplier : snapshotRevenue * revMultiplier;
-        const roiSpend = isAllTime ? allTimeSpend : snapshotSpend;
+        const roiSpend = isAllTime ? allTimeSpend : totalSpend;
         const roiProfit = roiRev - roiSpend;
         const roiVal = roiSpend > 0 ? (roiProfit / roiSpend) * 100 : null;
         const isPositive = roiVal !== null && roiVal >= 0;
