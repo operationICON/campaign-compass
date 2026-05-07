@@ -21,6 +21,8 @@ export default function DebugPage() {
   const [txTypesLoading, setTxTypesLoading] = useState(false);
   const [findTotalResult, setFindTotalResult] = useState<any>(null);
   const [findTotalLoading, setFindTotalLoading] = useState(false);
+  const [sumEarningsResult, setSumEarningsResult] = useState<any>(null);
+  const [sumEarningsLoading, setSumEarningsLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -97,6 +99,19 @@ export default function DebugPage() {
       setFindTotalResult({ error: err.message });
     } finally {
       setFindTotalLoading(false);
+    }
+  }, []);
+
+  const runSumEarnings = useCallback(async () => {
+    setSumEarningsLoading(true);
+    setSumEarningsResult(null);
+    try {
+      const data = await debugAction("sum_earnings");
+      setSumEarningsResult(data);
+    } catch (err: any) {
+      setSumEarningsResult({ error: err.message });
+    } finally {
+      setSumEarningsLoading(false);
     }
   }, []);
 
@@ -228,6 +243,61 @@ export default function DebugPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Sum Earnings (Full History) */}
+        <div className="bg-card border border-violet-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-violet-500" /> Sum Earnings — Full History
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Calls <code className="font-mono">statistics/statements/earnings?start_date=2018-01-01&amp;type=total</code> for every account and sums the result — looking for ~$1.99M
+              </p>
+            </div>
+            <button
+              onClick={runSumEarnings}
+              disabled={sumEarningsLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+            >
+              {sumEarningsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              {sumEarningsLoading ? "Fetching all accounts…" : "Sum Earnings (Full History)"}
+            </button>
+          </div>
+          {sumEarningsResult && (
+            <div className="space-y-2">
+              {sumEarningsResult.error && <p className="text-xs text-destructive">{sumEarningsResult.error}</p>}
+              {sumEarningsResult.grand_total != null && (
+                <div className="flex items-center gap-3 bg-violet-500/10 border border-violet-500/30 rounded-lg px-3 py-2">
+                  <span className="text-[11px] text-muted-foreground">{sumEarningsResult.account_count} accounts ·</span>
+                  <span className="text-lg font-bold text-violet-400">
+                    ${Number(sumEarningsResult.grand_total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">grand total net</span>
+                </div>
+              )}
+              {(sumEarningsResult.results ?? []).map((r: any, i: number) => (
+                <div key={i} className="flex items-start gap-3 text-[11px] bg-secondary/50 rounded px-2 py-1.5">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${r.status === 200 ? "bg-emerald-500/15 text-emerald-600" : "bg-destructive/15 text-destructive"}`}>
+                    {r.status ?? "ERR"}
+                  </span>
+                  <span className="font-semibold text-foreground w-36 shrink-0">{r.account}</span>
+                  {r.net != null
+                    ? <span className="text-emerald-400 font-bold">${Number(r.net).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    : <span className="text-destructive/70">no net</span>}
+                  {r.gross != null && <span className="text-muted-foreground/60 ml-1">(gross: ${Number(r.gross).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>}
+                  {r.error && <span className="text-destructive">{r.error}</span>}
+                  {!r.net && !r.error && r.raw_sample && (
+                    <details className="ml-2">
+                      <summary className="text-muted-foreground cursor-pointer">raw</summary>
+                      <pre className="text-[10px] bg-secondary p-1 rounded mt-1 overflow-x-auto max-w-xs">{r.raw_sample}</pre>
+                    </details>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
