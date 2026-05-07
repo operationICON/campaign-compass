@@ -25,6 +25,7 @@ export const accounts = pgTable("accounts", {
   ltv_subscriptions:    numeric("ltv_subscriptions"),
   ltv_tips:             numeric("ltv_tips"),
   ltv_updated_at:       timestamp("ltv_updated_at", { withTimezone: true }),
+  revenue_monthly:      jsonb("revenue_monthly"),
   is_active:            boolean("is_active").notNull().default(true),
   sync_enabled:         boolean("sync_enabled").default(true),
   sync_excluded:        boolean("sync_excluded").default(false),

@@ -184,10 +184,25 @@ router.post("/", async (c) => {
             headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
           });
           const breakdown = { ...BUCKETS };
+          let revenueMonthly: Record<string, number> | null = null;
           if (earningsRes.ok) {
             const earningsJson = await earningsRes.json() as any;
-            // Response: { data: { total: { total: <net>, gross: <gross> } } }
+            // Response: { data: { total: { total: <net>, gross: <gross>, chartAmount: [{date, amount},...] } } }
             const netTotal = Number(earningsJson?.data?.total?.total ?? 0);
+            const grossTotal = Number(earningsJson?.data?.total?.gross ?? 0);
+            const ratio = netTotal > 0 && grossTotal > 0 ? netTotal / grossTotal : 0.8;
+            // Build monthly net map from chartAmount for All Time chart
+            const chartAmount: any[] = earningsJson?.data?.total?.chartAmount ?? [];
+            if (chartAmount.length > 0) {
+              revenueMonthly = {};
+              for (const entry of chartAmount) {
+                const gross = Number(entry.amount ?? entry.gross ?? entry.value ?? 0);
+                if (gross > 0) {
+                  const month = String(entry.date ?? "").slice(0, 7);
+                  if (month) revenueMonthly[month] = (revenueMonthly[month] || 0) + gross * ratio;
+                }
+              }
+            }
             if (netTotal > 0) {
               breakdown.other = netTotal;
             } else {
@@ -230,6 +245,7 @@ router.post("/", async (c) => {
             ltv_posts:         String(breakdown.posts),
             ltv_total:         String(ltvTotal),
             ltv_updated_at:    new Date(),
+            ...(revenueMonthly ? { revenue_monthly: revenueMonthly } : {}),
           }).where(eq(accounts.id, account.id));
 
           accountsUpdated++;

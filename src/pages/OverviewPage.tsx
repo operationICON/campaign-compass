@@ -381,10 +381,27 @@ export default function OverviewPage() {
 
   // Chart
   const chartData = useMemo(() => {
+    if (isAllTime) {
+      const m: Record<string, number> = {};
+      selectedAccounts.forEach((a: any) => {
+        const monthly = a.revenue_monthly as Record<string, number> | null;
+        if (!monthly) return;
+        Object.entries(monthly).forEach(([month, amount]) => {
+          m[month] = (m[month] || 0) + Number(amount);
+        });
+      });
+      return Object.entries(m)
+        .filter(([, v]) => v > 0)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, revenue]) => ({
+          date: key, revenue,
+          label: format(new Date(key + "-15"), "MMM yy"),
+        }));
+    }
     const daysDiff = dateFrom && dateTo
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
-      : 366;
-    const byMonth = isAllTime || daysDiff > 90;
+      : 90;
+    const byMonth = daysDiff > 90;
     const m: Record<string, number> = {};
     txRows.forEach(s => {
       if (!selectedIds.includes(s.account_id)) return;
@@ -398,7 +415,7 @@ export default function OverviewPage() {
         ? format(new Date(key + "-15"), "MMM yy")
         : format(new Date(key + "T12:00:00"), "MMM d"),
     }));
-  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo]);
+  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts]);
 
   const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
 
