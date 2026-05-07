@@ -98,6 +98,36 @@ router.post("/", async (c) => {
     return c.json({ results });
   }
 
+  // Test the analytics/financial/transactions/by-type endpoint and show raw response
+  if (body?.action === "analytics_test") {
+    const accRows = await db.execute(sql`
+      SELECT id, onlyfans_account_id, display_name
+      FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL
+      LIMIT 3
+    `);
+    const accs = accRows.rows as any[];
+    const results: any[] = [];
+    const today = new Date().toISOString().split("T")[0];
+
+    for (const acc of accs) {
+      const url = `${API_BASE}/${acc.onlyfans_account_id}/analytics/financial/transactions/by-type`;
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ date_from: "2018-01-01", date_to: today }),
+        });
+        const text = await res.text();
+        let parsed: any;
+        try { parsed = JSON.parse(text); } catch { parsed = text; }
+        results.push({ account: acc.display_name, status: res.status, top_keys: typeof parsed === "object" ? Object.keys(parsed ?? {}) : null, raw: parsed });
+      } catch (err: any) {
+        results.push({ account: acc.display_name, error: err.message });
+      }
+    }
+    return c.json({ results });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 
