@@ -295,6 +295,12 @@ export default function OverviewPage() {
     return m;
   }, [linksRaw]);
 
+  const clicksByAccount = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => { m[l.account_id] = (m[l.account_id] || 0) + Number(l.clicks || 0); });
+    return m;
+  }, [linksRaw]);
+
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
   // Aggregation helpers
@@ -481,7 +487,10 @@ export default function OverviewPage() {
       const prevProfit = prevRev - prevSpend;
       const newFans    = isAllTime ? Number(a.subscribers_count || 0) : (subsByAcct[a.id] || 0);
       const prevNewFans = prevSubsByAcct[a.id] || 0;
-      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, linkCount: linkCountByAccount[a.id] || 0 };
+      const clicks     = clicksByAccount[a.id] || 0;
+      const cvr        = clicks > 0 ? (newFans / clicks) * 100 : null;
+      const roi        = spend > 0 ? ((rev - spend) / spend) * 100 : null;
+      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, clicks, cvr, roi, linkCount: linkCountByAccount[a.id] || 0 };
     });
     const dir = tableSort.dir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
@@ -490,7 +499,8 @@ export default function OverviewPage() {
         case "spend":    return dir * (a.spend - b.spend);
         case "profit":   return dir * (a.profit - b.profit);
         case "newFans":  return dir * (a.newFans - b.newFans);
-
+        case "cvr":      return dir * ((a.cvr ?? -1) - (b.cvr ?? -1));
+        case "roi":      return dir * ((a.roi ?? -Infinity) - (b.roi ?? -Infinity));
         case "account":  return dir * a.account.display_name.localeCompare(b.account.display_name);
         default: return 0;
       }
@@ -514,8 +524,8 @@ export default function OverviewPage() {
 
   const handleExport = () => {
     const csv = [
-      ["Account","Username","Revenue","Spend","Profit","New Fans"].join(","),
-      ...tableRows.map(r => [`"${r.account.display_name}"`, r.account.username || "", r.rev.toFixed(2), r.spend.toFixed(2), r.profit.toFixed(2), r.newFans].join(",")),
+      ["Account","Username","New Fans","Revenue","Spend","Profit","CVR%","ROI%"].join(","),
+      ...tableRows.map(r => [`"${r.account.display_name}"`, r.account.username || "", r.newFans, r.rev.toFixed(2), r.spend.toFixed(2), r.profit.toFixed(2), r.cvr != null ? r.cvr.toFixed(1) : "", r.roi != null ? r.roi.toFixed(1) : ""].join(",")),
     ].join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -762,10 +772,12 @@ export default function OverviewPage() {
                 <tr className="border-b border-border bg-muted/30">
                   {[
                     { key: "account", label: "Account",  right: false },
+                    { key: "newFans", label: "New Fans", right: true  },
                     { key: "revenue", label: "Revenue",  right: true  },
                     { key: "spend",   label: "Spend",    right: true  },
                     { key: "profit",  label: "Profit",   right: true  },
-                    { key: "newFans", label: "New Fans", right: true  },
+                    { key: "cvr",     label: "CVR",      right: true  },
+                    { key: "roi",     label: "ROI",      right: true  },
                   ].map(col => (
                     <th key={col.key} onClick={() => sortBy(col.key)}
                       className={cn("px-5 py-3.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest cursor-pointer select-none hover:text-foreground transition-colors",
@@ -779,7 +791,7 @@ export default function OverviewPage() {
               </thead>
               <tbody>
                 {pagedRows.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     {snapsLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one account" : "No data"}
                   </td></tr>
                 ) : pagedRows.map(row => {
@@ -809,6 +821,11 @@ export default function OverviewPage() {
                           </div>
                         </div>
                       </td>
+                      {/* New Fans */}
+                      <td className="px-5 py-4 text-right">
+                        <div className="text-sm font-bold text-foreground">{row.newFans.toLocaleString()}</div>
+                        <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
+                      </td>
                       {/* Revenue */}
                       <td className="px-5 py-4 text-right">
                         <div className="text-sm font-bold text-foreground">{fmtMoney(row.rev)}</div>
@@ -826,10 +843,17 @@ export default function OverviewPage() {
                         </div>
                         <div className="flex justify-end mt-0.5"><ChangeChip pct={pp} /></div>
                       </td>
-                      {/* New Fans */}
+                      {/* CVR */}
                       <td className="px-5 py-4 text-right">
-                        <div className="text-sm font-bold text-foreground">{row.newFans.toLocaleString()}</div>
-                        <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
+                        <div className="text-sm font-bold text-foreground">
+                          {row.cvr != null ? `${row.cvr.toFixed(1)}%` : <span className="text-muted-foreground/40">—</span>}
+                        </div>
+                      </td>
+                      {/* ROI */}
+                      <td className="px-5 py-4 text-right">
+                        <div className={cn("text-sm font-bold", row.roi == null ? "text-muted-foreground/40" : row.roi >= 0 ? "text-emerald-400" : "text-red-400")}>
+                          {row.roi != null ? `${row.roi.toFixed(1)}%` : "—"}
+                        </div>
                       </td>
 
                     </tr>
