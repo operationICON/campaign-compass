@@ -1,917 +1,802 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  format, differenceInDays, subDays, startOfMonth, endOfMonth, subMonths,
-  startOfYear, endOfYear, addMonths, isBefore, isSameDay, isWithinInterval, startOfDay,
+  format, subDays, startOfMonth, endOfMonth, subMonths,
+  startOfYear, startOfWeek, endOfWeek,
 } from "date-fns";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
-} from "recharts";
-import { ChevronDown, ChevronLeft, ChevronRight, DollarSign, TrendingDown, TrendingUp, Users, Zap } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { ModelAvatar } from "@/components/ModelAvatar";
-import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { fetchAccounts, fetchTrackingLinks, fetchTransactionTypeTotalsByAccount, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
-import { getSnapshotsByDateRange, getSnapshotLatestDate } from "@/lib/api";
-import { isActiveAccount } from "@/lib/calc-helpers";
-import { getEffectiveSource } from "@/lib/source-helpers";
-import { usePageFilters } from "@/hooks/usePageFilters";
+import {
+  getAccounts, getSnapshotsByDateRange, getOnlytrafficOrders,
+  getTrackingLinks, getFanStats,
+} from "@/lib/api";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer,
+  BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, Tooltip, CartesianGrid,
+} from "recharts";
+import {
+  ChevronDown, Check, Search,
+  ArrowUpRight, ArrowDownRight,
+  BarChart2, TrendingUp, Users, DollarSign, Activity, Zap,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const SOURCE_COLORS = [
-  "#6366f1", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#0891b2",
-  "#e11d48", "#16a34a", "#ea580c", "#7c3aed", "#0d9488", "#c026d3",
-  "#dc2626", "#2563eb", "#64748b", "#f97316", "#84cc16", "#06b6d4",
+// ── Colors ────────────────────────────────────────────────────────────────────
+const MODEL_COLORS = [
+  "#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6",
+  "#06b6d4","#f97316","#ec4899","#14b8a6","#84cc16",
+  "#a855f7","#22c55e","#eab308","#3b82f6","#e11d48",
 ];
 
-const CHART_COLORS = { subs: "#818cf8", clicks: "#06b6d4", rev: "#10b981", expenses: "#f97316", revenue: "#10b981", spend: "#f97316" };
-const SERIES_META = [
-  { key: "subs",     label: "Subs",     color: "#818cf8" },
-  { key: "clicks",   label: "Clicks",   color: "#06b6d4" },
-  { key: "rev",      label: "Rev",      color: "#10b981" },
-  { key: "expenses", label: "Expenses", color: "#f97316" },
-] as const;
-type SeriesKey = typeof SERIES_META[number]["key"];
+// ── Date presets ──────────────────────────────────────────────────────────────
+type PresetKey =
+  | "today" | "yesterday" | "last_7" | "last_14" | "last_30" | "last_60"
+  | "last_90" | "this_week" | "last_week" | "this_month" | "last_month"
+  | "this_year" | "all_time" | "custom";
 
-const fmtC = (v: number) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
-const fmtN = (v: number) => v.toLocaleString("en-US");
-const fmtShort = (v: number) => {
-  const a = Math.abs(v);
-  if (a >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-  if (a >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
-  return `$${v.toFixed(0)}`;
-};
-const fmtAxis = (v: number) => {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-  return v === 0 ? "0" : `$${v}`;
-};
-
-// ── Date Picker helpers ───────────────────────────────────────────────────────
-
-type Preset = { label: string; tp?: string; fn?: () => { from: Date; to: Date } };
-const DATE_PRESETS: Preset[] = [
-  { label: "Today",           fn: () => ({ from: startOfDay(new Date()), to: new Date() }) },
-  { label: "Yesterday",       fn: () => { const y = subDays(new Date(), 1); return { from: startOfDay(y), to: y }; } },
-  { label: "Last 7 Days",     tp: "week" },
-  { label: "Last 30 Days",    tp: "month" },
-  { label: "This Month",      fn: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
-  { label: "Previous Month",  tp: "prev_month" },
-  { label: "This Year",       fn: () => ({ from: startOfYear(new Date()), to: new Date() }) },
-  { label: "Previous Year",   fn: () => { const y = subMonths(new Date(), 12); return { from: startOfYear(y), to: endOfYear(y) }; } },
+const DATE_PRESETS: { key: PresetKey; label: string }[] = [
+  { key: "today",      label: "Today" },
+  { key: "yesterday",  label: "Yesterday" },
+  { key: "last_7",     label: "Last 7 Days" },
+  { key: "last_14",    label: "Last 14 Days" },
+  { key: "last_30",    label: "Last 30 Days" },
+  { key: "last_60",    label: "Last 60 Days" },
+  { key: "last_90",    label: "Last 90 Days" },
+  { key: "this_week",  label: "This Week" },
+  { key: "last_week",  label: "Last Week" },
+  { key: "this_month", label: "This Month" },
+  { key: "last_month", label: "Last Month" },
+  { key: "this_year",  label: "This Year" },
+  { key: "all_time",   label: "All Time" },
 ];
 
-const WEEK_DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function fmtD(d: Date) { return format(d, "yyyy-MM-dd"); }
 
-function getMonthDays(year: number, month: number) {
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0).getDate();
-  const days: (Date | null)[] = [];
-  for (let i = 0; i < first.getDay(); i++) days.push(null);
-  for (let d = 1; d <= last; d++) days.push(new Date(year, month, d));
-  return days;
+function fmtMoney(n: number) {
+  if (!isFinite(n)) return "$0.00";
+  const neg = n < 0;
+  const abs = Math.abs(n);
+  return (neg ? "-$" : "$") + abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-async function resolvePeriodDates(
-  timePeriod: string,
-  customRange: { from: Date; to: Date } | null,
-): Promise<{ from: string; to: string; days: number } | null> {
-  if (timePeriod === "all" && !customRange) return null;
-  if (customRange) {
-    const from = customRange.from.toISOString().slice(0, 10);
-    const to   = customRange.to.toISOString().slice(0, 10);
-    return { from, to, days: Math.max(1, differenceInDays(customRange.to, customRange.from) + 1) };
+function fmtShort(n: number) {
+  if (!isFinite(n) || n === 0) return "$0";
+  const neg = n < 0; const abs = Math.abs(n);
+  const s = neg ? "-$" : "$";
+  if (abs >= 1_000_000) return `${s}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000)     return `${s}${(abs / 1_000).toFixed(1)}K`;
+  return `${s}${abs.toFixed(0)}`;
+}
+
+function computeDateRange(preset: PresetKey, custom: { from: Date; to: Date } | null) {
+  const today = new Date();
+  if (preset === "all_time") return { from: null as string | null, to: null as string | null, isAllTime: true };
+  if (preset === "custom" && custom) return { from: fmtD(custom.from), to: fmtD(custom.to), isAllTime: false };
+  let from: Date, to: Date = today;
+  switch (preset) {
+    case "today":      from = today; break;
+    case "yesterday":  from = to = subDays(today, 1); break;
+    case "last_7":     from = subDays(today, 7); break;
+    case "last_14":    from = subDays(today, 14); break;
+    case "last_30":    from = subDays(today, 30); break;
+    case "last_60":    from = subDays(today, 60); break;
+    case "last_90":    from = subDays(today, 90); break;
+    case "this_week":  from = startOfWeek(today, { weekStartsOn: 1 }); break;
+    case "last_week": {
+      const lw = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+      from = lw; to = endOfWeek(lw, { weekStartsOn: 1 }); break;
+    }
+    case "this_month": from = startOfMonth(today); break;
+    case "last_month":
+      from = startOfMonth(subMonths(today, 1));
+      to   = endOfMonth(subMonths(today, 1)); break;
+    case "this_year":  from = startOfYear(today); break;
+    default:           from = subDays(today, 30);
   }
-  const { date: serverMax } = await getSnapshotLatestDate();
-  const max = serverMax ?? new Date().toISOString().slice(0, 10);
-  switch (timePeriod) {
-    case "day": return { from: max, to: max, days: 1 };
-    case "week": {
-      const d = new Date(max + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - 7);
-      return { from: d.toISOString().slice(0, 10), to: max, days: 7 };
-    }
-    case "month": {
-      const d = new Date(max + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - 30);
-      return { from: d.toISOString().slice(0, 10), to: max, days: 30 };
-    }
-    case "prev_month": {
-      const ref   = new Date(max + "T00:00:00Z");
-      const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - 1, 1));
-      const end   = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0));
-      return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10), days: Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1) };
-    }
-    default: return null;
-  }
+  return { from: fmtD(from), to: fmtD(to), isAllTime: false };
 }
 
-interface AccountRow {
-  id: string; displayName: string; username: string; avatarUrl: string | null;
-  revenue: number; fans: number; spend: number; profit: number; roi: number | null;
+function prevRange(from: string, to: string) {
+  const f = new Date(from), t = new Date(to);
+  const days = Math.ceil((t.getTime() - f.getTime()) / 86400000) + 1;
+  return { prevFrom: fmtD(subDays(f, days)), prevTo: fmtD(subDays(f, 1)) };
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
-export default function OverviewPage() {
-  const {
-    timePeriod, setTimePeriod, modelFilter, setModelFilter,
-    customRange, setCustomRange, revenueMode, setRevenueMode, revMultiplier,
-  } = usePageFilters();
-
-  const [activeSeries, setActiveSeries] = useState<SeriesKey>("rev");
-  const [marketerPage, setMarketerPage] = useState(0);
-  const [modelPage, setModelPage] = useState(0);
-  const [marketerSort, setMarketerSort] = useState<{ key: "value" | "name" | "pct"; dir: "asc" | "desc" }>({ key: "value", dir: "desc" });
-  const MARKETER_PER_PAGE = 8;
-  const MODEL_PER_PAGE = 6;
-
-  const isAllTime  = timePeriod === "all" && !customRange;
-  const periodKey  = customRange
-    ? `custom_${customRange.from.toISOString()}_${customRange.to.toISOString()}`
-    : timePeriod;
-
-  // ── Queries ───────────────────────────────────────────────────────────────
-
-  const { data: accounts = [] }                      = useQuery({ queryKey: ["accounts"],       queryFn: fetchAccounts });
-  const { data: allLinks = [], isLoading: linksLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: fetchTrackingLinks });
-  const { data: txByAccount = {} }                   = useQuery({ queryKey: ["tx_type_totals"], queryFn: fetchTransactionTypeTotalsByAccount, staleTime: 5 * 60 * 1000 });
-  const { data: ltvRows = [] }                       = useQuery({ queryKey: ["tracking_link_ltv"], queryFn: fetchTrackingLinkLtv, staleTime: 5 * 60 * 1000 });
-
-  const { data: periodData, isLoading: snapLoading } = useQuery({
-    queryKey: ["ov2_snapshots", periodKey],
-    enabled: !isAllTime,
-    queryFn: async () => {
-      const range = await resolvePeriodDates(timePeriod, customRange);
-      if (!range) return { rows: [], days: 0, from: null as string | null, to: null as string | null };
-      const rows = await getSnapshotsByDateRange({ date_from: range.from, date_to: range.to, cols: "slim" });
-      return { rows, days: range.days, from: range.from, to: range.to };
-    },
-  });
-
-  const activeAccounts = useMemo(() => (accounts as any[]).filter(isActiveAccount), [accounts]);
-
-  const acctIds = useMemo(() => {
-    if (modelFilter !== "all") return new Set([modelFilter]);
-    return new Set(activeAccounts.map((a: any) => a.id));
-  }, [modelFilter, activeAccounts]);
-
-  // Monthly trend last 12 months (for sparklines + all-time chart)
-  const trendAccountIds = useMemo(() => {
-    if (modelFilter !== "all") return [modelFilter];
-    return activeAccounts.map((a: any) => a.id);
-  }, [modelFilter, activeAccounts]);
-
-  const { data: monthlyRows = [] } = useQuery({
-    queryKey: ["ov2_monthly", trendAccountIds.join(",")],
-    enabled: trendAccountIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const end = new Date();
-      const start = new Date(end); start.setMonth(start.getMonth() - 11); start.setDate(1);
-      return getSnapshotsByDateRange({
-        date_from: start.toISOString().slice(0, 10),
-        date_to:   end.toISOString().slice(0, 10),
-        account_ids: trendAccountIds,
-        cols: "slim",
-      });
-    },
-  });
-
-  const isLoading = linksLoading || (!isAllTime && snapLoading);
-
-  // ── Monthly chart data (all-time + sparklines) ───────────────────────────
-
-  const monthlyChartData = useMemo(() => {
-    const byMonth: Record<string, { rev: number; expenses: number; subs: number; clicks: number }> = {};
-    for (const r of monthlyRows as any[]) {
-      const d = r.snapshot_date as string;
-      if (!d || d.length < 7) continue;
-      const m = d.slice(0, 7);
-      if (!byMonth[m]) byMonth[m] = { rev: 0, expenses: 0, subs: 0, clicks: 0 };
-      byMonth[m].rev      += Number(r.revenue    || 0) * revMultiplier;
-      byMonth[m].expenses += Number(r.cost_total || 0);
-      byMonth[m].subs     += Number(r.subscribers || 0);
-      byMonth[m].clicks   += Number(r.clicks     || 0);
-    }
-    return Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, d]) => ({
-      label:    format(new Date(month + "-15T12:00:00Z"), "MMM yy"),
-      rev:      Math.round(d.rev),
-      expenses: Math.round(d.expenses),
-      subs:     Math.round(d.subs),
-      clicks:   Math.round(d.clicks),
-      ltv:      d.subs > 0 ? Math.round((d.rev / d.subs) * 100) / 100 : 0,
-    }));
-  }, [monthlyRows, revMultiplier]);
-
-  // ── Period daily chart data ───────────────────────────────────────────────
-
-  const periodChartData = useMemo(() => {
-    if (!periodData?.rows?.length) return [];
-    const byDay: Record<string, { rev: number; expenses: number; subs: number; clicks: number }> = {};
-    for (const r of periodData.rows as any[]) {
-      const day = (r.snapshot_date as string)?.slice(0, 10);
-      if (!day || !acctIds.has(r.account_id)) continue;
-      if (!byDay[day]) byDay[day] = { rev: 0, expenses: 0, subs: 0, clicks: 0 };
-      byDay[day].rev      += Number(r.revenue    || 0) * revMultiplier;
-      byDay[day].expenses += Number(r.cost_total || 0);
-      byDay[day].subs     += Number(r.subscribers || 0);
-      byDay[day].clicks   += Number(r.clicks     || 0);
-    }
-    return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([day, d]) => ({
-      label:    format(new Date(day + "T12:00:00Z"), "MMM d"),
-      rev:      Math.round(d.rev),
-      expenses: Math.round(d.expenses),
-      subs:     Math.round(d.subs),
-      clicks:   Math.round(d.clicks),
-    }));
-  }, [periodData, acctIds, revMultiplier]);
-
-  const chartData = useMemo(
-    () => isAllTime ? monthlyChartData : periodChartData,
-    [isAllTime, monthlyChartData, periodChartData],
-  );
-
-
-  // ── Per-account rows ──────────────────────────────────────────────────────
-
-  const accountRows = useMemo<AccountRow[]>(() => {
-    const today = new Date();
-    const periodDays = periodData?.days ?? 1;
-    const snapRows   = (periodData?.rows ?? []) as any[];
-    return activeAccounts.map((acc: any) => {
-      const accLinks = (allLinks as any[]).filter((l: any) => l.account_id === acc.id);
-      let revenue: number, fans: number, spend: number;
-      if (isAllTime) {
-        revenue = accLinks.reduce((s: number, l: any) => s + Number(l.revenue || 0), 0) * revMultiplier;
-        fans    = accLinks.reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-        spend   = accLinks.reduce((s: number, l: any) => s + Number(l.cost_total || 0), 0);
-      } else {
-        const snaps = snapRows.filter((r: any) => r.account_id === acc.id);
-        revenue = snaps.reduce((s: number, r: any) => s + Number(r.revenue || 0), 0) * revMultiplier;
-        fans    = snaps.reduce((s: number, r: any) => s + Number(r.subscribers || 0), 0);
-        spend   = accLinks.reduce((s: number, l: any) => {
-          const cost = Number(l.cost_total || 0);
-          if (!cost) return s;
-          return s + (cost / Math.max(1, differenceInDays(today, new Date(l.created_at)))) * periodDays;
-        }, 0);
-      }
-      const profit = revenue - spend;
-      return {
-        id: acc.id,
-        displayName: acc.display_name || acc.username || "Unknown",
-        username: (acc.username || "unknown").replace("@", ""),
-        avatarUrl: acc.avatar_thumb_url ?? null,
-        revenue, fans, spend, profit,
-        roi: spend > 0 ? (profit / spend) * 100 : null,
-      };
-    }).sort((a, b) => b.revenue - a.revenue);
-  }, [activeAccounts, allLinks, periodData, isAllTime, revMultiplier]);
-
-  const filteredRows = useMemo(
-    () => modelFilter === "all" ? accountRows : accountRows.filter(r => r.id === modelFilter),
-    [accountRows, modelFilter],
-  );
-
-  const totals = useMemo(() => {
-    const revenue = filteredRows.reduce((s, r) => s + r.revenue, 0);
-    const fans    = filteredRows.reduce((s, r) => s + r.fans, 0);
-    const spend   = filteredRows.reduce((s, r) => s + r.spend, 0);
-    const profit  = revenue - spend;
-    const ltvPerSub = fans > 0 ? revenue / fans : null;
-    return { revenue, fans, spend, profit, roi: spend > 0 ? (profit / spend) * 100 : null, ltvPerSub };
-  }, [filteredRows]);
-
-  // All-time fans + subs/day — always ignores period filter
-  const allTimeFans = useMemo(() =>
-    (allLinks as any[]).filter((l: any) => acctIds.has(l.account_id))
-      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0),
-  [allLinks, acctIds]);
-
-  const allTimeSubsPerDay = useMemo(() => {
-    const earliest = (allLinks as any[])
-      .filter((l: any) => acctIds.has(l.account_id) && l.created_at)
-      .reduce((min: Date | null, l: any) => {
-        const d = new Date(l.created_at);
-        return !min || d < min ? d : min;
-      }, null as Date | null);
-    if (!earliest || allTimeFans === 0) return null;
-    return allTimeFans / Math.max(1, differenceInDays(new Date(), earliest));
-  }, [allLinks, acctIds, allTimeFans]);
-
-  // ── Fan transaction totals (all-time, no date filter available) ─────────
-  const fanTxTotals = useMemo(() => {
-    let total = 0, messages = 0, tips = 0, subscriptions = 0, posts = 0;
-    for (const accId of Array.from(acctIds)) {
-      const t = (txByAccount as any)[accId];
-      if (!t) continue;
-      messages      += t.messages      || 0;
-      tips          += t.tips          || 0;
-      subscriptions += t.subscriptions || 0;
-      posts         += t.posts         || 0;
-    }
-    total = messages + tips + subscriptions + posts;
-    return { total, messages, tips, subscriptions, posts };
-  }, [txByAccount, acctIds]);
-
-  // ── Cross-poll revenue (already inside fan transactions, shown separately) ─
-  const crossPollRevenue = useMemo(() => {
-    let sum = 0;
-    for (const row of ltvRows as any[]) {
-      if (!acctIds.has(row.account_id)) continue;
-      sum += Number(row.cross_poll_revenue || 0);
-    }
-    return sum;
-  }, [ltvRows, acctIds]);
-
-  // ── Marketer breakdown ────────────────────────────────────────────────────
-
-  const marketerBreakdown = useMemo(() => {
-    const map: Record<string, number> = {};
-    const marketerKey = (l: any): string =>
-      (l.onlytraffic_marketer as string | null)?.trim() || "Unassigned";
-
-    if (isAllTime) {
-      for (const l of allLinks as any[]) {
-        if (!acctIds.has(l.account_id)) continue;
-        const src = marketerKey(l);
-        map[src] = (map[src] || 0) + Number(l.revenue || 0) * revMultiplier;
-      }
-    } else {
-      const periodRows = (periodData?.rows ?? []) as any[];
-      const acctPeriodRev: Record<string, number> = {};
-      for (const r of periodRows) {
-        if (!acctIds.has(r.account_id)) continue;
-        acctPeriodRev[r.account_id] = (acctPeriodRev[r.account_id] || 0) + Number(r.revenue || 0);
-      }
-      const acctTotalRev: Record<string, number> = {};
-      for (const l of allLinks as any[]) {
-        if (!acctIds.has(l.account_id)) continue;
-        acctTotalRev[l.account_id] = (acctTotalRev[l.account_id] || 0) + Number(l.revenue || 0);
-      }
-      for (const l of allLinks as any[]) {
-        if (!acctIds.has(l.account_id)) continue;
-        const total = acctTotalRev[l.account_id] || 0;
-        if (!total) continue;
-        const portion = Number(l.revenue || 0) / total;
-        const src = marketerKey(l);
-        map[src] = (map[src] || 0) + (acctPeriodRev[l.account_id] || 0) * portion * revMultiplier;
-      }
-    }
-    // All-time only: add Unattributed (fan tips/msgs/subs not from campaigns) and Cross-poll
-    if (isAllTime) {
-      const campaignTotal = Object.values(map).reduce((s, v) => s + v, 0);
-      const unattributed = fanTxTotals.total * revMultiplier - campaignTotal;
-      if (unattributed > 0) map["Unattributed"] = unattributed;
-      if (crossPollRevenue > 0) map["Cross-poll"] = crossPollRevenue * revMultiplier;
-    }
-
-    const entries = Object.entries(map).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
-    const total   = entries.reduce((s, [, v]) => s + v, 0);
-    return entries.map(([name, value]) => ({ name, value, pct: total > 0 ? value / total : 0 }));
-  }, [isAllTime, allLinks, periodData, acctIds, revMultiplier, fanTxTotals, crossPollRevenue]);
-
-  const marketerTotal = marketerBreakdown.reduce((s, r) => s + r.value, 0);
-  const maxValue = Math.max(...accountRows.map(r => Math.max(r.revenue, r.spend)), 1);
-
-  const periodLabel = useMemo(() => {
-    if (customRange) return `${format(customRange.from, "MMM d, yyyy")} – ${format(customRange.to, "MMM d, yyyy")}`;
-    switch (timePeriod) {
-      case "day":        return "Last Sync";
-      case "week":       return "Last 7 Days";
-      case "month":      return "Last 30 Days";
-      case "prev_month": return "Previous Month";
-      default:           return "All Time";
-    }
-  }, [timePeriod, customRange]);
-
-  const accountOptions = useMemo(() => activeAccounts.map((a: any) => ({
-    id: a.id, username: a.username || "unknown", display_name: a.display_name,
-    avatar_thumb_url: a.avatar_thumb_url, is_active: a.is_active,
-  })), [activeAccounts]);
-
-  const activeMeta = SERIES_META.find(s => s.key === activeSeries)!;
-  const isCurrency = activeSeries === "rev" || activeSeries === "expenses";
-  const activeTotal = chartData.reduce((s, d) => s + (d[activeSeries] as number), 0);
-  const activeTotalFmt = isCurrency ? fmtShort(activeTotal) : fmtN(activeTotal);
-  const activeAxisFmt = isCurrency ? fmtAxis : (v: number) => {
-    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-    if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
-    return String(v);
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
+// ── Sparkline ─────────────────────────────────────────────────────────────────
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (!data || data.length < 2) return <div className="w-20 h-8" />;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const W = 80, H = 32;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * W;
+    const y = H - ((v - min) / range) * (H - 4) - 2;
+    return `${x},${y}`;
+  }).join(" ");
   return (
-    <DashboardLayout>
-      <div className="space-y-5">
-
-        {/* Header + filters */}
-        <div className="flex flex-col gap-3">
-          <h1 className="text-[20px] font-bold text-foreground tracking-tight">Overview</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <CombinedDatePicker
-              timePeriod={timePeriod}
-              customRange={customRange}
-              onSelectCustom={(range) => { setCustomRange(range); setTimePeriod("all"); }}
-              onSelectTp={(tp) => { setTimePeriod(tp); setCustomRange(null); }}
-            />
-            <AccountFilterDropdown value={modelFilter} onChange={setModelFilter} accounts={accountOptions} />
-            <div className="flex items-center bg-muted/50 border border-border rounded-xl overflow-hidden">
-              {(["gross", "net"] as const).map(m => (
-                <button key={m} onClick={() => setRevenueMode(m)}
-                  className={`px-3 py-1.5 text-xs font-semibold transition-all ${revenueMode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-                  {m[0].toUpperCase() + m.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ MAIN ROW ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 items-stretch">
-
-          {/* KPI cards */}
-          <div className="flex flex-col gap-3 h-full">
-            <KpiCard label="Revenue"
-              value={isLoading ? "…" : fmtShort(isAllTime && fanTxTotals.total > 0 ? fanTxTotals.total * revMultiplier : totals.revenue)}
-              sub={isAllTime && fanTxTotals.total > 0 ? `Tips · Messages · Subs · Posts` : periodLabel}
-              accent="#10b981" icon={<DollarSign className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} grow />
-            <KpiCard label="Ad Spend" value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
-              sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
-              accent="#f97316" icon={<TrendingDown className="h-4 w-4" />} grow />
-            <KpiCard label="Profit" value={isLoading ? "…" : fmtShort(totals.profit)}
-              sub={totals.roi !== null ? `ROI ${totals.roi.toFixed(1)}%` : periodLabel}
-              accent={totals.profit >= 0 ? "#10b981" : "#ef4444"} icon={<TrendingUp className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} grow />
-            <KpiCard label="Subscribers" value={isLoading ? "…" : fmtN(allTimeFans)}
-              sub={allTimeSubsPerDay ? `${allTimeSubsPerDay.toFixed(1)} subs/day · All time` : "All time"}
-              accent="#818cf8" icon={<Users className="h-4 w-4" />} grow />
-            <KpiCard label="LTV / Sub" value={isLoading ? "…" : totals.ltvPerSub !== null ? `$${totals.ltvPerSub.toFixed(2)}` : "—"}
-              sub={`${revenueMode === "net" ? "Net" : "Gross"} · ${isAllTime ? "All time" : periodLabel}`}
-              accent="#e879f9" icon={<Zap className="h-4 w-4" />}
-              badge={revenueMode === "net" ? "NET" : undefined} grow />
-          </div>
-
-          {/* Right column: chart + marketer + models */}
-          <div className="flex flex-col gap-4">
-
-          {/* Chart */}
-          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col" style={{ minHeight: 340 }}>
-            {/* Chart header: title + total + pill tabs */}
-            <div className="flex items-start justify-between mb-4 shrink-0 gap-3">
-              <div>
-                <h2 className="text-[13px] font-semibold text-foreground">Performance</h2>
-                <p className="text-[24px] font-bold font-mono leading-tight mt-1" style={{ color: activeMeta.color }}>
-                  {isLoading ? "…" : chartData.length > 0 ? activeTotalFmt : "—"}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{activeMeta.label} · {periodLabel}</p>
-              </div>
-              <div className="flex items-center gap-1 flex-wrap justify-end">
-                {SERIES_META.map(({ key, label, color }) => (
-                  <button key={key} onClick={() => setActiveSeries(key)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
-                      activeSeries === key
-                        ? "text-white border-transparent shadow-sm"
-                        : "bg-transparent border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                    style={activeSeries === key ? { background: color, borderColor: color } : {}}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {chartData.length === 0 ? (
-              <div className="flex items-center justify-center text-muted-foreground text-sm" style={{ height: 220 }}>
-                {isLoading ? "Loading…" : "No data"}
-              </div>
-            ) : (
-              <div style={{ height: 220 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="25%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={activeAxisFmt} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={52} />
-                    <RechartsTooltip content={<ChartTooltip isCurrency={isCurrency} />} />
-                    <Bar dataKey={activeSeries} name={activeMeta.label} fill={activeMeta.color} radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-
-          {/* Marketer + Models */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-          {/* Revenue by Marketer */}
-          {(() => {
-            const sortedBreakdown = [...marketerBreakdown].sort((a, b) => {
-              const mul = marketerSort.dir === "asc" ? 1 : -1;
-              if (marketerSort.key === "name") return mul * a.name.localeCompare(b.name);
-              if (marketerSort.key === "pct")  return mul * (a.pct - b.pct);
-              return mul * (a.value - b.value);
-            });
-            const mTotalPages = Math.ceil(sortedBreakdown.length / MARKETER_PER_PAGE);
-            const mSlice = sortedBreakdown.slice(marketerPage * MARKETER_PER_PAGE, (marketerPage + 1) * MARKETER_PER_PAGE);
-            const toggleSort = (key: typeof marketerSort.key) =>
-              setMarketerSort(s => s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" });
-            const SortBtn = ({ k, label }: { k: typeof marketerSort.key; label: string }) => (
-              <button onClick={() => toggleSort(k)}
-                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded transition-all ${marketerSort.key === k ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}>
-                {label}{marketerSort.key === k ? (marketerSort.dir === "desc" ? " ↓" : " ↑") : ""}
-              </button>
-            );
-            return (
-              <div className="bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-[13px] font-semibold text-foreground">Revenue by Marketer</h2>
-                  <span className="text-[11px] text-muted-foreground font-mono">{fmtC(marketerTotal)}</span>
-                </div>
-                {marketerBreakdown.length === 0 ? (
-                  <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No tagged links</div>
-                ) : (
-                  <>
-                    {/* Sort controls */}
-                    <div className="flex items-center gap-1 mb-3">
-                      <span className="text-[10px] text-muted-foreground mr-1">Sort:</span>
-                      <SortBtn k="value" label="Revenue" />
-                      <SortBtn k="pct" label="%" />
-                      <SortBtn k="name" label="Name" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {/* Bars */}
-                      <div className="flex-1 min-w-0 space-y-3.5">
-                        {mSlice.map((src, i) => {
-                          const globalIdx = marketerPage * MARKETER_PER_PAGE + i;
-                          const color = src.name === "Unattributed" ? "#a78bfa"
-                            : src.name === "Cross-poll" ? "#f472b6"
-                            : SOURCE_COLORS[globalIdx % SOURCE_COLORS.length];
-                          return (
-                            <div key={src.name}>
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                                  <span className="text-[13px] font-semibold text-foreground truncate">{src.name}</span>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0 ml-2">
-                                  <span className="text-[13px] font-mono font-semibold text-foreground">{fmtShort(src.value)}</span>
-                                  <span className="text-[12px] font-mono font-bold w-9 text-right" style={{ color }}>{(src.pct * 100).toFixed(1)}%</span>
-                                </div>
-                              </div>
-                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${src.pct * 100}%`, background: color }} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {/* Donut */}
-                      <div className="shrink-0" style={{ width: 160, height: 160 }}>
-                        <div className="relative" style={{ width: 160, height: 160 }}>
-                          <ResponsiveContainer width={160} height={160}>
-                            <PieChart>
-                              <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={46} outerRadius={72}
-                                dataKey="value" strokeWidth={0} paddingAngle={2}>
-                                {marketerBreakdown.map((entry, i) => {
-                                  const c = entry.name === "Unattributed" ? "#a78bfa" : entry.name === "Cross-poll" ? "#f472b6" : SOURCE_COLORS[i % SOURCE_COLORS.length];
-                                  return <Cell key={i} fill={c} />;
-                                })}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-[36px] font-bold text-foreground leading-none">{marketerBreakdown.length}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Marketers</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Pagination */}
-                    {mTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-                        <button onClick={() => setMarketerPage(p => Math.max(0, p - 1))} disabled={marketerPage === 0}
-                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                          <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                        </button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: mTotalPages }, (_, i) => (
-                            <button key={i} onClick={() => setMarketerPage(i)}
-                              className={`w-6 h-6 rounded text-[11px] font-semibold transition-all ${
-                                i === marketerPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                              }`}>
-                              {i + 1}
-                            </button>
-                          ))}
-                        </div>
-                        <button onClick={() => setMarketerPage(p => Math.min(mTotalPages - 1, p + 1))} disabled={marketerPage === mTotalPages - 1}
-                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                          Next <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Revenue vs Spend by Model */}
-          {(() => {
-            const mTotalPages = Math.ceil(accountRows.length / MODEL_PER_PAGE);
-            const mSlice = accountRows.slice(modelPage * MODEL_PER_PAGE, (modelPage + 1) * MODEL_PER_PAGE);
-            return (
-              <div className="bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-[13px] font-semibold text-foreground">Models</h2>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.revenue }} />Revenue</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS.spend }} />Spend</span>
-                  </div>
-                </div>
-
-                {isLoading ? (
-                  <div className="space-y-4">
-                    {[...Array(MODEL_PER_PAGE)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="skeleton-shimmer h-7 w-7 rounded-full shrink-0" />
-                        <div className="flex-1 space-y-1.5">
-                          <div className="skeleton-shimmer h-2 w-28 rounded" />
-                          <div className="skeleton-shimmer h-1.5 rounded" />
-                          <div className="skeleton-shimmer h-1.5 w-2/3 rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : accountRows.length === 0 ? (
-                  <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">No data</div>
-                ) : (
-                  <>
-                    <div className="space-y-3">
-                      {mSlice.map(row => {
-                        const revW   = Math.min((row.revenue / maxValue) * 100, 100);
-                        const spendW = Math.min((row.spend   / maxValue) * 100, 100);
-                        const roiPos = row.roi !== null && row.roi >= 0;
-                        return (
-                          <div key={row.id} className="flex items-center gap-3">
-                            <ModelAvatar avatarUrl={row.avatarUrl} name={row.username} size={28} />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1.5">
-                                <p className="text-[12px] font-semibold text-foreground truncate">{row.displayName}</p>
-                                <div className="flex items-center gap-2 shrink-0 ml-2">
-                                  <span className="text-[11px] font-mono text-muted-foreground">{fmtShort(row.revenue)}</span>
-                                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${roiPos ? "bg-emerald-500/10 text-emerald-500" : row.roi !== null ? "bg-red-500/10 text-red-500" : "text-muted-foreground"}`}>
-                                    {row.roi !== null ? `${Math.round(row.roi)}%` : "—"}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="h-[5px] bg-muted rounded-full mb-1 overflow-hidden">
-                                <div className="h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${revW}%`, background: CHART_COLORS.revenue }} />
-                              </div>
-                              <div className="h-[5px] bg-muted rounded-full overflow-hidden">
-                                <div className="h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${spendW}%`, background: CHART_COLORS.spend }} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Pagination */}
-                    {mTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-                        <button onClick={() => setModelPage(p => Math.max(0, p - 1))} disabled={modelPage === 0}
-                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                          <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                        </button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: mTotalPages }, (_, i) => (
-                            <button key={i} onClick={() => setModelPage(i)}
-                              className={`w-6 h-6 rounded text-[11px] font-semibold transition-all ${
-                                i === modelPage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                              }`}>
-                              {i + 1}
-                            </button>
-                          ))}
-                        </div>
-                        <button onClick={() => setModelPage(p => Math.min(mTotalPages - 1, p + 1))} disabled={modelPage === mTotalPages - 1}
-                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                          Next <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })()}
-          </div>
-          </div>
-        </div>
-
-      </div>
-    </DashboardLayout>
+    <svg width={W} height={H} className="opacity-75">
+      <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} />
+    </svg>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function ChartTooltip({ active, payload, label, isCurrency }: any) {
-  if (!active || !payload?.length) return null;
-  const fmt = (v: number) => isCurrency ? fmtAxis(v) : v >= 1_000 ? `${(v / 1_000).toFixed(1)}K` : String(v);
+// ── Change chip ───────────────────────────────────────────────────────────────
+function ChangeChip({ pct }: { pct: number | null }) {
+  if (pct === null || !isFinite(pct)) return null;
+  const up = pct >= 0;
   return (
-    <div className="bg-card border border-border rounded-xl p-3 shadow-lg text-[12px] min-w-[130px]">
-      <p className="font-semibold text-foreground mb-2">{label}</p>
-      {payload.map((p: any) => (
-        <div key={p.name} className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-            <span className="text-muted-foreground">{p.name}</span>
-          </div>
-          <span className="font-mono font-semibold text-foreground">{fmt(p.value)}</span>
-        </div>
-      ))}
-    </div>
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-medium", up ? "text-emerald-400" : "text-red-400")}>
+      {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {Math.abs(pct).toFixed(1)}%
+    </span>
   );
 }
 
-function KpiCard({ label, value, sub, accent, badge, icon, grow }: {
-  label: string; value: string; sub: string; accent: string; badge?: string; icon?: React.ReactNode; grow?: boolean;
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+function KpiCard({ label, value, sub, pct, sparkData, accent, icon }: {
+  label: string; value: string; sub?: string;
+  pct?: number | null; sparkData?: number[];
+  accent: string; icon: React.ReactNode;
 }) {
   return (
-    <div className={`bg-card border border-border rounded-2xl px-5 pt-4 pb-3.5 overflow-hidden flex flex-col justify-center${grow ? " flex-1" : ""}`}
-      style={{ borderBottom: `3px solid ${accent}` }}>
+    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3" style={{ borderBottom: `3px solid ${accent}` }}>
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
-            {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{badge}</span>}
-          </div>
-          <p className="text-[28px] font-bold font-mono text-foreground leading-none">{value}</p>
-          <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{sub}</p>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+          <p className="text-3xl font-bold text-foreground mt-1 leading-none">{value}</p>
+          {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
         </div>
-        {icon && (
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: accent + "22", color: accent }}>
-            {icon}
-          </div>
-        )}
+        <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style={{ background: `${accent}18` }}>
+          <span style={{ color: accent }}>{icon}</span>
+        </div>
+      </div>
+      <div className="flex items-end justify-between">
+        <div>
+          {pct !== undefined && pct !== null ? (
+            <>
+              <ChangeChip pct={pct} />
+              <p className="text-[10px] text-muted-foreground mt-0.5">vs prev period</p>
+            </>
+          ) : <div />}
+        </div>
+        {sparkData && <Sparkline data={sparkData} color={accent} />}
       </div>
     </div>
   );
 }
 
-// ── CombinedDatePicker ────────────────────────────────────────────────────────
-
-function CombinedDatePicker({ timePeriod, customRange, onSelectCustom, onSelectTp }: {
-  timePeriod: string;
-  customRange: { from: Date; to: Date } | null;
-  onSelectCustom: (r: { from: Date; to: Date }) => void;
-  onSelectTp: (tp: string) => void;
+// ── Account multi-select ──────────────────────────────────────────────────────
+function AccountFilter({ accounts, selected, onChange }: {
+  accounts: any[]; selected: string[]; onChange: (ids: string[]) => void;
 }) {
-  const [open, setOpen]       = useState(false);
-  const [leftMonth, setLeft]  = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
-  const [sel, setSel]         = useState<{ from: Date; to: Date | null } | null>(null);
-  const [hover, setHover]     = useState<Date | null>(null);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
-  const rightMonth = addMonths(leftMonth, 1);
-
   useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
 
-  const buttonLabel = useMemo(() => {
-    if (customRange) return `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d, yyyy")}`;
-    switch (timePeriod) {
-      case "day":        return "Last Sync";
-      case "week":       return "Last 7 Days";
-      case "month":      return "Last 30 Days";
-      case "prev_month": return "Prev Month";
-      case "all":        return "All Time";
-      default:           return "Select range";
-    }
-  }, [timePeriod, customRange]);
-
-  const handleDayClick = (day: Date) => {
-    if (!sel || sel.to !== null) { setSel({ from: day, to: null }); setHover(null); }
-    else {
-      const from = isBefore(day, sel.from) ? day : sel.from;
-      const to   = isBefore(day, sel.from) ? sel.from : day;
-      setSel({ from, to });
-    }
-  };
-
-  const handleApply = () => {
-    if (sel?.from && sel?.to) {
-      onSelectCustom({ from: startOfDay(sel.from), to: startOfDay(sel.to) });
-      setOpen(false);
-    }
-  };
-
-  const handlePreset = (p: Preset) => {
-    if (p.tp) { onSelectTp(p.tp); setOpen(false); return; }
-    if (p.fn) { const r = p.fn(); setSel({ from: r.from, to: r.to }); }
-  };
-
-  const inRange = (day: Date) => {
-    if (!sel) return false;
-    const end = sel.to ?? hover;
-    if (!end) return false;
-    const from = isBefore(end, sel.from) ? end : sel.from;
-    const to   = isBefore(end, sel.from) ? sel.from : end;
-    return isWithinInterval(day, { start: from, end: to });
-  };
-  const isStart = (d: Date) => !!(sel?.from && isSameDay(d, sel.from));
-  const isEnd   = (d: Date) => { const e = sel?.to ?? hover; return !!(e && isSameDay(d, e)); };
-
-  const renderMonth = (m: Date) => {
-    const days = getMonthDays(m.getFullYear(), m.getMonth());
-    return (
-      <div className="w-[196px]">
-        <p className="text-center text-[12px] font-semibold text-foreground mb-2">{format(m, "MMMM yyyy")}</p>
-        <div className="grid grid-cols-7">
-          {WEEK_DAYS.map(d => <div key={d} className="text-center text-[10px] text-muted-foreground py-1">{d}</div>)}
-          {days.map((day, i) => {
-            if (!day) return <div key={`e${i}`} />;
-            const start = isStart(day), end = isEnd(day), range = inRange(day) && !start && !end;
-            return (
-              <button key={day.toISOString()} onClick={() => handleDayClick(day)}
-                onMouseEnter={() => { if (sel && !sel.to) setHover(day); }}
-                className={`h-7 text-[11px] transition-colors
-                  ${start || end ? "bg-primary text-primary-foreground rounded-full font-bold" : ""}
-                  ${range ? "bg-primary/15 text-foreground rounded-none" : ""}
-                  ${!start && !end && !range ? "hover:bg-secondary rounded-full" : ""}
-                `}>
-                {day.getDate()}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
+  const filtered = accounts.filter(a => !search || a.display_name.toLowerCase().includes(search.toLowerCase()));
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/25 text-primary text-[12px] font-medium hover:bg-primary/15 transition-colors">
-        {buttonLabel}
-        <ChevronDown className="h-3.5 w-3.5" />
+        className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground flex items-center gap-2 hover:bg-accent/30 transition-colors select-none">
+        <Users className="w-3.5 h-3.5 text-muted-foreground" />
+        <span>Accounts ({selected.length})</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 z-50 bg-card rounded-2xl p-4 shadow-2xl"
-          style={{ border: "1px solid hsl(var(--border))" }}>
-          {/* Nav */}
-          <div className="flex items-center justify-between mb-3">
-            <button onClick={() => setLeft(subMonths(leftMonth, 1))} className="p-1 rounded hover:bg-secondary">
-              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-            </button>
-            <div className="flex-1" />
-            <button onClick={() => setLeft(addMonths(leftMonth, 1))} className="p-1 rounded hover:bg-secondary">
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-
-          <div className="flex gap-3">
-            {/* Calendars */}
-            <div className="flex gap-3">
-              {renderMonth(leftMonth)}
-              {renderMonth(rightMonth)}
+        <div className="absolute left-0 top-full mt-1 w-72 bg-card border border-border rounded-xl shadow-2xl z-[60]">
+          <div className="p-2.5 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search accounts…"
+                className="w-full h-8 pl-8 pr-3 text-xs bg-muted/40 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
             </div>
-            {/* Presets */}
-            <div className="w-[136px] flex flex-col border-l border-border pl-3 gap-0.5">
-              {DATE_PRESETS.map(p => (
-                <button key={p.label} onClick={() => handlePreset(p)}
-                  className="text-left px-2 py-1.5 text-[12px] text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
-                  {p.label}
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2 border-b border-border">
+            <button onClick={() => onChange(accounts.map(a => a.id))} className="text-xs text-primary hover:underline">Select All</button>
+            <span className="text-muted-foreground/40">·</span>
+            <button onClick={() => onChange([])} className="text-xs text-muted-foreground hover:text-foreground hover:underline">Deselect All</button>
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
+            {filtered.map(a => {
+              const checked = selected.includes(a.id);
+              return (
+                <button key={a.id} onClick={() => toggle(a.id)}
+                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent/40 transition-colors text-left">
+                  <div className={cn("w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                    checked ? "bg-primary border-primary" : "border-border")}>
+                    {checked && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                  </div>
+                  {a.avatar_thumb_url
+                    ? <img src={a.avatar_thumb_url} className="w-6 h-6 rounded-full object-cover shrink-0" alt="" />
+                    : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
+                        {(a.display_name || "?").slice(0, 2).toUpperCase()}
+                      </div>}
+                  <span className="text-sm text-foreground truncate">{a.display_name}</span>
                 </button>
-              ))}
-              <div className="h-px bg-border my-1" />
-              <button onClick={() => { onSelectTp("all"); setOpen(false); }}
-                className="text-left px-2 py-1.5 text-[12px] text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
-                All Time
-              </button>
-            </div>
-          </div>
-
-          {/* Apply */}
-          <div className="flex justify-end pt-3 mt-3 border-t border-border">
-            <button onClick={handleApply} disabled={!sel?.from || !sel?.to}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 transition-all">
-              Apply ✓
-            </button>
+              );
+            })}
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+export default function OverviewPage() {
+  const [selectedIds, setSelectedIds]   = useState<string[]>([]);
+  const [idsReady, setIdsReady]         = useState(false);
+  const [preset, setPreset]             = useState<PresetKey>("last_30");
+  const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
+  const [earningMode, setEarningMode]   = useState<"net" | "gross">("net");
+  const [chartType, setChartType]       = useState<"bar" | "line">("bar");
+  const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
+  const [tablePage, setTablePage]       = useState(0);
+  const [tablePageSize, setTablePageSize] = useState(10);
+
+  const { from: dateFrom, to: dateTo, isAllTime } = useMemo(() => computeDateRange(preset, customRange), [preset, customRange]);
+  const { prevFrom, prevTo } = useMemo(() =>
+    dateFrom && dateTo ? prevRange(dateFrom, dateTo) : { prevFrom: null as string | null, prevTo: null as string | null },
+    [dateFrom, dateTo]);
+  const revMult = earningMode === "gross" ? 1.25 : 1.0;
+
+  const pickerValue = useMemo(() => {
+    if (isAllTime) return null;
+    if (preset === "custom") return customRange;
+    return dateFrom && dateTo ? { from: new Date(dateFrom + "T12:00:00"), to: new Date(dateTo + "T12:00:00") } : null;
+  }, [preset, customRange, dateFrom, dateTo, isAllTime]);
+
+  // Queries
+  const { data: accountsRaw = [] } = useQuery({ queryKey: ["accounts"], queryFn: getAccounts, staleTime: 5 * 60 * 1000 });
+  const available = useMemo(() => (accountsRaw as any[]).filter(a => a.is_active && !a.sync_excluded), [accountsRaw]);
+
+  useEffect(() => {
+    if (!idsReady && available.length > 0) { setSelectedIds(available.map((a: any) => a.id)); setIdsReady(true); }
+  }, [available, idsReady]);
+
+  const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: getTrackingLinks, staleTime: 5 * 60 * 1000 });
+
+  const { data: snaps = [], isLoading: snapsLoading } = useQuery({
+    queryKey: ["ov2_snaps", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom ?? "2020-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds, cols: "slim" }),
+    enabled: selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: prevSnaps = [] } = useQuery({
+    queryKey: ["ov2_prev_snaps", prevFrom, prevTo, selectedIds.join(",")],
+    queryFn: () => getSnapshotsByDateRange({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds, cols: "slim" }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: orders = [] } = useQuery({
+    queryKey: ["ov2_orders", dateFrom, dateTo],
+    queryFn: () => getOnlytrafficOrders({ date_from: dateFrom ?? undefined, date_to: dateTo ?? undefined, statuses: ["completed","accepted","active","waiting"] }),
+    enabled: !!dateFrom,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: prevOrders = [] } = useQuery({
+    queryKey: ["ov2_prev_orders", prevFrom, prevTo],
+    queryFn: () => getOnlytrafficOrders({ date_from: prevFrom!, date_to: prevTo!, statuses: ["completed","accepted","active","waiting"] }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: fanStats } = useQuery({ queryKey: ["fan_stats_all"], queryFn: () => getFanStats(), staleTime: 10 * 60 * 1000 });
+
+  // Derived maps
+  const linkToAccount = useMemo(() => {
+    const m: Record<string, string> = {};
+    (linksRaw as any[]).forEach(l => { if (l.id && l.account_id) m[l.id] = l.account_id; });
+    return m;
+  }, [linksRaw]);
+
+  const linkCountByAccount = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => { m[l.account_id] = (m[l.account_id] || 0) + 1; });
+    return m;
+  }, [linksRaw]);
+
+  const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
+
+  // Aggregation helpers
+  const aggSnaps = (data: any[], field: string, ids: string[]) => {
+    const m: Record<string, number> = {};
+    (data as any[]).forEach(s => {
+      if (!ids.includes(s.account_id)) return;
+      m[s.account_id] = (m[s.account_id] || 0) + Number(s[field] || 0);
+    });
+    return m;
+  };
+
+  const revByAcct       = useMemo(() => aggSnaps(snaps, "revenue", selectedIds),           [snaps, selectedIds]);
+  const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),        [snaps, selectedIds]);
+  const prevRevByAcct   = useMemo(() => aggSnaps(prevSnaps, "revenue", selectedIds),        [prevSnaps, selectedIds]);
+  const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds),    [prevSnaps, selectedIds]);
+
+  const spendByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    (orders as any[]).forEach(o => {
+      const aid = linkToAccount[o.tracking_link_id];
+      if (!aid || !selectedIds.includes(aid)) return;
+      m[aid] = (m[aid] || 0) + Number(o.total_spent || 0);
+    });
+    return m;
+  }, [orders, linkToAccount, selectedIds]);
+
+  const prevSpendByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    (prevOrders as any[]).forEach(o => {
+      const aid = linkToAccount[o.tracking_link_id];
+      if (!aid || !selectedIds.includes(aid)) return;
+      m[aid] = (m[aid] || 0) + Number(o.total_spent || 0);
+    });
+    return m;
+  }, [prevOrders, linkToAccount, selectedIds]);
+
+  // KPI totals
+  const totalRevenue = useMemo(() => {
+    const base = isAllTime
+      ? selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0)
+      : Object.values(revByAcct).reduce((s, v) => s + v, 0);
+    return base * revMult;
+  }, [isAllTime, selectedAccounts, revByAcct, revMult]);
+
+  const prevTotalRevenue = useMemo(() => Object.values(prevRevByAcct).reduce((s, v) => s + v, 0) * revMult, [prevRevByAcct, revMult]);
+
+  const totalFans = useMemo(() => {
+    if (isAllTime) return selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    return Object.values(subsByAcct).reduce((s, v) => s + v, 0);
+  }, [isAllTime, selectedAccounts, subsByAcct]);
+
+  const prevTotalFans = useMemo(() => Object.values(prevSubsByAcct).reduce((s, v) => s + v, 0), [prevSubsByAcct]);
+
+  const totalLtv = useMemo(() => {
+    const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    const ltv  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+    return subs > 0 ? (ltv / subs) * revMult : 0;
+  }, [selectedAccounts, revMult]);
+
+  // Sparklines (daily arrays)
+  const dailyRevSpark = useMemo(() => {
+    const m: Record<string, number> = {};
+    (snaps as any[]).forEach(s => {
+      if (!selectedIds.includes(s.account_id)) return;
+      const d = String(s.snapshot_date).split("T")[0];
+      m[d] = (m[d] || 0) + Number(s.revenue || 0);
+    });
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v * revMult);
+  }, [snaps, selectedIds, revMult]);
+
+  const dailySubsSpark = useMemo(() => {
+    const m: Record<string, number> = {};
+    (snaps as any[]).forEach(s => {
+      if (!selectedIds.includes(s.account_id)) return;
+      const d = String(s.snapshot_date).split("T")[0];
+      m[d] = (m[d] || 0) + Number(s.subscribers || 0);
+    });
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+  }, [snaps, selectedIds]);
+
+  // Donut
+  const donutData = useMemo(() =>
+    selectedAccounts
+      .map((a: any, i: number) => ({
+        name: a.display_name,
+        value: (isAllTime ? Number(a.ltv_total || 0) : (revByAcct[a.id] || 0)) * revMult,
+        color: MODEL_COLORS[i % MODEL_COLORS.length],
+      }))
+      .filter(d => d.value > 0)
+      .sort((a, b) => b.value - a.value),
+    [selectedAccounts, isAllTime, revByAcct, revMult]);
+
+  const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
+
+  // Chart
+  const chartData = useMemo(() => {
+    const daysDiff = dateFrom && dateTo
+      ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
+      : 366;
+    const byMonth = isAllTime || daysDiff > 90;
+    const m: Record<string, number> = {};
+    (snaps as any[]).forEach(s => {
+      if (!selectedIds.includes(s.account_id)) return;
+      const d = String(s.snapshot_date).split("T")[0];
+      const key = byMonth ? d.slice(0, 7) : d;
+      m[key] = (m[key] || 0) + Number(s.revenue || 0) * revMult;
+    });
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
+      date: key, revenue,
+      label: byMonth
+        ? format(new Date(key + "-15"), "MMM yy")
+        : format(new Date(key + "T12:00:00"), "MMM d"),
+    }));
+  }, [snaps, selectedIds, revMult, isAllTime, dateFrom, dateTo]);
+
+  const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
+
+  const dateLabel = useMemo(() => {
+    if (isAllTime) return "All Time";
+    if (dateFrom && dateTo)
+      return `${format(new Date(dateFrom + "T12:00:00"), "MMM d")} – ${format(new Date(dateTo + "T12:00:00"), "MMM d, yyyy")}`;
+    return "";
+  }, [isAllTime, dateFrom, dateTo]);
+
+  // Table rows
+  const tableRows = useMemo(() => {
+    const rows = selectedAccounts.map((a: any) => {
+      const rev        = (isAllTime ? Number(a.ltv_total || 0) : (revByAcct[a.id] || 0)) * revMult;
+      const prevRev    = (prevRevByAcct[a.id] || 0) * revMult;
+      const spend      = spendByAcct[a.id] || 0;
+      const prevSpend  = prevSpendByAcct[a.id] || 0;
+      const profit     = rev - spend;
+      const prevProfit = prevRev - prevSpend;
+      const newFans    = isAllTime ? Number(a.subscribers_count || 0) : (subsByAcct[a.id] || 0);
+      const prevNewFans = prevSubsByAcct[a.id] || 0;
+      const subs       = Number(a.subscribers_count || 0);
+      const ltv        = subs > 0 ? (Number(a.ltv_total || 0) / subs) * revMult : 0;
+      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, ltv, linkCount: linkCountByAccount[a.id] || 0 };
+    });
+    const dir = tableSort.dir === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      switch (tableSort.key) {
+        case "revenue":  return dir * (a.rev - b.rev);
+        case "spend":    return dir * (a.spend - b.spend);
+        case "profit":   return dir * (a.profit - b.profit);
+        case "newFans":  return dir * (a.newFans - b.newFans);
+        case "ltv":      return dir * (a.ltv - b.ltv);
+        case "account":  return dir * a.account.display_name.localeCompare(b.account.display_name);
+        default: return 0;
+      }
+    });
+    return rows;
+  }, [selectedAccounts, isAllTime, revByAcct, prevRevByAcct, spendByAcct, prevSpendByAcct,
+      subsByAcct, prevSubsByAcct, revMult, tableSort, linkCountByAccount]);
+
+  const totalPages = Math.ceil(tableRows.length / tablePageSize);
+  const pagedRows  = tableRows.slice(tablePage * tablePageSize, (tablePage + 1) * tablePageSize);
+
+  const sortBy = (key: string) => {
+    setTableSort(s => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" }));
+    setTablePage(0);
+  };
+
+  function SortIcon({ k }: { k: string }) {
+    if (tableSort.key !== k) return <ChevronDown className="w-3 h-3 opacity-30 ml-0.5" />;
+    return <ChevronDown className={cn("w-3 h-3 text-primary ml-0.5 transition-transform", tableSort.dir === "asc" && "rotate-180")} />;
+  }
+
+  const handleExport = () => {
+    const csv = [
+      ["Account","Username","Revenue","Spend","Profit","New Fans","LTV"].join(","),
+      ...tableRows.map(r => [`"${r.account.display_name}"`, r.account.username || "", r.rev.toFixed(2), r.spend.toFixed(2), r.profit.toFixed(2), r.newFans, r.ltv.toFixed(2)].join(",")),
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `overview-${dateFrom ?? "all-time"}.csv`;
+    a.click();
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="flex flex-col gap-6 p-6">
+
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Overview</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {dateLabel} · {selectedIds.length} account{selectedIds.length !== 1 ? "s" : ""} · {earningMode === "net" ? "Net (after OF 20%)" : "Gross"}
+          </p>
+        </div>
+
+        {/* ── Section 1: Filters ──────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
+            <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
+              {(["net", "gross"] as const).map(m => (
+                <button key={m} onClick={() => setEarningMode(m)}
+                  className={cn("px-3 py-1.5 rounded-md text-xs font-semibold transition-colors capitalize",
+                    earningMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {DATE_PRESETS.map(p => (
+              <button key={p.key} onClick={() => { setPreset(p.key); setCustomRange(null); setTablePage(0); }}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                  preset === p.key
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30"
+                )}>
+                {p.label}
+              </button>
+            ))}
+            <div className={cn("rounded-lg border overflow-hidden transition-colors", preset === "custom" ? "border-primary" : "border-transparent")}>
+              <DateRangePicker
+                value={pickerValue}
+                onChange={range => { if (range) { setCustomRange(range); setPreset("custom"); setTablePage(0); } }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            label="Fans"
+            value={snapsLoading ? "…" : totalFans.toLocaleString()}
+            sub={isAllTime ? "Total subscribers" : "New subscribers in period"}
+            pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
+            sparkData={dailySubsSpark.length > 1 ? dailySubsSpark : undefined}
+            accent="#6366f1" icon={<Users className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Spenders"
+            value={fanStats?.spenders != null ? fanStats.spenders.toLocaleString() : "…"}
+            sub="Total unique spenders"
+            accent="#10b981" icon={<Zap className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Revenue"
+            value={snapsLoading ? "…" : fmtShort(totalRevenue)}
+            sub={earningMode === "net" ? "Net · after OF 20%" : "Gross"}
+            pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
+            sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
+            accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="LTV"
+            value={fmtMoney(totalLtv)}
+            sub="Revenue per subscriber"
+            accent="#8b5cf6" icon={<Activity className="h-4 w-4" />}
+          />
+        </div>
+
+        {/* ── Section 3: Revenue Breakdown + Revenue Overview ─────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* Donut */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h2 className="text-sm font-semibold text-foreground mb-4">Revenue Breakdown</h2>
+            {donutData.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                {snapsLoading ? "Loading…" : "No revenue data for selected period"}
+              </div>
+            ) : (
+              <div className="flex items-center gap-5">
+                <div className="relative shrink-0" style={{ width: 180, height: 180 }}>
+                  <ResponsiveContainer width={180} height={180}>
+                    <PieChart>
+                      <Pie data={donutData} cx="50%" cy="50%" innerRadius={52} outerRadius={82}
+                        dataKey="value" strokeWidth={0} paddingAngle={2}>
+                        {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-xl font-bold text-foreground leading-none">{fmtShort(donutTotal)}</span>
+                    <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Total</span>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th className="text-left pb-2 text-muted-foreground font-medium">Model</th>
+                        <th className="text-right pb-2 text-muted-foreground font-medium">%</th>
+                        <th className="text-right pb-2 text-muted-foreground font-medium">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {donutData.slice(0, 9).map((d, i) => (
+                        <tr key={i} className="border-t border-border/40">
+                          <td className="py-1.5 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
+                              <span className="text-foreground truncate">{d.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-1.5 text-right text-muted-foreground">
+                            {donutTotal > 0 ? ((d.value / donutTotal) * 100).toFixed(1) : "0"}%
+                          </td>
+                          <td className="py-1.5 text-right font-semibold text-foreground">{fmtShort(d.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bar/Line chart */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Revenue Overview</h2>
+                <p className="text-2xl font-bold text-foreground mt-1">{fmtMoney(chartTotal)}</p>
+                <p className="text-xs text-muted-foreground">{dateLabel}</p>
+              </div>
+              <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
+                {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
+                  <button key={type} onClick={() => setChartType(type as "bar" | "line")}
+                    className={cn("p-1.5 rounded-md transition-colors",
+                      chartType === type ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                    <Icon className="w-4 h-4" />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ height: 200 }}>
+              {chartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  {snapsLoading ? "Loading…" : "No data"}
+                </div>
+              ) : chartType === "bar" ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
+                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
+                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
+                    <Bar dataKey="revenue" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
+                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
+                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
+                    <Line dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Section 4: Per Model Table ───────────────────────────────────────── */}
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
+            <h2 className="text-sm font-semibold text-foreground">Overview</h2>
+            <div className="flex items-center gap-2">
+              <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(0); }}
+                className="h-8 px-2 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
+              </select>
+              <button onClick={handleExport}
+                className="h-8 px-3 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Export
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/20">
+                  {[
+                    { key: "account", label: "Account",  right: false },
+                    { key: "revenue", label: "Revenue",  right: true  },
+                    { key: "spend",   label: "Spend",    right: true  },
+                    { key: "profit",  label: "Profit",   right: true  },
+                    { key: "newFans", label: "New Fans", right: true  },
+                    { key: "ltv",     label: "LTV",      right: true  },
+                  ].map(col => (
+                    <th key={col.key} onClick={() => sortBy(col.key)}
+                      className={cn("px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors",
+                        col.right ? "text-right" : "text-left")}>
+                      <span className={cn("inline-flex items-center gap-0.5", col.right && "justify-end w-full")}>
+                        {col.label}<SortIcon k={col.key} />
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pagedRows.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    {snapsLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one account" : "No data"}
+                  </td></tr>
+                ) : pagedRows.map(row => {
+                  const a = row.account;
+                  const rp = !isAllTime && row.prevRev > 0    ? ((row.rev     - row.prevRev)    / row.prevRev)    * 100 : null;
+                  const sp = !isAllTime && row.prevSpend > 0  ? ((row.spend   - row.prevSpend)  / row.prevSpend)  * 100 : null;
+                  const pp = !isAllTime && row.prevProfit !== 0 ? ((row.profit - row.prevProfit) / Math.abs(row.prevProfit)) * 100 : null;
+                  const fp = !isAllTime && row.prevNewFans > 0 ? ((row.newFans - row.prevNewFans) / row.prevNewFans) * 100 : null;
+                  return (
+                    <tr key={a.id} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          {a.avatar_thumb_url
+                            ? <img src={a.avatar_thumb_url} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />
+                            : <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                                {(a.display_name || "?").slice(0, 2).toUpperCase()}
+                              </div>}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-foreground truncate">{a.display_name}</span>
+                              {row.linkCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">{row.linkCount}</span>}
+                            </div>
+                            {a.username && <div className="text-xs text-muted-foreground">@{a.username}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-semibold text-foreground">{fmtMoney(row.rev)}</div>
+                        <ChangeChip pct={rp} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-semibold text-foreground">{row.spend > 0 ? fmtMoney(row.spend) : "—"}</div>
+                        {row.spend > 0 && <ChangeChip pct={sp} />}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className={cn("font-semibold", row.profit >= 0 ? "text-emerald-400" : "text-red-400")}>{fmtMoney(row.profit)}</div>
+                        <ChangeChip pct={pp} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-semibold text-foreground">{row.newFans.toLocaleString()}</div>
+                        <ChangeChip pct={fp} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-semibold text-foreground">{fmtMoney(row.ltv)}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+              <span className="text-xs text-muted-foreground">
+                {tablePage * tablePageSize + 1}–{Math.min((tablePage + 1) * tablePageSize, tableRows.length)} of {tableRows.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setTablePage(p => Math.max(0, p - 1))} disabled={tablePage === 0}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Prev</button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i).map(i => (
+                  <button key={i} onClick={() => setTablePage(i)}
+                    className={cn("w-7 h-7 rounded-lg text-xs transition-colors",
+                      i === tablePage ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground")}>
+                    {i + 1}
+                  </button>
+                ))}
+                <button onClick={() => setTablePage(p => Math.min(totalPages - 1, p + 1))} disabled={tablePage >= totalPages - 1}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </DashboardLayout>
   );
 }
