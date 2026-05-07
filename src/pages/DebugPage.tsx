@@ -19,6 +19,8 @@ export default function DebugPage() {
   const [txSampleLoading, setTxSampleLoading] = useState(false);
   const [txTypesResult, setTxTypesResult] = useState<any>(null);
   const [txTypesLoading, setTxTypesLoading] = useState(false);
+  const [findTotalResult, setFindTotalResult] = useState<any>(null);
+  const [findTotalLoading, setFindTotalLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -82,6 +84,19 @@ export default function DebugPage() {
       setTxTypesResult({ error: err.message });
     } finally {
       setTxTypesLoading(false);
+    }
+  }, []);
+
+  const runFindTotal = useCallback(async () => {
+    setFindTotalLoading(true);
+    setFindTotalResult(null);
+    try {
+      const data = await debugAction("find_total");
+      setFindTotalResult(data);
+    } catch (err: any) {
+      setFindTotalResult({ error: err.message });
+    } finally {
+      setFindTotalLoading(false);
     }
   }, []);
 
@@ -213,6 +228,50 @@ export default function DebugPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Find Revenue Total */}
+        <div className="bg-card border border-emerald-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-emerald-500" /> Find Revenue Total
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tests 8 OFAPI analytics endpoint variants to find which one returns the Financial Analytics total (~$1.99M)
+              </p>
+            </div>
+            <button
+              onClick={runFindTotal}
+              disabled={findTotalLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            >
+              {findTotalLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              {findTotalLoading ? "Testing endpoints…" : "Find Revenue Total"}
+            </button>
+          </div>
+          {findTotalResult && (
+            <div className="space-y-1.5">
+              {findTotalResult.error && <p className="text-xs text-destructive">{findTotalResult.error}</p>}
+              {(findTotalResult.results ?? []).map((r: any, i: number) => {
+                const hasTotal = r.total != null && r.total !== 0;
+                return (
+                  <div key={i} className={`flex items-center gap-3 text-[11px] rounded px-2 py-1.5 ${hasTotal ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-secondary/50"}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${r.status === 200 ? "bg-emerald-500/15 text-emerald-600" : "bg-destructive/15 text-destructive"}`}>
+                      {r.status ?? "ERR"}
+                    </span>
+                    <span className="font-mono text-foreground w-44 shrink-0">{r.id}</span>
+                    {r.total != null
+                      ? <span className={`font-bold ${hasTotal ? "text-emerald-400" : "text-muted-foreground"}`}>${Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      : <span className="text-muted-foreground/50">no total</span>}
+                    {r.gross != null && <span className="text-muted-foreground/60 ml-1">(gross: ${Number(r.gross).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>}
+                    {r.error && <span className="text-destructive">{r.error}</span>}
+                    {r.ofapi_ids_found != null && <span className="text-muted-foreground">OFAPI acct IDs: {r.ofapi_ids_found} · sample: {r.sample_acct_id}</span>}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -162,8 +162,12 @@ export function EndpointLibrary({ accounts, onCall, loading }: EndpointLibraryPr
         <div className="flex flex-wrap gap-3">
           <EndpointButton label="List All Accounts" loading={loading}
             onClick={() => onCall(`${API_BASE}/accounts`)} />
-          <EndpointButton label="Get Account Stats" loading={loading}
+          <EndpointButton label="Get Earnings (This Year)" loading={loading}
             onClick={() => onCall(`${API_BASE}/${acct4}/statistics/statements/earnings?start_date=2026-01-01+00:00:00&end_date=${format(now, "yyyy-MM-dd")}+23:59:59&type=total`)} />
+          <EndpointButton label="Get Earnings (Full History)" loading={loading}
+            onClick={() => onCall(`${API_BASE}/${acct4}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${format(now, "yyyy-MM-dd")}+23:59:59&type=total`)} />
+          <EndpointButton label="Get Analytics Total" loading={loading}
+            onClick={() => onCall(`${API_BASE}/${acct4}/analytics/financial/transactions/by-type`)} />
         </div>
       </div>
     </div>
