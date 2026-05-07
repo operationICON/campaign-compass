@@ -188,10 +188,24 @@ router.post("/", async (c) => {
           const breakdown = { ...BUCKETS };
           if (analyticsRes.ok) {
             const analyticsJson = await analyticsRes.json() as any;
-            const rows: any[] = analyticsJson?.data ?? analyticsJson?.transactions ?? (Array.isArray(analyticsJson) ? analyticsJson : []);
-            for (const row of rows) {
-              const bucket = mapType(row.type ?? row.name ?? "");
-              breakdown[bucket] += Number(row.total ?? row.net ?? row.amount ?? row.revenue ?? 0);
+            // Response: { data: { total: { total: <net>, gross: <gross> } } }
+            const netTotal = Number(analyticsJson?.data?.total?.total ?? 0);
+            if (netTotal > 0) {
+              breakdown.other = netTotal;
+            } else {
+              // Fallback to DB if API returned zero
+              const typeAgg = await db.execute(sql`
+                SELECT type, COALESCE(SUM(
+                  CASE
+                    WHEN revenue_net IS NOT NULL AND revenue_net::text != '' THEN revenue_net::numeric
+                    WHEN fee IS NOT NULL AND fee::text != '' THEN revenue::numeric - fee::numeric
+                    ELSE revenue::numeric * 0.80
+                  END
+                ), 0) AS total FROM transactions WHERE account_id = ${account.id} GROUP BY type
+              `);
+              for (const row of typeAgg.rows as any[]) {
+                breakdown[mapType(row.type)] += Number(row.total ?? 0);
+              }
             }
           } else {
             // Fallback: compute from synced transactions in DB
