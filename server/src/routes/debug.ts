@@ -98,17 +98,40 @@ router.post("/", async (c) => {
     return c.json({ results });
   }
 
-  // Test the analytics/financial/transactions/by-type endpoint and show raw response
+  // Test analytics endpoints — try global (no account in URL) and per-account variants
   if (body?.action === "analytics_test") {
     const accRows = await db.execute(sql`
       SELECT id, onlyfans_account_id, display_name
       FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL
-      LIMIT 3
+      LIMIT 2
     `);
     const accs = accRows.rows as any[];
-    const results: any[] = [];
     const today = new Date().toISOString().split("T")[0];
+    const results: any[] = [];
 
+    // 1. Try GLOBAL endpoint (no account ID) — this might be what OFAPI Summary uses
+    const globalUrls = [
+      `${API_BASE}/analytics/financial/transactions/by-type`,
+      `${API_BASE}/analytics/financial/summary`,
+      `${API_BASE}/analytics/summary`,
+    ];
+    for (const url of globalUrls) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ date_from: "2018-01-01", date_to: today }),
+        });
+        const text = await res.text();
+        let parsed: any;
+        try { parsed = JSON.parse(text); } catch { parsed = text; }
+        results.push({ source: "global", url, status: res.status, net: parsed?.data?.total?.total ?? null, raw_keys: typeof parsed === "object" ? Object.keys(parsed ?? {}) : null });
+      } catch (err: any) {
+        results.push({ source: "global", url, error: err.message });
+      }
+    }
+
+    // 2. Per-account (what we currently use) — check what data.total.total returns
     for (const acc of accs) {
       const url = `${API_BASE}/${acc.onlyfans_account_id}/analytics/financial/transactions/by-type`;
       try {
@@ -120,12 +143,20 @@ router.post("/", async (c) => {
         const text = await res.text();
         let parsed: any;
         try { parsed = JSON.parse(text); } catch { parsed = text; }
-        results.push({ account: acc.display_name, status: res.status, top_keys: typeof parsed === "object" ? Object.keys(parsed ?? {}) : null, raw: parsed });
+        const net = parsed?.data?.total?.total;
+        const gross = parsed?.data?.total?.gross;
+        const earliest = (parsed?.data?.total?.chartAmount ?? [])[0]?.date ?? null;
+        results.push({ source: "per_account", account: acc.display_name, status: res.status, net, gross, earliest_date: earliest });
       } catch (err: any) {
-        results.push({ account: acc.display_name, error: err.message });
+        results.push({ source: "per_account", account: acc.display_name, error: err.message });
       }
     }
-    return c.json({ results });
+
+    // 3. Also show what's currently stored in ltv_total per account
+    const stored = await db.execute(sql`
+      SELECT display_name, ltv_total, ltv_updated_at FROM accounts WHERE is_active = true ORDER BY ltv_total::numeric DESC LIMIT 5
+    `);
+    return c.json({ api_tests: results, stored_ltv: stored.rows });
   }
 
   return c.json({ error: "Unknown action" }, 400);
