@@ -382,21 +382,27 @@ export default function OverviewPage() {
   // Chart
   const chartData = useMemo(() => {
     if (isAllTime) {
+      // Use stored monthly history if available (populated by revenue-breakdown sync)
       const m: Record<string, number> = {};
+      let hasMonthlyData = false;
       selectedAccounts.forEach((a: any) => {
         const monthly = a.revenue_monthly as Record<string, number> | null;
-        if (!monthly) return;
+        if (!monthly || Object.keys(monthly).length === 0) return;
+        hasMonthlyData = true;
         Object.entries(monthly).forEach(([month, amount]) => {
           m[month] = (m[month] || 0) + Number(amount);
         });
       });
-      return Object.entries(m)
-        .filter(([, v]) => v > 0)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, revenue]) => ({
-          date: key, revenue,
-          label: format(new Date(key + "-15"), "MMM yy"),
-        }));
+      if (hasMonthlyData) {
+        return Object.entries(m)
+          .filter(([, v]) => v > 0)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, revenue]) => ({
+            date: key, revenue,
+            label: format(new Date(key + "-15"), "MMM yy"),
+          }));
+      }
+      // Fallback to synced txRows until monthly history is populated
     }
     const daysDiff = dateFrom && dateTo
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
