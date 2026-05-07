@@ -387,40 +387,10 @@ export default function OverviewPage() {
     return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
   }, [selectedAccounts, linksRaw, selectedIds]);
 
-  // Expenses / Profit / CPL / ROI / Avg Expenses
+  // Expenses
   const totalExpenses = useMemo(() =>
     Object.values(spendByAcct).reduce((s, v) => s + v, 0),
     [spendByAcct]);
-
-  const totalProfit = useMemo(() => totalRevenue - totalExpenses, [totalRevenue, totalExpenses]);
-
-  const profitPerSub = useMemo(() => {
-    const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-    return subs > 0 ? totalProfit / subs : 0;
-  }, [totalProfit, selectedAccounts]);
-
-  const trackingLinkSubs = useMemo(() =>
-    (linksRaw as any[])
-      .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
-      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0),
-    [linksRaw, selectedIds]);
-
-  const cpl = useMemo(() => {
-    const subs = isAllTime ? trackingLinkSubs : newSubsKpi;
-    return subs > 0 && totalExpenses > 0 ? totalExpenses / subs : 0;
-  }, [totalExpenses, trackingLinkSubs, newSubsKpi, isAllTime]);
-
-  const paidCampaignCount = useMemo(() =>
-    (linksRaw as any[]).filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id) && Number(l.cost_total || 0) > 0).length,
-    [linksRaw, selectedIds]);
-
-  const avgExpenses = useMemo(() =>
-    paidCampaignCount > 0 ? totalExpenses / paidCampaignCount : 0,
-    [totalExpenses, paidCampaignCount]);
-
-  const roi = useMemo(() =>
-    totalExpenses > 0 ? (totalProfit / totalExpenses) * 100 : 0,
-    [totalProfit, totalExpenses]);
 
 
   // Sparklines (daily arrays)
@@ -587,25 +557,13 @@ export default function OverviewPage() {
           />
         </div>
 
-        {/* ── Section 2: KPI Cards — Row 1 ────────────────────────────────────── */}
+        {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          <KpiCard
-            label="Profit/Sub"
-            value={fmtMoney(profitPerSub)}
-            sub={isAllTime ? "All time · revenue minus spend per sub" : "Revenue minus spend per sub"}
-            accent="#10b981" icon={<TrendingUp className="h-4 w-4" />}
-          />
           <KpiCard
             label="LTV/Sub"
             value={fmtMoney(revenuePerSub)}
             sub="All time · revenue per new subscriber"
             accent="#ec4899" icon={<Activity className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="CPL"
-            value={cpl > 0 ? fmtMoney(cpl) : "$0.00"}
-            sub={isAllTime ? "Cost per lead · All time" : "Cost per lead · period"}
-            accent="#6366f1" icon={<Users className="h-4 w-4" />}
           />
           <KpiCard
             label="New Subs"
@@ -622,10 +580,6 @@ export default function OverviewPage() {
             sub="Fans with no tracking link"
             accent="#64748b" icon={<BarChart2 className="h-4 w-4" />}
           />
-        </div>
-
-        {/* ── Section 2b: KPI Cards — Row 2 ───────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <KpiCard
             label="Total Revenue"
             value={snapsLoading ? "…" : fmtMoney(totalRevenue)}
@@ -641,26 +595,6 @@ export default function OverviewPage() {
             sub={isAllTime ? "All time · total ad spend" : "Ad spend in period"}
             compact
             accent="#ef4444" icon={<Zap className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Total Profit"
-            value={fmtMoney(totalProfit)}
-            sub={isAllTime ? "All time · revenue minus spend" : "Revenue minus spend"}
-            compact
-            pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
-            accent="#14b8a6" icon={<TrendingUp className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Avg Expenses"
-            value={fmtMoney(avgExpenses)}
-            sub={`Avg spend per paid campaign · ${paidCampaignCount} campaigns`}
-            accent="#f97316" icon={<BarChart2 className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="ROI"
-            value={roi > 0 ? `${roi.toFixed(1)}%` : "—"}
-            sub={isAllTime ? "All time · blended ROI" : "Blended ROI · period"}
-            accent="#8b5cf6" icon={<Activity className="h-4 w-4" />}
           />
         </div>
 
