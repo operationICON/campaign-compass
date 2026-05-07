@@ -179,9 +179,15 @@ router.post("/", async (c) => {
             totalTx += batch.length;
           }
 
-          // Update account LTV breakdown
+          // Update account LTV breakdown using net amounts (same 3-tier logic as /daily endpoint)
           const typeAgg = await db.execute(sql`
-            SELECT type, COALESCE(SUM(revenue::numeric), 0) AS total
+            SELECT type, COALESCE(SUM(
+              CASE
+                WHEN revenue_net IS NOT NULL AND revenue_net::text != '' THEN revenue_net::numeric
+                WHEN fee IS NOT NULL AND fee::text != '' THEN revenue::numeric - fee::numeric
+                ELSE revenue::numeric * 0.80
+              END
+            ), 0) AS total
             FROM transactions
             WHERE account_id = ${account.id}
             GROUP BY type
