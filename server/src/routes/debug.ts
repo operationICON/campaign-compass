@@ -159,6 +159,49 @@ router.post("/", async (c) => {
     return c.json({ api_tests: results, stored_ltv: stored.rows });
   }
 
+  // Find which global OFAPI endpoint returns the Financial Analytics total ($1.97M+)
+  if (body?.action === "find_total") {
+    const accRows = await db.execute(sql`
+      SELECT onlyfans_account_id FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL LIMIT 20
+    `);
+    const accountIds = (accRows.rows as any[]).map(r => r.onlyfans_account_id);
+    const today = new Date().toISOString().split("T")[0];
+    const dateFrom = "2018-01-01";
+    const results: any[] = [];
+
+    const endpoints = [
+      { id: "global_by_type_post",    method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type` },
+      { id: "global_summary_post",    method: "POST", url: `${API_BASE}/analytics/financial/summary` },
+      { id: "global_analytics_post",  method: "POST", url: `${API_BASE}/analytics/summary` },
+      { id: "global_earnings_post",   method: "POST", url: `${API_BASE}/analytics/financial/earnings` },
+      { id: "global_revenue_post",    method: "POST", url: `${API_BASE}/analytics/revenue` },
+      { id: "global_transactions_get",method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?date_from=${dateFrom}&date_to=${today}` },
+      { id: "global_stats_get",       method: "GET",  url: `${API_BASE}/stats` },
+      { id: "global_totals_get",      method: "GET",  url: `${API_BASE}/totals` },
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const fetchOpts: RequestInit = {
+          method: ep.method,
+          headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+        };
+        if (ep.method === "POST") {
+          fetchOpts.body = JSON.stringify({ date_from: dateFrom, date_to: today, account_ids: accountIds });
+        }
+        const res = await fetch(ep.url, fetchOpts);
+        const text = await res.text();
+        let parsed: any;
+        try { parsed = JSON.parse(text); } catch { parsed = text; }
+        const total = parsed?.data?.total?.total ?? parsed?.data?.net ?? parsed?.data?.total ?? parsed?.total ?? parsed?.net ?? null;
+        results.push({ id: ep.id, status: res.status, total, top_keys: typeof parsed === "object" && parsed ? Object.keys(parsed) : null, data_keys: typeof parsed?.data === "object" && parsed?.data ? Object.keys(parsed.data) : null });
+      } catch (err: any) {
+        results.push({ id: ep.id, error: err.message });
+      }
+    }
+    return c.json({ results });
+  }
+
   // Show per-account transaction counts, date ranges, and revenue sums from our DB
   if (body?.action === "tx_totals") {
     const rows = await db.execute(sql`
