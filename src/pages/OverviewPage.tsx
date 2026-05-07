@@ -4,7 +4,7 @@ import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
-  getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks, getFanStats,
+  getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks,
 } from "@/lib/api";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -251,7 +251,7 @@ export default function OverviewPage() {
   const { data: orders = [] } = useQuery({
     queryKey: ["ov2_orders", dateFrom, dateTo],
     queryFn: () => getOnlytrafficOrders({ date_from: dateFrom ?? undefined, date_to: dateTo ?? undefined, statuses: ["completed","accepted","active","waiting"] }),
-    enabled: !!dateFrom,
+    enabled: selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -262,7 +262,6 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: fanStats } = useQuery({ queryKey: ["fan_stats_all"], queryFn: () => getFanStats(), staleTime: 10 * 60 * 1000 });
 
   // Always-on Prev Month new subs — shown in "New Subs" KPI regardless of date filter
   const [prevMonthStart, prevMonthEnd, daysInPrevMonth] = useMemo(() => {
@@ -388,6 +387,41 @@ export default function OverviewPage() {
     return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
   }, [selectedAccounts, linksRaw, selectedIds]);
 
+  // Expenses / Profit / CPL / ROI / Avg Expenses
+  const totalExpenses = useMemo(() =>
+    Object.values(spendByAcct).reduce((s, v) => s + v, 0),
+    [spendByAcct]);
+
+  const totalProfit = useMemo(() => totalRevenue - totalExpenses, [totalRevenue, totalExpenses]);
+
+  const profitPerSub = useMemo(() => {
+    const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    return subs > 0 ? totalProfit / subs : 0;
+  }, [totalProfit, selectedAccounts]);
+
+  const trackingLinkSubs = useMemo(() =>
+    (linksRaw as any[])
+      .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0),
+    [linksRaw, selectedIds]);
+
+  const cpl = useMemo(() => {
+    const subs = isAllTime ? trackingLinkSubs : newSubsKpi;
+    return subs > 0 && totalExpenses > 0 ? totalExpenses / subs : 0;
+  }, [totalExpenses, trackingLinkSubs, newSubsKpi, isAllTime]);
+
+  const paidCampaignCount = useMemo(() =>
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id) && Number(l.cost_total || 0) > 0).length,
+    [linksRaw, selectedIds]);
+
+  const avgExpenses = useMemo(() =>
+    paidCampaignCount > 0 ? totalExpenses / paidCampaignCount : 0,
+    [totalExpenses, paidCampaignCount]);
+
+  const roi = useMemo(() =>
+    totalExpenses > 0 ? (totalProfit / totalExpenses) * 100 : 0,
+    [totalProfit, totalExpenses]);
+
 
   // Sparklines (daily arrays)
   const dailyRevSpark = useMemo(() => {
@@ -400,15 +434,6 @@ export default function OverviewPage() {
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
   }, [txRows, selectedIds]);
 
-  const dailySubsSpark = useMemo(() => {
-    const m: Record<string, number> = {};
-    (snaps as any[]).forEach(s => {
-      if (!selectedIds.includes(s.account_id)) return;
-      const d = String(s.snapshot_date).split("T")[0];
-      m[d] = (m[d] || 0) + Number(s.subscribers || 0);
-    });
-    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-  }, [snaps, selectedIds]);
 
   // Donut
   const donutData = useMemo(() =>
@@ -561,8 +586,26 @@ export default function OverviewPage() {
           />
         </div>
 
-        {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
+        {/* ── Section 2: KPI Cards — Row 1 ────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <KpiCard
+            label="Profit/Sub"
+            value={fmtMoney(profitPerSub)}
+            sub={isAllTime ? "All time · revenue minus spend per sub" : "Revenue minus spend per sub"}
+            accent="#10b981" icon={<TrendingUp className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="LTV/Sub"
+            value={fmtMoney(revenuePerSub)}
+            sub="All time · revenue per new subscriber"
+            accent="#ec4899" icon={<Activity className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="CPL"
+            value={cpl > 0 ? fmtMoney(cpl) : "$0.00"}
+            sub={isAllTime ? "Cost per lead · All time" : "Cost per lead · period"}
+            accent="#6366f1" icon={<Users className="h-4 w-4" />}
+          />
           <KpiCard
             label="New Subs"
             value={newSubsKpi.toLocaleString()}
@@ -573,31 +616,50 @@ export default function OverviewPage() {
             accent="#a855f7" icon={<UserPlus className="h-4 w-4" />}
           />
           <KpiCard
-            label="LTV/Sub"
-            value={fmtMoney(revenuePerSub)}
-            sub="All time · per new subscriber"
-            accent="#ec4899" icon={<Activity className="h-4 w-4" />}
+            label="Unattributed %"
+            value={`${unattributedPct.toFixed(1)}%`}
+            sub="Fans with no tracking link"
+            accent="#64748b" icon={<BarChart2 className="h-4 w-4" />}
           />
+        </div>
+
+        {/* ── Section 2b: KPI Cards — Row 2 ───────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <KpiCard
-            label="Spenders"
-            value={fanStats?.spenders != null ? fanStats.spenders.toLocaleString() : "…"}
-            sub="Total unique spenders"
-            accent="#10b981" icon={<Zap className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Revenue"
+            label="Total Revenue"
             value={snapsLoading ? "…" : fmtMoney(totalRevenue)}
-            sub={isAllTime ? "Total historical earnings" : "Net earnings in period"}
+            sub={isAllTime ? "All time · total historical earnings" : "Net earnings in period"}
             compact
             pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
             sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
           />
           <KpiCard
-            label="Unattributed"
-            value={`${unattributedPct.toFixed(1)}%`}
-            sub="Fans with no tracking link"
-            accent="#64748b" icon={<BarChart2 className="h-4 w-4" />}
+            label="Expenses"
+            value={fmtMoney(totalExpenses)}
+            sub={isAllTime ? "All time · total ad spend" : "Ad spend in period"}
+            compact
+            accent="#ef4444" icon={<Zap className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Total Profit"
+            value={fmtMoney(totalProfit)}
+            sub={isAllTime ? "All time · revenue minus spend" : "Revenue minus spend"}
+            compact
+            pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
+            accent="#14b8a6" icon={<TrendingUp className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Avg Expenses"
+            value={fmtMoney(avgExpenses)}
+            sub={`Avg spend per paid campaign · ${paidCampaignCount} campaigns`}
+            accent="#f97316" icon={<BarChart2 className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="ROI"
+            value={roi > 0 ? `${roi.toFixed(1)}%` : "—"}
+            sub={isAllTime ? "All time · blended ROI" : "Blended ROI · period"}
+            accent="#8b5cf6" icon={<Activity className="h-4 w-4" />}
           />
         </div>
 
