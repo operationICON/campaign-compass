@@ -233,9 +233,9 @@ router.post("/", async (c) => {
         const text = await res.text();
         let parsed: any;
         try { parsed = JSON.parse(text); } catch { parsed = text; }
-        // Try every common path for net earnings
         const totalObj = parsed?.data?.total;
         const net = (typeof totalObj === "number" ? totalObj : null)
+          ?? parsed?.data?.total?.total
           ?? parsed?.data?.total?.net
           ?? parsed?.data?.total?.creator
           ?? parsed?.data?.total?.creator_revenue
@@ -250,15 +250,16 @@ router.post("/", async (c) => {
           ?? null;
         const gross = parsed?.data?.total?.gross ?? parsed?.data?.gross ?? parsed?.gross ?? null;
         grandTotal += Number(net ?? 0);
+        // Show data.total without chart arrays so we can see all scalar fields
+        const totalScalars = typeof totalObj === "object" && totalObj
+          ? Object.fromEntries(Object.entries(totalObj).filter(([, v]) => !Array.isArray(v)))
+          : null;
         results.push({
           account: acc.display_name,
           status: res.status,
           net,
           gross,
-          raw_keys: typeof parsed === "object" && parsed ? Object.keys(parsed) : null,
-          data_keys: typeof parsed?.data === "object" && parsed?.data ? Object.keys(parsed.data) : null,
-          data_total_keys: typeof parsed?.data?.total === "object" ? Object.keys(parsed.data.total) : null,
-          raw_sample: typeof parsed === "object" ? JSON.stringify(parsed).slice(0, 300) : String(parsed).slice(0, 300),
+          raw_sample: totalScalars ? JSON.stringify(totalScalars) : (typeof parsed === "object" ? JSON.stringify(parsed).slice(0, 500) : String(parsed).slice(0, 500)),
         });
       } catch (err: any) {
         results.push({ account: acc.display_name, error: err.message });
