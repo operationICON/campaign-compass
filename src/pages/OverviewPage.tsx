@@ -289,15 +289,21 @@ export default function OverviewPage() {
     return m;
   };
 
-  const revByAcct = useMemo(() => {
+  // Full lifetime revenue per account — from tracking links (complete history, no date cutoff)
+  const lifetimeRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    if (isAllTime) {
-      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
-    } else {
-      txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
-    }
+    (linksRaw as any[]).forEach((l: any) => {
+      if (selectedIds.includes(l.account_id)) m[l.account_id] = (m[l.account_id] || 0) + Number(l.revenue || 0);
+    });
     return m;
-  }, [txRows, selectedIds, isAllTime, selectedAccounts]);
+  }, [linksRaw, selectedIds]);
+
+  const revByAcct = useMemo(() => {
+    if (isAllTime) return lifetimeRevByAcct;
+    const m: Record<string, number> = {};
+    txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+    return m;
+  }, [txRows, selectedIds, isAllTime, lifetimeRevByAcct]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
@@ -344,9 +350,9 @@ export default function OverviewPage() {
 
   const totalLtv = useMemo(() => {
     const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-    const ltv  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-    return subs > 0 ? (ltv / subs) * revMult : 0;
-  }, [selectedAccounts, revMult]);
+    const totalLifetimeRev = Object.values(lifetimeRevByAcct).reduce((s, v) => s + v, 0);
+    return subs > 0 ? totalLifetimeRev / subs : 0;
+  }, [selectedAccounts, lifetimeRevByAcct]);
 
   // Sparklines (daily arrays)
   const dailyRevSpark = useMemo(() => {
@@ -374,12 +380,12 @@ export default function OverviewPage() {
     selectedAccounts
       .map((a: any, i: number) => ({
         name: a.display_name,
-        value: (isAllTime ? Number(a.ltv_total || 0) : (revByAcct[a.id] || 0)) * revMult,
+        value: (revByAcct[a.id] || 0) * revMult,
         color: MODEL_COLORS[i % MODEL_COLORS.length],
       }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value),
-    [selectedAccounts, isAllTime, revByAcct, revMult]);
+    [selectedAccounts, revByAcct, revMult]);
 
   const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
 
@@ -425,7 +431,7 @@ export default function OverviewPage() {
       const newFans    = isAllTime ? Number(a.subscribers_count || 0) : (subsByAcct[a.id] || 0);
       const prevNewFans = prevSubsByAcct[a.id] || 0;
       const subs       = Number(a.subscribers_count || 0);
-      const ltv        = subs > 0 ? (Number(a.ltv_total || 0) / subs) * revMult : 0;
+      const ltv        = subs > 0 ? (lifetimeRevByAcct[a.id] || 0) / subs : 0;
       return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, ltv, linkCount: linkCountByAccount[a.id] || 0 };
     });
     const dir = tableSort.dir === "asc" ? 1 : -1;
@@ -442,7 +448,7 @@ export default function OverviewPage() {
     });
     return rows;
   }, [selectedAccounts, isAllTime, revByAcct, prevRevByAcct, spendByAcct, prevSpendByAcct,
-      subsByAcct, prevSubsByAcct, revMult, tableSort, linkCountByAccount]);
+      subsByAcct, prevSubsByAcct, lifetimeRevByAcct, revMult, tableSort, linkCountByAccount]);
 
   const totalPages = Math.ceil(tableRows.length / tablePageSize);
   const pagedRows  = tableRows.slice(tablePage * tablePageSize, (tablePage + 1) * tablePageSize);
@@ -524,7 +530,7 @@ export default function OverviewPage() {
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
           />
           <KpiCard
-            label="LTV"
+            label="Revenue/Sub"
             value={fmtMoney(totalLtv)}
             sub="Revenue per subscriber"
             accent="#8b5cf6" icon={<Activity className="h-4 w-4" />}
@@ -668,7 +674,7 @@ export default function OverviewPage() {
                     { key: "spend",   label: "Spend",    right: true  },
                     { key: "profit",  label: "Profit",   right: true  },
                     { key: "newFans", label: "New Fans", right: true  },
-                    { key: "ltv",     label: "LTV",      right: true  },
+                    { key: "ltv",     label: "LTV/Sub",  right: true  },
                   ].map(col => (
                     <th key={col.key} onClick={() => sortBy(col.key)}
                       className={cn("px-5 py-3.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest cursor-pointer select-none hover:text-foreground transition-colors",
