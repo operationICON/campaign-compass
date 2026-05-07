@@ -172,6 +172,7 @@ router.post("/", async (c) => {
                   status: sql`excluded.status`,
                   type: sql`excluded.type`,
                   fan_username: sql`excluded.fan_username`,
+                  date: sql`excluded.date`,
                 },
               });
             totalTx += batch.length;
