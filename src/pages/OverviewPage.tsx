@@ -439,6 +439,7 @@ export default function OverviewPage() {
   const donutData = useMemo(() =>
     selectedAccounts
       .map((a: any, i: number) => ({
+        id: a.id,
         name: a.display_name,
         value: (revByAcct[a.id] || 0) * revMult,
         color: MODEL_COLORS[i % MODEL_COLORS.length],
@@ -689,30 +690,36 @@ export default function OverviewPage() {
                     <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Total</span>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr>
                         <th className="text-left pb-2 text-muted-foreground font-medium">Model</th>
-                        <th className="text-right pb-2 text-muted-foreground font-medium">%</th>
+                        <th className="text-right pb-2 text-muted-foreground font-medium">Spend</th>
                         <th className="text-right pb-2 text-muted-foreground font-medium">Revenue</th>
+                        <th className="text-right pb-2 text-muted-foreground font-medium">ROI%</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {donutData.slice(0, 9).map((d, i) => (
-                        <tr key={i} className="border-t border-border/40">
-                          <td className="py-1.5 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                              <span className="text-foreground truncate">{d.name}</span>
-                            </div>
-                          </td>
-                          <td className="py-1.5 text-right text-muted-foreground">
-                            {donutTotal > 0 ? ((d.value / donutTotal) * 100).toFixed(1) : "0"}%
-                          </td>
-                          <td className="py-1.5 text-right font-semibold text-foreground">{fmtShort(d.value)}</td>
-                        </tr>
-                      ))}
+                      {donutData.map((d, i) => {
+                        const spend = spendByAcct[d.id] || 0;
+                        const roiPct = spend > 0 ? ((d.value - spend) / spend) * 100 : null;
+                        return (
+                          <tr key={i} className="border-t border-border/40">
+                            <td className="py-1.5 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
+                                <span className="text-foreground truncate">{d.name}</span>
+                              </div>
+                            </td>
+                            <td className="py-1.5 text-right text-muted-foreground">{spend > 0 ? fmtMoney(spend) : "—"}</td>
+                            <td className="py-1.5 text-right font-semibold text-foreground">{fmtMoney(d.value)}</td>
+                            <td className={cn("py-1.5 text-right font-medium", roiPct === null ? "text-muted-foreground" : roiPct >= 0 ? "text-emerald-400" : "text-red-400")}>
+                              {roiPct === null ? "—" : `${roiPct.toFixed(0)}%`}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
