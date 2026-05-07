@@ -220,7 +220,9 @@ router.post("/", async (c) => {
             }).where(eq(sync_logs.id, accountLogId));
           }
 
-          await send({ step: "account_done", message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)}` });
+          const dates = txList.map((t: any) => t.date ?? t.createdAt ?? t.created_at ?? null).filter(Boolean).sort();
+          const dateRange = dates.length > 0 ? `${dates[0]} → ${dates[dates.length - 1]}` : "no dates";
+          await send({ step: "account_done", message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)} · dates: ${dateRange}` });
         } catch (err: any) {
           const is401 = /\b401\b/.test(err.message);
           accountResults.push({ account: account.display_name ?? account.id, status: is401 ? "auth_error" : "error", transactions: 0, api_calls: 0, note: err.message });
