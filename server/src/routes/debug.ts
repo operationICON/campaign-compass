@@ -159,6 +159,40 @@ router.post("/", async (c) => {
     return c.json({ api_tests: results, stored_ltv: stored.rows });
   }
 
+  // Show per-account transaction counts, date ranges, and revenue sums from our DB
+  if (body?.action === "tx_totals") {
+    const rows = await db.execute(sql`
+      SELECT
+        a.display_name,
+        a.onlyfans_account_id,
+        a.ltv_total,
+        a.ltv_updated_at,
+        COUNT(t.id)                                    AS tx_count,
+        MIN(t.date)                                    AS earliest_date,
+        MAX(t.date)                                    AS latest_date,
+        SUM(t.revenue::numeric)                        AS gross_sum,
+        SUM(CASE
+          WHEN t.revenue_net IS NOT NULL AND t.revenue_net::text != '' THEN t.revenue_net::numeric
+          WHEN t.fee IS NOT NULL AND t.fee::text != ''                  THEN t.revenue::numeric - t.fee::numeric
+          ELSE t.revenue::numeric * 0.80
+        END)                                           AS net_sum,
+        COUNT(CASE WHEN t.date IS NULL THEN 1 END)     AS null_date_count
+      FROM accounts a
+      LEFT JOIN transactions t ON t.account_id = a.id
+      WHERE a.is_active = true
+      GROUP BY a.id, a.display_name, a.onlyfans_account_id, a.ltv_total, a.ltv_updated_at
+      ORDER BY gross_sum DESC NULLS LAST
+    `);
+    const totals = rows.rows.reduce((acc: any, r: any) => ({
+      tx_count:       acc.tx_count       + Number(r.tx_count       ?? 0),
+      gross_sum:      acc.gross_sum      + Number(r.gross_sum      ?? 0),
+      net_sum:        acc.net_sum        + Number(r.net_sum        ?? 0),
+      ltv_total_sum:  acc.ltv_total_sum  + Number(r.ltv_total      ?? 0),
+      null_date_count: acc.null_date_count + Number(r.null_date_count ?? 0),
+    }), { tx_count: 0, gross_sum: 0, net_sum: 0, ltv_total_sum: 0, null_date_count: 0 });
+    return c.json({ accounts: rows.rows, totals });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 

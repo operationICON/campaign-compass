@@ -593,7 +593,7 @@ export default function OverviewPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Revenue Overview</h2>
-                <p className="text-2xl font-bold text-foreground mt-1">{fmtMoney(chartTotal)}</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{fmtMoney(isAllTime ? totalRevenue : chartTotal)}</p>
                 <p className="text-xs text-muted-foreground">{dateLabel}</p>
               </div>
               <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
