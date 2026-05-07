@@ -163,7 +163,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
 
       {open && (
         <div
-          className="absolute top-full right-0 mt-2 z-50 bg-card rounded-2xl overflow-hidden"
+          className="absolute top-full left-0 mt-2 z-50 bg-card rounded-2xl overflow-hidden"
           style={{ border: "1px solid hsl(var(--border))", boxShadow: "0 8px 32px rgba(0,0,0,0.24)" }}
         >
           <div className="flex">
