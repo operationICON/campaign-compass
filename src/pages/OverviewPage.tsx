@@ -1,9 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  format, subDays, startOfMonth, endOfMonth, subMonths,
-  startOfYear, startOfWeek, endOfWeek,
-} from "date-fns";
+import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
@@ -29,28 +26,6 @@ const MODEL_COLORS = [
   "#a855f7","#22c55e","#eab308","#3b82f6","#e11d48",
 ];
 
-// ── Date presets ──────────────────────────────────────────────────────────────
-type PresetKey =
-  | "today" | "yesterday" | "last_7" | "last_14" | "last_30" | "last_60"
-  | "last_90" | "last_180" | "this_week" | "last_week" | "this_month" | "last_month"
-  | "this_year" | "all_time" | "custom";
-
-const DATE_PRESETS: { key: PresetKey; label: string }[] = [
-  { key: "today",      label: "Today" },
-  { key: "yesterday",  label: "Yesterday" },
-  { key: "last_7",     label: "Last 7 Days" },
-  { key: "last_14",    label: "Last 14 Days" },
-  { key: "last_30",    label: "Last 30 Days" },
-  { key: "last_60",    label: "Last 60 Days" },
-  { key: "last_90",    label: "Last 90 Days" },
-  { key: "last_180",   label: "Last 180 Days" },
-  { key: "this_week",  label: "This Week" },
-  { key: "last_week",  label: "Last Week" },
-  { key: "this_month", label: "This Month" },
-  { key: "last_month", label: "Last Month" },
-  { key: "this_year",  label: "This Year" },
-  { key: "all_time",   label: "All Time" },
-];
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function fmtD(d: Date) { return format(d, "yyyy-MM-dd"); }
@@ -71,33 +46,10 @@ function fmtShort(n: number) {
   return `${s}${abs.toFixed(0)}`;
 }
 
-function computeDateRange(preset: PresetKey, custom: { from: Date; to: Date } | null) {
-  const today = new Date();
-  if (preset === "all_time") return { from: null as string | null, to: null as string | null, isAllTime: true };
-  if (preset === "custom" && custom) return { from: fmtD(custom.from), to: fmtD(custom.to), isAllTime: false };
-  let from: Date, to: Date = today;
-  switch (preset) {
-    case "today":      from = today; break;
-    case "yesterday":  from = to = subDays(today, 1); break;
-    case "last_7":     from = subDays(today, 7); break;
-    case "last_14":    from = subDays(today, 14); break;
-    case "last_30":    from = subDays(today, 30); break;
-    case "last_60":    from = subDays(today, 60); break;
-    case "last_90":    from = subDays(today, 90); break;
-    case "last_180":   from = subDays(today, 180); break;
-    case "this_week":  from = startOfWeek(today, { weekStartsOn: 1 }); break;
-    case "last_week": {
-      const lw = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
-      from = lw; to = endOfWeek(lw, { weekStartsOn: 1 }); break;
-    }
-    case "this_month": from = startOfMonth(today); break;
-    case "last_month":
-      from = startOfMonth(subMonths(today, 1));
-      to   = endOfMonth(subMonths(today, 1)); break;
-    case "this_year":  from = startOfYear(today); break;
-    default:           from = subDays(today, 30);
-  }
-  return { from: fmtD(from), to: fmtD(to), isAllTime: false };
+function computeDateRange(isAllTime: boolean, custom: { from: Date; to: Date } | null) {
+  if (isAllTime) return { from: null as string | null, to: null as string | null };
+  if (custom) return { from: fmtD(custom.from), to: fmtD(custom.to) };
+  return { from: null as string | null, to: null as string | null };
 }
 
 function prevRange(from: string, to: string) {
@@ -243,24 +195,18 @@ function AccountFilter({ accounts, selected, onChange }: {
 export default function OverviewPage() {
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
   const [idsReady, setIdsReady]         = useState(false);
-  const [preset, setPreset]             = useState<PresetKey>("all_time");
+  const [isAllTime, setIsAllTime]       = useState(true);
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
   const [chartType, setChartType]       = useState<"bar" | "line">("bar");
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [tablePage, setTablePage]       = useState(0);
   const [tablePageSize, setTablePageSize] = useState(10);
 
-  const { from: dateFrom, to: dateTo, isAllTime } = useMemo(() => computeDateRange(preset, customRange), [preset, customRange]);
+  const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
     dateFrom && dateTo ? prevRange(dateFrom, dateTo) : { prevFrom: null as string | null, prevTo: null as string | null },
     [dateFrom, dateTo]);
   const revMult = 1.0;
-
-  const pickerValue = useMemo(() => {
-    if (isAllTime) return null;
-    if (preset === "custom") return customRange;
-    return dateFrom && dateTo ? { from: new Date(dateFrom + "T12:00:00"), to: new Date(dateTo + "T12:00:00") } : null;
-  }, [preset, customRange, dateFrom, dateTo, isAllTime]);
 
   // Queries
   const { data: accountsRaw = [] } = useQuery({ queryKey: ["accounts"], queryFn: getAccounts, staleTime: 5 * 60 * 1000 });
@@ -531,29 +477,22 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Section 1: Filters ──────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {DATE_PRESETS.map(p => (
-              <button key={p.key} onClick={() => { setPreset(p.key); setCustomRange(null); setTablePage(0); }}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
-                  preset === p.key
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30"
-                )}>
-                {p.label}
-              </button>
-            ))}
-            <div className={cn("rounded-lg border overflow-hidden transition-colors", preset === "custom" ? "border-primary" : "border-transparent")}>
-              <DateRangePicker
-                value={pickerValue}
-                onChange={range => { if (range) { setCustomRange(range); setPreset("custom"); setTablePage(0); } }}
-              />
-            </div>
-          </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
+          <button
+            onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+              isAllTime
+                ? "bg-primary text-primary-foreground"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30"
+            )}>
+            All Time
+          </button>
+          <DateRangePicker
+            value={customRange}
+            onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); setTablePage(0); } }}
+          />
         </div>
 
         {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
