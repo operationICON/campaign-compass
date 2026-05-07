@@ -234,11 +234,17 @@ router.post("/", async (c) => {
         let parsed: any;
         try { parsed = JSON.parse(text); } catch { parsed = text; }
         // Try every common path for net earnings
-        const net = parsed?.data?.total?.net
+        const totalObj = parsed?.data?.total;
+        const net = (typeof totalObj === "number" ? totalObj : null)
+          ?? parsed?.data?.total?.net
+          ?? parsed?.data?.total?.creator
+          ?? parsed?.data?.total?.creator_revenue
+          ?? parsed?.data?.total?.payout
+          ?? parsed?.data?.total?.revenue
+          ?? parsed?.data?.total?.earnings
           ?? parsed?.data?.net
           ?? parsed?.total?.net
           ?? parsed?.net
-          ?? parsed?.data?.total
           ?? parsed?.data?.earnings
           ?? parsed?.earnings
           ?? null;

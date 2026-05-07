@@ -290,7 +290,10 @@ export default function DebugPage() {
                     : <span className="text-destructive/70">no net</span>}
                   {r.gross != null && <span className="text-muted-foreground/60 ml-1">(gross: ${Number(r.gross).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>}
                   {r.error && <span className="text-destructive">{r.error}</span>}
-                  {!r.net && !r.error && r.raw_sample && (
+                  {r.data_total_keys && (
+                    <span className="text-muted-foreground/60 ml-1 font-mono">[{r.data_total_keys.join(", ")}]</span>
+                  )}
+                  {!r.error && r.raw_sample && (
                     <details className="ml-2">
                       <summary className="text-muted-foreground cursor-pointer">raw</summary>
                       <pre className="text-[10px] bg-secondary p-1 rounded mt-1 overflow-x-auto max-w-xs">{r.raw_sample}</pre>
