@@ -127,7 +127,10 @@ function ChangeChip({ pct }: { pct: number | null }) {
   if (pct === null || !isFinite(pct)) return null;
   const up = pct >= 0;
   return (
-    <span className={cn("inline-flex items-center gap-0.5 text-xs font-medium", up ? "text-emerald-400" : "text-red-400")}>
+    <span className={cn(
+      "inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md mt-0.5",
+      up ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
+    )}>
       {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
       {Math.abs(pct).toFixed(1)}%
     </span>
@@ -706,7 +709,7 @@ export default function OverviewPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/20">
+                <tr className="border-b border-border bg-muted/30">
                   {[
                     { key: "account", label: "Account",  right: false },
                     { key: "revenue", label: "Revenue",  right: true  },
@@ -716,7 +719,7 @@ export default function OverviewPage() {
                     { key: "ltv",     label: "LTV",      right: true  },
                   ].map(col => (
                     <th key={col.key} onClick={() => sortBy(col.key)}
-                      className={cn("px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors",
+                      className={cn("px-5 py-3.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest cursor-pointer select-none hover:text-foreground transition-colors",
                         col.right ? "text-right" : "text-left")}>
                       <span className={cn("inline-flex items-center gap-0.5", col.right && "justify-end w-full")}>
                         {col.label}<SortIcon k={col.key} />
@@ -732,46 +735,56 @@ export default function OverviewPage() {
                   </td></tr>
                 ) : pagedRows.map(row => {
                   const a = row.account;
-                  const rp = !isAllTime && row.prevRev > 0    ? ((row.rev     - row.prevRev)    / row.prevRev)    * 100 : null;
-                  const sp = !isAllTime && row.prevSpend > 0  ? ((row.spend   - row.prevSpend)  / row.prevSpend)  * 100 : null;
+                  const rp = !isAllTime && row.prevRev > 0     ? ((row.rev     - row.prevRev)    / row.prevRev)              * 100 : null;
+                  const sp = !isAllTime && row.prevSpend > 0   ? ((row.spend   - row.prevSpend)  / row.prevSpend)            * 100 : null;
                   const pp = !isAllTime && row.prevProfit !== 0 ? ((row.profit - row.prevProfit) / Math.abs(row.prevProfit)) * 100 : null;
-                  const fp = !isAllTime && row.prevNewFans > 0 ? ((row.newFans - row.prevNewFans) / row.prevNewFans) * 100 : null;
+                  const fp = !isAllTime && row.prevNewFans > 0  ? ((row.newFans - row.prevNewFans) / row.prevNewFans)         * 100 : null;
                   return (
-                    <tr key={a.id} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
+                    <tr key={a.id} className="border-b border-border/40 hover:bg-white/[0.02] transition-colors">
+                      {/* Account */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
                           {a.avatar_thumb_url
-                            ? <img src={a.avatar_thumb_url} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />
-                            : <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                            ? <img src={a.avatar_thumb_url} className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-border" alt="" />
+                            : <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
                                 {(a.display_name || "?").slice(0, 2).toUpperCase()}
                               </div>}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-foreground truncate">{a.display_name}</span>
-                              {row.linkCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">{row.linkCount}</span>}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-foreground text-sm leading-tight truncate">{a.display_name}</span>
+                              {row.linkCount > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">{row.linkCount}</span>
+                              )}
                             </div>
-                            {a.username && <div className="text-xs text-muted-foreground">@{a.username}</div>}
+                            {a.username && <div className="text-xs text-muted-foreground/70 mt-0.5">@{a.username}</div>}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="font-semibold text-foreground">{fmtMoney(row.rev)}</div>
-                        <ChangeChip pct={rp} />
+                      {/* Revenue */}
+                      <td className="px-5 py-4 text-right">
+                        <div className="text-sm font-bold text-foreground">{fmtMoney(row.rev)}</div>
+                        <div className="flex justify-end mt-0.5"><ChangeChip pct={rp} /></div>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="font-semibold text-foreground">{row.spend > 0 ? fmtMoney(row.spend) : "—"}</div>
-                        {row.spend > 0 && <ChangeChip pct={sp} />}
+                      {/* Spend */}
+                      <td className="px-5 py-4 text-right">
+                        <div className="text-sm font-bold text-foreground">{row.spend > 0 ? fmtMoney(row.spend) : <span className="text-muted-foreground/40">—</span>}</div>
+                        {row.spend > 0 && <div className="flex justify-end mt-0.5"><ChangeChip pct={sp} /></div>}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className={cn("font-semibold", row.profit >= 0 ? "text-emerald-400" : "text-red-400")}>{fmtMoney(row.profit)}</div>
-                        <ChangeChip pct={pp} />
+                      {/* Profit */}
+                      <td className="px-5 py-4 text-right">
+                        <div className={cn("text-sm font-bold", row.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
+                          {fmtMoney(row.profit)}
+                        </div>
+                        <div className="flex justify-end mt-0.5"><ChangeChip pct={pp} /></div>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="font-semibold text-foreground">{row.newFans.toLocaleString()}</div>
-                        <ChangeChip pct={fp} />
+                      {/* New Fans */}
+                      <td className="px-5 py-4 text-right">
+                        <div className="text-sm font-bold text-foreground">{row.newFans.toLocaleString()}</div>
+                        <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="font-semibold text-foreground">{fmtMoney(row.ltv)}</div>
+                      {/* LTV */}
+                      <td className="px-5 py-4 text-right">
+                        <div className="text-sm font-bold text-foreground">{fmtMoney(row.ltv)}</div>
                       </td>
                     </tr>
                   );
