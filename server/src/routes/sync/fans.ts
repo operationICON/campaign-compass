@@ -420,12 +420,13 @@ router.post("/", async (c) => {
 
   const body = await c.req.json().catch(() => ({}));
   const triggeredBy = body.triggered_by ?? "manual";
+  const forceFullSync = body.full === true;
   const { stream, send, close } = createSSEStream();
 
   const [syncLog] = await db.insert(sync_logs).values({
     started_at: new Date(), status: "running", success: false,
     triggered_by: `fan_sync_${triggeredBy}`,
-    message: "Fan sync started", records_processed: 0,
+    message: forceFullSync ? "Fan sync started (full historical)" : "Fan sync started", records_processed: 0,
   }).returning();
   const syncLogId = syncLog?.id;
 
@@ -438,17 +439,21 @@ router.post("/", async (c) => {
       await ensureSchema();
 
       // ── Incremental sync cutoff: find last successful/partial fan sync ────────
-      const lastSyncRow = await db.execute(sql`
-        SELECT started_at FROM sync_logs
-        WHERE triggered_by LIKE 'fan_sync_%'
-          AND (success = true OR (status = 'partial' AND records_processed > 0))
-        ORDER BY started_at DESC LIMIT 1
-      `);
-      const lastSyncRaw = (lastSyncRow.rows[0] as any)?.started_at;
-      // Apply a 2-day overlap to avoid missing transactions near the boundary
-      const cutoffDate: Date | null = lastSyncRaw
-        ? new Date(new Date(lastSyncRaw).getTime() - 2 * 24 * 60 * 60 * 1000)
-        : null;
+      // Pass full=true in the request body to bypass cutoff and re-fetch all history
+      let cutoffDate: Date | null = null;
+      if (!forceFullSync) {
+        const lastSyncRow = await db.execute(sql`
+          SELECT started_at FROM sync_logs
+          WHERE triggered_by LIKE 'fan_sync_%'
+            AND (success = true OR (status = 'partial' AND records_processed > 0))
+          ORDER BY started_at DESC LIMIT 1
+        `);
+        const lastSyncRaw = (lastSyncRow.rows[0] as any)?.started_at;
+        // Apply a 2-day overlap to avoid missing transactions near the boundary
+        cutoffDate = lastSyncRaw
+          ? new Date(new Date(lastSyncRaw).getTime() - 2 * 24 * 60 * 60 * 1000)
+          : null;
+      }
 
       const enabledAccounts = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })

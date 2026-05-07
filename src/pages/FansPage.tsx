@@ -803,14 +803,14 @@ export default function FansPage() {
     });
   }
 
-  async function handleSync() {
+  async function handleSync(full = false) {
     setSyncing(true);
-    setSyncProgress("Starting sync...");
+    setSyncProgress(full ? "Starting full historical sync..." : "Starting sync...");
     try {
-      await streamSync("/sync/fans", { triggered_by: "manual" }, msg => setSyncProgress(msg));
+      await streamSync("/sync/fans", { triggered_by: "manual", ...(full ? { full: true } : {}) }, msg => setSyncProgress(msg));
       await queryClient.invalidateQueries({ queryKey: ["fans_list"] });
       await queryClient.invalidateQueries({ queryKey: ["fan_stats"] });
-      toast.success("Fan sync complete");
+      toast.success(full ? "Full fan sync complete" : "Fan sync complete");
     } catch (err: any) {
       toast.error(`Sync failed: ${err.message}`);
     } finally { setSyncing(false); setSyncProgress(null); }
@@ -856,7 +856,11 @@ export default function FansPage() {
               </div>
             )}
           </div>
-          <Button size="sm" onClick={handleSync} disabled={syncing}>
+          <Button size="sm" variant="outline" onClick={() => handleSync(true)} disabled={syncing} title="Re-fetch all historical transactions (ignores incremental cutoff)">
+            <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
+            Full Sync
+          </Button>
+          <Button size="sm" onClick={() => handleSync()} disabled={syncing}>
             <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
             Sync Fans
           </Button>
