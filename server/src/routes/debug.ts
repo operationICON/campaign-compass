@@ -295,52 +295,6 @@ router.post("/", async (c) => {
     return c.json({ accounts: rows.rows, totals });
   }
 
-  // Sum earnings across all accounts via statistics/statements/earnings endpoint (full history)
-  if (body?.action === "sum_earnings") {
-    const accRows = await db.execute(sql`
-      SELECT id, onlyfans_account_id, display_name
-      FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL
-      AND sync_excluded IS NOT TRUE
-    `);
-    const accounts = accRows.rows as any[];
-    const today = new Date().toISOString().replace("T", " ").slice(0, 19);
-    const results: any[] = [];
-    let grandTotal = 0;
-
-    for (const acc of accounts) {
-      const url = `${API_BASE}/${acc.onlyfans_account_id}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${encodeURIComponent(today)}&type=total`;
-      try {
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
-        const text = await res.text();
-        let parsed: any;
-        try { parsed = JSON.parse(text); } catch { parsed = text; }
-        const net = parsed?.data?.total?.net
-          ?? parsed?.data?.net
-          ?? parsed?.total?.net
-          ?? parsed?.net
-          ?? parsed?.data?.total
-          ?? parsed?.data?.earnings
-          ?? parsed?.earnings
-          ?? null;
-        const gross = parsed?.data?.total?.gross ?? parsed?.data?.gross ?? parsed?.gross ?? null;
-        grandTotal += Number(net ?? 0);
-        results.push({
-          account: (acc as any).display_name,
-          status: res.status,
-          net,
-          gross,
-          raw_keys: typeof parsed === "object" && parsed ? Object.keys(parsed) : null,
-          data_keys: typeof parsed?.data === "object" && parsed?.data ? Object.keys(parsed.data) : null,
-          data_total_keys: typeof parsed?.data?.total === "object" ? Object.keys(parsed.data.total) : null,
-          raw_sample: typeof parsed === "object" ? JSON.stringify(parsed).slice(0, 300) : String(parsed).slice(0, 300),
-        });
-      } catch (err: any) {
-        results.push({ account: (acc as any).display_name, error: err.message });
-      }
-    }
-    return c.json({ grand_total: grandTotal, account_count: accounts.length, results });
-  }
-
   return c.json({ error: "Unknown action" }, 400);
 });
 
