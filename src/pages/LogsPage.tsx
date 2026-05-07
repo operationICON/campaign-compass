@@ -496,15 +496,15 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
-  const runFanSync = useCallback(async () => {
+  const runFanSync = useCallback(async (full = false) => {
     const ctrl = new AbortController();
     abortRefs.current.fans = ctrl;
     setRunning(r => ({ ...r, fans: true }));
-    setProgress(p => ({ ...p, fans: "Starting..." }));
+    setProgress(p => ({ ...p, fans: full ? "Starting full historical sync..." : "Starting..." }));
     try {
       const lastData = await streamSync(
         "/sync/fans",
-        { triggered_by: "manual" },
+        { triggered_by: "manual", ...(full ? { full: true } : {}) },
         (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, fans: msg })); },
         ctrl.signal,
       );
@@ -592,7 +592,7 @@ export default function LogsPage() {
     onlytraffic: runOnlyTrafficSync,
     crosspoll: runCrosspollSync,
     revenue_breakdown: runRevenueBreakdownSync,
-    fans: runFanSync,
+    fans: () => runFanSync(false),
     subscribers: () => runSubscriberSync(false),
   };
 
@@ -644,6 +644,18 @@ export default function LogsPage() {
                     <span className="text-[10px] text-muted-foreground text-center">Running…</span>
                   )}
                 </Button>
+                {type === "fans" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => runFanSync(true)}
+                    disabled={showStop || allRunning}
+                    className="text-[11px] text-muted-foreground hover:text-foreground h-6 px-2"
+                    title="Re-fetch all historical fan transactions (ignores incremental cutoff)"
+                  >
+                    Full Sync
+                  </Button>
+                )}
               </div>
             );
           })}
