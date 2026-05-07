@@ -159,44 +159,56 @@ router.post("/", async (c) => {
     return c.json({ api_tests: results, stored_ltv: stored.rows });
   }
 
-  // Find which global OFAPI endpoint returns the Financial Analytics total ($1.97M+)
+  // Find which global OFAPI endpoint returns the Financial Analytics total ($1.99M)
   if (body?.action === "find_total") {
-    const accRows = await db.execute(sql`
-      SELECT onlyfans_account_id FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL LIMIT 20
-    `);
-    const accountIds = (accRows.rows as any[]).map(r => r.onlyfans_account_id);
     const today = new Date().toISOString().split("T")[0];
     const dateFrom = "2018-01-01";
     const results: any[] = [];
 
-    const endpoints = [
-      { id: "global_by_type_post",    method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type` },
-      { id: "global_summary_post",    method: "POST", url: `${API_BASE}/analytics/financial/summary` },
-      { id: "global_analytics_post",  method: "POST", url: `${API_BASE}/analytics/summary` },
-      { id: "global_earnings_post",   method: "POST", url: `${API_BASE}/analytics/financial/earnings` },
-      { id: "global_revenue_post",    method: "POST", url: `${API_BASE}/analytics/revenue` },
-      { id: "global_transactions_get",method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?date_from=${dateFrom}&date_to=${today}` },
-      { id: "global_stats_get",       method: "GET",  url: `${API_BASE}/stats` },
-      { id: "global_totals_get",      method: "GET",  url: `${API_BASE}/totals` },
+    // Step 1: Fetch OFAPI accounts list to get acct_... IDs
+    let ofapiAcctIds: string[] = [];
+    let ofNumericIds: string[] = [];
+    try {
+      const accListRes = await fetch(`${API_BASE}/accounts`, {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+      });
+      const accListJson = await accListRes.json() as any;
+      const accList: any[] = Array.isArray(accListJson) ? accListJson : (accListJson?.data ?? []);
+      ofapiAcctIds = accList.filter((a: any) => a.id).map((a: any) => a.id);           // acct_... format
+      ofNumericIds = accList.filter((a: any) => a.onlyfans_id).map((a: any) => a.onlyfans_id); // numeric format
+      results.push({ id: "accounts_fetch", status: accListRes.status, ofapi_ids_found: ofapiAcctIds.length, sample_acct_id: ofapiAcctIds[0] ?? null, sample_numeric_id: ofNumericIds[0] ?? null });
+    } catch (err: any) {
+      results.push({ id: "accounts_fetch", error: err.message });
+    }
+
+    // Step 2: Try analytics endpoints with different ID formats and body shapes
+    const variants = [
+      { id: "global_no_ids",           method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { date_from: dateFrom, date_to: today } },
+      { id: "global_acct_ids",         method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { date_from: dateFrom, date_to: today, account_ids: ofapiAcctIds } },
+      { id: "global_numeric_ids",      method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { date_from: dateFrom, date_to: today, account_ids: ofNumericIds } },
+      { id: "summary_no_ids",          method: "POST", url: `${API_BASE}/analytics/financial/summary`,              body: { date_from: dateFrom, date_to: today } },
+      { id: "summary_acct_ids",        method: "POST", url: `${API_BASE}/analytics/financial/summary`,              body: { date_from: dateFrom, date_to: today, account_ids: ofapiAcctIds } },
+      { id: "earnings_no_ids",         method: "POST", url: `${API_BASE}/analytics/financial/earnings`,             body: { date_from: dateFrom, date_to: today } },
+      { id: "overview_no_ids",         method: "POST", url: `${API_BASE}/analytics/financial/overview`,             body: { date_from: dateFrom, date_to: today } },
+      { id: "global_get_no_filter",    method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?date_from=${dateFrom}&date_to=${today}`, body: null },
     ];
 
-    for (const ep of endpoints) {
+    for (const v of variants) {
       try {
-        const fetchOpts: RequestInit = {
-          method: ep.method,
+        const opts: RequestInit = {
+          method: v.method,
           headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
         };
-        if (ep.method === "POST") {
-          fetchOpts.body = JSON.stringify({ date_from: dateFrom, date_to: today, account_ids: accountIds });
-        }
-        const res = await fetch(ep.url, fetchOpts);
+        if (v.body) opts.body = JSON.stringify(v.body);
+        const res = await fetch(v.url, opts);
         const text = await res.text();
         let parsed: any;
         try { parsed = JSON.parse(text); } catch { parsed = text; }
         const total = parsed?.data?.total?.total ?? parsed?.data?.net ?? parsed?.data?.total ?? parsed?.total ?? parsed?.net ?? null;
-        results.push({ id: ep.id, status: res.status, total, top_keys: typeof parsed === "object" && parsed ? Object.keys(parsed) : null, data_keys: typeof parsed?.data === "object" && parsed?.data ? Object.keys(parsed.data) : null });
+        const gross = parsed?.data?.total?.gross ?? parsed?.data?.gross ?? parsed?.gross ?? null;
+        results.push({ id: v.id, status: res.status, total, gross, top_keys: typeof parsed === "object" && parsed ? Object.keys(parsed) : null, data_keys: typeof parsed?.data === "object" && parsed?.data ? Object.keys(parsed.data) : null });
       } catch (err: any) {
-        results.push({ id: ep.id, error: err.message });
+        results.push({ id: v.id, error: err.message });
       }
     }
     return c.json({ results });
