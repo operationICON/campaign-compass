@@ -65,21 +65,23 @@ router.get("/daily", async (c) => {
   const dateTo     = c.req.query("date_to");
   const accountIds = c.req.queries("account_ids") ?? [];
 
-  const rows = await db.execute(sql`
-    SELECT
-      account_id::text,
-      date,
-      COALESCE(SUM(revenue::numeric), 0) AS revenue
-    FROM transactions
-    WHERE revenue::numeric > 0
-      AND date IS NOT NULL
-      ${dateFrom ? sql`AND date >= ${dateFrom}` : sql``}
-      ${dateTo   ? sql`AND date <= ${dateTo}`   : sql``}
-      ${accountIds.length > 0 ? sql`AND account_id = ANY(${accountIds}::uuid[])` : sql``}
-    GROUP BY account_id, date
-    ORDER BY date ASC
-  `);
-  return c.json(rows.rows);
+  const conditions: any[] = [sql`${transactions.revenue}::numeric > 0`];
+  if (dateFrom)            conditions.push(gte(transactions.date, dateFrom));
+  if (dateTo)              conditions.push(lte(transactions.date, dateTo));
+  if (accountIds.length > 0) conditions.push(inArray(transactions.account_id, accountIds));
+
+  const rows = await db
+    .select({
+      account_id: sql<string>`${transactions.account_id}::text`,
+      date:       sql<string>`${transactions.date}::text`,
+      revenue:    sql<string>`COALESCE(SUM(${transactions.revenue}::numeric), 0)::text`,
+    })
+    .from(transactions)
+    .where(and(...conditions))
+    .groupBy(transactions.account_id, transactions.date)
+    .orderBy(transactions.date);
+
+  return c.json(rows);
 });
 
 // GET /transactions/totals?account_id=&date_from=&date_to=
