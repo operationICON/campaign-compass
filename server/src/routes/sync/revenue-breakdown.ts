@@ -86,6 +86,7 @@ router.post("/", async (c) => {
     let totalApiCalls = 0;
     let accountsUpdated = 0;
     const errors: string[] = [];
+    const authErrors: string[] = [];
     type AccountRevResult = { account: string; status: string; transactions: number; api_calls: number; note?: string };
     const accountResults: AccountRevResult[] = [];
 
@@ -212,35 +213,45 @@ router.post("/", async (c) => {
 
           await send({ step: "account_done", message: `${account.display_name}: ${txList.length} tx · $${ltvTotal.toFixed(2)}` });
         } catch (err: any) {
-          accountResults.push({ account: account.display_name ?? account.id, status: "error", transactions: 0, api_calls: 0, note: err.message });
-          errors.push(`${account.display_name}: ${err.message}`);
-          await send({ step: "account_error", message: `${account.display_name}: ${err.message}` });
+          const is401 = /\b401\b/.test(err.message);
+          accountResults.push({ account: account.display_name ?? account.id, status: is401 ? "auth_error" : "error", transactions: 0, api_calls: 0, note: err.message });
+          if (is401) {
+            authErrors.push(`${account.display_name ?? account.id}: credentials expired (401)`);
+          } else {
+            errors.push(`${account.display_name}: ${err.message}`);
+          }
+          await send({ step: "account_error", message: `${account.display_name}: ${is401 ? "credentials expired (401) — renew in OFT Settings" : err.message}` });
           if (accountLogId) {
             await db.update(sync_logs).set({
-              status: "error", success: false,
+              status: is401 ? "auth_error" : "error", success: false,
               finished_at: new Date(), completed_at: new Date(),
-              error_message: err.message,
-              message: `${account.display_name}: failed`,
+              error_message: is401 ? "Credentials expired — renew account connection in OFT Settings" : err.message,
+              message: `${account.display_name}: ${is401 ? "credentials expired" : "failed"}`,
             }).where(eq(sync_logs.id, accountLogId));
           }
         }
       }
 
-      // Mark parent log done
+      // Mark parent log done — 401 auth errors don't downgrade to partial
+      const hasDataErrors = errors.length > 0;
+      const allErrorMessages = [
+        ...errors,
+        ...(authErrors.length > 0 ? [`${authErrors.length} account(s) need credential renewal: ${authErrors.join(", ")}`] : []),
+      ];
       if (parentLogId) {
         await db.update(sync_logs).set({
-          status: errors.length > 0 ? "partial" : "success",
-          success: errors.length === 0,
+          status: hasDataErrors ? "partial" : "success",
+          success: !hasDataErrors,
           finished_at: new Date(), completed_at: new Date(),
           records_processed: totalTx,
           accounts_synced: accountsUpdated,
-          message: `${accountsUpdated} accounts · ${totalTx} transactions synced`,
-          error_message: errors.length > 0 ? errors.join("; ") : null,
+          message: `${accountsUpdated} accounts · ${totalTx} transactions synced${authErrors.length > 0 ? ` · ${authErrors.length} credential error(s)` : ""}`,
+          error_message: allErrorMessages.length > 0 ? allErrorMessages.join("; ") : null,
           details: { api_calls: totalApiCalls, account_results: accountResults },
         }).where(eq(sync_logs.id, parentLogId));
       }
 
-      await send({ step: "done", message: `${totalTx} transactions synced, ${accountsUpdated} accounts updated`, transactions_synced: totalTx, accounts_updated: accountsUpdated, api_calls: totalApiCalls, errors: errors.length });
+      await send({ step: "done", message: `${totalTx} transactions synced, ${accountsUpdated} accounts updated${authErrors.length > 0 ? `, ${authErrors.length} credential error(s)` : ""}`, transactions_synced: totalTx, accounts_updated: accountsUpdated, api_calls: totalApiCalls, errors: errors.length, auth_errors: authErrors.length });
     } catch (err: any) {
       if (parentLogId) {
         await db.update(sync_logs).set({

@@ -131,6 +131,11 @@ function StatusBadge({ status }: { status: string }) {
       <Loader2 className="h-2.5 w-2.5 animate-spin" /> Running
     </span>
   );
+  if (status === "auth_error") return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
+      <AlertCircle className="h-2.5 w-2.5" /> Auth Error
+    </span>
+  );
   return (
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-secondary text-muted-foreground">
       {status}
