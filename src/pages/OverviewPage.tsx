@@ -581,7 +581,7 @@ export default function OverviewPage() {
             accent="#a855f7" icon={<UserPlus className="h-4 w-4" />}
           />
           <KpiCard
-            label="Revenue/Sub"
+            label="LTV/Sub"
             value={fmtMoney(revenuePerSub)}
             sub="All time · per new subscriber"
             accent="#ec4899" icon={<Activity className="h-4 w-4" />}
