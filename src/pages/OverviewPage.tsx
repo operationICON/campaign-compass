@@ -13,7 +13,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, DollarSign, TrendingDown, Trend
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
-import { fetchAccounts, fetchTrackingLinks } from "@/lib/supabase-helpers";
+import { fetchAccounts, fetchTrackingLinks, fetchTransactionTypeTotalsByAccount, fetchTrackingLinkLtv } from "@/lib/supabase-helpers";
 import { getSnapshotsByDateRange, getSnapshotLatestDate } from "@/lib/api";
 import { isActiveAccount } from "@/lib/calc-helpers";
 import { getEffectiveSource } from "@/lib/source-helpers";
@@ -136,6 +136,8 @@ export default function OverviewPage() {
 
   const { data: accounts = [] }                      = useQuery({ queryKey: ["accounts"],       queryFn: fetchAccounts });
   const { data: allLinks = [], isLoading: linksLoading } = useQuery({ queryKey: ["tracking_links"], queryFn: fetchTrackingLinks });
+  const { data: txByAccount = {} }                   = useQuery({ queryKey: ["tx_type_totals"], queryFn: fetchTransactionTypeTotalsByAccount, staleTime: 5 * 60 * 1000 });
+  const { data: ltvRows = [] }                       = useQuery({ queryKey: ["tracking_link_ltv"], queryFn: fetchTrackingLinkLtv, staleTime: 5 * 60 * 1000 });
 
   const { data: periodData, isLoading: snapLoading } = useQuery({
     queryKey: ["ov2_snapshots", periodKey],
@@ -298,6 +300,31 @@ export default function OverviewPage() {
     return allTimeFans / Math.max(1, differenceInDays(new Date(), earliest));
   }, [allLinks, acctIds, allTimeFans]);
 
+  // ── Fan transaction totals (all-time, no date filter available) ─────────
+  const fanTxTotals = useMemo(() => {
+    let total = 0, messages = 0, tips = 0, subscriptions = 0, posts = 0;
+    for (const accId of Array.from(acctIds)) {
+      const t = (txByAccount as any)[accId];
+      if (!t) continue;
+      messages      += t.messages      || 0;
+      tips          += t.tips          || 0;
+      subscriptions += t.subscriptions || 0;
+      posts         += t.posts         || 0;
+    }
+    total = messages + tips + subscriptions + posts;
+    return { total, messages, tips, subscriptions, posts };
+  }, [txByAccount, acctIds]);
+
+  // ── Cross-poll revenue (already inside fan transactions, shown separately) ─
+  const crossPollRevenue = useMemo(() => {
+    let sum = 0;
+    for (const row of ltvRows as any[]) {
+      if (!acctIds.has(row.account_id)) continue;
+      sum += Number(row.cross_poll_revenue || 0);
+    }
+    return sum;
+  }, [ltvRows, acctIds]);
+
   // ── Marketer breakdown ────────────────────────────────────────────────────
 
   const marketerBreakdown = useMemo(() => {
@@ -332,10 +359,18 @@ export default function OverviewPage() {
         map[src] = (map[src] || 0) + (acctPeriodRev[l.account_id] || 0) * portion * revMultiplier;
       }
     }
+    // All-time only: add Unattributed (fan tips/msgs/subs not from campaigns) and Cross-poll
+    if (isAllTime) {
+      const campaignTotal = Object.values(map).reduce((s, v) => s + v, 0);
+      const unattributed = fanTxTotals.total * revMultiplier - campaignTotal;
+      if (unattributed > 0) map["Unattributed"] = unattributed;
+      if (crossPollRevenue > 0) map["Cross-poll"] = crossPollRevenue * revMultiplier;
+    }
+
     const entries = Object.entries(map).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
     const total   = entries.reduce((s, [, v]) => s + v, 0);
     return entries.map(([name, value]) => ({ name, value, pct: total > 0 ? value / total : 0 }));
-  }, [isAllTime, allLinks, periodData, acctIds, revMultiplier]);
+  }, [isAllTime, allLinks, periodData, acctIds, revMultiplier, fanTxTotals, crossPollRevenue]);
 
   const marketerTotal = marketerBreakdown.reduce((s, r) => s + r.value, 0);
   const maxValue = Math.max(...accountRows.map(r => Math.max(r.revenue, r.spend)), 1);
@@ -399,8 +434,10 @@ export default function OverviewPage() {
 
           {/* KPI cards */}
           <div className="flex flex-col gap-3 h-full">
-            <KpiCard label="Revenue" value={isLoading ? "…" : fmtShort(totals.revenue)}
-              sub={periodLabel} accent="#10b981" icon={<DollarSign className="h-4 w-4" />}
+            <KpiCard label="Revenue"
+              value={isLoading ? "…" : fmtShort(isAllTime && fanTxTotals.total > 0 ? fanTxTotals.total * revMultiplier : totals.revenue)}
+              sub={isAllTime && fanTxTotals.total > 0 ? `Tips · Messages · Subs · Posts` : periodLabel}
+              accent="#10b981" icon={<DollarSign className="h-4 w-4" />}
               badge={revenueMode === "net" ? "NET" : undefined} grow />
             <KpiCard label="Ad Spend" value={isLoading ? "…" : totals.spend > 0 ? fmtShort(totals.spend) : "—"}
               sub={isAllTime ? "All time" : `Est. · ${periodLabel}`}
@@ -509,21 +546,24 @@ export default function OverviewPage() {
                       <div className="flex-1 min-w-0 space-y-3.5">
                         {mSlice.map((src, i) => {
                           const globalIdx = marketerPage * MARKETER_PER_PAGE + i;
+                          const color = src.name === "Unattributed" ? "#a78bfa"
+                            : src.name === "Cross-poll" ? "#f472b6"
+                            : SOURCE_COLORS[globalIdx % SOURCE_COLORS.length];
                           return (
                             <div key={src.name}>
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
                                   <span className="text-[13px] font-semibold text-foreground truncate">{src.name}</span>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 ml-2">
                                   <span className="text-[13px] font-mono font-semibold text-foreground">{fmtShort(src.value)}</span>
-                                  <span className="text-[12px] font-mono font-bold w-9 text-right" style={{ color: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }}>{(src.pct * 100).toFixed(1)}%</span>
+                                  <span className="text-[12px] font-mono font-bold w-9 text-right" style={{ color }}>{(src.pct * 100).toFixed(1)}%</span>
                                 </div>
                               </div>
                               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                 <div className="h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${src.pct * 100}%`, background: SOURCE_COLORS[globalIdx % SOURCE_COLORS.length] }} />
+                                  style={{ width: `${src.pct * 100}%`, background: color }} />
                               </div>
                             </div>
                           );
@@ -536,7 +576,10 @@ export default function OverviewPage() {
                             <PieChart>
                               <Pie data={marketerBreakdown} cx="50%" cy="50%" innerRadius={46} outerRadius={72}
                                 dataKey="value" strokeWidth={0} paddingAngle={2}>
-                                {marketerBreakdown.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
+                                {marketerBreakdown.map((entry, i) => {
+                                  const c = entry.name === "Unattributed" ? "#a78bfa" : entry.name === "Cross-poll" ? "#f472b6" : SOURCE_COLORS[i % SOURCE_COLORS.length];
+                                  return <Cell key={i} fill={c} />;
+                                })}
                               </Pie>
                             </PieChart>
                           </ResponsiveContainer>
