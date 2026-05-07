@@ -555,7 +555,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             label="LTV/Sub"
             value={fmtMoney(revenuePerSub)}
@@ -633,10 +633,9 @@ export default function OverviewPage() {
                             <td className="py-1.5 pr-2">
                               <div className="flex items-center gap-1.5">
                                 <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                                <div className="min-w-0">
-                                  <div className="text-foreground truncate">{d.name}</div>
-                                  {d.username && <div className="text-[10px] text-muted-foreground truncate">{d.username}</div>}
-                                </div>
+                                <span className="text-foreground truncate">
+                                  {d.name}{d.username ? ` - ${d.username}` : ""}
+                                </span>
                               </div>
                             </td>
                             <td className="py-1.5 text-right text-muted-foreground">{spend > 0 ? fmtMoney(spend) : "—"}</td>
