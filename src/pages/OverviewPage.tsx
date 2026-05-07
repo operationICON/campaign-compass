@@ -32,7 +32,7 @@ const MODEL_COLORS = [
 // ── Date presets ──────────────────────────────────────────────────────────────
 type PresetKey =
   | "today" | "yesterday" | "last_7" | "last_14" | "last_30" | "last_60"
-  | "last_90" | "this_week" | "last_week" | "this_month" | "last_month"
+  | "last_90" | "last_180" | "this_week" | "last_week" | "this_month" | "last_month"
   | "this_year" | "all_time" | "custom";
 
 const DATE_PRESETS: { key: PresetKey; label: string }[] = [
@@ -43,6 +43,7 @@ const DATE_PRESETS: { key: PresetKey; label: string }[] = [
   { key: "last_30",    label: "Last 30 Days" },
   { key: "last_60",    label: "Last 60 Days" },
   { key: "last_90",    label: "Last 90 Days" },
+  { key: "last_180",   label: "Last 180 Days" },
   { key: "this_week",  label: "This Week" },
   { key: "last_week",  label: "Last Week" },
   { key: "this_month", label: "This Month" },
@@ -83,6 +84,7 @@ function computeDateRange(preset: PresetKey, custom: { from: Date; to: Date } | 
     case "last_30":    from = subDays(today, 30); break;
     case "last_60":    from = subDays(today, 60); break;
     case "last_90":    from = subDays(today, 90); break;
+    case "last_180":   from = subDays(today, 180); break;
     case "this_week":  from = startOfWeek(today, { weekStartsOn: 1 }); break;
     case "last_week": {
       const lw = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
