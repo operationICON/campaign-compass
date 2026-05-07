@@ -241,7 +241,7 @@ function AccountFilter({ accounts, selected, onChange }: {
 export default function OverviewPage() {
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
   const [idsReady, setIdsReady]         = useState(false);
-  const [preset, setPreset]             = useState<PresetKey>("last_30");
+  const [preset, setPreset]             = useState<PresetKey>("all_time");
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
   const [chartType, setChartType]       = useState<"bar" | "line">("bar");
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
@@ -368,10 +368,12 @@ export default function OverviewPage() {
 
   // KPI totals
   const totalRevenue = useMemo(() => {
-    const base = isAllTime
-      ? selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0)
-      : Object.values(revByAcct).reduce((s, v) => s + v, 0);
-    return base * revMult;
+    const txTotal = Object.values(revByAcct).reduce((s, v) => s + v, 0);
+    // For all_time: fall back to ltv_total only if transaction data hasn't loaded yet
+    if (isAllTime && txTotal === 0) {
+      return selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMult;
+    }
+    return txTotal * revMult;
   }, [isAllTime, selectedAccounts, revByAcct, revMult]);
 
   const prevTotalRevenue = useMemo(() => Object.values(prevRevByAcct).reduce((s, v) => s + v, 0) * revMult, [prevRevByAcct, revMult]);
@@ -566,7 +568,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Revenue"
             value={snapsLoading ? "…" : fmtShort(totalRevenue)}
-            sub="From OFT tracking links"
+            sub={isAllTime ? "Total historical earnings" : "Net earnings in period"}
             pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
             sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}

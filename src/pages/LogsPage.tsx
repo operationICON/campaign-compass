@@ -649,6 +649,18 @@ export default function LogsPage() {
                     <span className="text-[10px] text-muted-foreground text-center">Running…</span>
                   )}
                 </Button>
+                {type === "revenue_breakdown" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={runRevenueFullScan}
+                    disabled={showStop || allRunning}
+                    className="text-[11px] text-muted-foreground hover:text-foreground h-6 px-2"
+                    title="Re-fetch ALL historical transactions (ignores incremental cutoff, fixes null dates)"
+                  >
+                    Full Sync
+                  </Button>
+                )}
                 {type === "fans" && (
                   <Button
                     variant="ghost"
