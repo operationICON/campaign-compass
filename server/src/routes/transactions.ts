@@ -75,7 +75,8 @@ router.get("/daily", async (c) => {
     .select({
       account_id: sql<string>`${transactions.account_id}::text`,
       date:       sql<string>`${transactions.date}::text`,
-      revenue:    sql<string>`COALESCE(SUM(${transactions.revenue}::numeric), 0)::text`,
+      // Prefer revenue_net (creator's payout after OF fee) over gross revenue
+      revenue:    sql<string>`COALESCE(SUM(COALESCE(NULLIF(${transactions.revenue_net}::text,'')::numeric, ${transactions.revenue}::numeric)), 0)::text`,
     })
     .from(transactions)
     .where(and(...conditions))

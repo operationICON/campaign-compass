@@ -168,11 +168,12 @@ router.post("/", async (c) => {
               .onConflictDoUpdate({
                 target: transactions.external_transaction_id,
                 set: {
-                  revenue: sql`excluded.revenue`,
-                  status: sql`excluded.status`,
-                  type: sql`excluded.type`,
+                  revenue:     sql`excluded.revenue`,
+                  revenue_net: sql`excluded.revenue_net`,
+                  status:      sql`excluded.status`,
+                  type:        sql`excluded.type`,
                   fan_username: sql`excluded.fan_username`,
-                  date: sql`excluded.date`,
+                  date:        sql`excluded.date`,
                 },
               });
             totalTx += batch.length;
