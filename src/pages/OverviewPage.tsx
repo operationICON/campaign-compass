@@ -6,8 +6,8 @@ import {
 } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  getAccounts, getTransactionDaily, getSnapshotsByDateRange,
-  getOnlytrafficOrders, getTrackingLinks, getFanStats,
+  getAccounts, getEarningsByAccount, getTransactionDaily,
+  getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks, getFanStats,
 } from "@/lib/api";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -270,18 +270,26 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
-  // Transaction-based revenue (exact OFAPI data, no double-counting)
-  const { data: txRows = [], isLoading: snapsLoading } = useQuery({
+  // Live earnings from OFAPI — exact same numbers their dashboard shows
+  const { data: earningsRows = [], isLoading: snapsLoading } = useQuery({
+    queryKey: ["ov2_earnings", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getEarningsByAccount({ date_from: dateFrom ?? undefined, date_to: dateTo ?? undefined, account_ids: selectedIds }),
+    enabled: selectedIds.length > 0,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: prevEarningsRows = [] } = useQuery({
+    queryKey: ["ov2_prev_earnings", prevFrom, prevTo, selectedIds.join(",")],
+    queryFn: () => getEarningsByAccount({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Transaction daily data — used only for chart shape / sparklines
+  const { data: txRows = [] } = useQuery({
     queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
     queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2020-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
     enabled: selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: prevTxRows = [] } = useQuery({
-    queryKey: ["ov2_prev_tx", prevFrom, prevTo, selectedIds.join(",")],
-    queryFn: () => getTransactionDaily({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds }),
-    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -341,10 +349,21 @@ export default function OverviewPage() {
     return m;
   };
 
-  const revByAcct       = useMemo(() => aggSnaps(txRows, "revenue", selectedIds),           [txRows, selectedIds]);
-  const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),        [snaps, selectedIds]);
-  const prevRevByAcct   = useMemo(() => aggSnaps(prevTxRows, "revenue", selectedIds),       [prevTxRows, selectedIds]);
-  const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds),    [prevSnaps, selectedIds]);
+  // Revenue from live OFAPI earnings (exact match to their dashboard)
+  const revByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    earningsRows.forEach(e => { if (selectedIds.includes(e.account_id)) m[e.account_id] = e.total; });
+    return m;
+  }, [earningsRows, selectedIds]);
+
+  const prevRevByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    prevEarningsRows.forEach(e => { if (selectedIds.includes(e.account_id)) m[e.account_id] = e.total; });
+    return m;
+  }, [prevEarningsRows, selectedIds]);
+
+  const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),     [snaps, selectedIds]);
+  const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds), [prevSnaps, selectedIds]);
 
   const spendByAcct = useMemo(() => {
     const m: Record<string, number> = {};
