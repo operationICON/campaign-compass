@@ -14,7 +14,7 @@ import {
 import {
   ChevronDown, Check, Search,
   ArrowUpRight, ArrowDownRight,
-  BarChart2, TrendingUp, Users, DollarSign, Zap,
+  BarChart2, TrendingUp, Users, DollarSign, Zap, UserPlus, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -264,6 +264,24 @@ export default function OverviewPage() {
 
   const { data: fanStats } = useQuery({ queryKey: ["fan_stats_all"], queryFn: () => getFanStats(), staleTime: 10 * 60 * 1000 });
 
+  // Always-on Prev Month new subs — shown in "New Subs" KPI regardless of date filter
+  const [prevMonthStart, prevMonthEnd, daysInPrevMonth] = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end   = new Date(now.getFullYear(), now.getMonth(), 0);
+    return [fmtD(start), fmtD(end), end.getDate()];
+  }, []);
+  const { data: pmSnaps = [] } = useQuery({
+    queryKey: ["new_subs_prev_month", selectedIds.join(",")],
+    queryFn: () => getSnapshotsByDateRange({ date_from: prevMonthStart, date_to: prevMonthEnd, account_ids: selectedIds, cols: "slim" }),
+    enabled: selectedIds.length > 0,
+    staleTime: 30 * 60 * 1000,
+  });
+  const newSubsPrevMonth = useMemo(() =>
+    (pmSnaps as any[]).reduce((s: number, snap: any) =>
+      s + (selectedIds.includes(snap.account_id) ? Number(snap.subscribers || 0) : 0), 0),
+  [pmSnaps, selectedIds]);
+
   // Derived maps
   const linkToAccount = useMemo(() => {
     const m: Record<string, string> = {};
@@ -342,6 +360,33 @@ export default function OverviewPage() {
   }, [isAllTime, selectedAccounts, subsByAcct]);
 
   const prevTotalFans = useMemo(() => Object.values(prevSubsByAcct).reduce((s, v) => s + v, 0), [prevSubsByAcct]);
+
+  // New Subs KPI: prev month when All Time, period new subs otherwise
+  const newSubsKpi = useMemo(() => isAllTime ? newSubsPrevMonth : totalFans, [isAllTime, newSubsPrevMonth, totalFans]);
+  const newSubsPerDay = useMemo(() => {
+    if (isAllTime) return daysInPrevMonth > 0 ? newSubsPrevMonth / daysInPrevMonth : 0;
+    const days = dateFrom && dateTo
+      ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000) + 1
+      : 30;
+    return days > 0 ? totalFans / days : 0;
+  }, [isAllTime, newSubsPrevMonth, daysInPrevMonth, totalFans, dateFrom, dateTo]);
+
+  // Revenue/Sub — always All Time (ltv_total / subscribers)
+  const revenuePerSub = useMemo(() => {
+    const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    const rev  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+    return subs > 0 ? rev / subs : 0;
+  }, [selectedAccounts]);
+
+  // Unattributed % — fans not via any tracking link
+  const unattributedPct = useMemo(() => {
+    const totalSubs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    const attributed = (linksRaw as any[])
+      .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+    if (totalSubs <= 0) return 0;
+    return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
+  }, [selectedAccounts, linksRaw, selectedIds]);
 
 
   // Sparklines (daily arrays)
@@ -517,7 +562,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <KpiCard
             label="Fans"
             value={snapsLoading ? "…" : totalFans.toLocaleString()}
@@ -525,6 +570,21 @@ export default function OverviewPage() {
             pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
             sparkData={dailySubsSpark.length > 1 ? dailySubsSpark : undefined}
             accent="#6366f1" icon={<Users className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="New Subs"
+            value={newSubsKpi.toLocaleString()}
+            sub={isAllTime
+              ? `${newSubsPerDay.toFixed(1)}/day · Prev Month`
+              : `${newSubsPerDay.toFixed(1)}/day`}
+            pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
+            accent="#a855f7" icon={<UserPlus className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Revenue/Sub"
+            value={fmtMoney(revenuePerSub)}
+            sub="All time · per subscriber"
+            accent="#ec4899" icon={<Activity className="h-4 w-4" />}
           />
           <KpiCard
             label="Spenders"
@@ -539,6 +599,12 @@ export default function OverviewPage() {
             pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
             sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Unattributed"
+            value={`${unattributedPct.toFixed(1)}%`}
+            sub="Fans with no tracking link"
+            accent="#64748b" icon={<BarChart2 className="h-4 w-4" />}
           />
         </div>
 
