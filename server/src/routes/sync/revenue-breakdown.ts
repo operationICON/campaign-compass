@@ -178,18 +178,16 @@ router.post("/", async (c) => {
             totalTx += batch.length;
           }
 
-          // Get accurate All Time totals from OFAPI analytics API — one call, no pagination needed
+          // Get accurate All Time totals from earnings endpoint — full history (not limited to OFAPI connection date)
           const today = new Date().toISOString().split("T")[0];
-          const analyticsRes = await fetch(`${API_BASE}/${account.onlyfans_account_id}/analytics/financial/transactions/by-type`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
-            body: JSON.stringify({ date_from: "2018-01-01", date_to: today }),
+          const earningsRes = await fetch(`${API_BASE}/${account.onlyfans_account_id}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${today}+23:59:59&type=total`, {
+            headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
           });
           const breakdown = { ...BUCKETS };
-          if (analyticsRes.ok) {
-            const analyticsJson = await analyticsRes.json() as any;
+          if (earningsRes.ok) {
+            const earningsJson = await earningsRes.json() as any;
             // Response: { data: { total: { total: <net>, gross: <gross> } } }
-            const netTotal = Number(analyticsJson?.data?.total?.total ?? 0);
+            const netTotal = Number(earningsJson?.data?.total?.total ?? 0);
             if (netTotal > 0) {
               breakdown.other = netTotal;
             } else {

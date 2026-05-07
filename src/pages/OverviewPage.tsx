@@ -14,7 +14,7 @@ import {
 import {
   ChevronDown, Check, Search,
   ArrowUpRight, ArrowDownRight,
-  BarChart2, TrendingUp, Users, DollarSign, Activity, Zap,
+  BarChart2, TrendingUp, Users, DollarSign, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -289,21 +289,16 @@ export default function OverviewPage() {
     return m;
   };
 
-  // Full lifetime revenue per account — from tracking links (complete history, no date cutoff)
-  const lifetimeRevByAcct = useMemo(() => {
-    const m: Record<string, number> = {};
-    (linksRaw as any[]).forEach((l: any) => {
-      if (selectedIds.includes(l.account_id)) m[l.account_id] = (m[l.account_id] || 0) + Number(l.revenue || 0);
-    });
-    return m;
-  }, [linksRaw, selectedIds]);
-
   const revByAcct = useMemo(() => {
-    if (isAllTime) return lifetimeRevByAcct;
+    if (isAllTime) {
+      const m: Record<string, number> = {};
+      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
+      return m;
+    }
     const m: Record<string, number> = {};
     txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
     return m;
-  }, [txRows, selectedIds, isAllTime, lifetimeRevByAcct]);
+  }, [txRows, selectedIds, isAllTime, selectedAccounts]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
@@ -348,11 +343,6 @@ export default function OverviewPage() {
 
   const prevTotalFans = useMemo(() => Object.values(prevSubsByAcct).reduce((s, v) => s + v, 0), [prevSubsByAcct]);
 
-  const totalLtv = useMemo(() => {
-    const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-    const totalLifetimeRev = Object.values(lifetimeRevByAcct).reduce((s, v) => s + v, 0);
-    return subs > 0 ? totalLifetimeRev / subs : 0;
-  }, [selectedAccounts, lifetimeRevByAcct]);
 
   // Sparklines (daily arrays)
   const dailyRevSpark = useMemo(() => {
@@ -430,9 +420,7 @@ export default function OverviewPage() {
       const prevProfit = prevRev - prevSpend;
       const newFans    = isAllTime ? Number(a.subscribers_count || 0) : (subsByAcct[a.id] || 0);
       const prevNewFans = prevSubsByAcct[a.id] || 0;
-      const subs       = Number(a.subscribers_count || 0);
-      const ltv        = subs > 0 ? (lifetimeRevByAcct[a.id] || 0) / subs : 0;
-      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, ltv, linkCount: linkCountByAccount[a.id] || 0 };
+      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, linkCount: linkCountByAccount[a.id] || 0 };
     });
     const dir = tableSort.dir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
@@ -441,14 +429,14 @@ export default function OverviewPage() {
         case "spend":    return dir * (a.spend - b.spend);
         case "profit":   return dir * (a.profit - b.profit);
         case "newFans":  return dir * (a.newFans - b.newFans);
-        case "ltv":      return dir * (a.ltv - b.ltv);
+
         case "account":  return dir * a.account.display_name.localeCompare(b.account.display_name);
         default: return 0;
       }
     });
     return rows;
   }, [selectedAccounts, isAllTime, revByAcct, prevRevByAcct, spendByAcct, prevSpendByAcct,
-      subsByAcct, prevSubsByAcct, lifetimeRevByAcct, revMult, tableSort, linkCountByAccount]);
+      subsByAcct, prevSubsByAcct, revMult, tableSort, linkCountByAccount]);
 
   const totalPages = Math.ceil(tableRows.length / tablePageSize);
   const pagedRows  = tableRows.slice(tablePage * tablePageSize, (tablePage + 1) * tablePageSize);
@@ -465,8 +453,8 @@ export default function OverviewPage() {
 
   const handleExport = () => {
     const csv = [
-      ["Account","Username","Revenue","Spend","Profit","New Fans","LTV"].join(","),
-      ...tableRows.map(r => [`"${r.account.display_name}"`, r.account.username || "", r.rev.toFixed(2), r.spend.toFixed(2), r.profit.toFixed(2), r.newFans, r.ltv.toFixed(2)].join(",")),
+      ["Account","Username","Revenue","Spend","Profit","New Fans"].join(","),
+      ...tableRows.map(r => [`"${r.account.display_name}"`, r.account.username || "", r.rev.toFixed(2), r.spend.toFixed(2), r.profit.toFixed(2), r.newFans].join(",")),
     ].join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -506,7 +494,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <KpiCard
             label="Fans"
             value={snapsLoading ? "…" : totalFans.toLocaleString()}
@@ -528,12 +516,6 @@ export default function OverviewPage() {
             pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
             sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Revenue/Sub"
-            value={fmtMoney(totalLtv)}
-            sub="Revenue per subscriber"
-            accent="#8b5cf6" icon={<Activity className="h-4 w-4" />}
           />
         </div>
 
@@ -674,7 +656,6 @@ export default function OverviewPage() {
                     { key: "spend",   label: "Spend",    right: true  },
                     { key: "profit",  label: "Profit",   right: true  },
                     { key: "newFans", label: "New Fans", right: true  },
-                    { key: "ltv",     label: "LTV/Sub",  right: true  },
                   ].map(col => (
                     <th key={col.key} onClick={() => sortBy(col.key)}
                       className={cn("px-5 py-3.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest cursor-pointer select-none hover:text-foreground transition-colors",
@@ -688,7 +669,7 @@ export default function OverviewPage() {
               </thead>
               <tbody>
                 {pagedRows.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     {snapsLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one account" : "No data"}
                   </td></tr>
                 ) : pagedRows.map(row => {
@@ -740,10 +721,7 @@ export default function OverviewPage() {
                         <div className="text-sm font-bold text-foreground">{row.newFans.toLocaleString()}</div>
                         <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
                       </td>
-                      {/* LTV */}
-                      <td className="px-5 py-4 text-right">
-                        <div className="text-sm font-bold text-foreground">{fmtMoney(row.ltv)}</div>
-                      </td>
+
                     </tr>
                   );
                 })}
