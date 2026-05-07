@@ -250,7 +250,7 @@ export default function OverviewPage() {
   const { prevFrom, prevTo } = useMemo(() =>
     dateFrom && dateTo ? prevRange(dateFrom, dateTo) : { prevFrom: null as string | null, prevTo: null as string | null },
     [dateFrom, dateTo]);
-  const revMult = earningMode === "gross" ? 1.25 : 1.0;
+  const revMult = earningMode === "gross" ? 1.0 : 0.8;
 
   const pickerValue = useMemo(() => {
     if (isAllTime) return null;
