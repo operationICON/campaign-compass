@@ -349,12 +349,17 @@ export default function OverviewPage() {
     return m;
   };
 
-  // Revenue from live OFAPI earnings (exact match to their dashboard)
+  // For All Time: earnings endpoint only covers since OFAPI connection, use ltv_total (synced transactions)
+  // For date-filtered: use live OFAPI earnings endpoint — matches their dashboard exactly
   const revByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    earningsRows.forEach(e => { if (selectedIds.includes(e.account_id)) m[e.account_id] = e.total; });
+    if (isAllTime) {
+      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
+    } else {
+      earningsRows.forEach(e => { if (selectedIds.includes(e.account_id)) m[e.account_id] = e.total; });
+    }
     return m;
-  }, [earningsRows, selectedIds]);
+  }, [earningsRows, selectedIds, isAllTime, selectedAccounts]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
@@ -385,15 +390,10 @@ export default function OverviewPage() {
     return m;
   }, [prevOrders, linkToAccount, selectedIds]);
 
-  // KPI totals
-  const totalRevenue = useMemo(() => {
-    const txTotal = Object.values(revByAcct).reduce((s, v) => s + v, 0);
-    // For all_time: fall back to ltv_total only if transaction data hasn't loaded yet
-    if (isAllTime && txTotal === 0) {
-      return selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0) * revMult;
-    }
-    return txTotal * revMult;
-  }, [isAllTime, selectedAccounts, revByAcct, revMult]);
+  // KPI totals — revByAcct already handles All Time (ltv_total) vs date-filtered (earnings endpoint)
+  const totalRevenue = useMemo(() =>
+    Object.values(revByAcct).reduce((s, v) => s + v, 0) * revMult,
+    [revByAcct, revMult]);
 
   const prevTotalRevenue = useMemo(() => Object.values(prevRevByAcct).reduce((s, v) => s + v, 0) * revMult, [prevRevByAcct, revMult]);
 
@@ -478,7 +478,7 @@ export default function OverviewPage() {
   // Table rows
   const tableRows = useMemo(() => {
     const rows = selectedAccounts.map((a: any) => {
-      const rev        = (isAllTime ? Number(a.ltv_total || 0) : (revByAcct[a.id] || 0)) * revMult;
+      const rev        = (revByAcct[a.id] || 0) * revMult;
       const prevRev    = (prevRevByAcct[a.id] || 0) * revMult;
       const spend      = spendByAcct[a.id] || 0;
       const prevSpend  = prevSpendByAcct[a.id] || 0;
