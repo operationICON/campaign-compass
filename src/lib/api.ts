@@ -110,6 +110,14 @@ export const getTransactionsByMonth = (account_id: string) =>
 export const getTransactionTotals = (filters?: { account_id?: string; date_from?: string }) =>
   apiFetch<{ total: number; count: number }>(`/transactions/totals${buildQuery({ account_id: filters?.account_id, date_from: filters?.date_from })}`);
 
+export const getTransactionDaily = (params: { date_from?: string; date_to?: string; account_ids?: string[] }) => {
+  const q = new URLSearchParams();
+  if (params.date_from)  q.append("date_from", params.date_from);
+  if (params.date_to)    q.append("date_to",   params.date_to);
+  (params.account_ids ?? []).forEach(id => q.append("account_ids", id));
+  return apiFetch<Array<{ account_id: string; date: string; revenue: string }>>(`/transactions/daily?${q.toString()}`);
+};
+
 // ─── Daily Metrics ────────────────────────────────────────────────────────────
 export const getDailyMetrics = (tracking_link_ids?: string[]) =>
   apiFetch(`/daily-metrics${tracking_link_ids?.length ? buildQuery({ ids: tracking_link_ids }) : ""}`);

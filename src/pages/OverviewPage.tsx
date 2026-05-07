@@ -6,8 +6,8 @@ import {
 } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  getAccounts, getSnapshotsByDateRange, getOnlytrafficOrders,
-  getTrackingLinks, getFanStats,
+  getAccounts, getTransactionDaily, getSnapshotsByDateRange,
+  getOnlytrafficOrders, getTrackingLinks, getFanStats,
 } from "@/lib/api";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -265,9 +265,25 @@ export default function OverviewPage() {
     if (!idsReady && available.length > 0) { setSelectedIds(available.map((a: any) => a.id)); setIdsReady(true); }
   }, [available, idsReady]);
 
-  const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: getTrackingLinks, staleTime: 5 * 60 * 1000 });
+  const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
-  const { data: snaps = [], isLoading: snapsLoading } = useQuery({
+  // Transaction-based revenue (exact OFAPI data, no double-counting)
+  const { data: txRows = [], isLoading: snapsLoading } = useQuery({
+    queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2020-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
+    enabled: selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: prevTxRows = [] } = useQuery({
+    queryKey: ["ov2_prev_tx", prevFrom, prevTo, selectedIds.join(",")],
+    queryFn: () => getTransactionDaily({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Snapshot-based subscriber counts (tracking-link new subs for Fans KPI)
+  const { data: snaps = [] } = useQuery({
     queryKey: ["ov2_snaps", dateFrom, dateTo, selectedIds.join(",")],
     queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom ?? "2020-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds, cols: "slim" }),
     enabled: selectedIds.length > 0,
@@ -322,9 +338,9 @@ export default function OverviewPage() {
     return m;
   };
 
-  const revByAcct       = useMemo(() => aggSnaps(snaps, "revenue", selectedIds),           [snaps, selectedIds]);
+  const revByAcct       = useMemo(() => aggSnaps(txRows, "revenue", selectedIds),           [txRows, selectedIds]);
   const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),        [snaps, selectedIds]);
-  const prevRevByAcct   = useMemo(() => aggSnaps(prevSnaps, "revenue", selectedIds),        [prevSnaps, selectedIds]);
+  const prevRevByAcct   = useMemo(() => aggSnaps(prevTxRows, "revenue", selectedIds),       [prevTxRows, selectedIds]);
   const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds),    [prevSnaps, selectedIds]);
 
   const spendByAcct = useMemo(() => {
@@ -373,13 +389,13 @@ export default function OverviewPage() {
   // Sparklines (daily arrays)
   const dailyRevSpark = useMemo(() => {
     const m: Record<string, number> = {};
-    (snaps as any[]).forEach(s => {
+    txRows.forEach(s => {
       if (!selectedIds.includes(s.account_id)) return;
-      const d = String(s.snapshot_date).split("T")[0];
+      const d = String(s.date).split("T")[0];
       m[d] = (m[d] || 0) + Number(s.revenue || 0);
     });
-    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v * revMult);
-  }, [snaps, selectedIds, revMult]);
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+  }, [txRows, selectedIds]);
 
   const dailySubsSpark = useMemo(() => {
     const m: Record<string, number> = {};
@@ -412,11 +428,11 @@ export default function OverviewPage() {
       : 366;
     const byMonth = isAllTime || daysDiff > 90;
     const m: Record<string, number> = {};
-    (snaps as any[]).forEach(s => {
+    txRows.forEach(s => {
       if (!selectedIds.includes(s.account_id)) return;
-      const d = String(s.snapshot_date).split("T")[0];
+      const d = String(s.date).split("T")[0];
       const key = byMonth ? d.slice(0, 7) : d;
-      m[key] = (m[key] || 0) + Number(s.revenue || 0) * revMult;
+      m[key] = (m[key] || 0) + Number(s.revenue || 0);
     });
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
       date: key, revenue,
@@ -424,7 +440,7 @@ export default function OverviewPage() {
         ? format(new Date(key + "-15"), "MMM yy")
         : format(new Date(key + "T12:00:00"), "MMM d"),
     }));
-  }, [snaps, selectedIds, revMult, isAllTime, dateFrom, dateTo]);
+  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo]);
 
   const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
 

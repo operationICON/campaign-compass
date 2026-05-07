@@ -59,6 +59,29 @@ router.get("/by-month", async (c) => {
   return c.json(rows.rows);
 });
 
+// GET /transactions/daily?date_from=&date_to=&account_ids= — per-account per-day revenue for Overview
+router.get("/daily", async (c) => {
+  const dateFrom   = c.req.query("date_from");
+  const dateTo     = c.req.query("date_to");
+  const accountIds = c.req.queries("account_ids") ?? [];
+
+  const rows = await db.execute(sql`
+    SELECT
+      account_id::text,
+      date,
+      COALESCE(SUM(revenue::numeric), 0) AS revenue
+    FROM transactions
+    WHERE revenue::numeric > 0
+      AND date IS NOT NULL
+      ${dateFrom ? sql`AND date >= ${dateFrom}` : sql``}
+      ${dateTo   ? sql`AND date <= ${dateTo}`   : sql``}
+      ${accountIds.length > 0 ? sql`AND account_id = ANY(${accountIds}::uuid[])` : sql``}
+    GROUP BY account_id, date
+    ORDER BY date ASC
+  `);
+  return c.json(rows.rows);
+});
+
 // GET /transactions/totals?account_id=&date_from=&date_to=
 router.get("/totals", async (c) => {
   const accountId = c.req.query("account_id");
