@@ -240,7 +240,6 @@ export default function OverviewPage() {
   const [idsReady, setIdsReady]         = useState(false);
   const [preset, setPreset]             = useState<PresetKey>("last_30");
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
-  const [earningMode, setEarningMode]   = useState<"net" | "gross">("net");
   const [chartType, setChartType]       = useState<"bar" | "line">("bar");
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [tablePage, setTablePage]       = useState(0);
@@ -250,7 +249,7 @@ export default function OverviewPage() {
   const { prevFrom, prevTo } = useMemo(() =>
     dateFrom && dateTo ? prevRange(dateFrom, dateTo) : { prevFrom: null as string | null, prevTo: null as string | null },
     [dateFrom, dateTo]);
-  const revMult = earningMode === "gross" ? 1.0 : 0.8;
+  const revMult = 1.0;
 
   const pickerValue = useMemo(() => {
     if (isAllTime) return null;
@@ -499,7 +498,7 @@ export default function OverviewPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Overview</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {dateLabel} · {selectedIds.length} account{selectedIds.length !== 1 ? "s" : ""} · {earningMode === "net" ? "Net (after OF 20%)" : "Gross"}
+            {dateLabel} · {selectedIds.length} account{selectedIds.length !== 1 ? "s" : ""}
           </p>
         </div>
 
@@ -507,15 +506,6 @@ export default function OverviewPage() {
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
-            <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
-              {(["net", "gross"] as const).map(m => (
-                <button key={m} onClick={() => setEarningMode(m)}
-                  className={cn("px-3 py-1.5 rounded-md text-xs font-semibold transition-colors capitalize",
-                    earningMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  {m}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             {DATE_PRESETS.map(p => (
@@ -557,7 +547,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Revenue"
             value={snapsLoading ? "…" : fmtShort(totalRevenue)}
-            sub={earningMode === "net" ? "Net · after OF 20%" : "Gross"}
+            sub="From OFT tracking links"
             pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
             sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}

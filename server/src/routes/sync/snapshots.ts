@@ -164,9 +164,10 @@ router.post("/backfill", async (c) => {
 
   const now = new Date();
   const DATE_END = now.toISOString().split("T")[0];
-  // First day of previous month
-  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const DATE_START = prevMonth.toISOString().split("T")[0];
+  // Accept explicit date_start for full-history backfills; default = first of prev month
+  const DATE_START = body.date_start
+    ? String(body.date_start)
+    : new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split("T")[0];
 
   const { stream, send, close } = createSSEStream();
 
