@@ -61,13 +61,14 @@ router.get("/by-month", async (c) => {
 
 // GET /transactions/daily?date_from=&date_to=&account_ids= — per-account per-day revenue for Overview
 router.get("/daily", async (c) => {
-  const dateFrom   = c.req.query("date_from");
-  const dateTo     = c.req.query("date_to");
-  const accountIds = c.req.queries("account_ids") ?? [];
+  const dateFrom       = c.req.query("date_from");
+  const dateTo         = c.req.query("date_to");
+  const accountIdsRaw  = c.req.query("account_ids");
+  const accountIds     = accountIdsRaw ? accountIdsRaw.split(",").filter(Boolean) : [];
 
-  const conditions: any[] = [sql`${transactions.revenue}::numeric > 0`];
-  if (dateFrom)            conditions.push(gte(transactions.date, dateFrom));
-  if (dateTo)              conditions.push(lte(transactions.date, dateTo));
+  const conditions: any[] = [sql`${transactions.revenue}::numeric > 0`, sql`${transactions.date} IS NOT NULL`];
+  if (dateFrom)              conditions.push(gte(transactions.date, dateFrom));
+  if (dateTo)                conditions.push(lte(transactions.date, dateTo));
   if (accountIds.length > 0) conditions.push(inArray(transactions.account_id, accountIds));
 
   const rows = await db
