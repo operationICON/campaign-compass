@@ -10,13 +10,12 @@ const API_BASE = "https://app.onlyfansapi.com/api";
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-async function fetchTransactions(ofAccountId: string, apiKey: string, afterDate?: string): Promise<{ items: any[]; apiCalls: number }> {
+async function fetchTransactions(ofAccountId: string, apiKey: string, afterDate?: string, maxCalls = 500): Promise<{ items: any[]; apiCalls: number }> {
   const items: any[] = [];
-  // If we have a known latest date, only pull transactions after that — far fewer API calls
   const dateParam = afterDate ? `&after=${afterDate}` : "";
   let url: string | null = `/${ofAccountId}/transactions?limit=100${dateParam}`;
   let apiCalls = 0;
-  while (url && apiCalls < 500) {
+  while (url && apiCalls < maxCalls) {
     apiCalls++;
     const fullUrl = url.startsWith("http") ? url : `${API_BASE}${url}`;
     const res = await fetch(fullUrl, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
@@ -135,8 +134,8 @@ router.post("/", async (c) => {
           }
           const isIncremental = !!latestDate;
 
-          await send({ step: "fetching", message: `Fetching ${account.display_name}${forceFull ? " (FULL HISTORY SCAN)" : isIncremental ? ` (incremental from ${latestDate})` : " (full scan)"}...` });
-          const { items: txList, apiCalls } = await fetchTransactions(account.onlyfans_account_id, apiKey, latestDate ?? undefined);
+          await send({ step: "fetching", message: `Fetching ${account.display_name}${forceFull ? " (FULL HISTORY SCAN — up to 10,000 pages)" : isIncremental ? ` (incremental from ${latestDate})` : " (full scan)"}...` });
+          const { items: txList, apiCalls } = await fetchTransactions(account.onlyfans_account_id, apiKey, latestDate ?? undefined, forceFull ? 10_000 : 500);
           totalApiCalls += apiCalls;
           await send({ step: "fetched", message: `${account.display_name}: ${txList.length} transactions (${apiCalls} API calls${isIncremental ? ", incremental" : ", full scan"})` });
 
