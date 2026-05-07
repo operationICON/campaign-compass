@@ -119,19 +119,6 @@ export const getTransactionDaily = (params: { date_from?: string; date_to?: stri
     })}`
   );
 
-// ─── Earnings (live OFAPI by-type) ───────────────────────────────────────────
-export type AccountEarnings = {
-  account_id: string;
-  subscriptions: number; tips: number; messages: number; posts: number; total: number;
-  error?: string;
-};
-export const getEarningsByAccount = (params: { account_ids?: string[]; date_from?: string; date_to?: string }) =>
-  apiFetch<AccountEarnings[]>(`/earnings/by-account${buildQuery({
-    account_ids: params.account_ids?.join(","),
-    date_from:   params.date_from,
-    date_to:     params.date_to,
-  })}`);
-
 // ─── Daily Metrics ────────────────────────────────────────────────────────────
 export const getDailyMetrics = (tracking_link_ids?: string[]) =>
   apiFetch(`/daily-metrics${tracking_link_ids?.length ? buildQuery({ ids: tracking_link_ids }) : ""}`);

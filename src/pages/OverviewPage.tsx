@@ -6,7 +6,7 @@ import {
 } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  getAccounts, getEarningsByAccount, getTransactionDaily,
+  getAccounts, getTransactionDaily,
   getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks, getFanStats,
 } from "@/lib/api";
 import {
@@ -270,26 +270,18 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
-  // Live earnings from OFAPI — exact same numbers their dashboard shows
-  const { data: earningsRows = [], isLoading: snapsLoading } = useQuery({
-    queryKey: ["ov2_earnings", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getEarningsByAccount({ date_from: dateFrom ?? undefined, date_to: dateTo ?? undefined, account_ids: selectedIds }),
-    enabled: selectedIds.length > 0,
-    staleTime: 2 * 60 * 1000,
-  });
-
-  const { data: prevEarningsRows = [] } = useQuery({
-    queryKey: ["ov2_prev_earnings", prevFrom, prevTo, selectedIds.join(",")],
-    queryFn: () => getEarningsByAccount({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds }),
-    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // Transaction daily data — used only for chart shape / sparklines
-  const { data: txRows = [] } = useQuery({
+  // Revenue from synced transactions — single source of truth, no live API calls
+  const { data: txRows = [], isLoading: snapsLoading } = useQuery({
     queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
     queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2020-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
     enabled: selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: prevTxRows = [] } = useQuery({
+    queryKey: ["ov2_prev_tx", prevFrom, prevTo, selectedIds.join(",")],
+    queryFn: () => getTransactionDaily({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -349,23 +341,21 @@ export default function OverviewPage() {
     return m;
   };
 
-  // For All Time: earnings endpoint only covers since OFAPI connection, use ltv_total (synced transactions)
-  // For date-filtered: use live OFAPI earnings endpoint — matches their dashboard exactly
   const revByAcct = useMemo(() => {
     const m: Record<string, number> = {};
     if (isAllTime) {
       selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
     } else {
-      earningsRows.forEach(e => { if (selectedIds.includes(e.account_id)) m[e.account_id] = e.total; });
+      txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
     }
     return m;
-  }, [earningsRows, selectedIds, isAllTime, selectedAccounts]);
+  }, [txRows, selectedIds, isAllTime, selectedAccounts]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    prevEarningsRows.forEach(e => { if (selectedIds.includes(e.account_id)) m[e.account_id] = e.total; });
+    prevTxRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
     return m;
-  }, [prevEarningsRows, selectedIds]);
+  }, [prevTxRows, selectedIds]);
 
   const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),     [snaps, selectedIds]);
   const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds), [prevSnaps, selectedIds]);

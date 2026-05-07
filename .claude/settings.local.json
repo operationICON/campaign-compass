@@ -31,7 +31,10 @@
       "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/campaign-analytics/campaigns\")",
       "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/health\")",
       "Bash(curl -s \"https://upbeat-bravery-production-3ec1.up.railway.app/\")",
-      "Bash(railway --version)"
+      "Bash(railway --version)",
+      "Bash(curl *)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(c['sha'][:7], c['commit']['message'][:60]\\) for c in data]\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\);const j=JSON.parse\\(d\\);j.forEach\\(c=>console.log\\(c.sha.slice\\(0,7\\),c.commit.message.slice\\(0,60\\)\\)\\)\")"
     ]
   }
 }
