@@ -562,15 +562,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <KpiCard
-            label="Fans"
-            value={snapsLoading ? "…" : totalFans.toLocaleString()}
-            sub={isAllTime ? "Total subscribers" : "New subscribers in period"}
-            pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
-            sparkData={dailySubsSpark.length > 1 ? dailySubsSpark : undefined}
-            accent="#6366f1" icon={<Users className="h-4 w-4" />}
-          />
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <KpiCard
             label="New Subs"
             value={newSubsKpi.toLocaleString()}
