@@ -407,6 +407,7 @@ export default function OverviewPage() {
       .map((a: any, i: number) => ({
         id: a.id,
         name: a.display_name,
+        username: a.username ? `@${String(a.username).replace(/^@/, "")}` : null,
         value: (revByAcct[a.id] || 0) * revMult,
         color: MODEL_COLORS[i % MODEL_COLORS.length],
       }))
@@ -632,7 +633,10 @@ export default function OverviewPage() {
                             <td className="py-1.5 pr-2">
                               <div className="flex items-center gap-1.5">
                                 <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                                <span className="text-foreground truncate">{d.name}</span>
+                                <div className="min-w-0">
+                                  <div className="text-foreground truncate">{d.name}</div>
+                                  {d.username && <div className="text-[10px] text-muted-foreground truncate">{d.username}</div>}
+                                </div>
                               </div>
                             </td>
                             <td className="py-1.5 text-right text-muted-foreground">{spend > 0 ? fmtMoney(spend) : "—"}</td>
