@@ -38,6 +38,7 @@ import syncCancelRouter from "./routes/sync/cancel.js";
 import authRouter from "./routes/auth.js";
 import campaignAnalyticsRouter from "./routes/campaign-analytics.js";
 import { startScheduler } from "./scheduler.js";
+import { sql } from "drizzle-orm";
 
 const app = new Hono();
 
@@ -107,6 +108,11 @@ app.route("/sync/cancel", syncCancelRouter);
 
 const port = Number(process.env.PORT ?? 3000);
 console.log(`Server starting on port ${port}`);
+
+// Run pending schema migrations on startup
+db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS revenue_monthly JSONB`)
+  .then(() => console.log("Migration: revenue_monthly column ready"))
+  .catch((e) => console.error("Migration warning:", e));
 
 serve({ fetch: app.fetch, port });
 startScheduler();
