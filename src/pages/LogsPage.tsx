@@ -892,14 +892,17 @@ export default function LogsPage() {
                         const displayMessage = rawMessage.length > 80 ? rawMessage.slice(0, 80) + "…" : rawMessage;
                         const isGroupedParent = GROUPED_TYPES.has(syncType) && !log.account_id;
                         const details = log.details;
-                        const TWO_MIN_MS = 2 * 60 * 1000;
-                        const parentTime = new Date(log.started_at).getTime();
+                        const parentStart = new Date(log.started_at).getTime();
+                        const parentEnd   = log.completed_at || log.finished_at
+                          ? new Date(log.completed_at || log.finished_at).getTime()
+                          : parentStart + 30 * 60 * 1000;
                         const childLogs = isGroupedParent
                           ? classifiedLogs
                               .filter((l: any) =>
                                 isChildLog(l) &&
                                 l.syncType === syncType &&
-                                Math.abs(new Date(l.started_at).getTime() - parentTime) < TWO_MIN_MS
+                                new Date(l.started_at).getTime() >= parentStart - 5000 &&
+                                new Date(l.started_at).getTime() <= parentEnd + 5000
                               )
                               .sort((a: any, b: any) =>
                                 (a.account_display_name ?? "").localeCompare(b.account_display_name ?? "")
@@ -1191,15 +1194,18 @@ export default function LogsPage() {
                   const syncT = log.syncType as SyncType;
                   const isGroupedParent = GROUPED_TYPES.has(syncT) && !log.account_id;
 
-                  // For grouped types, pull child logs from the full classified set (within 2 min)
-                  const TWO_MIN_MS = 2 * 60 * 1000;
-                  const parentTime = new Date(log.started_at).getTime();
+                  // For grouped types, pull child logs from the full classified set (span = parent duration)
+                  const parentStart2 = new Date(log.started_at).getTime();
+                  const parentEnd2   = log.completed_at || log.finished_at
+                    ? new Date(log.completed_at || log.finished_at).getTime()
+                    : parentStart2 + 30 * 60 * 1000;
                   const childLogs = isGroupedParent
                     ? classifiedLogs
                         .filter((l: any) =>
                           isChildLog(l) &&
                           l.syncType === syncT &&
-                          Math.abs(new Date(l.started_at).getTime() - parentTime) < TWO_MIN_MS
+                          new Date(l.started_at).getTime() >= parentStart2 - 5000 &&
+                          new Date(l.started_at).getTime() <= parentEnd2 + 5000
                         )
                         .sort((a: any, b: any) =>
                           (a.account_display_name ?? "").localeCompare(b.account_display_name ?? "")
