@@ -291,9 +291,13 @@ export default function OverviewPage() {
 
   const revByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+    if (isAllTime) {
+      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
+    } else {
+      txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+    }
     return m;
-  }, [txRows, selectedIds]);
+  }, [txRows, selectedIds, isAllTime, selectedAccounts]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
@@ -370,12 +374,12 @@ export default function OverviewPage() {
     selectedAccounts
       .map((a: any, i: number) => ({
         name: a.display_name,
-        value: (revByAcct[a.id] || 0) * revMult,
+        value: (isAllTime ? Number(a.ltv_total || 0) : (revByAcct[a.id] || 0)) * revMult,
         color: MODEL_COLORS[i % MODEL_COLORS.length],
       }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value),
-    [selectedAccounts, revByAcct, revMult]);
+    [selectedAccounts, isAllTime, revByAcct, revMult]);
 
   const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
 

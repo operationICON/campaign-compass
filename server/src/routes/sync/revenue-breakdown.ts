@@ -178,23 +178,36 @@ router.post("/", async (c) => {
             totalTx += batch.length;
           }
 
-          // Update account LTV breakdown using net amounts (same 3-tier logic as /daily endpoint)
-          const typeAgg = await db.execute(sql`
-            SELECT type, COALESCE(SUM(
-              CASE
-                WHEN revenue_net IS NOT NULL AND revenue_net::text != '' THEN revenue_net::numeric
-                WHEN fee IS NOT NULL AND fee::text != '' THEN revenue::numeric - fee::numeric
-                ELSE revenue::numeric * 0.80
-              END
-            ), 0) AS total
-            FROM transactions
-            WHERE account_id = ${account.id}
-            GROUP BY type
-          `);
+          // Get accurate All Time totals from OFAPI analytics API — one call, no pagination needed
+          const today = new Date().toISOString().split("T")[0];
+          const analyticsRes = await fetch(`${API_BASE}/${account.onlyfans_account_id}/analytics/financial/transactions/by-type`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({ date_from: "2018-01-01", date_to: today }),
+          });
           const breakdown = { ...BUCKETS };
-          for (const row of typeAgg.rows as any[]) {
-            const bucket = mapType(row.type);
-            breakdown[bucket] += Number(row.total ?? 0);
+          if (analyticsRes.ok) {
+            const analyticsJson = await analyticsRes.json() as any;
+            const rows: any[] = analyticsJson?.data ?? analyticsJson?.transactions ?? (Array.isArray(analyticsJson) ? analyticsJson : []);
+            for (const row of rows) {
+              const bucket = mapType(row.type ?? row.name ?? "");
+              breakdown[bucket] += Number(row.total ?? row.net ?? row.amount ?? row.revenue ?? 0);
+            }
+          } else {
+            // Fallback: compute from synced transactions in DB
+            const typeAgg = await db.execute(sql`
+              SELECT type, COALESCE(SUM(
+                CASE
+                  WHEN revenue_net IS NOT NULL AND revenue_net::text != '' THEN revenue_net::numeric
+                  WHEN fee IS NOT NULL AND fee::text != '' THEN revenue::numeric - fee::numeric
+                  ELSE revenue::numeric * 0.80
+                END
+              ), 0) AS total FROM transactions WHERE account_id = ${account.id} GROUP BY type
+            `);
+            for (const row of typeAgg.rows as any[]) {
+              const bucket = mapType(row.type);
+              breakdown[bucket] += Number(row.total ?? 0);
+            }
           }
           const ltvTotal = breakdown.messages + breakdown.tips + breakdown.subscriptions + breakdown.posts + breakdown.other;
 
