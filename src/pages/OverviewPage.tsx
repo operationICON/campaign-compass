@@ -14,7 +14,7 @@ import {
 import {
   ChevronDown, Check, Search,
   ArrowUpRight, ArrowDownRight,
-  BarChart2, TrendingUp, Users, DollarSign, Zap, UserPlus, Activity,
+  BarChart2, TrendingUp, Users, DollarSign, UserPlus, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -387,10 +387,6 @@ export default function OverviewPage() {
     return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
   }, [selectedAccounts, linksRaw, selectedIds]);
 
-  // Expenses
-  const totalExpenses = useMemo(() =>
-    Object.values(spendByAcct).reduce((s, v) => s + v, 0),
-    [spendByAcct]);
 
 
   // Sparklines (daily arrays)
@@ -588,13 +584,6 @@ export default function OverviewPage() {
             pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
             sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Expenses"
-            value={fmtMoney(totalExpenses)}
-            sub={isAllTime ? "All time · total ad spend" : "Ad spend in period"}
-            compact
-            accent="#ef4444" icon={<Zap className="h-4 w-4" />}
           />
         </div>
 
