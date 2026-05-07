@@ -151,7 +151,9 @@ router.post("/", async (c) => {
                 user_id: fanId,
                 fan_id: fanId,
                 fan_username: tx.userUsername ?? tx.fanUsername ?? tx.username ?? null,
-                date: tx.date ? String(tx.date).split("T")[0] : null,
+                date: (tx.date ?? tx.createdAt ?? tx.created_at ?? tx.dateCreated ?? tx.paidAt ?? null)
+                  ? String(tx.date ?? tx.createdAt ?? tx.created_at ?? tx.dateCreated ?? tx.paidAt).split("T")[0]
+                  : null,
                 type: tx.type ?? null,
                 revenue: String(Number(tx.amount ?? tx.revenue ?? 0)),
                 revenue_net: (tx.amountNet ?? tx.revenueNet ?? tx.netAmount) != null ? String(tx.amountNet ?? tx.revenueNet ?? tx.netAmount) : null,
