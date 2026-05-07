@@ -92,17 +92,17 @@ function ChangeChip({ pct }: { pct: number | null }) {
 }
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, pct, sparkData, accent, icon }: {
+function KpiCard({ label, value, sub, pct, sparkData, accent, icon, compact }: {
   label: string; value: string; sub?: string;
   pct?: number | null; sparkData?: number[];
-  accent: string; icon: React.ReactNode;
+  accent: string; icon: React.ReactNode; compact?: boolean;
 }) {
   return (
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3" style={{ borderBottom: `3px solid ${accent}` }}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-          <p className="text-3xl font-bold text-foreground mt-1 leading-none">{value}</p>
+          <p className={cn("font-bold text-foreground mt-1 leading-none", compact ? "text-xl" : "text-3xl")}>{value}</p>
           {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
         </div>
         <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style={{ background: `${accent}18` }}>
@@ -583,7 +583,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Revenue/Sub"
             value={fmtMoney(revenuePerSub)}
-            sub="All time · per subscriber"
+            sub="All time · per new subscriber"
             accent="#ec4899" icon={<Activity className="h-4 w-4" />}
           />
           <KpiCard
@@ -594,8 +594,9 @@ export default function OverviewPage() {
           />
           <KpiCard
             label="Revenue"
-            value={snapsLoading ? "…" : fmtShort(totalRevenue)}
+            value={snapsLoading ? "…" : fmtMoney(totalRevenue)}
             sub={isAllTime ? "Total historical earnings" : "Net earnings in period"}
+            compact
             pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
             sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
             accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
