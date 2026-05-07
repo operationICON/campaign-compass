@@ -201,6 +201,7 @@ export default function OverviewPage() {
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [tablePage, setTablePage]       = useState(0);
   const [tablePageSize, setTablePageSize] = useState(10);
+  const [showRevBreakdown, setShowRevBreakdown] = useState(false);
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -351,7 +352,6 @@ export default function OverviewPage() {
     Object.values(revByAcct).reduce((s, v) => s + v, 0) * revMult,
     [revByAcct, revMult]);
 
-  const prevTotalRevenue = useMemo(() => Object.values(prevRevByAcct).reduce((s, v) => s + v, 0) * revMult, [prevRevByAcct, revMult]);
 
   const totalFans = useMemo(() => {
     if (isAllTime) return selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
@@ -387,18 +387,18 @@ export default function OverviewPage() {
     return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
   }, [selectedAccounts, linksRaw, selectedIds]);
 
+  // Via Campaigns vs Unattributed revenue split (for Total Revenue breakdown)
+  const attributedRevenue = useMemo(() =>
+    (linksRaw as any[])
+      .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0),
+    [linksRaw, selectedIds]);
 
+  const unattributedRevenue = useMemo(() =>
+    Math.max(0, totalRevenue - attributedRevenue),
+    [totalRevenue, attributedRevenue]);
 
   // Sparklines (daily arrays)
-  const dailyRevSpark = useMemo(() => {
-    const m: Record<string, number> = {};
-    txRows.forEach(s => {
-      if (!selectedIds.includes(s.account_id)) return;
-      const d = String(s.date).split("T")[0];
-      m[d] = (m[d] || 0) + Number(s.revenue || 0);
-    });
-    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-  }, [txRows, selectedIds]);
 
 
   // Donut
@@ -577,15 +577,48 @@ export default function OverviewPage() {
             sub="Fans with no tracking link"
             accent="#64748b" icon={<BarChart2 className="h-4 w-4" />}
           />
-          <KpiCard
-            label="Total Revenue"
-            value={snapsLoading ? "…" : fmtMoney(totalRevenue)}
-            sub={isAllTime ? "All time · total historical earnings" : "Net earnings in period"}
-            compact
-            pct={!isAllTime && prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 : null}
-            sparkData={dailyRevSpark.length > 1 ? dailyRevSpark : undefined}
-            accent="#f59e0b" icon={<DollarSign className="h-4 w-4" />}
-          />
+          {/* Total Revenue — expandable breakdown */}
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-2" style={{ borderBottom: "3px solid #f59e0b" }}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</p>
+                <p className="text-xl font-bold text-foreground mt-1 leading-none">{snapsLoading ? "…" : fmtMoney(totalRevenue)}</p>
+                <p className="text-xs text-muted-foreground mt-1.5">{isAllTime ? "All time · tracking links + unattributed" : "Net earnings in period"}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "#f59e0b18" }}>
+                <span style={{ color: "#f59e0b" }}><DollarSign className="h-4 w-4" /></span>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowRevBreakdown(v => !v)}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors self-start"
+            >
+              <ChevronDown className={cn("w-3 h-3 transition-transform", showRevBreakdown && "rotate-180")} />
+              {showRevBreakdown ? "Hide breakdown" : "Show breakdown"}
+            </button>
+            {showRevBreakdown && (
+              <div className="border-t border-border/40 pt-2 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                    Via Campaigns
+                  </div>
+                  <span className="text-foreground font-medium">
+                    {fmtMoney(attributedRevenue)} · {totalRevenue > 0 ? ((attributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#64748b] inline-block" />
+                    Unattributed
+                  </div>
+                  <span className="text-foreground font-medium">
+                    {fmtMoney(unattributedRevenue)} · {totalRevenue > 0 ? ((unattributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Section 3: Revenue Breakdown + Revenue Overview ─────────────────── */}
