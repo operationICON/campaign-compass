@@ -8,22 +8,37 @@ import {
 } from "@/lib/api";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
-  BarChart, Bar, LineChart, Line,
+  AreaChart, Area,
+  BarChart, Bar,
+  LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
   ChevronDown, Check, Search,
   ArrowUpRight, ArrowDownRight,
-  BarChart2, TrendingUp, Users, DollarSign, UserPlus, Activity,
+  BarChart2, TrendingUp, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 
-// ── Colors ────────────────────────────────────────────────────────────────────
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const T = {
+  bg:      "#08090c",
+  card:    "#0e1015",
+  cardAlt: "#0b0c10",
+  border:  "#1e2130",
+  blue:    "#3b82f6",
+  green:   "#22c55e",
+  red:     "#ef4444",
+  muted:   "#475569",
+  white:   "#f1f5f9",
+  dark:    "#1e2d45",
+} as const;
+
 const MODEL_COLORS = [
-  "#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6",
-  "#06b6d4","#f97316","#ec4899","#14b8a6","#84cc16",
-  "#a855f7","#22c55e","#eab308","#3b82f6","#e11d48",
+  "#3b82f6","#6366f1","#8b5cf6","#a855f7","#ec4899",
+  "#06b6d4","#10b981","#f59e0b","#f97316","#ef4444",
+  "#22c55e","#eab308","#14b8a6","#84cc16","#0ea5e9",
 ];
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -57,33 +72,30 @@ function prevRange(from: string, to: string) {
   return { prevFrom: fmtD(subDays(f, days)), prevTo: fmtD(subDays(f, 1)) };
 }
 
-// ── Sparkline ─────────────────────────────────────────────────────────────────
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  if (!data || data.length < 2) return <div className="w-20 h-8" />;
-  const min = Math.min(...data), max = Math.max(...data);
-  const range = max - min || 1;
-  const W = 80, H = 32;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * W;
-    const y = H - ((v - min) / range) * (H - 4) - 2;
-    return `${x},${y}`;
-  }).join(" ");
+// ── Tiny sparkline (recharts LineChart, no axes) ───────────────────────────────
+function TinySparkline({ data }: { data: number[] }) {
+  if (!data || data.length < 2) return <div style={{ width: 64, height: 32 }} />;
+  const pts = data.map((value, index) => ({ index, value }));
   return (
-    <svg width={W} height={H} className="opacity-75">
-      <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} />
-    </svg>
+    <div style={{ width: 64, height: 32 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={pts} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+          <Line type="monotone" dataKey="value" stroke={T.blue} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
-// ── Delta pill ────────────────────────────────────────────────────────────────
-function ChangeChip({ pct }: { pct: number | null }) {
+// ── Delta badge ───────────────────────────────────────────────────────────────
+function Delta({ pct }: { pct: number | null }) {
   if (pct === null || !isFinite(pct)) return null;
   const up = pct >= 0;
   return (
-    <span className={cn(
-      "inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full",
-      up ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
-    )}>
+    <span
+      className="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full font-mono"
+      style={{ background: up ? `${T.green}18` : `${T.red}18`, color: up ? T.green : T.red }}
+    >
       {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
       {Math.abs(pct).toFixed(1)}%
     </span>
@@ -91,36 +103,22 @@ function ChangeChip({ pct }: { pct: number | null }) {
 }
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, pct, sparkData, accent, icon }: {
+function KpiCard({ label, value, sub, pct, sparkData }: {
   label: string; value: string; sub?: string;
   pct?: number | null; sparkData?: number[];
-  accent: string; icon: React.ReactNode;
 }) {
   return (
-    <div
-      className="bg-card border border-border/50 rounded-2xl p-5 flex flex-col gap-3"
-      style={{ borderLeft: `4px solid ${accent}` }}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-          <p className="text-2xl font-bold text-foreground mt-1 leading-none tabular-nums">{value}</p>
-          {sub && <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{sub}</p>}
-        </div>
-        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: `${accent}18` }}>
-          <span style={{ color: accent }}>{icon}</span>
-        </div>
-      </div>
-      <div className="flex items-end justify-between mt-auto">
+    <div className="p-5 flex flex-col gap-3" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" }}>
+      <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>{label}</p>
+      <p className="text-3xl font-bold font-mono leading-none" style={{ color: T.white }}>{value}</p>
+      {sub && <p className="text-xs leading-snug" style={{ color: T.muted }}>{sub}</p>}
+      <div className="flex items-end justify-between mt-auto pt-1">
         <div>
-          {pct !== undefined && pct !== null ? (
-            <>
-              <ChangeChip pct={pct} />
-              <p className="text-[10px] text-muted-foreground mt-1">vs prev period</p>
-            </>
-          ) : <div />}
+          {pct !== undefined && pct !== null
+            ? <><Delta pct={pct} /><p className="text-[10px] mt-1" style={{ color: T.muted }}>vs prev period</p></>
+            : <div />}
         </div>
-        {sparkData && <Sparkline data={sparkData} color={accent} />}
+        {sparkData && <TinySparkline data={sparkData} />}
       </div>
     </div>
   );
@@ -144,51 +142,71 @@ function AccountFilter({ accounts, selected, onChange }: {
   const toggle = (id: string) =>
     onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
 
+  const btnCls = "h-8 px-3 rounded-md text-sm font-medium flex items-center gap-2 transition-colors select-none";
+
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(!open)}
-        className="h-9 px-3 rounded-lg border border-border bg-card text-sm font-medium text-foreground flex items-center gap-2.5 hover:bg-accent/30 transition-colors select-none">
-        <Users className="w-3.5 h-3.5 text-muted-foreground" />
-        <span>Accounts ({selected.length})</span>
-        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
+      <button
+        onClick={() => setOpen(!open)}
+        className={btnCls}
+        style={{ background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
+      >
+        <Users className="w-3.5 h-3.5" />
+        <span style={{ color: T.white }}>Models ({selected.length})</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-72 bg-card border border-border rounded-xl shadow-2xl z-[60]">
-          <div className="p-2.5 border-b border-border">
+        <div className="absolute left-0 top-full mt-1.5 w-72 rounded-xl shadow-2xl z-[60]"
+          style={{ background: T.card, border: `1px solid ${T.border}` }}>
+          <div className="p-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search accounts…"
-                className="w-full h-8 pl-8 pr-3 text-xs bg-muted/40 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: T.muted }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search models…"
+                className="w-full h-8 pl-8 pr-3 text-xs rounded-lg focus:outline-none"
+                style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.white }} />
             </div>
           </div>
-          <div className="flex items-center gap-3 px-3 py-2 border-b border-border">
-            <button onClick={() => onChange(accounts.map(a => a.id))} className="text-xs text-primary hover:underline">Select All</button>
-            <span className="text-muted-foreground/40">·</span>
-            <button onClick={() => onChange([])} className="text-xs text-muted-foreground hover:text-foreground hover:underline">Deselect All</button>
+          <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>
+            <button onClick={() => onChange(accounts.map(a => a.id))} className="text-xs" style={{ color: T.blue }}>Select All</button>
+            <span style={{ color: T.muted }}>·</span>
+            <button onClick={() => onChange([])} className="text-xs hover:text-white transition-colors" style={{ color: T.muted }}>Deselect All</button>
           </div>
           <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
             {filtered.map(a => {
               const checked = selected.includes(a.id);
               return (
                 <button key={a.id} onClick={() => toggle(a.id)}
-                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent/40 transition-colors text-left">
-                  <div className={cn("w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                    checked ? "bg-primary border-primary" : "border-border")}>
-                    {checked && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors hover:bg-[#1e2130]/60">
+                  <div className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+                    style={{ background: checked ? T.blue : "transparent", borderColor: checked ? T.blue : T.border }}>
+                    {checked && <Check className="w-2.5 h-2.5 text-white" />}
                   </div>
                   {a.avatar_thumb_url
                     ? <img src={a.avatar_thumb_url} className="w-6 h-6 rounded-full object-cover shrink-0" alt="" />
-                    : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
+                    : <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{ background: T.dark, color: T.muted }}>
                         {(a.display_name || "?").slice(0, 2).toUpperCase()}
                       </div>}
-                  <span className="text-sm text-foreground truncate">{a.display_name}</span>
+                  <span className="text-sm truncate" style={{ color: T.white }}>{a.display_name}</span>
                 </button>
               );
             })}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Custom tooltip ────────────────────────────────────────────────────────────
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="px-3 py-2 rounded-lg text-xs"
+      style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.blue}` }}>
+      <p className="mb-1" style={{ color: T.muted }}>{label}</p>
+      <p className="font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(payload[0].value)}</p>
     </div>
   );
 }
@@ -203,7 +221,6 @@ export default function OverviewPage() {
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [tablePage, setTablePage]       = useState(0);
   const [tablePageSize, setTablePageSize] = useState(10);
-  const [showRevBreakdown, setShowRevBreakdown] = useState(false);
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -211,7 +228,7 @@ export default function OverviewPage() {
     [dateFrom, dateTo]);
   const revMult = 1.0;
 
-  // Queries
+  // ── Queries ────────────────────────────────────────────────────────────────
   const { data: accountsRaw = [] } = useQuery({ queryKey: ["accounts"], queryFn: getAccounts, staleTime: 5 * 60 * 1000 });
   const available = useMemo(() => (accountsRaw as any[]).filter(a => a.is_active && !a.sync_excluded), [accountsRaw]);
 
@@ -221,7 +238,7 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
-  const { data: txRows = [], isLoading: snapsLoading } = useQuery({
+  const { data: txRows = [], isLoading: txLoading } = useQuery({
     queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
     queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
     enabled: !isAllTime && selectedIds.length > 0,
@@ -263,25 +280,26 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Always-on Prev Month new subs
   const [prevMonthStart, prevMonthEnd, daysInPrevMonth] = useMemo(() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const end   = new Date(now.getFullYear(), now.getMonth(), 0);
     return [fmtD(start), fmtD(end), end.getDate()];
   }, []);
+
   const { data: pmSnaps = [] } = useQuery({
     queryKey: ["new_subs_prev_month", selectedIds.join(",")],
     queryFn: () => getSnapshotsByDateRange({ date_from: prevMonthStart, date_to: prevMonthEnd, account_ids: selectedIds, cols: "slim" }),
     enabled: selectedIds.length > 0,
     staleTime: 30 * 60 * 1000,
   });
+
   const newSubsPrevMonth = useMemo(() =>
     (pmSnaps as any[]).reduce((s: number, snap: any) =>
       s + (selectedIds.includes(snap.account_id) ? Number(snap.subscribers || 0) : 0), 0),
   [pmSnaps, selectedIds]);
 
-  // Derived maps
+  // ── Derived maps ──────────────────────────────────────────────────────────
   const linkToAccount = useMemo(() => {
     const m: Record<string, string> = {};
     (linksRaw as any[]).forEach(l => { if (l.id && l.account_id) m[l.id] = l.account_id; });
@@ -396,32 +414,7 @@ export default function OverviewPage() {
     Math.max(0, totalRevenue - attributedRevenue),
     [totalRevenue, attributedRevenue]);
 
-  // Donut — top 5 + Others
-  const donutData = useMemo(() =>
-    selectedAccounts
-      .map((a: any, i: number) => ({
-        id: a.id,
-        name: a.display_name,
-        username: a.username ? `@${String(a.username).replace(/^@/, "")}` : null,
-        value: (revByAcct[a.id] || 0) * revMult,
-        color: MODEL_COLORS[i % MODEL_COLORS.length],
-      }))
-      .filter(d => d.value > 0)
-      .sort((a, b) => b.value - a.value),
-    [selectedAccounts, revByAcct, revMult]);
-
-  const donutDisplayData = useMemo(() => {
-    if (donutData.length <= 5) return donutData;
-    const top5 = donutData.slice(0, 5);
-    const othersValue = donutData.slice(5).reduce((s, d) => s + d.value, 0);
-    return othersValue > 0
-      ? [...top5, { id: "others", name: "Others", username: null, value: othersValue, color: "#6b7280" }]
-      : top5;
-  }, [donutData]);
-
-  const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
-
-  // Chart
+  // Chart data
   const chartData = useMemo(() => {
     if (isAllTime) {
       const m: Record<string, number> = {};
@@ -438,10 +431,7 @@ export default function OverviewPage() {
         return Object.entries(m)
           .filter(([, v]) => v > 0)
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, revenue]) => ({
-            date: key, revenue,
-            label: format(new Date(key + "-15"), "MMM yy"),
-          }));
+          .map(([key, revenue]) => ({ date: key, revenue, label: format(new Date(key + "-15"), "MMM yy") }));
       }
     }
     const daysDiff = dateFrom && dateTo
@@ -464,6 +454,9 @@ export default function OverviewPage() {
   }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts]);
 
   const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
+
+  // Sparkline data derived from chart
+  const revSparkData = useMemo(() => chartData.slice(-20).map(d => d.revenue), [chartData]);
 
   const dateLabel = useMemo(() => {
     if (isAllTime) return "All Time";
@@ -514,8 +507,8 @@ export default function OverviewPage() {
   };
 
   function SortIcon({ k }: { k: string }) {
-    if (tableSort.key !== k) return <ChevronDown className="w-3 h-3 opacity-30 ml-0.5" />;
-    return <ChevronDown className={cn("w-3 h-3 text-primary ml-0.5 transition-transform", tableSort.dir === "asc" && "rotate-180")} />;
+    if (tableSort.key !== k) return <ChevronDown className="w-3 h-3 ml-0.5 opacity-20" />;
+    return <ChevronDown className={cn("w-3 h-3 ml-0.5 transition-transform", tableSort.dir === "asc" && "rotate-180")} style={{ color: T.blue }} />;
   }
 
   const handleExport = () => {
@@ -529,31 +522,35 @@ export default function OverviewPage() {
     a.click();
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const cardStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" };
+
+  const filterBtnCls = (active: boolean) => cn(
+    "h-8 px-3.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap select-none",
+    active
+      ? "text-white"
+      : "text-[#475569] hover:text-[#f1f5f9]"
+  );
+
   return (
     <DashboardLayout>
-      <div className="min-h-screen w-full bg-gradient-to-br from-background to-background/95">
-        <div className="max-w-screen-2xl mx-auto px-6 py-6 space-y-6">
+      <div className="max-w-screen-2xl mx-auto px-6 py-5 space-y-4">
 
-          {/* ── Page Header ─────────────────────────────────────────────────── */}
-          <div className="border-b border-border/40 pb-5">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Overview</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {dateLabel} · {selectedIds.length} account{selectedIds.length !== 1 ? "s" : ""}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between pb-4" style={{ borderBottom: `1px solid ${T.border}` }}>
+          <div>
+            <h1 className="text-xl font-semibold" style={{ color: T.white }}>Overview</h1>
+            <p className="text-sm mt-0.5" style={{ color: T.muted }}>
+              {dateLabel} · {selectedIds.length} model{selectedIds.length !== 1 ? "s" : ""}
             </p>
           </div>
-
-          {/* ── Filters ─────────────────────────────────────────────────────── */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
             <button
               onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
-              className={cn(
-                "h-9 px-4 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
-                isAllTime
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30"
-              )}>
+              className={filterBtnCls(isAllTime)}
+              style={isAllTime ? { background: T.blue } : { background: T.card, border: `1px solid ${T.border}` }}
+            >
               All Time
             </button>
             <DateRangePicker
@@ -561,255 +558,122 @@ export default function OverviewPage() {
               onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); setTablePage(0); } }}
             />
           </div>
+        </div>
 
-          {/* ── KPI Cards ───────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCard
-              label="LTV/Sub"
-              value={fmtMoney(revenuePerSub)}
-              sub="All time · revenue per new subscriber"
-              accent="#ec4899"
-              icon={<Activity className="h-4 w-4" />}
-            />
-            <KpiCard
-              label="New Subs"
-              value={newSubsKpi.toLocaleString()}
-              sub={isAllTime
-                ? `${newSubsPerDay.toFixed(1)}/day · Prev Month`
-                : `${newSubsPerDay.toFixed(1)}/day`}
-              pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
-              accent="#a855f7"
-              icon={<UserPlus className="h-4 w-4" />}
-            />
-            <KpiCard
-              label="Unattributed %"
-              value={`${unattributedPct.toFixed(1)}%`}
-              sub="Fans with no tracking link"
-              accent="#64748b"
-              icon={<BarChart2 className="h-4 w-4" />}
-            />
+        {/* ── Row 1: KPI Cards ────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard
+            label="LTV / Sub"
+            value={fmtMoney(revenuePerSub)}
+            sub="All time · revenue per subscriber"
+            sparkData={revSparkData}
+          />
+          <KpiCard
+            label="New Subs"
+            value={newSubsKpi.toLocaleString()}
+            sub={isAllTime ? `${newSubsPerDay.toFixed(1)}/day · Prev Month` : `${newSubsPerDay.toFixed(1)}/day`}
+            pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
+            sparkData={revSparkData}
+          />
+          <KpiCard
+            label="Unattributed %"
+            value={`${unattributedPct.toFixed(1)}%`}
+            sub="Fans with no tracking link"
+            sparkData={revSparkData}
+          />
+          <KpiCard
+            label="Total Revenue"
+            value={txLoading ? "…" : fmtMoney(totalRevenue)}
+            sub={isAllTime ? "All time · all models" : "Net earnings in period"}
+            sparkData={revSparkData}
+          />
+        </div>
 
-            {/* Total Revenue — expandable breakdown when All Time */}
-            <div
-              className="bg-card border border-border/50 rounded-2xl p-5 flex flex-col gap-3"
-              style={{ borderLeft: "4px solid #f59e0b" }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</p>
-                  <p className="text-2xl font-bold text-foreground mt-1 leading-none tabular-nums">
-                    {snapsLoading ? "…" : fmtMoney(totalRevenue)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
-                    {isAllTime ? "All time · tracking links + unattributed" : "Net earnings in period"}
-                  </p>
-                </div>
-                <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "#f59e0b18" }}>
-                  <span style={{ color: "#f59e0b" }}><DollarSign className="h-4 w-4" /></span>
-                </div>
-              </div>
-              {isAllTime && (
-                <div className="mt-auto">
-                  <button
-                    onClick={() => setShowRevBreakdown(v => !v)}
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                  >
-                    <ChevronDown className={cn("w-3 h-3 transition-transform", showRevBreakdown && "rotate-180")} />
-                    {showRevBreakdown ? "Hide breakdown" : "Show breakdown"}
-                  </button>
-                  {showRevBreakdown && (
-                    <div className="border-t border-border/40 mt-2 pt-2 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-                          Via Campaigns
-                        </div>
-                        <span className="text-foreground font-medium tabular-nums">
-                          {fmtMoney(attributedRevenue)} · {totalRevenue > 0 ? ((attributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#64748b] inline-block" />
-                          Unattributed
-                        </div>
-                        <span className="text-foreground font-medium tabular-nums">
-                          {fmtMoney(unattributedRevenue)} · {totalRevenue > 0 ? ((unattributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+        {/* ── Row 2: Revenue Chart ─────────────────────────────────────────── */}
+        <div className="p-5" style={cardStyle}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest mb-1" style={{ color: T.muted }}>
+                Revenue Overview
+              </p>
+              <p className="text-2xl font-bold font-mono" style={{ color: T.white }}>
+                {fmtMoney(isAllTime ? totalRevenue : chartTotal)}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
+            </div>
+            <div className="flex items-center gap-0.5 p-0.5 rounded-lg" style={{ background: T.border }}>
+              {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
+                <button key={type} onClick={() => setChartType(type as "bar" | "line")}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{
+                    background: chartType === type ? T.card : "transparent",
+                    color: chartType === type ? T.white : T.muted,
+                  }}>
+                  <Icon className="w-4 h-4" />
+                </button>
+              ))}
             </div>
           </div>
-
-          {/* ── Revenue Overview Chart ──────────────────────────────────────── */}
-          <div className="bg-card border border-border/50 rounded-2xl p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">Revenue Overview</h2>
-                <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">{fmtMoney(isAllTime ? totalRevenue : chartTotal)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{dateLabel}</p>
+          <div className="h-56">
+            {chartData.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-sm" style={{ color: T.muted }}>
+                  {txLoading ? "Loading…" : "No data for this period"}
+                </p>
               </div>
-              <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
-                {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
-                  <button key={type} onClick={() => setChartType(type as "bar" | "line")}
-                    className={cn("p-1.5 rounded-md transition-colors",
-                      chartType === type ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                    <Icon className="w-4 h-4" />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="h-64">
-              {chartData.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">
-                    {snapsLoading ? "Loading…" : "No data for this period"}
-                  </p>
-                </div>
-              ) : chartType === "bar" ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
-                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
-                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
-                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
-                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
-                    <Bar dataKey="revenue" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
-                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
-                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
-                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
-                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
-                    <Line dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+            ) : chartType === "line" ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={T.blue} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={T.blue} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
+                    interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                  <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
+                    tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area type="monotone" dataKey="revenue" stroke={T.blue} strokeWidth={2}
+                    fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: T.blue }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
+                    interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                  <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
+                    tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="revenue" fill={T.dark} radius={0} maxBarSize={24}
+                    activeBar={{ fill: T.blue }} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
+        </div>
 
-          {/* ── Revenue Breakdown ───────────────────────────────────────────── */}
-          <div className="grid gap-4" style={{ gridTemplateColumns: "280px 1fr" }}>
+        {/* ── Row 3: Model Performance + Breakdown ────────────────────────── */}
+        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 320px" }}>
 
-            {/* Donut */}
-            <div className="bg-card border border-border/50 rounded-2xl p-5">
-              <h2 className="text-base font-semibold text-foreground mb-4">Revenue Breakdown</h2>
-              {donutDisplayData.length === 0 ? (
-                <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-muted-foreground">
-                    {snapsLoading ? "Loading…" : "No data for this period"}
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-4">
-                  <div className="relative" style={{ width: 180, height: 180 }}>
-                    <ResponsiveContainer width={180} height={180}>
-                      <PieChart>
-                        <Pie data={donutDisplayData} cx="50%" cy="50%" innerRadius={52} outerRadius={82}
-                          dataKey="value" strokeWidth={0} paddingAngle={2}>
-                          {donutDisplayData.map((d, i) => <Cell key={i} fill={d.color} />)}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-xl font-bold text-foreground leading-none tabular-nums">{fmtShort(donutTotal)}</span>
-                      <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Total</span>
-                    </div>
-                  </div>
-                  <div className="w-full space-y-1.5">
-                    {donutDisplayData.map((d, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                          <span className="text-foreground truncate">{d.name}</span>
-                        </div>
-                        <span className="text-muted-foreground tabular-nums shrink-0">
-                          {((d.value / donutTotal) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Breakdown table */}
-            <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="text-base font-semibold text-foreground">By Account</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20">
-                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-left">Model</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Spend</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Revenue</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">ROI%</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {donutData.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-5 py-8 text-center text-sm text-muted-foreground">
-                          {snapsLoading ? "Loading…" : "No data for this period"}
-                        </td>
-                      </tr>
-                    ) : donutData.map((d, i) => {
-                      const spend = spendByAcct[d.id] || 0;
-                      const roiPct = spend > 0 ? ((d.value - spend) / spend) * 100 : null;
-                      return (
-                        <tr key={i} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-                          <td className="px-5 py-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                              <span className="text-foreground truncate min-w-0">
-                                {d.name}{d.username ? ` - ${d.username}` : ""}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-right text-muted-foreground tabular-nums">
-                            {spend > 0 ? fmtMoney(spend) : "—"}
-                          </td>
-                          <td className="px-5 py-3 text-right font-semibold text-foreground tabular-nums">
-                            {fmtMoney(d.value)}
-                          </td>
-                          <td className={cn("px-5 py-3 text-right font-medium tabular-nums",
-                            roiPct === null ? "text-muted-foreground" : roiPct >= 0 ? "text-emerald-400" : "text-red-400")}>
-                            {roiPct === null ? "—" : `${roiPct.toFixed(0)}%`}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Model Performance Table ─────────────────────────────────────── */}
-          <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
-              <h2 className="text-base font-semibold text-foreground">Model Performance</h2>
+          {/* Model Performance Table */}
+          <div style={{ ...cardStyle, overflow: "hidden" }}>
+            <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <p className="text-sm font-semibold" style={{ color: T.white }}>Model Performance</p>
               <div className="flex items-center gap-2">
                 <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(0); }}
-                  className="h-8 px-2 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none">
+                  className="h-7 px-2 rounded-md text-xs focus:outline-none"
+                  style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>
                   {[10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
                 </select>
                 <button onClick={handleExport}
-                  className="h-8 px-3 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Export
+                  className="h-7 px-3 rounded-md text-xs transition-colors"
+                  style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>
+                  Export CSV
                 </button>
               </div>
             </div>
@@ -817,7 +681,7 @@ export default function OverviewPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border bg-muted/20">
+                  <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.cardAlt }}>
                     {[
                       { key: "account", label: "Account",  right: false },
                       { key: "newFans", label: "New Fans", right: true  },
@@ -828,10 +692,9 @@ export default function OverviewPage() {
                       { key: "roi",     label: "ROI",      right: true  },
                     ].map(col => (
                       <th key={col.key} onClick={() => sortBy(col.key)}
-                        className={cn(
-                          "px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors",
-                          col.right ? "text-right" : "text-left"
-                        )}>
+                        className={cn("px-4 py-3 text-[11px] font-semibold uppercase tracking-widest cursor-pointer select-none transition-colors",
+                          col.right ? "text-right" : "text-left")}
+                        style={{ color: T.muted }}>
                         <span className={cn("inline-flex items-center gap-0.5", col.right && "justify-end w-full")}>
                           {col.label}<SortIcon k={col.key} />
                         </span>
@@ -842,71 +705,81 @@ export default function OverviewPage() {
                 <tbody>
                   {pagedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                        {snapsLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one account" : "No data"}
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: T.muted }}>
+                        {txLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one model" : "No data"}
                       </td>
                     </tr>
-                  ) : pagedRows.map(row => {
+                  ) : pagedRows.map((row, rowIdx) => {
                     const a = row.account;
                     const rp = !isAllTime && row.prevRev > 0     ? ((row.rev     - row.prevRev)    / row.prevRev)              * 100 : null;
                     const sp = !isAllTime && row.prevSpend > 0   ? ((row.spend   - row.prevSpend)  / row.prevSpend)            * 100 : null;
                     const pp = !isAllTime && row.prevProfit !== 0 ? ((row.profit - row.prevProfit) / Math.abs(row.prevProfit)) * 100 : null;
                     const fp = !isAllTime && row.prevNewFans > 0  ? ((row.newFans - row.prevNewFans) / row.prevNewFans)         * 100 : null;
+                    const rowBg = rowIdx % 2 === 0 ? T.card : T.cardAlt;
                     return (
-                      <tr key={a.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                      <tr key={a.id}
+                        className="transition-colors"
+                        style={{ background: rowBg, borderBottom: `1px solid ${T.border}` }}
+                        onMouseEnter={e => (e.currentTarget.style.background = T.border)}
+                        onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
+                      >
                         {/* Account */}
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             {a.avatar_thumb_url
-                              ? <img src={a.avatar_thumb_url} className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-border" alt="" />
-                              : <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                              ? <img src={a.avatar_thumb_url} className="w-8 h-8 rounded-full object-cover shrink-0" style={{ border: `1px solid ${T.border}` }} alt="" />
+                              : <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                  style={{ background: T.dark, color: T.muted }}>
                                   {(a.display_name || "?").slice(0, 2).toUpperCase()}
                                 </div>}
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-sm font-semibold text-foreground leading-tight truncate">{a.display_name}</span>
+                                <span className="text-sm font-semibold leading-tight truncate" style={{ color: T.white }}>{a.display_name}</span>
                                 {row.linkCount > 0 && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">{row.linkCount}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                                    style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount}</span>
                                 )}
                               </div>
-                              {a.username && <div className="text-xs text-muted-foreground/70 mt-0.5">@{a.username}</div>}
+                              {a.username && <div className="text-xs mt-0.5" style={{ color: T.muted }}>@{a.username}</div>}
                             </div>
                           </div>
                         </td>
                         {/* New Fans */}
-                        <td className="px-5 py-4 text-right">
-                          <div className="text-sm font-bold text-foreground tabular-nums">{row.newFans.toLocaleString()}</div>
-                          <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{row.newFans.toLocaleString()}</div>
+                          <div className="flex justify-end mt-0.5"><Delta pct={fp} /></div>
                         </td>
                         {/* Revenue */}
-                        <td className="px-5 py-4 text-right">
-                          <div className="text-sm font-bold text-foreground tabular-nums">{fmtMoney(row.rev)}</div>
-                          <div className="flex justify-end mt-0.5"><ChangeChip pct={rp} /></div>
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(row.rev)}</div>
+                          <div className="flex justify-end mt-0.5"><Delta pct={rp} /></div>
                         </td>
                         {/* Spend */}
-                        <td className="px-5 py-4 text-right">
-                          <div className="text-sm font-bold text-foreground tabular-nums">
-                            {row.spend > 0 ? fmtMoney(row.spend) : <span className="text-muted-foreground/40">—</span>}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold" style={{ color: row.spend > 0 ? T.white : T.muted }}>
+                            {row.spend > 0 ? fmtMoney(row.spend) : "—"}
                           </div>
-                          {row.spend > 0 && <div className="flex justify-end mt-0.5"><ChangeChip pct={sp} /></div>}
+                          {row.spend > 0 && <div className="flex justify-end mt-0.5"><Delta pct={sp} /></div>}
                         </td>
                         {/* Profit */}
-                        <td className="px-5 py-4 text-right">
-                          <div className={cn("text-sm font-bold tabular-nums", row.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold"
+                            style={{ color: row.profit >= 0 ? T.green : T.red }}>
                             {fmtMoney(row.profit)}
                           </div>
-                          <div className="flex justify-end mt-0.5"><ChangeChip pct={pp} /></div>
+                          <div className="flex justify-end mt-0.5"><Delta pct={pp} /></div>
                         </td>
                         {/* CVR */}
-                        <td className="px-5 py-4 text-right">
-                          <div className="text-sm font-bold text-foreground tabular-nums">
-                            {row.cvr != null ? `${row.cvr.toFixed(1)}%` : <span className="text-muted-foreground/40">—</span>}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold"
+                            style={{ color: row.cvr != null ? T.white : T.muted }}>
+                            {row.cvr != null ? `${row.cvr.toFixed(1)}%` : "—"}
                           </div>
                         </td>
                         {/* ROI */}
-                        <td className="px-5 py-4 text-right">
-                          <div className={cn("text-sm font-bold tabular-nums",
-                            row.roi == null ? "text-muted-foreground/40" : row.roi >= 0 ? "text-emerald-400" : "text-red-400")}>
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold"
+                            style={{ color: row.roi == null ? T.muted : row.roi >= 0 ? T.green : T.red }}>
                             {row.roi != null ? `${row.roi.toFixed(1)}%` : "—"}
                           </div>
                         </td>
@@ -918,28 +791,113 @@ export default function OverviewPage() {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-border">
-                <span className="text-xs text-muted-foreground">
+              <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: `1px solid ${T.border}` }}>
+                <span className="text-xs font-mono" style={{ color: T.muted }}>
                   {tablePage * tablePageSize + 1}–{Math.min((tablePage + 1) * tablePageSize, tableRows.length)} of {tableRows.length}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setTablePage(p => Math.max(0, p - 1))} disabled={tablePage === 0}
-                    className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Prev</button>
+                    className="px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-30"
+                    style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>Prev</button>
                   {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i).map(i => (
                     <button key={i} onClick={() => setTablePage(i)}
-                      className={cn("w-7 h-7 rounded-lg text-xs transition-colors",
-                        i === tablePage ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground")}>
+                      className="w-7 h-7 rounded-md text-xs transition-colors"
+                      style={{
+                        background: i === tablePage ? T.blue : T.cardAlt,
+                        border: `1px solid ${i === tablePage ? T.blue : T.border}`,
+                        color: i === tablePage ? "white" : T.muted,
+                      }}>
                       {i + 1}
                     </button>
                   ))}
                   <button onClick={() => setTablePage(p => Math.min(totalPages - 1, p + 1))} disabled={tablePage >= totalPages - 1}
-                    className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
+                    className="px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-30"
+                    style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>Next</button>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Revenue Breakdown Donut */}
+          <div style={cardStyle}>
+            <div className="px-5 py-3.5" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <p className="text-sm font-semibold" style={{ color: T.white }}>Revenue Breakdown</p>
+            </div>
+            <div className="p-5 flex flex-col items-center gap-5">
+              {totalRevenue === 0 ? (
+                <div className="py-10 text-center">
+                  <p className="text-sm" style={{ color: T.muted }}>No revenue data</p>
+                </div>
+              ) : (
+                <>
+                  <div className="relative" style={{ width: 200, height: 200 }}>
+                    <ResponsiveContainer width={200} height={200}>
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Via Campaigns", value: Math.max(0, attributedRevenue) },
+                            { name: "Unattributed",  value: Math.max(0, unattributedRevenue) },
+                          ]}
+                          cx="50%" cy="50%"
+                          innerRadius={62} outerRadius={90}
+                          dataKey="value" strokeWidth={0} paddingAngle={3}
+                        >
+                          <Cell fill={T.blue} />
+                          <Cell fill={T.dark} />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-2xl font-bold font-mono" style={{ color: T.white }}>{fmtShort(totalRevenue)}</span>
+                      <span className="text-[10px] uppercase tracking-widest mt-1" style={{ color: T.muted }}>Total</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full space-y-3">
+                    {[
+                      { label: "Via Campaigns", value: attributedRevenue,   color: T.blue },
+                      { label: "Unattributed",  value: unattributedRevenue, color: T.dark },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: item.color }} />
+                          <span className="text-sm truncate" style={{ color: T.muted }}>{item.label}</span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(item.value)}</div>
+                          <div className="text-xs font-mono" style={{ color: T.muted }}>
+                            {totalRevenue > 0 ? ((item.value / totalRevenue) * 100).toFixed(1) : "0"}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="w-full pt-3" style={{ borderTop: `1px solid ${T.border}` }}>
+                    <p className="text-[11px] uppercase tracking-widest mb-2.5" style={{ color: T.muted }}>By Model</p>
+                    <div className="space-y-2">
+                      {selectedAccounts
+                        .map((a: any, i: number) => ({ name: a.display_name, value: (revByAcct[a.id] || 0) * revMult, color: MODEL_COLORS[i % MODEL_COLORS.length] }))
+                        .filter(d => d.value > 0)
+                        .sort((a, b) => b.value - a.value)
+                        .slice(0, 6)
+                        .map((d, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: d.color }} />
+                              <span className="text-xs truncate" style={{ color: T.muted }}>{d.name}</span>
+                            </div>
+                            <span className="text-xs font-mono shrink-0" style={{ color: T.white }}>{fmtShort(d.value)}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+
       </div>
     </DashboardLayout>
   );
