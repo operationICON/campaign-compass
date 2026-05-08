@@ -443,8 +443,42 @@ Deno.serve(async (req) => {
 
         let txCount = 0
         try {
-          const txItems = await apiFetchAllPages(`/${acctId}/transactions`, apiKey)
-          console.log(`Got ${txItems.length} transactions for ${acctId}`)
+          // Incremental fetch — stop paginating once we hit transactions older than last sync
+          const lastSyncDate = account.last_synced_at
+            ? account.last_synced_at.split('T')[0]
+            : null
+          const txItems: any[] = []
+          let txUrl: string | null = `${API_BASE}/${acctId}/transactions`
+          let txPage = 0
+          const TX_MAX_PAGES = 500
+
+          while (txUrl && txPage < TX_MAX_PAGES) {
+            txPage++
+            const txRes = await fetch(txUrl, { headers: apiHeaders(apiKey) })
+            if (!txRes.ok) { console.error(`Tx page ${txPage} failed: ${txRes.status}`); break }
+            const txJson = await txRes.json()
+            const txData = txJson.data
+            const pageItems: any[] = txData?.list ?? (Array.isArray(txData) ? txData : Array.isArray(txJson) ? txJson : [])
+            if (!pageItems.length) break
+            txItems.push(...pageItems)
+
+            // Early stop: if all items on this page are older than last sync, no need to go further
+            if (lastSyncDate) {
+              const oldestDate = pageItems
+                .map((tx: any) => tx.createdAt?.split('T')[0])
+                .filter(Boolean)
+                .sort()[0]
+              if (oldestDate && oldestDate < lastSyncDate) {
+                console.log(`TX early stop at page ${txPage} — oldest ${oldestDate} before last sync ${lastSyncDate}`)
+                break
+              }
+            }
+
+            txUrl = txJson._pagination?.next_page ?? txJson._meta?._pagination?.next_page ?? null
+            if (txUrl) await new Promise(r => setTimeout(r, 300))
+          }
+
+          console.log(`Got ${txItems.length} transactions for ${acctId} in ${txPage} pages`)
 
           for (const tx of txItems) {
             const externalTxId = String(tx.id ?? '')
