@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts,
   getOnlytrafficOrders, getTrackingLinks,
-  getFanCampaignBreakdown, getSnapshotLatestDate,
+  getFanCampaignBreakdown, getSnapshotLatestDate, getSnapshotsByDateRange,
 } from "@/lib/api";
 import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
 import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
@@ -266,6 +266,13 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
+  // Chart: daily_snapshots rows for date-range granularity (same data source as New Fans)
+  const { data: chartSnapshotRows = [] } = useQuery({
+    queryKey: ["ov2_chart_snaps", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom!, date_to: dateTo!, account_ids: selectedIds, cols: "slim" }),
+    enabled: !isAllTime && !!dateFrom && !!dateTo && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
   const snapshotPeriod: TimePeriod = timePeriod;
@@ -343,9 +350,11 @@ export default function OverviewPage() {
     const m: Record<string, number> = {};
     selectedAccounts.forEach((a: any) => {
       if (isAllTime) {
-        // Sum all revenue_monthly entries — more accurate than ltv_total for some accounts
+        // Use the higher of: revenue_monthly sum (OFAPI chart data) or ltv_total (catches pre-history months)
         const monthly = a.revenue_monthly as Record<string, number> | null;
-        const v = monthly ? Object.values(monthly).reduce((s, x) => s + Math.max(0, Number(x || 0)), 0) : Number(a.ltv_total || 0);
+        const monthlySum = monthly ? Object.values(monthly).reduce((s, x) => s + Math.max(0, Number(x || 0)), 0) : 0;
+        const ltvTotal = Number(a.ltv_total || 0);
+        const v = Math.max(monthlySum, ltvTotal);
         if (v > 0) m[a.id] = v;
       } else {
         const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
@@ -476,25 +485,25 @@ export default function OverviewPage() {
       }
       return [];
     }
-    // Non-all-time: always use revenue_monthly (OFAPI source of truth)
+    // Non-all-time: group daily_snapshots rows by date for per-day granularity
+    const daysDiff = dateFrom && dateTo
+      ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
+      : 90;
+    const byMonth = daysDiff > 90;
     const m: Record<string, number> = {};
-    if (dateFrom && dateTo) {
-      const fromMonth = dateFrom.slice(0, 7);
-      const toMonth   = dateTo.slice(0, 7);
-      selectedAccounts.forEach((a: any) => {
-        const monthly = a.revenue_monthly as Record<string, number> | null;
-        if (!monthly) return;
-        Object.entries(monthly).forEach(([month, amount]) => {
-          if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
-            m[month] = (m[month] || 0) + Number(amount);
-        });
-      });
-    }
+    (chartSnapshotRows as any[]).forEach(r => {
+      const d = String(r.snapshot_date || "").slice(0, 10);
+      if (!d) return;
+      const key = byMonth ? d.slice(0, 7) : d;
+      m[key] = (m[key] || 0) + Math.max(0, Number(r.revenue || 0));
+    });
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
       date: key, revenue,
-      label: format(new Date(key + "-15"), "MMM yy"),
+      label: byMonth
+        ? format(new Date(key + "-15"), "MMM yy")
+        : format(new Date(key + "T12:00:00"), "MMM d"),
     }));
-  }, [selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts]);
+  }, [selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts, chartSnapshotRows]);
 
   const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
 
