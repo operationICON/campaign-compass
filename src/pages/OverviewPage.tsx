@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
   getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks,
+  getFanCampaignBreakdown,
 } from "@/lib/api";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -13,7 +14,7 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
-  ChevronDown, Check, Search,
+  ChevronDown, ChevronRight, Check, Search,
   ArrowUpRight, ArrowDownRight,
   Users,
 } from "lucide-react";
@@ -218,6 +219,7 @@ export default function OverviewPage() {
   const [isAllTime, setIsAllTime]       = useState(true);
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -274,6 +276,13 @@ export default function OverviewPage() {
     queryKey: ["ov2_prev_orders", prevFrom, prevTo],
     queryFn: () => getOnlytrafficOrders({ date_from: prevFrom!, date_to: prevTo!, statuses: ["completed","accepted","active","waiting"] }),
     enabled: !isAllTime && !!prevFrom && !!prevTo,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: campBreakdown = [] } = useQuery({
+    queryKey: ["ov2_camp_breakdown", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getFanCampaignBreakdown({ account_ids: selectedIds, date_from: dateFrom, date_to: dateTo }),
+    enabled: selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -515,6 +524,23 @@ export default function OverviewPage() {
       return `${format(new Date(dateFrom + "T12:00:00"), "MMM d")} – ${format(new Date(dateTo + "T12:00:00"), "MMM d, yyyy")}`;
     return "";
   }, [isAllTime, dateFrom, dateTo]);
+
+  const campByAcct = useMemo(() => {
+    const m: Record<string, Array<{ link_id: string; campaign_name: string | null; external_tracking_link_id: string | null; fan_count: number; link_deleted: boolean }>> = {};
+    for (const item of (campBreakdown as any[])) {
+      if (!item.account_id) continue;
+      if (!m[item.account_id]) m[item.account_id] = [];
+      m[item.account_id].push(item);
+    }
+    return m;
+  }, [campBreakdown]);
+
+  const toggleRow = (id: string) =>
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   // Table rows — active links only
   const tableRows = useMemo(() => {
@@ -767,16 +793,29 @@ export default function OverviewPage() {
                   ) : tableRows.map((row, rowIdx) => {
                     const a = row.account;
                     const rowBg = rowIdx % 2 === 0 ? T.card : T.cardAlt;
+                    const isExpanded = expandedRows.has(a.id);
+                    const camps = campByAcct[a.id] ?? [];
+                    const fanDelta = row.newFans - row.prevNewFans;
+                    const fanPct = row.prevNewFans > 0 ? (fanDelta / row.prevNewFans) * 100 : null;
                     return (
-                      <tr key={a.id}
+                      <React.Fragment key={a.id}>
+                      <tr
                         className="transition-colors"
-                        style={{ background: rowBg, borderBottom: `1px solid ${T.border}` }}
+                        style={{ background: rowBg, borderBottom: isExpanded ? "none" : `1px solid ${T.border}` }}
                         onMouseEnter={e => (e.currentTarget.style.background = T.border)}
                         onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
                       >
                         {/* Account */}
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2.5">
+                            <button
+                              onClick={() => toggleRow(a.id)}
+                              className="shrink-0 rounded transition-colors"
+                              style={{ color: camps.length > 0 ? T.blue : T.muted, opacity: camps.length > 0 ? 1 : 0.3 }}
+                              disabled={camps.length === 0}
+                            >
+                              <ChevronRight className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-90")} />
+                            </button>
                             {a.avatar_thumb_url
                               ? <img src={a.avatar_thumb_url} className="w-7 h-7 rounded-full object-cover shrink-0" style={{ border: `1px solid ${T.border}` }} alt="" />
                               : <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
@@ -795,7 +834,15 @@ export default function OverviewPage() {
                         </td>
                         {/* New Fans */}
                         <td className="px-4 py-2 text-right">
-                          <span className="text-sm font-mono font-semibold" style={{ color: T.white }}>{row.newFans.toLocaleString()}</span>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-sm font-mono font-semibold" style={{ color: T.white }}>{row.newFans.toLocaleString()}</span>
+                            {!isAllTime && (
+                              <span className="text-[11px] font-mono leading-none" style={{ color: fanDelta >= 0 ? T.green : T.red }}>
+                                {fanDelta >= 0 ? "▲" : "▼"} {Math.abs(fanDelta).toLocaleString()}
+                                {fanPct !== null && ` / ${Math.abs(fanPct).toFixed(1)}%`}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         {/* Revenue */}
                         <td className="px-4 py-2 text-right">
@@ -829,6 +876,30 @@ export default function OverviewPage() {
                           </span>
                         </td>
                       </tr>
+                      {/* Campaign breakdown sub-row */}
+                      {isExpanded && camps.length > 0 && (
+                        <tr key={`${a.id}-camps`} style={{ background: rowBg, borderBottom: `1px solid ${T.border}` }}>
+                          <td colSpan={7} className="px-6 pb-3 pt-1">
+                            <div className="flex flex-wrap gap-2 pl-6">
+                              {camps.map(c => (
+                                <div key={c.link_id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs"
+                                  style={{ background: `${T.blue}12`, border: `1px solid ${T.blue}30` }}>
+                                  <span style={{ color: c.link_deleted ? T.muted : T.white }}>
+                                    {c.campaign_name ?? c.external_tracking_link_id ?? "Unnamed"}
+                                  </span>
+                                  <span className="font-mono font-semibold" style={{ color: T.blue }}>
+                                    {Number(c.fan_count).toLocaleString()} fans
+                                  </span>
+                                  {c.link_deleted && (
+                                    <span className="text-[9px] px-1 rounded" style={{ background: `${T.muted}30`, color: T.muted }}>deleted</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

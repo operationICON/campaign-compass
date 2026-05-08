@@ -111,6 +111,36 @@ router.get("/", async (c) => {
   return c.json({ fans: rows.rows, total, limit: limitRaw, offset: offsetRaw });
 });
 
+// ── GET /fans/campaign-breakdown?account_ids=&date_from=&date_to= ─────────────
+// Returns: [{account_id, link_id, campaign_name, fan_count, link_deleted}]
+// Fans attributed to each campaign (tracking link) per account for the period.
+router.get("/campaign-breakdown", async (c) => {
+  const accountIdsRaw = c.req.query("account_ids");
+  const dateFrom = c.req.query("date_from");
+  const dateTo = c.req.query("date_to");
+  const accountIds = accountIdsRaw ? accountIdsRaw.split(",").filter(Boolean) : [];
+  if (accountIds.length === 0) return c.json([]);
+
+  const rows = await db.execute(sql`
+    SELECT
+      tl.account_id::text                  AS account_id,
+      f.first_subscribe_link_id::text      AS link_id,
+      tl.campaign_name,
+      tl.external_tracking_link_id,
+      (tl.deleted_at IS NOT NULL)          AS link_deleted,
+      COUNT(*)::int                        AS fan_count
+    FROM fans f
+    JOIN tracking_links tl ON f.first_subscribe_link_id = tl.id
+    WHERE tl.account_id::text = ANY(${accountIds})
+    ${dateFrom ? sql`AND f.first_subscribe_date >= ${dateFrom}` : sql``}
+    ${dateTo ? sql`AND f.first_subscribe_date <= ${dateTo}` : sql``}
+    GROUP BY tl.account_id, f.first_subscribe_link_id, tl.campaign_name, tl.external_tracking_link_id, tl.deleted_at
+    ORDER BY COUNT(*) DESC
+  `);
+
+  return c.json(rows.rows);
+});
+
 // ── GET /fans/:id ─────────────────────────────────────────────────────────────
 router.get("/:id", async (c) => {
   const id = c.req.param("id");

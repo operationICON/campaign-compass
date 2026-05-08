@@ -246,6 +246,11 @@ export const updateFan = (id: string, body: { tags?: string[]; notes?: string; s
 export const getFanCount = (account_id?: string) =>
   apiFetch<{ count: number }>(`/fans/count${account_id ? `?account_id=${account_id}` : ""}`);
 
+export const getFanCampaignBreakdown = (params: { account_ids: string[]; date_from?: string | null; date_to?: string | null }) =>
+  apiFetch<Array<{ account_id: string; link_id: string; campaign_name: string | null; external_tracking_link_id: string | null; link_deleted: boolean; fan_count: number }>>(
+    `/fans/campaign-breakdown${buildQuery({ account_ids: params.account_ids.join(","), date_from: params.date_from ?? undefined, date_to: params.date_to ?? undefined })}`
+  );
+
 // kept for backward compat — components that import these legacy names
 export const getFanSpenders = () => apiFetch("/fans/spenders");
 export const getFanAttributionCounts = () =>
