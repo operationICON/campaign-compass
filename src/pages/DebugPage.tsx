@@ -35,6 +35,8 @@ export default function DebugPage() {
   const [finAnalyticsLoading, setFinAnalyticsLoading] = useState(false);
   const [txCoverageResult, setTxCoverageResult] = useState<any>(null);
   const [txCoverageLoading, setTxCoverageLoading] = useState(false);
+  const [attrCheckResult, setAttrCheckResult] = useState<any>(null);
+  const [attrCheckLoading, setAttrCheckLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -177,6 +179,14 @@ export default function DebugPage() {
     } finally {
       setTxTotalsLoading(false);
     }
+  }, []);
+
+  const runAttrCheck = useCallback(async () => {
+    setAttrCheckLoading(true);
+    setAttrCheckResult(null);
+    try { setAttrCheckResult(await debugAction("attribution_check")); }
+    catch (err: any) { setAttrCheckResult({ error: err.message }); }
+    finally { setAttrCheckLoading(false); }
   }, []);
 
   const runTxCoverage = useCallback(async () => {
@@ -359,6 +369,70 @@ export default function DebugPage() {
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">Last 3 chartAmount entries</p>
                   <pre className="text-[10px] bg-secondary/50 p-2 rounded overflow-x-auto text-sky-400">{JSON.stringify(rawEarningsResult.chartAmount_last3, null, 2)}</pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Revenue Attribution Check */}
+        <div className="bg-card border border-rose-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-rose-400" /> Revenue Attribution Check
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Campaign (tracking links) vs Unattributed revenue — per account breakdown</p>
+            </div>
+            <button onClick={runAttrCheck} disabled={attrCheckLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition-colors disabled:opacity-50">
+              {attrCheckLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Check Attribution
+            </button>
+          </div>
+          {attrCheckResult && (
+            <div className="space-y-3">
+              {attrCheckResult.error && <p className="text-xs text-destructive">{attrCheckResult.error}</p>}
+              {attrCheckResult.summary && (() => {
+                const s = attrCheckResult.summary;
+                const fmt = (v: any) => `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-secondary/50 rounded p-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">Total Revenue</p>
+                      <p className="text-sm font-bold text-foreground">{fmt(s.total_revenue)}</p>
+                    </div>
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">Campaign Revenue</p>
+                      <p className="text-sm font-bold text-emerald-400">{fmt(s.campaign_revenue)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{s.active_links} active links</p>
+                    </div>
+                    <div className="bg-rose-500/10 border border-rose-500/20 rounded p-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">Unattributed</p>
+                      <p className="text-sm font-bold text-rose-400">{fmt(s.unattributed_revenue)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{s.unattributed_pct}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+              {attrCheckResult.per_account?.length > 0 && (
+                <div className="space-y-1">
+                  <div className="grid grid-cols-[160px_130px_130px_110px_80px] gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                    <span>Account</span><span>Campaign Rev</span><span>Total Rev (LTV)</span><span>Unattributed</span><span>Attr Subs</span>
+                  </div>
+                  {attrCheckResult.per_account.map((r: any, i: number) => {
+                    const unattr = Number(r.ltv_total ?? 0) - Number(r.campaign_rev ?? 0);
+                    const fmt = (v: number) => `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    return (
+                      <div key={i} className="grid grid-cols-[160px_130px_130px_110px_80px] gap-2 items-center text-[11px] rounded px-2 py-1.5 bg-secondary/40">
+                        <span className="font-semibold text-foreground truncate">{r.display_name}</span>
+                        <span className="text-emerald-400">{fmt(Number(r.campaign_rev))}</span>
+                        <span className="text-muted-foreground">{fmt(Number(r.ltv_total ?? 0))}</span>
+                        <span className={unattr > 0 ? "text-rose-400" : "text-muted-foreground/40"}>{fmt(unattr)}</span>
+                        <span className="text-muted-foreground">{Number(r.attributed_subs).toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
