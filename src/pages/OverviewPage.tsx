@@ -8,7 +8,6 @@ import {
 } from "@/lib/api";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
-  AreaChart, Area,
   BarChart, Bar,
   LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid,
@@ -16,7 +15,7 @@ import {
 import {
   ChevronDown, Check, Search,
   ArrowUpRight, ArrowDownRight,
-  BarChart2, TrendingUp, Users,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -217,7 +216,6 @@ export default function OverviewPage() {
   const [idsReady, setIdsReady]         = useState(false);
   const [isAllTime, setIsAllTime]       = useState(true);
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
-  const [chartType, setChartType]       = useState<"bar" | "line">("line");
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
@@ -569,58 +567,30 @@ export default function OverviewPage() {
               <p className="text-2xl font-bold font-mono" style={{ color: T.white }}>
                 {fmtMoney(isAllTime ? totalRevenue : chartTotal)}
               </p>
-              <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
             </div>
             {chartData.length > 0 && (
-            <div className="flex items-center gap-0.5 p-0.5 rounded-lg" style={{ background: T.border }}>
-              {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
-                <button key={type} onClick={() => setChartType(type as "bar" | "line")}
-                  className="p-1.5 rounded-md transition-colors"
-                  style={{
-                    background: chartType === type ? T.card : "transparent",
-                    color: chartType === type ? T.white : T.muted,
-                  }}>
-                  <Icon className="w-4 h-4" />
-                </button>
-              ))}
-            </div>
+              <div className="flex items-center gap-1.5 text-[11px]" style={{ color: T.muted }}>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: T.blue }} />
+                {chartData[0]?.label} – {chartData[chartData.length - 1]?.label}
+              </div>
             )}
           </div>
-          <div className={chartData.length === 0 ? "flex items-center justify-center py-8" : "h-56"}>
+          <div className={chartData.length === 0 ? "flex items-center justify-center py-8" : "h-64"}>
             {chartData.length === 0 ? (
               <p className="text-sm" style={{ color: T.muted }}>
                 {txLoading ? "Loading…" : "No data for this period"}
               </p>
-            ) : chartType === "line" ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.white} stopOpacity={0.08} />
-                      <stop offset="100%" stopColor={T.white} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
-                    interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
-                  <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
-                    tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="revenue" stroke={T.white} strokeWidth={1.5}
-                    fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: T.white }} />
-                </AreaChart>
-              </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
                     interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
-                  <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
+                  <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={52}
                     tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="revenue" fill={T.border} radius={0} maxBarSize={24}
-                    activeBar={{ fill: T.white }} />
+                  <Bar dataKey="revenue" fill={T.blue} radius={[3, 3, 0, 0]} maxBarSize={28}
+                    activeBar={{ fill: "#60a5fa" }} />
                 </BarChart>
               </ResponsiveContainer>
             )}
