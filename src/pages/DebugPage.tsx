@@ -31,6 +31,8 @@ export default function DebugPage() {
   const [revMonthlyLoading, setRevMonthlyLoading] = useState(false);
   const [rawEarningsResult, setRawEarningsResult] = useState<any>(null);
   const [rawEarningsLoading, setRawEarningsLoading] = useState(false);
+  const [finAnalyticsResult, setFinAnalyticsResult] = useState<any>(null);
+  const [finAnalyticsLoading, setFinAnalyticsLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -172,6 +174,19 @@ export default function DebugPage() {
       setTxTotalsResult({ error: err.message });
     } finally {
       setTxTotalsLoading(false);
+    }
+  }, []);
+
+  const runFinAnalytics = useCallback(async () => {
+    setFinAnalyticsLoading(true);
+    setFinAnalyticsResult(null);
+    try {
+      const data = await debugAction("fin_analytics_probe");
+      setFinAnalyticsResult(data);
+    } catch (err: any) {
+      setFinAnalyticsResult({ error: err.message });
+    } finally {
+      setFinAnalyticsLoading(false);
     }
   }, []);
 
@@ -331,6 +346,51 @@ export default function DebugPage() {
                   <pre className="text-[10px] bg-secondary/50 p-2 rounded overflow-x-auto text-sky-400">{JSON.stringify(rawEarningsResult.chartAmount_last3, null, 2)}</pre>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Financial Analytics Probe */}
+        <div className="bg-card border border-violet-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-violet-400" /> Financial Analytics Probe
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tests 5 variants of <code className="font-mono">analytics/financial/...</code> to find which returns Net $1,977,515 (OFAPI Summary figure)
+              </p>
+            </div>
+            <button
+              onClick={runFinAnalytics}
+              disabled={finAnalyticsLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+            >
+              {finAnalyticsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              {finAnalyticsLoading ? "Probing…" : "Probe Financial Analytics"}
+            </button>
+          </div>
+          {finAnalyticsResult && (
+            <div className="space-y-1.5">
+              {finAnalyticsResult.error && <p className="text-xs text-destructive">{finAnalyticsResult.error}</p>}
+              <div className="grid grid-cols-[160px_60px_130px_130px_130px_80px_1fr] gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                <span>Variant</span><span>HTTP</span><span>Net</span><span>Gross</span><span>Fees</span><span>Chart entries</span><span>Keys found</span>
+              </div>
+              {(finAnalyticsResult.results ?? []).map((r: any, i: number) => {
+                const isTarget = r.net && Math.abs(Number(r.net) - 1977515.19) < 5000;
+                const fmt = (v: any) => v != null ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
+                return (
+                  <div key={i} className={`grid grid-cols-[160px_60px_130px_130px_130px_80px_1fr] gap-2 items-center text-[11px] rounded px-2 py-1.5 ${isTarget ? "bg-emerald-500/10 border border-emerald-500/30" : r.error ? "bg-destructive/10 border border-destructive/20" : "bg-secondary/50"}`}>
+                    <span className="font-mono text-[10px] text-foreground">{r.id}</span>
+                    <span className={r.status === 200 ? "text-emerald-400 font-bold" : r.error ? "text-destructive font-bold" : "text-muted-foreground"}>{r.error ? "ERR" : r.status}</span>
+                    <span className={isTarget ? "text-emerald-400 font-bold" : "text-muted-foreground"}>{fmt(r.net)}</span>
+                    <span className="text-muted-foreground">{fmt(r.gross)}</span>
+                    <span className="text-muted-foreground">{fmt(r.fees)}</span>
+                    <span className={r.chart_entries > 0 ? "text-teal-400" : "text-muted-foreground/40"}>{r.chart_entries ?? 0}</span>
+                    <span className="text-muted-foreground/70 font-mono text-[10px] truncate">{r.error ?? (r.total_keys ? r.total_keys.join(", ") : r.data_keys ? r.data_keys.join(", ") : "—")}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
