@@ -377,32 +377,43 @@ router.post("/", async (c) => {
   // Probe the Financial Analytics endpoint — find the one that returns $1,977,515.19
   if (body?.action === "fin_analytics_probe") {
     const today = new Date().toISOString().split("T")[0];
-    const dateFrom = "2018-01-01";
+    const startDate = "2018-01-01 00:00:00";
+    const endDate   = `${today} 23:59:59`;
     const results: any[] = [];
 
-    const todayFull = `${today} 23:59:59`;
-    const dateFromFull = `${dateFrom} 00:00:00`;
+    // Step 1: fetch OFAPI account IDs (needed — endpoint requires account_ids)
+    let ofApiIds: string[] = [];
+    let ofNumericIds: string[] = [];
+    try {
+      const accRes = await fetch(`${API_BASE}/accounts`, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+      const accJson = await accRes.json() as any;
+      const accList: any[] = Array.isArray(accJson) ? accJson : (accJson?.data ?? []);
+      ofApiIds     = accList.filter((a: any) => a.id).map((a: any) => String(a.id));
+      ofNumericIds = accList.filter((a: any) => a.onlyfans_id).map((a: any) => String(a.onlyfans_id));
+      results.push({ id: "accounts_fetch", status: accRes.status, ofapi_count: ofApiIds.length, numeric_count: ofNumericIds.length, sample_ofapi: ofApiIds[0] ?? null, sample_numeric: ofNumericIds[0] ?? null });
+    } catch (err: any) {
+      results.push({ id: "accounts_fetch", error: err.message });
+    }
+    await new Promise(r => setTimeout(r, 300));
+
+    // Step 2: try by-type endpoint with different account_id formats
     const variants = [
-      { id: "by_type_date_from",     method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { date_from: dateFrom, date_to: today } },
-      { id: "by_type_start_date",    method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { start_date: dateFromFull, end_date: todayFull } },
-      { id: "by_type_start_nodash",  method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { start_date: dateFrom, end_date: today } },
-      { id: "by_type_from",          method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { from: dateFrom, to: today } },
-      { id: "by_type_no_body",       method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: {} },
-      { id: "by_type_GET",           method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?date_from=${dateFrom}&date_to=${today}`, body: null },
-      { id: "by_type_GET_start",     method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?start_date=${encodeURIComponent(dateFromFull)}&end_date=${encodeURIComponent(todayFull)}`, body: null },
-      { id: "summary_start_date",    method: "POST", url: `${API_BASE}/analytics/financial/summary`,              body: { start_date: dateFromFull, end_date: todayFull } },
+      { id: "by_type_ofapi_ids",   body: { account_ids: ofApiIds,     start_date: startDate, end_date: endDate } },
+      { id: "by_type_numeric_ids", body: { account_ids: ofNumericIds, start_date: startDate, end_date: endDate } },
+      { id: "by_type_ofapi_plain", body: { account_ids: ofApiIds,     start_date: "2018-01-01", end_date: today } },
     ];
 
     for (const v of variants) {
       try {
-        const opts: RequestInit = { method: v.method, headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" } };
-        if (v.body) opts.body = JSON.stringify(v.body);
-        const res = await fetch(v.url, opts);
+        const res = await fetch(`${API_BASE}/analytics/financial/transactions/by-type`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify(v.body),
+        });
         const text = await res.text();
         let p: any;
         try { p = JSON.parse(text); } catch { p = text; }
-        // Try to find gross, fees, net at various paths
-        const net   = p?.data?.total?.total ?? p?.data?.net ?? p?.data?.total ?? p?.total ?? p?.net ?? null;
+        const net   = p?.data?.total?.total ?? p?.data?.net ?? p?.total ?? p?.net ?? null;
         const gross = p?.data?.total?.gross ?? p?.data?.gross ?? p?.gross ?? null;
         const fees  = p?.data?.total?.fees  ?? p?.data?.fees  ?? p?.fees  ?? null;
         const chartLen = (p?.data?.total?.chartAmount ?? p?.data?.chartAmount ?? []).length;
@@ -413,7 +424,7 @@ router.post("/", async (c) => {
           raw_error: res.status >= 400 ? (typeof p === "object" ? JSON.stringify(p).slice(0, 500) : String(p).slice(0, 500)) : undefined,
         });
       } catch (err: any) { results.push({ id: v.id, error: err.message }); }
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 400));
     }
     return c.json({ results });
   }
