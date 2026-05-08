@@ -268,6 +268,54 @@ router.post("/", async (c) => {
     return c.json({ grand_total: grandTotal, account_count: accounts.length, results });
   }
 
+  // Revenue attribution check — campaign (tracking links) vs total (ltv_total)
+  if (body?.action === "attribution_check") {
+    const [linkTotals, accountTotals, perAccount] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COUNT(*) AS link_count,
+          COUNT(CASE WHEN deleted_at IS NULL THEN 1 END) AS active_links,
+          COALESCE(SUM(CASE WHEN deleted_at IS NULL THEN revenue::numeric ELSE 0 END), 0) AS campaign_revenue_active,
+          COALESCE(SUM(revenue::numeric), 0) AS campaign_revenue_all,
+          COALESCE(SUM(CASE WHEN deleted_at IS NULL THEN subscribers ELSE 0 END), 0) AS attributed_subs
+        FROM tracking_links
+      `),
+      db.execute(sql`
+        SELECT
+          COALESCE(SUM(ltv_total::numeric), 0) AS total_ltv,
+          COUNT(*) AS account_count
+        FROM accounts WHERE is_active = true AND sync_excluded IS NOT TRUE
+      `),
+      db.execute(sql`
+        SELECT
+          a.display_name,
+          COALESCE(SUM(CASE WHEN tl.deleted_at IS NULL THEN tl.revenue::numeric ELSE 0 END), 0) AS campaign_rev,
+          a.ltv_total::numeric AS ltv_total,
+          COALESCE(SUM(CASE WHEN tl.deleted_at IS NULL THEN tl.subscribers ELSE 0 END), 0) AS attributed_subs
+        FROM accounts a
+        LEFT JOIN tracking_links tl ON tl.account_id = a.id
+        WHERE a.is_active = true AND a.sync_excluded IS NOT TRUE
+        GROUP BY a.id, a.display_name, a.ltv_total
+        ORDER BY a.ltv_total::numeric DESC NULLS LAST
+      `),
+    ]);
+    const g = linkTotals.rows[0] as any;
+    const t = accountTotals.rows[0] as any;
+    const campaignRev = Number(g.campaign_revenue_active);
+    const totalLtv = Number(t.total_ltv);
+    return c.json({
+      summary: {
+        total_revenue: totalLtv,
+        campaign_revenue: campaignRev,
+        unattributed_revenue: totalLtv - campaignRev,
+        unattributed_pct: totalLtv > 0 ? ((totalLtv - campaignRev) / totalLtv * 100).toFixed(1) + "%" : "0%",
+        active_links: g.active_links,
+        attributed_subs: g.attributed_subs,
+      },
+      per_account: perAccount.rows,
+    });
+  }
+
   // Show what daily transaction data we have and identify gaps
   if (body?.action === "tx_coverage") {
     const [global, perAccount, dailySample] = await Promise.all([
