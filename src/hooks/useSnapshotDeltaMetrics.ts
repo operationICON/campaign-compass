@@ -110,14 +110,21 @@ export function useSnapshotDeltaMetrics(
 
       const lookup: Record<string, SnapshotDelta> = {};
       for (const id of Object.keys(byLink)) {
-        const series = byLink[id].sort((a, b) => (a.snapshot_date! > b.snapshot_date! ? 1 : -1));
+        // Normalize to YYYY-MM-DD before comparing — Drizzle may return dates as
+        // full ISO timestamps ("2026-05-08T16:00:00.000Z") while win.start/end are
+        // plain date strings ("2026-05-08"). String comparison fails otherwise.
+        const series = byLink[id].sort((a, b) => {
+          const da = (a.snapshot_date ?? "").slice(0, 10);
+          const db = (b.snapshot_date ?? "").slice(0, 10);
+          return da > db ? 1 : -1;
+        });
 
         // Sum daily incremental rows inside the window.
         // "day" period uses exclusive start (two anchor dates); all other periods inclusive.
-        const inWindow = series.filter(r =>
-          (win.exclusiveStart ? r.snapshot_date! > win.start : r.snapshot_date! >= win.start)
-          && r.snapshot_date! <= win.end
-        );
+        const inWindow = series.filter(r => {
+          const d = (r.snapshot_date ?? "").slice(0, 10);
+          return (win.exclusiveStart ? d > win.start : d >= win.start) && d <= win.end;
+        });
         if (!inWindow.length) {
           lookup[id] = { subsGained: 0, clicksGained: 0, revenueGained: 0, subsPerDay: null, daysBetween: null };
           continue;
