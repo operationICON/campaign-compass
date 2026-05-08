@@ -404,23 +404,34 @@ router.post("/", async (c) => {
     }
     await new Promise(r => setTimeout(r, 300));
 
-    // Step 1b: also get onlyfans_account_id values from our own DB
+    // Step 1b: get DB account IDs — active accounts with actual revenue data (filters out Eva/broken auth)
     let dbOfIds: string[] = [];
+    let dbOfIdsWithData: string[] = [];
+    let dbOfIdsAsInts: number[] = [];
     try {
-      const dbRows = await db.execute(sql`SELECT onlyfans_account_id FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL AND sync_excluded IS NOT TRUE`);
+      const dbRows = await db.execute(sql`
+        SELECT onlyfans_account_id, display_name, ltv_total FROM accounts
+        WHERE is_active = true AND onlyfans_account_id IS NOT NULL AND sync_excluded IS NOT TRUE
+        ORDER BY COALESCE(ltv_total::numeric, 0) DESC
+      `);
       dbOfIds = (dbRows.rows as any[]).map(r => String(r.onlyfans_account_id));
-      results.push({ id: "db_ids_fetch", status: 200, count: dbOfIds.length, sample: dbOfIds[0] ?? null, all_ids: dbOfIds });
+      dbOfIdsWithData = (dbRows.rows as any[]).filter(r => Number(r.ltv_total ?? 0) > 0).map(r => String(r.onlyfans_account_id));
+      dbOfIdsAsInts = dbOfIdsWithData.map(Number).filter(n => !isNaN(n));
+      results.push({ id: "db_ids_fetch", status: 200, all_count: dbOfIds.length, with_data_count: dbOfIdsWithData.length,
+        sample_all: dbOfIds[0] ?? null, sample_with_data: dbOfIdsWithData[0] ?? null,
+        all_ids: dbOfIds, with_data_ids: dbOfIdsWithData,
+      });
     } catch (err: any) {
       results.push({ id: "db_ids_fetch", error: err.message });
     }
     await new Promise(r => setTimeout(r, 200));
 
-    // Step 2: try by-type endpoint with different account_id formats
+    // Step 2: try by-type endpoint — filtered to accounts with revenue data, and as integers
     const variants = [
-      { id: "by_type_ofapi_ids",   body: { account_ids: ofApiIds,     start_date: startDate, end_date: endDate } },
-      { id: "by_type_numeric_ids", body: { account_ids: ofNumericIds, start_date: startDate, end_date: endDate } },
-      { id: "by_type_db_ids",      body: { account_ids: dbOfIds,      start_date: startDate, end_date: endDate } },
-      { id: "by_type_db_ids_plain",body: { account_ids: dbOfIds,      start_date: "2018-01-01", end_date: today } },
+      { id: "by_type_with_data",      body: { account_ids: dbOfIdsWithData, start_date: startDate, end_date: endDate } },
+      { id: "by_type_as_integers",    body: { account_ids: dbOfIdsAsInts,   start_date: startDate, end_date: endDate } },
+      { id: "by_type_ofapi_skip0",    body: { account_ids: ofApiIds.slice(1), start_date: startDate, end_date: endDate } },
+      { id: "by_type_single_top",     body: { account_ids: [dbOfIdsWithData[0]], start_date: startDate, end_date: endDate } },
     ];
 
     for (const v of variants) {
