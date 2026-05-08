@@ -381,26 +381,46 @@ router.post("/", async (c) => {
     const endDate   = `${today} 23:59:59`;
     const results: any[] = [];
 
-    // Step 1: fetch OFAPI account IDs (needed — endpoint requires account_ids)
+    // Step 1a: fetch OFAPI /accounts to see what IDs look like
     let ofApiIds: string[] = [];
     let ofNumericIds: string[] = [];
+    let ofAllKeys: string[] = [];
+    let rawSample: any = null;
     try {
       const accRes = await fetch(`${API_BASE}/accounts`, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
       const accJson = await accRes.json() as any;
       const accList: any[] = Array.isArray(accJson) ? accJson : (accJson?.data ?? []);
+      rawSample = accList[0] ?? null;
+      ofAllKeys = rawSample ? Object.keys(rawSample) : [];
       ofApiIds     = accList.filter((a: any) => a.id).map((a: any) => String(a.id));
       ofNumericIds = accList.filter((a: any) => a.onlyfans_id).map((a: any) => String(a.onlyfans_id));
-      results.push({ id: "accounts_fetch", status: accRes.status, ofapi_count: ofApiIds.length, numeric_count: ofNumericIds.length, sample_ofapi: ofApiIds[0] ?? null, sample_numeric: ofNumericIds[0] ?? null });
+      results.push({ id: "accounts_fetch", status: accRes.status, ofapi_count: ofApiIds.length, numeric_count: ofNumericIds.length,
+        sample_first_account_keys: ofAllKeys,
+        sample_id: ofApiIds[0] ?? null, sample_numeric: ofNumericIds[0] ?? null,
+        all_ofapi_ids: ofApiIds, all_numeric_ids: ofNumericIds,
+      });
     } catch (err: any) {
       results.push({ id: "accounts_fetch", error: err.message });
     }
     await new Promise(r => setTimeout(r, 300));
 
+    // Step 1b: also get onlyfans_account_id values from our own DB
+    let dbOfIds: string[] = [];
+    try {
+      const dbRows = await db.execute(sql`SELECT onlyfans_account_id FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL AND sync_excluded IS NOT TRUE`);
+      dbOfIds = (dbRows.rows as any[]).map(r => String(r.onlyfans_account_id));
+      results.push({ id: "db_ids_fetch", status: 200, count: dbOfIds.length, sample: dbOfIds[0] ?? null, all_ids: dbOfIds });
+    } catch (err: any) {
+      results.push({ id: "db_ids_fetch", error: err.message });
+    }
+    await new Promise(r => setTimeout(r, 200));
+
     // Step 2: try by-type endpoint with different account_id formats
     const variants = [
       { id: "by_type_ofapi_ids",   body: { account_ids: ofApiIds,     start_date: startDate, end_date: endDate } },
       { id: "by_type_numeric_ids", body: { account_ids: ofNumericIds, start_date: startDate, end_date: endDate } },
-      { id: "by_type_ofapi_plain", body: { account_ids: ofApiIds,     start_date: "2018-01-01", end_date: today } },
+      { id: "by_type_db_ids",      body: { account_ids: dbOfIds,      start_date: startDate, end_date: endDate } },
+      { id: "by_type_db_ids_plain",body: { account_ids: dbOfIds,      start_date: "2018-01-01", end_date: today } },
     ];
 
     for (const v of variants) {
