@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  LayoutDashboard, LayoutGrid, Users, BarChart3,
+  LayoutGrid, Users, BarChart3,
   Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator, Heart, ChevronLeft, ChevronRight, LineChart, PieChart
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
@@ -10,8 +10,7 @@ import { useState, useEffect } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const mainNav = [
-  { to: "/", icon: LayoutDashboard, label: "Overview", adminOnly: true },
-  { to: "/overview", icon: PieChart, label: "Overview v2", adminOnly: true },
+  { to: "/overview", icon: PieChart, label: "Overview", adminOnly: true },
   { to: "/campaigns", icon: LayoutGrid, label: "Tracking Links", adminOnly: false },
   { to: "/accounts", icon: Users, label: "Models", adminOnly: true },
   { to: "/traffic-sources", icon: Tag, label: "Sources", adminOnly: true },

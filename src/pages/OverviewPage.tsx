@@ -26,7 +26,6 @@ const MODEL_COLORS = [
   "#a855f7","#22c55e","#eab308","#3b82f6","#e11d48",
 ];
 
-
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function fmtD(d: Date) { return format(d, "yyyy-MM-dd"); }
 
@@ -76,13 +75,13 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   );
 }
 
-// ── Change chip ───────────────────────────────────────────────────────────────
+// ── Delta pill ────────────────────────────────────────────────────────────────
 function ChangeChip({ pct }: { pct: number | null }) {
   if (pct === null || !isFinite(pct)) return null;
   const up = pct >= 0;
   return (
     <span className={cn(
-      "inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md mt-0.5",
+      "inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full",
       up ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
     )}>
       {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
@@ -92,29 +91,32 @@ function ChangeChip({ pct }: { pct: number | null }) {
 }
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, pct, sparkData, accent, icon, compact }: {
+function KpiCard({ label, value, sub, pct, sparkData, accent, icon }: {
   label: string; value: string; sub?: string;
   pct?: number | null; sparkData?: number[];
-  accent: string; icon: React.ReactNode; compact?: boolean;
+  accent: string; icon: React.ReactNode;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3" style={{ borderBottom: `3px solid ${accent}` }}>
+    <div
+      className="bg-card border border-border/50 rounded-2xl p-5 flex flex-col gap-3"
+      style={{ borderLeft: `4px solid ${accent}` }}
+    >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-          <p className={cn("font-bold text-foreground mt-1 leading-none", compact ? "text-xl" : "text-3xl")}>{value}</p>
-          {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
+          <p className="text-2xl font-bold text-foreground mt-1 leading-none tabular-nums">{value}</p>
+          {sub && <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{sub}</p>}
         </div>
-        <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style={{ background: `${accent}18` }}>
+        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: `${accent}18` }}>
           <span style={{ color: accent }}>{icon}</span>
         </div>
       </div>
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between mt-auto">
         <div>
           {pct !== undefined && pct !== null ? (
             <>
               <ChangeChip pct={pct} />
-              <p className="text-[10px] text-muted-foreground mt-0.5">vs prev period</p>
+              <p className="text-[10px] text-muted-foreground mt-1">vs prev period</p>
             </>
           ) : <div />}
         </div>
@@ -145,7 +147,7 @@ function AccountFilter({ accounts, selected, onChange }: {
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)}
-        className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground flex items-center gap-2 hover:bg-accent/30 transition-colors select-none">
+        className="h-9 px-3 rounded-lg border border-border bg-card text-sm font-medium text-foreground flex items-center gap-2.5 hover:bg-accent/30 transition-colors select-none">
         <Users className="w-3.5 h-3.5 text-muted-foreground" />
         <span>Accounts ({selected.length})</span>
         <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
@@ -219,7 +221,6 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
-  // Revenue from synced transactions — single source of truth, no live API calls
   const { data: txRows = [], isLoading: snapsLoading } = useQuery({
     queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
     queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
@@ -234,7 +235,6 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Snapshot-based subscriber counts (tracking-link new subs for Fans KPI)
   const { data: snaps = [] } = useQuery({
     queryKey: ["ov2_snaps", dateFrom, dateTo, selectedIds.join(",")],
     queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds, cols: "slim" }),
@@ -263,8 +263,7 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-
-  // Always-on Prev Month new subs — shown in "New Subs" KPI regardless of date filter
+  // Always-on Prev Month new subs
   const [prevMonthStart, prevMonthEnd, daysInPrevMonth] = useMemo(() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -303,7 +302,6 @@ export default function OverviewPage() {
 
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
-  // Aggregation helpers
   const aggSnaps = (data: any[], field: string, ids: string[]) => {
     const m: Record<string, number> = {};
     (data as any[]).forEach(s => {
@@ -353,11 +351,9 @@ export default function OverviewPage() {
     return m;
   }, [prevOrders, linkToAccount, selectedIds]);
 
-  // KPI totals — revByAcct already handles All Time (ltv_total) vs date-filtered (earnings endpoint)
   const totalRevenue = useMemo(() =>
     Object.values(revByAcct).reduce((s, v) => s + v, 0) * revMult,
     [revByAcct, revMult]);
-
 
   const totalFans = useMemo(() => {
     if (isAllTime) return selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
@@ -366,7 +362,6 @@ export default function OverviewPage() {
 
   const prevTotalFans = useMemo(() => Object.values(prevSubsByAcct).reduce((s, v) => s + v, 0), [prevSubsByAcct]);
 
-  // New Subs KPI: prev month when All Time, period new subs otherwise
   const newSubsKpi = useMemo(() => isAllTime ? newSubsPrevMonth : totalFans, [isAllTime, newSubsPrevMonth, totalFans]);
   const newSubsPerDay = useMemo(() => {
     if (isAllTime) return daysInPrevMonth > 0 ? newSubsPrevMonth / daysInPrevMonth : 0;
@@ -376,14 +371,12 @@ export default function OverviewPage() {
     return days > 0 ? totalFans / days : 0;
   }, [isAllTime, newSubsPrevMonth, daysInPrevMonth, totalFans, dateFrom, dateTo]);
 
-  // Revenue/Sub — always All Time (ltv_total / subscribers)
   const revenuePerSub = useMemo(() => {
     const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const rev  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
     return subs > 0 ? rev / subs : 0;
   }, [selectedAccounts]);
 
-  // Unattributed % — fans not via any tracking link
   const unattributedPct = useMemo(() => {
     const totalSubs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
     const attributed = (linksRaw as any[])
@@ -393,7 +386,6 @@ export default function OverviewPage() {
     return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
   }, [selectedAccounts, linksRaw, selectedIds]);
 
-  // Via Campaigns vs Unattributed revenue split (for Total Revenue breakdown)
   const attributedRevenue = useMemo(() =>
     (linksRaw as any[])
       .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
@@ -404,10 +396,7 @@ export default function OverviewPage() {
     Math.max(0, totalRevenue - attributedRevenue),
     [totalRevenue, attributedRevenue]);
 
-  // Sparklines (daily arrays)
-
-
-  // Donut
+  // Donut — top 5 + Others
   const donutData = useMemo(() =>
     selectedAccounts
       .map((a: any, i: number) => ({
@@ -421,12 +410,20 @@ export default function OverviewPage() {
       .sort((a, b) => b.value - a.value),
     [selectedAccounts, revByAcct, revMult]);
 
+  const donutDisplayData = useMemo(() => {
+    if (donutData.length <= 5) return donutData;
+    const top5 = donutData.slice(0, 5);
+    const othersValue = donutData.slice(5).reduce((s, d) => s + d.value, 0);
+    return othersValue > 0
+      ? [...top5, { id: "others", name: "Others", username: null, value: othersValue, color: "#6b7280" }]
+      : top5;
+  }, [donutData]);
+
   const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
 
   // Chart
   const chartData = useMemo(() => {
     if (isAllTime) {
-      // Use stored monthly history if available (populated by revenue-breakdown sync)
       const m: Record<string, number> = {};
       let hasMonthlyData = false;
       selectedAccounts.forEach((a: any) => {
@@ -446,7 +443,6 @@ export default function OverviewPage() {
             label: format(new Date(key + "-15"), "MMM yy"),
           }));
       }
-      // Fallback to synced txRows until monthly history is populated
     }
     const daysDiff = dateFrom && dateTo
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
@@ -533,115 +529,128 @@ export default function OverviewPage() {
     a.click();
   };
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
-      <div className="flex flex-col gap-6 p-6">
+      <div className="min-h-screen w-full bg-gradient-to-br from-background to-background/95">
+        <div className="max-w-screen-2xl mx-auto px-6 py-6 space-y-6">
 
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Overview</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {dateLabel} · {selectedIds.length} account{selectedIds.length !== 1 ? "s" : ""}
-          </p>
-        </div>
-
-        {/* ── Section 1: Filters ──────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
-          <button
-            onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
-              isAllTime
-                ? "bg-primary text-primary-foreground"
-                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30"
-            )}>
-            All Time
-          </button>
-          <DateRangePicker
-            value={customRange}
-            onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); setTablePage(0); } }}
-          />
-        </div>
-
-        {/* ── Section 2: KPI Cards ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard
-            label="LTV/Sub"
-            value={fmtMoney(revenuePerSub)}
-            sub="All time · revenue per new subscriber"
-            accent="#ec4899" icon={<Activity className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="New Subs"
-            value={newSubsKpi.toLocaleString()}
-            sub={isAllTime
-              ? `${newSubsPerDay.toFixed(1)}/day · Prev Month`
-              : `${newSubsPerDay.toFixed(1)}/day`}
-            pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
-            accent="#a855f7" icon={<UserPlus className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Unattributed %"
-            value={`${unattributedPct.toFixed(1)}%`}
-            sub="Fans with no tracking link"
-            accent="#64748b" icon={<BarChart2 className="h-4 w-4" />}
-          />
-          {/* Total Revenue — expandable breakdown */}
-          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-2" style={{ borderBottom: "3px solid #f59e0b" }}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</p>
-                <p className="text-xl font-bold text-foreground mt-1 leading-none">{snapsLoading ? "…" : fmtMoney(totalRevenue)}</p>
-                <p className="text-xs text-muted-foreground mt-1.5">{isAllTime ? "All time · tracking links + unattributed" : "Net earnings in period"}</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "#f59e0b18" }}>
-                <span style={{ color: "#f59e0b" }}><DollarSign className="h-4 w-4" /></span>
-              </div>
-            </div>
-            {isAllTime && (
-              <>
-                <button
-                  onClick={() => setShowRevBreakdown(v => !v)}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors self-start"
-                >
-                  <ChevronDown className={cn("w-3 h-3 transition-transform", showRevBreakdown && "rotate-180")} />
-                  {showRevBreakdown ? "Hide breakdown" : "Show breakdown"}
-                </button>
-                {showRevBreakdown && (
-                  <div className="border-t border-border/40 pt-2 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-                        Via Campaigns
-                      </div>
-                      <span className="text-foreground font-medium">
-                        {fmtMoney(attributedRevenue)} · {totalRevenue > 0 ? ((attributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-[#64748b] inline-block" />
-                        Unattributed
-                      </div>
-                      <span className="text-foreground font-medium">
-                        {fmtMoney(unattributedRevenue)} · {totalRevenue > 0 ? ((unattributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+          {/* ── Page Header ─────────────────────────────────────────────────── */}
+          <div className="border-b border-border/40 pb-5">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Overview</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {dateLabel} · {selectedIds.length} account{selectedIds.length !== 1 ? "s" : ""}
+            </p>
           </div>
-        </div>
 
-        {/* ── Section 3: Revenue Overview chart — full width ──────────────────── */}
-        <div className="bg-card border border-border rounded-2xl p-5">
+          {/* ── Filters ─────────────────────────────────────────────────────── */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
+            <button
+              onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
+              className={cn(
+                "h-9 px-4 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+                isAllTime
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30"
+              )}>
+              All Time
+            </button>
+            <DateRangePicker
+              value={customRange}
+              onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); setTablePage(0); } }}
+            />
+          </div>
+
+          {/* ── KPI Cards ───────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              label="LTV/Sub"
+              value={fmtMoney(revenuePerSub)}
+              sub="All time · revenue per new subscriber"
+              accent="#ec4899"
+              icon={<Activity className="h-4 w-4" />}
+            />
+            <KpiCard
+              label="New Subs"
+              value={newSubsKpi.toLocaleString()}
+              sub={isAllTime
+                ? `${newSubsPerDay.toFixed(1)}/day · Prev Month`
+                : `${newSubsPerDay.toFixed(1)}/day`}
+              pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
+              accent="#a855f7"
+              icon={<UserPlus className="h-4 w-4" />}
+            />
+            <KpiCard
+              label="Unattributed %"
+              value={`${unattributedPct.toFixed(1)}%`}
+              sub="Fans with no tracking link"
+              accent="#64748b"
+              icon={<BarChart2 className="h-4 w-4" />}
+            />
+
+            {/* Total Revenue — expandable breakdown when All Time */}
+            <div
+              className="bg-card border border-border/50 rounded-2xl p-5 flex flex-col gap-3"
+              style={{ borderLeft: "4px solid #f59e0b" }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</p>
+                  <p className="text-2xl font-bold text-foreground mt-1 leading-none tabular-nums">
+                    {snapsLoading ? "…" : fmtMoney(totalRevenue)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
+                    {isAllTime ? "All time · tracking links + unattributed" : "Net earnings in period"}
+                  </p>
+                </div>
+                <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "#f59e0b18" }}>
+                  <span style={{ color: "#f59e0b" }}><DollarSign className="h-4 w-4" /></span>
+                </div>
+              </div>
+              {isAllTime && (
+                <div className="mt-auto">
+                  <button
+                    onClick={() => setShowRevBreakdown(v => !v)}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  >
+                    <ChevronDown className={cn("w-3 h-3 transition-transform", showRevBreakdown && "rotate-180")} />
+                    {showRevBreakdown ? "Hide breakdown" : "Show breakdown"}
+                  </button>
+                  {showRevBreakdown && (
+                    <div className="border-t border-border/40 mt-2 pt-2 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                          Via Campaigns
+                        </div>
+                        <span className="text-foreground font-medium tabular-nums">
+                          {fmtMoney(attributedRevenue)} · {totalRevenue > 0 ? ((attributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-[#64748b] inline-block" />
+                          Unattributed
+                        </div>
+                        <span className="text-foreground font-medium tabular-nums">
+                          {fmtMoney(unattributedRevenue)} · {totalRevenue > 0 ? ((unattributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Revenue Overview Chart ──────────────────────────────────────── */}
+          <div className="bg-card border border-border/50 rounded-2xl p-5">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Revenue Overview</h2>
-                <p className="text-2xl font-bold text-foreground mt-1">{fmtMoney(isAllTime ? totalRevenue : chartTotal)}</p>
-                <p className="text-xs text-muted-foreground">{dateLabel}</p>
+                <h2 className="text-base font-semibold text-foreground">Revenue Overview</h2>
+                <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">{fmtMoney(isAllTime ? totalRevenue : chartTotal)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{dateLabel}</p>
               </div>
               <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
                 {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
@@ -653,10 +662,12 @@ export default function OverviewPage() {
                 ))}
               </div>
             </div>
-            <div style={{ height: 280 }}>
+            <div className="h-64">
               {chartData.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                  {snapsLoading ? "Loading…" : "No data"}
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">
+                    {snapsLoading ? "Loading…" : "No data for this period"}
+                  </p>
                 </div>
               ) : chartType === "bar" ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -686,211 +697,249 @@ export default function OverviewPage() {
                 </ResponsiveContainer>
               )}
             </div>
-        </div>
+          </div>
 
-        {/* ── Section 4: Revenue Breakdown donut ──────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* ── Revenue Breakdown ───────────────────────────────────────────── */}
+          <div className="grid gap-4" style={{ gridTemplateColumns: "280px 1fr" }}>
 
-          {/* Donut */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Revenue Breakdown</h2>
-            {donutData.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
-                {snapsLoading ? "Loading…" : "No revenue data for selected period"}
-              </div>
-            ) : (
-              <div className="flex items-center gap-5">
-                <div className="relative shrink-0" style={{ width: 180, height: 180 }}>
-                  <ResponsiveContainer width={180} height={180}>
-                    <PieChart>
-                      <Pie data={donutData} cx="50%" cy="50%" innerRadius={52} outerRadius={82}
-                        dataKey="value" strokeWidth={0} paddingAngle={2}>
-                        {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-xl font-bold text-foreground leading-none">{fmtShort(donutTotal)}</span>
-                    <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Total</span>
+            {/* Donut */}
+            <div className="bg-card border border-border/50 rounded-2xl p-5">
+              <h2 className="text-base font-semibold text-foreground mb-4">Revenue Breakdown</h2>
+              {donutDisplayData.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <p className="text-sm text-muted-foreground">
+                    {snapsLoading ? "Loading…" : "No data for this period"}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative" style={{ width: 180, height: 180 }}>
+                    <ResponsiveContainer width={180} height={180}>
+                      <PieChart>
+                        <Pie data={donutDisplayData} cx="50%" cy="50%" innerRadius={52} outerRadius={82}
+                          dataKey="value" strokeWidth={0} paddingAngle={2}>
+                          {donutDisplayData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-xl font-bold text-foreground leading-none tabular-nums">{fmtShort(donutTotal)}</span>
+                      <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Total</span>
+                    </div>
+                  </div>
+                  <div className="w-full space-y-1.5">
+                    {donutDisplayData.map((d, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
+                          <span className="text-foreground truncate">{d.name}</span>
+                        </div>
+                        <span className="text-muted-foreground tabular-nums shrink-0">
+                          {((d.value / donutTotal) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="flex-1 min-w-0 overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
+              )}
+            </div>
+
+            {/* Breakdown table */}
+            <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">By Account</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/20">
+                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-left">Model</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Spend</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Revenue</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">ROI%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {donutData.length === 0 ? (
                       <tr>
-                        <th className="text-left pb-2 text-muted-foreground font-medium">Model</th>
-                        <th className="text-right pb-2 text-muted-foreground font-medium">Spend</th>
-                        <th className="text-right pb-2 text-muted-foreground font-medium">Revenue</th>
-                        <th className="text-right pb-2 text-muted-foreground font-medium">ROI%</th>
+                        <td colSpan={4} className="px-5 py-8 text-center text-sm text-muted-foreground">
+                          {snapsLoading ? "Loading…" : "No data for this period"}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {donutData.map((d, i) => {
-                        const spend = spendByAcct[d.id] || 0;
-                        const roiPct = spend > 0 ? ((d.value - spend) / spend) * 100 : null;
-                        return (
-                          <tr key={i} className="border-t border-border/40">
-                            <td className="py-1.5 pr-2">
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                                <span className="text-foreground truncate">
-                                  {d.name}{d.username ? ` - ${d.username}` : ""}
-                                </span>
+                    ) : donutData.map((d, i) => {
+                      const spend = spendByAcct[d.id] || 0;
+                      const roiPct = spend > 0 ? ((d.value - spend) / spend) * 100 : null;
+                      return (
+                        <tr key={i} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
+                              <span className="text-foreground truncate min-w-0">
+                                {d.name}{d.username ? ` - ${d.username}` : ""}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-right text-muted-foreground tabular-nums">
+                            {spend > 0 ? fmtMoney(spend) : "—"}
+                          </td>
+                          <td className="px-5 py-3 text-right font-semibold text-foreground tabular-nums">
+                            {fmtMoney(d.value)}
+                          </td>
+                          <td className={cn("px-5 py-3 text-right font-medium tabular-nums",
+                            roiPct === null ? "text-muted-foreground" : roiPct >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            {roiPct === null ? "—" : `${roiPct.toFixed(0)}%`}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Model Performance Table ─────────────────────────────────────── */}
+          <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
+              <h2 className="text-base font-semibold text-foreground">Model Performance</h2>
+              <div className="flex items-center gap-2">
+                <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(0); }}
+                  className="h-8 px-2 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none">
+                  {[10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
+                </select>
+                <button onClick={handleExport}
+                  className="h-8 px-3 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Export
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20">
+                    {[
+                      { key: "account", label: "Account",  right: false },
+                      { key: "newFans", label: "New Fans", right: true  },
+                      { key: "revenue", label: "Revenue",  right: true  },
+                      { key: "spend",   label: "Spend",    right: true  },
+                      { key: "profit",  label: "Profit",   right: true  },
+                      { key: "cvr",     label: "CVR",      right: true  },
+                      { key: "roi",     label: "ROI",      right: true  },
+                    ].map(col => (
+                      <th key={col.key} onClick={() => sortBy(col.key)}
+                        className={cn(
+                          "px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors",
+                          col.right ? "text-right" : "text-left"
+                        )}>
+                        <span className={cn("inline-flex items-center gap-0.5", col.right && "justify-end w-full")}>
+                          {col.label}<SortIcon k={col.key} />
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                        {snapsLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one account" : "No data"}
+                      </td>
+                    </tr>
+                  ) : pagedRows.map(row => {
+                    const a = row.account;
+                    const rp = !isAllTime && row.prevRev > 0     ? ((row.rev     - row.prevRev)    / row.prevRev)              * 100 : null;
+                    const sp = !isAllTime && row.prevSpend > 0   ? ((row.spend   - row.prevSpend)  / row.prevSpend)            * 100 : null;
+                    const pp = !isAllTime && row.prevProfit !== 0 ? ((row.profit - row.prevProfit) / Math.abs(row.prevProfit)) * 100 : null;
+                    const fp = !isAllTime && row.prevNewFans > 0  ? ((row.newFans - row.prevNewFans) / row.prevNewFans)         * 100 : null;
+                    return (
+                      <tr key={a.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                        {/* Account */}
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            {a.avatar_thumb_url
+                              ? <img src={a.avatar_thumb_url} className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-border" alt="" />
+                              : <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                                  {(a.display_name || "?").slice(0, 2).toUpperCase()}
+                                </div>}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-semibold text-foreground leading-tight truncate">{a.display_name}</span>
+                                {row.linkCount > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">{row.linkCount}</span>
+                                )}
                               </div>
-                            </td>
-                            <td className="py-1.5 text-right text-muted-foreground">{spend > 0 ? fmtMoney(spend) : "—"}</td>
-                            <td className="py-1.5 text-right font-semibold text-foreground">{fmtMoney(d.value)}</td>
-                            <td className={cn("py-1.5 text-right font-medium", roiPct === null ? "text-muted-foreground" : roiPct >= 0 ? "text-emerald-400" : "text-red-400")}>
-                              {roiPct === null ? "—" : `${roiPct.toFixed(0)}%`}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              {a.username && <div className="text-xs text-muted-foreground/70 mt-0.5">@{a.username}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        {/* New Fans */}
+                        <td className="px-5 py-4 text-right">
+                          <div className="text-sm font-bold text-foreground tabular-nums">{row.newFans.toLocaleString()}</div>
+                          <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
+                        </td>
+                        {/* Revenue */}
+                        <td className="px-5 py-4 text-right">
+                          <div className="text-sm font-bold text-foreground tabular-nums">{fmtMoney(row.rev)}</div>
+                          <div className="flex justify-end mt-0.5"><ChangeChip pct={rp} /></div>
+                        </td>
+                        {/* Spend */}
+                        <td className="px-5 py-4 text-right">
+                          <div className="text-sm font-bold text-foreground tabular-nums">
+                            {row.spend > 0 ? fmtMoney(row.spend) : <span className="text-muted-foreground/40">—</span>}
+                          </div>
+                          {row.spend > 0 && <div className="flex justify-end mt-0.5"><ChangeChip pct={sp} /></div>}
+                        </td>
+                        {/* Profit */}
+                        <td className="px-5 py-4 text-right">
+                          <div className={cn("text-sm font-bold tabular-nums", row.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            {fmtMoney(row.profit)}
+                          </div>
+                          <div className="flex justify-end mt-0.5"><ChangeChip pct={pp} /></div>
+                        </td>
+                        {/* CVR */}
+                        <td className="px-5 py-4 text-right">
+                          <div className="text-sm font-bold text-foreground tabular-nums">
+                            {row.cvr != null ? `${row.cvr.toFixed(1)}%` : <span className="text-muted-foreground/40">—</span>}
+                          </div>
+                        </td>
+                        {/* ROI */}
+                        <td className="px-5 py-4 text-right">
+                          <div className={cn("text-sm font-bold tabular-nums",
+                            row.roi == null ? "text-muted-foreground/40" : row.roi >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            {row.roi != null ? `${row.roi.toFixed(1)}%` : "—"}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+                <span className="text-xs text-muted-foreground">
+                  {tablePage * tablePageSize + 1}–{Math.min((tablePage + 1) * tablePageSize, tableRows.length)} of {tableRows.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setTablePage(p => Math.max(0, p - 1))} disabled={tablePage === 0}
+                    className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Prev</button>
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i).map(i => (
+                    <button key={i} onClick={() => setTablePage(i)}
+                      className={cn("w-7 h-7 rounded-lg text-xs transition-colors",
+                        i === tablePage ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground")}>
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button onClick={() => setTablePage(p => Math.min(totalPages - 1, p + 1))} disabled={tablePage >= totalPages - 1}
+                    className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Bar/Line chart */}
         </div>
-
-        {/* ── Section 4: Per Model Table ───────────────────────────────────────── */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
-            <h2 className="text-sm font-semibold text-foreground">Model Performance</h2>
-            <div className="flex items-center gap-2">
-              <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(0); }}
-                className="h-8 px-2 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none">
-                {[10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
-              </select>
-              <button onClick={handleExport}
-                className="h-8 px-3 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground transition-colors">
-                Export
-              </button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  {[
-                    { key: "account", label: "Account",  right: false },
-                    { key: "newFans", label: "New Fans", right: true  },
-                    { key: "revenue", label: "Revenue",  right: true  },
-                    { key: "spend",   label: "Spend",    right: true  },
-                    { key: "profit",  label: "Profit",   right: true  },
-                    { key: "cvr",     label: "CVR",      right: true  },
-                    { key: "roi",     label: "ROI",      right: true  },
-                  ].map(col => (
-                    <th key={col.key} onClick={() => sortBy(col.key)}
-                      className={cn("px-5 py-3.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest cursor-pointer select-none hover:text-foreground transition-colors",
-                        col.right ? "text-right" : "text-left")}>
-                      <span className={cn("inline-flex items-center gap-0.5", col.right && "justify-end w-full")}>
-                        {col.label}<SortIcon k={col.key} />
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pagedRows.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    {snapsLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one account" : "No data"}
-                  </td></tr>
-                ) : pagedRows.map(row => {
-                  const a = row.account;
-                  const rp = !isAllTime && row.prevRev > 0     ? ((row.rev     - row.prevRev)    / row.prevRev)              * 100 : null;
-                  const sp = !isAllTime && row.prevSpend > 0   ? ((row.spend   - row.prevSpend)  / row.prevSpend)            * 100 : null;
-                  const pp = !isAllTime && row.prevProfit !== 0 ? ((row.profit - row.prevProfit) / Math.abs(row.prevProfit)) * 100 : null;
-                  const fp = !isAllTime && row.prevNewFans > 0  ? ((row.newFans - row.prevNewFans) / row.prevNewFans)         * 100 : null;
-                  return (
-                    <tr key={a.id} className="border-b border-border/40 hover:bg-white/[0.02] transition-colors">
-                      {/* Account */}
-                      <td className="px-5 py-5">
-                        <div className="flex items-center gap-3">
-                          {a.avatar_thumb_url
-                            ? <img src={a.avatar_thumb_url} className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-border" alt="" />
-                            : <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
-                                {(a.display_name || "?").slice(0, 2).toUpperCase()}
-                              </div>}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-semibold text-foreground text-sm leading-tight truncate">{a.display_name}</span>
-                              {row.linkCount > 0 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">{row.linkCount}</span>
-                              )}
-                            </div>
-                            {a.username && <div className="text-xs text-muted-foreground/70 mt-0.5">@{a.username}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      {/* New Fans */}
-                      <td className="px-5 py-5 text-right">
-                        <div className="text-sm font-bold text-foreground">{row.newFans.toLocaleString()}</div>
-                        <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
-                      </td>
-                      {/* Revenue */}
-                      <td className="px-5 py-5 text-right">
-                        <div className="text-sm font-bold text-foreground">{fmtMoney(row.rev)}</div>
-                        <div className="flex justify-end mt-0.5"><ChangeChip pct={rp} /></div>
-                      </td>
-                      {/* Spend */}
-                      <td className="px-5 py-5 text-right">
-                        <div className="text-sm font-bold text-foreground">{row.spend > 0 ? fmtMoney(row.spend) : <span className="text-muted-foreground/40">—</span>}</div>
-                        {row.spend > 0 && <div className="flex justify-end mt-0.5"><ChangeChip pct={sp} /></div>}
-                      </td>
-                      {/* Profit */}
-                      <td className="px-5 py-5 text-right">
-                        <div className={cn("text-sm font-bold", row.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
-                          {fmtMoney(row.profit)}
-                        </div>
-                        <div className="flex justify-end mt-0.5"><ChangeChip pct={pp} /></div>
-                      </td>
-                      {/* CVR */}
-                      <td className="px-5 py-5 text-right">
-                        <div className="text-sm font-bold text-foreground">
-                          {row.cvr != null ? `${row.cvr.toFixed(1)}%` : <span className="text-muted-foreground/40">—</span>}
-                        </div>
-                      </td>
-                      {/* ROI */}
-                      <td className="px-5 py-5 text-right">
-                        <div className={cn("text-sm font-bold", row.roi == null ? "text-muted-foreground/40" : row.roi >= 0 ? "text-emerald-400" : "text-red-400")}>
-                          {row.roi != null ? `${row.roi.toFixed(1)}%` : "—"}
-                        </div>
-                      </td>
-
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-border">
-              <span className="text-xs text-muted-foreground">
-                {tablePage * tablePageSize + 1}–{Math.min((tablePage + 1) * tablePageSize, tableRows.length)} of {tableRows.length}
-              </span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setTablePage(p => Math.max(0, p - 1))} disabled={tablePage === 0}
-                  className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Prev</button>
-                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i).map(i => (
-                  <button key={i} onClick={() => setTablePage(i)}
-                    className={cn("w-7 h-7 rounded-lg text-xs transition-colors",
-                      i === tablePage ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground")}>
-                    {i + 1}
-                  </button>
-                ))}
-                <button onClick={() => setTablePage(p => Math.min(totalPages - 1, p + 1))} disabled={tablePage >= totalPages - 1}
-                  className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
-              </div>
-            </div>
-          )}
-        </div>
-
       </div>
     </DashboardLayout>
   );
