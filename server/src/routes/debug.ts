@@ -374,6 +374,28 @@ router.post("/", async (c) => {
     return c.json({ account: acc.display_name, acct_id: acctId, results });
   }
 
+  // Check revenue_monthly data stored on accounts
+  if (body?.action === "rev_monthly_check") {
+    const rows = await db.execute(sql`
+      SELECT
+        display_name,
+        CASE WHEN revenue_monthly IS NULL THEN 'NULL'
+             WHEN revenue_monthly = '{}'::jsonb THEN 'EMPTY {}'
+             ELSE 'HAS DATA'
+        END AS status,
+        COALESCE(jsonb_object_length(revenue_monthly), 0) AS month_count,
+        (SELECT MIN(k) FROM jsonb_object_keys(revenue_monthly) AS k) AS earliest_month,
+        (SELECT MAX(k) FROM jsonb_object_keys(revenue_monthly) AS k) AS latest_month,
+        COALESCE((SELECT SUM(v::numeric) FROM jsonb_each_text(revenue_monthly) AS j(k,v)), 0) AS total_net,
+        ltv_total,
+        ltv_updated_at
+      FROM accounts
+      WHERE is_active = true
+      ORDER BY display_name
+    `);
+    return c.json({ accounts: rows.rows });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 

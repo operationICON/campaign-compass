@@ -27,6 +27,8 @@ export default function DebugPage() {
   const [txTotalsLoading, setTxTotalsLoading] = useState(false);
   const [txDateTestResult, setTxDateTestResult] = useState<any>(null);
   const [txDateTestLoading, setTxDateTestLoading] = useState(false);
+  const [revMonthlyResult, setRevMonthlyResult] = useState<any>(null);
+  const [revMonthlyLoading, setRevMonthlyLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -116,6 +118,19 @@ export default function DebugPage() {
       setSumEarningsResult({ error: err.message });
     } finally {
       setSumEarningsLoading(false);
+    }
+  }, []);
+
+  const runRevMonthly = useCallback(async () => {
+    setRevMonthlyLoading(true);
+    setRevMonthlyResult(null);
+    try {
+      const data = await debugAction("rev_monthly_check");
+      setRevMonthlyResult(data);
+    } catch (err: any) {
+      setRevMonthlyResult({ error: err.message });
+    } finally {
+      setRevMonthlyLoading(false);
     }
   }, []);
 
@@ -246,6 +261,51 @@ export default function DebugPage() {
                     </span>
                     <span className="text-[#f1f5f9] font-semibold">{fmt(r.link_revenue)}</span>
                     <span className="text-emerald-400">{fmt(r.tx_net)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Revenue Monthly Check */}
+        <div className="bg-card border border-teal-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-teal-400" /> Revenue Monthly Check
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shows what's stored in <code className="font-mono">revenue_monthly</code> per account — the All Time chart reads from this field
+              </p>
+            </div>
+            <button
+              onClick={runRevMonthly}
+              disabled={revMonthlyLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 transition-colors disabled:opacity-50"
+            >
+              {revMonthlyLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Check Revenue Monthly
+            </button>
+          </div>
+          {revMonthlyResult && (
+            <div className="space-y-1.5">
+              {revMonthlyResult.error && <p className="text-xs text-destructive">{revMonthlyResult.error}</p>}
+              <div className="grid grid-cols-[160px_80px_80px_100px_100px_120px_120px] gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                <span>Account</span><span>Status</span><span>Months</span><span>Earliest</span><span>Latest</span><span>Monthly Net</span><span>LTV Total</span>
+              </div>
+              {(revMonthlyResult.accounts ?? []).map((r: any, i: number) => {
+                const hasData = r.status === "HAS DATA";
+                const fmt = (v: any) => v != null && v !== "" ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
+                return (
+                  <div key={i} className={`grid grid-cols-[160px_80px_80px_100px_100px_120px_120px] gap-2 items-center text-[11px] rounded px-2 py-1.5 ${hasData ? "bg-secondary/50" : "bg-destructive/10 border border-destructive/20"}`}>
+                    <span className="font-semibold text-foreground truncate">{r.display_name}</span>
+                    <span className={hasData ? "text-emerald-400 font-semibold" : "text-destructive font-bold"}>{r.status}</span>
+                    <span className={hasData ? "text-teal-400" : "text-muted-foreground/40"}>{Number(r.month_count).toLocaleString()}</span>
+                    <span className="text-muted-foreground font-mono text-[10px]">{r.earliest_month ?? "—"}</span>
+                    <span className="text-muted-foreground font-mono text-[10px]">{r.latest_month ?? "—"}</span>
+                    <span className={hasData ? "text-emerald-400" : "text-muted-foreground/40"}>{fmt(r.total_net)}</span>
+                    <span className="text-muted-foreground/70">{fmt(r.ltv_total)}</span>
                   </div>
                 );
               })}
