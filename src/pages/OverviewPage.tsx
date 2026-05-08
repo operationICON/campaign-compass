@@ -278,25 +278,6 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const [prevMonthStart, prevMonthEnd, daysInPrevMonth] = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end   = new Date(now.getFullYear(), now.getMonth(), 0);
-    return [fmtD(start), fmtD(end), end.getDate()];
-  }, []);
-
-  const { data: pmSnaps = [] } = useQuery({
-    queryKey: ["new_subs_prev_month", selectedIds.join(",")],
-    queryFn: () => getSnapshotsByDateRange({ date_from: prevMonthStart, date_to: prevMonthEnd, account_ids: selectedIds, cols: "slim" }),
-    enabled: selectedIds.length > 0,
-    staleTime: 30 * 60 * 1000,
-  });
-
-  const newSubsPrevMonth = useMemo(() =>
-    (pmSnaps as any[]).reduce((s: number, snap: any) =>
-      s + (selectedIds.includes(snap.account_id) ? Number(snap.subscribers || 0) : 0), 0),
-  [pmSnaps, selectedIds]);
-
   // ── Derived maps ──────────────────────────────────────────────────────────
   const linkToAccount = useMemo(() => {
     const m: Record<string, string> = {};
@@ -378,14 +359,14 @@ export default function OverviewPage() {
 
   const prevTotalFans = useMemo(() => Object.values(prevSubsByAcct).reduce((s, v) => s + v, 0), [prevSubsByAcct]);
 
-  const newSubsKpi = useMemo(() => isAllTime ? newSubsPrevMonth : totalFans, [isAllTime, newSubsPrevMonth, totalFans]);
+  const newSubsKpi = totalFans;
   const newSubsPerDay = useMemo(() => {
-    if (isAllTime) return daysInPrevMonth > 0 ? newSubsPrevMonth / daysInPrevMonth : 0;
+    if (isAllTime) return 0;
     const days = dateFrom && dateTo
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000) + 1
       : 30;
     return days > 0 ? totalFans / days : 0;
-  }, [isAllTime, newSubsPrevMonth, daysInPrevMonth, totalFans, dateFrom, dateTo]);
+  }, [isAllTime, totalFans, dateFrom, dateTo]);
 
   const revenuePerSub = useMemo(() => {
     const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
@@ -553,7 +534,7 @@ export default function OverviewPage() {
           <KpiCard
             label="New Subs"
             value={newSubsKpi.toLocaleString()}
-            sub={isAllTime ? `${newSubsPerDay.toFixed(1)}/day · Prev Month` : `${newSubsPerDay.toFixed(1)}/day`}
+            sub={isAllTime ? "Total active subscribers" : `${newSubsPerDay.toFixed(1)}/day`}
             pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
             sparkData={revSparkData}
           />
