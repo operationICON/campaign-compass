@@ -380,12 +380,17 @@ router.post("/", async (c) => {
     const dateFrom = "2018-01-01";
     const results: any[] = [];
 
+    const todayFull = `${today} 23:59:59`;
+    const dateFromFull = `${dateFrom} 00:00:00`;
     const variants = [
-      { id: "by_type_POST",    method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { date_from: dateFrom, date_to: today } },
-      { id: "summary_POST",    method: "POST", url: `${API_BASE}/analytics/financial/summary`,              body: { date_from: dateFrom, date_to: today } },
-      { id: "overview_POST",   method: "POST", url: `${API_BASE}/analytics/financial/overview`,             body: { date_from: dateFrom, date_to: today } },
-      { id: "earnings_POST",   method: "POST", url: `${API_BASE}/analytics/financial/earnings`,             body: { date_from: dateFrom, date_to: today } },
-      { id: "by_type_GET",     method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?date_from=${dateFrom}&date_to=${today}`, body: null },
+      { id: "by_type_date_from",     method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { date_from: dateFrom, date_to: today } },
+      { id: "by_type_start_date",    method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { start_date: dateFromFull, end_date: todayFull } },
+      { id: "by_type_start_nodash",  method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { start_date: dateFrom, end_date: today } },
+      { id: "by_type_from",          method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { from: dateFrom, to: today } },
+      { id: "by_type_no_body",       method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: {} },
+      { id: "by_type_GET",           method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?date_from=${dateFrom}&date_to=${today}`, body: null },
+      { id: "by_type_GET_start",     method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?start_date=${encodeURIComponent(dateFromFull)}&end_date=${encodeURIComponent(todayFull)}`, body: null },
+      { id: "summary_start_date",    method: "POST", url: `${API_BASE}/analytics/financial/summary`,              body: { start_date: dateFromFull, end_date: todayFull } },
     ];
 
     for (const v of variants) {
@@ -405,6 +410,7 @@ router.post("/", async (c) => {
           top_keys: typeof p === "object" && p ? Object.keys(p) : null,
           data_keys: typeof p?.data === "object" && p?.data ? Object.keys(p.data) : null,
           total_keys: typeof p?.data?.total === "object" && p?.data?.total ? Object.keys(p.data.total) : null,
+          raw_error: res.status >= 400 ? (typeof p === "object" ? JSON.stringify(p).slice(0, 500) : String(p).slice(0, 500)) : undefined,
         });
       } catch (err: any) { results.push({ id: v.id, error: err.message }); }
       await new Promise(r => setTimeout(r, 300));

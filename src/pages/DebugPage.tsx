@@ -387,7 +387,7 @@ export default function DebugPage() {
                     <span className="text-muted-foreground">{fmt(r.gross)}</span>
                     <span className="text-muted-foreground">{fmt(r.fees)}</span>
                     <span className={r.chart_entries > 0 ? "text-teal-400" : "text-muted-foreground/40"}>{r.chart_entries ?? 0}</span>
-                    <span className="text-muted-foreground/70 font-mono text-[10px] truncate">{r.error ?? (r.total_keys ? r.total_keys.join(", ") : r.data_keys ? r.data_keys.join(", ") : "—")}</span>
+                    <span className="text-muted-foreground/70 font-mono text-[10px] truncate">{r.error ?? r.raw_error ?? (r.total_keys ? r.total_keys.join(", ") : r.data_keys ? r.data_keys.join(", ") : "—")}</span>
                   </div>
                 );
               })}
