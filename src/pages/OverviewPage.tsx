@@ -357,7 +357,9 @@ export default function OverviewPage() {
     return Object.values(subsByAcct).reduce((s, v) => s + v, 0);
   }, [isAllTime, selectedAccounts, subsByAcct]);
 
-  const prevTotalFans = useMemo(() => Object.values(prevSubsByAcct).reduce((s, v) => s + v, 0), [prevSubsByAcct]);
+  const totalCurrentSubs = useMemo(() =>
+    selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0),
+  [selectedAccounts]);
 
   const newSubsKpi = totalFans;
   const newSubsPerDay = useMemo(() => {
@@ -531,13 +533,33 @@ export default function OverviewPage() {
             sub="All time · revenue per subscriber"
             sparkData={revSparkData}
           />
-          <KpiCard
-            label="New Subs"
-            value={newSubsKpi.toLocaleString()}
-            sub={isAllTime ? "Total active subscribers" : `${newSubsPerDay.toFixed(1)}/day`}
-            pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
-            sparkData={revSparkData}
-          />
+          {/* New Subscribers — custom card */}
+          <div className="p-5 flex flex-col gap-2" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "14px" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>New Subscribers</p>
+            <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{newSubsKpi.toLocaleString()}</p>
+            <div className="flex flex-col gap-1 mt-auto pt-2" style={{ borderTop: `1px solid ${T.border}` }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px]" style={{ color: T.muted }}>Total Subs</span>
+                <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>
+                  {totalCurrentSubs >= 1_000_000
+                    ? `${(totalCurrentSubs / 1_000_000).toFixed(1)}M+`
+                    : totalCurrentSubs >= 1_000
+                    ? `${(totalCurrentSubs / 1_000).toFixed(0)}K+`
+                    : totalCurrentSubs.toLocaleString()}
+                </span>
+              </div>
+              {newSubsPerDay > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px]" style={{ color: T.muted }}>Avg/day</span>
+                  <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>{newSubsPerDay.toFixed(1)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-[11px]" style={{ color: T.muted }}>Period</span>
+                <span className="text-[11px] font-mono" style={{ color: T.muted }}>{dateLabel || "All Time"}</span>
+              </div>
+            </div>
+          </div>
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
