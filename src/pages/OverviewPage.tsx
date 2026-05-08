@@ -341,14 +341,17 @@ export default function OverviewPage() {
   // Transactions table has ~30% null dates and gross vs net inconsistencies so we never use it.
   const revByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    if (isAllTime) {
-      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
-    } else {
-      selectedAccounts.forEach((a: any) => {
+    selectedAccounts.forEach((a: any) => {
+      if (isAllTime) {
+        // Sum all revenue_monthly entries — more accurate than ltv_total for some accounts
+        const monthly = a.revenue_monthly as Record<string, number> | null;
+        const v = monthly ? Object.values(monthly).reduce((s, x) => s + Math.max(0, Number(x || 0)), 0) : Number(a.ltv_total || 0);
+        if (v > 0) m[a.id] = v;
+      } else {
         const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
         if (v > 0) m[a.id] = v;
-      });
-    }
+      }
+    });
     return m;
   }, [isAllTime, selectedAccounts, dateFrom, dateTo]);
 
@@ -425,11 +428,11 @@ export default function OverviewPage() {
   const revenuePerSub = useMemo(() => {
     if (isAllTime) {
       const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-      const rev  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+      const rev  = Object.values(revByAcct).reduce((s, v) => s + v, 0);
       return subs > 0 ? rev / subs : 0;
     }
     return totalFans > 0 ? totalRevenue / totalFans : 0;
-  }, [isAllTime, selectedAccounts, totalRevenue, totalFans]);
+  }, [isAllTime, selectedAccounts, revByAcct, totalRevenue, totalFans]);
 
   const campaignRevenue = useMemo(() => {
     if (isAllTime) {
