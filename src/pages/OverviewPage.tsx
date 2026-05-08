@@ -575,7 +575,6 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Row 2: Revenue Chart ─────────────────────────────────────────── */}
-        {chartData.length > 0 && (
         <div className="p-5" style={cardStyle}>
           <div className="flex items-start justify-between mb-4">
             <div>
@@ -587,6 +586,7 @@ export default function OverviewPage() {
               </p>
               <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
             </div>
+            {chartData.length > 0 && (
             <div className="flex items-center gap-0.5 p-0.5 rounded-lg" style={{ background: T.border }}>
               {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
                 <button key={type} onClick={() => setChartType(type as "bar" | "line")}
@@ -599,8 +599,9 @@ export default function OverviewPage() {
                 </button>
               ))}
             </div>
+            )}
           </div>
-          <div className="h-56">
+          <div className={chartData.length === 0 ? "flex items-center justify-center py-8" : "h-56"}>
             {chartData.length === 0 ? (
               <p className="text-sm" style={{ color: T.muted }}>
                 {txLoading ? "Loading…" : "No data for this period"}
@@ -640,7 +641,6 @@ export default function OverviewPage() {
             )}
           </div>
         </div>
-        )}
 
         {/* ── Row 3: Revenue Breakdown + Model Performance ─────────────────── */}
         <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "420px 1fr" }}>
