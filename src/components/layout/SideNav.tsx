@@ -107,29 +107,34 @@ export function SideNav() {
       }}
     >
       {/* Logo + collapse toggle */}
-      <div className="h-12 flex items-center gap-2.5 px-3 shrink-0"
+      <div className="h-12 flex items-center shrink-0 px-3"
         style={{ borderBottom: "1px solid #1c1f2b" }}>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0"
-          style={{ background: "#3b82f6" }}>
-          CT
-        </div>
-        {!collapsed && (
-          <span className="text-sm font-semibold whitespace-nowrap flex-1" style={{ color: "#f1f5f9" }}>
-            CT Tracker
-          </span>
+        {collapsed ? (
+          <button
+            onClick={() => setCollapsed(false)}
+            title="Expand sidebar"
+            className="w-full flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60 h-9"
+          >
+            <ChevronRight className="w-[17px] h-[17px]" />
+          </button>
+        ) : (
+          <>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0"
+              style={{ background: "#3b82f6" }}>
+              CT
+            </div>
+            <span className="text-sm font-semibold whitespace-nowrap flex-1 ml-2.5" style={{ color: "#f1f5f9" }}>
+              CT Tracker
+            </span>
+            <button
+              onClick={() => setCollapsed(true)}
+              title="Collapse sidebar"
+              className="w-7 h-7 flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60 shrink-0"
+            >
+              <ChevronLeft className="w-[17px] h-[17px]" />
+            </button>
+          </>
         )}
-        <button
-          onClick={() => setCollapsed(v => !v)}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={cn(
-            "flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
-            collapsed ? "w-9 h-9 mx-auto" : "w-7 h-7 ml-auto shrink-0"
-          )}
-        >
-          {collapsed
-            ? <ChevronRight className="w-[17px] h-[17px]" />
-            : <ChevronLeft className="w-[17px] h-[17px]" />}
-        </button>
       </div>
 
       {/* Main nav */}
