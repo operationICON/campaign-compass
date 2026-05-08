@@ -346,17 +346,14 @@ export default function OverviewPage() {
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
 
-  // Always use revenue_monthly (synced directly from OFAPI earnings endpoint) — perfect OFAPI match.
-  // Transactions table has ~30% null dates and gross vs net inconsistencies so we never use it.
+  // ltv_total is synced from OFAPI analytics/financial/by-type endpoint — exact OFAPI match for All Time.
+  // revenue_monthly (from earnings/chartAmount) is used for period breakdowns.
   const revByAcct = useMemo(() => {
     const m: Record<string, number> = {};
     selectedAccounts.forEach((a: any) => {
       if (isAllTime) {
-        // Use the higher of: revenue_monthly sum (OFAPI chart data) or ltv_total (catches pre-history months)
-        const monthly = a.revenue_monthly as Record<string, number> | null;
-        const monthlySum = monthly ? Object.values(monthly).reduce((s, x) => s + Math.max(0, Number(x || 0)), 0) : 0;
-        const ltvTotal = Number(a.ltv_total || 0);
-        const v = Math.max(monthlySum, ltvTotal);
+        // ltv_total = sum of by-type NET per account = exact OFAPI all-time total
+        const v = Number(a.ltv_total || 0);
         if (v > 0) m[a.id] = v;
       } else {
         const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
@@ -439,7 +436,7 @@ export default function OverviewPage() {
   const revenuePerSub = useMemo(() => {
     if (isAllTime) {
       const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-      const rev  = Object.values(revByAcct).reduce((s, v) => s + v, 0);
+      const rev  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
       return subs > 0 ? rev / subs : 0;
     }
     return totalFans > 0 ? totalRevenue / totalFans : 0;
