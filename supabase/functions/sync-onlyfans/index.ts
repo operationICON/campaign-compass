@@ -443,10 +443,16 @@ Deno.serve(async (req) => {
 
         let txCount = 0
         try {
-          // Incremental fetch — stop paginating once we hit transactions older than last sync
-          const lastSyncDate = account.last_synced_at
-            ? account.last_synced_at.split('T')[0]
-            : null
+          // Use latest transaction date in DB as early-stop cutoff (not last_synced_at)
+          const { data: latestTx } = await db.from('transactions')
+            .select('date')
+            .eq('account_id', account.id)
+            .order('date', { ascending: false })
+            .limit(1)
+            .single()
+          const latestTxDate: string | null = latestTx?.date ?? null
+          console.log(`Account ${account.display_name}: latest DB tx date = ${latestTxDate ?? 'none (full backfill)'}`)
+
           const txItems: any[] = []
           let txUrl: string | null = `${API_BASE}/${acctId}/transactions`
           let txPage = 0
@@ -462,14 +468,14 @@ Deno.serve(async (req) => {
             if (!pageItems.length) break
             txItems.push(...pageItems)
 
-            // Early stop: if all items on this page are older than last sync, no need to go further
-            if (lastSyncDate) {
+            // Early stop: once oldest item on page is older than our latest DB record, we have everything
+            if (latestTxDate) {
               const oldestDate = pageItems
                 .map((tx: any) => tx.createdAt?.split('T')[0])
                 .filter(Boolean)
                 .sort()[0]
-              if (oldestDate && oldestDate < lastSyncDate) {
-                console.log(`TX early stop at page ${txPage} — oldest ${oldestDate} before last sync ${lastSyncDate}`)
+              if (oldestDate && oldestDate <= latestTxDate) {
+                console.log(`TX early stop at page ${txPage} — oldest ${oldestDate} <= latest DB date ${latestTxDate}`)
                 break
               }
             }
