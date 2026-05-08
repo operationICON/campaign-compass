@@ -237,7 +237,7 @@ export default function OverviewPage() {
   const { data: txRows = [], isLoading: txLoading } = useQuery({
     queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
     queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
-    enabled: !isAllTime && selectedIds.length > 0,
+    enabled: selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -386,6 +386,7 @@ export default function OverviewPage() {
   // Chart data
   const chartData = useMemo(() => {
     if (isAllTime) {
+      // prefer revenue_monthly from account objects (pre-aggregated)
       const m: Record<string, number> = {};
       let hasMonthlyData = false;
       selectedAccounts.forEach((a: any) => {
@@ -402,6 +403,16 @@ export default function OverviewPage() {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([key, revenue]) => ({ date: key, revenue, label: format(new Date(key + "-15"), "MMM yy") }));
       }
+      // fallback: group txRows by month for all-time view
+      const mb: Record<string, number> = {};
+      txRows.forEach(s => {
+        if (!selectedIds.includes(s.account_id)) return;
+        const key = String(s.date).slice(0, 7);
+        mb[key] = (mb[key] || 0) + Number(s.revenue || 0);
+      });
+      return Object.entries(mb).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
+        date: key, revenue, label: format(new Date(key + "-15"), "MMM yy"),
+      }));
     }
     const daysDiff = dateFrom && dateTo
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
