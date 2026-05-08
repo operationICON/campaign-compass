@@ -534,30 +534,21 @@ export default function OverviewPage() {
             sparkData={revSparkData}
           />
           {/* New Subscribers — custom card */}
-          <div className="p-5 flex flex-col gap-2" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "14px" }}>
-            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>New Subscribers</p>
-            <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{newSubsKpi.toLocaleString()}</p>
-            <div className="flex flex-col gap-1 mt-auto pt-2" style={{ borderTop: `1px solid ${T.border}` }}>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px]" style={{ color: T.muted }}>Total Subs</span>
-                <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>
-                  {totalCurrentSubs >= 1_000_000
-                    ? `${(totalCurrentSubs / 1_000_000).toFixed(1)}M+`
-                    : totalCurrentSubs >= 1_000
-                    ? `${(totalCurrentSubs / 1_000).toFixed(0)}K+`
-                    : totalCurrentSubs.toLocaleString()}
-                </span>
-              </div>
+          <div className="p-5 flex flex-col justify-between" style={{ background: `linear-gradient(135deg, ${T.card} 0%, ${T.cardAlt} 100%)`, border: `1px solid ${T.border}`, borderRadius: "14px" }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>New Subscribers</p>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: `rgba(59,130,246,0.12)`, color: T.blue }}>{dateLabel || "All Time"}</span>
+            </div>
+            <p className="text-2xl font-bold font-mono leading-none mb-3" style={{ color: T.white }}>{newSubsKpi.toLocaleString()}</p>
+            <div className="flex items-center gap-1.5 pt-2 flex-wrap" style={{ borderTop: `1px solid ${T.border}` }}>
+              <span className="text-[11px]" style={{ color: T.muted }}>Total Subs (Old + new)</span>
+              <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>{totalCurrentSubs.toLocaleString()}</span>
               {newSubsPerDay > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px]" style={{ color: T.muted }}>Avg/day</span>
-                  <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>{newSubsPerDay.toFixed(1)}</span>
-                </div>
+                <>
+                  <span className="text-[11px]" style={{ color: T.border }}>|</span>
+                  <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>{newSubsPerDay.toFixed(1)}/day</span>
+                </>
               )}
-              <div className="flex items-center justify-between">
-                <span className="text-[11px]" style={{ color: T.muted }}>Period</span>
-                <span className="text-[11px] font-mono" style={{ color: T.muted }}>{dateLabel || "All Time"}</span>
-              </div>
             </div>
           </div>
           <KpiCard
