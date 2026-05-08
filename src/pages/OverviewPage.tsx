@@ -338,6 +338,15 @@ export default function OverviewPage() {
     return m;
   }, [linksRaw]);
 
+  const clicksByAccountPeriod = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id)).forEach((l: any) => {
+      const delta = fansDeltaLookup[String(l.id).toLowerCase()];
+      if (delta) m[l.account_id] = (m[l.account_id] || 0) + (delta.clicksGained || 0);
+    });
+    return m;
+  }, [fansDeltaLookup, linksRaw, selectedIds]);
+
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
 
@@ -607,8 +616,8 @@ export default function OverviewPage() {
       const prevProfit = prevRev - prevSpend;
       const newFans    = isAllTime ? Number(a.subscribers_count || 0) : (subsByAcct[a.id] || 0);
       const prevNewFans = prevSubsByAcct[a.id] || 0;
-      const clicks     = clicksByAccount[a.id] || 0;
-      const cvr        = isAllTime && clicks > 0 ? (newFans / clicks) * 100 : null;
+      const clicks     = isAllTime ? (clicksByAccount[a.id] || 0) : (clicksByAccountPeriod[a.id] || 0);
+      const cvr        = clicks > 0 ? (newFans / clicks) * 100 : null;
       const roi        = spend > 0 ? ((rev - spend) / spend) * 100 : null;
       return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, clicks, cvr, roi, linkCount: linkCountByAccount[a.id] || 0 };
     });
