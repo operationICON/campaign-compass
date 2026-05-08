@@ -501,10 +501,10 @@ export default function OverviewPage() {
 
   return (
     <DashboardLayout>
-      <div className="w-full px-6 py-6 space-y-6">
+      <div className="w-full px-6 py-4 space-y-4">
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="pb-4" style={{ borderBottom: `1px solid ${T.border}` }}>
+        <div className="pb-3" style={{ borderBottom: `1px solid ${T.border}` }}>
           <h1 className="text-xl font-semibold" style={{ color: T.white }}>Overview</h1>
           <p className="text-sm mt-0.5 mb-3" style={{ color: T.muted }}>
             {dateLabel} · {selectedIds.length} model{selectedIds.length !== 1 ? "s" : ""}
@@ -575,6 +575,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Row 2: Revenue Chart ─────────────────────────────────────────── */}
+        {chartData.length > 0 && (
         <div className="p-5" style={cardStyle}>
           <div className="flex items-start justify-between mb-4">
             <div>
@@ -599,7 +600,7 @@ export default function OverviewPage() {
               ))}
             </div>
           </div>
-          <div className={chartData.length === 0 ? "py-6 flex items-center justify-center" : "h-56"}>
+          <div className="h-56">
             {chartData.length === 0 ? (
               <p className="text-sm" style={{ color: T.muted }}>
                 {txLoading ? "Loading…" : "No data for this period"}
@@ -639,6 +640,7 @@ export default function OverviewPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* ── Row 3: Revenue Breakdown + Model Performance ─────────────────── */}
         <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "420px 1fr" }}>
