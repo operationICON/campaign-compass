@@ -108,9 +108,9 @@ function KpiCard({ label, value, sub, pct, sparkData }: {
   pct?: number | null; sparkData?: number[];
 }) {
   return (
-    <div className="p-5 flex flex-col gap-3" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" }}>
+    <div className="p-5 flex flex-col gap-3" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem", borderLeft: `4px solid ${T.blue}` }}>
       <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>{label}</p>
-      <p className="text-3xl font-bold font-mono leading-none" style={{ color: T.white }}>{value}</p>
+      <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{value}</p>
       {sub && <p className="text-xs leading-snug" style={{ color: T.muted }}>{sub}</p>}
       <div className="flex items-end justify-between mt-auto pt-1">
         <div>
@@ -404,16 +404,6 @@ export default function OverviewPage() {
     return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
   }, [selectedAccounts, linksRaw, selectedIds]);
 
-  const attributedRevenue = useMemo(() =>
-    (linksRaw as any[])
-      .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
-      .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0),
-    [linksRaw, selectedIds]);
-
-  const unattributedRevenue = useMemo(() =>
-    Math.max(0, totalRevenue - attributedRevenue),
-    [totalRevenue, attributedRevenue]);
-
   // Chart data
   const chartData = useMemo(() => {
     if (isAllTime) {
@@ -498,6 +488,14 @@ export default function OverviewPage() {
   }, [selectedAccounts, isAllTime, revByAcct, prevRevByAcct, spendByAcct, prevSpendByAcct,
       subsByAcct, prevSubsByAcct, revMult, tableSort, linkCountByAccount]);
 
+  const donutData = useMemo(() =>
+    selectedAccounts
+      .map((a: any) => ({ name: a.display_name, value: (revByAcct[a.id] || 0) * revMult }))
+      .filter(d => d.value > 0)
+      .sort((a, b) => b.value - a.value),
+    [selectedAccounts, revByAcct, revMult]);
+  const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
+
   const totalPages = Math.ceil(tableRows.length / tablePageSize);
   const pagedRows  = tableRows.slice(tablePage * tablePageSize, (tablePage + 1) * tablePageSize);
 
@@ -534,7 +532,7 @@ export default function OverviewPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-screen-2xl mx-auto px-6 py-5 space-y-4">
+      <div className="w-full max-w-screen-2xl mx-auto px-6 py-6 space-y-6">
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between pb-4" style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -561,7 +559,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Row 1: KPI Cards ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 gap-4">
           <KpiCard
             label="LTV / Sub"
             value={fmtMoney(revenuePerSub)}
@@ -657,10 +655,53 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* ── Row 3: Model Performance + Breakdown ────────────────────────── */}
-        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 320px" }}>
+        {/* ── Row 3: Revenue Breakdown + Model Performance ─────────────────── */}
+        <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "280px 1fr" }}>
 
-          {/* Model Performance Table */}
+          {/* Revenue Breakdown Donut — LEFT */}
+          <div className="flex flex-col" style={cardStyle}>
+            <div className="px-5 py-3.5 shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <p className="text-sm font-semibold" style={{ color: T.white }}>Revenue Breakdown</p>
+              <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
+            </div>
+            <div className="flex-1 flex flex-col items-center p-5 gap-4 min-h-0">
+              <div className="relative shrink-0" style={{ width: 180, height: 180 }}>
+                <ResponsiveContainer width={180} height={180}>
+                  <PieChart>
+                    <Pie
+                      data={donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]}
+                      cx="50%" cy="50%"
+                      innerRadius={55} outerRadius={82}
+                      dataKey="value" strokeWidth={0} paddingAngle={2}
+                    >
+                      {(donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]).map((_, i) => (
+                        <Cell key={i} fill={donutData.length > 0 ? MODEL_COLORS[i % MODEL_COLORS.length] : T.border} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xl font-bold font-mono" style={{ color: T.white }}>{fmtShort(donutTotal)}</span>
+                  <span className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: T.muted }}>Total</span>
+                </div>
+              </div>
+              <div className="flex-1 w-full overflow-y-auto min-h-0 space-y-2">
+                {donutData.length === 0 ? (
+                  <p className="text-sm text-center" style={{ color: T.muted }}>No revenue data</p>
+                ) : donutData.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: MODEL_COLORS[i % MODEL_COLORS.length] }} />
+                      <span className="text-xs truncate" style={{ color: T.muted }}>{d.name}</span>
+                    </div>
+                    <span className="text-xs font-mono shrink-0" style={{ color: T.white }}>{fmtShort(d.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Model Performance Table — RIGHT */}
           <div style={{ ...cardStyle, overflow: "hidden" }}>
             <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${T.border}` }}>
               <p className="text-sm font-semibold" style={{ color: T.white }}>Model Performance</p>
@@ -818,84 +859,6 @@ export default function OverviewPage() {
             )}
           </div>
 
-          {/* Revenue Breakdown Donut */}
-          <div style={cardStyle}>
-            <div className="px-5 py-3.5" style={{ borderBottom: `1px solid ${T.border}` }}>
-              <p className="text-sm font-semibold" style={{ color: T.white }}>Revenue Breakdown</p>
-            </div>
-            <div className="p-5 flex flex-col items-center gap-5">
-              {totalRevenue === 0 ? (
-                <div className="py-10 text-center">
-                  <p className="text-sm" style={{ color: T.muted }}>No revenue data</p>
-                </div>
-              ) : (
-                <>
-                  <div className="relative" style={{ width: 200, height: 200 }}>
-                    <ResponsiveContainer width={200} height={200}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "Via Campaigns", value: Math.max(0, attributedRevenue) },
-                            { name: "Unattributed",  value: Math.max(0, unattributedRevenue) },
-                          ]}
-                          cx="50%" cy="50%"
-                          innerRadius={62} outerRadius={90}
-                          dataKey="value" strokeWidth={0} paddingAngle={3}
-                        >
-                          <Cell fill={T.blue} />
-                          <Cell fill={T.dark} />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-2xl font-bold font-mono" style={{ color: T.white }}>{fmtShort(totalRevenue)}</span>
-                      <span className="text-[10px] uppercase tracking-widest mt-1" style={{ color: T.muted }}>Total</span>
-                    </div>
-                  </div>
-
-                  <div className="w-full space-y-3">
-                    {[
-                      { label: "Via Campaigns", value: attributedRevenue,   color: T.blue },
-                      { label: "Unattributed",  value: unattributedRevenue, color: T.dark },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: item.color }} />
-                          <span className="text-sm truncate" style={{ color: T.muted }}>{item.label}</span>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(item.value)}</div>
-                          <div className="text-xs font-mono" style={{ color: T.muted }}>
-                            {totalRevenue > 0 ? ((item.value / totalRevenue) * 100).toFixed(1) : "0"}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="w-full pt-3" style={{ borderTop: `1px solid ${T.border}` }}>
-                    <p className="text-[11px] uppercase tracking-widest mb-2.5" style={{ color: T.muted }}>By Model</p>
-                    <div className="space-y-2">
-                      {selectedAccounts
-                        .map((a: any, i: number) => ({ name: a.display_name, value: (revByAcct[a.id] || 0) * revMult, color: MODEL_COLORS[i % MODEL_COLORS.length] }))
-                        .filter(d => d.value > 0)
-                        .sort((a, b) => b.value - a.value)
-                        .slice(0, 6)
-                        .map((d, i) => (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: d.color }} />
-                              <span className="text-xs truncate" style={{ color: T.muted }}>{d.name}</span>
-                            </div>
-                            <span className="text-xs font-mono shrink-0" style={{ color: T.white }}>{fmtShort(d.value)}</span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
         </div>
 
       </div>

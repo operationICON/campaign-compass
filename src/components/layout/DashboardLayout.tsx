@@ -1,11 +1,11 @@
 import { ReactNode } from "react";
-import { TopNav } from "./TopNav";
+import { SideNav } from "./SideNav";
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen" style={{ background: "#08090c" }}>
-      <TopNav />
-      <main className="pt-12">
+    <div className="flex h-screen w-screen overflow-hidden" style={{ background: "#08090c" }}>
+      <SideNav />
+      <main className="flex-1 min-w-0 overflow-y-auto">
         {children}
       </main>
     </div>
