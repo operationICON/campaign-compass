@@ -529,7 +529,7 @@ export default function OverviewPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
             <button
-              onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
+              onClick={() => { setIsAllTime(true); setCustomRange(null); }}
               className={filterBtnCls(isAllTime)}
               style={isAllTime ? { background: T.white, color: T.bg } : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
             >
@@ -537,7 +537,7 @@ export default function OverviewPage() {
             </button>
             <DateRangePicker
               value={customRange}
-              onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); setTablePage(0); } }}
+              onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); } }}
             />
           </div>
         </div>
@@ -743,15 +743,13 @@ export default function OverviewPage() {
                                   style={{ background: T.dark, color: T.muted }}>
                                   {(a.display_name || "?").slice(0, 2).toUpperCase()}
                                 </div>}
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-semibold truncate" style={{ color: T.white }}>{a.display_name}</span>
-                                {row.linkCount > 0 && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                                    style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount}</span>
-                                )}
-                              </div>
-                              {a.username && <div className="text-xs mt-0.5 truncate" style={{ color: T.muted }}>@{a.username}</div>}
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                              <span className="text-sm font-semibold" style={{ color: T.white }}>{a.display_name}</span>
+                              {a.username && <span className="text-xs" style={{ color: T.muted }}>@{a.username}</span>}
+                              {row.linkCount > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                                  style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount} links</span>
+                              )}
                             </div>
                           </div>
                         </td>
