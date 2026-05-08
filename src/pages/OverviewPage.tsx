@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
   getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks,
-  getFanCampaignBreakdown, getLinkSubsInPeriod,
+  getFanCampaignBreakdown, getLinkSubsInPeriod, getSnapshotLatestDate,
 } from "@/lib/api";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import {
@@ -217,11 +217,28 @@ function ChartTooltip({ active, payload, label }: any) {
 export default function OverviewPage() {
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
   const [idsReady, setIdsReady]         = useState(false);
-  const [isAllTime, setIsAllTime]       = useState(true);
-  const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
+  const [activePeriod, setActivePeriod] = useState<"1d" | "7d" | "30d" | "all" | "custom">("7d");
+  const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date } | null>(null);
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [drawerCampaign, setDrawerCampaign] = useState<any | null>(null);
+
+  const { data: latestDateData } = useQuery({
+    queryKey: ["snapshot_latest_date"],
+    queryFn: () => getSnapshotLatestDate(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const latestDate = latestDateData?.date ?? fmtD(new Date());
+
+  const { isAllTime, customRange } = useMemo(() => {
+    if (activePeriod === "all") return { isAllTime: true, customRange: null as { from: Date; to: Date } | null };
+    if (activePeriod === "custom") return { isAllTime: false, customRange: customDateRange };
+    const end = new Date(latestDate + "T12:00:00");
+    const from = new Date(end);
+    if (activePeriod === "7d")  from.setDate(from.getDate() - 6);
+    if (activePeriod === "30d") from.setDate(from.getDate() - 29);
+    return { isAllTime: false, customRange: { from, to: end } };
+  }, [activePeriod, customDateRange, latestDate]);
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -634,16 +651,18 @@ export default function OverviewPage() {
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
-            <button
-              onClick={() => { setIsAllTime(true); setCustomRange(null); }}
-              className={filterBtnCls(isAllTime)}
-              style={isAllTime ? { background: T.white, color: T.bg } : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
-            >
-              All Time
-            </button>
+            {(["1d","7d","30d","all"] as const).map(p => (
+              <button key={p}
+                onClick={() => setActivePeriod(p)}
+                className={filterBtnCls(activePeriod === p)}
+                style={activePeriod === p ? { background: T.white, color: T.bg } : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
+              >
+                {p === "all" ? "All Time" : p.toUpperCase()}
+              </button>
+            ))}
             <DateRangePicker
-              value={customRange}
-              onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); } }}
+              value={activePeriod === "custom" ? customDateRange : null}
+              onChange={range => { if (range) { setCustomDateRange(range); setActivePeriod("custom"); } }}
             />
           </div>
         </div>
