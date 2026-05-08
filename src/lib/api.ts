@@ -335,3 +335,24 @@ export async function streamSync(
   }
   return lastData;
 }
+
+// ─── Revenue Snapshots (ground-truth OF earnings totals) ──────────────────────
+export const getRevenueSnapshots = () =>
+  apiFetch<{
+    grand_total_net: number;
+    grand_total_gross: number;
+    last_synced_at: string | null;
+    account_count: number;
+    accounts: Array<{
+      account_id: string;
+      display_name: string;
+      username: string;
+      net_total: string;
+      gross_total: string;
+      last_synced_at: string;
+      api_status: number;
+    }>;
+  }>("/revenue-snapshots");
+
+export const syncRevenueSnapshots = () =>
+  apiFetch("/revenue-snapshots/sync", { method: "POST" });

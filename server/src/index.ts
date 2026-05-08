@@ -37,6 +37,7 @@ import syncSubscribersRouter from "./routes/sync/subscribers.js";
 import syncCancelRouter from "./routes/sync/cancel.js";
 import authRouter from "./routes/auth.js";
 import campaignAnalyticsRouter from "./routes/campaign-analytics.js";
+import revenueSnapshotsRouter from "./routes/revenue-snapshots.js";
 import { startScheduler } from "./scheduler.js";
 import { sql } from "drizzle-orm";
 
@@ -95,6 +96,7 @@ app.route("/source-tag-rules", sourceTagRulesRouter);
 app.route("/sync-settings", syncSettingsRouter);
 app.route("/ad-spend", adSpendRouter);
 app.route("/campaign-analytics", campaignAnalyticsRouter);
+app.route("/revenue-snapshots", revenueSnapshotsRouter);
 app.route("/debug", debugRouter);
 app.route("/sync/orchestrate", syncOrchestratorRouter);
 app.route("/sync/account", syncAccountRouter);
@@ -113,6 +115,23 @@ console.log(`Server starting on port ${port}`);
 db.execute(sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS revenue_monthly JSONB`)
   .then(() => console.log("Migration: revenue_monthly column ready"))
   .catch((e) => console.error("Migration warning:", e));
+
+db.execute(sql`
+  CREATE TABLE IF NOT EXISTS account_revenue_snapshots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    account_id UUID NOT NULL REFERENCES accounts(id),
+    net_total NUMERIC NOT NULL,
+    gross_total NUMERIC,
+    last_synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    synced_from_date TEXT DEFAULT '2018-01-01',
+    api_status INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_revenue_snapshot_account UNIQUE (account_id)
+  )
+`)
+  .then(() => console.log("Migration: account_revenue_snapshots table ready"))
+  .catch((e) => console.error("Migration warning (revenue_snapshots):", e));
 
 serve({ fetch: app.fetch, port });
 startScheduler();

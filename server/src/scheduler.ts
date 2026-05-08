@@ -126,6 +126,18 @@ export function startScheduler() {
   // 03:00 UTC daily — snapshots (runs after dashboard; fetches yesterday+today so complete prior day is always captured)
   cron.schedule("0 3 * * *", () => { runDailySync().catch(console.error); }, { timezone: "UTC" });
 
+  // 04:00 UTC daily — sync OF earnings snapshots (ground-truth revenue totals)
+  cron.schedule("0 4 * * *", async () => {
+    console.log("[Scheduler] Earnings snapshot sync starting");
+    try {
+      const res = await fetch(`${BASE_URL}/revenue-snapshots/sync`, { method: "POST" });
+      const data = await res.json() as any;
+      console.log(`[Scheduler] Earnings snapshot sync complete — grand total: $${data.grand_total_net?.toFixed(2)}`);
+    } catch (err: any) {
+      console.error("[Scheduler] Earnings snapshot sync failed:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   // Every 30 min — check if OT sync interval has elapsed and run if due
   setInterval(async () => {
     try { await runOTSyncIfDue(); } catch (err: any) { console.error("[Scheduler] OT check error:", err.message); }
@@ -145,5 +157,5 @@ export function startScheduler() {
     }
   }, 4 * 60 * 1000);
 
-  console.log("[Scheduler] Active — dashboard daily 01:00 UTC, rev-breakdown+snapshots+fans daily 03:00 UTC, OT checked every 30min");
+  console.log("[Scheduler] Active — dashboard 01:00 UTC, rev-breakdown+snapshots+fans 03:00 UTC, earnings-snapshots 04:00 UTC, OT checked every 30min");
 }

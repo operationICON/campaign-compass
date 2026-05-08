@@ -443,3 +443,21 @@ export const test_logs = pgTable("test_logs", {
   run_at:           timestamp("run_at", { withTimezone: true }),
   created_at:       timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ── account_revenue_snapshots ─────────────────────────────────────────────────
+// Ground-truth net earnings pulled directly from the OF Earnings API.
+// One row per account, upserted on every earnings sync. This is the
+// authoritative total — do NOT derive it from summing transactions.
+export const account_revenue_snapshots = pgTable("account_revenue_snapshots", {
+  id:               uuid("id").primaryKey().defaultRandom(),
+  account_id:       uuid("account_id").references(() => accounts.id).notNull(),
+  net_total:        numeric("net_total").notNull(),      // all-time net from OF statements API
+  gross_total:      numeric("gross_total"),              // all-time gross (optional, for reference)
+  last_synced_at:   timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
+  synced_from_date: text("synced_from_date").default("2018-01-01"), // start date used in the API call
+  api_status:       integer("api_status"),               // HTTP status from the OF API (200, 401, etc.)
+  created_at:       timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at:       timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_revenue_snapshot_account").on(t.account_id),
+]);
