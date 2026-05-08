@@ -307,6 +307,12 @@ export default function OverviewPage() {
     return m;
   };
 
+  // Transactions table covers ~last 30 days. If range starts before that, use revenue_monthly.
+  const txCoverageStart = useMemo(() => {
+    const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
   const revByAcct = useMemo(() => {
     if (isAllTime) {
       const m: Record<string, number> = {};
@@ -314,28 +320,45 @@ export default function OverviewPage() {
       return m;
     }
     const m: Record<string, number> = {};
-    txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
-    // Transactions table only has ~30 days; fall back to revenue_monthly for historical ranges
-    if (!Object.values(m).some(v => v > 0)) {
+    // Use revenue_monthly when range starts before transaction coverage (avoids partial-month gaps)
+    const useMonthly = !!dateFrom && dateFrom < txCoverageStart;
+    if (useMonthly) {
       selectedAccounts.forEach((a: any) => {
         const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
         if (v > 0) m[a.id] = v;
       });
+    } else {
+      txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+      // Still fall back to revenue_monthly if transactions are completely empty
+      if (!Object.values(m).some(v => v > 0)) {
+        selectedAccounts.forEach((a: any) => {
+          const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
+          if (v > 0) m[a.id] = v;
+        });
+      }
     }
     return m;
-  }, [txRows, selectedIds, isAllTime, selectedAccounts, dateFrom, dateTo]);
+  }, [txRows, selectedIds, isAllTime, selectedAccounts, dateFrom, dateTo, txCoverageStart]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    prevTxRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
-    if (!Object.values(m).some(v => v > 0)) {
+    const useMonthly = !!prevFrom && prevFrom < txCoverageStart;
+    if (useMonthly) {
       selectedAccounts.forEach((a: any) => {
         const v = sumMonthlyRevenue(a.revenue_monthly, prevFrom, prevTo);
         if (v > 0) m[a.id] = v;
       });
+    } else {
+      prevTxRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+      if (!Object.values(m).some(v => v > 0)) {
+        selectedAccounts.forEach((a: any) => {
+          const v = sumMonthlyRevenue(a.revenue_monthly, prevFrom, prevTo);
+          if (v > 0) m[a.id] = v;
+        });
+      }
     }
     return m;
-  }, [prevTxRows, selectedIds, selectedAccounts, prevFrom, prevTo]);
+  }, [prevTxRows, selectedIds, selectedAccounts, prevFrom, prevTo, txCoverageStart]);
 
   const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),     [snaps, selectedIds]);
   const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds), [prevSnaps, selectedIds]);
@@ -432,15 +455,11 @@ export default function OverviewPage() {
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
       : 90;
     const byMonth = daysDiff > 90;
+    const useMonthly = !!dateFrom && dateFrom < txCoverageStart;
     const m: Record<string, number> = {};
-    txRows.forEach(s => {
-      if (!selectedIds.includes(s.account_id)) return;
-      const d = String(s.date).split("T")[0];
-      const key = byMonth ? d.slice(0, 7) : d;
-      m[key] = (m[key] || 0) + Number(s.revenue || 0);
-    });
-    // Fall back to revenue_monthly for historical ranges not covered by transactions table
-    if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
+
+    if (useMonthly && dateFrom && dateTo) {
+      // Range predates transaction coverage — use monthly bars from revenue_monthly
       const fromMonth = dateFrom.slice(0, 7);
       const toMonth   = dateTo.slice(0, 7);
       selectedAccounts.forEach((a: any) => {
@@ -451,10 +470,30 @@ export default function OverviewPage() {
             m[month] = (m[month] || 0) + Number(amount);
         });
       });
+    } else {
+      txRows.forEach(s => {
+        if (!selectedIds.includes(s.account_id)) return;
+        const d = String(s.date).split("T")[0];
+        const key = byMonth ? d.slice(0, 7) : d;
+        m[key] = (m[key] || 0) + Number(s.revenue || 0);
+      });
+      // Still fall back to revenue_monthly if transactions completely empty
+      if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
+        const fromMonth = dateFrom.slice(0, 7);
+        const toMonth   = dateTo.slice(0, 7);
+        selectedAccounts.forEach((a: any) => {
+          const monthly = a.revenue_monthly as Record<string, number> | null;
+          if (!monthly) return;
+          Object.entries(monthly).forEach(([month, amount]) => {
+            if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
+              m[month] = (m[month] || 0) + Number(amount);
+          });
+        });
+      }
     }
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
       date: key, revenue,
-      label: key.length === 7
+      label: key.length === 7 || useMonthly
         ? format(new Date(key + "-15"), "MMM yy")
         : byMonth
           ? format(new Date(key + "-15"), "MMM yy")
