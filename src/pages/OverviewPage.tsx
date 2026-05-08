@@ -197,7 +197,7 @@ export default function OverviewPage() {
   const [idsReady, setIdsReady]         = useState(false);
   const [isAllTime, setIsAllTime]       = useState(true);
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
-  const [chartType, setChartType]       = useState<"bar" | "line">("bar");
+  const [chartType, setChartType]       = useState<"bar" | "line">("line");
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [tablePage, setTablePage]       = useState(0);
   const [tablePageSize, setTablePageSize] = useState(10);
@@ -631,7 +631,60 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* ── Section 3: Revenue Breakdown + Revenue Overview ─────────────────── */}
+        {/* ── Section 3: Revenue Overview chart — full width ──────────────────── */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Revenue Overview</h2>
+                <p className="text-2xl font-bold text-foreground mt-1">{fmtMoney(isAllTime ? totalRevenue : chartTotal)}</p>
+                <p className="text-xs text-muted-foreground">{dateLabel}</p>
+              </div>
+              <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
+                {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
+                  <button key={type} onClick={() => setChartType(type as "bar" | "line")}
+                    className={cn("p-1.5 rounded-md transition-colors",
+                      chartType === type ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                    <Icon className="w-4 h-4" />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ height: 280 }}>
+              {chartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  {snapsLoading ? "Loading…" : "No data"}
+                </div>
+              ) : chartType === "bar" ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
+                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
+                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
+                    <Bar dataKey="revenue" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
+                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
+                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
+                    <Line dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+        </div>
+
+        {/* ── Section 4: Revenue Breakdown donut ──────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
           {/* Donut */}
@@ -697,63 +750,12 @@ export default function OverviewPage() {
           </div>
 
           {/* Bar/Line chart */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold text-foreground">Revenue Overview</h2>
-                <p className="text-2xl font-bold text-foreground mt-1">{fmtMoney(isAllTime ? totalRevenue : chartTotal)}</p>
-                <p className="text-xs text-muted-foreground">{dateLabel}</p>
-              </div>
-              <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
-                {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
-                  <button key={type} onClick={() => setChartType(type as "bar" | "line")}
-                    className={cn("p-1.5 rounded-md transition-colors",
-                      chartType === type ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                    <Icon className="w-4 h-4" />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ height: 200 }}>
-              {chartData.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                  {snapsLoading ? "Loading…" : "No data"}
-                </div>
-              ) : chartType === "bar" ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
-                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
-                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
-                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
-                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
-                    <Bar dataKey="revenue" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false}
-                      interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
-                    <YAxis tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={48}
-                      tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
-                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [fmtMoney(v), "Revenue"]} labelStyle={{ color: "#9ca3af" }} />
-                    <Line dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* ── Section 4: Per Model Table ───────────────────────────────────────── */}
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
-            <h2 className="text-sm font-semibold text-foreground">Overview</h2>
+            <h2 className="text-sm font-semibold text-foreground">Model Performance</h2>
             <div className="flex items-center gap-2">
               <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(0); }}
                 className="h-8 px-2 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none">
@@ -803,7 +805,7 @@ export default function OverviewPage() {
                   return (
                     <tr key={a.id} className="border-b border-border/40 hover:bg-white/[0.02] transition-colors">
                       {/* Account */}
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-5">
                         <div className="flex items-center gap-3">
                           {a.avatar_thumb_url
                             ? <img src={a.avatar_thumb_url} className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-border" alt="" />
@@ -822,35 +824,35 @@ export default function OverviewPage() {
                         </div>
                       </td>
                       {/* New Fans */}
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-5 text-right">
                         <div className="text-sm font-bold text-foreground">{row.newFans.toLocaleString()}</div>
                         <div className="flex justify-end mt-0.5"><ChangeChip pct={fp} /></div>
                       </td>
                       {/* Revenue */}
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-5 text-right">
                         <div className="text-sm font-bold text-foreground">{fmtMoney(row.rev)}</div>
                         <div className="flex justify-end mt-0.5"><ChangeChip pct={rp} /></div>
                       </td>
                       {/* Spend */}
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-5 text-right">
                         <div className="text-sm font-bold text-foreground">{row.spend > 0 ? fmtMoney(row.spend) : <span className="text-muted-foreground/40">—</span>}</div>
                         {row.spend > 0 && <div className="flex justify-end mt-0.5"><ChangeChip pct={sp} /></div>}
                       </td>
                       {/* Profit */}
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-5 text-right">
                         <div className={cn("text-sm font-bold", row.profit >= 0 ? "text-emerald-400" : "text-red-400")}>
                           {fmtMoney(row.profit)}
                         </div>
                         <div className="flex justify-end mt-0.5"><ChangeChip pct={pp} /></div>
                       </td>
                       {/* CVR */}
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-5 text-right">
                         <div className="text-sm font-bold text-foreground">
                           {row.cvr != null ? `${row.cvr.toFixed(1)}%` : <span className="text-muted-foreground/40">—</span>}
                         </div>
                       </td>
                       {/* ROI */}
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-5 text-right">
                         <div className={cn("text-sm font-bold", row.roi == null ? "text-muted-foreground/40" : row.roi >= 0 ? "text-emerald-400" : "text-red-400")}>
                           {row.roi != null ? `${row.roi.toFixed(1)}%` : "—"}
                         </div>
