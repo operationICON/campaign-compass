@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
     console.log(`Last full sync: ${hoursSinceSync.toFixed(1)} hours ago`)
 
-    if (hoursSinceSync >= 72 || lastSyncTime === 0) {
+    if (hoursSinceSync >= 24 || lastSyncTime === 0) {
       console.log('Triggering sync-orchestrator (auto)')
 
       const res = await fetch(`${supabaseUrl}/functions/v1/sync-orchestrator`, {
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       action: 'skipped',
       hours_since_last: Math.round(hoursSinceSync),
-      message: `Last sync was ${Math.round(hoursSinceSync)}h ago — next sync after 72h`,
+      message: `Last sync was ${Math.round(hoursSinceSync)}h ago — next sync after 24h`,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

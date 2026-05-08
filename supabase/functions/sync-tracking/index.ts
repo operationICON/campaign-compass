@@ -221,11 +221,19 @@ Deno.serve(async (req) => {
       const data = json.data
       if (data && Array.isArray(data.list)) {
         allLinks.push(...data.list)
-        const nextPage = json._pagination?.next_page ?? null
-        currentUrl = (data.hasMore && nextPage) ? nextPage : null
+        if (!data.hasMore || data.list.length === 0) { currentUrl = null; break }
+        // Try full URL from _pagination first, fall back to marker-based
+        const nextPage = json._pagination?.next_page ?? data._pagination?.next_page ?? null
+        if (nextPage) {
+          currentUrl = nextPage
+        } else {
+          const lastId = data.list[data.list.length - 1]?.id?.toString()
+          currentUrl = lastId ? `${API_BASE}/${acctId}/tracking-links?limit=50&after=${lastId}` : null
+        }
       } else if (data && Array.isArray(data)) {
         allLinks.push(...data)
-        currentUrl = json._pagination?.next_page ?? null
+        const nextPage = json._pagination?.next_page ?? null
+        currentUrl = nextPage ?? null
       } else { break }
     }
 

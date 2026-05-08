@@ -220,7 +220,7 @@ export default function OverviewPage() {
   const [chartType, setChartType]       = useState<"bar" | "line">("line");
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [tablePage, setTablePage]       = useState(0);
-  const [tablePageSize, setTablePageSize] = useState(10);
+  const tablePageSize = 10;
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -455,9 +455,11 @@ export default function OverviewPage() {
     return "";
   }, [isAllTime, dateFrom, dateTo]);
 
-  // Table rows
+  // Table rows — active links only
   const tableRows = useMemo(() => {
-    const rows = selectedAccounts.map((a: any) => {
+    const rows = selectedAccounts
+      .filter((a: any) => (linkCountByAccount[a.id] || 0) > 0)
+      .map((a: any) => {
       const rev        = (revByAcct[a.id] || 0) * revMult;
       const prevRev    = (prevRevByAcct[a.id] || 0) * revMult;
       const spend      = spendByAcct[a.id] || 0;
@@ -509,16 +511,6 @@ export default function OverviewPage() {
     return <ChevronDown className={cn("w-3 h-3 ml-0.5 transition-transform", tableSort.dir === "asc" && "rotate-180")} style={{ color: T.blue }} />;
   }
 
-  const handleExport = () => {
-    const csv = [
-      ["Account","Username","New Fans","Revenue","Spend","Profit","CVR%","ROI%"].join(","),
-      ...tableRows.map(r => [`"${r.account.display_name}"`, r.account.username || "", r.newFans, r.rev.toFixed(2), r.spend.toFixed(2), r.profit.toFixed(2), r.cvr != null ? r.cvr.toFixed(1) : "", r.roi != null ? r.roi.toFixed(1) : ""].join(",")),
-    ].join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `overview-${dateFrom ?? "all-time"}.csv`;
-    a.click();
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const cardStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: "14px" };
@@ -705,18 +697,6 @@ export default function OverviewPage() {
           <div style={{ ...cardStyle, overflow: "hidden" }}>
             <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${T.border}` }}>
               <p className="text-sm font-semibold" style={{ color: T.white }}>Model Performance</p>
-              <div className="flex items-center gap-2">
-                <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(0); }}
-                  className="h-7 px-2 rounded-md text-xs focus:outline-none"
-                  style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>
-                  {[10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
-                </select>
-                <button onClick={handleExport}
-                  className="h-7 px-3 rounded-md text-xs transition-colors"
-                  style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>
-                  Export CSV
-                </button>
-              </div>
             </div>
 
             <div className="overflow-x-auto">
