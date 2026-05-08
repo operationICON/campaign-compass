@@ -515,9 +515,69 @@ Deno.serve(async (req) => {
           })
         }
 
+        // ── STEP 2d: Historical monthly earnings backfill ──
+        // The /transactions endpoint only returns ~30 days. Use statistics/statements/earnings
+        // which returns a full chartAmount array (one entry per month, all history).
+        // We store months older than our individual-transaction coverage as synthetic
+        // 'earnings_monthly' rows so the revenue chart has full history.
+        let earningsCount = 0
+        try {
+          // Find earliest real (non-synthetic) transaction in DB for this account
+          const { data: earliestRealTx } = await db.from('transactions')
+            .select('date')
+            .eq('account_id', account.id)
+            .neq('type', 'earnings_monthly')
+            .order('date', { ascending: true })
+            .limit(1)
+            .single()
+          // Only store monthly summaries for months BEFORE individual tx coverage
+          const cutoffMonth: string | null = earliestRealTx?.date
+            ? earliestRealTx.date.slice(0, 7)   // YYYY-MM
+            : null
+
+          const todayStr = startedAt.split('T')[0]
+          const earningsUrl = `${API_BASE}/${acctId}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${todayStr}+23:59:59&type=total`
+          const earningsRes = await fetch(earningsUrl, { headers: apiHeaders(apiKey) })
+
+          if (earningsRes.ok) {
+            const earningsJson = await earningsRes.json()
+            const chartAmount: any[] = earningsJson?.data?.total?.chartAmount ?? []
+            console.log(`Earnings chartAmount for ${account.display_name}: ${chartAmount.length} entries, cutoff=${cutoffMonth ?? 'none (store all)'}`)
+
+            for (const entry of chartAmount) {
+              const entryMonth = String(entry.date ?? '').slice(0, 7)  // YYYY-MM
+              if (!entryMonth) continue
+              // Skip months already covered by individual transactions
+              if (cutoffMonth && entryMonth >= cutoffMonth) continue
+
+              const net   = Number(entry.net ?? entry.total ?? entry.amount ?? entry.creator ?? entry.creator_revenue ?? entry.payout ?? entry.revenue ?? entry.earnings ?? 0)
+              const gross = Number(entry.gross ?? entry.grossAmount ?? entry.grossValue ?? (net > 0 ? net / 0.80 : 0))
+              if (net === 0 && gross === 0) continue
+
+              await db.from('transactions').upsert({
+                external_transaction_id: `${account.id}_em_${entryMonth}`,
+                account_id: account.id,
+                type: 'earnings_monthly',
+                date: `${entryMonth}-01`,
+                revenue: gross,
+                revenue_net: net,
+                fee: gross - net,
+                currency: 'USD',
+                status: 'completed',
+              }, { onConflict: 'external_transaction_id' })
+              earningsCount++
+            }
+            console.log(`Upserted ${earningsCount} monthly earnings entries for ${account.display_name}`)
+          } else {
+            console.error(`Earnings endpoint ${earningsRes.status} for ${acctId}`)
+          }
+        } catch (err: any) {
+          console.error(`Monthly earnings error for ${acctId}: ${err.message}`)
+        }
+
         await db.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('id', account.id)
-        totalRecords += linkCount + txCount
-        results.push({ account: account.display_name, status: 'success', links: linkCount, transactions: txCount, ltv_synced: ltvSyncCount })
+        totalRecords += linkCount + txCount + earningsCount
+        results.push({ account: account.display_name, status: 'success', links: linkCount, transactions: txCount, earnings_monthly: earningsCount, ltv_synced: ltvSyncCount })
       } catch (err: any) {
         results.push({ account: account.display_name, status: 'error', error: err.message })
       }

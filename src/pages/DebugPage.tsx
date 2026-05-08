@@ -198,14 +198,17 @@ export default function DebugPage() {
               {txTotalsResult.totals && (
                 <div className="space-y-1.5">
                   {/* Summary row */}
-                  <div className="flex items-center gap-4 bg-sky-500/10 border border-sky-500/30 rounded-lg px-3 py-2 text-[11px]">
+                  <div className="flex items-center gap-4 bg-sky-500/10 border border-sky-500/30 rounded-lg px-3 py-2 text-[11px] flex-wrap">
                     <span className="text-muted-foreground font-semibold">Totals:</span>
                     <span className="font-bold text-[#f1f5f9]">Dashboard: ${Number(txTotalsResult.totals.link_revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     <span className="text-muted-foreground">·</span>
-                    <span className="text-sky-400">{Number(txTotalsResult.totals.tx_count).toLocaleString()} txns in DB</span>
+                    <span className="text-sky-400">{Number(txTotalsResult.totals.tx_count).toLocaleString()} real txns</span>
+                    {txTotalsResult.totals.em_count > 0 && <>
+                      <span className="text-muted-foreground">+</span>
+                      <span className="text-violet-400">{Number(txTotalsResult.totals.em_count).toLocaleString()} monthly summaries</span>
+                    </>}
                     <span className="text-muted-foreground">·</span>
-                    <span className="text-emerald-400">TX net: ${Number(txTotalsResult.totals.tx_net).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    <span className="text-muted-foreground/60">gross: ${Number(txTotalsResult.totals.tx_gross).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-emerald-400">Combined net: ${Number(txTotalsResult.totals.tx_net).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   {/* Net formula breakdown */}
                   <div className="flex items-center gap-4 bg-secondary/40 rounded px-3 py-1.5 text-[10px] text-muted-foreground">
@@ -215,29 +218,34 @@ export default function DebugPage() {
                     <span className="text-orange-400">{Number(txTotalsResult.totals.used_80pct).toLocaleString()} used revenue×0.80 fallback</span>
                   </div>
                   {/* Column headers */}
-                  <div className="grid grid-cols-[160px_100px_180px_120px_120px_120px] gap-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                  <div className="grid grid-cols-[160px_80px_80px_160px_120px_120px_120px] gap-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
                     <span>Account</span>
-                    <span>TX Count</span>
-                    <span>Date Range</span>
+                    <span>Real TX</span>
+                    <span>Monthly</span>
+                    <span>Real TX Range</span>
+                    <span>History From</span>
                     <span>Dashboard Rev</span>
-                    <span>TX Net</span>
-                    <span>TX Gross</span>
+                    <span>Combined Net</span>
                   </div>
                 </div>
               )}
               {(txTotalsResult.accounts ?? []).map((r: any, i: number) => {
                 const noTx = Number(r.tx_count) === 0;
-                const fmt = (v: any) => v != null ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
+                const hasHistory = Number(r.em_count) > 0;
+                const fmt = (v: any) => v != null && v !== "" ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
                 return (
-                  <div key={i} className="grid grid-cols-[160px_100px_180px_120px_120px_120px] gap-2 items-center text-[11px] bg-secondary/50 rounded px-2 py-1.5">
+                  <div key={i} className="grid grid-cols-[160px_80px_80px_160px_120px_120px_120px] gap-2 items-center text-[11px] bg-secondary/50 rounded px-2 py-1.5">
                     <span className="font-semibold text-foreground truncate">{r.display_name}</span>
-                    <span className={noTx ? "text-destructive font-bold" : "text-muted-foreground"}>{Number(r.tx_count).toLocaleString()}</span>
+                    <span className={noTx ? "text-destructive font-bold" : "text-sky-400"}>{Number(r.tx_count).toLocaleString()}</span>
+                    <span className={hasHistory ? "text-violet-400" : "text-muted-foreground/40"}>{Number(r.em_count).toLocaleString()}</span>
                     <span className={`font-mono text-[10px] ${noTx ? "text-destructive" : "text-muted-foreground"}`}>
-                      {r.earliest_date ?? "—"} → {r.latest_date ?? "—"}
+                      {r.earliest_real ?? "—"} → {r.latest_real ?? "—"}
+                    </span>
+                    <span className={`font-mono text-[10px] ${hasHistory ? "text-violet-400" : "text-muted-foreground/40"}`}>
+                      {r.earliest_em ?? "—"}
                     </span>
                     <span className="text-[#f1f5f9] font-semibold">{fmt(r.link_revenue)}</span>
                     <span className="text-emerald-400">{fmt(r.tx_net)}</span>
-                    <span className="text-muted-foreground/70">{fmt(r.tx_gross)}</span>
                   </div>
                 );
               })}
