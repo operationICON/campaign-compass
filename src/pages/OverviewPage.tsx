@@ -57,6 +57,15 @@ function computeDateRange(isAllTime: boolean, custom: { from: Date; to: Date } |
   return { from: null as string | null, to: null as string | null };
 }
 
+function sumMonthlyRevenue(monthly: Record<string, number> | null | undefined, fromDate: string | null, toDate: string | null): number {
+  if (!monthly || !fromDate || !toDate) return 0;
+  const fromMonth = fromDate.slice(0, 7);
+  const toMonth   = toDate.slice(0, 7);
+  return Object.entries(monthly)
+    .filter(([month]) => month >= fromMonth && month <= toMonth)
+    .reduce((s, [, v]) => s + Number(v), 0);
+}
+
 function prevRange(from: string, to: string) {
   const f = new Date(from), t = new Date(to);
   const days = Math.ceil((t.getTime() - f.getTime()) / 86400000) + 1;
@@ -306,14 +315,27 @@ export default function OverviewPage() {
     }
     const m: Record<string, number> = {};
     txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+    // Transactions table only has ~30 days; fall back to revenue_monthly for historical ranges
+    if (!Object.values(m).some(v => v > 0)) {
+      selectedAccounts.forEach((a: any) => {
+        const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
+        if (v > 0) m[a.id] = v;
+      });
+    }
     return m;
-  }, [txRows, selectedIds, isAllTime, selectedAccounts]);
+  }, [txRows, selectedIds, isAllTime, selectedAccounts, dateFrom, dateTo]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
     prevTxRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+    if (!Object.values(m).some(v => v > 0)) {
+      selectedAccounts.forEach((a: any) => {
+        const v = sumMonthlyRevenue(a.revenue_monthly, prevFrom, prevTo);
+        if (v > 0) m[a.id] = v;
+      });
+    }
     return m;
-  }, [prevTxRows, selectedIds]);
+  }, [prevTxRows, selectedIds, selectedAccounts, prevFrom, prevTo]);
 
   const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),     [snaps, selectedIds]);
   const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds), [prevSnaps, selectedIds]);
@@ -417,11 +439,26 @@ export default function OverviewPage() {
       const key = byMonth ? d.slice(0, 7) : d;
       m[key] = (m[key] || 0) + Number(s.revenue || 0);
     });
+    // Fall back to revenue_monthly for historical ranges not covered by transactions table
+    if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
+      const fromMonth = dateFrom.slice(0, 7);
+      const toMonth   = dateTo.slice(0, 7);
+      selectedAccounts.forEach((a: any) => {
+        const monthly = a.revenue_monthly as Record<string, number> | null;
+        if (!monthly) return;
+        Object.entries(monthly).forEach(([month, amount]) => {
+          if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
+            m[month] = (m[month] || 0) + Number(amount);
+        });
+      });
+    }
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
       date: key, revenue,
-      label: byMonth
+      label: key.length === 7
         ? format(new Date(key + "-15"), "MMM yy")
-        : format(new Date(key + "T12:00:00"), "MMM d"),
+        : byMonth
+          ? format(new Date(key + "-15"), "MMM yy")
+          : format(new Date(key + "T12:00:00"), "MMM d"),
     }));
   }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts]);
 
