@@ -444,36 +444,31 @@ router.post("/", async (c) => {
         const text = await res.text();
         let p: any;
         try { p = JSON.parse(text); } catch { p = text; }
-        // Response is { message: "...", new_subscription: {...}, recurring_subscription: {...}, tip: {...}, ... }
-        // Each type key may have net/gross/total amounts inside
-        const TYPE_KEYS = ["new_subscription", "recurring_subscription", "tip", "message", "post", "chat", "other"];
+        // Response: { data: { message: {count,gross,net}, new_subscription: {...}, tip: {...}, ... }, _meta: {...} }
         let net = 0, gross = 0, fees = 0;
         const typeBreakdown: Record<string, any> = {};
-        if (typeof p === "object" && p) {
-          for (const key of Object.keys(p)) {
-            if (key === "message" && typeof p[key] === "string") continue; // skip status message string
-            const val = p[key];
-            if (typeof val === "object" && val !== null) {
-              const n = Number(val?.net ?? val?.total ?? val?.amount ?? val?.creator ?? val?.earnings ?? val?.payout ?? 0);
-              const g = Number(val?.gross ?? val?.gross_amount ?? 0);
-              const f = Number(val?.fee ?? val?.fees ?? val?.platform_fee ?? 0);
-              net += n; gross += g; fees += f;
-              const innerKeys = Object.keys(val);
-              const chartLen = (val?.chartAmount ?? val?.chart_amount ?? []).length;
-              typeBreakdown[key] = { net: n, gross: g, fees: f, keys: innerKeys, chart_entries: chartLen, raw_sample: JSON.stringify(val).slice(0, 300) };
-            }
+        const dataObj: Record<string, any> = (typeof p?.data === "object" && p.data) ? p.data : {};
+        for (const key of Object.keys(dataObj)) {
+          const val = dataObj[key];
+          if (typeof val === "object" && val !== null) {
+            const n = Number(val?.net ?? val?.total ?? val?.amount ?? 0);
+            const g = Number(val?.gross ?? val?.gross_amount ?? 0);
+            const f = Number(val?.fee ?? val?.fees ?? 0);
+            const cnt = Number(val?.count ?? 0);
+            const chartLen = (val?.chartAmount ?? val?.chart_amount ?? []).length;
+            net += n; gross += g; fees += f;
+            typeBreakdown[key] = { count: cnt, net: n, gross: g, fees: f, chart_entries: chartLen };
           }
         }
-        const totalChartLen = Object.values(typeBreakdown).reduce((s, v: any) => s + (v.chart_entries ?? 0), 0);
         results.push({ id: v.id, status: res.status,
           net: net > 0 ? net : null,
           gross: gross > 0 ? gross : null,
           fees: fees > 0 ? fees : null,
-          chart_entries: totalChartLen,
+          chart_entries: 0,
           top_keys: typeof p === "object" && p ? Object.keys(p) : null,
-          type_breakdown: Object.keys(typeBreakdown).length > 0 ? typeBreakdown : null,
-          raw_response: res.status === 200 ? (typeof p === "object" ? JSON.stringify(p).slice(0, 1000) : String(p).slice(0, 1000)) : undefined,
-          raw_error: res.status >= 400 ? (typeof p === "object" ? JSON.stringify(p).slice(0, 500) : String(p).slice(0, 500)) : undefined,
+          type_breakdown: typeBreakdown,
+          raw_response: res.status === 200 ? (typeof p === "object" ? JSON.stringify(p).slice(0, 800) : String(p).slice(0, 800)) : undefined,
+          raw_error: res.status >= 400 ? (typeof p === "object" ? JSON.stringify(p).slice(0, 400) : String(p).slice(0, 400)) : undefined,
         });
       } catch (err: any) { results.push({ id: v.id, error: err.message }); }
       await new Promise(r => setTimeout(r, 400));
