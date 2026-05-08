@@ -281,11 +281,12 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // No date filter — first_subscribe_date doesn't align with snapshot periods; show all-time attribution
   const { data: campBreakdown = [] } = useQuery({
-    queryKey: ["ov2_camp_breakdown", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getFanCampaignBreakdown({ account_ids: selectedIds, date_from: dateFrom, date_to: dateTo }),
+    queryKey: ["ov2_camp_breakdown", selectedIds.join(",")],
+    queryFn: () => getFanCampaignBreakdown({ account_ids: selectedIds }),
     enabled: selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
 
   // ── Derived maps ──────────────────────────────────────────────────────────
@@ -800,11 +801,15 @@ export default function OverviewPage() {
                     const fanPct = row.prevNewFans > 0 ? (fanDelta / row.prevNewFans) * 100 : null;
                     const newFansPerLink: Record<string, number> = {};
                     for (const c of (campByAcct[a.id] ?? [])) newFansPerLink[c.link_id] = Number(c.fan_count);
-                    // Only show links that drove fans in this period, sorted by fan count
                     const linkIdsWithFans = new Set(Object.keys(newFansPerLink));
+                    const hasAttribution = linkIdsWithFans.size > 0;
                     const acctLinks = (linksRaw as any[])
-                      .filter(l => l.account_id === a.id && linkIdsWithFans.has(l.id))
-                      .sort((x, y) => (newFansPerLink[y.id] || 0) - (newFansPerLink[x.id] || 0));
+                      .filter(l => l.account_id === a.id && !l.deleted_at && (hasAttribution ? linkIdsWithFans.has(l.id) : true))
+                      .sort((x, y) => {
+                        const fd = (newFansPerLink[y.id] || 0) - (newFansPerLink[x.id] || 0);
+                        return fd !== 0 ? fd : Number(y.revenue || 0) - Number(x.revenue || 0);
+                      })
+                      .slice(0, hasAttribution ? 50 : 15);
                     return (
                       <React.Fragment key={a.id}>
                       <tr
