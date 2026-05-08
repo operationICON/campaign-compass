@@ -196,12 +196,13 @@ router.post("/", async (c) => {
             if (chartAmount.length > 0) {
               revenueMonthly = {};
               for (const entry of chartAmount) {
-                // API returns { date: "2026-03-01T00:00:00+00:00", count: <gross> }
-                const gross = Number(entry.count ?? entry.amount ?? entry.gross ?? entry.value ?? 0);
-                if (gross > 0) {
+                // API returns { date: "2026-03-01T00:00:00+00:00", count: <net_creator_payout> }
+                // count is already the NET amount (creator's share after OF cut) — do NOT multiply by ratio
+                const net = Number(entry.count ?? entry.amount ?? entry.gross ?? entry.value ?? 0);
+                if (net > 0) {
                   // date is full ISO — take first 7 chars for YYYY-MM
                   const month = String(entry.date ?? "").slice(0, 7);
-                  if (month) revenueMonthly[month] = (revenueMonthly[month] || 0) + gross * ratio;
+                  if (month) revenueMonthly[month] = (revenueMonthly[month] || 0) + net;
                 }
               }
             }
