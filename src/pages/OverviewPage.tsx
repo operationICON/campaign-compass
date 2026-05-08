@@ -233,7 +233,10 @@ export default function OverviewPage() {
   const { isAllTime, customRange } = useMemo(() => {
     if (activePeriod === "all") return { isAllTime: true, customRange: null as { from: Date; to: Date } | null };
     if (activePeriod === "custom") return { isAllTime: false, customRange: customDateRange };
-    const end = new Date(latestDate + "T12:00:00");
+    // Use latestDate from DB if recent (within 3 days), otherwise fall back to yesterday
+    const latestAsDate = new Date(latestDate + "T12:00:00");
+    const yesterday = subDays(new Date(), 1);
+    const end = latestAsDate >= subDays(new Date(), 3) ? latestAsDate : yesterday;
     const from = new Date(end);
     if (activePeriod === "7d")  from.setDate(from.getDate() - 6);
     if (activePeriod === "30d") from.setDate(from.getDate() - 29);

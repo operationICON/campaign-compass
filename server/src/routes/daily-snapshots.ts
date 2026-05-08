@@ -8,12 +8,11 @@ const router = new Hono();
 // GET /daily-snapshots/latest-date
 router.get("/latest-date", async (c) => {
   const accountId = c.req.query("account_id");
+  // Cast to date for correct ordering regardless of stored format (date vs timestamp string)
   const [row] = await db
-    .select({ snapshot_date: daily_snapshots.snapshot_date })
+    .select({ snapshot_date: sql<string>`MAX(${daily_snapshots.snapshot_date}::date)::text` })
     .from(daily_snapshots)
-    .where(accountId ? eq(daily_snapshots.account_id, accountId) : undefined)
-    .orderBy(desc(daily_snapshots.snapshot_date))
-    .limit(1);
+    .where(accountId ? eq(daily_snapshots.account_id, accountId) : undefined);
   return c.json({ date: row?.snapshot_date ?? null });
 });
 
