@@ -654,7 +654,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Row 3: Revenue Breakdown + Model Performance ─────────────────── */}
-        <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "280px 1fr" }}>
+        <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "340px 1fr" }}>
 
           {/* Revenue Breakdown Donut — LEFT */}
           <div className="flex flex-col" style={cardStyle}>
@@ -662,14 +662,14 @@ export default function OverviewPage() {
               <p className="text-sm font-semibold" style={{ color: T.white }}>Revenue Breakdown</p>
               <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
             </div>
-            <div className="flex-1 flex flex-col items-center p-5 gap-4 min-h-0">
-              <div className="relative shrink-0" style={{ width: 180, height: 180 }}>
-                <ResponsiveContainer width={180} height={180}>
+            <div className="flex-1 flex flex-col items-center px-5 pt-5 pb-4 gap-3 min-h-0">
+              <div className="relative shrink-0" style={{ width: 220, height: 220 }}>
+                <ResponsiveContainer width={220} height={220}>
                   <PieChart>
                     <Pie
                       data={donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]}
                       cx="50%" cy="50%"
-                      innerRadius={55} outerRadius={82}
+                      innerRadius={68} outerRadius={104}
                       dataKey="value" strokeWidth={0} paddingAngle={2}
                     >
                       {(donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]).map((_, i) => (
@@ -679,11 +679,11 @@ export default function OverviewPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-bold font-mono" style={{ color: T.white }}>{fmtShort(donutTotal)}</span>
+                  <span className="text-2xl font-bold font-mono" style={{ color: T.white }}>{fmtShort(donutTotal)}</span>
                   <span className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: T.muted }}>Total</span>
                 </div>
               </div>
-              <div className="flex-1 w-full overflow-y-auto min-h-0 space-y-2">
+              <div className="flex-1 w-full overflow-y-auto min-h-0 space-y-1.5">
                 {donutData.length === 0 ? (
                   <p className="text-sm text-center" style={{ color: T.muted }}>No revenue data</p>
                 ) : donutData.map((d, i) => (
@@ -692,7 +692,9 @@ export default function OverviewPage() {
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ background: MODEL_COLORS[i % MODEL_COLORS.length] }} />
                       <span className="text-xs truncate" style={{ color: T.muted }}>{d.name}</span>
                     </div>
-                    <span className="text-xs font-mono shrink-0" style={{ color: T.white }}>{fmtShort(d.value)}</span>
+                    <span className="text-xs font-mono font-semibold shrink-0" style={{ color: T.white }}>
+                      {donutTotal > 0 ? `${((d.value / donutTotal) * 100).toFixed(1)}%` : "—"}
+                    </span>
                   </div>
                 ))}
               </div>
