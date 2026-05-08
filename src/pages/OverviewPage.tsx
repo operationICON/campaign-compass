@@ -50,14 +50,6 @@ function fmtMoney(n: number) {
   return (neg ? "-$" : "$") + abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function fmtShort(n: number) {
-  if (!isFinite(n) || n === 0) return "$0";
-  const neg = n < 0; const abs = Math.abs(n);
-  const s = neg ? "-$" : "$";
-  if (abs >= 1_000_000) return `${s}${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000)     return `${s}${(abs / 1_000).toFixed(1)}K`;
-  return `${s}${abs.toFixed(0)}`;
-}
 
 function computeDateRange(isAllTime: boolean, custom: { from: Date; to: Date } | null) {
   if (isAllTime) return { from: null as string | null, to: null as string | null };
@@ -634,7 +626,7 @@ export default function OverviewPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-bold font-mono" style={{ color: T.white }}>{fmtShort(donutTotal)}</span>
+                  <span className="text-lg font-bold font-mono leading-tight" style={{ color: T.white }}>{fmtMoney(donutTotal)}</span>
                   <span className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: T.muted }}>Total</span>
                 </div>
               </div>
@@ -648,7 +640,7 @@ export default function OverviewPage() {
                       <span className="text-sm truncate" style={{ color: T.white }}>{d.name}</span>
                     </div>
                     <span className="text-sm font-mono font-semibold shrink-0" style={{ color: T.white }}>
-                      {donutTotal > 0 ? `${((d.value / donutTotal) * 100).toFixed(1)}%` : "—"}
+                      {fmtMoney(d.value)}
                     </span>
                   </div>
                 ))}
