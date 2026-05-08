@@ -268,6 +268,57 @@ router.post("/", async (c) => {
     return c.json({ grand_total: grandTotal, account_count: accounts.length, results });
   }
 
+  // Show what daily transaction data we have and identify gaps
+  if (body?.action === "tx_coverage") {
+    const [global, perAccount, dailySample] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COUNT(*) AS total_rows,
+          COUNT(DISTINCT date) AS distinct_days,
+          MIN(date) AS earliest_date,
+          MAX(date) AS latest_date,
+          COUNT(DISTINCT account_id) AS accounts_with_data,
+          COALESCE(SUM(revenue::numeric), 0) AS total_gross,
+          COALESCE(SUM(CASE
+            WHEN revenue_net IS NOT NULL AND revenue_net::text != '' THEN revenue_net::numeric
+            WHEN fee IS NOT NULL AND fee::text != '' THEN revenue::numeric - fee::numeric
+            ELSE revenue::numeric * 0.80
+          END), 0) AS total_net
+        FROM transactions
+        WHERE type != 'earnings_monthly' OR type IS NULL
+      `),
+      db.execute(sql`
+        SELECT
+          a.display_name,
+          COUNT(t.id) AS tx_count,
+          COUNT(DISTINCT t.date) AS distinct_days,
+          MIN(t.date) AS earliest,
+          MAX(t.date) AS latest
+        FROM accounts a
+        LEFT JOIN transactions t ON t.account_id = a.id AND (t.type != 'earnings_monthly' OR t.type IS NULL)
+        WHERE a.is_active = true
+        GROUP BY a.id, a.display_name
+        ORDER BY COUNT(t.id) DESC
+      `),
+      // Show daily revenue for the last 90 days to see coverage
+      db.execute(sql`
+        SELECT date, COUNT(*) AS tx_count, COALESCE(SUM(revenue::numeric), 0) AS gross
+        FROM transactions
+        WHERE date >= CURRENT_DATE - INTERVAL '90 days'
+          AND (type != 'earnings_monthly' OR type IS NULL)
+        GROUP BY date
+        ORDER BY date DESC
+        LIMIT 90
+      `),
+    ]);
+    return c.json({
+      global: global.rows[0],
+      per_account: perAccount.rows,
+      last_90_days_coverage: dailySample.rows,
+      coverage_note: "Transactions table = last ~30 days per sync. Run sync regularly to preserve daily history.",
+    });
+  }
+
   // Show per-account transaction counts, date ranges, and revenue sums from our DB
   if (body?.action === "tx_totals") {
     const rows = await db.execute(sql`

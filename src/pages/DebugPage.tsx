@@ -33,6 +33,8 @@ export default function DebugPage() {
   const [rawEarningsLoading, setRawEarningsLoading] = useState(false);
   const [finAnalyticsResult, setFinAnalyticsResult] = useState<any>(null);
   const [finAnalyticsLoading, setFinAnalyticsLoading] = useState(false);
+  const [txCoverageResult, setTxCoverageResult] = useState<any>(null);
+  const [txCoverageLoading, setTxCoverageLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -174,6 +176,19 @@ export default function DebugPage() {
       setTxTotalsResult({ error: err.message });
     } finally {
       setTxTotalsLoading(false);
+    }
+  }, []);
+
+  const runTxCoverage = useCallback(async () => {
+    setTxCoverageLoading(true);
+    setTxCoverageResult(null);
+    try {
+      const data = await debugAction("tx_coverage");
+      setTxCoverageResult(data);
+    } catch (err: any) {
+      setTxCoverageResult({ error: err.message });
+    } finally {
+      setTxCoverageLoading(false);
     }
   }, []);
 
@@ -345,6 +360,68 @@ export default function DebugPage() {
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">Last 3 chartAmount entries</p>
                   <pre className="text-[10px] bg-secondary/50 p-2 rounded overflow-x-auto text-sky-400">{JSON.stringify(rawEarningsResult.chartAmount_last3, null, 2)}</pre>
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* TX Daily Coverage */}
+        <div className="bg-card border border-amber-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-amber-400" /> Transaction Daily Coverage
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shows what daily data is stored in the transactions table — earliest date, gaps, and last 90-day coverage
+              </p>
+            </div>
+            <button
+              onClick={runTxCoverage}
+              disabled={txCoverageLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            >
+              {txCoverageLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Check Coverage
+            </button>
+          </div>
+          {txCoverageResult && (
+            <div className="space-y-3">
+              {txCoverageResult.error && <p className="text-xs text-destructive">{txCoverageResult.error}</p>}
+              {txCoverageResult.global && (() => {
+                const g = txCoverageResult.global;
+                const fmt = (v: any) => v != null ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
+                return (
+                  <div className="flex flex-wrap gap-4 text-[11px] bg-secondary/50 rounded p-3">
+                    <span className="text-muted-foreground">Total rows: <span className="text-foreground font-bold">{Number(g.total_rows).toLocaleString()}</span></span>
+                    <span className="text-muted-foreground">Distinct days: <span className="text-amber-400 font-bold">{Number(g.distinct_days).toLocaleString()}</span></span>
+                    <span className="text-muted-foreground">Earliest: <span className="text-foreground font-mono">{g.earliest_date ?? "—"}</span></span>
+                    <span className="text-muted-foreground">Latest: <span className="text-foreground font-mono">{g.latest_date ?? "—"}</span></span>
+                    <span className="text-muted-foreground">Accounts: <span className="text-foreground font-bold">{g.accounts_with_data}</span></span>
+                    <span className="text-muted-foreground">Gross: <span className="text-foreground">{fmt(g.total_gross)}</span></span>
+                    <span className="text-muted-foreground">Net: <span className="text-emerald-400 font-bold">{fmt(g.total_net)}</span></span>
+                  </div>
+                );
+              })()}
+              {txCoverageResult.per_account?.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Per account</p>
+                  <div className="grid grid-cols-[160px_70px_70px_110px_110px] gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                    <span>Account</span><span>Tx rows</span><span>Days</span><span>Earliest</span><span>Latest</span>
+                  </div>
+                  {txCoverageResult.per_account.map((r: any, i: number) => (
+                    <div key={i} className="grid grid-cols-[160px_70px_70px_110px_110px] gap-2 items-center text-[11px] rounded px-2 py-1 bg-secondary/40">
+                      <span className="font-semibold text-foreground truncate">{r.display_name}</span>
+                      <span className={Number(r.tx_count) > 0 ? "text-amber-400" : "text-muted-foreground/40"}>{Number(r.tx_count).toLocaleString()}</span>
+                      <span className={Number(r.distinct_days) > 0 ? "text-teal-400" : "text-muted-foreground/40"}>{r.distinct_days ?? 0}</span>
+                      <span className="text-muted-foreground font-mono text-[10px]">{r.earliest ?? "—"}</span>
+                      <span className="text-muted-foreground font-mono text-[10px]">{r.latest ?? "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {txCoverageResult.coverage_note && (
+                <p className="text-[11px] text-amber-400/70 italic">{txCoverageResult.coverage_note}</p>
               )}
             </div>
           )}
