@@ -374,6 +374,41 @@ router.post("/", async (c) => {
     return c.json({ account: acc.display_name, acct_id: acctId, results });
   }
 
+  // Raw earnings endpoint probe — shows exact chartAmount structure
+  if (body?.action === "raw_earnings") {
+    const accRow = await db.execute(sql`
+      SELECT onlyfans_account_id, display_name FROM accounts
+      WHERE is_active = true AND onlyfans_account_id IS NOT NULL
+      AND sync_excluded IS NOT TRUE
+      ORDER BY display_name LIMIT 1
+    `);
+    const acc = accRow.rows[0] as any;
+    if (!acc) return c.json({ error: "No accounts" }, 404);
+
+    const today = new Date().toISOString().split("T")[0];
+    const url = `${API_BASE}/${acc.onlyfans_account_id}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${today}+23:59:59&type=total`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+    const text = await res.text();
+    let parsed: any;
+    try { parsed = JSON.parse(text); } catch { parsed = text; }
+
+    const chartAmount: any[] = parsed?.data?.total?.chartAmount ?? [];
+    const totalScalars = typeof parsed?.data?.total === "object"
+      ? Object.fromEntries(Object.entries(parsed.data.total).filter(([, v]) => !Array.isArray(v)))
+      : null;
+
+    return c.json({
+      account: acc.display_name,
+      status: res.status,
+      top_keys: typeof parsed === "object" ? Object.keys(parsed ?? {}) : null,
+      data_keys: typeof parsed?.data === "object" ? Object.keys(parsed.data ?? {}) : null,
+      total_scalars: totalScalars,
+      chartAmount_length: chartAmount.length,
+      chartAmount_first3: chartAmount.slice(0, 3),
+      chartAmount_last3: chartAmount.slice(-3),
+    });
+  }
+
   // Check revenue_monthly data stored on accounts
   if (body?.action === "rev_monthly_check") {
     const rows = await db.execute(sql`

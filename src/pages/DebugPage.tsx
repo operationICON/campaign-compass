@@ -29,6 +29,8 @@ export default function DebugPage() {
   const [txDateTestLoading, setTxDateTestLoading] = useState(false);
   const [revMonthlyResult, setRevMonthlyResult] = useState<any>(null);
   const [revMonthlyLoading, setRevMonthlyLoading] = useState(false);
+  const [rawEarningsResult, setRawEarningsResult] = useState<any>(null);
+  const [rawEarningsLoading, setRawEarningsLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -118,6 +120,19 @@ export default function DebugPage() {
       setSumEarningsResult({ error: err.message });
     } finally {
       setSumEarningsLoading(false);
+    }
+  }, []);
+
+  const runRawEarnings = useCallback(async () => {
+    setRawEarningsLoading(true);
+    setRawEarningsResult(null);
+    try {
+      const data = await debugAction("raw_earnings");
+      setRawEarningsResult(data);
+    } catch (err: any) {
+      setRawEarningsResult({ error: err.message });
+    } finally {
+      setRawEarningsLoading(false);
     }
   }, []);
 
@@ -264,6 +279,58 @@ export default function DebugPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Raw Earnings Endpoint Probe */}
+        <div className="bg-card border border-indigo-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-indigo-400" /> Raw Earnings Endpoint Probe
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Calls <code className="font-mono">statistics/statements/earnings?start_date=2018-01-01</code> and shows exact <code className="font-mono">chartAmount</code> structure — needed to fix field names
+              </p>
+            </div>
+            <button
+              onClick={runRawEarnings}
+              disabled={rawEarningsLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 transition-colors disabled:opacity-50"
+            >
+              {rawEarningsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Probe Earnings Endpoint
+            </button>
+          </div>
+          {rawEarningsResult && (
+            <div className="space-y-2">
+              {rawEarningsResult.error && <p className="text-xs text-destructive">{rawEarningsResult.error}</p>}
+              {rawEarningsResult.account && (
+                <div className="flex flex-wrap gap-3 text-[11px]">
+                  <span className="text-muted-foreground">Account: <span className="text-foreground font-semibold">{rawEarningsResult.account}</span></span>
+                  <span className="text-muted-foreground">HTTP: <span className={rawEarningsResult.status === 200 ? "text-emerald-400 font-bold" : "text-destructive font-bold"}>{rawEarningsResult.status}</span></span>
+                  <span className="text-muted-foreground">chartAmount entries: <span className={rawEarningsResult.chartAmount_length > 0 ? "text-emerald-400 font-bold" : "text-destructive font-bold"}>{rawEarningsResult.chartAmount_length}</span></span>
+                </div>
+              )}
+              {rawEarningsResult.total_scalars && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">data.total (scalar fields)</p>
+                  <pre className="text-[10px] bg-secondary/50 p-2 rounded overflow-x-auto text-muted-foreground">{JSON.stringify(rawEarningsResult.total_scalars, null, 2)}</pre>
+                </div>
+              )}
+              {rawEarningsResult.chartAmount_first3?.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">First 3 chartAmount entries</p>
+                  <pre className="text-[10px] bg-secondary/50 p-2 rounded overflow-x-auto text-emerald-400">{JSON.stringify(rawEarningsResult.chartAmount_first3, null, 2)}</pre>
+                </div>
+              )}
+              {rawEarningsResult.chartAmount_last3?.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">Last 3 chartAmount entries</p>
+                  <pre className="text-[10px] bg-secondary/50 p-2 rounded overflow-x-auto text-sky-400">{JSON.stringify(rawEarningsResult.chartAmount_last3, null, 2)}</pre>
+                </div>
+              )}
             </div>
           )}
         </div>
