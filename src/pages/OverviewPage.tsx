@@ -798,11 +798,13 @@ export default function OverviewPage() {
                     const isExpanded = expandedRows.has(a.id);
                     const fanDelta = row.newFans - row.prevNewFans;
                     const fanPct = row.prevNewFans > 0 ? (fanDelta / row.prevNewFans) * 100 : null;
-                    const acctLinks = (linksRaw as any[])
-                      .filter(l => l.account_id === a.id && !l.deleted_at)
-                      .sort((x, y) => Number(y.revenue || 0) - Number(x.revenue || 0));
                     const newFansPerLink: Record<string, number> = {};
                     for (const c of (campByAcct[a.id] ?? [])) newFansPerLink[c.link_id] = Number(c.fan_count);
+                    // Only show links that drove fans in this period, sorted by fan count
+                    const linkIdsWithFans = new Set(Object.keys(newFansPerLink));
+                    const acctLinks = (linksRaw as any[])
+                      .filter(l => l.account_id === a.id && linkIdsWithFans.has(l.id))
+                      .sort((x, y) => (newFansPerLink[y.id] || 0) - (newFansPerLink[x.id] || 0));
                     return (
                       <React.Fragment key={a.id}>
                       <tr
