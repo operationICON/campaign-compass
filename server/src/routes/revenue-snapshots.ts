@@ -140,4 +140,48 @@ router.post("/sync", async (c) => {
   return c.json({ grand_total_net: grandTotal, account_count: allAccounts.length, results });
 });
 
+// GET /revenue-snapshots/period?date_from=2026-03-01&date_to=2026-03-31
+// Live OFAPI by-type call per account for the given date range — exact OFAPI match.
+router.get("/period", async (c) => {
+  const dateFrom = c.req.query("date_from");
+  const dateTo   = c.req.query("date_to");
+  if (!dateFrom || !dateTo) return c.json({ error: "date_from and date_to required" }, 400);
+
+  const apiKey = process.env.ONLYFANS_API_KEY;
+  if (!apiKey) return c.json({ error: "API key not configured" }, 500);
+
+  const allAccounts = await db
+    .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id })
+    .from(accounts)
+    .where(sql`${accounts.is_active} = true AND ${accounts.onlyfans_account_id} IS NOT NULL AND (${accounts.sync_excluded} IS NULL OR ${accounts.sync_excluded} = false)`);
+
+  const startDate = `${dateFrom} 00:00:00`;
+  const endDate   = `${dateTo} 23:59:59`;
+
+  // Parallel calls — OFAPI allows 5000 req/min, 15 accounts is fine
+  const results = await Promise.all(allAccounts.map(async (acc) => {
+    try {
+      const res = await fetch(`${API_BASE}/analytics/financial/transactions/by-type`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ account_ids: [acc.onlyfans_account_id], start_date: startDate, end_date: endDate }),
+      });
+      if (!res.ok) return { account_id: acc.id, net: 0 };
+      const json = await res.json() as any;
+      const types: Record<string, any> = json?.data ?? {};
+      let net = 0;
+      for (const val of Object.values(types)) {
+        if (typeof val === "object" && val !== null) {
+          net += Number((val as any).net ?? 0);
+        }
+      }
+      return { account_id: acc.id, net };
+    } catch {
+      return { account_id: acc.id, net: 0 };
+    }
+  }));
+
+  return c.json(results);
+});
+
 export default router;

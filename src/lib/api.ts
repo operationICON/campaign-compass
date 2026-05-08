@@ -366,3 +366,8 @@ export const getRevenueSnapshots = () =>
 
 export const syncRevenueSnapshots = () =>
   apiFetch("/revenue-snapshots/sync", { method: "POST" });
+
+export const getRevenuePeriod = (dateFrom: string, dateTo: string) =>
+  apiFetch<{ account_id: string; net: number }[]>(
+    `/revenue-snapshots/period?date_from=${dateFrom}&date_to=${dateTo}`
+  );

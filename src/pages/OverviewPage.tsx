@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
   getOnlytrafficOrders, getTrackingLinks,
-  getFanCampaignBreakdown, getSnapshotLatestDate,
+  getFanCampaignBreakdown, getSnapshotLatestDate, getRevenuePeriod,
 } from "@/lib/api";
 import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
 import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
@@ -266,6 +266,14 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
+  // Period revenue — live OFAPI by-type call, exact match with OFAPI Summary
+  const { data: periodRevenueRows = [] } = useQuery({
+    queryKey: ["ov2_period_rev", dateFrom, dateTo],
+    queryFn: () => getRevenuePeriod(dateFrom!, dateTo!),
+    enabled: !isAllTime && !!dateFrom && !!dateTo,
+    staleTime: 10 * 60 * 1000,
+  });
+
   // Chart only — transactions give daily granularity for recent periods
   const { data: txRows = [] } = useQuery({
     queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
@@ -346,22 +354,28 @@ export default function OverviewPage() {
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
 
-  // ltv_total is synced from OFAPI analytics/financial/by-type endpoint — exact OFAPI match for All Time.
-  // revenue_monthly (from earnings/chartAmount) is used for period breakdowns.
+  // All Time: ltv_total (synced from OFAPI by-type, exact match).
+  // Period: live OFAPI by-type call for the date range (periodRevenueRows), exact match.
   const revByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    selectedAccounts.forEach((a: any) => {
-      if (isAllTime) {
-        // ltv_total = sum of by-type NET per account = exact OFAPI all-time total
+    if (isAllTime) {
+      selectedAccounts.forEach((a: any) => {
         const v = Number(a.ltv_total || 0);
         if (v > 0) m[a.id] = v;
-      } else {
+      });
+    } else if (periodRevenueRows.length > 0) {
+      periodRevenueRows.forEach((r: { account_id: string; net: number }) => {
+        if (r.net > 0) m[r.account_id] = r.net;
+      });
+    } else {
+      // Fallback while live call is loading
+      selectedAccounts.forEach((a: any) => {
         const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
         if (v > 0) m[a.id] = v;
-      }
-    });
+      });
+    }
     return m;
-  }, [isAllTime, selectedAccounts, dateFrom, dateTo]);
+  }, [isAllTime, selectedAccounts, dateFrom, dateTo, periodRevenueRows]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
