@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  getAccounts, getTransactionDaily,
+  getAccounts,
   getOnlytrafficOrders, getTrackingLinks,
   getFanCampaignBreakdown, getSnapshotLatestDate,
 } from "@/lib/api";
@@ -266,19 +266,6 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
-  const { data: txRows = [], isLoading: txLoading } = useQuery({
-    queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
-    enabled: selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: prevTxRows = [] } = useQuery({
-    queryKey: ["ov2_prev_tx", prevFrom, prevTo, selectedIds.join(",")],
-    queryFn: () => getTransactionDaily({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds }),
-    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
 
   // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
   const snapshotPeriod: TimePeriod = timePeriod;
@@ -350,58 +337,29 @@ export default function OverviewPage() {
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
 
-  // Transactions table covers ~last 30 days. If range starts before that, use revenue_monthly.
-  const txCoverageStart = useMemo(() => {
-    const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    return d.toISOString().slice(0, 10);
-  }, []);
-
+  // Always use revenue_monthly (synced directly from OFAPI earnings endpoint) — perfect OFAPI match.
+  // Transactions table has ~30% null dates and gross vs net inconsistencies so we never use it.
   const revByAcct = useMemo(() => {
-    if (isAllTime) {
-      const m: Record<string, number> = {};
-      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
-      return m;
-    }
     const m: Record<string, number> = {};
-    // Use revenue_monthly when range starts before transaction coverage (avoids partial-month gaps)
-    const useMonthly = !!dateFrom && dateFrom < txCoverageStart;
-    if (useMonthly) {
+    if (isAllTime) {
+      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
+    } else {
       selectedAccounts.forEach((a: any) => {
         const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
         if (v > 0) m[a.id] = v;
       });
-    } else {
-      txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
-      // Still fall back to revenue_monthly if transactions are completely empty
-      if (!Object.values(m).some(v => v > 0)) {
-        selectedAccounts.forEach((a: any) => {
-          const v = sumMonthlyRevenue(a.revenue_monthly, dateFrom, dateTo);
-          if (v > 0) m[a.id] = v;
-        });
-      }
     }
     return m;
-  }, [txRows, selectedIds, isAllTime, selectedAccounts, dateFrom, dateTo, txCoverageStart]);
+  }, [isAllTime, selectedAccounts, dateFrom, dateTo]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    const useMonthly = !!prevFrom && prevFrom < txCoverageStart;
-    if (useMonthly) {
-      selectedAccounts.forEach((a: any) => {
-        const v = sumMonthlyRevenue(a.revenue_monthly, prevFrom, prevTo);
-        if (v > 0) m[a.id] = v;
-      });
-    } else {
-      prevTxRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
-      if (!Object.values(m).some(v => v > 0)) {
-        selectedAccounts.forEach((a: any) => {
-          const v = sumMonthlyRevenue(a.revenue_monthly, prevFrom, prevTo);
-          if (v > 0) m[a.id] = v;
-        });
-      }
-    }
+    selectedAccounts.forEach((a: any) => {
+      const v = sumMonthlyRevenue(a.revenue_monthly, prevFrom, prevTo);
+      if (v > 0) m[a.id] = v;
+    });
     return m;
-  }, [prevTxRows, selectedIds, selectedAccounts, prevFrom, prevTo, txCoverageStart]);
+  }, [selectedAccounts, prevFrom, prevTo]);
 
   // Sum new fans per account from the same deltaLookup as Campaigns page
   const subsByAcct = useMemo(() => {
@@ -513,26 +471,11 @@ export default function OverviewPage() {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([key, revenue]) => ({ date: key, revenue, label: format(new Date(key + "-15"), "MMM yy") }));
       }
-      // fallback: group txRows by month for all-time view
-      const mb: Record<string, number> = {};
-      txRows.forEach(s => {
-        if (!selectedIds.includes(s.account_id)) return;
-        const key = String(s.date).slice(0, 7);
-        mb[key] = (mb[key] || 0) + Number(s.revenue || 0);
-      });
-      return Object.entries(mb).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
-        date: key, revenue, label: format(new Date(key + "-15"), "MMM yy"),
-      }));
+      return [];
     }
-    const daysDiff = dateFrom && dateTo
-      ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
-      : 90;
-    const byMonth = daysDiff > 90;
-    const useMonthly = !!dateFrom && dateFrom < txCoverageStart;
+    // Non-all-time: always use revenue_monthly (OFAPI source of truth)
     const m: Record<string, number> = {};
-
-    if (useMonthly && dateFrom && dateTo) {
-      // Range predates transaction coverage — use monthly bars from revenue_monthly
+    if (dateFrom && dateTo) {
       const fromMonth = dateFrom.slice(0, 7);
       const toMonth   = dateTo.slice(0, 7);
       selectedAccounts.forEach((a: any) => {
@@ -543,36 +486,12 @@ export default function OverviewPage() {
             m[month] = (m[month] || 0) + Number(amount);
         });
       });
-    } else {
-      txRows.forEach(s => {
-        if (!selectedIds.includes(s.account_id)) return;
-        const d = String(s.date).split("T")[0];
-        const key = byMonth ? d.slice(0, 7) : d;
-        m[key] = (m[key] || 0) + Number(s.revenue || 0);
-      });
-      // Still fall back to revenue_monthly if transactions completely empty
-      if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
-        const fromMonth = dateFrom.slice(0, 7);
-        const toMonth   = dateTo.slice(0, 7);
-        selectedAccounts.forEach((a: any) => {
-          const monthly = a.revenue_monthly as Record<string, number> | null;
-          if (!monthly) return;
-          Object.entries(monthly).forEach(([month, amount]) => {
-            if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
-              m[month] = (m[month] || 0) + Number(amount);
-          });
-        });
-      }
     }
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
       date: key, revenue,
-      label: key.length === 7 || useMonthly
-        ? format(new Date(key + "-15"), "MMM yy")
-        : byMonth
-          ? format(new Date(key + "-15"), "MMM yy")
-          : format(new Date(key + "T12:00:00"), "MMM d"),
+      label: format(new Date(key + "-15"), "MMM yy"),
     }));
-  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts]);
+  }, [selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts]);
 
   const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
 
@@ -725,7 +644,7 @@ export default function OverviewPage() {
           />
           <KpiCard
             label="Total Revenue"
-            value={txLoading ? "…" : fmtMoney(totalRevenue)}
+            value={fmtMoney(totalRevenue)}
             sub={isAllTime ? "All time · all models" : "Net earnings in period"}
             sparkData={revSparkData}
           />
@@ -752,7 +671,7 @@ export default function OverviewPage() {
           <div className={chartData.length === 0 ? "flex items-center justify-center py-8" : "h-64"}>
             {chartData.length === 0 ? (
               <p className="text-sm" style={{ color: T.muted }}>
-                {txLoading ? "Loading…" : "No data for this period"}
+                {"No data for this period"}
               </p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -853,7 +772,7 @@ export default function OverviewPage() {
                   {tableRows.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: T.muted }}>
-                        {txLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one model" : "No data"}
+                        {selectedIds.length === 0 ? "Select at least one model" : "No data"}
                       </td>
                     </tr>
                   ) : tableRows.map((row, rowIdx) => {
