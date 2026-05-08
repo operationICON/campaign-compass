@@ -8,6 +8,7 @@ import {
   getFanCampaignBreakdown, getSnapshotLatestDate,
 } from "@/lib/api";
 import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
+import type { TimePeriod } from "@/hooks/usePageFilters";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -275,7 +276,9 @@ export default function OverviewPage() {
   });
 
   // New Fans: use the exact same hook as Campaigns page "Last Sync · 1d"
-  const { deltaLookup: fansDeltaLookup } = useSnapshotDeltaMetrics("day", null);
+  const snapshotPeriod: TimePeriod = activePeriod === "all" ? "all" : activePeriod === "7d" ? "week" : activePeriod === "30d" ? "month" : "day";
+  const snapshotCustomRange = activePeriod === "custom" ? customDateRange : null;
+  const { deltaLookup: fansDeltaLookup } = useSnapshotDeltaMetrics(snapshotPeriod, snapshotCustomRange);
 
   const { data: orders = [] } = useQuery({
     queryKey: ["ov2_orders", dateFrom, dateTo],
