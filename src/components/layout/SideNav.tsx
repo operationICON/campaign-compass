@@ -72,9 +72,9 @@ export function SideNav() {
           collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-1.5 w-full",
           active
             ? "text-[#f1f5f9]"
-            : "text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60"
+            : "text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1e2d47]/50"
         )}
-        style={active ? { background: "#1c1f2b" } : {}}
+        style={active ? { background: "linear-gradient(90deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.05) 100%)", borderRadius: "6px" } : {}}
       >
         {/* blue active bar */}
         {active && !collapsed && (
@@ -102,18 +102,18 @@ export function SideNav() {
       className="flex flex-col h-full shrink-0 overflow-hidden transition-all duration-200"
       style={{
         width: collapsed ? "52px" : "200px",
-        background: "#080a0d",
-        borderRight: "1px solid #252b3b",
+        background: "linear-gradient(180deg, #0b1020 0%, #080d18 100%)",
+        borderRight: "1px solid #1e2d47",
       }}
     >
       {/* Logo + collapse toggle */}
       <div className="h-12 flex items-center shrink-0 px-3"
-        style={{ borderBottom: "1px solid #1c1f2b" }}>
+        style={{ borderBottom: "1px solid #1e2d47" }}>
         {collapsed ? (
           <button
             onClick={() => setCollapsed(false)}
             title="Expand sidebar"
-            className="w-full flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60 h-9"
+            className="w-full flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1e2d47]/50 h-9"
           >
             <ChevronRight className="w-[17px] h-[17px]" />
           </button>
@@ -129,7 +129,7 @@ export function SideNav() {
             <button
               onClick={() => setCollapsed(true)}
               title="Collapse sidebar"
-              className="w-7 h-7 flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60 shrink-0"
+              className="w-7 h-7 flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1e2d47]/50 shrink-0"
             >
               <ChevronLeft className="w-[17px] h-[17px]" />
             </button>
@@ -148,7 +148,7 @@ export function SideNav() {
 
         {isAdmin && (
           <>
-            <div className="mt-3 mb-2 mx-1" style={{ height: "1px", background: "#2a3347" }} />
+            <div className="mt-3 mb-2 mx-1" style={{ height: "1px", background: "#1e2d47" }} />
             {!collapsed && (
               <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#6b7a94" }}>
                 System
@@ -161,7 +161,7 @@ export function SideNav() {
 
       {/* User + collapse */}
       <div className="shrink-0 px-2 py-2 flex flex-col gap-0.5"
-        style={{ borderTop: "1px solid #1c1f2b" }}>
+        style={{ borderTop: "1px solid #1e2d47" }}>
 
         {/* User avatar + info */}
         {collapsed ? (
@@ -189,7 +189,7 @@ export function SideNav() {
           onClick={() => { logout(); navigate("/login", { replace: true }); }}
           title={collapsed ? "Log out" : undefined}
           className={cn(
-            "flex items-center rounded-md text-sm font-medium transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
+            "flex items-center rounded-md text-sm font-medium transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1e2d47]/50",
             collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full"
           )}
         >

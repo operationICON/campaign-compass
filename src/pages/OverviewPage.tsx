@@ -23,14 +23,14 @@ import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#0a0b0e",
-  card:    "#111318",
-  cardAlt: "#0d0e13",
-  border:  "#1c1f2b",
+  bg:      "#080d14",
+  card:    "#0f1624",
+  cardAlt: "#0c1220",
+  border:  "#1e2d47",
   blue:    "#3b82f6",
   green:   "#22c55e",
   red:     "#ef4444",
-  muted:   "#475569",
+  muted:   "#64748b",
   white:   "#f1f5f9",
   dark:    "#1e2d45",
 } as const;
@@ -490,7 +490,7 @@ export default function OverviewPage() {
 
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  const cardStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: "14px" };
+  const cardStyle = { background: `linear-gradient(135deg, ${T.card} 0%, ${T.cardAlt} 100%)`, border: `1px solid ${T.border}`, borderRadius: "14px" };
 
   const filterBtnCls = (active: boolean) => cn(
     "h-8 px-3.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap select-none",
