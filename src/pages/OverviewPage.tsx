@@ -456,16 +456,27 @@ export default function OverviewPage() {
   }, [isAllTime, totalFans, dateFrom, dateTo]);
 
   const revenuePerSub = useMemo(() => {
-    const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-    const rev  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
-    return subs > 0 ? rev / subs : 0;
-  }, [selectedAccounts]);
+    if (isAllTime) {
+      const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+      const rev  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+      return subs > 0 ? rev / subs : 0;
+    }
+    return totalFans > 0 ? totalRevenue / totalFans : 0;
+  }, [isAllTime, selectedAccounts, totalRevenue, totalFans]);
 
-  const campaignRevenue = useMemo(() =>
-    (linksRaw as any[])
+  const campaignRevenue = useMemo(() => {
+    if (isAllTime) {
+      return (linksRaw as any[])
+        .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
+        .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
+    }
+    return (linksRaw as any[])
       .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
-      .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0),
-  [linksRaw, selectedIds]);
+      .reduce((s: number, l: any) => {
+        const delta = fansDeltaLookup[String(l.id).toLowerCase()];
+        return s + (delta?.revenueGained || 0);
+      }, 0);
+  }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
 
   const unattributedRevenue = useMemo(() => Math.max(0, totalRevenue - campaignRevenue), [totalRevenue, campaignRevenue]);
 
@@ -682,7 +693,7 @@ export default function OverviewPage() {
           <KpiCard
             label="LTV / Sub"
             value={fmtMoney(revenuePerSub)}
-            sub="All time · revenue per subscriber"
+            sub={isAllTime ? "All time · revenue per subscriber" : `${dateLabel} · revenue per new sub`}
             sparkData={revSparkData}
           />
           {/* New Subscribers — custom card */}
