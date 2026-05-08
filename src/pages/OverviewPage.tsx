@@ -1,48 +1,56 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, subDays, eachDayOfInterval } from "date-fns";
+import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
-  getOnlytrafficOrders, getTrackingLinks,
+  getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks,
 } from "@/lib/api";
 import {
-  ResponsiveContainer,
+  PieChart, Pie, Cell, ResponsiveContainer,
   AreaChart, Area,
-  BarChart, Bar, Cell,
+  BarChart, Bar,
   LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
-import { ArrowUpRight, ArrowDownRight, Plus } from "lucide-react";
+import {
+  ChevronDown, Check, Search,
+  ArrowUpRight, ArrowDownRight,
+  BarChart2, TrendingUp, Users,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#0a0b0e",
-  card:    "#111318",
-  cardAlt: "#0d0e13",
-  border:  "#1c1f2b",
-  accent:  "#ef4444",
+  bg:      "#08090c",
+  card:    "#0e1015",
+  cardAlt: "#0b0c10",
+  border:  "#1e2130",
+  blue:    "#3b82f6",
   green:   "#22c55e",
   red:     "#ef4444",
-  muted:   "#4b5568",
+  muted:   "#475569",
   white:   "#f1f5f9",
-  dim:     "#6b7280",
-  dark:    "#1e2333",
+  dark:    "#1e2d45",
 } as const;
 
 const MODEL_COLORS = [
-  "#ef4444","#f97316","#eab308","#22c55e","#06b6d4",
-  "#3b82f6","#8b5cf6","#ec4899","#14b8a6","#84cc16",
+  "#3b82f6","#6366f1","#8b5cf6","#a855f7","#ec4899",
+  "#06b6d4","#10b981","#f59e0b","#f97316","#ef4444",
+  "#22c55e","#eab308","#14b8a6","#84cc16","#0ea5e9",
 ];
 
-// ── Utilities ──────────────────────────────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────────────────────
 function fmtD(d: Date) { return format(d, "yyyy-MM-dd"); }
+
 function fmtMoney(n: number) {
   if (!isFinite(n)) return "$0.00";
   const neg = n < 0;
-  return (neg ? "-$" : "$") + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const abs = Math.abs(n);
+  return (neg ? "-$" : "$") + abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
 function fmtShort(n: number) {
   if (!isFinite(n) || n === 0) return "$0";
   const neg = n < 0; const abs = Math.abs(n);
@@ -51,642 +59,808 @@ function fmtShort(n: number) {
   if (abs >= 1_000)     return `${s}${(abs / 1_000).toFixed(1)}K`;
   return `${s}${abs.toFixed(0)}`;
 }
-function pctDelta(curr: number, prev: number): number | null {
-  if (!prev || !isFinite(prev)) return null;
-  return ((curr - prev) / Math.abs(prev)) * 100;
-}
+
 function computeDateRange(isAllTime: boolean, custom: { from: Date; to: Date } | null) {
   if (isAllTime) return { from: null as string | null, to: null as string | null };
-  if (custom)    return { from: fmtD(custom.from), to: fmtD(custom.to) };
+  if (custom) return { from: fmtD(custom.from), to: fmtD(custom.to) };
   return { from: null as string | null, to: null as string | null };
 }
+
 function prevRange(from: string, to: string) {
   const f = new Date(from), t = new Date(to);
   const days = Math.ceil((t.getTime() - f.getTime()) / 86400000) + 1;
   return { prevFrom: fmtD(subDays(f, days)), prevTo: fmtD(subDays(f, 1)) };
 }
 
-// ── Delta badge ────────────────────────────────────────────────────────────────
-function Delta({ pct, size = "md" }: { pct: number | null; size?: "sm" | "md" }) {
-  if (pct === null || !isFinite(pct)) return null;
-  const up = pct >= 0;
-  const cls = size === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5";
-  return (
-    <span className={`inline-flex items-center gap-0.5 font-semibold rounded-full font-mono ${cls}`}
-      style={{ background: up ? `${T.green}20` : `${T.red}20`, color: up ? T.green : T.red }}>
-      {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-      {Math.abs(pct).toFixed(1)}%
-    </span>
-  );
-}
-
-// ── Mini sparkline ─────────────────────────────────────────────────────────────
-function Sparkline({ data, color = T.green }: { data: number[]; color?: string }) {
-  if (!data || data.length < 2) return <div style={{ width: 80, height: 36 }} />;
+// ── Tiny sparkline (recharts LineChart, no axes) ───────────────────────────────
+function TinySparkline({ data }: { data: number[] }) {
+  if (!data || data.length < 2) return <div style={{ width: 64, height: 32 }} />;
   const pts = data.map((value, index) => ({ index, value }));
   return (
-    <div style={{ width: 80, height: 36 }}>
+    <div style={{ width: 64, height: 32 }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={pts} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
+          <Line type="monotone" dataKey="value" stroke={T.blue} strokeWidth={1.5} dot={false} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-// ── Model card ─────────────────────────────────────────────────────────────────
-function ModelCard({
-  name, avatar, revenue, pct, spark, isAdd,
-}: {
-  name?: string; avatar?: string; revenue?: number; pct?: number | null;
-  spark?: number[]; color?: string; isAdd?: boolean;
-}) {
-  if (isAdd) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 p-5 cursor-pointer transition-opacity hover:opacity-70"
-        style={{ background: "transparent", border: `1.5px dashed ${T.border}`, borderRadius: "0.875rem", minWidth: 160 }}>
-        <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: T.dark }}>
-          <Plus className="w-4 h-4" style={{ color: T.dim }} />
-        </div>
-        <p className="text-xs text-center leading-snug" style={{ color: T.dim }}>
-          Add another<br />model to track
-        </p>
-      </div>
-    );
-  }
-  const initials = (name || "?").slice(0, 2).toUpperCase();
-  const isPos = (pct ?? 0) >= 0;
+// ── Delta badge ───────────────────────────────────────────────────────────────
+function Delta({ pct }: { pct: number | null }) {
+  if (pct === null || !isFinite(pct)) return null;
+  const up = pct >= 0;
   return (
-    <div className="p-5 flex flex-col gap-4 relative overflow-hidden"
-      style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem", minWidth: 160 }}>
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ backgroundImage: `radial-gradient(${T.border} 1px, transparent 1px)`, backgroundSize: "20px 20px", opacity: 0.4 }} />
-      <div className="relative flex items-center gap-2">
-        {avatar
-          ? <img src={avatar} className="w-7 h-7 rounded-full object-cover shrink-0" alt="" />
-          : <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-              style={{ background: T.dark, color: T.dim }}>{initials}</div>}
-        <span className="text-sm font-semibold truncate" style={{ color: T.white }}>{name}</span>
-      </div>
-      <div className="relative">
-        <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{fmtShort(revenue ?? 0)}</p>
-        <div className="flex items-center gap-2 mt-1.5">
-          <Delta pct={pct ?? null} size="sm" />
-          <span className="text-[10px]" style={{ color: T.muted }}>vs prev</span>
+    <span
+      className="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full font-mono"
+      style={{ background: up ? `${T.green}18` : `${T.red}18`, color: up ? T.green : T.red }}
+    >
+      {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+function KpiCard({ label, value, sub, pct, sparkData }: {
+  label: string; value: string; sub?: string;
+  pct?: number | null; sparkData?: number[];
+}) {
+  return (
+    <div className="p-5 flex flex-col gap-3" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem", borderLeft: `4px solid ${T.blue}` }}>
+      <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>{label}</p>
+      <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{value}</p>
+      {sub && <p className="text-xs leading-snug" style={{ color: T.muted }}>{sub}</p>}
+      <div className="flex items-end justify-between mt-auto pt-1">
+        <div>
+          {pct !== undefined && pct !== null
+            ? <><Delta pct={pct} /><p className="text-[10px] mt-1" style={{ color: T.muted }}>vs prev period</p></>
+            : <div />}
         </div>
-      </div>
-      <div className="relative self-end">
-        <Sparkline data={spark ?? []} color={isPos ? T.green : T.red} />
+        {sparkData && <TinySparkline data={sparkData} />}
       </div>
     </div>
   );
 }
 
-// ── Custom tooltip ─────────────────────────────────────────────────────────────
+// ── Account multi-select ──────────────────────────────────────────────────────
+function AccountFilter({ accounts, selected, onChange }: {
+  accounts: any[]; selected: string[]; onChange: (ids: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
+
+  const filtered = accounts.filter(a => !search || a.display_name.toLowerCase().includes(search.toLowerCase()));
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+
+  const btnCls = "h-8 px-3 rounded-md text-sm font-medium flex items-center gap-2 transition-colors select-none";
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={btnCls}
+        style={{ background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
+      >
+        <Users className="w-3.5 h-3.5" />
+        <span style={{ color: T.white }}>Models ({selected.length})</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-72 rounded-xl shadow-2xl z-[60]"
+          style={{ background: T.card, border: `1px solid ${T.border}` }}>
+          <div className="p-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: T.muted }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search models…"
+                className="w-full h-8 pl-8 pr-3 text-xs rounded-lg focus:outline-none"
+                style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.white }} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>
+            <button onClick={() => onChange(accounts.map(a => a.id))} className="text-xs" style={{ color: T.blue }}>Select All</button>
+            <span style={{ color: T.muted }}>·</span>
+            <button onClick={() => onChange([])} className="text-xs hover:text-white transition-colors" style={{ color: T.muted }}>Deselect All</button>
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
+            {filtered.map(a => {
+              const checked = selected.includes(a.id);
+              return (
+                <button key={a.id} onClick={() => toggle(a.id)}
+                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors hover:bg-[#1e2130]/60">
+                  <div className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+                    style={{ background: checked ? T.blue : "transparent", borderColor: checked ? T.blue : T.border }}>
+                    {checked && <Check className="w-2.5 h-2.5 text-white" />}
+                  </div>
+                  {a.avatar_thumb_url
+                    ? <img src={a.avatar_thumb_url} className="w-6 h-6 rounded-full object-cover shrink-0" alt="" />
+                    : <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{ background: T.dark, color: T.muted }}>
+                        {(a.display_name || "?").slice(0, 2).toUpperCase()}
+                      </div>}
+                  <span className="text-sm truncate" style={{ color: T.white }}>{a.display_name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Custom tooltip ────────────────────────────────────────────────────────────
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="px-3 py-2 rounded-lg text-xs shadow-xl"
-      style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.accent}` }}>
+    <div className="px-3 py-2 rounded-lg text-xs"
+      style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.blue}` }}>
       <p className="mb-1" style={{ color: T.muted }}>{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="font-mono font-semibold" style={{ color: p.color || T.white }}>
-          {p.name}: {fmtMoney(p.value)}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-// ── Revenue heatmap ────────────────────────────────────────────────────────────
-function RevenueHeatmap({ data }: { data: Array<{ date: string; value: number }> }) {
-  if (!data.length) return null;
-  const max = Math.max(...data.map(d => d.value), 1);
-  const weeks: typeof data[] = [];
-  for (let i = 0; i < data.length; i += 7) weeks.push(data.slice(i, i + 7));
-  return (
-    <div className="flex gap-1">
-      {weeks.map((week, wi) => (
-        <div key={wi} className="flex flex-col gap-1">
-          {week.map((d, di) => {
-            const intensity = max > 0 ? d.value / max : 0;
-            const alpha = 0.12 + intensity * 0.88;
-            return (
-              <div key={di} title={`${d.date}: ${fmtMoney(d.value)}`}
-                className="w-3 h-3 rounded-sm cursor-default"
-                style={{ background: `rgba(239,68,68,${alpha})` }} />
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Revenue flow chart (Sankey-style SVG) ─────────────────────────────────────
-function RevenueFlowChart({
-  models, attributed, unattributed, total,
-}: {
-  models: Array<{ name: string; value: number; color: string }>;
-  attributed: number; unattributed: number; total: number;
-}) {
-  if (!total) return <div className="h-48 flex items-center justify-center text-sm" style={{ color: T.muted }}>No data</div>;
-  const leftH = 160;
-  return (
-    <div className="relative w-full h-48">
-      <svg width="100%" height="100%" viewBox="0 0 280 180" preserveAspectRatio="xMidYMid meet">
-        {(() => {
-          let y = 10;
-          return models.filter(m => m.value > 0).slice(0, 5).map((m, i) => {
-            const h = Math.max(6, (m.value / total) * leftH);
-            const cy = y + h / 2;
-            const block = (
-              <g key={i}>
-                <rect x={0} y={y} width={50} height={h} rx={3} fill={m.color} opacity={0.85} />
-                <text x={56} y={cy + 3} fontSize={8} fill={T.dim}>
-                  {m.name.slice(0, 12)}{m.name.length > 12 ? "…" : ""}
-                </text>
-                <path
-                  d={`M 50 ${cy} C 130 ${cy} 130 90 180 90`}
-                  stroke={m.color} strokeWidth={Math.max(1.5, h * 0.35)} fill="none" opacity={0.25}
-                />
-              </g>
-            );
-            y += h + 5;
-            return block;
-          });
-        })()}
-        <rect x={180} y={10} width={40} height={leftH} rx={4} fill={T.accent} opacity={0.1} />
-        <rect x={180} y={10} width={40} height={leftH} rx={4} stroke={T.accent} strokeWidth={1} fill="none" />
-        <text x={200} y={97} fontSize={8} fill={T.white} textAnchor="middle">Total</text>
-        {[
-          { label: "Campaigns", value: attributed,   y: 20,  color: T.accent },
-          { label: "Direct",    value: unattributed, y: 110, color: T.dark   },
-        ].map((seg, i) => {
-          const h = Math.max(5, (seg.value / total) * (leftH - 20));
-          return (
-            <g key={i}>
-              <path
-                d={`M 220 90 C 245 90 245 ${seg.y + h / 2} 260 ${seg.y + h / 2}`}
-                stroke={seg.color} strokeWidth={Math.max(1.5, h * 0.3)} fill="none" opacity={0.5}
-              />
-              <rect x={260} y={seg.y} width={18} height={Math.max(5, h)} rx={3} fill={seg.color} opacity={0.85} />
-              <text x={240} y={seg.y + h / 2 + 3} fontSize={7.5} fill={T.dim}>{seg.label}</text>
-            </g>
-          );
-        })}
-      </svg>
+      <p className="font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(payload[0].value)}</p>
     </div>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function OverviewPage() {
-  const [isAllTime, setIsAllTime] = useState(true);
-  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [selectedIds, setSelectedIds]   = useState<string[]>([]);
+  const [idsReady, setIdsReady]         = useState(false);
+  const [isAllTime, setIsAllTime]       = useState(true);
+  const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
+  const [chartType, setChartType]       = useState<"bar" | "line">("line");
+  const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
+  const [tablePage, setTablePage]       = useState(0);
+  const [tablePageSize, setTablePageSize] = useState(10);
 
-  const { from: dateFrom, to: dateTo } = useMemo(
-    () => computeDateRange(isAllTime, customRange),
-    [isAllTime, customRange]
-  );
+  const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
+  const { prevFrom, prevTo } = useMemo(() =>
+    dateFrom && dateTo ? prevRange(dateFrom, dateTo) : { prevFrom: null as string | null, prevTo: null as string | null },
+    [dateFrom, dateTo]);
+  const revMult = 1.0;
 
-  // For comparison period — fall back to last 30 vs 30 when all-time
-  const { prevFrom, prevTo } = useMemo(() => {
-    if (dateFrom && dateTo) return prevRange(dateFrom, dateTo);
-    const to   = fmtD(new Date());
-    const from = fmtD(subDays(new Date(), 30));
-    return prevRange(from, to);
-  }, [dateFrom, dateTo]);
+  // ── Queries ────────────────────────────────────────────────────────────────
+  const { data: accountsRaw = [] } = useQuery({ queryKey: ["accounts"], queryFn: getAccounts, staleTime: 5 * 60 * 1000 });
+  const available = useMemo(() => (accountsRaw as any[]).filter(a => a.is_active && !a.sync_excluded), [accountsRaw]);
 
-  // ── Queries ──────────────────────────────────────────────────────────────────
-  const { data: accounts = [] } = useQuery({
-    queryKey: ["accounts"], queryFn: getAccounts, staleTime: 5 * 60_000,
+  useEffect(() => {
+    if (!idsReady && available.length > 0) { setSelectedIds(available.map((a: any) => a.id)); setIdsReady(true); }
+  }, [available, idsReady]);
+
+  const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
+
+  const { data: txRows = [], isLoading: txLoading } = useQuery({
+    queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
+    enabled: !isAllTime && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: links = [] } = useQuery({
-    queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60_000,
+  const { data: prevTxRows = [] } = useQuery({
+    queryKey: ["ov2_prev_tx", prevFrom, prevTo, selectedIds.join(",")],
+    queryFn: () => getTransactionDaily({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: dailyTx = [], isLoading: txLoading } = useQuery({
-    queryKey: ["ov2_tx", dateFrom, dateTo],
-    queryFn: () => getTransactionDaily({ date_from: dateFrom!, date_to: dateTo!, account_ids: [] }),
-    enabled: !isAllTime && !!dateFrom && !!dateTo,
-    staleTime: 5 * 60_000,
+  const { data: snaps = [] } = useQuery({
+    queryKey: ["ov2_snaps", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds, cols: "slim" }),
+    enabled: !isAllTime && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: prevDailyTx = [] } = useQuery({
-    queryKey: ["ov2_prev_tx", prevFrom, prevTo],
-    queryFn: () => getTransactionDaily({ date_from: prevFrom, date_to: prevTo, account_ids: [] }),
-    enabled: !!prevFrom && !!prevTo,
-    staleTime: 5 * 60_000,
+  const { data: prevSnaps = [] } = useQuery({
+    queryKey: ["ov2_prev_snaps", prevFrom, prevTo, selectedIds.join(",")],
+    queryFn: () => getSnapshotsByDateRange({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds, cols: "slim" }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: orders = [] } = useQuery({
     queryKey: ["ov2_orders", dateFrom, dateTo],
     queryFn: () => getOnlytrafficOrders({ date_from: dateFrom ?? undefined, date_to: dateTo ?? undefined, statuses: ["completed","accepted","active","waiting"] }),
-    staleTime: 5 * 60_000,
+    enabled: selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
-  // ── Derived metrics ──────────────────────────────────────────────────────────
+  const { data: prevOrders = [] } = useQuery({
+    queryKey: ["ov2_prev_orders", prevFrom, prevTo],
+    queryFn: () => getOnlytrafficOrders({ date_from: prevFrom!, date_to: prevTo!, statuses: ["completed","accepted","active","waiting"] }),
+    enabled: !isAllTime && !!prevFrom && !!prevTo,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Revenue by account — all-time uses ltv_total, period uses daily tx
-  const revByAcct = useMemo(() => {
-    const map: Record<string, number> = {};
-    if (isAllTime) {
-      (accounts as any[]).forEach((a: any) => { map[a.id] = Number(a.ltv_total || 0); });
-    } else {
-      (dailyTx as any[]).forEach((tx: any) => {
-        map[tx.account_id] = (map[tx.account_id] || 0) + Number(tx.revenue || 0);
-      });
-    }
-    return map;
-  }, [accounts, dailyTx, isAllTime]);
+  const [prevMonthStart, prevMonthEnd, daysInPrevMonth] = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end   = new Date(now.getFullYear(), now.getMonth(), 0);
+    return [fmtD(start), fmtD(end), end.getDate()];
+  }, []);
 
-  const prevRevByAcct = useMemo(() => {
-    const map: Record<string, number> = {};
-    (prevDailyTx as any[]).forEach((tx: any) => {
-      map[tx.account_id] = (map[tx.account_id] || 0) + Number(tx.revenue || 0);
+  const { data: pmSnaps = [] } = useQuery({
+    queryKey: ["new_subs_prev_month", selectedIds.join(",")],
+    queryFn: () => getSnapshotsByDateRange({ date_from: prevMonthStart, date_to: prevMonthEnd, account_ids: selectedIds, cols: "slim" }),
+    enabled: selectedIds.length > 0,
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const newSubsPrevMonth = useMemo(() =>
+    (pmSnaps as any[]).reduce((s: number, snap: any) =>
+      s + (selectedIds.includes(snap.account_id) ? Number(snap.subscribers || 0) : 0), 0),
+  [pmSnaps, selectedIds]);
+
+  // ── Derived maps ──────────────────────────────────────────────────────────
+  const linkToAccount = useMemo(() => {
+    const m: Record<string, string> = {};
+    (linksRaw as any[]).forEach(l => { if (l.id && l.account_id) m[l.id] = l.account_id; });
+    return m;
+  }, [linksRaw]);
+
+  const linkCountByAccount = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => { m[l.account_id] = (m[l.account_id] || 0) + 1; });
+    return m;
+  }, [linksRaw]);
+
+  const clicksByAccount = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => { m[l.account_id] = (m[l.account_id] || 0) + Number(l.clicks || 0); });
+    return m;
+  }, [linksRaw]);
+
+  const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
+
+  const aggSnaps = (data: any[], field: string, ids: string[]) => {
+    const m: Record<string, number> = {};
+    (data as any[]).forEach(s => {
+      if (!ids.includes(s.account_id)) return;
+      m[s.account_id] = (m[s.account_id] || 0) + Number(s[field] || 0);
     });
-    return map;
-  }, [prevDailyTx]);
+    return m;
+  };
 
-  const totalRevenue = useMemo(() =>
-    Object.values(revByAcct).reduce((s, v) => s + v, 0), [revByAcct]);
-
-  const prevRevenue = useMemo(() =>
-    Object.values(prevRevByAcct).reduce((s, v) => s + v, 0), [prevRevByAcct]);
-
-  const revPct = useMemo(() => pctDelta(totalRevenue, prevRevenue), [totalRevenue, prevRevenue]);
-
-  // Top models by revenue
-  const topModels = useMemo(() =>
-    (accounts as any[])
-      .map((a: any, i: number) => ({
-        id: a.id, name: a.display_name, avatar: a.avatar_thumb_url,
-        revenue: revByAcct[a.id] || 0,
-        pct: pctDelta(revByAcct[a.id] || 0, prevRevByAcct[a.id] || 0),
-        color: MODEL_COLORS[i % MODEL_COLORS.length],
-      }))
-      .filter(m => m.revenue > 0)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 3),
-  [accounts, revByAcct, prevRevByAcct]);
-
-  // Revenue chart (monthly for all-time, daily for period)
-  const revenueChartData = useMemo(() => {
+  const revByAcct = useMemo(() => {
     if (isAllTime) {
       const m: Record<string, number> = {};
-      (accounts as any[]).forEach((a: any) => {
+      selectedAccounts.forEach((a: any) => { m[a.id] = Number(a.ltv_total || 0); });
+      return m;
+    }
+    const m: Record<string, number> = {};
+    txRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+    return m;
+  }, [txRows, selectedIds, isAllTime, selectedAccounts]);
+
+  const prevRevByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    prevTxRows.forEach(r => { if (selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.revenue || 0); });
+    return m;
+  }, [prevTxRows, selectedIds]);
+
+  const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),     [snaps, selectedIds]);
+  const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds), [prevSnaps, selectedIds]);
+
+  const spendByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    (orders as any[]).forEach(o => {
+      const aid = linkToAccount[o.tracking_link_id];
+      if (!aid || !selectedIds.includes(aid)) return;
+      m[aid] = (m[aid] || 0) + Number(o.total_spent || 0);
+    });
+    return m;
+  }, [orders, linkToAccount, selectedIds]);
+
+  const prevSpendByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    (prevOrders as any[]).forEach(o => {
+      const aid = linkToAccount[o.tracking_link_id];
+      if (!aid || !selectedIds.includes(aid)) return;
+      m[aid] = (m[aid] || 0) + Number(o.total_spent || 0);
+    });
+    return m;
+  }, [prevOrders, linkToAccount, selectedIds]);
+
+  const totalRevenue = useMemo(() =>
+    Object.values(revByAcct).reduce((s, v) => s + v, 0) * revMult,
+    [revByAcct, revMult]);
+
+  const totalFans = useMemo(() => {
+    if (isAllTime) return selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    return Object.values(subsByAcct).reduce((s, v) => s + v, 0);
+  }, [isAllTime, selectedAccounts, subsByAcct]);
+
+  const prevTotalFans = useMemo(() => Object.values(prevSubsByAcct).reduce((s, v) => s + v, 0), [prevSubsByAcct]);
+
+  const newSubsKpi = useMemo(() => isAllTime ? newSubsPrevMonth : totalFans, [isAllTime, newSubsPrevMonth, totalFans]);
+  const newSubsPerDay = useMemo(() => {
+    if (isAllTime) return daysInPrevMonth > 0 ? newSubsPrevMonth / daysInPrevMonth : 0;
+    const days = dateFrom && dateTo
+      ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000) + 1
+      : 30;
+    return days > 0 ? totalFans / days : 0;
+  }, [isAllTime, newSubsPrevMonth, daysInPrevMonth, totalFans, dateFrom, dateTo]);
+
+  const revenuePerSub = useMemo(() => {
+    const subs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    const rev  = selectedAccounts.reduce((s: number, a: any) => s + Number(a.ltv_total || 0), 0);
+    return subs > 0 ? rev / subs : 0;
+  }, [selectedAccounts]);
+
+  const unattributedPct = useMemo(() => {
+    const totalSubs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
+    const attributed = (linksRaw as any[])
+      .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
+      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
+    if (totalSubs <= 0) return 0;
+    return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
+  }, [selectedAccounts, linksRaw, selectedIds]);
+
+  // Chart data
+  const chartData = useMemo(() => {
+    if (isAllTime) {
+      const m: Record<string, number> = {};
+      let hasMonthlyData = false;
+      selectedAccounts.forEach((a: any) => {
         const monthly = a.revenue_monthly as Record<string, number> | null;
-        if (!monthly) return;
+        if (!monthly || Object.keys(monthly).length === 0) return;
+        hasMonthlyData = true;
         Object.entries(monthly).forEach(([month, amount]) => {
           m[month] = (m[month] || 0) + Number(amount);
         });
       });
-      return Object.entries(m)
-        .filter(([, v]) => v > 0)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, total]) => ({
-          date: format(new Date(key + "-15"), "MMM yy"),
-          total,
-          attributed: total * 0.72,
-        }));
-    }
-    const byDate: Record<string, number> = {};
-    (dailyTx as any[]).forEach((tx: any) => {
-      const d = String(tx.date).split("T")[0];
-      byDate[d] = (byDate[d] || 0) + Number(tx.revenue || 0);
-    });
-    return Object.keys(byDate).sort().map(date => ({
-      date: format(new Date(date + "T12:00:00"), "MMM d"),
-      total: byDate[date],
-      attributed: byDate[date] * 0.72,
-    }));
-  }, [accounts, dailyTx, isAllTime]);
-
-  // Weekly bar (day-of-week aggregation)
-  const weeklyBarData = useMemo(() => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const byDay: Record<number, number> = { 0:0,1:0,2:0,3:0,4:0,5:0,6:0 };
-    (dailyTx as any[]).forEach((tx: any) => {
-      const d = new Date(String(tx.date).split("T")[0] + "T12:00:00");
-      byDay[d.getDay()] = (byDay[d.getDay()] || 0) + Number(tx.revenue || 0);
-    });
-    const maxVal = Math.max(...Object.values(byDay));
-    return days.map((day, i) => ({ day, revenue: byDay[i], highlight: byDay[i] === maxVal && maxVal > 0 }));
-  }, [dailyTx]);
-
-  // Per-account sparklines (last 14 data points from daily tx)
-  const sparkByAcct = useMemo(() => {
-    const byAcctDate: Record<string, Record<string, number>> = {};
-    (dailyTx as any[]).forEach((tx: any) => {
-      const d = String(tx.date).split("T")[0];
-      if (!byAcctDate[tx.account_id]) byAcctDate[tx.account_id] = {};
-      byAcctDate[tx.account_id][d] = (byAcctDate[tx.account_id][d] || 0) + Number(tx.revenue || 0);
-    });
-    const result: Record<string, number[]> = {};
-    // All-time: build from monthly data
-    if (isAllTime) {
-      (accounts as any[]).forEach((a: any) => {
-        const monthly = a.revenue_monthly as Record<string, number> | null;
-        if (!monthly) return;
-        result[a.id] = Object.entries(monthly)
+      if (hasMonthlyData) {
+        return Object.entries(m)
+          .filter(([, v]) => v > 0)
           .sort(([a], [b]) => a.localeCompare(b))
-          .slice(-12)
-          .map(([, v]) => Number(v));
-      });
-      return result;
+          .map(([key, revenue]) => ({ date: key, revenue, label: format(new Date(key + "-15"), "MMM yy") }));
+      }
     }
-    Object.entries(byAcctDate).forEach(([id, dateMap]) => {
-      const sorted = Object.keys(dateMap).sort().slice(-14);
-      result[id] = sorted.map(d => dateMap[d]);
+    const daysDiff = dateFrom && dateTo
+      ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
+      : 90;
+    const byMonth = daysDiff > 90;
+    const m: Record<string, number> = {};
+    txRows.forEach(s => {
+      if (!selectedIds.includes(s.account_id)) return;
+      const d = String(s.date).split("T")[0];
+      const key = byMonth ? d.slice(0, 7) : d;
+      m[key] = (m[key] || 0) + Number(s.revenue || 0);
     });
-    return result;
-  }, [dailyTx, accounts, isAllTime]);
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
+      date: key, revenue,
+      label: byMonth
+        ? format(new Date(key + "-15"), "MMM yy")
+        : format(new Date(key + "T12:00:00"), "MMM d"),
+    }));
+  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts]);
 
-  // Attribution — all-time from tracking links revenue, period from orders
-  const attributedRevenue = useMemo(() => {
-    if (isAllTime) {
-      const linkRev = (links as any[]).reduce((s: number, l: any) => s + Number(l.revenue || 0), 0);
-      return Math.min(linkRev, totalRevenue);
-    }
-    const orderTotal = (orders as any[]).reduce((s: number, o: any) => s + Number(o.total_spent || 0), 0);
-    return Math.min(orderTotal, totalRevenue);
-  }, [links, orders, totalRevenue, isAllTime]);
-  const unattributedRevenue = Math.max(0, totalRevenue - attributedRevenue);
+  const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
 
-  // Recent activity (last 8 daily tx rows)
-  const recentTx = useMemo(() =>
-    [...(dailyTx as any[])]
-      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 8)
-      .map((tx: any) => {
-        const acct = (accounts as any[]).find((a: any) => a.id === tx.account_id);
-        return {
-          id: String(tx.date) + tx.account_id,
-          name: acct?.display_name || "Unknown",
-          avatar: acct?.avatar_thumb_url,
-          date: format(new Date(String(tx.date).split("T")[0] + "T12:00:00"), "EEE"),
-          amount: Number(tx.revenue || 0),
-        };
-      }),
-  [dailyTx, accounts]);
+  // Sparkline data derived from chart
+  const revSparkData = useMemo(() => chartData.slice(-20).map(d => d.revenue), [chartData]);
 
-  // Heatmap — last 49 days of daily tx
-  const heatmapData = useMemo(() => {
-    const byDate: Record<string, number> = {};
-    (dailyTx as any[]).forEach((tx: any) => {
-      const d = String(tx.date).split("T")[0];
-      byDate[d] = (byDate[d] || 0) + Number(tx.revenue || 0);
+  const dateLabel = useMemo(() => {
+    if (isAllTime) return "All Time";
+    if (dateFrom && dateTo)
+      return `${format(new Date(dateFrom + "T12:00:00"), "MMM d")} – ${format(new Date(dateTo + "T12:00:00"), "MMM d, yyyy")}`;
+    return "";
+  }, [isAllTime, dateFrom, dateTo]);
+
+  // Table rows
+  const tableRows = useMemo(() => {
+    const rows = selectedAccounts.map((a: any) => {
+      const rev        = (revByAcct[a.id] || 0) * revMult;
+      const prevRev    = (prevRevByAcct[a.id] || 0) * revMult;
+      const spend      = spendByAcct[a.id] || 0;
+      const prevSpend  = prevSpendByAcct[a.id] || 0;
+      const profit     = rev - spend;
+      const prevProfit = prevRev - prevSpend;
+      const newFans    = isAllTime ? Number(a.subscribers_count || 0) : (subsByAcct[a.id] || 0);
+      const prevNewFans = prevSubsByAcct[a.id] || 0;
+      const clicks     = clicksByAccount[a.id] || 0;
+      const cvr        = isAllTime && clicks > 0 ? (newFans / clicks) * 100 : null;
+      const roi        = spend > 0 ? ((rev - spend) / spend) * 100 : null;
+      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, clicks, cvr, roi, linkCount: linkCountByAccount[a.id] || 0 };
     });
-    const end = new Date();
-    const start = subDays(end, 48);
-    return eachDayOfInterval({ start, end }).map(d => ({ date: fmtD(d), value: byDate[fmtD(d)] || 0 }));
-  }, [dailyTx]);
+    const dir = tableSort.dir === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      switch (tableSort.key) {
+        case "revenue":  return dir * (a.rev - b.rev);
+        case "spend":    return dir * (a.spend - b.spend);
+        case "profit":   return dir * (a.profit - b.profit);
+        case "newFans":  return dir * (a.newFans - b.newFans);
+        case "cvr":      return dir * ((a.cvr ?? -1) - (b.cvr ?? -1));
+        case "roi":      return dir * ((a.roi ?? -Infinity) - (b.roi ?? -Infinity));
+        case "account":  return dir * a.account.display_name.localeCompare(b.account.display_name);
+        default: return 0;
+      }
+    });
+    return rows;
+  }, [selectedAccounts, isAllTime, revByAcct, prevRevByAcct, spendByAcct, prevSpendByAcct,
+      subsByAcct, prevSubsByAcct, revMult, tableSort, linkCountByAccount]);
 
-  const netCashflow = totalRevenue - prevRevenue;
-  const cashflowPct = pctDelta(totalRevenue, prevRevenue);
+  const donutData = useMemo(() =>
+    selectedAccounts
+      .map((a: any) => ({ name: a.display_name, value: (revByAcct[a.id] || 0) * revMult }))
+      .filter(d => d.value > 0)
+      .sort((a, b) => b.value - a.value),
+    [selectedAccounts, revByAcct, revMult]);
+  const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
 
-  // Flow chart model data
-  const flowModels = useMemo(() =>
-    (accounts as any[])
-      .map((a: any, i: number) => ({ name: a.display_name, value: revByAcct[a.id] || 0, color: MODEL_COLORS[i % MODEL_COLORS.length] }))
-      .filter(m => m.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5),
-  [accounts, revByAcct]);
+  const totalPages = Math.ceil(tableRows.length / tablePageSize);
+  const pagedRows  = tableRows.slice(tablePage * tablePageSize, (tablePage + 1) * tablePageSize);
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const sortBy = (key: string) => {
+    setTableSort(s => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" }));
+    setTablePage(0);
+  };
+
+  function SortIcon({ k }: { k: string }) {
+    if (tableSort.key !== k) return <ChevronDown className="w-3 h-3 ml-0.5 opacity-20" />;
+    return <ChevronDown className={cn("w-3 h-3 ml-0.5 transition-transform", tableSort.dir === "asc" && "rotate-180")} style={{ color: T.blue }} />;
+  }
+
+  const handleExport = () => {
+    const csv = [
+      ["Account","Username","New Fans","Revenue","Spend","Profit","CVR%","ROI%"].join(","),
+      ...tableRows.map(r => [`"${r.account.display_name}"`, r.account.username || "", r.newFans, r.rev.toFixed(2), r.spend.toFixed(2), r.profit.toFixed(2), r.cvr != null ? r.cvr.toFixed(1) : "", r.roi != null ? r.roi.toFixed(1) : ""].join(",")),
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `overview-${dateFrom ?? "all-time"}.csv`;
+    a.click();
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const cardStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" };
+
+  const filterBtnCls = (active: boolean) => cn(
+    "h-8 px-3.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap select-none",
+    active
+      ? "text-white"
+      : "text-[#475569] hover:text-[#f1f5f9]"
+  );
+
   return (
     <DashboardLayout>
-      <div className="min-h-full p-6 space-y-5" style={{ background: T.bg }}>
+      <div className="w-full max-w-screen-2xl mx-auto px-6 py-6 space-y-6">
 
-        {/* ── Header: Total Revenue ──────────────────────────────────────────── */}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between pb-4" style={{ borderBottom: `1px solid ${T.border}` }}>
           <div>
-            <p className="text-sm font-medium mb-1" style={{ color: T.muted }}>Total Revenue</p>
-            <div className="flex items-baseline gap-3">
-              <h1 className="text-5xl font-bold font-mono leading-none" style={{ color: T.white }}>
-                {txLoading && !isAllTime ? "…" : fmtMoney(totalRevenue)}
-              </h1>
-              <Delta pct={revPct} />
-            </div>
-            <div className="flex items-center gap-4 mt-2">
-              <span className="text-sm" style={{ color: T.muted }}>
-                Attributed: <span style={{ color: T.white }}>{fmtShort(attributedRevenue)}</span>
-              </span>
-              <span className="text-[10px]" style={{ color: T.border }}>·</span>
-              <span className="text-sm" style={{ color: T.muted }}>
-                Unattributed: <span style={{ color: T.dim }}>{fmtShort(unattributedRevenue)}</span>
-              </span>
-            </div>
+            <h1 className="text-xl font-semibold" style={{ color: T.white }}>Overview</h1>
+            <p className="text-sm mt-0.5" style={{ color: T.muted }}>
+              {dateLabel} · {selectedIds.length} model{selectedIds.length !== 1 ? "s" : ""}
+            </p>
           </div>
-
-          {/* Date controls */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
             <button
-              onClick={() => { setIsAllTime(true); setCustomRange(null); }}
-              className="h-8 px-3 rounded-lg text-xs font-medium transition-colors"
-              style={isAllTime
-                ? { background: T.accent, color: T.white }
-                : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
+              onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
+              className={filterBtnCls(isAllTime)}
+              style={isAllTime ? { background: T.blue } : { background: T.card, border: `1px solid ${T.border}` }}
             >
               All Time
             </button>
             <DateRangePicker
               value={customRange}
-              onChange={range => {
-                if (range) { setCustomRange(range); setIsAllTime(false); }
-              }}
+              onChange={range => { if (range) { setCustomRange(range); setIsAllTime(false); setTablePage(0); } }}
             />
           </div>
         </div>
 
-        {/* ── Model cards ───────────────────────────────────────────────────── */}
-        <div className="flex gap-3 overflow-x-auto pb-1">
-          {topModels.map(m => (
-            <ModelCard
-              key={m.id}
-              name={m.name}
-              avatar={m.avatar}
-              revenue={m.revenue}
-              pct={m.pct}
-              spark={sparkByAcct[m.id] || []}
-              color={m.color}
-            />
-          ))}
-          {topModels.length < 4 && <ModelCard isAdd />}
+        {/* ── Row 1: KPI Cards ────────────────────────────────────────────── */}
+        <div className="grid grid-cols-4 gap-4">
+          <KpiCard
+            label="LTV / Sub"
+            value={fmtMoney(revenuePerSub)}
+            sub="All time · revenue per subscriber"
+            sparkData={revSparkData}
+          />
+          <KpiCard
+            label="New Subs"
+            value={newSubsKpi.toLocaleString()}
+            sub={isAllTime ? `${newSubsPerDay.toFixed(1)}/day · Prev Month` : `${newSubsPerDay.toFixed(1)}/day`}
+            pct={!isAllTime && prevTotalFans > 0 ? ((totalFans - prevTotalFans) / prevTotalFans) * 100 : null}
+            sparkData={revSparkData}
+          />
+          <KpiCard
+            label="Unattributed %"
+            value={`${unattributedPct.toFixed(1)}%`}
+            sub="Fans with no tracking link"
+            sparkData={revSparkData}
+          />
+          <KpiCard
+            label="Total Revenue"
+            value={txLoading ? "…" : fmtMoney(totalRevenue)}
+            sub={isAllTime ? "All time · all models" : "Net earnings in period"}
+            sparkData={revSparkData}
+          />
         </div>
 
-        {/* ── Revenue chart + Weekly bar ─────────────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-
-          {/* Revenue over time */}
-          <div className="p-5" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" }}>
-            <div className="flex items-start justify-between mb-1">
-              <div>
-                <p className="text-xs uppercase tracking-widest" style={{ color: T.muted }}>Revenue Over Time</p>
-                <p className="text-3xl font-bold font-mono mt-0.5" style={{ color: T.white }}>{fmtMoney(totalRevenue)}</p>
-              </div>
-              <div className="flex gap-4 text-xs" style={{ color: T.muted }}>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-6 h-0.5" style={{ background: T.white }} />Total
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-6 h-0.5" style={{ background: T.accent }} />Campaign
-                </span>
-              </div>
+        {/* ── Row 2: Revenue Chart ─────────────────────────────────────────── */}
+        <div className="p-5" style={cardStyle}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest mb-1" style={{ color: T.muted }}>
+                Revenue Overview
+              </p>
+              <p className="text-2xl font-bold font-mono" style={{ color: T.white }}>
+                {fmtMoney(isAllTime ? totalRevenue : chartTotal)}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
             </div>
-            <div className="mt-4" style={{ height: 220 }}>
-              {revenueChartData.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-sm" style={{ color: T.muted }}>
-                  {txLoading ? "Loading…" : "No data for this period"}
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueChartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gtotal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={T.white}  stopOpacity={0.12} />
-                        <stop offset="95%" stopColor={T.white}  stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gattr" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={T.accent} stopOpacity={0.18} />
-                        <stop offset="95%" stopColor={T.accent} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={false} stroke={T.border} strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 11 }} axisLine={false} tickLine={false}
-                      interval={Math.max(0, Math.floor(revenueChartData.length / 8) - 1)} />
-                    <YAxis tickFormatter={v => fmtShort(v)} tick={{ fill: T.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={56} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Area type="monotone" dataKey="total"      name="Total"    stroke={T.white}  strokeWidth={2} fill="url(#gtotal)" dot={false} />
-                    <Area type="monotone" dataKey="attributed" name="Campaign" stroke={T.accent} strokeWidth={2} fill="url(#gattr)"  dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {/* Weekly breakdown */}
-          <div className="p-5" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" }}>
-            <div className="flex items-start justify-between mb-1">
-              <div>
-                <p className="text-xs uppercase tracking-widest" style={{ color: T.muted }}>Weekly Breakdown</p>
-                <p className="text-2xl font-bold font-mono mt-0.5" style={{ color: T.white }}>
-                  {fmtShort(weeklyBarData.reduce((s, d) => s + d.revenue, 0))}
-                </p>
-              </div>
-            </div>
-            <div className="mt-4" style={{ height: 220 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyBarData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} barSize={22}>
-                  <CartesianGrid vertical={false} stroke={T.border} strokeDasharray="3 3" />
-                  <XAxis dataKey="day" tick={{ fill: T.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={v => fmtShort(v)} tick={{ fill: T.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="revenue" name="Revenue" radius={[4, 4, 0, 0]}>
-                    {weeklyBarData.map((entry, index) => (
-                      <Cell key={index} fill={entry.highlight ? T.accent : T.dark} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Bottom row: Recent Activity + Flow + Heatmap ──────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr_1fr] gap-4">
-
-          {/* Recent Activity */}
-          <div className="p-5" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" }}>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-semibold" style={{ color: T.white }}>Recent Activity</p>
-            </div>
-            <div className="space-y-3">
-              {recentTx.length === 0 ? (
-                <p className="text-xs text-center py-8" style={{ color: T.muted }}>
-                  {isAllTime ? "Select a date range to see activity" : txLoading ? "Loading…" : "No recent transactions"}
-                </p>
-              ) : recentTx.map(tx => (
-                <div key={tx.id} className="flex items-center gap-3">
-                  {tx.avatar
-                    ? <img src={tx.avatar} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />
-                    : <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{ background: T.dark, color: T.dim }}>
-                        {tx.name.slice(0, 2).toUpperCase()}
-                      </div>}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: T.white }}>{tx.name}</p>
-                    <p className="text-[11px]" style={{ color: T.muted }}>Revenue · {tx.date}</p>
-                  </div>
-                  <p className="text-sm font-mono font-semibold shrink-0" style={{ color: T.green }}>
-                    +{fmtShort(tx.amount)}
-                  </p>
-                </div>
+            <div className="flex items-center gap-0.5 p-0.5 rounded-lg" style={{ background: T.border }}>
+              {([["bar", BarChart2], ["line", TrendingUp]] as [string, any][]).map(([type, Icon]) => (
+                <button key={type} onClick={() => setChartType(type as "bar" | "line")}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{
+                    background: chartType === type ? T.card : "transparent",
+                    color: chartType === type ? T.white : T.muted,
+                  }}>
+                  <Icon className="w-4 h-4" />
+                </button>
               ))}
             </div>
           </div>
+          <div className="h-56">
+            {chartData.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-sm" style={{ color: T.muted }}>
+                  {txLoading ? "Loading…" : "No data for this period"}
+                </p>
+              </div>
+            ) : chartType === "line" ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={T.blue} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={T.blue} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
+                    interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                  <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
+                    tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area type="monotone" dataKey="revenue" stroke={T.blue} strokeWidth={2}
+                    fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: T.blue }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
+                    interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
+                  <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
+                    tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="revenue" fill={T.dark} radius={0} maxBarSize={24}
+                    activeBar={{ fill: T.blue }} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
 
-          {/* Revenue Flow */}
-          <div className="p-5" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" }}>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-xs uppercase tracking-widest" style={{ color: T.muted }}>Revenue Flow</p>
-                <p className="text-2xl font-bold font-mono mt-0.5" style={{ color: T.white }}>{fmtMoney(totalRevenue)}</p>
-              </div>
+        {/* ── Row 3: Revenue Breakdown + Model Performance ─────────────────── */}
+        <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "280px 1fr" }}>
+
+          {/* Revenue Breakdown Donut — LEFT */}
+          <div className="flex flex-col" style={cardStyle}>
+            <div className="px-5 py-3.5 shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <p className="text-sm font-semibold" style={{ color: T.white }}>Revenue Breakdown</p>
+              <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
             </div>
-            <RevenueFlowChart
-              models={flowModels}
-              attributed={attributedRevenue}
-              unattributed={unattributedRevenue}
-              total={totalRevenue}
-            />
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-sm" style={{ background: T.accent }} />
-                  <span className="text-xs" style={{ color: T.muted }}>Via Campaigns</span>
+            <div className="flex-1 flex flex-col items-center p-5 gap-4 min-h-0">
+              <div className="relative shrink-0" style={{ width: 180, height: 180 }}>
+                <ResponsiveContainer width={180} height={180}>
+                  <PieChart>
+                    <Pie
+                      data={donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]}
+                      cx="50%" cy="50%"
+                      innerRadius={55} outerRadius={82}
+                      dataKey="value" strokeWidth={0} paddingAngle={2}
+                    >
+                      {(donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]).map((_, i) => (
+                        <Cell key={i} fill={donutData.length > 0 ? MODEL_COLORS[i % MODEL_COLORS.length] : T.border} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xl font-bold font-mono" style={{ color: T.white }}>{fmtShort(donutTotal)}</span>
+                  <span className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: T.muted }}>Total</span>
                 </div>
-                <span className="text-xs font-mono" style={{ color: T.white }}>{fmtShort(attributedRevenue)}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-sm" style={{ background: T.dark, border: `1px solid ${T.border}` }} />
-                  <span className="text-xs" style={{ color: T.muted }}>Direct</span>
-                </div>
-                <span className="text-xs font-mono" style={{ color: T.white }}>{fmtShort(unattributedRevenue)}</span>
+              <div className="flex-1 w-full overflow-y-auto min-h-0 space-y-2">
+                {donutData.length === 0 ? (
+                  <p className="text-sm text-center" style={{ color: T.muted }}>No revenue data</p>
+                ) : donutData.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: MODEL_COLORS[i % MODEL_COLORS.length] }} />
+                      <span className="text-xs truncate" style={{ color: T.muted }}>{d.name}</span>
+                    </div>
+                    <span className="text-xs font-mono shrink-0" style={{ color: T.white }}>{fmtShort(d.value)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Net Cashflow + Heatmap */}
-          <div className="p-5" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" }}>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-xs uppercase tracking-widest" style={{ color: T.muted }}>Net Cashflow</p>
-                <p className="text-2xl font-bold font-mono mt-0.5"
-                  style={{ color: netCashflow >= 0 ? T.green : T.red }}>
-                  {netCashflow >= 0 ? "+" : ""}{fmtMoney(netCashflow)}
-                </p>
-                <div className="mt-1"><Delta pct={cashflowPct} size="sm" /></div>
+          {/* Model Performance Table — RIGHT */}
+          <div style={{ ...cardStyle, overflow: "hidden" }}>
+            <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <p className="text-sm font-semibold" style={{ color: T.white }}>Model Performance</p>
+              <div className="flex items-center gap-2">
+                <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(0); }}
+                  className="h-7 px-2 rounded-md text-xs focus:outline-none"
+                  style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>
+                  {[10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
+                </select>
+                <button onClick={handleExport}
+                  className="h-7 px-3 rounded-md text-xs transition-colors"
+                  style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>
+                  Export CSV
+                </button>
               </div>
             </div>
-            <div className="mt-4">
-              <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: T.muted }}>
-                Daily Activity (49 days)
-              </p>
-              {heatmapData.some(d => d.value > 0)
-                ? <RevenueHeatmap data={heatmapData} />
-                : <p className="text-xs" style={{ color: T.muted }}>
-                    {isAllTime ? "Select a date range to see heatmap" : "No data"}
-                  </p>}
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.cardAlt }}>
+                    {[
+                      { key: "account", label: "Account",  right: false },
+                      { key: "newFans", label: "New Fans", right: true  },
+                      { key: "revenue", label: "Revenue",  right: true  },
+                      { key: "spend",   label: "Spend",    right: true  },
+                      { key: "profit",  label: "Profit",   right: true  },
+                      { key: "cvr",     label: "CVR",      right: true  },
+                      { key: "roi",     label: "ROI",      right: true  },
+                    ].map(col => (
+                      <th key={col.key} onClick={() => sortBy(col.key)}
+                        className={cn("px-4 py-3 text-[11px] font-semibold uppercase tracking-widest cursor-pointer select-none transition-colors",
+                          col.right ? "text-right" : "text-left")}
+                        style={{ color: T.muted }}>
+                        <span className={cn("inline-flex items-center gap-0.5", col.right && "justify-end w-full")}>
+                          {col.label}<SortIcon k={col.key} />
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: T.muted }}>
+                        {txLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one model" : "No data"}
+                      </td>
+                    </tr>
+                  ) : pagedRows.map((row, rowIdx) => {
+                    const a = row.account;
+                    const rp = !isAllTime && row.prevRev > 0     ? ((row.rev     - row.prevRev)    / row.prevRev)              * 100 : null;
+                    const sp = !isAllTime && row.prevSpend > 0   ? ((row.spend   - row.prevSpend)  / row.prevSpend)            * 100 : null;
+                    const pp = !isAllTime && row.prevProfit !== 0 ? ((row.profit - row.prevProfit) / Math.abs(row.prevProfit)) * 100 : null;
+                    const fp = !isAllTime && row.prevNewFans > 0  ? ((row.newFans - row.prevNewFans) / row.prevNewFans)         * 100 : null;
+                    const rowBg = rowIdx % 2 === 0 ? T.card : T.cardAlt;
+                    return (
+                      <tr key={a.id}
+                        className="transition-colors"
+                        style={{ background: rowBg, borderBottom: `1px solid ${T.border}` }}
+                        onMouseEnter={e => (e.currentTarget.style.background = T.border)}
+                        onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
+                      >
+                        {/* Account */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            {a.avatar_thumb_url
+                              ? <img src={a.avatar_thumb_url} className="w-8 h-8 rounded-full object-cover shrink-0" style={{ border: `1px solid ${T.border}` }} alt="" />
+                              : <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                  style={{ background: T.dark, color: T.muted }}>
+                                  {(a.display_name || "?").slice(0, 2).toUpperCase()}
+                                </div>}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-semibold leading-tight truncate" style={{ color: T.white }}>{a.display_name}</span>
+                                {row.linkCount > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                                    style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount}</span>
+                                )}
+                              </div>
+                              {a.username && <div className="text-xs mt-0.5" style={{ color: T.muted }}>@{a.username}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        {/* New Fans */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{row.newFans.toLocaleString()}</div>
+                          <div className="flex justify-end mt-0.5"><Delta pct={fp} /></div>
+                        </td>
+                        {/* Revenue */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(row.rev)}</div>
+                          <div className="flex justify-end mt-0.5"><Delta pct={rp} /></div>
+                        </td>
+                        {/* Spend */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold" style={{ color: row.spend > 0 ? T.white : T.muted }}>
+                            {row.spend > 0 ? fmtMoney(row.spend) : "—"}
+                          </div>
+                          {row.spend > 0 && <div className="flex justify-end mt-0.5"><Delta pct={sp} /></div>}
+                        </td>
+                        {/* Profit */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold"
+                            style={{ color: row.profit >= 0 ? T.green : T.red }}>
+                            {fmtMoney(row.profit)}
+                          </div>
+                          <div className="flex justify-end mt-0.5"><Delta pct={pp} /></div>
+                        </td>
+                        {/* CVR */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold"
+                            style={{ color: row.cvr != null ? T.white : T.muted }}>
+                            {row.cvr != null ? `${row.cvr.toFixed(1)}%` : "—"}
+                          </div>
+                        </td>
+                        {/* ROI */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="text-sm font-mono font-semibold"
+                            style={{ color: row.roi == null ? T.muted : row.roi >= 0 ? T.green : T.red }}>
+                            {row.roi != null ? `${row.roi.toFixed(1)}%` : "—"}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: `1px solid ${T.border}` }}>
+                <span className="text-xs font-mono" style={{ color: T.muted }}>
+                  {tablePage * tablePageSize + 1}–{Math.min((tablePage + 1) * tablePageSize, tableRows.length)} of {tableRows.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setTablePage(p => Math.max(0, p - 1))} disabled={tablePage === 0}
+                    className="px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-30"
+                    style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>Prev</button>
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i).map(i => (
+                    <button key={i} onClick={() => setTablePage(i)}
+                      className="w-7 h-7 rounded-md text-xs transition-colors"
+                      style={{
+                        background: i === tablePage ? T.blue : T.cardAlt,
+                        border: `1px solid ${i === tablePage ? T.blue : T.border}`,
+                        color: i === tablePage ? "white" : T.muted,
+                      }}>
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button onClick={() => setTablePage(p => Math.min(totalPages - 1, p + 1))} disabled={tablePage >= totalPages - 1}
+                    className="px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-30"
+                    style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>Next</button>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
+
       </div>
     </DashboardLayout>
   );
