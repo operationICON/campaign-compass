@@ -794,9 +794,13 @@ export default function OverviewPage() {
                     const a = row.account;
                     const rowBg = rowIdx % 2 === 0 ? T.card : T.cardAlt;
                     const isExpanded = expandedRows.has(a.id);
-                    const camps = campByAcct[a.id] ?? [];
                     const fanDelta = row.newFans - row.prevNewFans;
                     const fanPct = row.prevNewFans > 0 ? (fanDelta / row.prevNewFans) * 100 : null;
+                    const acctLinks = (linksRaw as any[])
+                      .filter(l => l.account_id === a.id && !l.deleted_at)
+                      .sort((x, y) => Number(y.revenue || 0) - Number(x.revenue || 0));
+                    const newFansPerLink: Record<string, number> = {};
+                    for (const c of (campByAcct[a.id] ?? [])) newFansPerLink[c.link_id] = Number(c.fan_count);
                     return (
                       <React.Fragment key={a.id}>
                       <tr
@@ -811,8 +815,8 @@ export default function OverviewPage() {
                             <button
                               onClick={() => toggleRow(a.id)}
                               className="shrink-0 rounded transition-colors"
-                              style={{ color: camps.length > 0 ? T.blue : T.muted, opacity: camps.length > 0 ? 1 : 0.3 }}
-                              disabled={camps.length === 0}
+                              style={{ color: acctLinks.length > 0 ? T.blue : T.muted, opacity: acctLinks.length > 0 ? 1 : 0.3 }}
+                              disabled={acctLinks.length === 0}
                             >
                               <ChevronRight className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-90")} />
                             </button>
@@ -876,25 +880,96 @@ export default function OverviewPage() {
                           </span>
                         </td>
                       </tr>
-                      {/* Campaign breakdown sub-row */}
-                      {isExpanded && camps.length > 0 && (
-                        <tr key={`${a.id}-camps`} style={{ background: rowBg, borderBottom: `1px solid ${T.border}` }}>
-                          <td colSpan={7} className="px-6 pb-3 pt-1">
-                            <div className="flex flex-wrap gap-2 pl-6">
-                              {camps.map(c => (
-                                <div key={c.link_id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs"
-                                  style={{ background: `${T.blue}12`, border: `1px solid ${T.blue}30` }}>
-                                  <span style={{ color: c.link_deleted ? T.muted : T.white }}>
-                                    {c.campaign_name ?? c.external_tracking_link_id ?? "Unnamed"}
-                                  </span>
-                                  <span className="font-mono font-semibold" style={{ color: T.blue }}>
-                                    {Number(c.fan_count).toLocaleString()} fans
-                                  </span>
-                                  {c.link_deleted && (
-                                    <span className="text-[9px] px-1 rounded" style={{ background: `${T.muted}30`, color: T.muted }}>deleted</span>
-                                  )}
-                                </div>
-                              ))}
+                      {/* Campaign breakdown sub-table */}
+                      {isExpanded && (
+                        <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                          <td colSpan={7} className="p-0">
+                            <div className="overflow-x-auto" style={{ background: T.bg }}>
+                              <table className="w-full">
+                                <thead>
+                                  <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                                    {[
+                                      { label: `Campaigns (${acctLinks.length})`, right: false, wide: true },
+                                      { label: "New Fans",  right: true },
+                                      { label: "Subs",     right: true },
+                                      { label: "Clicks",   right: true },
+                                      { label: "Spend",    right: true },
+                                      { label: "Revenue",  right: true },
+                                      { label: "Profit",   right: true },
+                                      { label: "CVR",      right: true },
+                                      { label: "ROI",      right: true },
+                                    ].map(col => (
+                                      <th key={col.label}
+                                        className={cn("px-4 py-2 text-[10px] font-semibold uppercase tracking-widest", col.right ? "text-right" : "text-left", col.wide && "pl-10")}
+                                        style={{ color: T.muted }}>
+                                        {col.label}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {acctLinks.length === 0 ? (
+                                    <tr><td colSpan={9} className="px-10 py-3 text-xs" style={{ color: T.muted }}>No active campaigns</td></tr>
+                                  ) : acctLinks.map((l: any) => {
+                                    const lRev    = Number(l.revenue || 0);
+                                    const lSpend  = Number(l.cost_total || 0);
+                                    const lProfit = lRev - lSpend;
+                                    const lCvr    = Number(l.cvr || 0);
+                                    const lRoi    = lSpend > 0 ? ((lRev - lSpend) / lSpend) * 100 : null;
+                                    const lNewFans = newFansPerLink[l.id];
+                                    return (
+                                      <tr key={l.id} style={{ borderTop: `1px solid ${T.border}20` }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = `${T.border}40`)}
+                                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                      >
+                                        <td className="px-4 py-2 pl-10">
+                                          <div>
+                                            <span className="text-xs font-semibold" style={{ color: T.white }}>
+                                              {l.campaign_name || l.external_tracking_link_id || "Unnamed"}
+                                            </span>
+                                            {l.url && <p className="text-[10px] truncate max-w-xs mt-0.5" style={{ color: T.muted }}>{l.url}</p>}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono" style={{ color: lNewFans ? T.white : T.muted }}>
+                                            {lNewFans ? lNewFans.toLocaleString() : "—"}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono" style={{ color: T.white }}>{Number(l.subscribers || 0).toLocaleString()}</span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono" style={{ color: T.white }}>{Number(l.clicks || 0).toLocaleString()}</span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono" style={{ color: lSpend > 0 ? T.white : T.muted }}>
+                                            {lSpend > 0 ? fmtMoney(lSpend) : "—"}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono font-semibold" style={{ color: T.blue }}>{fmtMoney(lRev)}</span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono font-semibold" style={{ color: lProfit >= 0 ? T.green : T.red }}>
+                                            {lProfit >= 0 ? "+" : ""}{fmtMoney(lProfit)}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono" style={{ color: lCvr > 0 ? T.white : T.muted }}>
+                                            {lCvr > 0 ? `${lCvr.toFixed(1)}%` : "—"}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                          <span className="text-xs font-mono font-semibold"
+                                            style={{ color: lRoi == null ? T.muted : lRoi >= 0 ? T.green : T.red }}>
+                                            {lRoi != null ? `${lRoi.toFixed(1)}%` : "—"}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
                             </div>
                           </td>
                         </tr>
