@@ -217,7 +217,7 @@ function ChartTooltip({ active, payload, label }: any) {
 export default function OverviewPage() {
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
   const [idsReady, setIdsReady]         = useState(false);
-  const [activePeriod, setActivePeriod] = useState<"1d" | "7d" | "30d" | "all" | "custom">("7d");
+  const [activePeriod, setActivePeriod] = useState<"1d" | "7d" | "30d" | "all" | "custom">("1d");
   const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date } | null>(null);
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());

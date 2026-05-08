@@ -80,6 +80,7 @@ router.get("/link-subs", async (c) => {
     FROM daily_snapshots ds
     JOIN tracking_links tl ON ds.tracking_link_id = tl.id
     WHERE tl.account_id IN (${idList})
+      AND tl.deleted_at IS NULL
       ${dateFrom ? sql`AND ds.snapshot_date >= ${dateFrom}` : sql``}
       ${dateTo   ? sql`AND ds.snapshot_date <= ${dateTo}`   : sql``}
     GROUP BY ds.tracking_link_id, tl.account_id
