@@ -610,13 +610,13 @@ export default function OverviewPage() {
               <p className="text-xs mt-0.5" style={{ color: T.muted }}>{dateLabel}</p>
             </div>
             <div className="flex-1 flex flex-col items-center px-5 pt-5 pb-4 gap-3 min-h-0">
-              <div className="relative shrink-0" style={{ width: 220, height: 220 }}>
-                <ResponsiveContainer width={220} height={220}>
+              <div className="relative shrink-0" style={{ width: 260, height: 260 }}>
+                <ResponsiveContainer width={260} height={260}>
                   <PieChart>
                     <Pie
                       data={donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]}
                       cx="50%" cy="50%"
-                      innerRadius={68} outerRadius={104}
+                      innerRadius={82} outerRadius={122}
                       dataKey="value" strokeWidth={0} paddingAngle={2}
                     >
                       {(donutData.length > 0 ? donutData : [{ name: "—", value: 1 }]).map((_, i) => (
@@ -626,7 +626,7 @@ export default function OverviewPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-lg font-bold font-mono leading-tight" style={{ color: T.white }}>{fmtMoney(donutTotal)}</span>
+                  <span className="text-xl font-bold font-mono leading-tight" style={{ color: T.white }}>{fmtMoney(donutTotal).split(".")[0]}</span>
                   <span className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: T.muted }}>Total</span>
                 </div>
               </div>
@@ -640,7 +640,7 @@ export default function OverviewPage() {
                       <span className="text-sm truncate" style={{ color: T.white }}>{d.name}</span>
                     </div>
                     <span className="text-sm font-mono font-semibold shrink-0" style={{ color: T.white }}>
-                      {fmtMoney(d.value)}
+                      {donutTotal > 0 ? `${((d.value / donutTotal) * 100).toFixed(1)}%` : "—"}
                     </span>
                   </div>
                 ))}
