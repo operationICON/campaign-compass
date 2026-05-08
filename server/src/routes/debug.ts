@@ -413,20 +413,30 @@ router.post("/", async (c) => {
   if (body?.action === "rev_monthly_check") {
     const rows = await db.execute(sql`
       SELECT
-        display_name,
-        CASE WHEN revenue_monthly IS NULL THEN 'NULL'
-             WHEN revenue_monthly = '{}'::jsonb THEN 'EMPTY {}'
-             ELSE 'HAS DATA'
+        a.display_name,
+        a.ltv_total,
+        a.ltv_updated_at,
+        CASE
+          WHEN a.revenue_monthly IS NULL                                                   THEN 'NULL'
+          WHEN jsonb_typeof(a.revenue_monthly) != 'object'                                THEN 'WRONG TYPE'
+          WHEN jsonb_object_length(a.revenue_monthly) = 0                                 THEN 'EMPTY'
+          ELSE 'HAS DATA'
         END AS status,
-        COALESCE(jsonb_object_length(revenue_monthly), 0) AS month_count,
-        (SELECT MIN(k) FROM jsonb_object_keys(revenue_monthly) AS k) AS earliest_month,
-        (SELECT MAX(k) FROM jsonb_object_keys(revenue_monthly) AS k) AS latest_month,
-        COALESCE((SELECT SUM(v::numeric) FROM jsonb_each_text(revenue_monthly) AS j(k,v)), 0) AS total_net,
-        ltv_total,
-        ltv_updated_at
-      FROM accounts
-      WHERE is_active = true
-      ORDER BY display_name
+        COALESCE(jsonb_object_length(a.revenue_monthly), 0) AS month_count,
+        agg.earliest_month,
+        agg.latest_month,
+        agg.total_net
+      FROM accounts a
+      LEFT JOIN LATERAL (
+        SELECT
+          MIN(kv.k)                            AS earliest_month,
+          MAX(kv.k)                            AS latest_month,
+          COALESCE(SUM(kv.v::numeric), 0)      AS total_net
+        FROM jsonb_each_text(COALESCE(a.revenue_monthly, '{}'::jsonb)) AS kv(k, v)
+        WHERE kv.v ~ '^-?[0-9]+(\\.[0-9]+)?$'
+      ) agg ON true
+      WHERE a.is_active = true
+      ORDER BY a.display_name
     `);
     return c.json({ accounts: rows.rows });
   }
