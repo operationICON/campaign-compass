@@ -72,9 +72,9 @@ export function SideNav() {
           collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full",
           active
             ? "text-[#f1f5f9]"
-            : "text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1e2130]/60"
+            : "text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60"
         )}
-        style={active ? { background: "#1e2130" } : {}}
+        style={active ? { background: "#1c1f2b" } : {}}
       >
         {/* blue active bar */}
         {active && !collapsed && (
@@ -102,13 +102,13 @@ export function SideNav() {
       className="flex flex-col h-full shrink-0 overflow-hidden transition-all duration-200"
       style={{
         width: collapsed ? "52px" : "200px",
-        background: "#0a0b0f",
-        borderRight: "1px solid #1e2130",
+        background: "#080a0d",
+        borderRight: "1px solid #1c1f2b",
       }}
     >
       {/* Logo */}
       <div className="h-12 flex items-center gap-2.5 px-3 shrink-0"
-        style={{ borderBottom: "1px solid #1e2130" }}>
+        style={{ borderBottom: "1px solid #1c1f2b" }}>
         <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0"
           style={{ background: "#3b82f6" }}>
           CT
@@ -131,7 +131,7 @@ export function SideNav() {
 
         {isAdmin && (
           <>
-            <div className="my-2 mx-1" style={{ height: "1px", background: "#1e2130" }} />
+            <div className="my-2 mx-1" style={{ height: "1px", background: "#1c1f2b" }} />
             {!collapsed && (
               <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#2d3550" }}>
                 System
@@ -144,7 +144,7 @@ export function SideNav() {
 
       {/* User + collapse */}
       <div className="shrink-0 px-2 py-2 flex flex-col gap-0.5"
-        style={{ borderTop: "1px solid #1e2130" }}>
+        style={{ borderTop: "1px solid #1c1f2b" }}>
 
         {/* User avatar + info */}
         {collapsed ? (
@@ -172,7 +172,7 @@ export function SideNav() {
           onClick={() => { logout(); navigate("/login", { replace: true }); }}
           title={collapsed ? "Log out" : undefined}
           className={cn(
-            "flex items-center rounded-md text-sm font-medium transition-colors text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1e2130]/60",
+            "flex items-center rounded-md text-sm font-medium transition-colors text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
             collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full"
           )}
         >
@@ -185,7 +185,7 @@ export function SideNav() {
           onClick={() => setCollapsed(v => !v)}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={cn(
-            "flex items-center rounded-md text-sm font-medium transition-colors text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1e2130]/60",
+            "flex items-center rounded-md text-sm font-medium transition-colors text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
             collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full"
           )}
         >

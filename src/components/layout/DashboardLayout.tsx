@@ -3,7 +3,7 @@ import { SideNav } from "./SideNav";
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-screen w-screen overflow-hidden" style={{ background: "#08090c" }}>
+    <div className="flex h-screen w-screen overflow-hidden" style={{ background: "#0a0b0e" }}>
       <SideNav />
       <main className="flex-1 min-w-0 overflow-y-auto">
         {children}

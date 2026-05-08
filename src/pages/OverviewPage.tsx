@@ -23,10 +23,10 @@ import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#08090c",
-  card:    "#0e1015",
-  cardAlt: "#0b0c10",
-  border:  "#1e2130",
+  bg:      "#0a0b0e",
+  card:    "#111318",
+  cardAlt: "#0d0e13",
+  border:  "#1c1f2b",
   blue:    "#3b82f6",
   green:   "#22c55e",
   red:     "#ef4444",
@@ -80,7 +80,7 @@ function TinySparkline({ data }: { data: number[] }) {
     <div style={{ width: 64, height: 32 }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={pts} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-          <Line type="monotone" dataKey="value" stroke={T.blue} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+          <Line type="monotone" dataKey="value" stroke={T.white} strokeWidth={1.5} dot={false} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -108,7 +108,7 @@ function KpiCard({ label, value, sub, pct, sparkData }: {
   pct?: number | null; sparkData?: number[];
 }) {
   return (
-    <div className="p-5 flex flex-col gap-3" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem", borderLeft: `4px solid ${T.blue}` }}>
+    <div className="p-5 flex flex-col gap-3" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: "14px" }}>
       <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>{label}</p>
       <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{value}</p>
       {sub && <p className="text-xs leading-snug" style={{ color: T.muted }}>{sub}</p>}
@@ -177,7 +177,7 @@ function AccountFilter({ accounts, selected, onChange }: {
               const checked = selected.includes(a.id);
               return (
                 <button key={a.id} onClick={() => toggle(a.id)}
-                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors hover:bg-[#1e2130]/60">
+                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors hover:bg-[#1c1f2b]/60">
                   <div className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
                     style={{ background: checked ? T.blue : "transparent", borderColor: checked ? T.blue : T.border }}>
                     {checked && <Check className="w-2.5 h-2.5 text-white" />}
@@ -204,7 +204,7 @@ function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="px-3 py-2 rounded-lg text-xs"
-      style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.blue}` }}>
+      style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.red}` }}>
       <p className="mb-1" style={{ color: T.muted }}>{label}</p>
       <p className="font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(payload[0].value)}</p>
     </div>
@@ -521,7 +521,7 @@ export default function OverviewPage() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  const cardStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: "0.875rem" };
+  const cardStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: "14px" };
 
   const filterBtnCls = (active: boolean) => cn(
     "h-8 px-3.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap select-none",
@@ -545,7 +545,7 @@ export default function OverviewPage() {
             <button
               onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
               className={filterBtnCls(isAllTime)}
-              style={isAllTime ? { background: T.blue } : { background: T.card, border: `1px solid ${T.border}` }}
+              style={isAllTime ? { background: T.white, color: T.bg } : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
             >
               All Time
             </button>
@@ -622,31 +622,31 @@ export default function OverviewPage() {
                 <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.blue} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={T.blue} stopOpacity={0} />
+                      <stop offset="0%" stopColor={T.white} stopOpacity={0.08} />
+                      <stop offset="100%" stopColor={T.white} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
                     interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
                   <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
                     tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="revenue" stroke={T.blue} strokeWidth={2}
-                    fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: T.blue }} />
+                  <Area type="monotone" dataKey="revenue" stroke={T.white} strokeWidth={1.5}
+                    fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: T.white }} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false}
                     interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
                   <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={48}
                     tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="revenue" fill={T.dark} radius={0} maxBarSize={24}
-                    activeBar={{ fill: T.blue }} />
+                  <Bar dataKey="revenue" fill={T.border} radius={0} maxBarSize={24}
+                    activeBar={{ fill: T.white }} />
                 </BarChart>
               </ResponsiveContainer>
             )}
