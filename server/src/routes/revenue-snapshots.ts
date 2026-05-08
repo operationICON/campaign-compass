@@ -52,8 +52,10 @@ router.post("/sync", async (c) => {
   const results: any[] = [];
   let grandTotal = 0;
 
+  const today = new Date().toISOString().replace("T", " ").slice(0, 19);
+
   for (const acc of allAccounts) {
-    const url = `${API_BASE}/${acc.onlyfans_account_id}/statistics/statements/earnings?start_date=2018-01-01&type=total`;
+    const url = `${API_BASE}/${acc.onlyfans_account_id}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${encodeURIComponent(today)}&type=total`;
     try {
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
@@ -81,19 +83,27 @@ router.post("/sync", async (c) => {
 
       const data = await res.json() as any;
 
-      const dataBlock = data?.data ?? data;
+      const totalObj = data?.data?.total;
       const netRaw =
-        dataBlock?.total?.total ??
-        dataBlock?.total?.net ??
-        dataBlock?.total?.creator ??
-        dataBlock?.total?.creator_revenue ??
-        dataBlock?.net ??
-        dataBlock?.total ??
+        (typeof totalObj === "number" ? totalObj : null) ??
+        data?.data?.total?.total ??
+        data?.data?.total?.net ??
+        data?.data?.total?.creator ??
+        data?.data?.total?.creator_revenue ??
+        data?.data?.total?.payout ??
+        data?.data?.total?.revenue ??
+        data?.data?.total?.earnings ??
+        data?.data?.net ??
+        data?.total?.net ??
+        data?.net ??
+        data?.data?.earnings ??
+        data?.earnings ??
         null;
 
       const grossRaw =
-        dataBlock?.total?.gross ??
-        dataBlock?.gross ??
+        data?.data?.total?.gross ??
+        data?.data?.gross ??
+        data?.gross ??
         null;
 
       const net = Number(netRaw ?? 0);
