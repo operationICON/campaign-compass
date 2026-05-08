@@ -5,8 +5,9 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
   getOnlytrafficOrders, getTrackingLinks,
-  getFanCampaignBreakdown, getLinkSubsInPeriod, getSnapshotLatestDate,
+  getFanCampaignBreakdown, getSnapshotLatestDate,
 } from "@/lib/api";
+import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -273,13 +274,8 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Previous period link subs (for New Fans delta) — uses same JOIN-based endpoint as current period
-  const { data: prevLinkSubsRaw = [] } = useQuery({
-    queryKey: ["ov2_prev_link_subs", prevFrom, prevTo, selectedIds.join(",")],
-    queryFn: () => getLinkSubsInPeriod({ account_ids: selectedIds, date_from: prevFrom, date_to: prevTo }),
-    enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
+  // New Fans: use the exact same hook as Campaigns page "Last Sync · 1d"
+  const { deltaLookup: fansDeltaLookup } = useSnapshotDeltaMetrics("day", null);
 
   const { data: orders = [] } = useQuery({
     queryKey: ["ov2_orders", dateFrom, dateTo],
@@ -303,19 +299,15 @@ export default function OverviewPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Period-specific new subs per tracking link (daily_snapshots — same source as parent row)
-  const { data: linkSubsRaw = [] } = useQuery({
-    queryKey: ["ov2_link_subs", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getLinkSubsInPeriod({ account_ids: selectedIds, date_from: dateFrom, date_to: dateTo }),
-    enabled: !isAllTime && selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-
+  // New Fans per link — same hook as Campaigns "Last Sync · 1d" so numbers always match
   const newFansByLink = useMemo(() => {
     const m: Record<string, number> = {};
-    (linkSubsRaw as any[]).forEach(r => { if (r.tracking_link_id) m[r.tracking_link_id] = Number(r.subs || 0); });
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => {
+      const delta = fansDeltaLookup[String(l.id).toLowerCase()];
+      if (delta) m[l.id] = delta.subsGained || 0;
+    });
     return m;
-  }, [linkSubsRaw]);
+  }, [fansDeltaLookup, linksRaw]);
 
   // ── Derived maps ──────────────────────────────────────────────────────────
   const linkToAccount = useMemo(() => {
@@ -392,22 +384,17 @@ export default function OverviewPage() {
     return m;
   }, [prevTxRows, selectedIds, selectedAccounts, prevFrom, prevTo, txCoverageStart]);
 
-  // Derive per-account new-fan totals from link-subs (JOIN-based, more accurate than account_id filter)
+  // Sum new fans per account from the same deltaLookup as Campaigns page
   const subsByAcct = useMemo(() => {
     const m: Record<string, number> = {};
-    (linkSubsRaw as any[]).forEach(r => {
-      if (r.account_id && selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.subs || 0);
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id)).forEach((l: any) => {
+      const delta = fansDeltaLookup[String(l.id).toLowerCase()];
+      if (delta) m[l.account_id] = (m[l.account_id] || 0) + (delta.subsGained || 0);
     });
     return m;
-  }, [linkSubsRaw, selectedIds]);
+  }, [fansDeltaLookup, linksRaw, selectedIds]);
 
-  const prevSubsByAcct = useMemo(() => {
-    const m: Record<string, number> = {};
-    (prevLinkSubsRaw as any[]).forEach(r => {
-      if (r.account_id && selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.subs || 0);
-    });
-    return m;
-  }, [prevLinkSubsRaw, selectedIds]);
+  const prevSubsByAcct: Record<string, number> = {};
 
   const spendByAcct = useMemo(() => {
     const m: Record<string, number> = {};
