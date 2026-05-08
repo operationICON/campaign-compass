@@ -534,21 +534,18 @@ export default function OverviewPage() {
             sparkData={revSparkData}
           />
           {/* New Subscribers — custom card */}
-          <div className="p-5 flex flex-col justify-between" style={{ background: `linear-gradient(135deg, ${T.card} 0%, ${T.cardAlt} 100%)`, border: `1px solid ${T.border}`, borderRadius: "14px" }}>
-            <div className="flex items-center justify-between mb-2">
+          <div className="p-5 flex flex-col gap-3" style={{ background: `linear-gradient(135deg, ${T.card} 0%, ${T.cardAlt} 100%)`, border: `1px solid ${T.border}`, borderRadius: "14px" }}>
+            <div className="flex items-center justify-between">
               <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>New Subscribers</p>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: `rgba(59,130,246,0.12)`, color: T.blue }}>{dateLabel || "All Time"}</span>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "rgba(59,130,246,0.12)", color: T.blue }}>{dateLabel || "All Time"}</span>
             </div>
-            <p className="text-2xl font-bold font-mono leading-none mb-3" style={{ color: T.white }}>{newSubsKpi.toLocaleString()}</p>
-            <div className="flex items-center gap-1.5 pt-2 flex-wrap" style={{ borderTop: `1px solid ${T.border}` }}>
-              <span className="text-[11px]" style={{ color: T.muted }}>Total Subs (Old + new)</span>
-              <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>{totalCurrentSubs.toLocaleString()}</span>
-              {newSubsPerDay > 0 && (
-                <>
-                  <span className="text-[11px]" style={{ color: T.border }}>|</span>
-                  <span className="text-[11px] font-mono font-semibold" style={{ color: T.white }}>{newSubsPerDay.toFixed(1)}/day</span>
-                </>
-              )}
+            <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{newSubsKpi.toLocaleString()}</p>
+            <p className="text-xs leading-snug" style={{ color: T.muted }}>Total Sub: {totalCurrentSubs.toLocaleString()}</p>
+            {newSubsPerDay > 0 && (
+              <p className="text-xs leading-snug" style={{ color: T.muted }}>{newSubsPerDay.toFixed(1)}/day avg</p>
+            )}
+            <div className="mt-auto flex justify-end pt-1">
+              <TinySparkline data={revSparkData} />
             </div>
           </div>
           <KpiCard
