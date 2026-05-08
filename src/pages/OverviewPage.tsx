@@ -354,8 +354,16 @@ export default function OverviewPage() {
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
 
-  // All Time: ltv_total (synced from OFAPI by-type, exact match).
-  // Period: live OFAPI by-type call for the date range (periodRevenueRows), exact match.
+  // ─── REVENUE SOURCE RULES — DO NOT CHANGE WITHOUT EXPLICIT INSTRUCTION ────────
+  // All Time  → accounts.ltv_total   (synced from OFAPI analytics/financial/by-type, all-time)
+  // Period    → periodRevenueRows    (live OFAPI by-type call with date range, exact match)
+  // Fallback  → revenue_monthly      (only while live call is loading — not the authoritative source)
+  //
+  // DO NOT use: daily_snapshots.revenue (not a daily delta, gave $782K vs $160K for April)
+  // DO NOT use: transactions table for KPIs (30% null dates, gross vs net issues)
+  // DO NOT use: revenue_monthly as the primary period source (gives different numbers than by-type)
+  // DO NOT use: revenue_monthly sum for All Time (gives ~$1,966K; ltv_total gives correct ~$1,978K)
+  // ─────────────────────────────────────────────────────────────────────────────
   const revByAcct = useMemo(() => {
     const m: Record<string, number> = {};
     if (isAllTime) {
