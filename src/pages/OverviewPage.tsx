@@ -222,8 +222,8 @@ export default function OverviewPage() {
   // Revenue from synced transactions — single source of truth, no live API calls
   const { data: txRows = [], isLoading: snapsLoading } = useQuery({
     queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2020-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
-    enabled: selectedIds.length > 0,
+    queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
+    enabled: !isAllTime && selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -237,8 +237,8 @@ export default function OverviewPage() {
   // Snapshot-based subscriber counts (tracking-link new subs for Fans KPI)
   const { data: snaps = [] } = useQuery({
     queryKey: ["ov2_snaps", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom ?? "2020-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds, cols: "slim" }),
-    enabled: selectedIds.length > 0,
+    queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds, cols: "slim" }),
+    enabled: !isAllTime && selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -488,7 +488,7 @@ export default function OverviewPage() {
       const newFans    = isAllTime ? Number(a.subscribers_count || 0) : (subsByAcct[a.id] || 0);
       const prevNewFans = prevSubsByAcct[a.id] || 0;
       const clicks     = clicksByAccount[a.id] || 0;
-      const cvr        = clicks > 0 ? (newFans / clicks) * 100 : null;
+      const cvr        = isAllTime && clicks > 0 ? (newFans / clicks) * 100 : null;
       const roi        = spend > 0 ? ((rev - spend) / spend) * 100 : null;
       return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, clicks, cvr, roi, linkCount: linkCountByAccount[a.id] || 0 };
     });
@@ -599,34 +599,38 @@ export default function OverviewPage() {
                 <span style={{ color: "#f59e0b" }}><DollarSign className="h-4 w-4" /></span>
               </div>
             </div>
-            <button
-              onClick={() => setShowRevBreakdown(v => !v)}
-              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors self-start"
-            >
-              <ChevronDown className={cn("w-3 h-3 transition-transform", showRevBreakdown && "rotate-180")} />
-              {showRevBreakdown ? "Hide breakdown" : "Show breakdown"}
-            </button>
-            {showRevBreakdown && (
-              <div className="border-t border-border/40 pt-2 space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-                    Via Campaigns
+            {isAllTime && (
+              <>
+                <button
+                  onClick={() => setShowRevBreakdown(v => !v)}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors self-start"
+                >
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", showRevBreakdown && "rotate-180")} />
+                  {showRevBreakdown ? "Hide breakdown" : "Show breakdown"}
+                </button>
+                {showRevBreakdown && (
+                  <div className="border-t border-border/40 pt-2 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                        Via Campaigns
+                      </div>
+                      <span className="text-foreground font-medium">
+                        {fmtMoney(attributedRevenue)} · {totalRevenue > 0 ? ((attributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#64748b] inline-block" />
+                        Unattributed
+                      </div>
+                      <span className="text-foreground font-medium">
+                        {fmtMoney(unattributedRevenue)} · {totalRevenue > 0 ? ((unattributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-foreground font-medium">
-                    {fmtMoney(attributedRevenue)} · {totalRevenue > 0 ? ((attributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#64748b] inline-block" />
-                    Unattributed
-                  </div>
-                  <span className="text-foreground font-medium">
-                    {fmtMoney(unattributedRevenue)} · {totalRevenue > 0 ? ((unattributedRevenue / totalRevenue) * 100).toFixed(1) : "0"}%
-                  </span>
-                </div>
-              </div>
+                )}
+              </>
             )}
           </div>
         </div>
