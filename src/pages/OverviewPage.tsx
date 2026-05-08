@@ -574,8 +574,8 @@ export default function OverviewPage() {
           />
         </div>
 
-        {/* ── Row 2: Revenue Chart ─────────────────────────────────────────── */}
-        <div className="p-5" style={cardStyle}>
+        {/* ── Row 2: Revenue Chart — only shown in All Time view ─────────── */}
+        {isAllTime && <div className="p-5" style={cardStyle}>
           <div className="flex items-start justify-between mb-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest mb-1" style={{ color: T.muted }}>
@@ -640,7 +640,7 @@ export default function OverviewPage() {
               </ResponsiveContainer>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* ── Row 3: Revenue Breakdown + Model Performance ─────────────────── */}
         <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "420px 1fr" }}>
