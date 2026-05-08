@@ -7,6 +7,7 @@ import {
   getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks,
   getFanCampaignBreakdown,
 } from "@/lib/api";
+import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar,
@@ -220,6 +221,7 @@ export default function OverviewPage() {
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [drawerCampaign, setDrawerCampaign] = useState<any | null>(null);
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -880,100 +882,74 @@ export default function OverviewPage() {
                           </span>
                         </td>
                       </tr>
-                      {/* Campaign breakdown sub-table */}
+                      {/* Campaign sub-header — same columns as parent, aligned */}
                       {isExpanded && (
-                        <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-                          <td colSpan={7} className="p-0">
-                            <div className="overflow-x-auto" style={{ background: T.bg }}>
-                              <table className="w-full">
-                                <thead>
-                                  <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-                                    {[
-                                      { label: `Campaigns (${acctLinks.length})`, right: false, wide: true },
-                                      { label: "New Fans",  right: true },
-                                      { label: "Subs",     right: true },
-                                      { label: "Clicks",   right: true },
-                                      { label: "Spend",    right: true },
-                                      { label: "Revenue",  right: true },
-                                      { label: "Profit",   right: true },
-                                      { label: "CVR",      right: true },
-                                      { label: "ROI",      right: true },
-                                    ].map(col => (
-                                      <th key={col.label}
-                                        className={cn("px-4 py-2 text-[10px] font-semibold uppercase tracking-widest", col.right ? "text-right" : "text-left", col.wide && "pl-10")}
-                                        style={{ color: T.muted }}>
-                                        {col.label}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {acctLinks.length === 0 ? (
-                                    <tr><td colSpan={9} className="px-10 py-3 text-xs" style={{ color: T.muted }}>No active campaigns</td></tr>
-                                  ) : acctLinks.map((l: any) => {
-                                    const lRev    = Number(l.revenue || 0);
-                                    const lSpend  = Number(l.cost_total || 0);
-                                    const lProfit = lRev - lSpend;
-                                    const lCvr    = Number(l.cvr || 0);
-                                    const lRoi    = lSpend > 0 ? ((lRev - lSpend) / lSpend) * 100 : null;
-                                    const lNewFans = newFansPerLink[l.id];
-                                    return (
-                                      <tr key={l.id} style={{ borderTop: `1px solid ${T.border}20` }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = `${T.border}40`)}
-                                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                                      >
-                                        <td className="px-4 py-2 pl-10">
-                                          <div>
-                                            <span className="text-xs font-semibold" style={{ color: T.white }}>
-                                              {l.campaign_name || l.external_tracking_link_id || "Unnamed"}
-                                            </span>
-                                            {l.url && <p className="text-[10px] truncate max-w-xs mt-0.5" style={{ color: T.muted }}>{l.url}</p>}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono" style={{ color: lNewFans ? T.white : T.muted }}>
-                                            {lNewFans ? lNewFans.toLocaleString() : "—"}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono" style={{ color: T.white }}>{Number(l.subscribers || 0).toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono" style={{ color: T.white }}>{Number(l.clicks || 0).toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono" style={{ color: lSpend > 0 ? T.white : T.muted }}>
-                                            {lSpend > 0 ? fmtMoney(lSpend) : "—"}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono font-semibold" style={{ color: T.blue }}>{fmtMoney(lRev)}</span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono font-semibold" style={{ color: lProfit >= 0 ? T.green : T.red }}>
-                                            {lProfit >= 0 ? "+" : ""}{fmtMoney(lProfit)}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono" style={{ color: lCvr > 0 ? T.white : T.muted }}>
-                                            {lCvr > 0 ? `${lCvr.toFixed(1)}%` : "—"}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                          <span className="text-xs font-mono font-semibold"
-                                            style={{ color: lRoi == null ? T.muted : lRoi >= 0 ? T.green : T.red }}>
-                                            {lRoi != null ? `${lRoi.toFixed(1)}%` : "—"}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
+                        <tr style={{ background: T.bg, borderTop: `1px solid ${T.border}` }}>
+                          <td className="pl-10 pr-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+                            Campaigns ({acctLinks.length})
                           </td>
+                          {["New Fans","Revenue","Spend","Profit","CVR","ROI"].map(h => (
+                            <td key={h} className="px-4 py-1.5 text-right text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>{h}</td>
+                          ))}
                         </tr>
                       )}
+                      {isExpanded && acctLinks.map((l: any) => {
+                        const lRev    = Number(l.revenue || 0);
+                        const lSpend  = Number(l.cost_total || 0);
+                        const lProfit = lRev - lSpend;
+                        const lCvr    = Number(l.cvr || 0);
+                        const lRoi    = lSpend > 0 ? ((lRev - lSpend) / lSpend) * 100 : null;
+                        const lNewFans = newFansPerLink[l.id];
+                        const isLast  = acctLinks[acctLinks.length - 1]?.id === l.id;
+                        return (
+                          <tr key={l.id}
+                            style={{ background: T.bg, borderTop: `1px solid ${T.border}20`, borderBottom: isLast ? `1px solid ${T.border}` : "none" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = `${T.dark}60`)}
+                            onMouseLeave={e => (e.currentTarget.style.background = T.bg)}
+                          >
+                            <td className="pl-10 pr-4 py-2">
+                              <button
+                                className="text-left group"
+                                onClick={() => setDrawerCampaign(l)}
+                              >
+                                <span className="text-xs font-semibold group-hover:underline" style={{ color: T.white }}>
+                                  {l.campaign_name || l.external_tracking_link_id || "Unnamed"}
+                                </span>
+                                {l.url && <p className="text-[10px] truncate max-w-xs mt-0.5" style={{ color: T.muted }}>{l.url}</p>}
+                              </button>
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <span className="text-xs font-mono" style={{ color: lNewFans ? T.white : T.muted }}>
+                                {lNewFans ? lNewFans.toLocaleString() : "—"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <span className="text-xs font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(lRev)}</span>
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <span className="text-xs font-mono" style={{ color: lSpend > 0 ? T.white : T.muted }}>
+                                {lSpend > 0 ? fmtMoney(lSpend) : "—"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <span className="text-xs font-mono font-semibold" style={{ color: lProfit >= 0 ? T.green : T.red }}>
+                                {lProfit >= 0 ? "+" : ""}{fmtMoney(lProfit)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <span className="text-xs font-mono" style={{ color: lCvr > 0 ? T.white : T.muted }}>
+                                {lCvr > 0 ? `${lCvr.toFixed(1)}%` : "—"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <span className="text-xs font-mono font-semibold"
+                                style={{ color: lRoi == null ? T.muted : lRoi >= 0 ? T.green : T.red }}>
+                                {lRoi != null ? `${lRoi.toFixed(1)}%` : "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                       </React.Fragment>
                     );
                   })}
@@ -986,6 +962,7 @@ export default function OverviewPage() {
         </div>
 
       </div>
+      <CampaignDetailDrawer campaign={drawerCampaign} onClose={() => setDrawerCampaign(null)} onCampaignUpdated={setDrawerCampaign} />
     </DashboardLayout>
   );
 }
