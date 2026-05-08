@@ -275,10 +275,12 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // New Fans: use the exact same hook as Campaigns page "Last Sync · 1d"
+  // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
   const snapshotPeriod: TimePeriod = activePeriod === "all" ? "all" : activePeriod === "7d" ? "week" : activePeriod === "30d" ? "month" : "day";
   const snapshotCustomRange = activePeriod === "custom" ? customDateRange : null;
   const { deltaLookup: fansDeltaLookup } = useSnapshotDeltaMetrics(snapshotPeriod, snapshotCustomRange);
+  const prevSnapshotRange = prevFrom && prevTo ? { from: new Date(prevFrom + "T12:00:00"), to: new Date(prevTo + "T12:00:00") } : null;
+  const { deltaLookup: prevFansDeltaLookup } = useSnapshotDeltaMetrics("day", prevSnapshotRange);
 
   const { data: orders = [] } = useQuery({
     queryKey: ["ov2_orders", dateFrom, dateTo],
@@ -397,7 +399,14 @@ export default function OverviewPage() {
     return m;
   }, [fansDeltaLookup, linksRaw, selectedIds]);
 
-  const prevSubsByAcct: Record<string, number> = {};
+  const prevSubsByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linksRaw as any[]).filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id)).forEach((l: any) => {
+      const delta = prevFansDeltaLookup[String(l.id).toLowerCase()];
+      if (delta) m[l.account_id] = (m[l.account_id] || 0) + (delta.subsGained || 0);
+    });
+    return m;
+  }, [prevFansDeltaLookup, linksRaw, selectedIds]);
 
   const spendByAcct = useMemo(() => {
     const m: Record<string, number> = {};
