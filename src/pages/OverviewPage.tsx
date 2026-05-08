@@ -596,13 +596,11 @@ export default function OverviewPage() {
               ))}
             </div>
           </div>
-          <div className="h-56">
+          <div className={chartData.length === 0 ? "py-6 flex items-center justify-center" : "h-56"}>
             {chartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-sm" style={{ color: T.muted }}>
-                  {txLoading ? "Loading…" : "No data for this period"}
-                </p>
-              </div>
+              <p className="text-sm" style={{ color: T.muted }}>
+                {txLoading ? "Loading…" : "No data for this period"}
+              </p>
             ) : chartType === "line" ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>

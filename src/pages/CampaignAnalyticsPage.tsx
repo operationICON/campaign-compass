@@ -244,7 +244,7 @@ function ListView({
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={colCount} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                  <td colSpan={colCount} className="px-4 py-6 text-center text-muted-foreground text-sm">
                     {search ? "No campaigns match your search." : "No campaigns found."}
                   </td>
                 </tr>
@@ -535,7 +535,7 @@ function PerformanceView({
         {trendLoading ? (
           <Skeleton className="h-56 w-full rounded-xl" />
         ) : trendData.length === 0 ? (
-          <div className="h-56 flex items-center justify-center text-muted-foreground text-sm">
+          <div className="py-6 flex items-center justify-center text-muted-foreground text-sm">
             No daily data synced for this campaign yet.
           </div>
         ) : (
@@ -586,7 +586,7 @@ function PerformanceView({
             {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
           </div>
         ) : (spenders as any[]).length === 0 ? (
-          <div className="px-5 py-10 text-center text-muted-foreground text-sm">
+          <div className="px-5 py-5 text-center text-muted-foreground text-sm">
             No spender data yet. Fan sync may be needed.
           </div>
         ) : (

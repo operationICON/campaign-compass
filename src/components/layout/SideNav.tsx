@@ -11,23 +11,23 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const MAIN_NAV = [
-  { to: "/overview",           icon: PieChart,   label: "Overview",       adminOnly: true  },
-  { to: "/campaigns",          icon: LayoutGrid, label: "Tracking Links"                   },
-  { to: "/accounts",           icon: Users,      label: "Models",         adminOnly: true  },
-  { to: "/traffic-sources",    icon: Tag,        label: "Sources",        adminOnly: true  },
-  { to: "/fans",               icon: Heart,      label: "Fans",           adminOnly: true  },
-  { to: "/campaign-analytics", icon: LineChart,  label: "Analytics",      adminOnly: true  },
-  { to: "/cross-poll",         icon: GitBranch,  label: "Cross-Poll",     adminOnly: true  },
+  { to: "/overview",           icon: PieChart,    label: "Overview",       adminOnly: true  },
+  { to: "/campaigns",          icon: LayoutGrid,  label: "Tracking Links"                   },
+  { to: "/accounts",           icon: Users,       label: "Models",         adminOnly: true  },
+  { to: "/traffic-sources",    icon: Tag,         label: "Sources",        adminOnly: true  },
+  { to: "/fans",               icon: Heart,       label: "Fans",           adminOnly: true  },
+  { to: "/campaign-analytics", icon: LineChart,   label: "Analytics",      adminOnly: true  },
+  { to: "/cross-poll",         icon: GitBranch,   label: "Cross-Poll",     adminOnly: true  },
+  { to: "/audit",              icon: ShieldCheck, label: "Audit",          adminOnly: true  },
+  { to: "/charts",             icon: BarChart3,   label: "Charts",         adminOnly: true  },
 ];
 
 const SYSTEM_NAV = [
-  { to: "/audit",        icon: ShieldCheck, label: "Audit"        },
-  { to: "/charts",       icon: BarChart3,   label: "Charts"       },
-  { to: "/calculations", icon: Calculator,  label: "Calculations" },
-  { to: "/alerts",       icon: Bell,        label: "Alerts",       hasBadge: true },
-  { to: "/logs",         icon: Activity,    label: "Sync Logs"    },
-  { to: "/settings",     icon: Settings,    label: "Settings"     },
-  { to: "/debug",        icon: Code2,       label: "API Debug"    },
+  { to: "/calculations", icon: Calculator, label: "Calculations" },
+  { to: "/alerts",       icon: Bell,       label: "Alerts",       hasBadge: true },
+  { to: "/logs",         icon: Activity,   label: "Sync Logs"    },
+  { to: "/settings",     icon: Settings,   label: "Settings"     },
+  { to: "/debug",        icon: Code2,      label: "API Debug"    },
 ];
 
 export function SideNav() {

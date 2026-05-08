@@ -963,8 +963,8 @@ export default function FansPage() {
                   {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
                 </div>
               ) : accounts.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="font-semibold">No active accounts</p>
                   <p className="text-sm mt-1">Add accounts in Settings to get started.</p>
                 </div>
@@ -1103,7 +1103,7 @@ export default function FansPage() {
                     ))
                   ) : paginatedFans.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-16 text-center">
+                      <td colSpan={8} className="py-8 text-center">
                         <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
                         {totalFans === 0 && txCount > 0 ? (
                           <>

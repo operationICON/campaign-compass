@@ -111,7 +111,7 @@ export default function CalculationsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-10 max-w-6xl mx-auto">
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
 
         {/* Header */}
         <div>
