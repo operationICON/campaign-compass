@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  getAccounts,
+  getAccounts, getTransactionDaily,
   getOnlytrafficOrders, getTrackingLinks,
-  getFanCampaignBreakdown, getSnapshotLatestDate, getSnapshotsByDateRange,
+  getFanCampaignBreakdown, getSnapshotLatestDate,
 } from "@/lib/api";
 import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
 import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
@@ -266,13 +266,15 @@ export default function OverviewPage() {
 
   const { data: linksRaw = [] } = useQuery({ queryKey: ["tracking_links"], queryFn: () => getTrackingLinks(), staleTime: 5 * 60 * 1000 });
 
-  // Chart: daily_snapshots rows for date-range granularity (same data source as New Fans)
-  const { data: chartSnapshotRows = [] } = useQuery({
-    queryKey: ["ov2_chart_snaps", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom!, date_to: dateTo!, account_ids: selectedIds, cols: "slim" }),
-    enabled: !isAllTime && !!dateFrom && !!dateTo && selectedIds.length > 0,
+  // Chart only — transactions give daily granularity for recent periods
+  const { data: txRows = [] } = useQuery({
+    queryKey: ["ov2_tx", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getTransactionDaily({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds }),
+    enabled: selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
+  // Transactions cover ~last 30 days; older ranges fall back to revenue_monthly monthly bars
+  const txCoverageStart = useMemo(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10), []);
 
   // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
   const snapshotPeriod: TimePeriod = timePeriod;
@@ -485,25 +487,52 @@ export default function OverviewPage() {
       }
       return [];
     }
-    // Non-all-time: group daily_snapshots rows by date for per-day granularity
     const daysDiff = dateFrom && dateTo
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
       : 90;
     const byMonth = daysDiff > 90;
+    // Period predates transaction coverage — show revenue_monthly monthly bars
+    const useMonthly = !!dateFrom && dateFrom < txCoverageStart;
     const m: Record<string, number> = {};
-    (chartSnapshotRows as any[]).forEach(r => {
-      const d = String(r.snapshot_date || "").slice(0, 10);
-      if (!d) return;
-      const key = byMonth ? d.slice(0, 7) : d;
-      m[key] = (m[key] || 0) + Math.max(0, Number(r.revenue || 0));
-    });
+    if (useMonthly && dateFrom && dateTo) {
+      const fromMonth = dateFrom.slice(0, 7);
+      const toMonth   = dateTo.slice(0, 7);
+      selectedAccounts.forEach((a: any) => {
+        const monthly = a.revenue_monthly as Record<string, number> | null;
+        if (!monthly) return;
+        Object.entries(monthly).forEach(([month, amount]) => {
+          if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
+            m[month] = (m[month] || 0) + Number(amount);
+        });
+      });
+    } else {
+      txRows.forEach(s => {
+        if (!selectedIds.includes(s.account_id)) return;
+        const d = String(s.date).split("T")[0];
+        const key = byMonth ? d.slice(0, 7) : d;
+        m[key] = (m[key] || 0) + Number(s.revenue || 0);
+      });
+      // Fallback to revenue_monthly if transactions empty
+      if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
+        const fromMonth = dateFrom.slice(0, 7);
+        const toMonth   = dateTo.slice(0, 7);
+        selectedAccounts.forEach((a: any) => {
+          const monthly = a.revenue_monthly as Record<string, number> | null;
+          if (!monthly) return;
+          Object.entries(monthly).forEach(([month, amount]) => {
+            if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
+              m[month] = (m[month] || 0) + Number(amount);
+          });
+        });
+      }
+    }
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
       date: key, revenue,
-      label: byMonth
+      label: key.length === 7 || useMonthly || byMonth
         ? format(new Date(key + "-15"), "MMM yy")
         : format(new Date(key + "T12:00:00"), "MMM d"),
     }));
-  }, [selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts, chartSnapshotRows]);
+  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts, txCoverageStart]);
 
   const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
 
