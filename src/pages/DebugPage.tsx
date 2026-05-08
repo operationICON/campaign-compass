@@ -23,6 +23,8 @@ export default function DebugPage() {
   const [findTotalLoading, setFindTotalLoading] = useState(false);
   const [sumEarningsResult, setSumEarningsResult] = useState<any>(null);
   const [sumEarningsLoading, setSumEarningsLoading] = useState(false);
+  const [txTotalsResult, setTxTotalsResult] = useState<any>(null);
+  const [txTotalsLoading, setTxTotalsLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -115,6 +117,19 @@ export default function DebugPage() {
     }
   }, []);
 
+  const runTxTotals = useCallback(async () => {
+    setTxTotalsLoading(true);
+    setTxTotalsResult(null);
+    try {
+      const data = await debugAction("tx_totals");
+      setTxTotalsResult(data);
+    } catch (err: any) {
+      setTxTotalsResult({ error: err.message });
+    } finally {
+      setTxTotalsLoading(false);
+    }
+  }, []);
+
   const runTxSample = useCallback(async () => {
     setTxSampleLoading(true);
     setTxSampleResult(null);
@@ -141,6 +156,61 @@ export default function DebugPage() {
 
         {/* Section 5 — Credit Monitor (always visible) */}
         <CreditMonitor balance={creditBalance} sessionUsed={sessionCredits} />
+
+        {/* Per-Account DB Transaction Check */}
+        <div className="bg-card border border-sky-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-sky-400" /> Per-Account Transaction Check
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shows how many transactions are in the DB per account, date range, and revenue total — use this to verify backfill completeness
+              </p>
+            </div>
+            <button
+              onClick={runTxTotals}
+              disabled={txTotalsLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+            >
+              {txTotalsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Check DB Transactions
+            </button>
+          </div>
+          {txTotalsResult && (
+            <div className="space-y-2">
+              {txTotalsResult.error && <p className="text-xs text-destructive">{txTotalsResult.error}</p>}
+              {txTotalsResult.totals && (
+                <div className="flex items-center gap-4 bg-sky-500/10 border border-sky-500/30 rounded-lg px-3 py-2 text-[11px]">
+                  <span className="text-muted-foreground">Totals:</span>
+                  <span className="font-bold text-sky-400">{Number(txTotalsResult.totals.tx_count).toLocaleString()} txns</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="font-bold text-emerald-400">
+                    ${Number(txTotalsResult.totals.net_sum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} net
+                  </span>
+                  <span className="text-muted-foreground/60">
+                    (gross ${Number(txTotalsResult.totals.gross_sum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                  </span>
+                </div>
+              )}
+              {(txTotalsResult.accounts ?? []).map((r: any, i: number) => (
+                <div key={i} className="grid grid-cols-[160px_1fr_1fr_1fr_1fr] gap-2 items-center text-[11px] bg-secondary/50 rounded px-2 py-1.5">
+                  <span className="font-semibold text-foreground truncate">{r.display_name}</span>
+                  <span className="text-muted-foreground">{Number(r.tx_count).toLocaleString()} txns</span>
+                  <span className={`font-mono ${Number(r.tx_count) === 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {r.earliest_date ?? "—"} → {r.latest_date ?? "—"}
+                  </span>
+                  <span className="text-emerald-400 font-semibold">
+                    {r.net_sum != null ? `$${Number(r.net_sum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                  </span>
+                  <span className="text-muted-foreground/60">
+                    {r.gross_sum != null ? `gross $${Number(r.gross_sum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Fan Data Diagnostic */}
         <div className="bg-card border border-rose-500/30 rounded-lg p-5 space-y-3">
