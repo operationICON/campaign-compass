@@ -1,12 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
 import CampaignsPage from "./pages/CampaignsPage";
 import AuditPage from "./pages/AuditPage";
@@ -47,7 +46,7 @@ const App = () => (
             {/* Accessible to all authenticated users */}
             <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
             {/* Admin-only routes */}
-            <Route path="/" element={<ProtectedRoute adminOnly><DashboardPage /></ProtectedRoute>} />
+            <Route path="/" element={<Navigate to="/overview" replace />} />
             <Route path="/audit" element={<ProtectedRoute adminOnly><AuditPage /></ProtectedRoute>} />
             <Route path="/calculations" element={<ProtectedRoute adminOnly><CalculationsPage /></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute adminOnly><AccountsPage /></ProtectedRoute>} />

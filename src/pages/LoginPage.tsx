@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   // Already logged in
   if (user) {
-    navigate(user.role === "user" ? "/campaigns" : "/", { replace: true });
+    navigate(user.role === "user" ? "/campaigns" : "/overview", { replace: true });
     return null;
   }
 
@@ -30,11 +30,11 @@ export default function LoginPage() {
         // decode role from JWT payload (no library needed — just base64)
         try {
           const payload = JSON.parse(atob(stored.split(".")[1]));
-          navigate(payload.role === "user" ? "/campaigns" : "/", { replace: true });
+          navigate(payload.role === "user" ? "/campaigns" : "/overview", { replace: true });
           return;
         } catch {}
       }
-      navigate("/", { replace: true });
+      navigate("/overview", { replace: true });
     } catch (err: any) {
       const msg = err.message ?? "";
       if (msg.includes("401") || msg.toLowerCase().includes("invalid")) {
