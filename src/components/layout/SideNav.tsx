@@ -103,7 +103,7 @@ export function SideNav() {
       style={{
         width: collapsed ? "52px" : "200px",
         background: "#080a0d",
-        borderRight: "1px solid #1c1f2b",
+        borderRight: "1px solid #252b3b",
       }}
     >
       {/* Logo + collapse toggle */}
