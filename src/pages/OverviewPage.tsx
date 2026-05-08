@@ -219,8 +219,6 @@ export default function OverviewPage() {
   const [customRange, setCustomRange]   = useState<{ from: Date; to: Date } | null>(null);
   const [chartType, setChartType]       = useState<"bar" | "line">("line");
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
-  const [tablePage, setTablePage]       = useState(0);
-  const tablePageSize = 10;
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -498,12 +496,8 @@ export default function OverviewPage() {
     [selectedAccounts, revByAcct, revMult]);
   const donutTotal = useMemo(() => donutData.reduce((s, d) => s + d.value, 0), [donutData]);
 
-  const totalPages = Math.ceil(tableRows.length / tablePageSize);
-  const pagedRows  = tableRows.slice(tablePage * tablePageSize, (tablePage + 1) * tablePageSize);
-
   const sortBy = (key: string) => {
     setTableSort(s => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" }));
-    setTablePage(0);
   };
 
   function SortIcon({ k }: { k: string }) {
@@ -724,18 +718,14 @@ export default function OverviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pagedRows.length === 0 ? (
+                  {tableRows.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: T.muted }}>
                         {txLoading ? "Loading…" : selectedIds.length === 0 ? "Select at least one model" : "No data"}
                       </td>
                     </tr>
-                  ) : pagedRows.map((row, rowIdx) => {
+                  ) : tableRows.map((row, rowIdx) => {
                     const a = row.account;
-                    const rp = !isAllTime && row.prevRev > 0     ? ((row.rev     - row.prevRev)    / row.prevRev)              * 100 : null;
-                    const sp = !isAllTime && row.prevSpend > 0   ? ((row.spend   - row.prevSpend)  / row.prevSpend)            * 100 : null;
-                    const pp = !isAllTime && row.prevProfit !== 0 ? ((row.profit - row.prevProfit) / Math.abs(row.prevProfit)) * 100 : null;
-                    const fp = !isAllTime && row.prevNewFans > 0  ? ((row.newFans - row.prevNewFans) / row.prevNewFans)         * 100 : null;
                     const rowBg = rowIdx % 2 === 0 ? T.card : T.cardAlt;
                     return (
                       <tr key={a.id}
@@ -748,18 +738,21 @@ export default function OverviewPage() {
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2.5">
                             {a.avatar_thumb_url
-                              ? <img src={a.avatar_thumb_url} className="w-6 h-6 rounded-full object-cover shrink-0" style={{ border: `1px solid ${T.border}` }} alt="" />
-                              : <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                              ? <img src={a.avatar_thumb_url} className="w-7 h-7 rounded-full object-cover shrink-0" style={{ border: `1px solid ${T.border}` }} alt="" />
+                              : <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                                   style={{ background: T.dark, color: T.muted }}>
                                   {(a.display_name || "?").slice(0, 2).toUpperCase()}
                                 </div>}
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-sm font-semibold truncate" style={{ color: T.white }}>{a.display_name}</span>
-                            {row.linkCount > 0 && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                                style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount}</span>
-                            )}
-                          </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-semibold truncate" style={{ color: T.white }}>{a.display_name}</span>
+                                {row.linkCount > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                                    style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount}</span>
+                                )}
+                              </div>
+                              {a.username && <div className="text-xs mt-0.5 truncate" style={{ color: T.muted }}>@{a.username}</div>}
+                            </div>
                           </div>
                         </td>
                         {/* New Fans */}
@@ -804,32 +797,6 @@ export default function OverviewPage() {
               </table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: `1px solid ${T.border}` }}>
-                <span className="text-xs font-mono" style={{ color: T.muted }}>
-                  {tablePage * tablePageSize + 1}–{Math.min((tablePage + 1) * tablePageSize, tableRows.length)} of {tableRows.length}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setTablePage(p => Math.max(0, p - 1))} disabled={tablePage === 0}
-                    className="px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-30"
-                    style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>Prev</button>
-                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i).map(i => (
-                    <button key={i} onClick={() => setTablePage(i)}
-                      className="w-7 h-7 rounded-md text-xs transition-colors"
-                      style={{
-                        background: i === tablePage ? T.blue : T.cardAlt,
-                        border: `1px solid ${i === tablePage ? T.blue : T.border}`,
-                        color: i === tablePage ? "white" : T.muted,
-                      }}>
-                      {i + 1}
-                    </button>
-                  ))}
-                  <button onClick={() => setTablePage(p => Math.min(totalPages - 1, p + 1))} disabled={tablePage >= totalPages - 1}
-                    className="px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-30"
-                    style={{ background: T.cardAlt, border: `1px solid ${T.border}`, color: T.muted }}>Next</button>
-                </div>
-              </div>
-            )}
           </div>
 
         </div>
