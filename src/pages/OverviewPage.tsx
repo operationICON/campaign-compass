@@ -506,16 +506,22 @@ export default function OverviewPage() {
     const useMonthly = !!dateFrom && dateFrom < txCoverageStart;
     const m: Record<string, number> = {};
     if (useMonthly && dateFrom && dateTo) {
-      const fromMonth = dateFrom.slice(0, 7);
-      const toMonth   = dateTo.slice(0, 7);
-      selectedAccounts.forEach((a: any) => {
-        const monthly = a.revenue_monthly as Record<string, number> | null;
-        if (!monthly) return;
-        Object.entries(monthly).forEach(([month, amount]) => {
-          if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
-            m[month] = (m[month] || 0) + Number(amount);
+      // Use live OFAPI period data if available (same source as KPI), else fall back to revenue_monthly
+      if (periodRevenueRows.length > 0) {
+        const total = periodRevenueRows.reduce((s: number, r: { account_id: string; net: number }) => s + (r.net || 0), 0);
+        if (total > 0) m[dateFrom.slice(0, 7)] = total;
+      } else {
+        const fromMonth = dateFrom.slice(0, 7);
+        const toMonth   = dateTo.slice(0, 7);
+        selectedAccounts.forEach((a: any) => {
+          const monthly = a.revenue_monthly as Record<string, number> | null;
+          if (!monthly) return;
+          Object.entries(monthly).forEach(([month, amount]) => {
+            if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
+              m[month] = (m[month] || 0) + Number(amount);
+          });
         });
-      });
+      }
     } else {
       txRows.forEach(s => {
         if (!selectedIds.includes(s.account_id)) return;
@@ -543,7 +549,7 @@ export default function OverviewPage() {
         ? format(new Date(key + "-15"), "MMM yy")
         : format(new Date(key + "T12:00:00"), "MMM d"),
     }));
-  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts, txCoverageStart]);
+  }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts, txCoverageStart, periodRevenueRows]);
 
   const chartTotal = useMemo(() => chartData.reduce((s, d) => s + d.revenue, 0), [chartData]);
 
