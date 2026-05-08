@@ -651,17 +651,15 @@ export default function OverviewPage() {
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
-            {(["1d","7d","30d","all"] as const).map(p => (
-              <button key={p}
-                onClick={() => setActivePeriod(p)}
-                className={filterBtnCls(activePeriod === p)}
-                style={activePeriod === p ? { background: T.white, color: T.bg } : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
-              >
-                {p === "all" ? "All Time" : p.toUpperCase()}
-              </button>
-            ))}
+            <button
+              onClick={() => setActivePeriod("all")}
+              className={filterBtnCls(activePeriod === "all")}
+              style={activePeriod === "all" ? { background: T.white, color: T.bg } : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
+            >
+              All Time
+            </button>
             <DateRangePicker
-              value={activePeriod === "custom" ? customDateRange : null}
+              value={activePeriod !== "all" ? customRange : null}
               onChange={range => { if (range) { setCustomDateRange(range); setActivePeriod("custom"); } }}
             />
           </div>
