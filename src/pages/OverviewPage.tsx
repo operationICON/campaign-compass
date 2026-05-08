@@ -8,6 +8,7 @@ import {
   getFanCampaignBreakdown, getSnapshotLatestDate,
 } from "@/lib/api";
 import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
+import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
 import type { TimePeriod } from "@/hooks/usePageFilters";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import {
@@ -217,10 +218,9 @@ function ChartTooltip({ active, payload, label }: any) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function OverviewPage() {
-  const [selectedIds, setSelectedIds]   = useState<string[]>([]);
-  const [idsReady, setIdsReady]         = useState(false);
-  const [activePeriod, setActivePeriod] = useState<"1d" | "7d" | "30d" | "all" | "custom">("1d");
-  const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [idsReady, setIdsReady]       = useState(false);
+  const { timePeriod, setTimePeriod, customRange: customDateRange, setCustomRange: setCustomDateRange } = usePageFilters();
   const [tableSort, setTableSort]       = useState<{ key: string; dir: "asc" | "desc" }>({ key: "revenue", dir: "desc" });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [drawerCampaign, setDrawerCampaign] = useState<any | null>(null);
@@ -232,18 +232,23 @@ export default function OverviewPage() {
   });
   const latestDate = latestDateData?.date ?? fmtD(new Date());
 
-  const { isAllTime, customRange } = useMemo(() => {
-    if (activePeriod === "all") return { isAllTime: true, customRange: null as { from: Date; to: Date } | null };
-    if (activePeriod === "custom") return { isAllTime: false, customRange: customDateRange };
-    // Use latestDate from DB if recent (within 3 days), otherwise fall back to yesterday
+  const isAllTime = timePeriod === "all" && !customDateRange;
+
+  const customRange = useMemo(() => {
+    if (customDateRange) return customDateRange;
+    if (timePeriod === "all") return null;
     const latestAsDate = new Date(latestDate + "T12:00:00");
     const yesterday = subDays(new Date(), 1);
     const end = latestAsDate >= subDays(new Date(), 3) ? latestAsDate : yesterday;
+    if (timePeriod === "prev_month") {
+      const ref = new Date(latestDate + "T12:00:00");
+      return { from: new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - 1, 1)), to: new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0)) };
+    }
     const from = new Date(end);
-    if (activePeriod === "7d")  from.setDate(from.getDate() - 6);
-    if (activePeriod === "30d") from.setDate(from.getDate() - 29);
-    return { isAllTime: false, customRange: { from, to: end } };
-  }, [activePeriod, customDateRange, latestDate]);
+    if (timePeriod === "week")  from.setDate(from.getDate() - 6);
+    if (timePeriod === "month") from.setDate(from.getDate() - 29);
+    return { from, to: end };
+  }, [timePeriod, customDateRange, latestDate]);
 
   const { from: dateFrom, to: dateTo } = useMemo(() => computeDateRange(isAllTime, customRange), [isAllTime, customRange]);
   const { prevFrom, prevTo } = useMemo(() =>
@@ -276,8 +281,8 @@ export default function OverviewPage() {
   });
 
   // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
-  const snapshotPeriod: TimePeriod = activePeriod === "all" ? "all" : activePeriod === "7d" ? "week" : activePeriod === "30d" ? "month" : "day";
-  const snapshotCustomRange = activePeriod === "custom" ? customDateRange : null;
+  const snapshotPeriod: TimePeriod = timePeriod;
+  const snapshotCustomRange = customDateRange;
   const { deltaLookup: fansDeltaLookup } = useSnapshotDeltaMetrics(snapshotPeriod, snapshotCustomRange);
   const prevSnapshotRange = prevFrom && prevTo ? { from: new Date(prevFrom + "T12:00:00"), to: new Date(prevTo + "T12:00:00") } : null;
   const { deltaLookup: prevFansDeltaLookup } = useSnapshotDeltaMetrics("day", prevSnapshotRange);
@@ -653,16 +658,21 @@ export default function OverviewPage() {
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
-            <button
-              onClick={() => setActivePeriod("all")}
-              className={filterBtnCls(activePeriod === "all")}
-              style={activePeriod === "all" ? { background: T.white, color: T.bg } : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
-            >
-              All Time
-            </button>
+            {TIME_PERIODS.map(tp => (
+              <button
+                key={tp.key}
+                onClick={() => { setTimePeriod(tp.key); setCustomDateRange(null); }}
+                className={filterBtnCls(!customDateRange && timePeriod === tp.key)}
+                style={!customDateRange && timePeriod === tp.key
+                  ? { background: T.white, color: T.bg }
+                  : { background: T.card, border: `1px solid ${T.border}`, color: T.muted }}
+              >
+                {tp.label}
+              </button>
+            ))}
             <DateRangePicker
-              value={activePeriod !== "all" ? customRange : null}
-              onChange={range => { if (range) { setCustomDateRange(range); setActivePeriod("custom"); } }}
+              value={customDateRange}
+              onChange={range => { if (range) setCustomDateRange(range); }}
             />
           </div>
         </div>
