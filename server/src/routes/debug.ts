@@ -412,33 +412,28 @@ router.post("/", async (c) => {
   // Check revenue_monthly data stored on accounts
   if (body?.action === "rev_monthly_check") {
     const rows = await db.execute(sql`
-      SELECT
-        a.display_name,
-        a.ltv_total,
-        a.ltv_updated_at,
-        CASE
-          WHEN a.revenue_monthly IS NULL                                                   THEN 'NULL'
-          WHEN jsonb_typeof(a.revenue_monthly) != 'object'                                THEN 'WRONG TYPE'
-          WHEN jsonb_object_length(a.revenue_monthly) = 0                                 THEN 'EMPTY'
-          ELSE 'HAS DATA'
-        END AS status,
-        COALESCE(jsonb_object_length(a.revenue_monthly), 0) AS month_count,
-        agg.earliest_month,
-        agg.latest_month,
-        agg.total_net
-      FROM accounts a
-      LEFT JOIN LATERAL (
-        SELECT
-          MIN(kv.k)                            AS earliest_month,
-          MAX(kv.k)                            AS latest_month,
-          COALESCE(SUM(kv.v::numeric), 0)      AS total_net
-        FROM jsonb_each_text(COALESCE(a.revenue_monthly, '{}'::jsonb)) AS kv(k, v)
-        WHERE kv.v ~ '^-?[0-9]+(\\.[0-9]+)?$'
-      ) agg ON true
-      WHERE a.is_active = true
-      ORDER BY a.display_name
+      SELECT display_name, ltv_total, ltv_updated_at,
+        revenue_monthly IS NOT NULL AS has_field,
+        revenue_monthly::text AS monthly_raw
+      FROM accounts WHERE is_active = true ORDER BY display_name
     `);
-    return c.json({ accounts: rows.rows });
+    const accounts = (rows.rows as any[]).map(r => {
+      let monthly: Record<string, number> | null = null;
+      try { monthly = r.monthly_raw ? JSON.parse(r.monthly_raw) : null; } catch {}
+      const keys = monthly ? Object.keys(monthly).sort() : [];
+      const total = monthly ? Object.values(monthly).reduce((s, v) => s + Number(v), 0) : 0;
+      return {
+        display_name: r.display_name,
+        ltv_total: r.ltv_total,
+        ltv_updated_at: r.ltv_updated_at,
+        status: !r.has_field ? "NULL" : !monthly || keys.length === 0 ? "EMPTY" : "HAS DATA",
+        month_count: keys.length,
+        earliest_month: keys[0] ?? null,
+        latest_month: keys[keys.length - 1] ?? null,
+        total_net: total.toFixed(2),
+      };
+    });
+    return c.json({ accounts });
   }
 
   return c.json({ error: "Unknown action" }, 400);
