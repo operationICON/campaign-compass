@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
   getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks,
-  getFanCampaignBreakdown,
+  getFanCampaignBreakdown, getLinkSubsInPeriod,
 } from "@/lib/api";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import {
@@ -281,13 +281,27 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // No date filter — first_subscribe_date doesn't align with snapshot periods; show all-time attribution
+  // All-time fan attribution per link (fans table first_subscribe_link_id)
   const { data: campBreakdown = [] } = useQuery({
     queryKey: ["ov2_camp_breakdown", selectedIds.join(",")],
     queryFn: () => getFanCampaignBreakdown({ account_ids: selectedIds }),
     enabled: selectedIds.length > 0,
     staleTime: 10 * 60 * 1000,
   });
+
+  // Period-specific new subs per tracking link (daily_snapshots — same source as parent row)
+  const { data: linkSubsRaw = [] } = useQuery({
+    queryKey: ["ov2_link_subs", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getLinkSubsInPeriod({ account_ids: selectedIds, date_from: dateFrom, date_to: dateTo }),
+    enabled: !isAllTime && selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const newFansByLink = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linkSubsRaw as any[]).forEach(r => { if (r.tracking_link_id) m[r.tracking_link_id] = Number(r.subs || 0); });
+    return m;
+  }, [linkSubsRaw]);
 
   // ── Derived maps ──────────────────────────────────────────────────────────
   const linkToAccount = useMemo(() => {
@@ -799,17 +813,22 @@ export default function OverviewPage() {
                     const isExpanded = expandedRows.has(a.id);
                     const fanDelta = row.newFans - row.prevNewFans;
                     const fanPct = row.prevNewFans > 0 ? (fanDelta / row.prevNewFans) * 100 : null;
-                    const newFansPerLink: Record<string, number> = {};
-                    for (const c of (campByAcct[a.id] ?? [])) newFansPerLink[c.link_id] = Number(c.fan_count);
-                    const linkIdsWithFans = new Set(Object.keys(newFansPerLink));
-                    const hasAttribution = linkIdsWithFans.size > 0;
+                    // Use snapshot-based subs (same source as parent row) when on a date range,
+                    // fall back to all-time fan attribution for All Time view
+                    const fansByLink: Record<string, number> = isAllTime
+                      ? Object.fromEntries((campByAcct[a.id] ?? []).map(c => [c.link_id, Number(c.fan_count)]))
+                      : newFansByLink;
+                    const linkIdsWithFans = new Set(
+                      Object.entries(fansByLink).filter(([, v]) => v > 0).map(([k]) => k)
+                    );
+                    const hasData = linkIdsWithFans.size > 0;
                     const acctLinks = (linksRaw as any[])
-                      .filter(l => l.account_id === a.id && !l.deleted_at && (hasAttribution ? linkIdsWithFans.has(l.id) : true))
+                      .filter(l => l.account_id === a.id && !l.deleted_at && (hasData ? linkIdsWithFans.has(l.id) : true))
                       .sort((x, y) => {
-                        const fd = (newFansPerLink[y.id] || 0) - (newFansPerLink[x.id] || 0);
+                        const fd = (fansByLink[y.id] || 0) - (fansByLink[x.id] || 0);
                         return fd !== 0 ? fd : Number(y.revenue || 0) - Number(x.revenue || 0);
                       })
-                      .slice(0, hasAttribution ? 50 : 15);
+                      .slice(0, hasData ? 50 : 15);
                     return (
                       <React.Fragment key={a.id}>
                       <tr
@@ -906,7 +925,7 @@ export default function OverviewPage() {
                         const lProfit = lRev - lSpend;
                         const lCvr    = Number(l.cvr || 0);
                         const lRoi    = lSpend > 0 ? ((lRev - lSpend) / lSpend) * 100 : null;
-                        const lNewFans = newFansPerLink[l.id];
+                        const lNewFans = fansByLink[l.id];
                         const isLast  = acctLinks[acctLinks.length - 1]?.id === l.id;
                         return (
                           <tr key={l.id}

@@ -60,6 +60,35 @@ router.get("/alltime-totals", async (c) => {
   });
 });
 
+// GET /daily-snapshots/link-subs?account_ids=&date_from=&date_to=
+// Returns [{tracking_link_id, subs}] — sum of daily subscriber deltas per link for the period.
+// Used by Overview Model Performance campaign breakdown to show period-specific new fans per campaign.
+router.get("/link-subs", async (c) => {
+  const accountIdsParam = c.req.query("account_ids");
+  const dateFrom = c.req.query("date_from");
+  const dateTo = c.req.query("date_to");
+  const accountIds = accountIdsParam ? accountIdsParam.split(",").filter(Boolean) : [];
+  if (accountIds.length === 0) return c.json([]);
+
+  const conditions = [
+    inArray(daily_snapshots.account_id, accountIds),
+    dateFrom ? gte(daily_snapshots.snapshot_date, dateFrom) : undefined,
+    dateTo   ? lte(daily_snapshots.snapshot_date, dateTo)   : undefined,
+  ].filter(Boolean) as any[];
+
+  const rows = await db
+    .select({
+      tracking_link_id: sql<string>`${daily_snapshots.tracking_link_id}::text`,
+      subs: sql<number>`COALESCE(SUM(${daily_snapshots.subscribers}), 0)::int`,
+    })
+    .from(daily_snapshots)
+    .where(and(...conditions))
+    .groupBy(daily_snapshots.tracking_link_id)
+    .orderBy(desc(sql`SUM(${daily_snapshots.subscribers})`));
+
+  return c.json(rows.filter(r => r.tracking_link_id && (r.subs as any) > 0));
+});
+
 // GET /daily-snapshots?tracking_link_ids=&account_ids=&date_from=&date_to=&cols=
 router.get("/", async (c) => {
   const idsParam = c.req.query("tracking_link_ids");
