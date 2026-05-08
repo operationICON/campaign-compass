@@ -12,7 +12,10 @@
       "Bash(xargs grep *)",
       "Bash(git checkout *)",
       "Bash(git commit -m ' *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(git -C \"C:/Users/Ern/campaign-compass\" add server/src/routes/debug.ts)",
+      "Bash(git -C C:/Users/Ern/campaign-compass commit -m ' *)",
+      "Bash(git -C \"C:/Users/Ern/campaign-compass\" push)"
     ]
   }
 }

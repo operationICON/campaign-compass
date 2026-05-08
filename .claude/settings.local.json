@@ -34,7 +34,19 @@
       "Bash(railway --version)",
       "Bash(curl *)",
       "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(c['sha'][:7], c['commit']['message'][:60]\\) for c in data]\")",
-      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\);const j=JSON.parse\\(d\\);j.forEach\\(c=>console.log\\(c.sha.slice\\(0,7\\),c.commit.message.slice\\(0,60\\)\\)\\)\")"
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\);const j=JSON.parse\\(d\\);j.forEach\\(c=>console.log\\(c.sha.slice\\(0,7\\),c.commit.message.slice\\(0,60\\)\\)\\)\")",
+      "Bash(git -C \"C:/Users/Ern/campaign-compass\" add server/src/routes/debug.ts src/pages/DebugPage.tsx)",
+      "Bash(git -C C:/Users/Ern/campaign-compass commit -m ' *)",
+      "Bash(git -C \"C:/Users/Ern/campaign-compass\" add src/pages/OverviewPage.tsx server/src/routes/sync/revenue-breakdown.ts)",
+      "Bash(git -C \"C:/Users/Ern/campaign-compass\" add server/migrations/003_accounts_revenue_monthly.sql server/src/db/schema.ts server/src/routes/sync/revenue-breakdown.ts src/pages/OverviewPage.tsx)",
+      "Bash(git -C \"C:/Users/Ern/campaign-compass\" add src/pages/OverviewPage.tsx)",
+      "Bash(git -C \"C:/Users/Ern/campaign-compass\" log --oneline --since=\"2026-05-06 00:00:00\" --until=\"2026-05-08 23:59:59\" --format=\"%h %ad %s\" --date=format:\"%b %d %H:%M\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Ern\\\\campaign-compass\" -Name)",
+      "Bash(node -e \"require\\('./dist/assets/index-DHhTPUTf.js'\\)\")",
+      "Bash(git check-ignore *)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\Ern\\\\campaign-compass\\\\src\\\\pages\\\\DashboardPage.tsx\" -Force)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Ern\\\\campaign-compass\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

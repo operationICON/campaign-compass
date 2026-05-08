@@ -121,6 +121,7 @@ router.get("/campaign-breakdown", async (c) => {
   const accountIds = accountIdsRaw ? accountIdsRaw.split(",").filter(Boolean) : [];
   if (accountIds.length === 0) return c.json([]);
 
+  const idList = sql.join(accountIds.map(id => sql`${id}::uuid`), sql`, `);
   const rows = await db.execute(sql`
     SELECT
       tl.account_id::text                  AS account_id,
@@ -131,7 +132,7 @@ router.get("/campaign-breakdown", async (c) => {
       COUNT(*)::int                        AS fan_count
     FROM fans f
     JOIN tracking_links tl ON f.first_subscribe_link_id = tl.id
-    WHERE tl.account_id::text = ANY(${accountIds})
+    WHERE tl.account_id IN (${idList})
     ${dateFrom ? sql`AND f.first_subscribe_date >= ${dateFrom}` : sql``}
     ${dateTo ? sql`AND f.first_subscribe_date <= ${dateTo}` : sql``}
     GROUP BY tl.account_id, f.first_subscribe_link_id, tl.campaign_name, tl.external_tracking_link_id, tl.deleted_at
