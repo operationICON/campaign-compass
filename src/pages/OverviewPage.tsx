@@ -4,7 +4,7 @@ import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getAccounts, getTransactionDaily,
-  getSnapshotsByDateRange, getOnlytrafficOrders, getTrackingLinks,
+  getOnlytrafficOrders, getTrackingLinks,
   getFanCampaignBreakdown, getLinkSubsInPeriod, getSnapshotLatestDate,
 } from "@/lib/api";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
@@ -270,16 +270,10 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: snaps = [] } = useQuery({
-    queryKey: ["ov2_snaps", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getSnapshotsByDateRange({ date_from: dateFrom ?? "2018-01-01", date_to: dateTo ?? fmtD(new Date()), account_ids: selectedIds, cols: "slim" }),
-    enabled: !isAllTime && selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: prevSnaps = [] } = useQuery({
-    queryKey: ["ov2_prev_snaps", prevFrom, prevTo, selectedIds.join(",")],
-    queryFn: () => getSnapshotsByDateRange({ date_from: prevFrom!, date_to: prevTo!, account_ids: selectedIds, cols: "slim" }),
+  // Previous period link subs (for New Fans delta) — uses same JOIN-based endpoint as current period
+  const { data: prevLinkSubsRaw = [] } = useQuery({
+    queryKey: ["ov2_prev_link_subs", prevFrom, prevTo, selectedIds.join(",")],
+    queryFn: () => getLinkSubsInPeriod({ account_ids: selectedIds, date_from: prevFrom, date_to: prevTo }),
     enabled: !isAllTime && !!prevFrom && !!prevTo && selectedIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
@@ -341,14 +335,6 @@ export default function OverviewPage() {
 
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
 
-  const aggSnaps = (data: any[], field: string, ids: string[]) => {
-    const m: Record<string, number> = {};
-    (data as any[]).forEach(s => {
-      if (!ids.includes(s.account_id)) return;
-      m[s.account_id] = (m[s.account_id] || 0) + Number(s[field] || 0);
-    });
-    return m;
-  };
 
   // Transactions table covers ~last 30 days. If range starts before that, use revenue_monthly.
   const txCoverageStart = useMemo(() => {
@@ -403,8 +389,22 @@ export default function OverviewPage() {
     return m;
   }, [prevTxRows, selectedIds, selectedAccounts, prevFrom, prevTo, txCoverageStart]);
 
-  const subsByAcct      = useMemo(() => aggSnaps(snaps, "subscribers", selectedIds),     [snaps, selectedIds]);
-  const prevSubsByAcct  = useMemo(() => aggSnaps(prevSnaps, "subscribers", selectedIds), [prevSnaps, selectedIds]);
+  // Derive per-account new-fan totals from link-subs (JOIN-based, more accurate than account_id filter)
+  const subsByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    (linkSubsRaw as any[]).forEach(r => {
+      if (r.account_id && selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.subs || 0);
+    });
+    return m;
+  }, [linkSubsRaw, selectedIds]);
+
+  const prevSubsByAcct = useMemo(() => {
+    const m: Record<string, number> = {};
+    (prevLinkSubsRaw as any[]).forEach(r => {
+      if (r.account_id && selectedIds.includes(r.account_id)) m[r.account_id] = (m[r.account_id] || 0) + Number(r.subs || 0);
+    });
+    return m;
+  }, [prevLinkSubsRaw, selectedIds]);
 
   const spendByAcct = useMemo(() => {
     const m: Record<string, number> = {};

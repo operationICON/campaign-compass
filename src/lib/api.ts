@@ -172,7 +172,7 @@ export const getSnapshotAllTimeTotals = (account_ids?: string[]) =>
   );
 
 export const getLinkSubsInPeriod = (params: { account_ids: string[]; date_from?: string | null; date_to?: string | null }) =>
-  apiFetch<Array<{ tracking_link_id: string; subs: number }>>(
+  apiFetch<Array<{ tracking_link_id: string; account_id: string; subs: number }>>(
     `/daily-snapshots/link-subs${buildQuery({ account_ids: params.account_ids.join(","), date_from: params.date_from ?? undefined, date_to: params.date_to ?? undefined })}`
   );
 

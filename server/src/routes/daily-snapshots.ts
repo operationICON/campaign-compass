@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { daily_snapshots } from "../db/schema.js";
+import { daily_snapshots, tracking_links } from "../db/schema.js";
 import { inArray, gte, lte, and, asc, desc, eq, sql } from "drizzle-orm";
 
 const router = new Hono();
@@ -61,8 +61,8 @@ router.get("/alltime-totals", async (c) => {
 });
 
 // GET /daily-snapshots/link-subs?account_ids=&date_from=&date_to=
-// Returns [{tracking_link_id, subs}] — sum of daily subscriber deltas per link for the period.
-// Used by Overview Model Performance campaign breakdown to show period-specific new fans per campaign.
+// Returns [{tracking_link_id, account_id, subs}] — sum of daily subscriber deltas per link.
+// JOINs tracking_links to get correct account_id (daily_snapshots.account_id can be stale).
 router.get("/link-subs", async (c) => {
   const accountIdsParam = c.req.query("account_ids");
   const dateFrom = c.req.query("date_from");
@@ -70,23 +70,24 @@ router.get("/link-subs", async (c) => {
   const accountIds = accountIdsParam ? accountIdsParam.split(",").filter(Boolean) : [];
   if (accountIds.length === 0) return c.json([]);
 
-  const conditions = [
-    inArray(daily_snapshots.account_id, accountIds),
-    dateFrom ? gte(daily_snapshots.snapshot_date, dateFrom) : undefined,
-    dateTo   ? lte(daily_snapshots.snapshot_date, dateTo)   : undefined,
-  ].filter(Boolean) as any[];
+  const idList = sql.join(accountIds.map(id => sql`${id}::uuid`), sql`, `);
 
-  const rows = await db
-    .select({
-      tracking_link_id: sql<string>`${daily_snapshots.tracking_link_id}::text`,
-      subs: sql<number>`COALESCE(SUM(${daily_snapshots.subscribers}), 0)::int`,
-    })
-    .from(daily_snapshots)
-    .where(and(...conditions))
-    .groupBy(daily_snapshots.tracking_link_id)
-    .orderBy(desc(sql`SUM(${daily_snapshots.subscribers})`));
+  const rows = await db.execute(sql`
+    SELECT
+      ds.tracking_link_id::text,
+      tl.account_id::text AS account_id,
+      COALESCE(SUM(ds.subscribers), 0)::int AS subs
+    FROM daily_snapshots ds
+    JOIN tracking_links tl ON ds.tracking_link_id = tl.id
+    WHERE tl.account_id IN (${idList})
+      ${dateFrom ? sql`AND ds.snapshot_date >= ${dateFrom}` : sql``}
+      ${dateTo   ? sql`AND ds.snapshot_date <= ${dateTo}`   : sql``}
+    GROUP BY ds.tracking_link_id, tl.account_id
+    HAVING COALESCE(SUM(ds.subscribers), 0) > 0
+    ORDER BY SUM(ds.subscribers) DESC
+  `);
 
-  return c.json(rows.filter(r => r.tracking_link_id && (r.subs as any) > 0));
+  return c.json(rows.rows);
 });
 
 // GET /daily-snapshots?tracking_link_ids=&account_ids=&date_from=&date_to=&cols=
