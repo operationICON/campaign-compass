@@ -178,49 +178,23 @@ router.post("/", async (c) => {
             totalTx += batch.length;
           }
 
-          // Get accurate All Time totals from earnings endpoint — full history (not limited to OFAPI connection date)
           const today = new Date().toISOString().split("T")[0];
-          const earningsRes = await fetch(`${API_BASE}/${account.onlyfans_account_id}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${today}+23:59:59&type=total`, {
-            headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-          });
           const breakdown = { ...BUCKETS };
           let revenueMonthly: Record<string, number> | null = null;
-          if (earningsRes.ok) {
-            const earningsJson = await earningsRes.json() as any;
-            // Response: { data: { total: { total: <net>, gross: <gross>, chartAmount: [{date, amount},...] } } }
-            const netTotal = Number(earningsJson?.data?.total?.total ?? 0);
-            const grossTotal = Number(earningsJson?.data?.total?.gross ?? 0);
-            const ratio = netTotal > 0 && grossTotal > 0 ? netTotal / grossTotal : 0.8;
-            // Build monthly net map from chartAmount for All Time chart
-            const chartAmount: any[] = earningsJson?.data?.total?.chartAmount ?? [];
-            if (chartAmount.length > 0) {
-              revenueMonthly = {};
-              for (const entry of chartAmount) {
-                // API returns { date: "2026-03-01T00:00:00+00:00", count: <net_creator_payout> }
-                // count is already the NET amount (creator's share after OF cut) — do NOT multiply by ratio
-                const net = Number(entry.count ?? entry.amount ?? entry.gross ?? entry.value ?? 0);
-                if (net > 0) {
-                  // date is full ISO — take first 7 chars for YYYY-MM
-                  const month = String(entry.date ?? "").slice(0, 7);
-                  if (month) revenueMonthly[month] = (revenueMonthly[month] || 0) + net;
-                }
-              }
-            }
-            if (netTotal > 0) {
-              breakdown.other = netTotal;
-            } else {
-              // Fallback to DB if API returned zero
-              const typeAgg = await db.execute(sql`
-                SELECT type, COALESCE(SUM(
-                  CASE
-                    WHEN revenue_net IS NOT NULL AND revenue_net::text != '' THEN revenue_net::numeric
-                    WHEN fee IS NOT NULL AND fee::text != '' THEN revenue::numeric - fee::numeric
-                    ELSE revenue::numeric * 0.80
-                  END
-                ), 0) AS total FROM transactions WHERE account_id = ${account.id} GROUP BY type
-              `);
-              for (const row of typeAgg.rows as any[]) {
-                breakdown[mapType(row.type)] += Number(row.total ?? 0);
+
+          // Call 1: by-type endpoint for accurate all-time LTV totals per type
+          // Response: { data: { message: {net,gross}, new_subscription: {...}, tip: {...}, ... } }
+          const byTypeRes = await fetch(`${API_BASE}/analytics/financial/transactions/by-type`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({ account_ids: [account.onlyfans_account_id], start_date: "2018-01-01 00:00:00", end_date: `${today} 23:59:59` }),
+          });
+          if (byTypeRes.ok) {
+            const byTypeJson = await byTypeRes.json() as any;
+            const types: Record<string, any> = byTypeJson?.data ?? {};
+            for (const [typeName, val] of Object.entries(types)) {
+              if (typeof val === "object" && val !== null) {
+                breakdown[mapType(typeName)] += Number((val as any).net ?? 0);
               }
             }
           } else {
@@ -235,10 +209,31 @@ router.post("/", async (c) => {
               ), 0) AS total FROM transactions WHERE account_id = ${account.id} GROUP BY type
             `);
             for (const row of typeAgg.rows as any[]) {
-              const bucket = mapType(row.type);
-              breakdown[bucket] += Number(row.total ?? 0);
+              breakdown[mapType(row.type)] += Number(row.total ?? 0);
             }
           }
+          await sleep(300);
+
+          // Call 2: earnings endpoint for monthly chart data (chartAmount) — by-type doesn't have this
+          const earningsRes = await fetch(`${API_BASE}/${account.onlyfans_account_id}/statistics/statements/earnings?start_date=2018-01-01+00:00:00&end_date=${today}+23:59:59&type=total`, {
+            headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+          });
+          if (earningsRes.ok) {
+            const earningsJson = await earningsRes.json() as any;
+            const chartAmount: any[] = earningsJson?.data?.total?.chartAmount ?? [];
+            if (chartAmount.length > 0) {
+              revenueMonthly = {};
+              for (const entry of chartAmount) {
+                // count is already NET creator payout — do NOT multiply by ratio
+                const net = Number(entry.count ?? entry.amount ?? entry.gross ?? entry.value ?? 0);
+                if (net > 0) {
+                  const month = String(entry.date ?? "").slice(0, 7);
+                  if (month) revenueMonthly[month] = (revenueMonthly[month] || 0) + net;
+                }
+              }
+            }
+          }
+
           const ltvTotal = breakdown.messages + breakdown.tips + breakdown.subscriptions + breakdown.posts + breakdown.other;
 
           await db.update(accounts).set({
