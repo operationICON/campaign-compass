@@ -69,7 +69,7 @@ export function SideNav() {
         title={collapsed ? label : undefined}
         className={cn(
           "relative flex items-center rounded-md text-sm font-medium transition-colors select-none",
-          collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full",
+          collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-1.5 w-full",
           active
             ? "text-[#f1f5f9]"
             : "text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60"
@@ -140,7 +140,7 @@ export function SideNav() {
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-0.5">
         {!collapsed && (
-          <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#4a5568" }}>
+          <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#6b7a94" }}>
             Main
           </p>
         )}
@@ -148,9 +148,9 @@ export function SideNav() {
 
         {isAdmin && (
           <>
-            <div className="my-2 mx-1" style={{ height: "1px", background: "#1c1f2b" }} />
+            <div className="mt-3 mb-2 mx-1" style={{ height: "1px", background: "#2a3347" }} />
             {!collapsed && (
-              <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#4a5568" }}>
+              <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#6b7a94" }}>
                 System
               </p>
             )}
