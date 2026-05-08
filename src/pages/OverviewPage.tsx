@@ -411,14 +411,17 @@ export default function OverviewPage() {
     return subs > 0 ? rev / subs : 0;
   }, [selectedAccounts]);
 
-  const unattributedPct = useMemo(() => {
-    const totalSubs = selectedAccounts.reduce((s: number, a: any) => s + Number(a.subscribers_count || 0), 0);
-    const attributed = (linksRaw as any[])
+  const campaignRevenue = useMemo(() =>
+    (linksRaw as any[])
       .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
-      .reduce((s: number, l: any) => s + Number(l.subscribers || 0), 0);
-    if (totalSubs <= 0) return 0;
-    return (Math.max(0, totalSubs - attributed) / totalSubs) * 100;
-  }, [selectedAccounts, linksRaw, selectedIds]);
+      .reduce((s: number, l: any) => s + Number(l.revenue || 0), 0),
+  [linksRaw, selectedIds]);
+
+  const unattributedRevenue = useMemo(() => Math.max(0, totalRevenue - campaignRevenue), [totalRevenue, campaignRevenue]);
+
+  const unattributedPct = useMemo(() =>
+    totalRevenue > 0 ? (unattributedRevenue / totalRevenue) * 100 : 0,
+  [unattributedRevenue, totalRevenue]);
 
   // Chart data
   const chartData = useMemo(() => {
@@ -625,7 +628,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
-            sub="Fans with no tracking link"
+            sub={`Campaign: ${fmtMoney(campaignRevenue)} · Unattributed: ${fmtMoney(unattributedRevenue)}`}
             sparkData={revSparkData}
           />
           <KpiCard
