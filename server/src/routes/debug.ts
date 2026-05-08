@@ -274,31 +274,41 @@ router.post("/", async (c) => {
       SELECT
         a.display_name,
         a.onlyfans_account_id,
-        a.ltv_total,
-        a.ltv_updated_at,
+        -- Tracking links revenue (what the dashboard Overview shows)
+        COALESCE(SUM(tl.revenue::numeric), 0)          AS link_revenue,
+        -- Transaction table stats
         COUNT(t.id)                                    AS tx_count,
         MIN(t.date)                                    AS earliest_date,
         MAX(t.date)                                    AS latest_date,
-        SUM(t.revenue::numeric)                        AS gross_sum,
-        SUM(CASE
-          WHEN t.revenue_net IS NOT NULL AND t.revenue_net::text != '' THEN t.revenue_net::numeric
-          WHEN t.fee IS NOT NULL AND t.fee::text != ''                  THEN t.revenue::numeric - t.fee::numeric
+        COALESCE(SUM(t.revenue::numeric), 0)           AS tx_gross,
+        COALESCE(SUM(CASE
+          WHEN t.revenue_net IS NOT NULL AND t.revenue_net::numeric != 0 THEN t.revenue_net::numeric
+          WHEN t.fee IS NOT NULL AND t.fee::numeric != 0                  THEN t.revenue::numeric - t.fee::numeric
           ELSE t.revenue::numeric * 0.80
-        END)                                           AS net_sum,
-        COUNT(CASE WHEN t.date IS NULL THEN 1 END)     AS null_date_count
+        END), 0)                                       AS tx_net,
+        -- How many rows used each net formula
+        COUNT(CASE WHEN t.revenue_net IS NOT NULL AND t.revenue_net::numeric != 0 THEN 1 END) AS used_net_field,
+        COUNT(CASE WHEN t.fee IS NOT NULL AND t.fee::numeric != 0
+                    AND (t.revenue_net IS NULL OR t.revenue_net::numeric = 0) THEN 1 END)     AS used_fee_calc,
+        COUNT(CASE WHEN (t.revenue_net IS NULL OR t.revenue_net::numeric = 0)
+                    AND (t.fee IS NULL OR t.fee::numeric = 0)
+                    AND t.id IS NOT NULL THEN 1 END)                                          AS used_80pct
       FROM accounts a
+      LEFT JOIN tracking_links tl ON tl.account_id = a.id
       LEFT JOIN transactions t ON t.account_id = a.id
       WHERE a.is_active = true
-      GROUP BY a.id, a.display_name, a.onlyfans_account_id, a.ltv_total, a.ltv_updated_at
-      ORDER BY gross_sum DESC NULLS LAST
+      GROUP BY a.id, a.display_name, a.onlyfans_account_id
+      ORDER BY link_revenue DESC NULLS LAST
     `);
     const totals = rows.rows.reduce((acc: any, r: any) => ({
-      tx_count:       acc.tx_count       + Number(r.tx_count       ?? 0),
-      gross_sum:      acc.gross_sum      + Number(r.gross_sum      ?? 0),
-      net_sum:        acc.net_sum        + Number(r.net_sum        ?? 0),
-      ltv_total_sum:  acc.ltv_total_sum  + Number(r.ltv_total      ?? 0),
-      null_date_count: acc.null_date_count + Number(r.null_date_count ?? 0),
-    }), { tx_count: 0, gross_sum: 0, net_sum: 0, ltv_total_sum: 0, null_date_count: 0 });
+      tx_count:      acc.tx_count      + Number(r.tx_count      ?? 0),
+      tx_gross:      acc.tx_gross      + Number(r.tx_gross      ?? 0),
+      tx_net:        acc.tx_net        + Number(r.tx_net        ?? 0),
+      link_revenue:  acc.link_revenue  + Number(r.link_revenue  ?? 0),
+      used_net_field: acc.used_net_field + Number(r.used_net_field ?? 0),
+      used_fee_calc:  acc.used_fee_calc  + Number(r.used_fee_calc  ?? 0),
+      used_80pct:     acc.used_80pct     + Number(r.used_80pct     ?? 0),
+    }), { tx_count: 0, tx_gross: 0, tx_net: 0, link_revenue: 0, used_net_field: 0, used_fee_calc: 0, used_80pct: 0 });
     return c.json({ accounts: rows.rows, totals });
   }
 
