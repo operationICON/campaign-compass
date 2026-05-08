@@ -312,6 +312,61 @@ router.post("/", async (c) => {
     return c.json({ accounts: rows.rows, totals });
   }
 
+  // Test what date-range params the transactions endpoint accepts
+  if (body?.action === "tx_date_test") {
+    const accRow = await db.execute(sql`
+      SELECT onlyfans_account_id, display_name FROM accounts
+      WHERE is_active = true AND onlyfans_account_id IS NOT NULL
+      ORDER BY display_name LIMIT 1
+    `);
+    const acc = accRow.rows[0] as any;
+    if (!acc) return c.json({ error: "No accounts found" }, 404);
+
+    const acctId = acc.onlyfans_account_id;
+    const oldDate = "2024-01-01";
+    const today = new Date().toISOString().split("T")[0];
+    const results: any[] = [];
+
+    const variants = [
+      { id: "no_params",          url: `${API_BASE}/${acctId}/transactions?limit=5` },
+      { id: "start_date",         url: `${API_BASE}/${acctId}/transactions?limit=5&start_date=${oldDate}` },
+      { id: "end_date",           url: `${API_BASE}/${acctId}/transactions?limit=5&end_date=${oldDate}` },
+      { id: "date_from_to",       url: `${API_BASE}/${acctId}/transactions?limit=5&date_from=${oldDate}&date_to=${today}` },
+      { id: "from_to",            url: `${API_BASE}/${acctId}/transactions?limit=5&from=${oldDate}&to=${today}` },
+      { id: "after_before",       url: `${API_BASE}/${acctId}/transactions?limit=5&after=${oldDate}&before=${today}` },
+      { id: "created_after",      url: `${API_BASE}/${acctId}/transactions?limit=5&created_after=${oldDate}` },
+      { id: "created_at_gte",     url: `${API_BASE}/${acctId}/transactions?limit=5&created_at_gte=${oldDate}` },
+      { id: "filter_date",        url: `${API_BASE}/${acctId}/transactions?limit=5&filter[created_at][gte]=${oldDate}` },
+      { id: "start_date_spaced",  url: `${API_BASE}/${acctId}/transactions?limit=5&start_date=${oldDate}+00:00:00` },
+    ];
+
+    for (const v of variants) {
+      try {
+        const res = await fetch(v.url, {
+          headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+        });
+        const text = await res.text();
+        let parsed: any;
+        try { parsed = JSON.parse(text); } catch { parsed = text; }
+        const list: any[] = parsed?.data?.list ?? parsed?.data ?? parsed?.transactions ?? (Array.isArray(parsed) ? parsed : []);
+        const dates = list.map((t: any) => t.createdAt?.split("T")[0]).filter(Boolean).sort();
+        results.push({
+          id: v.id,
+          status: res.status,
+          count: list.length,
+          earliest: dates[0] ?? null,
+          latest: dates[dates.length - 1] ?? null,
+          total_count: parsed?.data?.total ?? parsed?._meta?.total ?? parsed?.total ?? null,
+          pagination_keys: typeof parsed === "object" ? Object.keys(parsed).filter(k => k.includes("pag") || k.includes("meta") || k.includes("next")) : [],
+        });
+      } catch (err: any) {
+        results.push({ id: v.id, error: err.message });
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    return c.json({ account: acc.display_name, acct_id: acctId, results });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 

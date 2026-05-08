@@ -25,6 +25,8 @@ export default function DebugPage() {
   const [sumEarningsLoading, setSumEarningsLoading] = useState(false);
   const [txTotalsResult, setTxTotalsResult] = useState<any>(null);
   const [txTotalsLoading, setTxTotalsLoading] = useState(false);
+  const [txDateTestResult, setTxDateTestResult] = useState<any>(null);
+  const [txDateTestLoading, setTxDateTestLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -114,6 +116,19 @@ export default function DebugPage() {
       setSumEarningsResult({ error: err.message });
     } finally {
       setSumEarningsLoading(false);
+    }
+  }, []);
+
+  const runTxDateTest = useCallback(async () => {
+    setTxDateTestLoading(true);
+    setTxDateTestResult(null);
+    try {
+      const data = await debugAction("tx_date_test");
+      setTxDateTestResult(data);
+    } catch (err: any) {
+      setTxDateTestResult({ error: err.message });
+    } finally {
+      setTxDateTestLoading(false);
     }
   }, []);
 
@@ -223,6 +238,55 @@ export default function DebugPage() {
                     <span className="text-[#f1f5f9] font-semibold">{fmt(r.link_revenue)}</span>
                     <span className="text-emerald-400">{fmt(r.tx_net)}</span>
                     <span className="text-muted-foreground/70">{fmt(r.tx_gross)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* TX Date Range Param Test */}
+        <div className="bg-card border border-orange-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-orange-400" /> TX Date Range Test
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tests 10 date-param variants on the transactions endpoint to find which one unlocks history before 2026-04-07
+              </p>
+            </div>
+            <button
+              onClick={runTxDateTest}
+              disabled={txDateTestLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+            >
+              {txDateTestLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              {txDateTestLoading ? "Testing params…" : "Test Date Params"}
+            </button>
+          </div>
+          {txDateTestResult && (
+            <div className="space-y-1.5">
+              {txDateTestResult.error && <p className="text-xs text-destructive">{txDateTestResult.error}</p>}
+              {txDateTestResult.account && (
+                <p className="text-[10px] text-muted-foreground">Testing on: <span className="text-foreground font-semibold">{txDateTestResult.account}</span></p>
+              )}
+              <div className="grid grid-cols-[130px_50px_60px_100px_100px_1fr] gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                <span>Param variant</span><span>Status</span><span>Count</span><span>Earliest</span><span>Latest</span><span>Notes</span>
+              </div>
+              {(txDateTestResult.results ?? []).map((r: any, i: number) => {
+                const hasOldData = r.earliest && r.earliest < "2026-04-01";
+                return (
+                  <div key={i} className={`grid grid-cols-[130px_50px_60px_100px_100px_1fr] gap-2 items-center text-[11px] rounded px-2 py-1.5 ${hasOldData ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-secondary/50"}`}>
+                    <span className={`font-mono ${hasOldData ? "text-emerald-400 font-bold" : "text-foreground"}`}>{r.id}</span>
+                    <span className={`font-mono text-[10px] ${r.status === 200 ? "text-emerald-400" : "text-destructive"}`}>{r.status ?? "ERR"}</span>
+                    <span className="text-muted-foreground">{r.count ?? "—"}</span>
+                    <span className={hasOldData ? "text-emerald-400 font-bold" : "text-muted-foreground"}>{r.earliest ?? "—"}</span>
+                    <span className="text-muted-foreground">{r.latest ?? "—"}</span>
+                    <span className="text-muted-foreground/60 text-[10px]">
+                      {r.error ?? (r.total_count != null ? `total: ${r.total_count}` : "")}
+                      {r.pagination_keys?.length ? ` [${r.pagination_keys.join(", ")}]` : ""}
+                    </span>
                   </div>
                 );
               })}
