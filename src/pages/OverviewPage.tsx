@@ -118,7 +118,7 @@ function KpiCard({ label, value, sub, pct, sparkData }: {
             ? <><Delta pct={pct} /><p className="text-[10px] mt-1" style={{ color: T.muted }}>vs prev period</p></>
             : <div />}
         </div>
-        {sparkData && <TinySparkline data={sparkData} />}
+        {false && sparkData && <TinySparkline data={sparkData} />}
       </div>
     </div>
   );
@@ -539,14 +539,11 @@ export default function OverviewPage() {
               <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>New Subscribers</p>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "rgba(59,130,246,0.12)", color: T.blue }}>{dateLabel || "All Time"}</span>
             </div>
-            <p className="text-2xl font-bold font-mono leading-none" style={{ color: T.white }}>{newSubsKpi.toLocaleString()}</p>
-            <p className="text-xs leading-snug" style={{ color: T.muted }}>Total Sub: {totalCurrentSubs.toLocaleString()}</p>
-            {newSubsPerDay > 0 && (
-              <p className="text-xs leading-snug" style={{ color: T.muted }}>{newSubsPerDay.toFixed(1)}/day avg</p>
-            )}
-            <div className="mt-auto flex justify-end pt-1">
-              <TinySparkline data={revSparkData} />
-            </div>
+            <p className="text-3xl font-bold font-mono leading-none" style={{ color: T.white }}>{newSubsKpi.toLocaleString()}</p>
+            <p className="text-xs leading-snug" style={{ color: T.muted }}>
+              Total Sub: {totalCurrentSubs.toLocaleString()}
+              {newSubsPerDay > 0 && <span className="ml-4">{newSubsPerDay.toFixed(1)}/day</span>}
+            </p>
           </div>
           <KpiCard
             label="Unattributed %"
