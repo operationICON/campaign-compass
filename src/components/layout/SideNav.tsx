@@ -72,7 +72,7 @@ export function SideNav() {
           collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full",
           active
             ? "text-[#f1f5f9]"
-            : "text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60"
+            : "text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60"
         )}
         style={active ? { background: "#1c1f2b" } : {}}
       >
@@ -81,7 +81,7 @@ export function SideNav() {
           <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full"
             style={{ background: "#3b82f6" }} />
         )}
-        <Icon className="w-[15px] h-[15px] shrink-0" style={{ color: active ? "#3b82f6" : undefined }} />
+        <Icon className="w-[17px] h-[17px] shrink-0" style={{ color: active ? "#3b82f6" : undefined }} />
         {!collapsed && <span className="truncate">{label}</span>}
         {/* badge */}
         {hasBadge && unresolvedCount > 0 && (
@@ -106,7 +106,7 @@ export function SideNav() {
         borderRight: "1px solid #1c1f2b",
       }}
     >
-      {/* Logo */}
+      {/* Logo + collapse toggle */}
       <div className="h-12 flex items-center gap-2.5 px-3 shrink-0"
         style={{ borderBottom: "1px solid #1c1f2b" }}>
         <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0"
@@ -114,16 +114,28 @@ export function SideNav() {
           CT
         </div>
         {!collapsed && (
-          <span className="text-sm font-semibold whitespace-nowrap" style={{ color: "#f1f5f9" }}>
+          <span className="text-sm font-semibold whitespace-nowrap flex-1" style={{ color: "#f1f5f9" }}>
             CT Tracker
           </span>
         )}
+        <button
+          onClick={() => setCollapsed(v => !v)}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "flex items-center justify-center rounded-md transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
+            collapsed ? "w-9 h-9 mx-auto" : "w-7 h-7 ml-auto shrink-0"
+          )}
+        >
+          {collapsed
+            ? <ChevronRight className="w-[17px] h-[17px]" />
+            : <ChevronLeft className="w-[17px] h-[17px]" />}
+        </button>
       </div>
 
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-0.5">
         {!collapsed && (
-          <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#2d3550" }}>
+          <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#4a5568" }}>
             Main
           </p>
         )}
@@ -133,7 +145,7 @@ export function SideNav() {
           <>
             <div className="my-2 mx-1" style={{ height: "1px", background: "#1c1f2b" }} />
             {!collapsed && (
-              <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#2d3550" }}>
+              <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#4a5568" }}>
                 System
               </p>
             )}
@@ -172,26 +184,12 @@ export function SideNav() {
           onClick={() => { logout(); navigate("/login", { replace: true }); }}
           title={collapsed ? "Log out" : undefined}
           className={cn(
-            "flex items-center rounded-md text-sm font-medium transition-colors text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
+            "flex items-center rounded-md text-sm font-medium transition-colors text-[#8b9ab1] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
             collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full"
           )}
         >
-          <LogOut className="w-[15px] h-[15px] shrink-0" />
+          <LogOut className="w-[17px] h-[17px] shrink-0" />
           {!collapsed && "Log out"}
-        </button>
-
-        {/* Collapse toggle */}
-        <button
-          onClick={() => setCollapsed(v => !v)}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={cn(
-            "flex items-center rounded-md text-sm font-medium transition-colors text-[#475569] hover:text-[#f1f5f9] hover:bg-[#1c1f2b]/60",
-            collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 px-2.5 py-2 w-full"
-          )}
-        >
-          {collapsed
-            ? <ChevronRight className="w-[15px] h-[15px] shrink-0" />
-            : <><ChevronLeft className="w-[15px] h-[15px] shrink-0" /><span>Collapse</span></>}
         </button>
       </div>
     </aside>

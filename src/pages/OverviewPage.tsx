@@ -654,7 +654,7 @@ export default function OverviewPage() {
         </div>
 
         {/* ── Row 3: Revenue Breakdown + Model Performance ─────────────────── */}
-        <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "340px 1fr" }}>
+        <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: "420px 1fr" }}>
 
           {/* Revenue Breakdown Donut — LEFT */}
           <div className="flex flex-col" style={cardStyle}>
@@ -689,10 +689,10 @@ export default function OverviewPage() {
                 ) : donutData.map((d, i) => (
                   <div key={i} className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: MODEL_COLORS[i % MODEL_COLORS.length] }} />
-                      <span className="text-xs truncate" style={{ color: T.muted }}>{d.name}</span>
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: MODEL_COLORS[i % MODEL_COLORS.length] }} />
+                      <span className="text-sm truncate" style={{ color: T.white }}>{d.name}</span>
                     </div>
-                    <span className="text-xs font-mono font-semibold shrink-0" style={{ color: T.white }}>
+                    <span className="text-sm font-mono font-semibold shrink-0" style={{ color: T.white }}>
                       {donutTotal > 0 ? `${((d.value / donutTotal) * 100).toFixed(1)}%` : "—"}
                     </span>
                   </div>
@@ -733,7 +733,7 @@ export default function OverviewPage() {
                       { key: "roi",     label: "ROI",      right: true  },
                     ].map(col => (
                       <th key={col.key} onClick={() => sortBy(col.key)}
-                        className={cn("px-4 py-3 text-[11px] font-semibold uppercase tracking-widest cursor-pointer select-none transition-colors",
+                        className={cn("px-4 py-2 text-[11px] font-semibold uppercase tracking-widest cursor-pointer select-none transition-colors",
                           col.right ? "text-right" : "text-left")}
                         style={{ color: T.muted }}>
                         <span className={cn("inline-flex items-center gap-0.5", col.right && "justify-end w-full")}>
@@ -765,64 +765,57 @@ export default function OverviewPage() {
                         onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
                       >
                         {/* Account */}
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-3">
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2.5">
                             {a.avatar_thumb_url
-                              ? <img src={a.avatar_thumb_url} className="w-8 h-8 rounded-full object-cover shrink-0" style={{ border: `1px solid ${T.border}` }} alt="" />
-                              : <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                              ? <img src={a.avatar_thumb_url} className="w-6 h-6 rounded-full object-cover shrink-0" style={{ border: `1px solid ${T.border}` }} alt="" />
+                              : <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                                   style={{ background: T.dark, color: T.muted }}>
                                   {(a.display_name || "?").slice(0, 2).toUpperCase()}
                                 </div>}
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-sm font-semibold leading-tight truncate" style={{ color: T.white }}>{a.display_name}</span>
-                                {row.linkCount > 0 && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                                    style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount}</span>
-                                )}
-                              </div>
-                              {a.username && <div className="text-xs mt-0.5" style={{ color: T.muted }}>@{a.username}</div>}
-                            </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm font-semibold truncate" style={{ color: T.white }}>{a.display_name}</span>
+                            {row.linkCount > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                                style={{ background: `${T.blue}20`, color: T.blue }}>{row.linkCount}</span>
+                            )}
+                          </div>
                           </div>
                         </td>
                         {/* New Fans */}
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{row.newFans.toLocaleString()}</div>
-                          <div className="flex justify-end mt-0.5"><Delta pct={fp} /></div>
+                        <td className="px-4 py-2 text-right">
+                          <span className="text-sm font-mono font-semibold" style={{ color: T.white }}>{row.newFans.toLocaleString()}</span>
                         </td>
                         {/* Revenue */}
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="text-sm font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(row.rev)}</div>
-                          <div className="flex justify-end mt-0.5"><Delta pct={rp} /></div>
+                        <td className="px-4 py-2 text-right">
+                          <span className="text-sm font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(row.rev)}</span>
                         </td>
                         {/* Spend */}
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="text-sm font-mono font-semibold" style={{ color: row.spend > 0 ? T.white : T.muted }}>
+                        <td className="px-4 py-2 text-right">
+                          <span className="text-sm font-mono font-semibold" style={{ color: row.spend > 0 ? T.white : T.muted }}>
                             {row.spend > 0 ? fmtMoney(row.spend) : "—"}
-                          </div>
-                          {row.spend > 0 && <div className="flex justify-end mt-0.5"><Delta pct={sp} /></div>}
+                          </span>
                         </td>
                         {/* Profit */}
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="text-sm font-mono font-semibold"
+                        <td className="px-4 py-2 text-right">
+                          <span className="text-sm font-mono font-semibold"
                             style={{ color: row.profit >= 0 ? T.green : T.red }}>
                             {fmtMoney(row.profit)}
-                          </div>
-                          <div className="flex justify-end mt-0.5"><Delta pct={pp} /></div>
+                          </span>
                         </td>
                         {/* CVR */}
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="text-sm font-mono font-semibold"
+                        <td className="px-4 py-2 text-right">
+                          <span className="text-sm font-mono font-semibold"
                             style={{ color: row.cvr != null ? T.white : T.muted }}>
                             {row.cvr != null ? `${row.cvr.toFixed(1)}%` : "—"}
-                          </div>
+                          </span>
                         </td>
                         {/* ROI */}
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="text-sm font-mono font-semibold"
+                        <td className="px-4 py-2 text-right">
+                          <span className="text-sm font-mono font-semibold"
                             style={{ color: row.roi == null ? T.muted : row.roi >= 0 ? T.green : T.red }}>
                             {row.roi != null ? `${row.roi.toFixed(1)}%` : "—"}
-                          </div>
+                          </span>
                         </td>
                       </tr>
                     );
