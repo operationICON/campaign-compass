@@ -498,20 +498,13 @@ export default function CampaignsPage() {
     if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
     if (sourceFilter === "untagged") result = result.filter((l: any) => !getEffectiveSource(l));
     else if (sourceFilter !== "all") result = result.filter((l: any) => getEffectiveSource(l) === sourceFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((l: any) =>
-        (l.campaign_name || "").toLowerCase().includes(q) || (l.url || "").toLowerCase().includes(q) ||
-        (l.accounts?.username || "").toLowerCase().includes(q) || (l.accounts?.display_name || "").toLowerCase().includes(q)
-      );
-    }
     if (campaignFilter === "active") result = result.filter((l: any) => l.isActive);
     else if (campaignFilter === "zero") result = result.filter((l: any) => l.clicks === 0);
     else if (campaignFilter === "no_spend") result = result.filter((l: any) => !l.cost_total || Number(l.cost_total) === 0);
     else if (["SCALE", "WATCH", "KILL", "TESTING", "INACTIVE"].includes(campaignFilter)) result = result.filter((l: any) => l.computedStatus === campaignFilter);
 
     return result;
-  }, [baseLinks, searchQuery, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
+  }, [baseLinks, campaignFilter, sourceFilter, groupFilter, accountFilter, accounts]);
 
   // Active = created < 5 days ago (always active, hasn't had time to get traffic)
   //       OR has any subs/clicks recorded in snapshot window (last 5 days)
@@ -531,11 +524,18 @@ export default function CampaignsPage() {
   }, [filteredPreActivity, activeLookup]);
 
   const filtered = useMemo(() => {
-    if (activityFilter === "all") return filteredPreActivity;
-    if (activityFilter === "active")
-      return filteredPreActivity.filter((l: any) => isLinkActive(l));
-    return filteredPreActivity.filter((l: any) => !isLinkActive(l));
-  }, [filteredPreActivity, activityFilter, activeLookup]);
+    let base = filteredPreActivity;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      base = base.filter((l: any) =>
+        (l.campaign_name || "").toLowerCase().includes(q) || (l.url || "").toLowerCase().includes(q) ||
+        (l.accounts?.username || "").toLowerCase().includes(q) || (l.accounts?.display_name || "").toLowerCase().includes(q)
+      );
+    }
+    if (activityFilter === "all") return base;
+    if (activityFilter === "active") return base.filter((l: any) => isLinkActive(l));
+    return base.filter((l: any) => !isLinkActive(l));
+  }, [filteredPreActivity, searchQuery, activityFilter, activeLookup]);
 
 
   // ─── Sorting ───
@@ -914,11 +914,11 @@ export default function CampaignsPage() {
           <div className="flex-1 min-w-0">
             {isLoading ? (
               <div className="bg-card border border-border rounded-2xl p-8"><div className="space-y-3">{[...Array(8)].map((_, i) => (<div key={i} className="skeleton-shimmer h-10 rounded" />))}</div></div>
-            ) : sorted.length === 0 ? (
+            ) : sorted.length === 0 && !searchQuery ? (
               <div className="bg-card border border-border rounded-2xl p-16 text-center">
                 <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-foreground font-medium mb-1">No tracking links found</p>
-                <p className="text-sm text-muted-foreground">{searchQuery || campaignFilter !== "all" || accountFilter !== "all" || sourceFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
+                <p className="text-sm text-muted-foreground">{campaignFilter !== "all" || accountFilter !== "all" || sourceFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -1007,7 +1007,21 @@ export default function CampaignsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginated.map((link: any) => {
+                      {sorted.length === 0 && searchQuery ? (
+                        <tr>
+                          <td colSpan={20} className="px-6 py-8 text-center">
+                            <p className="text-sm font-medium text-muted-foreground mb-2">
+                              No results for "<span className="text-foreground">{searchQuery}</span>"
+                            </p>
+                            <button
+                              onClick={() => setSearchQuery("")}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              Clear search — show all {filteredPreActivity.length} links
+                            </button>
+                          </td>
+                        </tr>
+                      ) : paginated.map((link: any) => {
                         const username = link.accounts?.username || link.accounts?.display_name || "—";
                         const modelColor = getModelColor(link.accounts?.username);
                         const initials = username !== "—" ? username.replace("@", "").slice(0, 1).toUpperCase() : "?";
