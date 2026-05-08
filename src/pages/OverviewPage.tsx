@@ -532,17 +532,15 @@ export default function OverviewPage() {
 
   return (
     <DashboardLayout>
-      <div className="w-full max-w-screen-2xl mx-auto px-6 py-6 space-y-6">
+      <div className="w-full px-6 py-6 space-y-6">
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between pb-4" style={{ borderBottom: `1px solid ${T.border}` }}>
-          <div>
-            <h1 className="text-xl font-semibold" style={{ color: T.white }}>Overview</h1>
-            <p className="text-sm mt-0.5" style={{ color: T.muted }}>
-              {dateLabel} · {selectedIds.length} model{selectedIds.length !== 1 ? "s" : ""}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="pb-4" style={{ borderBottom: `1px solid ${T.border}` }}>
+          <h1 className="text-xl font-semibold" style={{ color: T.white }}>Overview</h1>
+          <p className="text-sm mt-0.5 mb-3" style={{ color: T.muted }}>
+            {dateLabel} · {selectedIds.length} model{selectedIds.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
             <AccountFilter accounts={available} selected={selectedIds} onChange={setSelectedIds} />
             <button
               onClick={() => { setIsAllTime(true); setCustomRange(null); setTablePage(0); }}
