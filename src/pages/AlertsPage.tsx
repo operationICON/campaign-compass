@@ -109,7 +109,7 @@ export default function AlertsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+      <div className="w-full px-6 py-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Bell className="h-5 w-5 text-primary" />

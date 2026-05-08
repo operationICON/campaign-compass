@@ -799,7 +799,7 @@ export default function CampaignsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-3">
+      <div className="w-full px-6 py-4 space-y-4">
         {/* ═══ HEADER ═══ */}
         <div className="flex items-center justify-between">
           <div>

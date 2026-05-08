@@ -130,7 +130,7 @@ export default function DebugPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+      <div className="w-full px-6 py-4 space-y-4">
         {/* Page Header */}
         <div>
           <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">

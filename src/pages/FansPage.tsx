@@ -875,7 +875,7 @@ export default function FansPage() {
 
         {selectedAccountId === null ? (
           // ── GRID VIEW ──────────────────────────────────────────────────────
-          <div className="p-6 flex flex-col gap-6">
+          <div className="px-6 py-4 flex flex-col gap-4">
 
             {/* Global KPI cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">

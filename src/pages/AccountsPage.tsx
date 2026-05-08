@@ -432,8 +432,17 @@ export default function AccountsPage() {
     const colorIdx = accounts.indexOf(account) % AVATAR_COLORS.length;
     const thumbUrl = account.avatar_thumb_url;
     const initial = (account.display_name || "?").charAt(0).toUpperCase();
+    const isExModel = account?.is_active === false;
     return (
-      <div className="rounded-full overflow-hidden" style={{ width: size, height: size }} title={account.display_name || account.username || "Model"}>
+      <div
+        className="rounded-full overflow-hidden"
+        style={{
+          width: size,
+          height: size,
+          filter: isExModel ? "grayscale(100%) opacity(0.75)" : undefined,
+        }}
+        title={account.display_name || account.username || "Model"}
+      >
         {thumbUrl ? (
           <img src={thumbUrl} alt={account.display_name} className="w-full h-full object-cover border-[3px] border-white shadow-md" />
         ) : (
@@ -775,7 +784,7 @@ export default function AccountsPage() {
 
     return (
       <DashboardLayout>
-        <div className="space-y-5">
+        <div className="w-full px-6 py-4 space-y-4">
           <button onClick={() => { setSelectedAccount(null); setActiveTab("campaigns"); }} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" /> All Models
           </button>
@@ -1407,7 +1416,7 @@ export default function AccountsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="w-full px-6 py-4 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -1693,11 +1702,11 @@ export default function AccountsPage() {
             return (
               <div
                 key={a.id}
-                className={`rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group border ${isExModel ? "border-border grayscale opacity-50 hover:opacity-70" : "border-border hover:border-primary/30"}`}
+                className={`rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group border ${isExModel ? "border-border opacity-60 hover:opacity-80" : "border-border hover:border-primary/30"}`}
                 onClick={() => { setSelectedAccount(a); setActiveTab("campaigns"); setSortKey("created_at"); setSortAsc(false); }}
               >
                 {/* Photo header */}
-                <div className="relative h-[148px] overflow-hidden" style={{ background: "hsl(220 14% 10%)" }}>
+                <div className="relative h-[148px] overflow-hidden" style={{ background: "hsl(220 14% 10%)", ...(isExModel ? { filter: "grayscale(100%)" } : {}) }}>
                   {a.avatar_thumb_url ? (
                     <>
                       <img src={a.avatar_thumb_url} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-50 pointer-events-none" />

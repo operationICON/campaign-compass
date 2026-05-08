@@ -179,7 +179,7 @@ function ListView({
   const colCount = showAccountCol ? 12 : 11;
 
   return (
-    <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
+    <div className="w-full px-6 py-4 space-y-4">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -402,7 +402,7 @@ function PerformanceView({
   };
 
   return (
-    <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
+    <div className="w-full px-6 py-4 space-y-4">
       {/* Breadcrumb */}
       <button
         onClick={onBack}
@@ -717,7 +717,7 @@ function CohortArpsView({
     : [];
 
   return (
-    <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
+    <div className="w-full px-6 py-4 space-y-4">
       {/* Breadcrumb */}
       <button
         onClick={onBack}

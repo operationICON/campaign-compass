@@ -754,7 +754,7 @@ export default function TrafficSourcesPage() {
 
   return (
     <DashboardLayout>
-      <div className="bg-background min-h-screen p-4 space-y-4">
+      <div className="w-full px-6 py-4 space-y-4">
         {/* ═══ TIME + MODEL FILTER BAR ═══ */}
         <PageFilterBar
           timePeriod={timePeriod}
