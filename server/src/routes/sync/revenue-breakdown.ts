@@ -196,8 +196,10 @@ router.post("/", async (c) => {
             if (chartAmount.length > 0) {
               revenueMonthly = {};
               for (const entry of chartAmount) {
-                const gross = Number(entry.amount ?? entry.gross ?? entry.value ?? 0);
+                // API returns { date: "2026-03-01T00:00:00+00:00", count: <gross> }
+                const gross = Number(entry.count ?? entry.amount ?? entry.gross ?? entry.value ?? 0);
                 if (gross > 0) {
+                  // date is full ISO — take first 7 chars for YYYY-MM
                   const month = String(entry.date ?? "").slice(0, 7);
                   if (month) revenueMonthly[month] = (revenueMonthly[month] || 0) + gross * ratio;
                 }

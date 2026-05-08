@@ -419,9 +419,15 @@ router.post("/", async (c) => {
     `);
     const accounts = (rows.rows as any[]).map(r => {
       let monthly: Record<string, number> | null = null;
-      try { monthly = r.monthly_raw ? JSON.parse(r.monthly_raw) : null; } catch {}
-      const keys = monthly ? Object.keys(monthly).sort() : [];
-      const total = monthly ? Object.values(monthly).reduce((s, v) => s + Number(v), 0) : 0;
+      try {
+        // drizzle may auto-parse jsonb, or leave as string
+        monthly = typeof r.monthly_raw === "string"
+          ? JSON.parse(r.monthly_raw)
+          : (r.monthly_raw ?? null);
+      } catch {}
+      const keys = monthly && typeof monthly === "object" ? Object.keys(monthly).sort() : [];
+      const total = monthly && typeof monthly === "object"
+        ? Object.values(monthly).reduce((s, v) => s + Number(v), 0) : 0;
       return {
         display_name: r.display_name,
         ltv_total: r.ltv_total,
