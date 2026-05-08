@@ -374,6 +374,44 @@ router.post("/", async (c) => {
     return c.json({ account: acc.display_name, acct_id: acctId, results });
   }
 
+  // Probe the Financial Analytics endpoint — find the one that returns $1,977,515.19
+  if (body?.action === "fin_analytics_probe") {
+    const today = new Date().toISOString().split("T")[0];
+    const dateFrom = "2018-01-01";
+    const results: any[] = [];
+
+    const variants = [
+      { id: "by_type_POST",    method: "POST", url: `${API_BASE}/analytics/financial/transactions/by-type`, body: { date_from: dateFrom, date_to: today } },
+      { id: "summary_POST",    method: "POST", url: `${API_BASE}/analytics/financial/summary`,              body: { date_from: dateFrom, date_to: today } },
+      { id: "overview_POST",   method: "POST", url: `${API_BASE}/analytics/financial/overview`,             body: { date_from: dateFrom, date_to: today } },
+      { id: "earnings_POST",   method: "POST", url: `${API_BASE}/analytics/financial/earnings`,             body: { date_from: dateFrom, date_to: today } },
+      { id: "by_type_GET",     method: "GET",  url: `${API_BASE}/analytics/financial/transactions/by-type?date_from=${dateFrom}&date_to=${today}`, body: null },
+    ];
+
+    for (const v of variants) {
+      try {
+        const opts: RequestInit = { method: v.method, headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" } };
+        if (v.body) opts.body = JSON.stringify(v.body);
+        const res = await fetch(v.url, opts);
+        const text = await res.text();
+        let p: any;
+        try { p = JSON.parse(text); } catch { p = text; }
+        // Try to find gross, fees, net at various paths
+        const net   = p?.data?.total?.total ?? p?.data?.net ?? p?.data?.total ?? p?.total ?? p?.net ?? null;
+        const gross = p?.data?.total?.gross ?? p?.data?.gross ?? p?.gross ?? null;
+        const fees  = p?.data?.total?.fees  ?? p?.data?.fees  ?? p?.fees  ?? null;
+        const chartLen = (p?.data?.total?.chartAmount ?? p?.data?.chartAmount ?? []).length;
+        results.push({ id: v.id, status: res.status, net, gross, fees, chart_entries: chartLen,
+          top_keys: typeof p === "object" && p ? Object.keys(p) : null,
+          data_keys: typeof p?.data === "object" && p?.data ? Object.keys(p.data) : null,
+          total_keys: typeof p?.data?.total === "object" && p?.data?.total ? Object.keys(p.data.total) : null,
+        });
+      } catch (err: any) { results.push({ id: v.id, error: err.message }); }
+      await new Promise(r => setTimeout(r, 300));
+    }
+    return c.json({ results });
+  }
+
   // Raw earnings endpoint probe — shows exact chartAmount structure
   if (body?.action === "raw_earnings") {
     const accRow = await db.execute(sql`
