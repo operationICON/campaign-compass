@@ -1117,7 +1117,7 @@ export default function LogsPage() {
                                             const isErrStatus = r.status === "error" || r.status === "auth_error";
                                             const truncNote = noteText && noteText.length > 80 ? noteText.slice(0, 80) + "…" : noteText;
                                             return (
-                                              <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r.status)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                                              <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
                                                 {avatarUrl ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>}
                                                 <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={r.account}>{r.account}</span>
                                                 <div className="flex items-center gap-3 text-[10px]">
@@ -1137,7 +1137,14 @@ export default function LogsPage() {
                                   {/* Per-account rows for non-grouped types */}
                                   {!isGroupedParent && details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
                                     const rows = details.account_results as any[];
-                                    const borderCls = (s: string | undefined) => s === "ok" || s === "success" ? "border-l-emerald-500" : s === "error" ? "border-l-destructive" : s === "auth_error" || s === "partial" ? "border-l-amber-500" : "border-l-border";
+                                    const borderCls = (r: any) => {
+                                      if (r.fatal || (r.errors > 0 && r.saved === 0)) return "border-l-destructive";
+                                      if (r.errors > 0) return "border-l-amber-500";
+                                      if (r.status === "ok" || r.status === "success" || (r.saved > 0 && !r.errors)) return "border-l-emerald-500";
+                                      if (r.status === "error" || r.status === "auth_error") return "border-l-destructive";
+                                      if (r.status === "partial") return "border-l-amber-500";
+                                      return "border-l-border";
+                                    };
                                     return (
                                       <div>
                                         <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">Per-Account Results <span className="font-normal normal-case">({rows.length})</span></p>
@@ -1149,7 +1156,7 @@ export default function LogsPage() {
                                             const noteIsRevenue = noteText?.startsWith("$") ?? false;
                                             const truncNote = noteText && noteText.length > 80 ? noteText.slice(0, 80) + "…" : noteText;
                                             return (
-                                              <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r.status)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                                              <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
                                                 {avatarUrl ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>}
                                                 <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={r.account}>{r.account}</span>
                                                 <div className="flex items-center gap-3 flex-wrap min-w-0 text-[10px]">
@@ -1158,6 +1165,12 @@ export default function LogsPage() {
                                                     {r.snapshots != null && <span><span className="text-muted-foreground">Snapshots </span><span className="font-mono font-semibold tabular-nums">{Number(r.snapshots).toLocaleString()}</span></span>}
                                                     {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
                                                     {r.errors != null && r.errors > 0 && <span><span className="text-muted-foreground">Errors </span><span className="font-mono font-semibold tabular-nums text-destructive">{Number(r.errors).toLocaleString()}</span></span>}
+                                                  </>}
+                                                  {syncType === "snapshot_backfill" && <>
+                                                    {r.saved != null && <span><span className="text-muted-foreground">Rows saved </span><span className="font-mono font-semibold tabular-nums">{Number(r.saved).toLocaleString()}</span></span>}
+                                                    {r.errors != null && r.errors > 0 && <span><span className="text-muted-foreground">Errors </span><span className="font-mono font-semibold tabular-nums text-destructive">{Number(r.errors).toLocaleString()}</span></span>}
+                                                    {r.fatal && <span className="text-destructive font-semibold truncate max-w-[220px]" title={r.fatal}>Fatal: {r.fatal}</span>}
+                                                    {!r.errors && !r.fatal && r.saved === 0 && <span className="text-muted-foreground italic">No data</span>}
                                                   </>}
                                                   {syncType === "fans" && <>
                                                     {r.fans != null && <span><span className="text-muted-foreground">Fans </span><span className="font-mono font-semibold tabular-nums">{Number(r.fans).toLocaleString()}</span></span>}
