@@ -990,54 +990,6 @@ export default function FansPage() {
               </div>
             )}
 
-            {/* Account cards — sorted by fan revenue */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sortedAccounts.length}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
-                  <AccountFilterDropdown
-                    value={accountGridFilter}
-                    onChange={setAccountGridFilter}
-                    accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-                  />
-                </div>
-              </div>
-
-              {accountsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
-                </div>
-              ) : accounts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="font-semibold">No active accounts</p>
-                  <p className="text-sm mt-1">Add accounts in Settings to get started.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sortedAccounts.map((acc: any, i: number) => {
-                    const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
-                    return (
-                      <AccountFanCard
-                        key={acc.id}
-                        account={acc}
-                        stats={accountStatsMap[acc.id] ?? null}
-                        isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
-                        totalSubs={subsPerAccount[acc.id] ?? 0}
-                        rank={i + 1}
-                        typeTotals={txTypePerAccount.get(acc.id)}
-                        onClick={() => setSelectedAccountId(acc.id)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* ── CAMPAIGNS ─────────────────────────────────────────────── */}
             {(() => {
               const visibleCampaigns = (allTrackingLinks as any[])
@@ -1135,6 +1087,54 @@ export default function FansPage() {
                 </div>
               );
             })()}
+
+            {/* Account cards — sorted by fan revenue */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sortedAccounts.length}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
+                  <AccountFilterDropdown
+                    value={accountGridFilter}
+                    onChange={setAccountGridFilter}
+                    accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+                  />
+                </div>
+              </div>
+
+              {accountsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
+                </div>
+              ) : accounts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="font-semibold">No active accounts</p>
+                  <p className="text-sm mt-1">Add accounts in Settings to get started.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedAccounts.map((acc: any, i: number) => {
+                    const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
+                    return (
+                      <AccountFanCard
+                        key={acc.id}
+                        account={acc}
+                        stats={accountStatsMap[acc.id] ?? null}
+                        isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
+                        totalSubs={subsPerAccount[acc.id] ?? 0}
+                        rank={i + 1}
+                        typeTotals={txTypePerAccount.get(acc.id)}
+                        onClick={() => setSelectedAccountId(acc.id)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* ── ALL SPENDERS TABLE ─────────────────────────────────────── */}
             <div>
