@@ -233,7 +233,7 @@ export default function CampaignsPage() {
   const { snapshotLookup, isLoading: snapshotsLoading } = useSnapshotMetrics(timePeriod, customRange);
   // Shared date-scoped aggregator — available for KPI cards on this page.
   // Tables/sorting continue to use applySnapshotToLinks for per-link metrics.
-  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter.length > 0 ? pageModelFilter : null);
   void dateScoped;
 
   // ─── Data fetching (always fetch all links) ───

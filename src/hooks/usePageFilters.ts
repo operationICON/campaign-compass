@@ -34,11 +34,14 @@ function loadTimePeriod(): TimePeriod {
   return "week";
 }
 
-function loadModelFilter(): string {
+function loadModelFilter(): string[] {
   try {
-    return localStorage.getItem(STORAGE_KEY_MODEL) || "all";
+    const v = localStorage.getItem(STORAGE_KEY_MODEL);
+    if (!v || v === "all") return [];
+    const parsed = JSON.parse(v);
+    if (Array.isArray(parsed)) return parsed;
   } catch {}
-  return "all";
+  return [];
 }
 
 function loadCustomRange(): { from: Date; to: Date } | null {
@@ -62,7 +65,7 @@ function loadRevenueMode(): RevenueMode {
 
 export function usePageFilters() {
   const [timePeriod, setTimePeriodRaw] = useState<TimePeriod>(loadTimePeriod);
-  const [modelFilter, setModelFilterRaw] = useState(loadModelFilter);
+  const [modelFilter, setModelFilterRaw] = useState<string[]>(loadModelFilter);
   const [customRange, setCustomRangeRaw] = useState<{ from: Date; to: Date } | null>(loadCustomRange);
   const [revenueMode, setRevenueModeRaw] = useState<RevenueMode>(loadRevenueMode);
 
@@ -71,9 +74,9 @@ export function usePageFilters() {
     try { localStorage.setItem(STORAGE_KEY_TIME, tp); } catch {}
   }, []);
 
-  const setModelFilter = useCallback((v: string) => {
+  const setModelFilter = useCallback((v: string[]) => {
     setModelFilterRaw(v);
-    try { localStorage.setItem(STORAGE_KEY_MODEL, v); } catch {}
+    try { localStorage.setItem(STORAGE_KEY_MODEL, JSON.stringify(v)); } catch {}
   }, []);
 
   const setCustomRange = useCallback((range: { from: Date; to: Date } | null) => {

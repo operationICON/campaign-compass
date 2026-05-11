@@ -57,8 +57,8 @@ export default function ChartsPage() {
 
   // Filter by model if selected
   const filteredLinks = useMemo(() => {
-    if (modelFilter === "all") return links;
-    return links.filter((l: any) => l.account_id === modelFilter);
+    if (modelFilter.length === 0) return links;
+    return links.filter((l: any) => modelFilter.includes(l.account_id));
   }, [links, modelFilter]);
 
   const accountColorMap = useMemo(() => {

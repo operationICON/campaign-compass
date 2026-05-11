@@ -260,8 +260,8 @@ export default function TrafficSourcesPage() {
     let result = allLinks as any[];
 
     // Account filter
-    if (pageModelFilter !== "all") {
-      result = result.filter((l: any) => l.account_id === pageModelFilter);
+    if (pageModelFilter.length > 0) {
+      result = result.filter((l: any) => pageModelFilter.includes(l.account_id));
     }
 
     // Date filter by created_at

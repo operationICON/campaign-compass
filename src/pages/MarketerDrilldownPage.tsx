@@ -44,7 +44,7 @@ export default function MarketerDrilldownPage() {
   const navigate = useNavigate();
   // Persisted table prefs — Sources Level 3 (marketer drilldown)
   const MD_PREFS = `ct_table_prefs_marketer_drilldown_${marketer || ""}_${offer_id || ""}`;
-  const [modelFilter, setModelFilter] = usePersistedState<string>(`${MD_PREFS}_modelFilter`, "all");
+  const [modelFilter, setModelFilter] = usePersistedState<string[]>(`${MD_PREFS}_modelFilter`, []);
   const [sortKey, setSortKey] = usePersistedState<SortKey>(`${MD_PREFS}_sortKey`, "profit");
   const [sortAsc, setSortAsc] = usePersistedState<boolean>(`${MD_PREFS}_sortAsc`, false);
   const [profitableFilter, setProfitableFilter] = usePersistedState<boolean>(`${MD_PREFS}_profitable`, false);
@@ -197,8 +197,8 @@ export default function MarketerDrilldownPage() {
   // Filters
   const filtered = useMemo(() => {
     let rows = modelRows;
-    if (modelFilter !== "all") {
-      rows = rows.filter(r => r.accountId === modelFilter);
+    if (modelFilter.length > 0) {
+      rows = rows.filter(r => modelFilter.includes(r.accountId));
     }
     if (profitableFilter) rows = rows.filter(r => r.profit > 0);
     if (losingFilter) rows = rows.filter(r => r.profit < 0);
@@ -212,7 +212,7 @@ export default function MarketerDrilldownPage() {
   // Activity counts — over the base set (before activity filter), respecting other filters
   const activityCounts = useMemo(() => {
     let base = modelRows;
-    if (modelFilter !== "all") base = base.filter(r => r.accountId === modelFilter);
+    if (modelFilter.length > 0) base = base.filter(r => modelFilter.includes(r.accountId));
     if (profitableFilter) base = base.filter(r => r.profit > 0);
     if (losingFilter) base = base.filter(r => r.profit < 0);
     if (scaleFilter) base = base.filter(r => r.profit > 0 && r.roi !== null && r.roi > 50);

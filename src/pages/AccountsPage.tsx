@@ -129,7 +129,7 @@ export default function AccountsPage() {
   const { snapshotLookup, isLoading: snapshotLoading } = useSnapshotMetrics(timePeriod, customRange);
   // Shared date-scoped aggregator (subs/clicks/revenue/spend/profit/roi/cpl/cvr/ltvSub/subsPerDay).
   // Available for KPI cards on this page; tables continue to use applySnapshotToLinks.
-  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter !== "all" ? [pageModelFilter] : null);
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, pageModelFilter.length > 0 ? pageModelFilter : null);
   void dateScoped;
   const isAllTime = timePeriod === "all" && !customRange;
 
@@ -391,8 +391,8 @@ export default function AccountsPage() {
     // Rule 4: keep all subscriber-bearing accounts on the Models page,
     // including accounts marked inactive/ex-model.
     const active = accounts.filter((a: any) => Number(a?.subscribers_count || 0) > 0);
-    if (pageModelFilter === "all") return active;
-    return active.filter((a: any) => a.id === pageModelFilter);
+    if (pageModelFilter.length === 0) return active;
+    return active.filter((a: any) => pageModelFilter.includes(a.id));
   }, [accounts, pageModelFilter]);
 
   const filteredAccounts = useMemo(() => {

@@ -8,8 +8,8 @@ interface PageFilterBarProps {
   onTimePeriodChange: (tp: TimePeriod) => void;
   customRange: { from: Date; to: Date } | null;
   onCustomRangeChange: (range: { from: Date; to: Date } | null) => void;
-  modelFilter: string;
-  onModelFilterChange: (v: string) => void;
+  modelFilter: string[];
+  onModelFilterChange: (v: string[]) => void;
   accounts: { id: string; username: string; display_name: string; avatar_thumb_url?: string | null }[];
   revenueMode?: RevenueMode;
   onRevenueModeChange?: (mode: RevenueMode) => void;

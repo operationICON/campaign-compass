@@ -52,7 +52,7 @@ export default function CrossPollPage() {
   // Snapshot-based time filtering
   const { snapshotLookup, isAllTime } = useSnapshotMetrics(timePeriod, customRange);
   // Shared date-scoped aggregator — available for KPI cards.
-  const dateScoped = useDateScopedMetrics(timePeriod, customRange, modelFilter !== "all" ? [modelFilter] : null);
+  const dateScoped = useDateScopedMetrics(timePeriod, customRange, modelFilter.length > 0 ? modelFilter : null);
   void dateScoped;
 
   // Cross-poll LTV data (cumulative)
