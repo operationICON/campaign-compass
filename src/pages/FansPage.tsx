@@ -1008,65 +1008,6 @@ export default function FansPage() {
                 );
             })()}
 
-            {/* Per-account revenue breakdown */}
-            {(accounts as any[]).length > 0 && (() => {
-              const activeAccountIds = new Set((accounts as any[]).map((a: any) => a.id));
-              const rows = (accounts as any[]).map((a: any) => {
-                const camp = (allTrackingLinks as any[])
-                  .filter((tl: any) => !tl.deleted_at && tl.account_id === a.id)
-                  .reduce((s: number, tl: any) => s + Number(tl.revenue ?? 0), 0);
-                const tips  = Number(a.ltv_tips ?? 0);
-                const subs  = Number(a.ltv_subscriptions ?? 0);
-                const posts = Number(a.ltv_posts ?? 0);
-                const total = Number(a.ltv_total ?? 0);
-                const msg   = Math.max(0, total - camp - tips - subs - posts);
-                return { a, camp, msg, tips, subs, total };
-              }).filter(r => r.total > 0).sort((a, b) => b.total - a.total);
-              if (rows.length === 0) return null;
-              const grandTotal = rows.reduce((s, r) => s + r.total, 0);
-              return (
-                <div className="bg-card border border-border rounded-xl overflow-hidden">
-                  <div className="px-5 py-3 border-b border-border">
-                    <h3 className="text-sm font-semibold">Revenue by Account</h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/30">
-                          <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground uppercase tracking-wide">Account</th>
-                          <th className="text-right px-4 py-2.5 font-semibold text-primary uppercase tracking-wide">Campaigns</th>
-                          <th className="text-right px-4 py-2.5 font-semibold text-emerald-400 uppercase tracking-wide">Message</th>
-                          <th className="text-right px-4 py-2.5 font-semibold text-amber-400 uppercase tracking-wide">Tips</th>
-                          <th className="text-right px-4 py-2.5 font-semibold text-cyan-400 uppercase tracking-wide">Subs</th>
-                          <th className="text-right px-4 py-2.5 font-semibold text-foreground uppercase tracking-wide">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map(({ a, camp, msg, tips, subs, total }, i) => (
-                          <tr key={a.id} className={cn("border-b border-border/30", i % 2 === 0 ? "" : "bg-muted/10")}>
-                            <td className="px-4 py-2.5 font-medium text-foreground">{a.display_name || a.username}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums">{fmt$(camp)}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums">{fmt$(msg)}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums">{fmt$(tips)}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums">{fmt$(subs)}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums font-semibold">{fmt$(total)}</td>
-                          </tr>
-                        ))}
-                        <tr className="border-t-2 border-border bg-muted/20">
-                          <td className="px-4 py-2.5 font-bold text-foreground">TOTAL</td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-bold">{fmt$(rows.reduce((s, r) => s + r.camp, 0))}</td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-bold">{fmt$(rows.reduce((s, r) => s + r.msg, 0))}</td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-bold">{fmt$(rows.reduce((s, r) => s + r.tips, 0))}</td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-bold">{fmt$(rows.reduce((s, r) => s + r.subs, 0))}</td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-bold">{fmt$(grandTotal)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()}
-
             {/* Account cards — sorted by fan revenue */}
             <div>
               <div className="flex items-center justify-between mb-3">
