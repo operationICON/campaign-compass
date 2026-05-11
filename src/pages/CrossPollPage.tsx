@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ModelAvatar } from "@/components/ModelAvatar";
-import { CrossPollDetailTable } from "@/components/crosspoll/CrossPollDetailTable";
 import { GitBranch, Users, DollarSign, Award, Percent, ChevronDown, ChevronUp } from "lucide-react";
 import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
@@ -257,20 +256,31 @@ export default function CrossPollPage() {
                   <SortHead label="Cross-Poll Fans" k="cross_poll_fans" align="right" />
                   <SortHead label="Conversion %" k="cross_poll_conversion_pct" align="right" />
                   <TableHead className="text-muted-foreground">Received By</TableHead>
-                  <TableHead className="text-muted-foreground">URL</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ltvLoading ? (
                   <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
                 ) : topCampaigns.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
                 ) : topCampaigns.map((r: any) => {
                   // "Received By" = all other models (exclude source)
                   const otherModels = accounts.filter((a: any) => String(a.id).toLowerCase() !== String(r.account_id).toLowerCase());
                   return (
                     <TableRow key={r.id} className="border-border">
-                      <TableCell className="font-medium text-foreground max-w-[200px] truncate">{r.campaignName}</TableCell>
+                      <TableCell className="font-medium text-foreground max-w-[220px]">
+                        <div className="truncate">{r.campaignName}</div>
+                        {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()]?.url && (
+                          <a
+                            href={linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline truncate block"
+                          >
+                            {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
+                          </a>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <ModelAvatar avatarUrl={r.avatarUrl} name={r.modelName} size={24} />
@@ -292,18 +302,6 @@ export default function CrossPollPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()]?.url ? (
-                          <a
-                            href={linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline truncate block max-w-[200px]"
-                          >
-                            {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
-                          </a>
-                        ) : <span className="text-muted-foreground">—</span>}
-                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -312,13 +310,6 @@ export default function CrossPollPage() {
           </CardContent>
         </Card>
 
-        {/* Cross-Poll Revenue Detail */}
-        <CrossPollDetailTable
-          accounts={accounts}
-          accountLookup={accountLookup}
-          linkLookup={linkLookup}
-          globalModelFilter={modelFilter}
-        />
       </div>
     </DashboardLayout>
   );
