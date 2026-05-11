@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType } from "@/lib/api";
+import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType, getCampaignRevenueByGroup } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -747,6 +747,12 @@ export default function FansPage() {
     enabled: selectedAccountId === null,
   });
 
+  const campaignRevenueByGroupQuery = useQuery({
+    queryKey: ["campaign_revenue_by_group"],
+    queryFn: () => getCampaignRevenueByGroup(),
+    staleTime: 120_000,
+  });
+
   const campaignTypeMap = useMemo(() => {
     const map: Record<string, any> = {};
     for (const row of (campaignRevenueByTypeQuery.data ?? [])) {
@@ -988,21 +994,10 @@ export default function FansPage() {
                       </div>
                     );
                   })}
-                  {/* Revenue by Campaign — grouped by campaign_id, one total per campaign */}
+                  {/* Revenue by Campaign — one total per campaign from server aggregation */}
                   {(() => {
-                    // Aggregate all tracking links into one entry per campaign
-                    const grouped = new Map<string, { name: string; revenue: number }>();
-                    for (const tl of (allTrackingLinks as any[])) {
-                      if (tl.deleted_at) continue;
-                      if (accountGridFilter.length > 0 && !accountGridFilter.includes(tl.account_id)) continue;
-                      const key = tl.campaign_id || tl.campaign_name || tl.id;
-                      const name = tl.campaign_name || "Unnamed";
-                      const rev = Number(campaignTypeMap[tl.id]?.total_revenue ?? tl.revenue ?? 0);
-                      const cur = grouped.get(key) ?? { name, revenue: 0 };
-                      cur.revenue += rev;
-                      grouped.set(key, cur);
-                    }
-                    const campaignRows = [...grouped.values()]
+                    const campaignRows = (campaignRevenueByGroupQuery.data ?? [])
+                      .map(r => ({ name: r.campaign_name, revenue: Number(r.total_revenue) }))
                       .filter(r => r.revenue > 0)
                       .sort((a, b) => b.revenue - a.revenue);
                     const campTotal = campaignRows.reduce((s, r) => s + r.revenue, 0);

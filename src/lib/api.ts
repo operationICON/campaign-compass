@@ -307,6 +307,13 @@ export const getCampaignRevenueByType = (account_id?: string) =>
     post_revenue: string;
   }>>(`/campaign-analytics/revenue-by-type${account_id ? `?account_id=${account_id}` : ""}`);
 
+export const getCampaignRevenueByGroup = (account_id?: string) =>
+  apiFetch<Array<{
+    group_key: string;
+    campaign_name: string;
+    total_revenue: string;
+  }>>(`/campaign-analytics/revenue-by-campaign${account_id ? `?account_id=${account_id}` : ""}`);
+
 export const getCampaignTrend = (id: string, days = 30) =>
   apiFetch<any[]>(`/campaign-analytics/${id}/trend?days=${days}`);
 

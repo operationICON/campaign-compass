@@ -22,6 +22,44 @@ router.get("/campaigns", async (c) => {
   return c.json(rows);
 });
 
+// GET /campaign-analytics/revenue-by-campaign?account_id=UUID
+// Returns one row per campaign (campaigns table when linked, else tracking_link campaign_name).
+router.get("/revenue-by-campaign", async (c) => {
+  const accountId = c.req.query("account_id");
+  const accountCond = accountId
+    ? sql`AND tl.account_id = ${accountId}::uuid`
+    : sql``;
+
+  const rows = await db.execute(sql`
+    WITH fan_tx AS (
+      SELECT
+        COALESCE(c.id::text, tl.id::text)          AS group_key,
+        COALESCE(c.name, tl.campaign_name, 'Unnamed') AS campaign_name,
+        t.revenue::numeric                          AS rev
+      FROM fans f
+      JOIN transactions t ON (
+        t.fan_username = f.fan_id
+        OR (f.fan_id ~ '^u[0-9]+$' AND t.fan_id = SUBSTRING(f.fan_id, 2))
+      )
+      JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
+      LEFT JOIN campaigns c ON c.id = tl.campaign_id
+      WHERE f.first_subscribe_link_id IS NOT NULL
+        AND tl.deleted_at IS NULL
+        AND t.revenue IS NOT NULL AND t.revenue::numeric > 0
+        ${accountCond}
+    )
+    SELECT
+      group_key,
+      campaign_name,
+      SUM(rev) AS total_revenue
+    FROM fan_tx
+    GROUP BY group_key, campaign_name
+    ORDER BY total_revenue DESC
+  `);
+
+  return c.json(rows.rows);
+});
+
 // GET /campaign-analytics/revenue-by-type?account_id=UUID
 // Returns per-campaign revenue broken down by transaction type, sourced from transactions table.
 router.get("/revenue-by-type", async (c) => {
