@@ -953,11 +953,12 @@ export default function FansPage() {
             {/* Revenue breakdown */}
             {(accounts as any[]).length > 0 && (() => {
                 const campRev  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
-                const messages = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_messages ?? 0), 0);
                 const tips     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
                 const subs     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
                 const posts    = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_posts ?? 0), 0);
-                const total    = messages + tips + subs + posts;
+                const ltvTotal = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_total ?? 0), 0);
+                const messages = Math.max(0, ltvTotal - campRev - tips - subs - posts);
+                const total    = ltvTotal;
                 if (total <= 0) return null;
                 const pct = (v: number) => total > 0 ? (v / total) * 100 : 0;
                 const typeRows = [
