@@ -981,42 +981,41 @@ export default function FansPage() {
               ].filter(r => r.revenue > 0);
 
               return (
-                <div className="flex gap-4 items-start">
+                <div className="grid grid-cols-5 gap-3 items-start">
 
-                  {/* Revenue by Transaction Type */}
+                  {/* Revenue by Transaction Type — col 1, matches Total Fans KPI width */}
                   {total > 0 && (
-                    <div className="shrink-0 w-80">
-                      {/* header row — same height as accounts header */}
+                    <div className="col-span-1 flex flex-col">
                       <div className="flex items-center h-9 mb-3">
                         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revenue by Type</h2>
                       </div>
-                      <div className="bg-card border border-border rounded-xl overflow-hidden">
-                        <div className="px-5 py-4 space-y-3">
+                      <div className="bg-card border border-border rounded-xl overflow-hidden flex-1">
+                        <div className="px-3 py-3 space-y-2.5">
                           {typeRows.map(r => (
                             <div key={r.label}>
-                              <div className="flex items-center justify-between mb-1 text-xs">
-                                <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", r.badgeClass)}>{r.label}</span>
-                                <div className="flex items-center gap-3 tabular-nums">
-                                  <span className="font-semibold">{fmt$(r.revenue)}</span>
-                                  <span className="text-muted-foreground w-10 text-right">{pct(r.revenue).toFixed(1)}%</span>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0", r.badgeClass)}>{r.label}</span>
+                                <div className="flex items-center gap-1.5 tabular-nums ml-1 min-w-0">
+                                  <span className="text-[11px] font-semibold truncate">{fmt$(r.revenue)}</span>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">{pct(r.revenue).toFixed(1)}%</span>
                                 </div>
                               </div>
-                              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                                 <div className="h-full rounded-full" style={{ width: `${pct(r.revenue)}%`, background: r.color }} />
                               </div>
                             </div>
                           ))}
-                          <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
-                            <span className="font-bold text-foreground">TOTAL</span>
-                            <span className="font-bold text-foreground tabular-nums">{fmt$(total)}</span>
+                          <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                            <span className="text-xs font-bold text-foreground">TOTAL</span>
+                            <span className="text-[11px] font-bold text-foreground tabular-nums">{fmt$(total)}</span>
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Account cards — horizontal scroll carousel */}
-                  <div className="flex-1 min-w-0">
+                  {/* Account cards — remaining 4 cols */}
+                  <div className={total > 0 ? "col-span-4" : "col-span-5"}>
                     <div className="flex items-center justify-between mb-3 h-9">
                       <div className="flex items-center gap-2">
                         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
