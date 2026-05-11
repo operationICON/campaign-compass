@@ -635,7 +635,7 @@ export default function FansPage() {
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts"],
-    queryFn: async () => (await getAccounts() || []).filter((a: any) => a.is_active),
+    queryFn: async () => (await getAccounts() || []).filter((a: any) => a.is_active && !a.sync_excluded),
   });
 
   const globalStatsQuery = useQuery({
