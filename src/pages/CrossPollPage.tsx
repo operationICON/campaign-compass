@@ -239,10 +239,10 @@ export default function CrossPollPage() {
           </Card>
         </div>
 
-        {/* Top Campaigns Table */}
+        {/* Campaigns Table */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold text-foreground">Top Campaigns by Cross-Poll Revenue</CardTitle>
+            <CardTitle className="text-sm font-semibold text-foreground">Campaigns by Cross-Poll Revenue</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
