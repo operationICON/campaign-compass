@@ -615,6 +615,7 @@ export default function FansPage() {
   const [editFan, setEditFan] = useState<any | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -959,106 +960,117 @@ export default function FansPage() {
             </div>
 
             {/* Revenue by Type + Account carousel — side by side */}
-            <div className="flex gap-4 items-start">
+            {(() => {
+              const scroll = (dir: 1 | -1) => carouselRef.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
 
-              {/* Revenue by Transaction Type — fixed width left column */}
-              {(accounts as any[]).length > 0 && (() => {
-                const activeAccountIds = new Set((accounts as any[]).map((a: any) => a.id));
-                const campRev  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && activeAccountIds.has(tl.account_id)).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
-                const tips     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
-                const subs     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
-                const posts    = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_posts ?? 0), 0);
-                const ltvTotal = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_total ?? 0), 0);
-                const messages = Math.max(0, ltvTotal - campRev - tips - subs - posts);
-                const total    = ltvTotal;
-                if (total <= 0) return null;
-                const pct = (v: number) => total > 0 ? (v / total) * 100 : 0;
-                const typeRows = [
-                  { label: "Message",       revenue: messages, color: "#10b981", badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-                  { label: "Tips",          revenue: tips,     color: "#f59e0b", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-                  { label: "Subscriptions", revenue: subs,     color: "#22d3ee", badgeClass: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
-                  { label: "Posts",         revenue: posts,    color: "#8b5cf6", badgeClass: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-                ].filter(r => r.revenue > 0);
-                return (
-                  <div className="bg-card border border-border rounded-xl overflow-hidden shrink-0 w-80">
-                    <div className="px-5 py-3 border-b border-border">
-                      <h3 className="text-sm font-semibold">Revenue by Transaction Type</h3>
-                    </div>
-                    <div className="px-5 py-4 space-y-3">
-                      {[
-                        { label: "Campaigns", revenue: campRev,  color: "#6366f1", badgeClass: "bg-primary/15 text-primary" },
-                        ...typeRows,
-                      ].map(r => (
-                        <div key={r.label}>
-                          <div className="flex items-center justify-between mb-1 text-xs">
-                            <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", r.badgeClass)}>{r.label}</span>
-                            <div className="flex items-center gap-3 tabular-nums">
-                              <span className="font-semibold">{fmt$(r.revenue)}</span>
-                              <span className="text-muted-foreground w-8 text-right">{pct(r.revenue).toFixed(1)}%</span>
+              const activeAccountIds = new Set((accounts as any[]).map((a: any) => a.id));
+              const campRev  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && activeAccountIds.has(tl.account_id)).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
+              const tips     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
+              const subs     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
+              const posts    = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_posts ?? 0), 0);
+              const ltvTotal = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_total ?? 0), 0);
+              const messages = Math.max(0, ltvTotal - campRev - tips - subs - posts);
+              const total    = ltvTotal;
+              const pct = (v: number) => total > 0 ? (v / total) * 100 : 0;
+              const typeRows = [
+                { label: "Campaigns",     revenue: campRev,  color: "#6366f1", badgeClass: "bg-primary/15 text-primary" },
+                { label: "Message",       revenue: messages, color: "#10b981", badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+                { label: "Tips",          revenue: tips,     color: "#f59e0b", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+                { label: "Subscriptions", revenue: subs,     color: "#22d3ee", badgeClass: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+                { label: "Posts",         revenue: posts,    color: "#8b5cf6", badgeClass: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+              ].filter(r => r.revenue > 0);
+
+              return (
+                <div className="flex gap-4 items-start">
+
+                  {/* Revenue by Transaction Type */}
+                  {total > 0 && (
+                    <div className="shrink-0 w-80">
+                      {/* header row — same height as accounts header */}
+                      <div className="flex items-center h-9 mb-3">
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revenue by Type</h2>
+                      </div>
+                      <div className="bg-card border border-border rounded-xl overflow-hidden">
+                        <div className="px-5 py-4 space-y-3">
+                          {typeRows.map(r => (
+                            <div key={r.label}>
+                              <div className="flex items-center justify-between mb-1 text-xs">
+                                <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", r.badgeClass)}>{r.label}</span>
+                                <div className="flex items-center gap-3 tabular-nums">
+                                  <span className="font-semibold">{fmt$(r.revenue)}</span>
+                                  <span className="text-muted-foreground w-10 text-right">{pct(r.revenue).toFixed(1)}%</span>
+                                </div>
+                              </div>
+                              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct(r.revenue)}%`, background: r.color }} />
+                              </div>
                             </div>
-                          </div>
-                          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${pct(r.revenue)}%`, background: r.color }} />
+                          ))}
+                          <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
+                            <span className="font-bold text-foreground">TOTAL</span>
+                            <span className="font-bold text-foreground tabular-nums">{fmt$(total)}</span>
                           </div>
                         </div>
-                      ))}
-                      <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
-                        <span className="font-bold text-foreground">TOTAL</span>
-                        <span className="font-bold text-foreground tabular-nums">{fmt$(total)}</span>
                       </div>
                     </div>
-                  </div>
-                );
-              })()}
+                  )}
 
-              {/* Account cards — horizontal scroll carousel */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
-                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sortedAccounts.length}</span>
+                  {/* Account cards — horizontal scroll carousel */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-3 h-9">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sortedAccounts.length}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
+                        <AccountFilterDropdown
+                          value={accountGridFilter}
+                          onChange={setAccountGridFilter}
+                          accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+                        />
+                        <button onClick={() => scroll(-1)} className="p-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scroll(1)} className="p-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {accountsLoading ? (
+                      <div className="flex gap-4 overflow-x-auto pb-2">
+                        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-56 w-72 rounded-xl shrink-0" />)}
+                      </div>
+                    ) : accounts.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="font-semibold">No active accounts</p>
+                      </div>
+                    ) : (
+                      <div ref={carouselRef} className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth" style={{ scrollbarWidth: "none" }}>
+                        {sortedAccounts.map((acc: any, i: number) => {
+                          const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
+                          return (
+                            <div key={acc.id} className="shrink-0 w-72 snap-start">
+                              <AccountFanCard
+                                account={acc}
+                                stats={accountStatsMap[acc.id] ?? null}
+                                isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
+                                totalSubs={subsPerAccount[acc.id] ?? 0}
+                                rank={i + 1}
+                                typeTotals={txTypePerAccount.get(acc.id)}
+                                onClick={() => setSelectedAccountId(acc.id)}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
-                    <AccountFilterDropdown
-                      value={accountGridFilter}
-                      onChange={setAccountGridFilter}
-                      accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-                    />
-                  </div>
+
                 </div>
-                {accountsLoading ? (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
-                    {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-56 w-72 rounded-xl shrink-0" />)}
-                  </div>
-                ) : accounts.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="font-semibold">No active accounts</p>
-                  </div>
-                ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
-                    {sortedAccounts.map((acc: any, i: number) => {
-                      const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
-                      return (
-                        <div key={acc.id} className="shrink-0 w-72 snap-start">
-                          <AccountFanCard
-                            account={acc}
-                            stats={accountStatsMap[acc.id] ?? null}
-                            isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
-                            totalSubs={subsPerAccount[acc.id] ?? 0}
-                            rank={i + 1}
-                            typeTotals={txTypePerAccount.get(acc.id)}
-                            onClick={() => setSelectedAccountId(acc.id)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-            </div>
+              );
+            })()}
 
             {/* ── ALL SPENDERS TABLE ─────────────────────────────────────── */}
             <div>
