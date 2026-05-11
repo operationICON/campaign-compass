@@ -111,6 +111,66 @@ router.get("/", async (c) => {
   return c.json({ fans: rows.rows, total, limit: limitRaw, offset: offsetRaw });
 });
 
+// ── GET /fans/spenders-breakdown ─────────────────────────────────────────────
+// Returns spenders with per-type revenue from fan_account_stats.
+// Params: account_id, tracking_link_id, search, limit
+router.get("/spenders-breakdown", async (c) => {
+  const accountId     = c.req.query("account_id");
+  const trackingLinkId = c.req.query("tracking_link_id");
+  const search        = c.req.query("search");
+  const limitRaw      = Math.min(Number(c.req.query("limit") ?? 500), 2000);
+
+  const conditions: ReturnType<typeof sql>[] = [
+    sql`f.total_revenue IS NOT NULL AND f.total_revenue::numeric > 0`,
+  ];
+  if (accountId)      conditions.push(sql`fas.account_id = ${accountId}::uuid`);
+  if (trackingLinkId) conditions.push(sql`f.first_subscribe_link_id = ${trackingLinkId}::uuid`);
+  if (search)         conditions.push(sql`(f.fan_id ILIKE ${"%" + search + "%"} OR f.username ILIKE ${"%" + search + "%"} OR f.display_name ILIKE ${"%" + search + "%"})`);
+
+  const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
+
+  const rows = await db.execute(sql`
+    WITH tx_agg AS (
+      SELECT
+        t.fan_username,
+        SUM(CASE WHEN t.type = 'new_subscription'       THEN t.revenue::numeric ELSE 0 END) AS new_sub_revenue,
+        SUM(CASE WHEN t.type = 'recurring_subscription' THEN t.revenue::numeric ELSE 0 END) AS resub_revenue
+      FROM transactions t
+      WHERE t.revenue IS NOT NULL AND t.revenue::numeric > 0
+      GROUP BY t.fan_username
+    )
+    SELECT
+      f.id,
+      f.fan_id,
+      f.username,
+      f.display_name,
+      f.avatar_url,
+      f.total_revenue::numeric                            AS total_revenue,
+      f.total_transactions,
+      f.first_subscribe_link_id::text                     AS first_subscribe_link_id,
+      f.acquired_via_account_id::text                     AS acquired_via_account_id,
+      f.last_transaction_at,
+      COALESCE(ta.new_sub_revenue,                     0) AS new_sub_revenue,
+      COALESCE(ta.resub_revenue,                       0) AS resub_revenue,
+      COALESCE(SUM(fas.tip_revenue::numeric),          0) AS tip_revenue,
+      COALESCE(SUM(fas.message_revenue::numeric),      0) AS message_revenue,
+      COALESCE(SUM(fas.post_revenue::numeric),         0) AS post_revenue,
+      STRING_AGG(DISTINCT fas.account_id::text, ',')      AS account_ids
+    FROM fans f
+    JOIN fan_account_stats fas ON fas.fan_id = f.id
+    LEFT JOIN tx_agg ta ON ta.fan_username = f.fan_id
+    ${whereClause}
+    GROUP BY f.id, f.fan_id, f.username, f.display_name, f.avatar_url,
+             f.total_revenue, f.total_transactions, f.first_subscribe_link_id,
+             f.acquired_via_account_id, f.last_transaction_at,
+             ta.new_sub_revenue, ta.resub_revenue
+    ORDER BY f.total_revenue::numeric DESC
+    LIMIT ${limitRaw}
+  `);
+
+  return c.json(rows.rows);
+});
+
 // ── GET /fans/campaign-breakdown?account_ids=&date_from=&date_to= ─────────────
 // Returns: [{account_id, link_id, campaign_name, fan_count, link_deleted}]
 // Fans attributed to each campaign (tracking link) per account for the period.

@@ -242,6 +242,16 @@ export const getFans = (params?: {
     sort_dir: params?.sort_dir,
   })}`);
 
+export const getFanSpendersBreakdown = (params?: {
+  account_id?: string; tracking_link_id?: string; search?: string; limit?: number;
+}) =>
+  apiFetch<any[]>(`/fans/spenders-breakdown${buildQuery({
+    account_id: params?.account_id,
+    tracking_link_id: params?.tracking_link_id,
+    search: params?.search,
+    limit: params?.limit?.toString(),
+  })}`);
+
 export const getFan = (id: string) =>
   apiFetch<{ fan: any; account_stats: any[]; transactions: any[] }>(`/fans/${id}`);
 

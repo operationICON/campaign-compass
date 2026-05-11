@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks } from "@/lib/api";
+import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -596,6 +596,10 @@ export default function FansPage() {
   const queryClient = useQueryClient();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [accountGridFilter, setAccountGridFilter] = useState<string[]>([]);
+  const [spendersModelFilter, setSpendersModelFilter] = useState<string[]>([]);
+  const [spendersCampaignFilter, setSpendersCampaignFilter] = useState<string>("all");
+  const [spendersSearch, setSpendersSearch] = useState("");
+  const [spendersPage, setSpendersPage] = useState(1);
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -621,6 +625,7 @@ export default function FansPage() {
   }, [selectedAccountId]);
 
   useEffect(() => { setFanPage(1); }, [debouncedSearch, campaignFilter, spendersOnly, sortKey]);
+  useEffect(() => { setSpendersPage(1); }, [spendersModelFilter, spendersCampaignFilter, spendersSearch]);
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts"],
@@ -734,6 +739,18 @@ export default function FansPage() {
     enabled: selectedAccountId === null,
   });
 
+  const spendersBreakdownQuery = useQuery({
+    queryKey: ["fans_spenders_breakdown", spendersModelFilter, spendersCampaignFilter, spendersSearch],
+    queryFn: () => getFanSpendersBreakdown({
+      account_id: spendersModelFilter.length === 1 ? spendersModelFilter[0] : undefined,
+      tracking_link_id: spendersCampaignFilter !== "all" ? spendersCampaignFilter : undefined,
+      search: spendersSearch || undefined,
+      limit: 1000,
+    }),
+    staleTime: 60_000,
+    enabled: selectedAccountId === null,
+  });
+
   const rawFans = fansQuery.data?.fans ?? [];
   const totalFans = fansQuery.data?.total ?? 0;
   const globalStats = globalStatsQuery.data;
@@ -772,6 +789,25 @@ export default function FansPage() {
     }
     return map;
   }, [txTypeTotalsQuery.data]);
+
+  const SPENDERS_PER_PAGE = 50;
+  const spendersRows = useMemo(() => {
+    const raw = spendersBreakdownQuery.data ?? [];
+    if (spendersModelFilter.length > 1) {
+      return raw.filter((r: any) => {
+        const ids: string[] = (r.account_ids ?? "").split(",").filter(Boolean);
+        return spendersModelFilter.some(m => ids.includes(m));
+      });
+    }
+    return raw;
+  }, [spendersBreakdownQuery.data, spendersModelFilter]);
+
+  const spendersTotalPages = Math.max(1, Math.ceil(spendersRows.length / SPENDERS_PER_PAGE));
+  const safeSpendersPage = Math.min(spendersPage, spendersTotalPages);
+  const paginatedSpenders = spendersRows.slice(
+    (safeSpendersPage - 1) * SPENDERS_PER_PAGE,
+    safeSpendersPage * SPENDERS_PER_PAGE
+  );
 
   // Client-side sort
   const sortedFans = useMemo(() => {
@@ -999,6 +1035,154 @@ export default function FansPage() {
                 </div>
               )}
             </div>
+
+            {/* ── ALL SPENDERS TABLE ─────────────────────────────────────── */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">All Spenders</h2>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{spendersRows.length}</span>
+                </div>
+              </div>
+
+              {/* Filter bar */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <AccountFilterDropdown
+                  value={spendersModelFilter}
+                  onChange={setSpendersModelFilter}
+                  accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+                />
+                <select
+                  value={spendersCampaignFilter}
+                  onChange={e => setSpendersCampaignFilter(e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  <option value="all">All Campaigns</option>
+                  {(allTrackingLinks as any[])
+                    .filter((tl: any) => !tl.deleted_at)
+                    .map((tl: any) => (
+                      <option key={tl.id} value={tl.id}>{tl.campaign_name || tl.id}</option>
+                    ))}
+                </select>
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search fan…"
+                    value={spendersSearch}
+                    onChange={e => setSpendersSearch(e.target.value)}
+                    className="w-full h-10 pl-8 pr-3 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Model</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campaign</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-indigo-400 uppercase tracking-wide">New Subs</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-cyan-400 uppercase tracking-wide">Resub</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-amber-400 uppercase tracking-wide">Tips</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-emerald-400 uppercase tracking-wide">Messages</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-violet-400 uppercase tracking-wide">Posts</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-foreground uppercase tracking-wide">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {spendersBreakdownQuery.isLoading ? (
+                        Array.from({ length: 10 }).map((_, i) => (
+                          <tr key={i} className="border-b border-border/40">
+                            <td colSpan={9} className="px-4 py-3"><Skeleton className="h-5 w-full" /></td>
+                          </tr>
+                        ))
+                      ) : paginatedSpenders.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground text-xs">No spenders found</td>
+                        </tr>
+                      ) : paginatedSpenders.map((fan: any, i: number) => {
+                        const fanName = fan.username ? `@${fan.username}` : fan.display_name || fan.fan_id;
+                        const accountIds: string[] = (fan.account_ids ?? "").split(",").filter(Boolean);
+                        const primaryAccId = fan.acquired_via_account_id || accountIds[0];
+                        const primaryAcc = primaryAccId ? (accounts as any[]).find((a: any) => a.id === primaryAccId) : null;
+                        const campaignLink = fan.first_subscribe_link_id
+                          ? (allTrackingLinks as any[]).find((tl: any) => tl.id === fan.first_subscribe_link_id)
+                          : null;
+                        const newSubRev = Number(fan.new_sub_revenue ?? 0);
+                        const resubRev  = Number(fan.resub_revenue ?? 0);
+                        const tipRev    = Number(fan.tip_revenue ?? 0);
+                        const msgRev    = Number(fan.message_revenue ?? 0);
+                        const postRev   = Number(fan.post_revenue ?? 0);
+                        return (
+                          <tr key={fan.id ?? i} className={cn("border-b border-border/30 hover:bg-muted/20 transition-colors", i % 2 === 0 ? "" : "bg-muted/10")}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                {fan.avatar_url ? (
+                                  <img src={fan.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground flex-shrink-0">
+                                    {(fan.username || fan.fan_id || "?").slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="font-medium truncate max-w-[140px]">{fanName}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {primaryAcc ? (
+                                <div className="flex items-center gap-1.5">
+                                  {primaryAcc.avatar_thumb_url ? (
+                                    <img src={primaryAcc.avatar_thumb_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                                  ) : (
+                                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] font-bold text-primary flex-shrink-0">
+                                      {(primaryAcc.display_name || "?").slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <span className="text-xs text-muted-foreground truncate max-w-[100px]">{primaryAcc.display_name}</span>
+                                </div>
+                              ) : <span className="text-xs text-muted-foreground">—</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-xs text-muted-foreground truncate max-w-[160px] block">
+                                {campaignLink?.campaign_name || (fan.first_subscribe_link_id ? "Unknown" : "—")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums text-indigo-400 text-xs font-medium">{newSubRev > 0 ? fmt$(newSubRev) : "—"}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-cyan-400 text-xs font-medium">{resubRev > 0 ? fmt$(resubRev) : "—"}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-amber-400 text-xs font-medium">{tipRev > 0 ? fmt$(tipRev) : "—"}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-emerald-400 text-xs font-medium">{msgRev > 0 ? fmt$(msgRev) : "—"}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-violet-400 text-xs font-medium">{postRev > 0 ? fmt$(postRev) : "—"}</td>
+                            <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-500">{fmt$(Number(fan.total_revenue ?? 0))}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {spendersTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
+                    <span>Showing {(safeSpendersPage - 1) * SPENDERS_PER_PAGE + 1}–{Math.min(safeSpendersPage * SPENDERS_PER_PAGE, spendersRows.length)} of {spendersRows.length}</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setSpendersPage(p => Math.max(1, p - 1))} disabled={safeSpendersPage === 1}
+                        className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span>{safeSpendersPage} / {spendersTotalPages}</span>
+                      <button onClick={() => setSpendersPage(p => Math.min(spendersTotalPages, p + 1))} disabled={safeSpendersPage === spendersTotalPages}
+                        className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
 
         ) : (
