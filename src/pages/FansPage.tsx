@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks } from "@/lib/api";
+import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -740,6 +740,21 @@ export default function FansPage() {
     enabled: selectedAccountId === null,
   });
 
+  const campaignRevenueByTypeQuery = useQuery({
+    queryKey: ["campaign_revenue_by_type"],
+    queryFn: () => getCampaignRevenueByType(),
+    staleTime: 120_000,
+    enabled: selectedAccountId === null,
+  });
+
+  const campaignTypeMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const row of (campaignRevenueByTypeQuery.data ?? [])) {
+      map[row.tracking_link_id] = row;
+    }
+    return map;
+  }, [campaignRevenueByTypeQuery.data]);
+
   const spendersBreakdownQuery = useQuery({
     queryKey: ["fans_spenders_breakdown", spendersModelFilter.length === 1 ? spendersModelFilter[0] : null, spendersCampaignFilter, spendersSearch],
     queryFn: () => getFanSpendersBreakdown({
@@ -1027,20 +1042,31 @@ export default function FansPage() {
                             <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subs</th>
                             <th className="text-right px-4 py-3 text-xs font-semibold text-emerald-400 uppercase tracking-wide">Spenders</th>
                             <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conv %</th>
-                            <th className="text-right px-4 py-3 text-xs font-semibold text-emerald-400 uppercase tracking-wide">Revenue</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-indigo-400 uppercase tracking-wide">New Sub</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-cyan-400 uppercase tracking-wide">Resub</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-amber-400 uppercase tracking-wide">Tips</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-emerald-400 uppercase tracking-wide">Messages</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-violet-400 uppercase tracking-wide">Posts</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-foreground uppercase tracking-wide">Total Rev</th>
                           </tr>
                         </thead>
                         <tbody>
                           {visibleCampaigns.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="px-4 py-6 text-center text-xs text-muted-foreground">No campaigns found</td>
+                              <td colSpan={11} className="px-4 py-6 text-center text-xs text-muted-foreground">No campaigns found</td>
                             </tr>
                           ) : visibleCampaigns.map((tl: any, i: number) => {
                             const acc = (accounts as any[]).find((a: any) => a.id === tl.account_id);
                             const subs = Number(tl.subscribers ?? 0);
                             const spenders = Number(tl.spenders ?? 0);
-                            const revenue = Number(tl.revenue ?? 0);
                             const conv = subs > 0 ? (spenders / subs) * 100 : 0;
+                            const txData = campaignTypeMap[tl.id];
+                            const newSubRev  = Number(txData?.new_sub_revenue  ?? 0);
+                            const resubRev   = Number(txData?.resub_revenue    ?? 0);
+                            const tipRev     = Number(txData?.tip_revenue      ?? 0);
+                            const msgRev     = Number(txData?.message_revenue  ?? 0);
+                            const postRev    = Number(txData?.post_revenue     ?? 0);
+                            const totalTxRev = Number(txData?.total_revenue    ?? tl.revenue ?? 0);
                             return (
                               <tr
                                 key={tl.id}
@@ -1071,7 +1097,12 @@ export default function FansPage() {
                                 <td className="px-4 py-3 text-right tabular-nums text-xs">{subs > 0 ? fmtNum(subs) : "—"}</td>
                                 <td className="px-4 py-3 text-right tabular-nums text-xs font-semibold text-emerald-500">{spenders > 0 ? fmtNum(spenders) : "—"}</td>
                                 <td className="px-4 py-3 text-right tabular-nums text-xs text-muted-foreground">{subs > 0 ? `${conv.toFixed(1)}%` : "—"}</td>
-                                <td className="px-4 py-3 text-right tabular-nums text-xs font-bold text-emerald-500">{revenue > 0 ? fmt$(revenue) : "—"}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-xs text-indigo-400">{newSubRev > 0 ? fmt$(newSubRev) : "—"}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-xs text-cyan-400">{resubRev  > 0 ? fmt$(resubRev)  : "—"}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-xs text-amber-400">{tipRev    > 0 ? fmt$(tipRev)    : "—"}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-xs text-emerald-400">{msgRev   > 0 ? fmt$(msgRev)   : "—"}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-xs text-violet-400">{postRev   > 0 ? fmt$(postRev)   : "—"}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-xs font-bold text-emerald-500">{totalTxRev > 0 ? fmt$(totalTxRev) : "—"}</td>
                               </tr>
                             );
                           })}

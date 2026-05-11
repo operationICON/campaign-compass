@@ -296,6 +296,17 @@ export const deleteManualNote = (id: string) =>
 export const getCampaignAnalyticsList = (account_id?: string) =>
   apiFetch<any[]>(`/tracking-links${account_id ? `?account_id=${account_id}` : ""}`);
 
+export const getCampaignRevenueByType = (account_id?: string) =>
+  apiFetch<Array<{
+    tracking_link_id: string;
+    total_revenue: string;
+    new_sub_revenue: string;
+    resub_revenue: string;
+    tip_revenue: string;
+    message_revenue: string;
+    post_revenue: string;
+  }>>(`/campaign-analytics/revenue-by-type${account_id ? `?account_id=${account_id}` : ""}`);
+
 export const getCampaignTrend = (id: string, days = 30) =>
   apiFetch<any[]>(`/campaign-analytics/${id}/trend?days=${days}`);
 
