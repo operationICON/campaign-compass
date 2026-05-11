@@ -1507,7 +1507,17 @@ export default function FansPage() {
                                         >
                                           <div className="flex items-center gap-1.5 min-w-0">
                                             <ChevronRight className={cn("w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform", isCampOpen && "rotate-90")} />
-                                            <span className="text-xs font-medium truncate text-muted-foreground">{camp.campaignName}</span>
+                                            <div className="min-w-0">
+                                              <div className="text-xs font-medium truncate text-muted-foreground">{camp.campaignName}</div>
+                                              {camp.tlId && allTlMap[camp.tlId]?.url && (
+                                                <a href={allTlMap[camp.tlId].url} target="_blank" rel="noopener noreferrer"
+                                                  onClick={e => e.stopPropagation()}
+                                                  className="text-[10px] text-sky-500 hover:text-sky-400 truncate block max-w-xs"
+                                                  title={allTlMap[camp.tlId].url}>
+                                                  {allTlMap[camp.tlId].url.replace(/^https?:\/\//, "").slice(0, 40)}{allTlMap[camp.tlId].url.length > 46 ? "…" : ""}
+                                                </a>
+                                              )}
+                                            </div>
                                           </div>
                                           <span className="text-right text-[11px] text-muted-foreground/70 tabular-nums">{fmtNum(camp.fanCount)}</span>
                                           <span className="text-right text-xs font-medium text-emerald-400 tabular-nums">{fmt$(camp.revenue)}</span>
@@ -1684,6 +1694,7 @@ export default function FansPage() {
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Campaign</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Lifetime Value</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Subscription Start</th>
@@ -1696,8 +1707,8 @@ export default function FansPage() {
                   {isLoadingFans ? (
                     Array.from({ length: 15 }).map((_, i) => (
                       <tr key={i} className="border-b border-border/50">
-                        {[180, 100, 60, 120, 120, 70, 64].map((w, j) => (
-                          <td key={j} className={cn("px-4 py-3", j === 3 ? "hidden md:table-cell" : j === 4 ? "hidden md:table-cell" : j === 5 ? "hidden lg:table-cell" : "")}>
+                        {[180, 130, 100, 60, 120, 120, 70, 64].map((w, j) => (
+                          <td key={j} className={cn("px-4 py-3", j === 1 ? "hidden lg:table-cell" : j === 4 ? "hidden md:table-cell" : j === 5 ? "hidden md:table-cell" : j === 6 ? "hidden lg:table-cell" : "")}>
                             <Skeleton className="h-4 rounded" style={{ width: w }} />
                           </td>
                         ))}
@@ -1705,7 +1716,7 @@ export default function FansPage() {
                     ))
                   ) : paginatedFans.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center">
+                      <td colSpan={8} className="py-8 text-center">
                         <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
                         {totalFans === 0 && txCount > 0 ? (
                           <>
@@ -1760,6 +1771,31 @@ export default function FansPage() {
                                 </div>
                               </div>
                             </td>
+                            {/* Campaign */}
+                            {(() => {
+                              const tl = fan.first_subscribe_link_id ? allTlMap[fan.first_subscribe_link_id] : null;
+                              return (
+                                <td className="px-4 py-3 hidden lg:table-cell">
+                                  {tl ? (
+                                    <>
+                                      <div className="text-xs font-medium truncate max-w-40" title={tl.campaign_name || tl.external_tracking_link_id || tl.id}>
+                                        {tl.campaign_name || tl.external_tracking_link_id || "—"}
+                                      </div>
+                                      {tl.url ? (
+                                        <a href={tl.url} target="_blank" rel="noopener noreferrer"
+                                          onClick={e => e.stopPropagation()}
+                                          className="text-[11px] text-sky-500 hover:text-sky-400 truncate max-w-40 block"
+                                          title={tl.url}>
+                                          {tl.url.replace(/^https?:\/\//, "").slice(0, 36)}{tl.url.length > 42 ? "…" : ""}
+                                        </a>
+                                      ) : (
+                                        <span className="text-[11px] text-muted-foreground/50">No URL</span>
+                                      )}
+                                    </>
+                                  ) : <span className="text-muted-foreground text-xs">—</span>}
+                                </td>
+                              );
+                            })()}
                             {/* Lifetime Value */}
                             <td className="px-4 py-3">
                               <div className={cn("font-semibold tabular-nums text-sm", isSpender ? "" : "text-muted-foreground")}>
@@ -1816,7 +1852,7 @@ export default function FansPage() {
                           </tr>
                           {isExpanded && (
                             <tr className="border-b border-border/40">
-                              <td colSpan={7} className="p-0">
+                              <td colSpan={8} className="p-0">
                                 <FanDetailDropdown fan={fan} allTrackingLinks={allTrackingLinks as any[]} accountMap={accountMap} />
                               </td>
                             </tr>
