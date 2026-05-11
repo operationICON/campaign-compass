@@ -724,7 +724,7 @@ export default function OverviewPage() {
                 Revenue Overview
               </p>
               <p className="text-2xl font-bold font-mono" style={{ color: T.white }}>
-                {fmtMoney(isAllTime ? totalRevenue : chartTotal)}
+                {fmtMoney(totalRevenue)}
               </p>
             </div>
             {chartData.length > 0 && (
