@@ -952,7 +952,8 @@ export default function FansPage() {
 
             {/* Revenue breakdown */}
             {(accounts as any[]).length > 0 && (() => {
-                const campRev  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
+                const activeAccountIds = new Set((accounts as any[]).map((a: any) => a.id));
+                const campRev  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && activeAccountIds.has(tl.account_id)).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
                 const tips     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
                 const subs     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
                 const posts    = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_posts ?? 0), 0);
