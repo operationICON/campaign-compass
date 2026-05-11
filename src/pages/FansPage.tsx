@@ -958,8 +958,11 @@ export default function FansPage() {
               )}
             </div>
 
-            {/* Revenue breakdown */}
-            {(accounts as any[]).length > 0 && (() => {
+            {/* Revenue by Type + Account carousel — side by side */}
+            <div className="flex gap-4 items-start">
+
+              {/* Revenue by Transaction Type — fixed width left column */}
+              {(accounts as any[]).length > 0 && (() => {
                 const activeAccountIds = new Set((accounts as any[]).map((a: any) => a.id));
                 const campRev  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && activeAccountIds.has(tl.account_id)).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
                 const tips     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
@@ -977,7 +980,7 @@ export default function FansPage() {
                   { label: "Posts",         revenue: posts,    color: "#8b5cf6", badgeClass: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
                 ].filter(r => r.revenue > 0);
                 return (
-                  <div className="bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="bg-card border border-border rounded-xl overflow-hidden shrink-0 w-80">
                     <div className="px-5 py-3 border-b border-border">
                       <h3 className="text-sm font-semibold">Revenue by Transaction Type</h3>
                     </div>
@@ -1006,54 +1009,55 @@ export default function FansPage() {
                     </div>
                   </div>
                 );
-            })()}
+              })()}
 
-            {/* Account cards — sorted by fan revenue */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sortedAccounts.length}</span>
+              {/* Account cards — horizontal scroll carousel */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sortedAccounts.length}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
+                    <AccountFilterDropdown
+                      value={accountGridFilter}
+                      onChange={setAccountGridFilter}
+                      accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
-                  <AccountFilterDropdown
-                    value={accountGridFilter}
-                    onChange={setAccountGridFilter}
-                    accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-                  />
-                </div>
+                {accountsLoading ? (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-56 w-72 rounded-xl shrink-0" />)}
+                  </div>
+                ) : accounts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="font-semibold">No active accounts</p>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                    {sortedAccounts.map((acc: any, i: number) => {
+                      const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
+                      return (
+                        <div key={acc.id} className="shrink-0 w-72 snap-start">
+                          <AccountFanCard
+                            account={acc}
+                            stats={accountStatsMap[acc.id] ?? null}
+                            isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
+                            totalSubs={subsPerAccount[acc.id] ?? 0}
+                            rank={i + 1}
+                            typeTotals={txTypePerAccount.get(acc.id)}
+                            onClick={() => setSelectedAccountId(acc.id)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {accountsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
-                </div>
-              ) : accounts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="font-semibold">No active accounts</p>
-                  <p className="text-sm mt-1">Add accounts in Settings to get started.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sortedAccounts.map((acc: any, i: number) => {
-                    const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
-                    return (
-                      <AccountFanCard
-                        key={acc.id}
-                        account={acc}
-                        stats={accountStatsMap[acc.id] ?? null}
-                        isLoading={accountStatsQueries[origIdx]?.isLoading ?? false}
-                        totalSubs={subsPerAccount[acc.id] ?? 0}
-                        rank={i + 1}
-                        typeTotals={txTypePerAccount.get(acc.id)}
-                        onClick={() => setSelectedAccountId(acc.id)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             {/* ── ALL SPENDERS TABLE ─────────────────────────────────────── */}
