@@ -5,24 +5,42 @@ import { eq, desc, and, gte, lte, inArray, sql } from "drizzle-orm";
 
 const router = new Hono();
 
+// GET /transactions?account_id=&date_from=&date_to=&tracking_link_id=&limit=2000
+// Returns transactions enriched with the fan's acquisition campaign.
 router.get("/", async (c) => {
-  const accountId = c.req.query("account_id");
-  const dateFrom = c.req.query("date_from");
-  const dateTo = c.req.query("date_to");
+  const accountId      = c.req.query("account_id");
+  const dateFrom       = c.req.query("date_from");
+  const dateTo         = c.req.query("date_to");
+  const trackingLinkId = c.req.query("tracking_link_id");
+  const limitRaw       = Math.min(Number(c.req.query("limit") ?? 2000), 10000);
 
-  const rows = await db
-    .select()
-    .from(transactions)
-    .where(
-      and(
-        accountId ? eq(transactions.account_id, accountId) : undefined,
-        dateFrom ? gte(transactions.date, dateFrom) : undefined,
-        dateTo ? lte(transactions.date, dateTo) : undefined,
-      )
-    )
-    .orderBy(desc(transactions.date))
-    .limit(2000);
-  return c.json(rows);
+  const conditions: ReturnType<typeof sql>[] = [];
+  if (accountId)      conditions.push(sql`t.account_id = ${accountId}::uuid`);
+  if (dateFrom)       conditions.push(sql`t.date >= ${dateFrom}`);
+  if (dateTo)         conditions.push(sql`t.date <= ${dateTo}`);
+  if (trackingLinkId) conditions.push(sql`f.first_subscribe_link_id = ${trackingLinkId}::uuid`);
+
+  const whereClause = conditions.length > 0
+    ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+    : sql``;
+
+  const rows = await db.execute(sql`
+    SELECT
+      t.*,
+      f.id                                          AS fan_db_id,
+      f.first_subscribe_link_id::text               AS fan_tracking_link_id,
+      tl.campaign_name                              AS campaign_name,
+      tl.external_tracking_link_id                  AS campaign_external_id,
+      tl.account_id::text                           AS campaign_account_id
+    FROM transactions t
+    LEFT JOIN fans f ON f.fan_id = t.fan_username
+    LEFT JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
+    ${whereClause}
+    ORDER BY t.date DESC, t.id DESC
+    LIMIT ${limitRaw}
+  `);
+
+  return c.json(rows.rows);
 });
 
 // GET /transactions/type-totals — group by account_id and type

@@ -694,7 +694,7 @@ function PerformanceView({
       {/* Fan detail sheet */}
       <Sheet open={!!viewFan} onOpenChange={open => { if (!open) setViewFan(null); }}>
         <SheetContent side="right" className="w-[400px] sm:w-[480px] p-0 overflow-y-auto">
-          {viewFan && <FanDetailPanel fan={viewFan} onClose={() => setViewFan(null)} />}
+          {viewFan && <FanDetailPanel fan={viewFan} campaignName={campaign.campaign_name} onClose={() => setViewFan(null)} />}
         </SheetContent>
       </Sheet>
     </div>
@@ -702,7 +702,7 @@ function PerformanceView({
 }
 
 // ─── Fan detail panel (used inside Sheet) ─────────────────────────────────────
-function FanDetailPanel({ fan, onClose }: { fan: any; onClose: () => void }) {
+function FanDetailPanel({ fan, campaignName, onClose }: { fan: any; campaignName?: string; onClose: () => void }) {
   const { data, isLoading } = useQuery({
     queryKey: ["fan_detail", fan.id],
     queryFn: () => getFan(fan.id),
@@ -747,10 +747,15 @@ function FanDetailPanel({ fan, onClose }: { fan: any; onClose: () => void }) {
           {fan.username && (
             <div className="text-xs text-muted-foreground">@{fan.username}</div>
           )}
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
             <span className="text-xs bg-emerald-500/15 text-emerald-400 rounded px-1.5 py-0.5 font-semibold">
               {fmtC(totalRevenue)}
             </span>
+            {campaignName && (
+              <span className="text-xs bg-primary/10 text-primary rounded px-1.5 py-0.5 font-medium truncate max-w-[180px]" title={campaignName}>
+                {campaignName}
+              </span>
+            )}
             {fan.first_subscribe_date && (
               <span className="text-xs text-muted-foreground">
                 Subbed {format(parseISO(fan.first_subscribe_date), "MMM d, yyyy")}

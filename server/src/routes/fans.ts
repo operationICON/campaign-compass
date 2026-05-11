@@ -9,6 +9,10 @@ const router = new Hono();
 router.get("/stats", async (c) => {
   const accountId = c.req.query("account_id");
 
+  // Use UNION of attribution (first_subscribe_link_id) and relationship (fan_account_stats)
+  // to match Campaign Analytics which counts by acquisition campaign.
+  // Attribution catches fans who subscribed via this account's campaigns but may lack
+  // a fan_account_stats row (e.g., unsynced or cross-polled fans).
   const result = await db.execute(sql`
     SELECT
       COUNT(*)                                                                               AS total_fans,
@@ -18,7 +22,12 @@ router.get("/stats", async (c) => {
       COUNT(CASE WHEN is_cross_poll = true THEN 1 END)                                      AS cross_poll_fans,
       COALESCE(SUM(CASE WHEN is_cross_poll = true AND total_revenue IS NOT NULL THEN total_revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue
     FROM fans
-    ${accountId ? sql`WHERE id IN (SELECT fan_id FROM fan_account_stats WHERE account_id = ${accountId}::uuid)` : sql``}
+    ${accountId ? sql`
+      WHERE (
+        id IN (SELECT fan_id FROM fan_account_stats WHERE account_id = ${accountId}::uuid)
+        OR first_subscribe_link_id IN (SELECT id FROM tracking_links WHERE account_id = ${accountId}::uuid)
+      )
+    ` : sql``}
   `);
 
   const row = (result.rows[0] as any) ?? {};

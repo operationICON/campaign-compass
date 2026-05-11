@@ -99,8 +99,20 @@ export const getUnreadCount = () => apiFetch<{ count: number }>("/notifications/
 export const markNotificationsRead = () => apiFetch("/notifications/mark-read", { method: "POST" });
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
-export const getTransactions = (filters?: { account_id?: string; date_from?: string; date_to?: string }) =>
-  apiFetch(`/transactions${buildQuery({ account_id: filters?.account_id, date_from: filters?.date_from, date_to: filters?.date_to })}`);
+export const getTransactions = (filters?: {
+  account_id?: string;
+  date_from?: string;
+  date_to?: string;
+  tracking_link_id?: string;
+  limit?: number;
+}) =>
+  apiFetch(`/transactions${buildQuery({
+    account_id:       filters?.account_id,
+    date_from:        filters?.date_from,
+    date_to:          filters?.date_to,
+    tracking_link_id: filters?.tracking_link_id,
+    limit:            filters?.limit?.toString(),
+  })}`);
 
 export const getTransactionTypeTotals = () => apiFetch("/transactions/type-totals");
 
