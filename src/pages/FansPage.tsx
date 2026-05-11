@@ -987,13 +987,24 @@ export default function FansPage() {
                       </div>
                     );
                   })}
-                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-foreground">Total</span>
-                    <div className="flex items-center gap-3 tabular-nums">
-                      <span className="font-bold text-foreground">{fmt$(txGrandTotal)}</span>
-                      <span className="text-muted-foreground">{fmtNum(txCount)} tx</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    const campRev = (allTrackingLinks as any[]).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
+                    return (
+                      <div className="pt-2 border-t border-border/40 space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Campaign</span>
+                          <span className="font-semibold tabular-nums">{fmt$(campRev)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-foreground">Total</span>
+                          <div className="flex items-center gap-3 tabular-nums">
+                            <span className="font-bold text-foreground">{fmt$(txGrandTotal)}</span>
+                            <span className="text-muted-foreground">{fmtNum(txCount)} tx</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
