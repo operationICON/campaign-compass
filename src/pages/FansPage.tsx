@@ -973,13 +973,10 @@ export default function FansPage() {
                       <h3 className="text-sm font-semibold">Revenue by Transaction Type</h3>
                     </div>
                     <div className="px-5 py-4 space-y-3">
-                      {/* Campaigns — attribution context at top */}
-                      <div className="flex items-center justify-between pb-3 border-b border-border/40 text-xs">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary">Campaigns</span>
-                        <span className="font-bold text-foreground tabular-nums">{fmt$(campRev)}</span>
-                      </div>
-                      {/* Type rows — bars and % relative to OFAPI total */}
-                      {typeRows.map(r => (
+                      {[
+                        { label: "Campaigns", revenue: campRev,  color: "#6366f1", badgeClass: "bg-primary/15 text-primary" },
+                        ...typeRows,
+                      ].map(r => (
                         <div key={r.label}>
                           <div className="flex items-center justify-between mb-1 text-xs">
                             <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", r.badgeClass)}>{r.label}</span>
