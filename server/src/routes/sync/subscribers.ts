@@ -148,18 +148,25 @@ router.post("/", async (c) => {
           .from(sync_settings)
           .where(eq(sync_settings.key, settingKey))
           .limit(1);
-        const lastSyncedAt = !forceFull && settingRow?.value ? settingRow.value : null;
+        const today = new Date().toISOString().split("T")[0];
+        // Ignore checkpoint if it's today or in the future — that means a previous
+        // failed run stored today's date and we'd query for 0 new subscribers.
+        const storedDate = settingRow?.value ?? null;
+        const checkpointValid = storedDate && storedDate < today;
+        const lastSyncedAt = !forceFull && checkpointValid ? storedDate : null;
 
         const afterParam = lastSyncedAt ? `&after=${lastSyncedAt}` : "";
         const mode = lastSyncedAt ? `incremental from ${lastSyncedAt}` : "full history";
         await send({ step: "account_start", message: `${account.display_name}: ${mode}` });
 
-        let url: string | null = `${API_BASE}/${account.onlyfans_account_id}/subscribers?limit=100${afterParam}`;
+        const baseUrl = `${API_BASE}/${account.onlyfans_account_id}/subscribers?limit=100`;
+        let url: string | null = `${baseUrl}${afterParam}`;
         let apiCalls = 0;
         let accountAttributed = 0;
         let newestDate: string | null = null;
         let accountStatus = "ok";
         let accountNote: string | undefined;
+        let retriedWithoutAfter = false;
 
         while (url && apiCalls < 2000) {
           apiCalls++;
@@ -179,6 +186,16 @@ router.post("/", async (c) => {
             accountNote = `HTTP ${res.status}`;
             errors.push(`${account.display_name}: HTTP ${res.status} (auth)`);
             break;
+          }
+          // 404 with an `after` param likely means the API doesn't support that filter
+          // or the checkpoint date is in the future — retry once without it.
+          if (res.status === 404 && afterParam && !retriedWithoutAfter) {
+            retriedWithoutAfter = true;
+            url = baseUrl;
+            apiCalls--;
+            totalApiCalls--;
+            await send({ step: "retry", message: `${account.display_name}: 404 with incremental param, retrying from beginning` });
+            continue;
           }
           if (!res.ok) {
             accountStatus = "error";
@@ -238,13 +255,16 @@ router.post("/", async (c) => {
           await sleep(200);
         }
 
-        // Save newest date seen for this account so next run is incremental
-        const syncedUntil = newestDate ?? new Date().toISOString().split("T")[0];
-        await db.execute(sql`
-          INSERT INTO sync_settings (key, value, updated_at)
-          VALUES (${settingKey}, ${syncedUntil}, NOW())
-          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-        `);
+        // Only advance the checkpoint when we actually processed subscribers.
+        // If we got nothing (404 / empty), leave the stored date unchanged so
+        // the next run doesn't query from today and get stuck.
+        if (newestDate) {
+          await db.execute(sql`
+            INSERT INTO sync_settings (key, value, updated_at)
+            VALUES (${settingKey}, ${newestDate}, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+          `);
+        }
 
         totalAttributed += accountAttributed;
         accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: apiCalls, mode, note: accountNote });
