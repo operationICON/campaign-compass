@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType } from "@/lib/api";
+import { getFanStats, getFans, getFan, getFanSpendersBreakdown, getFanCampaignBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -603,8 +603,7 @@ export default function FansPage() {
   const queryClient = useQueryClient();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [accountGridFilter, setAccountGridFilter] = useState<string[]>([]);
-  const [spendersModelFilter, setSpendersModelFilter] = useState<string[]>([]);
-  const [spendersCampaignFilter, setSpendersCampaignFilter] = useState<string>("all");
+  const [spendersNav, setSpendersNav] = useState<{ accountId?: string; campaignId?: string }>({});
   const [spendersSearch, setSpendersSearch] = useState("");
   const [campaignsSearch, setCampaignsSearch] = useState("");
   const [spendersPage, setSpendersPage] = useState(1);
@@ -634,7 +633,7 @@ export default function FansPage() {
   }, [selectedAccountId]);
 
   useEffect(() => { setFanPage(1); }, [debouncedSearch, campaignFilter, spendersOnly, sortKey]);
-  useEffect(() => { setSpendersPage(1); }, [spendersModelFilter, spendersCampaignFilter, spendersSearch]);
+  useEffect(() => { setSpendersPage(1); }, [spendersNav, spendersSearch]);
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts"],
@@ -676,14 +675,6 @@ export default function FansPage() {
     return sorted.filter((a: any) => accountGridFilter.includes(a.id));
   }, [accounts, accountStatsMap, accountGridFilter]);
 
-  // Default spenders list to the top account once data loads
-  const spendersDefaulted = useRef(false);
-  useEffect(() => {
-    if (!spendersDefaulted.current && sortedAccounts.length > 0 && spendersModelFilter.length === 0) {
-      setSpendersModelFilter([sortedAccounts[0].id]);
-      spendersDefaulted.current = true;
-    }
-  }, [sortedAccounts]);
 
   const selectedAccount = useMemo(
     () => selectedAccountId ? accounts.find((a: any) => a.id === selectedAccountId) : null,
@@ -775,16 +766,41 @@ export default function FansPage() {
   }, [campaignRevenueByTypeQuery.data]);
 
   const spendersBreakdownQuery = useQuery({
-    queryKey: ["fans_spenders_breakdown", spendersModelFilter.length === 1 ? spendersModelFilter[0] : null, spendersCampaignFilter, spendersSearch],
+    queryKey: ["fans_spenders_breakdown", spendersNav.accountId ?? null, spendersNav.campaignId ?? null, spendersSearch],
     queryFn: () => getFanSpendersBreakdown({
-      account_id: spendersModelFilter.length === 1 ? spendersModelFilter[0] : undefined,
-      tracking_link_id: spendersCampaignFilter !== "all" ? spendersCampaignFilter : undefined,
+      account_id: spendersNav.accountId,
+      tracking_link_id: spendersNav.campaignId,
       search: spendersSearch || undefined,
       limit: 10000,
     }),
     staleTime: 60_000,
-    enabled: selectedAccountId === null,
+    enabled: selectedAccountId === null && !!spendersNav.accountId,
   });
+
+  const campaignBreakdownQuery = useQuery({
+    queryKey: ["fans_campaign_breakdown", (accounts as any[]).map((a: any) => a.id).join(",")],
+    queryFn: () => getFanCampaignBreakdown({ account_ids: (accounts as any[]).map((a: any) => a.id) }),
+    staleTime: 300_000,
+    enabled: selectedAccountId === null && (accounts as any[]).length > 0,
+  });
+
+  const accountTxRevMap = useMemo(() => {
+    const rows = txTypeTotalsQuery.data ?? [];
+    const map = new Map<string, { new_sub: number; resub: number; tip: number; message: number; post: number }>();
+    for (const r of rows) {
+      if (!r.account_id) continue;
+      const cur = map.get(r.account_id) ?? { new_sub: 0, resub: 0, tip: 0, message: 0, post: 0 };
+      const rev = Number(r.revenue ?? 0);
+      const t = r.type ?? "";
+      if (t === "new_subscription") cur.new_sub += rev;
+      else if (t === "recurring_subscription") cur.resub += rev;
+      else if (t === "tip") cur.tip += rev;
+      else if (["message","chat","ppv"].includes(t)) cur.message += rev;
+      else if (t === "post") cur.post += rev;
+      map.set(r.account_id, cur);
+    }
+    return map;
+  }, [txTypeTotalsQuery.data]);
 
   const rawFans = fansQuery.data?.fans ?? [];
   const totalFans = fansQuery.data?.total ?? 0;
@@ -847,16 +863,7 @@ export default function FansPage() {
 
   const SPENDERS_PER_PAGE = 50;
   const spendersServerTotal = spendersBreakdownQuery.data?.total ?? 0;
-  const spendersRows = useMemo(() => {
-    const raw = spendersBreakdownQuery.data?.rows ?? [];
-    if (spendersModelFilter.length > 1) {
-      return raw.filter((r: any) => {
-        const ids: string[] = (r.account_ids ?? "").split(",").filter(Boolean);
-        return spendersModelFilter.some(m => ids.includes(m));
-      });
-    }
-    return raw;
-  }, [spendersBreakdownQuery.data, spendersModelFilter]);
+  const spendersRows = useMemo(() => spendersBreakdownQuery.data?.rows ?? [], [spendersBreakdownQuery.data]);
 
   const spendersTotalPages = Math.max(1, Math.ceil(spendersRows.length / SPENDERS_PER_PAGE));
   const safeSpendersPage = Math.min(spendersPage, spendersTotalPages);
@@ -1105,173 +1112,194 @@ export default function FansPage() {
               );
             })()}
 
-            {/* ── ALL SPENDERS TABLE ─────────────────────────────────────── */}
+            {/* ── SPENDERS DRILL-DOWN ────────────────────────────────────── */}
             {(() => {
-              const singleAccId = spendersModelFilter.length === 1 ? spendersModelFilter[0] : null;
-              const singleAcc = singleAccId ? (accounts as any[]).find((a: any) => a.id === singleAccId) : null;
+              const TH = ({ children, right }: { children: React.ReactNode; right?: boolean }) => (
+                <th className={cn("px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide", right ? "text-right" : "text-left")}>{children}</th>
+              );
+              const TD = ({ children, right, className: cls }: { children: React.ReactNode; right?: boolean; className?: string }) => (
+                <td className={cn("px-4 py-2.5", right ? "text-right tabular-nums" : "", cls)}>{children}</td>
+              );
+              const navAcc = spendersNav.accountId ? (accounts as any[]).find((a: any) => a.id === spendersNav.accountId) : null;
+              const navCampaign = spendersNav.campaignId ? (allTrackingLinks as any[]).find((tl: any) => tl.id === spendersNav.campaignId) : null;
+              const fanCountByCampaign = new Map<string, number>((campaignBreakdownQuery.data ?? []).map((r: any) => [r.link_id, Number(r.fan_count)]));
+
               return (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    {singleAcc ? `Spenders — ${singleAcc.display_name}` : "All Spenders"}
-                  </h2>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{spendersRows.length}</span>
-                  {!spendersBreakdownQuery.isLoading && (() => {
-                    const kpiSpenders = globalStats?.spenders ?? 0;
-                    const loaded = spendersRows.length;
-                    const serverTotal = spendersServerTotal;
-                    const matched = loaded >= serverTotal && Math.abs(loaded - kpiSpenders) <= 2;
-                    if (kpiSpenders === 0) return null;
-                    return (
-                      <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", matched ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500")}>
-                        {matched ? `✓ All ${kpiSpenders.toLocaleString()} spenders loaded` : `${loaded.toLocaleString()} of ${kpiSpenders.toLocaleString()} — run Fan Sync to reconcile`}
-                      </span>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Filter bar */}
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <AccountFilterDropdown
-                  value={spendersModelFilter}
-                  onChange={setSpendersModelFilter}
-                  accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-                />
-                <select
-                  value={spendersCampaignFilter}
-                  onChange={e => setSpendersCampaignFilter(e.target.value)}
-                  className="h-10 px-3 rounded-lg border border-border bg-card text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  <option value="all">All Campaigns</option>
-                  {(allTrackingLinks as any[])
-                    .filter((tl: any) => !tl.deleted_at)
-                    .map((tl: any) => (
-                      <option key={tl.id} value={tl.id}>{tl.campaign_name || tl.id}</option>
-                    ))}
-                </select>
-                <div className="relative flex-1 min-w-48">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search fan…"
-                    value={spendersSearch}
-                    onChange={e => setSpendersSearch(e.target.value)}
-                    className="w-full h-10 pl-8 pr-3 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/30">
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
-                        {!singleAccId && <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Model</th>}
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campaign</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-indigo-400 uppercase tracking-wide">New Subs</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-cyan-400 uppercase tracking-wide">Resub</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-amber-400 uppercase tracking-wide">Tips</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-emerald-400 uppercase tracking-wide">Messages</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-violet-400 uppercase tracking-wide">Posts</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-foreground uppercase tracking-wide">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {spendersBreakdownQuery.isLoading ? (
-                        Array.from({ length: 10 }).map((_, i) => (
-                          <tr key={i} className="border-b border-border/40">
-                            <td colSpan={singleAccId ? 8 : 9} className="px-4 py-3"><Skeleton className="h-5 w-full" /></td>
-                          </tr>
-                        ))
-                      ) : paginatedSpenders.length === 0 ? (
-                        <tr>
-                          <td colSpan={singleAccId ? 8 : 9} className="px-4 py-8 text-center text-muted-foreground text-xs">No spenders found</td>
-                        </tr>
-                      ) : paginatedSpenders.map((fan: any, i: number) => {
-                        const fanName = fan.username ? `@${fan.username}` : fan.display_name || fan.fan_id;
-                        const accountIds: string[] = (fan.account_ids ?? "").split(",").filter(Boolean);
-                        const primaryAccId = fan.acquired_via_account_id || accountIds[0];
-                        const primaryAcc = primaryAccId ? (accounts as any[]).find((a: any) => a.id === primaryAccId) : null;
-                        const campaignLink = fan.first_subscribe_link_id
-                          ? (allTrackingLinks as any[]).find((tl: any) => tl.id === fan.first_subscribe_link_id)
-                          : null;
-                        const newSubRev = Number(fan.new_sub_revenue ?? 0);
-                        const resubRev  = Number(fan.resub_revenue ?? 0);
-                        const tipRev    = Number(fan.tip_revenue ?? 0);
-                        const msgRev    = Number(fan.message_revenue ?? 0);
-                        const postRev   = Number(fan.post_revenue ?? 0);
-                        return (
-                          <tr key={fan.id ?? i} className={cn("border-b border-border/30 hover:bg-muted/20 transition-colors", i % 2 === 0 ? "" : "bg-muted/10")}>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                {fan.avatar_url ? (
-                                  <img src={fan.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground flex-shrink-0">
-                                    {(fan.username || fan.fan_id || "?").slice(0, 2).toUpperCase()}
-                                  </div>
-                                )}
-                                <span className="font-medium truncate max-w-[140px]">{fanName}</span>
-                              </div>
-                            </td>
-                            {!singleAccId && (
-                              <td className="px-4 py-3">
-                                {primaryAcc ? (
-                                  <div className="flex items-center gap-1.5">
-                                    {primaryAcc.avatar_thumb_url ? (
-                                      <img src={primaryAcc.avatar_thumb_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-                                    ) : (
-                                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] font-bold text-primary flex-shrink-0">
-                                        {(primaryAcc.display_name || "?").slice(0, 2).toUpperCase()}
-                                      </div>
-                                    )}
-                                    <span className="text-xs text-muted-foreground truncate max-w-[100px]">{primaryAcc.display_name}</span>
-                                  </div>
-                                ) : <span className="text-xs text-muted-foreground">—</span>}
-                              </td>
-                            )}
-                            <td className="px-4 py-3">
-                              <span className="text-xs text-muted-foreground truncate max-w-[160px] block">
-                                {campaignLink?.campaign_name || (fan.first_subscribe_link_id ? "Unknown" : "—")}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-indigo-400 text-xs font-medium">{newSubRev > 0 ? fmt$(newSubRev) : "—"}</td>
-                            <td className="px-4 py-3 text-right tabular-nums text-cyan-400 text-xs font-medium">{resubRev > 0 ? fmt$(resubRev) : "—"}</td>
-                            <td className="px-4 py-3 text-right tabular-nums text-amber-400 text-xs font-medium">{tipRev > 0 ? fmt$(tipRev) : "—"}</td>
-                            <td className="px-4 py-3 text-right tabular-nums text-emerald-400 text-xs font-medium">{msgRev > 0 ? fmt$(msgRev) : "—"}</td>
-                            <td className="px-4 py-3 text-right tabular-nums text-violet-400 text-xs font-medium">{postRev > 0 ? fmt$(postRev) : "—"}</td>
-                            <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-500">{fmt$(Number(fan.total_revenue ?? 0))}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination */}
-                {spendersTotalPages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
-                    <span>Showing {(safeSpendersPage - 1) * SPENDERS_PER_PAGE + 1}–{Math.min(safeSpendersPage * SPENDERS_PER_PAGE, spendersRows.length)} of {spendersRows.length}</span>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setSpendersPage(p => Math.max(1, p - 1))} disabled={safeSpendersPage === 1}
-                        className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
-                        <ChevronLeft className="w-3.5 h-3.5" />
+                <div>
+                  {/* Breadcrumb + header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <button onClick={() => setSpendersNav({})} className={cn("font-semibold uppercase tracking-wide text-xs", !spendersNav.accountId ? "text-foreground" : "text-muted-foreground hover:text-foreground transition-colors")}>
+                        Spenders
                       </button>
-                      <span>{safeSpendersPage} / {spendersTotalPages}</span>
-                      <button onClick={() => setSpendersPage(p => Math.min(spendersTotalPages, p + 1))} disabled={safeSpendersPage === spendersTotalPages}
-                        className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                      {navAcc && (
+                        <>
+                          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                          <button onClick={() => setSpendersNav({ accountId: navAcc.id })} className={cn("font-medium text-xs", !spendersNav.campaignId ? "text-foreground" : "text-muted-foreground hover:text-foreground transition-colors")}>
+                            {navAcc.display_name}
+                          </button>
+                        </>
+                      )}
+                      {navCampaign && (
+                        <>
+                          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-xs text-foreground font-medium">{navCampaign.campaign_name || "Campaign"}</span>
+                        </>
+                      )}
                     </div>
+                    {/* Search — only in fan level */}
+                    {spendersNav.accountId && (
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input type="text" placeholder="Search fan…" value={spendersSearch} onChange={e => setSpendersSearch(e.target.value)}
+                          className="h-9 pl-8 pr-3 w-52 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-            );
+
+                  <div className="bg-card border border-border rounded-xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+
+                        {/* ── LEVEL 0: Account summary ── */}
+                        {!spendersNav.accountId && (
+                          <>
+                            <thead><tr className="border-b border-border bg-muted/30">
+                              <TH>Account</TH><TH right>Spenders</TH><TH right>Campaigns</TH>
+                              <TH right>New Subs</TH><TH right>Resub</TH><TH right>Tips</TH>
+                              <TH right>Messages</TH><TH right>Posts</TH><TH right>Total</TH>
+                            </tr></thead>
+                            <tbody>
+                              {(accounts as any[]).length === 0 ? (
+                                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs text-muted-foreground">No accounts</td></tr>
+                              ) : sortedAccounts.map((acc: any) => {
+                                const tx = accountTxRevMap.get(acc.id) ?? { new_sub: 0, resub: 0, tip: 0, message: 0, post: 0 };
+                                const campCount = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && tl.account_id === acc.id).length;
+                                const spenders = accountStatsMap[acc.id]?.spenders ?? 0;
+                                const total = Number(acc.ltv_total ?? 0);
+                                return (
+                                  <tr key={acc.id} onClick={() => setSpendersNav({ accountId: acc.id })}
+                                    className="border-b border-border/30 hover:bg-muted/30 cursor-pointer transition-colors group">
+                                    <TD>
+                                      <div className="flex items-center gap-2.5">
+                                        {acc.avatar_thumb_url
+                                          ? <img src={acc.avatar_thumb_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                                          : <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">{acc.display_name.slice(0,2).toUpperCase()}</div>}
+                                        <span className="font-medium group-hover:text-primary transition-colors">{acc.display_name}</span>
+                                      </div>
+                                    </TD>
+                                    <TD right><span className="text-emerald-500 font-semibold">{fmtNum(spenders)}</span></TD>
+                                    <TD right><span className="text-muted-foreground">{campCount}</span></TD>
+                                    <TD right className="text-indigo-400 text-xs font-medium">{tx.new_sub > 0 ? fmt$(tx.new_sub) : "—"}</TD>
+                                    <TD right className="text-cyan-400 text-xs font-medium">{tx.resub > 0 ? fmt$(tx.resub) : "—"}</TD>
+                                    <TD right className="text-amber-400 text-xs font-medium">{tx.tip > 0 ? fmt$(tx.tip) : "—"}</TD>
+                                    <TD right className="text-emerald-400 text-xs font-medium">{tx.message > 0 ? fmt$(tx.message) : "—"}</TD>
+                                    <TD right className="text-violet-400 text-xs font-medium">{tx.post > 0 ? fmt$(tx.post) : "—"}</TD>
+                                    <TD right><span className="font-bold text-emerald-500">{fmt$(total)}</span></TD>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </>
+                        )}
+
+                        {/* ── LEVEL 1: Campaign summary for account ── */}
+                        {spendersNav.accountId && !spendersNav.campaignId && (
+                          <>
+                            <thead><tr className="border-b border-border bg-muted/30">
+                              <TH>Campaign</TH><TH right>Fans</TH>
+                              <TH right>New Subs</TH><TH right>Resub</TH><TH right>Tips</TH>
+                              <TH right>Messages</TH><TH right>Posts</TH><TH right>Total</TH>
+                            </tr></thead>
+                            <tbody>
+                              {(allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && tl.account_id === spendersNav.accountId).length === 0 ? (
+                                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs text-muted-foreground">No campaigns</td></tr>
+                              ) : (allTrackingLinks as any[])
+                                .filter((tl: any) => !tl.deleted_at && tl.account_id === spendersNav.accountId)
+                                .sort((a: any, b: any) => Number(b.revenue ?? 0) - Number(a.revenue ?? 0))
+                                .map((tl: any) => {
+                                  const cm = campaignTypeMap[tl.id] ?? {};
+                                  const fans = fanCountByCampaign.get(tl.id) ?? 0;
+                                  return (
+                                    <tr key={tl.id} onClick={() => setSpendersNav({ accountId: spendersNav.accountId, campaignId: tl.id })}
+                                      className="border-b border-border/30 hover:bg-muted/30 cursor-pointer transition-colors group">
+                                      <TD>
+                                        <span className="font-medium group-hover:text-primary transition-colors">{tl.campaign_name || tl.id}</span>
+                                      </TD>
+                                      <TD right><span className="text-muted-foreground">{fans > 0 ? fmtNum(fans) : "—"}</span></TD>
+                                      <TD right className="text-indigo-400 text-xs font-medium">{Number(cm.new_sub_revenue ?? 0) > 0 ? fmt$(Number(cm.new_sub_revenue)) : "—"}</TD>
+                                      <TD right className="text-cyan-400 text-xs font-medium">{Number(cm.resub_revenue ?? 0) > 0 ? fmt$(Number(cm.resub_revenue)) : "—"}</TD>
+                                      <TD right className="text-amber-400 text-xs font-medium">{Number(cm.tip_revenue ?? 0) > 0 ? fmt$(Number(cm.tip_revenue)) : "—"}</TD>
+                                      <TD right className="text-emerald-400 text-xs font-medium">{Number(cm.message_revenue ?? 0) > 0 ? fmt$(Number(cm.message_revenue)) : "—"}</TD>
+                                      <TD right className="text-violet-400 text-xs font-medium">{Number(cm.post_revenue ?? 0) > 0 ? fmt$(Number(cm.post_revenue)) : "—"}</TD>
+                                      <TD right><span className="font-bold text-emerald-500">{fmt$(Number(tl.revenue ?? 0))}</span></TD>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </>
+                        )}
+
+                        {/* ── LEVEL 2: Fans/spenders for campaign ── */}
+                        {spendersNav.accountId && spendersNav.campaignId && (
+                          <>
+                            <thead><tr className="border-b border-border bg-muted/30">
+                              <TH>Fan</TH><TH>Campaign</TH>
+                              <TH right>New Subs</TH><TH right>Resub</TH><TH right>Tips</TH>
+                              <TH right>Messages</TH><TH right>Posts</TH><TH right>Total</TH>
+                            </tr></thead>
+                            <tbody>
+                              {spendersBreakdownQuery.isLoading ? (
+                                Array.from({ length: 8 }).map((_, i) => (
+                                  <tr key={i} className="border-b border-border/40">
+                                    <td colSpan={8} className="px-4 py-3"><Skeleton className="h-5 w-full" /></td>
+                                  </tr>
+                                ))
+                              ) : paginatedSpenders.length === 0 ? (
+                                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs text-muted-foreground">No spenders found</td></tr>
+                              ) : paginatedSpenders.map((fan: any, i: number) => {
+                                const fanName = fan.username ? `@${fan.username}` : fan.display_name || fan.fan_id;
+                                const campaignLink = fan.first_subscribe_link_id ? (allTrackingLinks as any[]).find((tl: any) => tl.id === fan.first_subscribe_link_id) : null;
+                                return (
+                                  <tr key={fan.id ?? i} className={cn("border-b border-border/30 hover:bg-muted/20 transition-colors", i % 2 === 0 ? "" : "bg-muted/10")}>
+                                    <TD>
+                                      <div className="flex items-center gap-2">
+                                        {fan.avatar_url
+                                          ? <img src={fan.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                                          : <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">{(fan.username || fan.fan_id || "?").slice(0,2).toUpperCase()}</div>}
+                                        <span className="font-medium truncate max-w-[140px]">{fanName}</span>
+                                      </div>
+                                    </TD>
+                                    <TD><span className="text-xs text-muted-foreground">{campaignLink?.campaign_name || "—"}</span></TD>
+                                    <TD right className="text-indigo-400 text-xs font-medium">{Number(fan.new_sub_revenue??0)>0 ? fmt$(Number(fan.new_sub_revenue)) : "—"}</TD>
+                                    <TD right className="text-cyan-400 text-xs font-medium">{Number(fan.resub_revenue??0)>0 ? fmt$(Number(fan.resub_revenue)) : "—"}</TD>
+                                    <TD right className="text-amber-400 text-xs font-medium">{Number(fan.tip_revenue??0)>0 ? fmt$(Number(fan.tip_revenue)) : "—"}</TD>
+                                    <TD right className="text-emerald-400 text-xs font-medium">{Number(fan.message_revenue??0)>0 ? fmt$(Number(fan.message_revenue)) : "—"}</TD>
+                                    <TD right className="text-violet-400 text-xs font-medium">{Number(fan.post_revenue??0)>0 ? fmt$(Number(fan.post_revenue)) : "—"}</TD>
+                                    <TD right><span className="font-bold text-emerald-500">{fmt$(Number(fan.total_revenue??0))}</span></TD>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </>
+                        )}
+
+                      </table>
+                    </div>
+                    {/* Pagination — fan level only */}
+                    {spendersNav.campaignId && spendersTotalPages > 1 && (
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
+                        <span>Showing {(safeSpendersPage-1)*SPENDERS_PER_PAGE+1}–{Math.min(safeSpendersPage*SPENDERS_PER_PAGE, spendersRows.length)} of {spendersRows.length}</span>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setSpendersPage(p => Math.max(1,p-1))} disabled={safeSpendersPage===1} className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40"><ChevronLeft className="w-3.5 h-3.5"/></button>
+                          <span>{safeSpendersPage} / {spendersTotalPages}</span>
+                          <button onClick={() => setSpendersPage(p => Math.min(spendersTotalPages,p+1))} disabled={safeSpendersPage===spendersTotalPages} className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40"><ChevronRight className="w-3.5 h-3.5"/></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
             })()}
 
           </div>
