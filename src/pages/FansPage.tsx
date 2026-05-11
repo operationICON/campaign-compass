@@ -256,7 +256,7 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
   return (
     <div
       onClick={onClick}
-      className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/50 hover:shadow-lg transition-all group relative overflow-hidden"
+      className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 hover:shadow-lg transition-all group relative overflow-hidden"
     >
       {/* Rank badge */}
       {rank <= 3 && hasData && (
@@ -271,21 +271,21 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
       )}
 
       {/* Account header */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-2.5 mb-3">
         {account.avatar_thumb_url ? (
           <img src={account.avatar_thumb_url} alt={account.display_name}
-            className="w-12 h-12 rounded-full object-cover border-2 border-border flex-shrink-0" />
+            className="w-10 h-10 rounded-full object-cover border-2 border-border flex-shrink-0" />
         ) : (
-          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground flex-shrink-0">
             {account.display_name.slice(0, 2).toUpperCase()}
           </div>
         )}
-        <div className="min-w-0 flex-1 pr-6">
+        <div className="min-w-0 flex-1 pr-5">
           <div className="font-bold text-sm truncate">{account.display_name}</div>
           {isLoading ? (
-            <Skeleton className="h-4 w-24 mt-1" />
+            <Skeleton className="h-4 w-24 mt-0.5" />
           ) : hasData ? (
-            <div className="text-base font-bold text-emerald-500 tabular-nums">{fmt$(stats.total_revenue)}</div>
+            <div className="text-sm font-bold text-emerald-500 tabular-nums">{fmt$(stats.total_revenue)}</div>
           ) : (
             <div className="text-xs text-muted-foreground">No fan data yet</div>
           )}
@@ -301,22 +301,22 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
       ) : hasData ? (
         <>
           {/* 4-stat grid */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 mb-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-3">
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Subs</div>
-              <div className="text-lg font-bold tabular-nums">{totalSubs > 0 ? fmtNum(totalSubs) : "—"}</div>
+              <div className="text-base font-bold tabular-nums">{totalSubs > 0 ? fmtNum(totalSubs) : "—"}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Spenders</div>
-              <div className="text-lg font-bold tabular-nums text-emerald-500">{fmtNum(stats.spenders)}</div>
+              <div className="text-base font-bold tabular-nums text-emerald-500">{fmtNum(stats.spenders)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg / Spender</div>
-              <div className="text-sm font-semibold tabular-nums">{fmt$(stats.avg_per_spender)}</div>
+              <div className="text-xs font-semibold tabular-nums">{fmt$(stats.avg_per_spender)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Cross-Poll</div>
-              <div className="text-sm font-semibold tabular-nums text-violet-500">{fmtNum(stats.cross_poll_fans)}</div>
+              <div className="text-xs font-semibold tabular-nums text-violet-500">{fmtNum(stats.cross_poll_fans)}</div>
             </div>
           </div>
 
@@ -338,7 +338,7 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
 
           {/* Revenue breakdown dropdown */}
           {typeTotals && typeTotals.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-border/40">
+            <div className="mt-2 pt-2 border-t border-border/40">
               <button
                 onClick={e => { e.stopPropagation(); setShowBreakdown(v => !v); }}
                 className="flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground transition-colors group/btn"
@@ -380,7 +380,7 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
         <div className="text-xs text-muted-foreground py-2">Run a fan sync to load data</div>
       )}
 
-      <div className="mt-4 flex items-center justify-end">
+      <div className="mt-2 flex items-center justify-end">
         <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors flex items-center gap-1">
           View fans <ChevronRight className="w-3 h-3" />
         </span>
@@ -1047,7 +1047,7 @@ export default function FansPage() {
                         <p className="font-semibold">No active accounts</p>
                       </div>
                     ) : (
-                      <div ref={carouselRef} className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth" style={{ scrollbarWidth: "none" }}>
+                      <div ref={carouselRef} className="flex items-start gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth" style={{ scrollbarWidth: "none" }}>
                         {sortedAccounts.map((acc: any, i: number) => {
                           const origIdx = accounts.findIndex((a: any) => a.id === acc.id);
                           return (
