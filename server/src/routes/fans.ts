@@ -237,6 +237,77 @@ router.get("/campaign-breakdown", async (c) => {
   return c.json(rows.rows);
 });
 
+// ── GET /fans/cross-poll?limit=200 ────────────────────────────────────────────
+// Cross-pollinated fans: appear on ≥2 accounts, with per-account tx revenue.
+router.get("/cross-poll", async (c) => {
+  const limit = Math.min(Number(c.req.query("limit") ?? 200), 1000);
+
+  const rows = await db.execute(sql`
+    WITH tx_by_account AS (
+      SELECT
+        t.fan_username,
+        t.account_id::text                  AS account_id,
+        SUM(t.revenue::numeric)             AS revenue,
+        COUNT(*)::int                       AS tx_count
+      FROM transactions t
+      WHERE t.revenue IS NOT NULL AND t.revenue::numeric > 0
+        AND t.account_id IS NOT NULL
+      GROUP BY t.fan_username, t.account_id
+    ),
+    fan_accts AS (
+      SELECT
+        fas.fan_id,
+        ARRAY_AGG(DISTINCT fas.account_id::text ORDER BY fas.account_id::text) AS account_ids,
+        COUNT(DISTINCT fas.account_id)::int                                      AS account_count
+      FROM fan_account_stats fas
+      GROUP BY fas.fan_id
+      HAVING COUNT(DISTINCT fas.account_id) > 1
+    )
+    SELECT
+      f.id,
+      f.fan_id,
+      f.username,
+      f.display_name,
+      f.avatar_url,
+      f.total_revenue::numeric             AS total_revenue,
+      f.first_subscribe_link_id::text      AS first_subscribe_link_id,
+      f.first_subscribe_date,
+      f.acquired_via_account_id::text      AS acquired_via_account_id,
+      fa.account_ids,
+      fa.account_count,
+      COALESCE(
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'account_id', tba.account_id,
+            'revenue',    tba.revenue,
+            'tx_count',   tba.tx_count
+          ) ORDER BY tba.revenue DESC
+        ) FILTER (WHERE tba.account_id IS NOT NULL),
+        '[]'::json
+      ) AS per_account_revenue
+    FROM fans f
+    JOIN fan_accts fa ON fa.fan_id = f.id
+    LEFT JOIN fan_account_stats fas2 ON fas2.fan_id = f.id
+    LEFT JOIN tx_by_account tba ON tba.fan_username = f.fan_id AND tba.account_id = fas2.account_id::text
+    WHERE f.total_revenue IS NOT NULL AND f.total_revenue::numeric > 0
+    GROUP BY f.id, f.fan_id, f.username, f.display_name, f.avatar_url,
+             f.total_revenue, f.first_subscribe_link_id, f.first_subscribe_date,
+             f.acquired_via_account_id, fa.account_ids, fa.account_count
+    ORDER BY f.total_revenue::numeric DESC
+    LIMIT ${limit}
+  `);
+
+  // parse per_account_revenue if returned as a string
+  const result = (rows.rows as any[]).map(r => ({
+    ...r,
+    per_account_revenue: typeof r.per_account_revenue === "string"
+      ? JSON.parse(r.per_account_revenue)
+      : (r.per_account_revenue ?? []),
+  }));
+
+  return c.json(result);
+});
+
 // ── GET /fans/:id ─────────────────────────────────────────────────────────────
 router.get("/:id", async (c) => {
   const id = c.req.param("id");

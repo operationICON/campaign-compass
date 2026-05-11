@@ -267,6 +267,15 @@ export const getFanSpendersBreakdown = (params?: {
 export const getFan = (id: string) =>
   apiFetch<{ fan: any; account_stats: any[]; transactions: any[] }>(`/fans/${id}`);
 
+export const getCrossPollFans = (limit = 200) =>
+  apiFetch<Array<{
+    id: string; fan_id: string; username: string | null; display_name: string | null;
+    avatar_url: string | null; total_revenue: number; first_subscribe_link_id: string | null;
+    first_subscribe_date: string | null; acquired_via_account_id: string | null;
+    account_ids: string[]; account_count: number;
+    per_account_revenue: Array<{ account_id: string; revenue: number; tx_count: number }>;
+  }>>(`/fans/cross-poll?limit=${limit}`);
+
 export const updateFan = (id: string, body: { tags?: string[]; notes?: string; status?: string }) =>
   apiFetch(`/fans/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 
