@@ -981,7 +981,7 @@ export default function FansPage() {
               ].filter(r => r.revenue > 0);
 
               return (
-                <div className="grid grid-cols-5 gap-3 items-start">
+                <div className="grid grid-cols-5 gap-3">
 
                   {/* Revenue by Transaction Type — col 1, matches Total Fans KPI width */}
                   {total > 0 && (
