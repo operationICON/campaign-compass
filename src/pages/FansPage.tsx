@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType, getCampaignRevenueByGroup } from "@/lib/api";
+import { getFanStats, getFans, getFan, getFanSpendersBreakdown, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -744,13 +744,6 @@ export default function FansPage() {
     queryKey: ["campaign_revenue_by_type"],
     queryFn: () => getCampaignRevenueByType(),
     staleTime: 120_000,
-    enabled: selectedAccountId === null,
-  });
-
-  const campaignRevenueByGroupQuery = useQuery({
-    queryKey: ["campaign_revenue_by_group"],
-    queryFn: () => getCampaignRevenueByGroup(),
-    staleTime: 120_000,
   });
 
   const campaignTypeMap = useMemo(() => {
@@ -994,36 +987,15 @@ export default function FansPage() {
                       </div>
                     );
                   })}
-                  {/* Revenue by Campaign — one total per campaign from server aggregation */}
+                  {/* Campaign total — sum of all tracking link revenue */}
                   {(() => {
-                    const campaignRows = (campaignRevenueByGroupQuery.data ?? [])
-                      .map(r => ({ name: r.campaign_name, revenue: Number(r.total_revenue) }))
-                      .filter(r => r.revenue > 0)
-                      .sort((a, b) => b.revenue - a.revenue);
-                    const campTotal = campaignRows.reduce((s, r) => s + r.revenue, 0);
-                    if (campaignRows.length === 0) return null;
+                    const campTotal = (campaignRevenueByTypeQuery.data ?? [])
+                      .reduce((s, r) => s + Number(r.total_revenue), 0);
+                    if (campTotal <= 0) return null;
                     return (
-                      <div className="pt-3 border-t border-border/40">
-                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2.5">Revenue by Campaign</div>
-                        <div className="space-y-2">
-                          {campaignRows.map(r => {
-                            const pct = campTotal > 0 ? (r.revenue / campTotal) * 100 : 0;
-                            return (
-                              <div key={r.name}>
-                                <div className="flex items-center justify-between mb-1 text-xs">
-                                  <span className="truncate text-muted-foreground mr-3">{r.name}</span>
-                                  <div className="flex items-center gap-2 tabular-nums flex-shrink-0">
-                                    <span className="font-semibold text-foreground">{fmt$(r.revenue)}</span>
-                                    <span className="text-muted-foreground w-8 text-right">{pct.toFixed(1)}%</span>
-                                  </div>
-                                </div>
-                                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                      <div className="pt-3 border-t border-border/40 flex items-center justify-between text-xs">
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Campaign Total</span>
+                        <span className="font-bold text-foreground tabular-nums">{fmt$(campTotal)}</span>
                       </div>
                     );
                   })()}
