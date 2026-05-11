@@ -210,10 +210,12 @@ router.post("/", async (c) => {
                 INSERT INTO fans (fan_id, username, first_subscribe_link_id, first_subscribe_date)
                 VALUES ${sql.join(vals, sql`, `)}
                 ON CONFLICT (fan_id) DO UPDATE SET
-                  username             = COALESCE(EXCLUDED.username, fans.username),
+                  username                = COALESCE(EXCLUDED.username, fans.username),
                   first_subscribe_link_id = EXCLUDED.first_subscribe_link_id,
                   first_subscribe_date    = COALESCE(EXCLUDED.first_subscribe_date, fans.first_subscribe_date),
                   updated_at              = NOW()
+                WHERE fans.first_subscribe_link_id IS DISTINCT FROM EXCLUDED.first_subscribe_link_id
+                   OR fans.username IS DISTINCT FROM COALESCE(EXCLUDED.username, fans.username)
               `);
             }
 
