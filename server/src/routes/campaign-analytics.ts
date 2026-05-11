@@ -113,12 +113,12 @@ router.get("/:id/cohort-arps", async (c) => {
     SELECT
       (SELECT COUNT(*) FROM cohort)::int AS cohort_size,
       (SELECT COUNT(*) FROM fans WHERE first_subscribe_link_id = ${id}::uuid)::int AS total_source_subs,
-      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub <= 2  THEN rev ELSE 0 END) AS rev_48h,
-      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub <= 7  THEN rev ELSE 0 END) AS rev_7d,
-      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub <= 14 THEN rev ELSE 0 END) AS rev_14d,
-      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub <= 21 THEN rev ELSE 0 END) AS rev_21d,
-      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub <= 30 THEN rev ELSE 0 END) AS rev_30d,
-      SUM(CASE WHEN days_after_sub IS NOT NULL THEN rev ELSE 0 END) AS rev_all_time
+      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub >= 0 AND days_after_sub <= 2  THEN rev ELSE 0 END) AS rev_48h,
+      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub >= 0 AND days_after_sub <= 7  THEN rev ELSE 0 END) AS rev_7d,
+      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub >= 0 AND days_after_sub <= 14 THEN rev ELSE 0 END) AS rev_14d,
+      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub >= 0 AND days_after_sub <= 21 THEN rev ELSE 0 END) AS rev_21d,
+      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub >= 0 AND days_after_sub <= 30 THEN rev ELSE 0 END) AS rev_30d,
+      SUM(CASE WHEN days_after_sub IS NOT NULL AND days_after_sub >= 0 THEN rev ELSE 0 END) AS rev_all_time
     FROM fan_tx
   `);
 
