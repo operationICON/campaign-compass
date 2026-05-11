@@ -968,7 +968,7 @@ export default function FansPage() {
                   })()}
                 </div>
                 {(() => {
-                    const campRev   = (allTrackingLinks as any[]).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
+                    const campRev   = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
                     const messages  = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_messages ?? 0), 0);
                     const tips      = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
                     const subs      = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
