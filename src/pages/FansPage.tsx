@@ -1000,14 +1000,20 @@ export default function FansPage() {
                     );
                   })}
 
-                  {/* Total = sum of the type rows above */}
-                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
-                    <span className="font-bold text-foreground">TOTAL</span>
-                    <div className="flex items-center gap-3 tabular-nums">
-                      <span className="font-bold text-foreground">{fmt$(txTypeSummary.reduce((s, b) => s + b.revenue, 0))}</span>
-                      <span className="text-muted-foreground">{fmtNum(txCount)} transactions</span>
-                    </div>
-                  </div>
+                  {/* Total = Campaigns + all type rows */}
+                  {(() => {
+                    const campRev = (allTrackingLinks as any[]).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
+                    const typeRev = txTypeSummary.reduce((s, b) => s + b.revenue, 0);
+                    return (
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
+                        <span className="font-bold text-foreground">TOTAL</span>
+                        <div className="flex items-center gap-3 tabular-nums">
+                          <span className="font-bold text-foreground">{fmt$(campRev + typeRev)}</span>
+                          <span className="text-muted-foreground">{fmtNum(txCount)} transactions</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
