@@ -162,7 +162,7 @@ router.post("/", async (c) => {
           let newestDate: string | null = null;
           let linkAuthFailed = false;
 
-          while (url && linkApiCalls < 500) {
+          while (url && linkApiCalls < 200) {
             linkApiCalls++;
             accountApiCalls++;
             totalApiCalls++;
@@ -207,21 +207,25 @@ router.post("/", async (c) => {
             }
 
             if (upsertRows.length > 0) {
-              const vals = upsertRows.map(r => sql`(
-                ${r.fan_id},
-                ${r.username},
-                ${sql`${linkUuid}::uuid`},
-                ${r.sub_date ? sql`${r.sub_date}::date` : sql`NULL::date`}
-              )`);
-              await db.execute(sql`
-                INSERT INTO fans (fan_id, username, first_subscribe_link_id, first_subscribe_date)
-                VALUES ${sql.join(vals, sql`, `)}
-                ON CONFLICT (fan_id) DO UPDATE SET
-                  username                = COALESCE(EXCLUDED.username, fans.username),
-                  first_subscribe_link_id = COALESCE(fans.first_subscribe_link_id, EXCLUDED.first_subscribe_link_id),
-                  first_subscribe_date    = COALESCE(fans.first_subscribe_date, EXCLUDED.first_subscribe_date),
-                  updated_at              = NOW()
-              `);
+              // Chunk into batches of 50 to avoid oversized SQL
+              for (let i = 0; i < upsertRows.length; i += 50) {
+                const chunk = upsertRows.slice(i, i + 50);
+                const vals = chunk.map(r => sql`(
+                  ${r.fan_id},
+                  ${r.username},
+                  ${sql`${linkUuid}::uuid`},
+                  ${r.sub_date ? sql`${r.sub_date}::date` : sql`NULL::date`}
+                )`);
+                await db.execute(sql`
+                  INSERT INTO fans (fan_id, username, first_subscribe_link_id, first_subscribe_date)
+                  VALUES ${sql.join(vals, sql`, `)}
+                  ON CONFLICT (fan_id) DO UPDATE SET
+                    username                = COALESCE(EXCLUDED.username, fans.username),
+                    first_subscribe_link_id = COALESCE(fans.first_subscribe_link_id, EXCLUDED.first_subscribe_link_id),
+                    first_subscribe_date    = COALESCE(fans.first_subscribe_date, EXCLUDED.first_subscribe_date),
+                    updated_at              = NOW()
+                `);
+              }
             }
 
             const nextRaw = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null;
@@ -229,7 +233,7 @@ router.post("/", async (c) => {
               ? (String(nextRaw).startsWith("http") ? String(nextRaw) : `${API_BASE}${nextRaw}`)
               : null;
 
-            await sleep(200);
+            await sleep(100);
           }
 
           if (linkAuthFailed) break; // auth error — skip remaining links for this account
@@ -250,12 +254,16 @@ router.post("/", async (c) => {
             await send({ step: "progress", message: `${account.display_name}: ${linksProcessed}/${accountLinks.length} links, ${accountAttributed} fans so far...` });
           }
 
-          await sleep(100);
+          await sleep(50);
         }
 
         totalAttributed += accountAttributed;
         accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: accountApiCalls, links_processed: linksProcessed, note: accountNote });
         await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed (${linksProcessed} links, ${accountApiCalls} API calls)` });
+        // Persist progress periodically so a timeout leaves a useful partial record
+        if (syncLogId) {
+          await db.update(sync_logs).set({ records_processed: totalAttributed }).where(eq(sync_logs.id, syncLogId));
+        }
       }
 
       await send({ step: "crosspoll", message: "Updating cross-poll revenue data..." });

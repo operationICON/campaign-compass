@@ -707,6 +707,29 @@ router.post("/", async (c) => {
     return c.json({ account: acc.display_name, ofId, tl_ext_id: tlExtId, results });
   }
 
+  // Check if tracking links have URL + campaign_name populated
+  if (body?.action === "tl_url_check") {
+    const rows = await db.execute(sql`
+      SELECT
+        a.display_name,
+        COUNT(tl.id)                                                          AS total_links,
+        COUNT(CASE WHEN tl.url IS NOT NULL AND tl.url != '' THEN 1 END)       AS links_with_url,
+        COUNT(CASE WHEN tl.campaign_name IS NOT NULL AND tl.campaign_name != 'Unknown' THEN 1 END) AS links_with_name,
+        MAX(tl.updated_at)                                                    AS last_synced,
+        (SELECT tl2.url FROM tracking_links tl2 WHERE tl2.account_id = a.id AND tl2.url IS NOT NULL AND tl2.url != '' LIMIT 1) AS sample_url,
+        (SELECT tl2.campaign_name FROM tracking_links tl2 WHERE tl2.account_id = a.id AND tl2.deleted_at IS NULL LIMIT 1)      AS sample_name
+      FROM accounts a
+      LEFT JOIN tracking_links tl ON tl.account_id = a.id AND tl.deleted_at IS NULL
+      WHERE a.is_active = true AND a.sync_excluded IS NOT TRUE
+      GROUP BY a.id, a.display_name
+      ORDER BY COUNT(tl.id) DESC
+    `);
+    const fans_with_link = await db.execute(sql`
+      SELECT COUNT(*) AS cnt FROM fans WHERE first_subscribe_link_id IS NOT NULL
+    `);
+    return c.json({ accounts: rows.rows, fans_with_attribution: fans_with_link.rows[0]?.cnt });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 
