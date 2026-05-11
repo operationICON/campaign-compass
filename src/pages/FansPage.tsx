@@ -1000,11 +1000,11 @@ export default function FansPage() {
                     );
                   })}
 
-                  {/* Total + tx count */}
+                  {/* Total = sum of the type rows above */}
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
                     <span className="font-bold text-foreground">TOTAL</span>
                     <div className="flex items-center gap-3 tabular-nums">
-                      <span className="font-bold text-foreground">{fmt$(txGrandTotal)}</span>
+                      <span className="font-bold text-foreground">{fmt$(txTypeSummary.reduce((s, b) => s + b.revenue, 0))}</span>
                       <span className="text-muted-foreground">{fmtNum(txCount)} transactions</span>
                     </div>
                   </div>
