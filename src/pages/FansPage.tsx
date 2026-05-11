@@ -39,22 +39,26 @@ function fmtShortDate(d: string | null | undefined) {
 }
 
 const TX_TYPE_META: Record<string, { label: string; color: string }> = {
-  new_subscription:       { label: "New Sub",  color: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" },
-  recurring_subscription: { label: "Resub",    color: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
-  tip:                    { label: "Tip",       color: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-  message:                { label: "Message",   color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-  post:                   { label: "Post",      color: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+  campaigns:              { label: "Campaigns",     color: "bg-primary/15 text-primary" },
+  new_subscription:       { label: "New Sub",       color: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" },
+  recurring_subscription: { label: "Resub",         color: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+  tip:                    { label: "Tips",           color: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  message:                { label: "Message",        color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  post:                   { label: "Posts",          color: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+  subscriptions:          { label: "Subscriptions",  color: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
 };
 function txMeta(type: string | null) {
   return TX_TYPE_META[type ?? ""] ?? { label: type ?? "Other", color: "bg-muted text-muted-foreground" };
 }
 
 const TYPE_BAR_COLOR: Record<string, string> = {
+  campaigns:              "#6366f1",
   new_subscription:       "#6366f1",
   recurring_subscription: "#22d3ee",
   tip:                    "#f59e0b",
   message:                "#10b981",
   post:                   "#8b5cf6",
+  subscriptions:          "#22d3ee",
 };
 
 // ─── Revenue breakdown by type ────────────────────────────────────────────────
@@ -789,21 +793,25 @@ export default function FansPage() {
 
   const txTypePerAccount = useMemo(() => {
     const map = new Map<string, Array<{ type: string; revenue: number }>>();
-    for (const r of (txTypeTotalsQuery.data ?? [])) {
-      const accId = r.account_id;
-      if (!accId) continue;
-      const type = r.type ?? "other";
-      const rev = Number(r.revenue ?? 0);
-      if (rev <= 0) continue;
-      const arr = map.get(accId) ?? [];
-      arr.push({ type, revenue: rev });
-      map.set(accId, arr);
-    }
-    for (const [key, arr] of map.entries()) {
-      map.set(key, arr.sort((a, b) => b.revenue - a.revenue));
+    for (const acc of (accounts as any[])) {
+      const camp  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && tl.account_id === acc.id).reduce((s: number, tl: any) => s + Number(tl.revenue ?? 0), 0);
+      const tips  = Number(acc.ltv_tips ?? 0);
+      const subs  = Number(acc.ltv_subscriptions ?? 0);
+      const posts = Number(acc.ltv_posts ?? 0);
+      const total = Number(acc.ltv_total ?? 0);
+      const msg   = Math.max(0, total - camp - tips - subs - posts);
+      const arr = [
+        { type: "campaigns",     revenue: camp },
+        { type: "message",       revenue: msg },
+        { type: "tip",           revenue: tips },
+        { type: "subscriptions", revenue: subs },
+        { type: "post",          revenue: posts },
+      ].filter(r => r.revenue > 0);
+      if (arr.length > 0) map.set(acc.id, arr);
     }
     return map;
-  }, [txTypeTotalsQuery.data]);
+  }, [accounts, allTrackingLinks]);
+
 
   const SPENDERS_PER_PAGE = 50;
   const spendersServerTotal = spendersBreakdownQuery.data?.total ?? 0;
