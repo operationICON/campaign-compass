@@ -988,6 +988,53 @@ export default function FansPage() {
                       </div>
                     );
                   })}
+                  {/* Revenue by Campaign */}
+                  {Object.keys(campaignTypeMap).length > 0 && (() => {
+                    const campaignRows = (allTrackingLinks as any[])
+                      .filter((tl: any) => campaignTypeMap[tl.id])
+                      .filter((tl: any) => accountGridFilter.length === 0 || accountGridFilter.includes(tl.account_id))
+                      .map((tl: any) => ({
+                        id: tl.id,
+                        name: tl.campaign_name || "—",
+                        account_id: tl.account_id,
+                        revenue: Number(campaignTypeMap[tl.id]?.total_revenue ?? 0),
+                      }))
+                      .filter(r => r.revenue > 0)
+                      .sort((a, b) => b.revenue - a.revenue);
+                    const campTotal = campaignRows.reduce((s, r) => s + r.revenue, 0);
+                    if (campaignRows.length === 0) return null;
+                    return (
+                      <div className="pt-3 border-t border-border/40">
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2.5">Revenue by Campaign</div>
+                        <div className="space-y-2">
+                          {campaignRows.map(r => {
+                            const acc = (accounts as any[]).find((a: any) => a.id === r.account_id);
+                            const pct = campTotal > 0 ? (r.revenue / campTotal) * 100 : 0;
+                            return (
+                              <div key={r.id}>
+                                <div className="flex items-center justify-between mb-1 text-xs">
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-3">
+                                    {acc?.avatar_thumb_url && (
+                                      <img src={acc.avatar_thumb_url} alt="" className="w-3.5 h-3.5 rounded-full flex-shrink-0" />
+                                    )}
+                                    <span className="truncate text-muted-foreground">{r.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 tabular-nums flex-shrink-0">
+                                    <span className="font-semibold text-foreground">{fmt$(r.revenue)}</span>
+                                    <span className="text-muted-foreground w-8 text-right">{pct.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+                                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="pt-2 border-t border-border/40 flex justify-between text-xs">
                     <div className="space-y-0.5">
                       <div className="flex gap-2 text-muted-foreground">
