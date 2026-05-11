@@ -245,7 +245,7 @@ export const getFans = (params?: {
 export const getFanSpendersBreakdown = (params?: {
   account_id?: string; tracking_link_id?: string; search?: string; limit?: number;
 }) =>
-  apiFetch<any[]>(`/fans/spenders-breakdown${buildQuery({
+  apiFetch<{ rows: any[]; total: number }>(`/fans/spenders-breakdown${buildQuery({
     account_id: params?.account_id,
     tracking_link_id: params?.tracking_link_id,
     search: params?.search,

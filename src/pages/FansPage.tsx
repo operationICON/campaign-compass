@@ -740,12 +740,12 @@ export default function FansPage() {
   });
 
   const spendersBreakdownQuery = useQuery({
-    queryKey: ["fans_spenders_breakdown", spendersModelFilter, spendersCampaignFilter, spendersSearch],
+    queryKey: ["fans_spenders_breakdown", spendersModelFilter.length === 1 ? spendersModelFilter[0] : null, spendersCampaignFilter, spendersSearch],
     queryFn: () => getFanSpendersBreakdown({
       account_id: spendersModelFilter.length === 1 ? spendersModelFilter[0] : undefined,
       tracking_link_id: spendersCampaignFilter !== "all" ? spendersCampaignFilter : undefined,
       search: spendersSearch || undefined,
-      limit: 1000,
+      limit: 10000,
     }),
     staleTime: 60_000,
     enabled: selectedAccountId === null,
@@ -791,8 +791,9 @@ export default function FansPage() {
   }, [txTypeTotalsQuery.data]);
 
   const SPENDERS_PER_PAGE = 50;
+  const spendersServerTotal = spendersBreakdownQuery.data?.total ?? 0;
   const spendersRows = useMemo(() => {
-    const raw = spendersBreakdownQuery.data ?? [];
+    const raw = spendersBreakdownQuery.data?.rows ?? [];
     if (spendersModelFilter.length > 1) {
       return raw.filter((r: any) => {
         const ids: string[] = (r.account_ids ?? "").split(",").filter(Boolean);
@@ -1042,6 +1043,18 @@ export default function FansPage() {
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">All Spenders</h2>
                   <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{spendersRows.length}</span>
+                  {!spendersBreakdownQuery.isLoading && (() => {
+                    const kpiSpenders = globalStats?.spenders ?? 0;
+                    const loaded = spendersRows.length;
+                    const serverTotal = spendersServerTotal;
+                    const matched = loaded >= serverTotal && Math.abs(loaded - kpiSpenders) <= 2;
+                    if (kpiSpenders === 0) return null;
+                    return (
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", matched ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500")}>
+                        {matched ? `✓ All ${kpiSpenders.toLocaleString()} spenders loaded` : `${loaded.toLocaleString()} of ${kpiSpenders.toLocaleString()} — run Fan Sync to reconcile`}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 

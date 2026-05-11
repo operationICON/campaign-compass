@@ -115,19 +115,25 @@ router.get("/", async (c) => {
 // Returns spenders with per-type revenue from fan_account_stats.
 // Params: account_id, tracking_link_id, search, limit
 router.get("/spenders-breakdown", async (c) => {
-  const accountId     = c.req.query("account_id");
+  const accountId      = c.req.query("account_id");
   const trackingLinkId = c.req.query("tracking_link_id");
-  const search        = c.req.query("search");
-  const limitRaw      = Math.min(Number(c.req.query("limit") ?? 500), 2000);
+  const search         = c.req.query("search");
+  const limitRaw       = Math.min(Number(c.req.query("limit") ?? 5000), 20000);
 
+  // Base WHERE conditions on the fans table — never reference fas here
+  // so that the LEFT JOIN doesn't silently drop fans with missing stats rows.
   const conditions: ReturnType<typeof sql>[] = [
     sql`f.total_revenue IS NOT NULL AND f.total_revenue::numeric > 0`,
   ];
-  if (accountId)      conditions.push(sql`fas.account_id = ${accountId}::uuid`);
   if (trackingLinkId) conditions.push(sql`f.first_subscribe_link_id = ${trackingLinkId}::uuid`);
   if (search)         conditions.push(sql`(f.fan_id ILIKE ${"%" + search + "%"} OR f.username ILIKE ${"%" + search + "%"} OR f.display_name ILIKE ${"%" + search + "%"})`);
+  // When filtering by account, require at least one fas row for that account
+  if (accountId)      conditions.push(sql`EXISTS (SELECT 1 FROM fan_account_stats x WHERE x.fan_id = f.id AND x.account_id = ${accountId}::uuid AND x.total_revenue::numeric > 0)`);
 
   const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
+
+  // fas JOIN condition: restrict to account when provided, else all accounts
+  const fasJoinExtra = accountId ? sql`AND fas.account_id = ${accountId}::uuid` : sql``;
 
   const rows = await db.execute(sql`
     WITH tx_agg AS (
@@ -155,9 +161,9 @@ router.get("/spenders-breakdown", async (c) => {
       COALESCE(SUM(fas.tip_revenue::numeric),          0) AS tip_revenue,
       COALESCE(SUM(fas.message_revenue::numeric),      0) AS message_revenue,
       COALESCE(SUM(fas.post_revenue::numeric),         0) AS post_revenue,
-      STRING_AGG(DISTINCT fas.account_id::text, ',')      AS account_ids
+      COALESCE(STRING_AGG(DISTINCT fas.account_id::text, ','), '') AS account_ids
     FROM fans f
-    JOIN fan_account_stats fas ON fas.fan_id = f.id
+    LEFT JOIN fan_account_stats fas ON fas.fan_id = f.id ${fasJoinExtra}
     LEFT JOIN tx_agg ta ON ta.fan_username = f.fan_id
     ${whereClause}
     GROUP BY f.id, f.fan_id, f.username, f.display_name, f.avatar_url,
@@ -168,7 +174,13 @@ router.get("/spenders-breakdown", async (c) => {
     LIMIT ${limitRaw}
   `);
 
-  return c.json(rows.rows);
+  // Also return the true total count of matching spenders for reconciliation
+  const countResult = await db.execute(sql`
+    SELECT COUNT(*) AS cnt FROM fans f ${whereClause}
+  `);
+  const total = Number((countResult.rows[0] as any)?.cnt ?? 0);
+
+  return c.json({ rows: rows.rows, total });
 });
 
 // ── GET /fans/campaign-breakdown?account_ids=&date_from=&date_to= ─────────────
