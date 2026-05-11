@@ -423,121 +423,197 @@ function FanAvatar({ fan, size = 28 }: { fan: any; size?: number }) {
 }
 
 // ─── Fan detail dropdown (expandable row) ────────────────────────────────────
-function FanDetailDropdown({ fan }: { fan: any }) {
+function FanDetailDropdown({ fan, allTrackingLinks, accountMap }: {
+  fan: any;
+  allTrackingLinks: any[];
+  accountMap: Record<string, any>;
+}) {
   const { data, isLoading } = useQuery({
     queryKey: ["fan_detail", fan.id],
     queryFn: () => getFan(fan.id),
     staleTime: 60_000,
   });
 
-  const txs: any[] = data?.transactions ?? [];
+  const txs: any[]        = data?.transactions ?? [];
+  const accountStats: any[] = data?.account_stats ?? [];
+
+  // Build a map of all tracking links for quick lookup
+  const tlLookup = useMemo(() => {
+    const m: Record<string, any> = {};
+    for (const tl of allTrackingLinks) m[tl.id] = tl;
+    return m;
+  }, [allTrackingLinks]);
 
   const s = useMemo(() => {
     const subCount   = txs.filter(t => ["new_subscription","recurring_subscription"].includes(t.type)).length;
     const subSpend   = txs.filter(t => ["new_subscription","recurring_subscription"].includes(t.type)).reduce((a,t) => a + Number(t.revenue ?? 0), 0);
     const msgCount   = txs.filter(t => ["message","chat"].includes(t.type)).length;
-    const ppvMsgRev  = txs.filter(t => ["ppv","chat"].includes(t.type)).reduce((a,t) => a + Number(t.revenue ?? 0), 0);
-    const ppvPostRev = txs.filter(t => t.type === "post").reduce((a,t) => a + Number(t.revenue ?? 0), 0);
+    const ppvRev     = txs.filter(t => ["ppv","chat"].includes(t.type)).reduce((a,t) => a + Number(t.revenue ?? 0), 0);
+    const postRev    = txs.filter(t => t.type === "post").reduce((a,t) => a + Number(t.revenue ?? 0), 0);
     const tipRev     = txs.filter(t => t.type === "tip").reduce((a,t) => a + Number(t.revenue ?? 0), 0);
-    const biggest    = [...txs].filter(t => Number(t.revenue ?? 0) > 0).sort((a,b) => Number(b.revenue) - Number(a.revenue)).slice(0, 10);
+    const biggest    = [...txs].filter(t => Number(t.revenue ?? 0) > 0)
+                         .sort((a,b) => Number(b.revenue) - Number(a.revenue)).slice(0, 10);
     const first = fan.first_transaction_at ? new Date(fan.first_transaction_at).getTime() : null;
     const last  = fan.last_transaction_at  ? new Date(fan.last_transaction_at).getTime()  : null;
-    const daysActive     = first && last ? Math.max(1, Math.round((last - first) / 86400000)) : 0;
+    const daysActive       = first && last ? Math.max(1, Math.round((last - first) / 86400000)) : 0;
     const lastActivityDays = last ? Math.round((Date.now() - last) / 86400000) : null;
     const msgPerDay = daysActive > 0 ? msgCount / daysActive : 0;
-    const totalRev = Number(fan.total_revenue ?? 0);
-    return { subCount, subSpend, msgCount, ppvMsgRev, ppvPostRev, tipRev, biggest, daysActive, lastActivityDays, msgPerDay, totalRev };
+    return { subCount, subSpend, msgCount, ppvRev, postRev, tipRev, biggest, daysActive, lastActivityDays, msgPerDay };
   }, [txs, fan]);
 
-  if (isLoading) return (
-    <div className="p-4 flex gap-4">
-      {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 flex-1 rounded-xl" />)}
-    </div>
-  );
+  const acquisitionTl  = fan.first_subscribe_link_id ? tlLookup[fan.first_subscribe_link_id] : null;
+  const acquisitionAcc = acquisitionTl?.account_id ? accountMap[acquisitionTl.account_id] : null;
+  const totalRev       = Number(fan.total_revenue ?? 0);
+  const isCrossPoll    = fan.is_cross_poll || accountStats.length > 1;
 
-  const Row = ({ label, value, dot }: { label: string; value: string; dot?: string }) => (
-    <div className="flex items-center justify-between py-1 text-xs">
+  const StatRow = ({ label, value, dot, highlight }: { label: string; value: string; dot?: string; highlight?: string }) => (
+    <div className="flex items-center justify-between py-1.5 text-xs border-b border-border/20 last:border-0">
       <span className="text-muted-foreground flex items-center gap-1.5">
         {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot }} />}
         {label}
       </span>
-      <span className="tabular-nums font-medium">{value}</span>
+      <span className={cn("tabular-nums font-semibold", highlight ?? "")}>{value}</span>
+    </div>
+  );
+
+  if (isLoading) return (
+    <div className="p-4 flex gap-3">
+      {[1,2,3].map(i => <Skeleton key={i} className="h-28 flex-1 rounded-xl" />)}
     </div>
   );
 
   return (
-    <div className="px-4 py-4 bg-muted/10 border-t border-border/30">
-      {/* Summary header */}
-      <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3 mb-4">
-        <FanAvatar fan={fan} size={36} />
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm">{fan.display_name || fan.username || fan.fan_id}</div>
-          <div className="text-xs text-muted-foreground">@{fan.username || fan.fan_id} · id: {fan.fan_id}</div>
+    <div className="px-5 py-4 bg-muted/5 border-t border-border/30 space-y-4">
+
+      {/* ── Metrics strip ─────────────────────────────────────── */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-card border border-border rounded-xl p-3 text-center">
+          <div className="text-emerald-400 font-bold text-base tabular-nums">{fmt$(totalRev)}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Lifetime Value</div>
         </div>
-        <div className="flex items-center gap-6 text-center">
-          <div>
-            <div className="text-emerald-400 font-bold text-sm tabular-nums">{fmt$(s.totalRev)}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Lifetime Value</div>
+        <div className="bg-card border border-border rounded-xl p-3 text-center">
+          <div className="font-bold text-base">{s.daysActive || "—"}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Days Active</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-3 text-center">
+          <div className="font-bold text-base">{s.lastActivityDays != null ? `${s.lastActivityDays}d` : "—"}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Last Activity</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-3 text-center">
+          <div className={cn("font-bold text-base", isCrossPoll ? "text-violet-400" : "text-muted-foreground")}>
+            {isCrossPoll ? accountStats.length : "1"}
           </div>
-          <div>
-            <div className="font-bold text-sm">{s.lastActivityDays != null ? `${s.lastActivityDays} days` : "—"}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Last Activity</div>
-          </div>
-          <div>
-            <div className="font-bold text-sm">{s.daysActive || "—"}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Days Active</div>
-          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Accounts</div>
         </div>
       </div>
 
-      {/* 4-quadrant breakdown */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        {/* Subscriptions */}
-        <div className="bg-card border border-border rounded-xl p-3">
-          <div className="text-xs font-semibold mb-2.5">Subscriptions</div>
-          <Row label="Subscriptions"           value={fmtNum(s.subCount)} />
-          <Row label="Total Subscription Spend" value={fmt$(s.subSpend)} />
+      {/* ── Main grid: campaign + revenue + cross-poll ────────── */}
+      <div className={cn("grid gap-3", isCrossPoll ? "grid-cols-3" : "grid-cols-2")}>
+
+        {/* Campaign Attribution */}
+        <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+          <div className="text-xs font-semibold flex items-center gap-1.5 mb-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+            Acquisition Campaign
+          </div>
+          {acquisitionTl ? (
+            <>
+              <div className="text-xs">
+                <div className="text-muted-foreground mb-0.5">Campaign</div>
+                <div className="font-medium truncate">
+                  {acquisitionTl.campaign_name || acquisitionTl.external_tracking_link_id || "Unnamed"}
+                </div>
+              </div>
+              {acquisitionAcc && (
+                <div className="text-xs">
+                  <div className="text-muted-foreground mb-0.5">Model</div>
+                  <div className="font-medium">{acquisitionAcc.display_name || acquisitionAcc.username}</div>
+                </div>
+              )}
+              {fan.first_subscribe_date && (
+                <div className="text-xs">
+                  <div className="text-muted-foreground mb-0.5">Subscribed</div>
+                  <div className="font-medium">{fmtDateTime(fan.first_subscribe_date)}</div>
+                  <div className="text-muted-foreground">{timeAgo(fan.first_subscribe_date)}</div>
+                </div>
+              )}
+              {acquisitionTl.subscribers != null && (
+                <div className="mt-2 pt-2 border-t border-border/30 text-[10px] text-muted-foreground flex justify-between">
+                  <span>Campaign subs</span>
+                  <span className="font-semibold text-foreground">{fmtNum(acquisitionTl.subscribers)}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">No campaign attribution — fan may have subscribed directly.</p>
+          )}
         </div>
 
-        {/* Messages */}
+        {/* Revenue Breakdown */}
         <div className="bg-card border border-border rounded-xl p-3">
-          <div className="text-xs font-semibold mb-2.5">Messages</div>
-          <Row label="Received Messages" value={fmtNum(s.msgCount)} dot="#60a5fa" />
-          <Row label="Sent Messages"     value="—"                  dot="#6b7280" />
-          <Row label="Messages per Day"  value={s.msgPerDay > 0 ? s.msgPerDay.toFixed(2) : "—"} dot="#22d3ee" />
+          <div className="text-xs font-semibold flex items-center gap-1.5 mb-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+            Revenue Breakdown
+          </div>
+          <StatRow label="Subscriptions" value={`${fmtNum(s.subCount)} · ${fmt$(s.subSpend)}`} dot="#6366f1" />
+          <StatRow label="PPV / Messages" value={fmt$(s.ppvRev)}  dot="#10b981" highlight="text-emerald-400" />
+          <StatRow label="Posts"          value={fmt$(s.postRev)} dot="#8b5cf6" />
+          <StatRow label="Tips"           value={fmt$(s.tipRev)}  dot="#f59e0b" highlight="text-amber-400" />
+          <StatRow label="Messages (count)" value={`${fmtNum(s.msgCount)} · ${s.msgPerDay > 0 ? s.msgPerDay.toFixed(2)+"/day" : "—"}`} dot="#60a5fa" />
         </div>
 
-        {/* PPV Content */}
-        <div className="bg-card border border-border rounded-xl p-3">
-          <div className="text-xs font-semibold mb-2.5">PPV Content</div>
-          <Row label="PPV Posts"    value={fmt$(s.ppvPostRev)} dot="#f472b6" />
-          <Row label="PPV Messages" value={fmt$(s.ppvMsgRev)}  dot="#fb7185" />
-        </div>
-
-        {/* Tips & Purchases */}
-        <div className="bg-card border border-border rounded-xl p-3">
-          <div className="text-xs font-semibold mb-2.5">Tips & Purchases</div>
-          <Row label="Total Tips"    value={fmt$(s.tipRev)}    dot="#fbbf24" />
-          <Row label="Tips Posts"    value="$0.00"             dot="#facc15" />
-          <Row label="Tips Messages" value="$0.00"             dot="#fb923c" />
-          <Row label="Purchases"     value={fmt$(s.ppvMsgRev)} dot="#34d399" />
-        </div>
+        {/* Cross-Poll Accounts — only when relevant */}
+        {isCrossPoll && (
+          <div className="bg-card border border-violet-500/30 rounded-xl p-3">
+            <div className="text-xs font-semibold flex items-center gap-1.5 mb-2 text-violet-400">
+              <GitMerge className="w-3 h-3" />
+              Cross-Pollination · {accountStats.length} accounts
+            </div>
+            <div className="space-y-2">
+              {accountStats.map((stat: any, i: number) => {
+                const acc = accountMap[stat.account_id];
+                const rev = Number(stat.total_revenue ?? 0);
+                return (
+                  <div key={i} className="flex items-center gap-2.5 py-1 border-b border-border/20 last:border-0">
+                    {acc?.avatar_thumb_url
+                      ? <img src={acc.avatar_thumb_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                      : <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[9px] font-bold text-violet-400 shrink-0">
+                          {(acc?.display_name || stat.account_display_name || "?").slice(0,2).toUpperCase()}
+                        </div>}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate">
+                        {acc?.display_name || stat.account_display_name || "Unknown"}
+                      </div>
+                      {stat.first_seen_at && (
+                        <div className="text-[10px] text-muted-foreground">since {fmtShortDate(stat.first_seen_at)}</div>
+                      )}
+                    </div>
+                    {rev > 0 && (
+                      <span className="text-xs font-semibold text-emerald-400 tabular-nums shrink-0">{fmt$(rev)}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Biggest Purchases */}
+      {/* ── Biggest transactions ───────────────────────────────── */}
       {s.biggest.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border/40 text-xs font-semibold">Biggest Purchases</div>
-          {s.biggest.map((tx: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-2 border-b border-border/20 last:border-0 text-xs hover:bg-muted/20 transition-colors">
-              <div className="w-6 h-6 rounded bg-primary/15 flex items-center justify-center shrink-0">
-                <DollarSign className="w-3 h-3 text-primary" />
+          <div className="px-4 py-2.5 border-b border-border/40 text-xs font-semibold">Top Transactions</div>
+          {s.biggest.map((tx: any, i: number) => {
+            const meta = txMeta(tx.type);
+            return (
+              <div key={i} className="flex items-center gap-3 px-4 py-2 border-b border-border/20 last:border-0 text-xs hover:bg-muted/20 transition-colors">
+                <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0", meta.color)}>{meta.label}</span>
+                <span className="font-bold tabular-nums w-16 shrink-0 text-emerald-400">{fmt$(Number(tx.revenue))}</span>
+                <span className="text-muted-foreground flex-1 truncate">{tx.description || "—"}</span>
+                <span className="text-muted-foreground shrink-0">{fmtDateTime(tx.date)}</span>
               </div>
-              <span className="font-bold tabular-nums w-16 shrink-0 text-emerald-400">{fmt$(Number(tx.revenue))}</span>
-              <span className="text-muted-foreground flex-1 truncate">{tx.description || txMeta(tx.type).label}</span>
-              <span className="text-muted-foreground shrink-0">{fmtDateTime(tx.date)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1481,7 +1557,7 @@ export default function FansPage() {
                           {isExpanded && (
                             <tr className="border-b border-border/40">
                               <td colSpan={7} className="p-0">
-                                <FanDetailDropdown fan={fan} />
+                                <FanDetailDropdown fan={fan} allTrackingLinks={allTrackingLinks as any[]} accountMap={accountMap} />
                               </td>
                             </tr>
                           )}
