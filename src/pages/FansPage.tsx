@@ -422,6 +422,128 @@ function FanAvatar({ fan, size = 28 }: { fan: any; size?: number }) {
   );
 }
 
+// ─── Fan detail dropdown (expandable row) ────────────────────────────────────
+function FanDetailDropdown({ fan }: { fan: any }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["fan_detail", fan.id],
+    queryFn: () => getFan(fan.id),
+    staleTime: 60_000,
+  });
+
+  const txs: any[] = data?.transactions ?? [];
+
+  const s = useMemo(() => {
+    const subCount   = txs.filter(t => ["new_subscription","recurring_subscription"].includes(t.type)).length;
+    const subSpend   = txs.filter(t => ["new_subscription","recurring_subscription"].includes(t.type)).reduce((a,t) => a + Number(t.revenue ?? 0), 0);
+    const msgCount   = txs.filter(t => ["message","chat"].includes(t.type)).length;
+    const ppvMsgRev  = txs.filter(t => ["ppv","chat"].includes(t.type)).reduce((a,t) => a + Number(t.revenue ?? 0), 0);
+    const ppvPostRev = txs.filter(t => t.type === "post").reduce((a,t) => a + Number(t.revenue ?? 0), 0);
+    const tipRev     = txs.filter(t => t.type === "tip").reduce((a,t) => a + Number(t.revenue ?? 0), 0);
+    const biggest    = [...txs].filter(t => Number(t.revenue ?? 0) > 0).sort((a,b) => Number(b.revenue) - Number(a.revenue)).slice(0, 10);
+    const first = fan.first_transaction_at ? new Date(fan.first_transaction_at).getTime() : null;
+    const last  = fan.last_transaction_at  ? new Date(fan.last_transaction_at).getTime()  : null;
+    const daysActive     = first && last ? Math.max(1, Math.round((last - first) / 86400000)) : 0;
+    const lastActivityDays = last ? Math.round((Date.now() - last) / 86400000) : null;
+    const msgPerDay = daysActive > 0 ? msgCount / daysActive : 0;
+    const totalRev = Number(fan.total_revenue ?? 0);
+    return { subCount, subSpend, msgCount, ppvMsgRev, ppvPostRev, tipRev, biggest, daysActive, lastActivityDays, msgPerDay, totalRev };
+  }, [txs, fan]);
+
+  if (isLoading) return (
+    <div className="p-4 flex gap-4">
+      {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 flex-1 rounded-xl" />)}
+    </div>
+  );
+
+  const Row = ({ label, value, dot }: { label: string; value: string; dot?: string }) => (
+    <div className="flex items-center justify-between py-1 text-xs">
+      <span className="text-muted-foreground flex items-center gap-1.5">
+        {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot }} />}
+        {label}
+      </span>
+      <span className="tabular-nums font-medium">{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="px-4 py-4 bg-muted/10 border-t border-border/30">
+      {/* Summary header */}
+      <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3 mb-4">
+        <FanAvatar fan={fan} size={36} />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm">{fan.display_name || fan.username || fan.fan_id}</div>
+          <div className="text-xs text-muted-foreground">@{fan.username || fan.fan_id} · id: {fan.fan_id}</div>
+        </div>
+        <div className="flex items-center gap-6 text-center">
+          <div>
+            <div className="text-emerald-400 font-bold text-sm tabular-nums">{fmt$(s.totalRev)}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Lifetime Value</div>
+          </div>
+          <div>
+            <div className="font-bold text-sm">{s.lastActivityDays != null ? `${s.lastActivityDays} days` : "—"}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Last Activity</div>
+          </div>
+          <div>
+            <div className="font-bold text-sm">{s.daysActive || "—"}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Days Active</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4-quadrant breakdown */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        {/* Subscriptions */}
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-xs font-semibold mb-2.5">Subscriptions</div>
+          <Row label="Subscriptions"           value={fmtNum(s.subCount)} />
+          <Row label="Total Subscription Spend" value={fmt$(s.subSpend)} />
+        </div>
+
+        {/* Messages */}
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-xs font-semibold mb-2.5">Messages</div>
+          <Row label="Received Messages" value={fmtNum(s.msgCount)} dot="#60a5fa" />
+          <Row label="Sent Messages"     value="—"                  dot="#6b7280" />
+          <Row label="Messages per Day"  value={s.msgPerDay > 0 ? s.msgPerDay.toFixed(2) : "—"} dot="#22d3ee" />
+        </div>
+
+        {/* PPV Content */}
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-xs font-semibold mb-2.5">PPV Content</div>
+          <Row label="PPV Posts"    value={fmt$(s.ppvPostRev)} dot="#f472b6" />
+          <Row label="PPV Messages" value={fmt$(s.ppvMsgRev)}  dot="#fb7185" />
+        </div>
+
+        {/* Tips & Purchases */}
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-xs font-semibold mb-2.5">Tips & Purchases</div>
+          <Row label="Total Tips"    value={fmt$(s.tipRev)}    dot="#fbbf24" />
+          <Row label="Tips Posts"    value="$0.00"             dot="#facc15" />
+          <Row label="Tips Messages" value="$0.00"             dot="#fb923c" />
+          <Row label="Purchases"     value={fmt$(s.ppvMsgRev)} dot="#34d399" />
+        </div>
+      </div>
+
+      {/* Biggest Purchases */}
+      {s.biggest.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border/40 text-xs font-semibold">Biggest Purchases</div>
+          {s.biggest.map((tx: any, i: number) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-2 border-b border-border/20 last:border-0 text-xs hover:bg-muted/20 transition-colors">
+              <div className="w-6 h-6 rounded bg-primary/15 flex items-center justify-center shrink-0">
+                <DollarSign className="w-3 h-3 text-primary" />
+              </div>
+              <span className="font-bold tabular-nums w-16 shrink-0 text-emerald-400">{fmt$(Number(tx.revenue))}</span>
+              <span className="text-muted-foreground flex-1 truncate">{tx.description || txMeta(tx.type).label}</span>
+              <span className="text-muted-foreground shrink-0">{fmtDateTime(tx.date)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Inline transaction list ──────────────────────────────────────────────────
 function InlineTxList({ fanDbId, showAccount, accountMap }: {
   fanDbId: string; showAccount: boolean; accountMap: Record<string, any>;
@@ -619,6 +741,7 @@ export default function FansPage() {
   const [spendersOnly, setSpendersOnly] = useState(true);
   const [sortKey, setSortKey] = useState<FanSortKey>("revenue");
   const [fanPage, setFanPage] = useState(1);
+  const [expandedFans, setExpandedFans] = useState<Set<string>>(new Set());
   const [editFan, setEditFan] = useState<any | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
@@ -632,6 +755,7 @@ export default function FansPage() {
   useEffect(() => {
     setCampaignFilter("all");
     setSearch("");
+    setExpandedFans(new Set());
     setFanPage(1);
     setSortKey("revenue");
   }, [selectedAccountId]);
@@ -865,6 +989,14 @@ export default function FansPage() {
     for (const a of accounts) m[(a as any).id] = a;
     return m;
   }, [accounts]);
+
+  function toggleExpand(fanId: string) {
+    setExpandedFans(prev => {
+      const next = new Set(prev);
+      if (next.has(fanId)) next.delete(fanId); else next.add(fanId);
+      return next;
+    });
+  }
 
   async function handleSync(full = false) {
     setSyncing(true);
@@ -1264,85 +1396,96 @@ export default function FansPage() {
                       const statusVal = (fan.status ?? "").toLowerCase();
                       const subDate = fan.first_subscribe_date || fan.first_transaction_at;
 
+                      const isExpanded = expandedFans.has(fan.id);
                       return (
-                        <tr key={fan.id} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
-                          {/* Fan */}
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <FanAvatar fan={fan} size={32} />
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-semibold text-sm truncate max-w-44">
-                                    {fan.display_name || fan.username || fan.fan_id}
-                                  </span>
-                                  {isTopFan && <Award className="w-3 h-3 text-amber-400 shrink-0" title="Top spender" />}
-                                </div>
-                                <div className="text-xs text-muted-foreground truncate max-w-44">
-                                  @{fan.username || fan.fan_id}
-                                  {fan.is_cross_poll && <span className="ml-1.5 text-violet-500">· cross-poll</span>}
+                        <Fragment key={fan.id}>
+                          <tr
+                            onClick={() => toggleExpand(fan.id)}
+                            className={cn(
+                              "border-b border-border/40 cursor-pointer hover:bg-muted/20 transition-colors",
+                              isExpanded && "bg-muted/10"
+                            )}>
+                            {/* Fan */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-150", isExpanded && "rotate-90")} />
+                                <FanAvatar fan={fan} size={32} />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-sm truncate max-w-40">
+                                      {fan.display_name || fan.username || fan.fan_id}
+                                    </span>
+                                    {isTopFan && <Award className="w-3 h-3 text-amber-400 shrink-0" title="Top spender" />}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground truncate max-w-40">
+                                    @{fan.username || fan.fan_id}
+                                    {fan.is_cross_poll && <span className="ml-1.5 text-violet-500">· cross-poll</span>}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-                          {/* Lifetime Value */}
-                          <td className="px-4 py-3">
-                            <div className={cn("font-semibold tabular-nums text-sm", isSpender ? "" : "text-muted-foreground")}>
-                              {isSpender ? fmt$(rev) : "—"}
-                            </div>
-                            {tips > 0 && <div className="text-xs text-muted-foreground">Tips: {fmt$(tips)}</div>}
-                          </td>
-                          {/* Messages */}
-                          <td className="px-4 py-3">
-                            <span className="tabular-nums text-sm">{msgCount > 0 ? fmtNum(msgCount) : "—"}</span>
-                          </td>
-                          {/* Subscription Start */}
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            {subDate ? (
-                              <>
-                                <div className="text-sm">{fmtDateTime(subDate)}</div>
-                                <div className="text-xs text-muted-foreground">{timeAgo(subDate)}</div>
-                              </>
-                            ) : <span className="text-muted-foreground text-sm">—</span>}
-                          </td>
-                          {/* Last Active */}
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            {fan.last_transaction_at ? (
-                              <>
-                                <div className="text-sm">{fmtDateTime(fan.last_transaction_at)}</div>
-                                <div className="text-xs text-muted-foreground">{timeAgo(fan.last_transaction_at)}</div>
-                              </>
-                            ) : <span className="text-muted-foreground text-sm">—</span>}
-                          </td>
-                          {/* Subscription status */}
-                          <td className="px-4 py-3 hidden lg:table-cell">
-                            {statusVal ? (
-                              <span className={cn(
-                                "px-2.5 py-1 rounded-full text-xs font-semibold",
-                                statusVal === "active"   ? "bg-emerald-500/20 text-emerald-400" :
-                                statusVal === "expired"  ? "bg-red-500/20 text-red-400" :
-                                statusVal === "inactive" ? "bg-yellow-500/20 text-yellow-400" :
-                                                           "bg-muted text-muted-foreground"
-                              )}>
-                                {statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}
-                              </span>
-                            ) : <span className="text-muted-foreground text-xs">—</span>}
-                          </td>
-                          {/* Actions */}
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button onClick={() => setEditFan(fan)}
-                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="View details">
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => setEditFan(fan)}
-                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
-                                title="Edit notes">
-                                <Sparkles className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                            </td>
+                            {/* Lifetime Value */}
+                            <td className="px-4 py-3">
+                              <div className={cn("font-semibold tabular-nums text-sm", isSpender ? "" : "text-muted-foreground")}>
+                                {isSpender ? fmt$(rev) : "—"}
+                              </div>
+                              {tips > 0 && <div className="text-xs text-muted-foreground">Tips: {fmt$(tips)}</div>}
+                            </td>
+                            {/* Messages */}
+                            <td className="px-4 py-3">
+                              <span className="tabular-nums text-sm">{msgCount > 0 ? fmtNum(msgCount) : "—"}</span>
+                            </td>
+                            {/* Subscription Start */}
+                            <td className="px-4 py-3 hidden md:table-cell">
+                              {subDate ? (
+                                <>
+                                  <div className="text-sm">{fmtDateTime(subDate)}</div>
+                                  <div className="text-xs text-muted-foreground">{timeAgo(subDate)}</div>
+                                </>
+                              ) : <span className="text-muted-foreground text-sm">—</span>}
+                            </td>
+                            {/* Last Active */}
+                            <td className="px-4 py-3 hidden md:table-cell">
+                              {fan.last_transaction_at ? (
+                                <>
+                                  <div className="text-sm">{fmtDateTime(fan.last_transaction_at)}</div>
+                                  <div className="text-xs text-muted-foreground">{timeAgo(fan.last_transaction_at)}</div>
+                                </>
+                              ) : <span className="text-muted-foreground text-sm">—</span>}
+                            </td>
+                            {/* Subscription status */}
+                            <td className="px-4 py-3 hidden lg:table-cell">
+                              {statusVal ? (
+                                <span className={cn(
+                                  "px-2.5 py-1 rounded-full text-xs font-semibold",
+                                  statusVal === "active"   ? "bg-emerald-500/20 text-emerald-400" :
+                                  statusVal === "expired"  ? "bg-red-500/20 text-red-400" :
+                                  statusVal === "inactive" ? "bg-yellow-500/20 text-yellow-400" :
+                                                             "bg-muted text-muted-foreground"
+                                )}>
+                                  {statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}
+                                </span>
+                              ) : <span className="text-muted-foreground text-xs">—</span>}
+                            </td>
+                            {/* Actions */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button onClick={e => { e.stopPropagation(); setEditFan(fan); }}
+                                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                  title="Edit notes">
+                                  <Sparkles className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="border-b border-border/40">
+                              <td colSpan={7} className="p-0">
+                                <FanDetailDropdown fan={fan} />
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       );
                     })
                   )}
