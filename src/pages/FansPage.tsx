@@ -246,7 +246,7 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
 // ─── Account fan card ─────────────────────────────────────────────────────────
 function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals, onClick }: {
   account: any; stats: any | null; isLoading: boolean;
-  totalSubs: number; rank: number; typeTotals?: Array<{ type: string; revenue: number }>; onClick: () => void;
+  totalSubs: number; rank: number; typeTotals?: Array<{ type: string; revenue: number; count: number }>; onClick: () => void;
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const spenderPct = totalSubs > 0 ? (stats?.spenders ?? 0) / totalSubs * 100 : 0;
@@ -355,8 +355,11 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
                     return (
                       <div key={b.type}>
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
-                          <div className="flex items-center gap-2 text-[10px] tabular-nums">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0", meta.color)}>{meta.label}</span>
+                            {b.count > 0 && <span className="text-[10px] text-muted-foreground tabular-nums">{fmtNum(b.count)} tx</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] tabular-nums shrink-0">
                             <span className="font-semibold">{fmt$(b.revenue)}</span>
                             <span className="text-muted-foreground w-7 text-right">{pct.toFixed(0)}%</span>
                           </div>
@@ -743,7 +746,7 @@ export default function FansPage() {
 
   const txTypeTotalsQuery = useQuery({
     queryKey: ["tx_type_totals"],
-    queryFn: () => getTransactionTypeTotals() as Promise<Array<{ account_id: string | null; type: string | null; revenue: number }>>,
+    queryFn: () => getTransactionTypeTotals() as Promise<Array<{ account_id: string | null; type: string | null; revenue: number; tx_count: number }>>,
     staleTime: 60_000,
     enabled: selectedAccountId === null,
   });
@@ -790,31 +793,47 @@ export default function FansPage() {
       const rev = Number(r.revenue ?? 0);
       const cur = map.get(type) ?? { revenue: 0, count: 0 };
       cur.revenue += rev;
+      cur.count += Number(r.tx_count ?? 0);
       map.set(type, cur);
     }
     return [...map.entries()].map(([type, d]) => ({ type, ...d })).sort((a, b) => b.revenue - a.revenue);
   }, [txTypeTotalsQuery.data]);
 
+  // Per-account tx counts by type (from transactions table — last 30 days)
+  const txCountPerAccount = useMemo(() => {
+    const rows = txTypeTotalsQuery.data ?? [];
+    const map = new Map<string, Map<string, number>>();
+    for (const r of rows) {
+      if (!r.account_id) continue;
+      const accMap = map.get(r.account_id) ?? new Map<string, number>();
+      accMap.set(r.type ?? "other", Number(r.tx_count ?? 0));
+      map.set(r.account_id, accMap);
+    }
+    return map;
+  }, [txTypeTotalsQuery.data]);
+
   const txTypePerAccount = useMemo(() => {
-    const map = new Map<string, Array<{ type: string; revenue: number }>>();
+    const map = new Map<string, Array<{ type: string; revenue: number; count: number }>>();
     for (const acc of (accounts as any[])) {
+      const accTxCounts = txCountPerAccount.get(acc.id) ?? new Map<string, number>();
       const camp  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && tl.account_id === acc.id).reduce((s: number, tl: any) => s + Number(tl.revenue ?? 0), 0);
       const tips  = Number(acc.ltv_tips ?? 0);
       const subs  = Number(acc.ltv_subscriptions ?? 0);
       const posts = Number(acc.ltv_posts ?? 0);
       const total = Number(acc.ltv_total ?? 0);
       const msg   = Math.max(0, total - camp - tips - subs - posts);
+      const subCount = (accTxCounts.get("new_subscription") ?? 0) + (accTxCounts.get("recurring_subscription") ?? 0);
       const arr = [
-        { type: "campaigns",     revenue: camp },
-        { type: "message",       revenue: msg },
-        { type: "tip",           revenue: tips },
-        { type: "subscriptions", revenue: subs },
-        { type: "post",          revenue: posts },
+        { type: "campaigns",     revenue: camp, count: subCount },
+        { type: "message",       revenue: msg,  count: (accTxCounts.get("message") ?? 0) + (accTxCounts.get("chat") ?? 0) + (accTxCounts.get("ppv") ?? 0) },
+        { type: "tip",           revenue: tips, count: accTxCounts.get("tip") ?? 0 },
+        { type: "subscriptions", revenue: subs, count: subCount },
+        { type: "post",          revenue: posts, count: accTxCounts.get("post") ?? 0 },
       ].filter(r => r.revenue > 0);
       if (arr.length > 0) map.set(acc.id, arr);
     }
     return map;
-  }, [accounts, allTrackingLinks]);
+  }, [accounts, allTrackingLinks, txCountPerAccount]);
 
 
   const SPENDERS_PER_PAGE = 50;
@@ -955,7 +974,7 @@ export default function FansPage() {
                   <KpiCard label="Spenders" value={fmtNum(globalStats?.spenders)}
                     sub={totalSubsAll > 0 ? `${((globalStats.spenders / totalSubsAll) * 100).toFixed(1)}% of ${fmtNum(totalSubsAll)} subs` : undefined}
                     icon={DollarSign} color="bg-emerald-500" />
-                  <KpiCard label="Fan Revenue" value={fmt$(globalStats?.total_revenue)} icon={TrendingUp} color="bg-primary" />
+                  <KpiCard label="Transactions" value={fmtNum(txCount)} sub={txCount > 0 ? `${txTypeSummary.slice(0,2).map(t => txMeta(t.type).label + " " + fmtNum(t.count)).join(" · ")}` : undefined} icon={TrendingUp} color="bg-primary" />
                   <KpiCard label="Avg / Spender" value={fmt$(globalStats?.avg_per_spender)} icon={DollarSign} />
                   <KpiCard label="Cross-Poll" value={fmtNum(globalStats?.cross_poll_fans)} sub={fmt$(globalStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
                 </>

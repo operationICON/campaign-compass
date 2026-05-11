@@ -50,6 +50,7 @@ router.get("/type-totals", async (c) => {
       account_id: transactions.account_id,
       type: transactions.type,
       revenue: sql<number>`sum(${transactions.revenue})`,
+      tx_count: sql<number>`count(*)`,
     })
     .from(transactions)
     .groupBy(transactions.account_id, transactions.type);
