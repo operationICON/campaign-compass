@@ -973,10 +973,9 @@ export default function FansPage() {
                     const tips      = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
                     const subs      = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
                     const posts     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_posts ?? 0), 0);
-                    const grandTotal = campRev + messages + tips + subs + posts;
+                    const grandTotal = messages + tips + subs + posts;
                     const pct = (v: number) => grandTotal > 0 ? (v / grandTotal) * 100 : 0;
-                    const rows = [
-                      { label: "Campaigns",     revenue: campRev,  color: "#6366f1", badgeClass: "bg-primary/15 text-primary" },
+                    const typeRows = [
                       { label: "Message",       revenue: messages, color: "#10b981", badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
                       { label: "Tip",           revenue: tips,     color: "#f59e0b", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
                       { label: "Subscriptions", revenue: subs,     color: "#22d3ee", badgeClass: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
@@ -984,7 +983,7 @@ export default function FansPage() {
                     ].filter(r => r.revenue > 0);
                     return (
                       <div className="px-5 py-4 space-y-3">
-                        {rows.map(r => (
+                        {typeRows.map(r => (
                           <div key={r.label}>
                             <div className="flex items-center justify-between mb-1 text-xs">
                               <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", r.badgeClass)}>{r.label}</span>
@@ -1001,6 +1000,14 @@ export default function FansPage() {
                         <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
                           <span className="font-bold text-foreground">TOTAL</span>
                           <span className="font-bold text-foreground tabular-nums">{fmt$(grandTotal)}</span>
+                        </div>
+                        <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Campaigns (attributed)</span>
+                          <span className="tabular-nums">{fmt$(campRev)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Unattributed</span>
+                          <span className="tabular-nums">{fmt$(Math.max(0, grandTotal - campRev))}</span>
                         </div>
                       </div>
                     );
