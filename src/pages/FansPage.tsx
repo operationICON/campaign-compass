@@ -1090,6 +1090,49 @@ export default function FansPage() {
     return m;
   }, [accounts]);
 
+  const allTlMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    for (const tl of allTrackingLinks as any[]) m[tl.id] = tl;
+    return m;
+  }, [allTrackingLinks]);
+
+  // Cross-poll grouped: account → campaign → fans
+  const crossPollByAccount = useMemo(() => {
+    type CampEntry = { campaignName: string; tlId: string | null; revenue: number; fanCount: number; fans: any[] };
+    type AccEntry  = { revenue: number; fanCount: number; byCampaign: Map<string, CampEntry> };
+    const map = new Map<string, AccEntry>();
+
+    for (const fan of crossPollQuery.data ?? []) {
+      for (const par of fan.per_account_revenue) {
+        const accId = par.account_id;
+        const rev   = Number(par.revenue ?? 0);
+        if (!map.has(accId)) map.set(accId, { revenue: 0, fanCount: 0, byCampaign: new Map() });
+        const acc = map.get(accId)!;
+        acc.revenue   += rev;
+        acc.fanCount  += 1;
+
+        const tl      = fan.first_subscribe_link_id ? allTlMap[fan.first_subscribe_link_id] : null;
+        const campKey = fan.first_subscribe_link_id ?? "none";
+        const campName = tl?.campaign_name || tl?.external_tracking_link_id || "Direct / Unknown";
+        if (!acc.byCampaign.has(campKey))
+          acc.byCampaign.set(campKey, { campaignName: campName, tlId: fan.first_subscribe_link_id, revenue: 0, fanCount: 0, fans: [] });
+        const camp = acc.byCampaign.get(campKey)!;
+        camp.revenue  += rev;
+        camp.fanCount += 1;
+        camp.fans.push(fan);
+      }
+    }
+    return map;
+  }, [crossPollQuery.data, allTlMap]);
+
+  const [expandedCpAccounts,  setExpandedCpAccounts]  = useState<Set<string>>(new Set());
+  const [expandedCpCampaigns, setExpandedCpCampaigns] = useState<Set<string>>(new Set());
+  const [expandedCpFans,      setExpandedCpFans]      = useState<Set<string>>(new Set());
+
+  function toggleCpAccount(id: string)  { setExpandedCpAccounts(p  => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+  function toggleCpCampaign(id: string) { setExpandedCpCampaigns(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+  function toggleCpFan(id: string)      { setExpandedCpFans(p      => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+
   function toggleExpand(fanId: string) {
     setExpandedFans(prev => {
       const next = new Set(prev);
@@ -1357,131 +1400,142 @@ export default function FansPage() {
 
             {/* ── CROSS-POLL FANS ──────────────────────────────────────────── */}
             {(() => {
-              const cpFans = crossPollQuery.data ?? [];
-              const cpTotal = cpFans.reduce((s, f) => s + Number(f.total_revenue ?? 0), 0);
-              if (!crossPollQuery.isLoading && cpFans.length === 0) return null;
+              const cpFans  = crossPollQuery.data ?? [];
+              const cpTotal = [...crossPollByAccount.values()].reduce((s, v) => s + v.revenue, 0);
+              const cpCount = cpFans.length;
+              if (!crossPollQuery.isLoading && cpCount === 0) return null;
+
               return (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <GitMerge className="w-4 h-4 text-violet-400" />
-                      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cross-Poll Fans</h2>
-                      {cpFans.length > 0 && (
-                        <span className="text-xs bg-violet-500/15 text-violet-400 px-2 py-0.5 rounded-full font-medium">
-                          {fmtNum(cpFans.length)} fans · {fmt$(cpTotal)}
-                        </span>
-                      )}
-                    </div>
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <GitMerge className="w-4 h-4 text-violet-400" />
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cross-Poll Fans</h2>
+                    {cpCount > 0 && (
+                      <span className="text-xs bg-violet-500/15 text-violet-400 px-2 py-0.5 rounded-full font-medium">
+                        {fmtNum(cpCount)} unique fans · {fmt$(cpTotal)}
+                      </span>
+                    )}
                   </div>
-                  <div className="bg-card border border-border rounded-xl overflow-hidden">
-                    {crossPollQuery.isLoading ? (
-                      <div className="p-4 space-y-2">
-                        {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-10 w-full rounded" />)}
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-border bg-muted/30">
-                              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
-                              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accounts</th>
-                              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Acquisition Campaign</th>
-                              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Since</th>
-                              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Revenue</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {cpFans.map(fan => {
-                              const tl = fan.first_subscribe_link_id
-                                ? (allTrackingLinks as any[]).find((l: any) => l.id === fan.first_subscribe_link_id)
-                                : null;
-                              const acqAcc = tl?.account_id ? accountMap[tl.account_id] : null;
-                              return (
-                                <Fragment key={fan.id}>
-                                  <tr className="border-b border-border/30 hover:bg-muted/20 transition-colors">
-                                    {/* Fan */}
-                                    <td className="px-4 py-3">
-                                      <div className="flex items-center gap-2.5">
-                                        {fan.avatar_url
-                                          ? <img src={fan.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                                          : <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-400 shrink-0">
-                                              {((fan.username ?? fan.fan_id) as string).slice(0,2).toUpperCase()}
-                                            </div>}
-                                        <div className="min-w-0">
-                                          <div className="font-semibold text-sm truncate max-w-40">
-                                            {fan.display_name || fan.username || fan.fan_id}
+
+                  {crossPollQuery.isLoading ? (
+                    <div className="space-y-2">
+                      {[1,2,3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {sortedAccounts.map((acc: any) => {
+                        const cpAcc = crossPollByAccount.get(acc.id);
+                        if (!cpAcc) return null;
+                        const isAccOpen = expandedCpAccounts.has(acc.id);
+
+                        return (
+                          <div key={acc.id} className="bg-card border border-border rounded-xl overflow-hidden">
+                            {/* Account row */}
+                            <button
+                              onClick={() => toggleCpAccount(acc.id)}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+                            >
+                              <ChevronRight className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", isAccOpen && "rotate-90")} />
+                              {acc.avatar_thumb_url
+                                ? <img src={acc.avatar_thumb_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                : <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-400 shrink-0">{acc.display_name.slice(0,2).toUpperCase()}</div>}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm">{acc.display_name}</div>
+                                <div className="text-xs text-muted-foreground">{fmtNum(cpAcc.fanCount)} cross-poll fans · {fmtNum(cpAcc.byCampaign.size)} campaign{cpAcc.byCampaign.size !== 1 ? "s" : ""}</div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-bold text-sm text-emerald-400 tabular-nums">{fmt$(cpAcc.revenue)}</div>
+                                <div className="text-[10px] text-muted-foreground">from cross-poll</div>
+                              </div>
+                            </button>
+
+                            {/* Campaign rows */}
+                            {isAccOpen && (
+                              <div className="border-t border-border/40">
+                                {[...cpAcc.byCampaign.entries()]
+                                  .sort(([,a],[,b]) => b.revenue - a.revenue)
+                                  .map(([campKey, camp]) => {
+                                    const campId  = acc.id + ":" + campKey;
+                                    const isCampOpen = expandedCpCampaigns.has(campId);
+                                    return (
+                                      <div key={campKey} className="border-b border-border/20 last:border-0">
+                                        {/* Campaign header */}
+                                        <button
+                                          onClick={() => toggleCpCampaign(campId)}
+                                          className="w-full flex items-center gap-3 pl-12 pr-4 py-2.5 hover:bg-muted/20 transition-colors text-left"
+                                        >
+                                          <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", isCampOpen && "rotate-90")} />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium truncate">{camp.campaignName}</div>
+                                            <div className="text-xs text-muted-foreground">{fmtNum(camp.fanCount)} fan{camp.fanCount !== 1 ? "s" : ""}</div>
                                           </div>
-                                          <div className="text-xs text-muted-foreground">@{fan.username || fan.fan_id}</div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    {/* Accounts + per-account revenue */}
-                                    <td className="px-4 py-3">
-                                      <div className="flex flex-col gap-1.5">
-                                        {fan.per_account_revenue.map((par: any) => {
-                                          const acc = accountMap[par.account_id];
-                                          return (
-                                            <div key={par.account_id} className="flex items-center gap-2">
-                                              {acc?.avatar_thumb_url
-                                                ? <img src={acc.avatar_thumb_url} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
-                                                : <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">
-                                                    {(acc?.display_name || "?").slice(0,2).toUpperCase()}
-                                                  </div>}
-                                              <span className="text-xs text-muted-foreground truncate max-w-28">{acc?.display_name || par.account_id.slice(0,8)}</span>
-                                              <span className="text-xs font-semibold tabular-nums text-emerald-400 ml-auto shrink-0">{fmt$(Number(par.revenue))}</span>
-                                            </div>
-                                          );
-                                        })}
-                                        {fan.per_account_revenue.length === 0 && (
-                                          <div className="flex items-center gap-1.5">
-                                            {fan.account_ids.map((aid: string) => {
-                                              const acc = accountMap[aid];
-                                              return acc?.avatar_thumb_url
-                                                ? <img key={aid} src={acc.avatar_thumb_url} alt="" className="w-6 h-6 rounded-full object-cover" title={acc.display_name} />
-                                                : <div key={aid} className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground" title={acc?.display_name}>
-                                                    {(acc?.display_name || "?").slice(0,2).toUpperCase()}
-                                                  </div>;
-                                            })}
-                                            <span className="text-xs text-muted-foreground ml-1">{fan.account_count} accounts</span>
+                                          <span className="text-sm font-semibold tabular-nums text-emerald-400 shrink-0">{fmt$(camp.revenue)}</span>
+                                        </button>
+
+                                        {/* Fan rows under campaign */}
+                                        {isCampOpen && (
+                                          <div className="bg-muted/10">
+                                            {camp.fans
+                                              .sort((a, b) => Number(b.total_revenue ?? 0) - Number(a.total_revenue ?? 0))
+                                              .map(fan => {
+                                                const isFanOpen  = expandedCpFans.has(fan.id);
+                                                // revenue this fan generates specifically on this account
+                                                const accRev = fan.per_account_revenue.find((p: any) => p.account_id === acc.id);
+                                                const fanAccRev = Number(accRev?.revenue ?? 0);
+                                                // other accounts this fan is also on
+                                                const otherAccs = fan.per_account_revenue.filter((p: any) => p.account_id !== acc.id);
+                                                return (
+                                                  <Fragment key={fan.id}>
+                                                    <div
+                                                      onClick={() => toggleCpFan(fan.id)}
+                                                      className={cn("flex items-center gap-3 pl-20 pr-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-t border-border/10", isFanOpen && "bg-muted/20")}
+                                                    >
+                                                      <ChevronRight className={cn("w-3 h-3 text-muted-foreground shrink-0 transition-transform", isFanOpen && "rotate-90")} />
+                                                      {fan.avatar_url
+                                                        ? <img src={fan.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                                                        : <div className="w-7 h-7 rounded-full bg-violet-500/15 flex items-center justify-center text-[9px] font-bold text-violet-400 shrink-0">
+                                                            {((fan.username ?? fan.fan_id) as string).slice(0,2).toUpperCase()}
+                                                          </div>}
+                                                      <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-semibold truncate">{fan.display_name || fan.username || fan.fan_id}</div>
+                                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                                          <span className="text-[10px] text-muted-foreground">Also on:</span>
+                                                          {otherAccs.length > 0 ? otherAccs.map((p: any) => {
+                                                            const oa = accountMap[p.account_id];
+                                                            return oa?.avatar_thumb_url
+                                                              ? <img key={p.account_id} src={oa.avatar_thumb_url} alt={oa.display_name} title={`${oa.display_name} · ${fmt$(Number(p.revenue))}`} className="w-4 h-4 rounded-full object-cover" />
+                                                              : <div key={p.account_id} title={`${oa?.display_name || p.account_id} · ${fmt$(Number(p.revenue))}`} className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground">
+                                                                  {(oa?.display_name || "?").slice(0,2).toUpperCase()}
+                                                                </div>;
+                                                          }) : <span className="text-[10px] text-muted-foreground/50">—</span>}
+                                                        </div>
+                                                      </div>
+                                                      <div className="text-right shrink-0">
+                                                        <div className="text-xs font-bold tabular-nums text-emerald-400">{fmt$(fanAccRev)}</div>
+                                                        <div className="text-[10px] text-muted-foreground">on {acc.display_name.split(" ")[0]}</div>
+                                                      </div>
+                                                    </div>
+                                                    {isFanOpen && (
+                                                      <div className="pl-14 pr-4 pb-3">
+                                                        <FanDetailDropdown fan={fan} allTrackingLinks={allTrackingLinks as any[]} accountMap={accountMap} />
+                                                      </div>
+                                                    )}
+                                                  </Fragment>
+                                                );
+                                              })}
                                           </div>
                                         )}
                                       </div>
-                                    </td>
-                                    {/* Campaign */}
-                                    <td className="px-4 py-3 hidden lg:table-cell">
-                                      {tl ? (
-                                        <div>
-                                          <div className="text-xs font-medium truncate max-w-40">
-                                            {tl.campaign_name || tl.external_tracking_link_id || "Unnamed"}
-                                          </div>
-                                          {acqAcc && (
-                                            <div className="text-[10px] text-muted-foreground">{acqAcc.display_name}</div>
-                                          )}
-                                        </div>
-                                      ) : <span className="text-xs text-muted-foreground/40">—</span>}
-                                    </td>
-                                    {/* Since */}
-                                    <td className="px-4 py-3 hidden md:table-cell">
-                                      {fan.first_subscribe_date ? (
-                                        <div>
-                                          <div className="text-xs">{fmtShortDate(fan.first_subscribe_date)}</div>
-                                          <div className="text-[10px] text-muted-foreground">{timeAgo(fan.first_subscribe_date)}</div>
-                                        </div>
-                                      ) : <span className="text-xs text-muted-foreground/40">—</span>}
-                                    </td>
-                                    {/* Total */}
-                                    <td className="px-4 py-3 text-right">
-                                      <span className="font-bold tabular-nums text-emerald-500">{fmt$(Number(fan.total_revenue))}</span>
-                                    </td>
-                                  </tr>
-                                </Fragment>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                                    );
+                                  })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })()}
