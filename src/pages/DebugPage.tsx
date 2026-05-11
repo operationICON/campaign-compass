@@ -39,6 +39,8 @@ export default function DebugPage() {
   const [attrCheckLoading, setAttrCheckLoading] = useState(false);
   const [subProbeResult, setSubProbeResult] = useState<any>(null);
   const [subProbeLoading, setSubProbeLoading] = useState(false);
+  const [spenderDiagResult, setSpenderDiagResult] = useState<any>(null);
+  const [spenderDiagLoading, setSpenderDiagLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -217,6 +219,14 @@ export default function DebugPage() {
     }
   }, []);
 
+  const runSpenderDiag = useCallback(async () => {
+    setSpenderDiagLoading(true);
+    setSpenderDiagResult(null);
+    try { setSpenderDiagResult(await debugAction("spender_attr_diag")); }
+    catch (err: any) { setSpenderDiagResult({ error: err.message }); }
+    finally { setSpenderDiagLoading(false); }
+  }, []);
+
   const runSubProbe = useCallback(async () => {
     setSubProbeLoading(true);
     setSubProbeResult(null);
@@ -251,6 +261,58 @@ export default function DebugPage() {
 
         {/* Section 5 — Credit Monitor (always visible) */}
         <CreditMonitor balance={creditBalance} sessionUsed={sessionCredits} />
+
+        {/* Spender Attribution Diagnostic */}
+        <div className="bg-card border border-emerald-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-emerald-400" /> Spender Attribution Diagnostic
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shows how many fans already have tracking link attribution in fan_attributions / fan_spend vs how many still need it via OFAPI
+              </p>
+            </div>
+            <button
+              onClick={runSpenderDiag}
+              disabled={spenderDiagLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            >
+              {spenderDiagLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              {spenderDiagLoading ? "Checking…" : "Run Spender Diag"}
+            </button>
+          </div>
+          {spenderDiagResult && (
+            <div className="space-y-3">
+              {spenderDiagResult.error && <p className="text-xs text-destructive">{spenderDiagResult.error}</p>}
+              {spenderDiagResult.recommendation && (
+                <div className={`px-3 py-2 rounded-lg text-[11px] font-medium border ${spenderDiagResult.recommendation.startsWith("USE_EXISTING") ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-amber-500/10 border-amber-500/30 text-amber-400"}`}>
+                  {spenderDiagResult.recommendation}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "fans table", data: spenderDiagResult.fans, fields: [["total","Total fans"],["with_link","With attribution"],["without_link","Need attribution"],["with_fan_id","Have OF fan ID"]] },
+                  { label: "transactions", data: spenderDiagResult.transactions, fields: [["total_tx","Total txns"],["distinct_fans","Distinct fans"],["accounts","Accounts"],["total_revenue","Revenue"]] },
+                  { label: "fan_attributions", data: spenderDiagResult.fan_attributions, fields: [["total","Total rows"],["with_tl","With tracking link"],["with_fan_id","With fan ID"],["with_username","With username"]] },
+                  { label: "fan_spend", data: spenderDiagResult.fan_spend, fields: [["total","Total rows"],["with_tl","With tracking link"],["distinct_fans","Distinct fans"],["total_revenue","Revenue"]] },
+                ].map(({ label, data, fields }) => data && (
+                  <div key={label} className="bg-secondary/40 rounded-lg p-3 space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">{label}</p>
+                    {fields.map(([key, name]) => (
+                      <div key={key} className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">{name}</span>
+                        <span className={`font-mono font-semibold ${key === "with_tl" && Number(data[key]) > 0 ? "text-emerald-400" : key === "without_link" && Number(data[key]) > 0 ? "text-amber-400" : "text-foreground"}`}>
+                          {key === "total_revenue" ? `$${Number(data[key]).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : Number(data[key]).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Subscriber Endpoint Probe */}
         <div className="bg-card border border-pink-500/30 rounded-lg p-5 space-y-3">
