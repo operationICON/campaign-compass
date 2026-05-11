@@ -101,14 +101,26 @@ router.get("/", async (c) => {
     : sql``;
 
   const rows = await db.execute(sql`
+    WITH tx_sum AS (
+      SELECT
+        fan_username,
+        COALESCE(SUM(CASE WHEN type = 'tip' THEN revenue::numeric ELSE 0 END), 0)       AS tip_revenue,
+        COUNT(CASE WHEN type IN ('message','chat','ppv') THEN 1 END)::int                AS message_count
+      FROM transactions
+      WHERE revenue IS NOT NULL AND revenue::numeric > 0
+      GROUP BY fan_username
+    )
     SELECT
       f.id, f.fan_id, f.username, f.display_name, f.avatar_url, f.status,
       f.tags, f.notes, f.total_revenue, f.total_transactions,
       f.first_transaction_at, f.last_transaction_at, f.is_cross_poll,
       f.is_new_fan, f.first_subscribe_date, f.first_subscribe_account,
       f.acquired_via_account_id, f.join_date, f.created_at,
-      (SELECT COUNT(DISTINCT fas.account_id) FROM fan_account_stats fas WHERE fas.fan_id = f.id) AS account_count
+      (SELECT COUNT(DISTINCT fas.account_id) FROM fan_account_stats fas WHERE fas.fan_id = f.id) AS account_count,
+      COALESCE(ts.tip_revenue,    0) AS tip_revenue,
+      COALESCE(ts.message_count,  0) AS message_count
     FROM fans f
+    LEFT JOIN tx_sum ts ON ts.fan_username = f.fan_id
     ${whereClause}
     ORDER BY ${sql.raw(orderCol)} ${sql.raw(sortDir)} NULLS LAST
     LIMIT ${limitRaw} OFFSET ${offsetRaw}

@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, Fragment } from "react";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Users, DollarSign, TrendingUp, RefreshCw,
   Search, ChevronDown, ChevronRight, ChevronLeft, GitMerge, X,
-  ExternalLink, ArrowLeft, Award,
+  ExternalLink, ArrowLeft, Award, Eye, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,16 @@ function fmtDate(d: string | null | undefined) {
 function fmtShortDate(d: string | null | undefined) {
   if (!d) return "—";
   try { return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+  catch { return "—"; }
+}
+function fmtDateTime(d: string | null | undefined) {
+  if (!d) return "—";
+  try { return format(new Date(d), "MMM d, h:mmaaa"); }
+  catch { return "—"; }
+}
+function timeAgo(d: string | null | undefined) {
+  if (!d) return "—";
+  try { return formatDistanceToNow(new Date(d), { addSuffix: true }); }
   catch { return "—"; }
 }
 
@@ -609,7 +619,6 @@ export default function FansPage() {
   const [spendersOnly, setSpendersOnly] = useState(true);
   const [sortKey, setSortKey] = useState<FanSortKey>("revenue");
   const [fanPage, setFanPage] = useState(1);
-  const [expandedFans, setExpandedFans] = useState<Set<string>>(new Set());
   const [editFan, setEditFan] = useState<any | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
@@ -623,7 +632,6 @@ export default function FansPage() {
   useEffect(() => {
     setCampaignFilter("all");
     setSearch("");
-    setExpandedFans(new Set());
     setFanPage(1);
     setSortKey("revenue");
   }, [selectedAccountId]);
@@ -852,25 +860,11 @@ export default function FansPage() {
   const safePage = Math.min(fanPage, totalFanPages);
   const paginatedFans = sortedFans.slice((safePage - 1) * FANS_PER_PAGE, safePage * FANS_PER_PAGE);
 
-  // Max revenue for relative bar per fan
-  const maxFanRevenue = useMemo(
-    () => Math.max(...rawFans.map(f => Number(f.total_revenue ?? 0)), 1),
-    [rawFans]
-  );
-
   const accountMap = useMemo(() => {
     const m: Record<string, any> = {};
     for (const a of accounts) m[(a as any).id] = a;
     return m;
   }, [accounts]);
-
-  function toggleExpand(fanId: string) {
-    setExpandedFans(prev => {
-      const next = new Set(prev);
-      if (next.has(fanId)) next.delete(fanId); else next.add(fanId);
-      return next;
-    });
-  }
 
   async function handleSync(full = false) {
     setSyncing(true);
@@ -915,7 +909,7 @@ export default function FansPage() {
                 )}
                 <div>
                   <h1 className="text-xl font-bold">{selectedAccount.display_name}</h1>
-                  <p className="text-xs text-muted-foreground">Fan analytics · click a fan to expand transactions</p>
+                  <p className="text-xs text-muted-foreground">Fan analytics · click <Eye className="inline w-3 h-3" /> to view details</p>
                 </div>
               </div>
             ) : (
@@ -1221,30 +1215,29 @@ export default function FansPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="w-8 px-3 py-2.5" />
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Fan</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden lg:table-cell">Campaign</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">First seen</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Last seen</th>
-                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Revenue</th>
-                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground w-14">Txns</th>
-                    <th className="w-12 px-3 py-2.5" />
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Lifetime Value</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Subscription Start</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Last Active</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Subscription</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoadingFans ? (
                     Array.from({ length: 15 }).map((_, i) => (
                       <tr key={i} className="border-b border-border/50">
-                        {[28, 160, 120, 80, 80, 80, 32, 0].map((w, j) => (
-                          <td key={j} className={cn("px-3 py-3", j === 2 ? "hidden lg:table-cell" : j === 3 || j === 4 ? "hidden md:table-cell" : "")}>
-                            {w > 0 && <Skeleton className={`h-4 rounded`} style={{ width: w }} />}
+                        {[180, 100, 60, 120, 120, 70, 64].map((w, j) => (
+                          <td key={j} className={cn("px-4 py-3", j === 3 ? "hidden md:table-cell" : j === 4 ? "hidden md:table-cell" : j === 5 ? "hidden lg:table-cell" : "")}>
+                            <Skeleton className="h-4 rounded" style={{ width: w }} />
                           </td>
                         ))}
                       </tr>
                     ))
                   ) : paginatedFans.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center">
+                      <td colSpan={7} className="py-8 text-center">
                         <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
                         {totalFans === 0 && txCount > 0 ? (
                           <>
@@ -1262,90 +1255,94 @@ export default function FansPage() {
                     </tr>
                   ) : (
                     paginatedFans.map((fan: any, rowIdx: number) => {
-                      const rev = Number(fan.total_revenue ?? 0);
+                      const rev      = Number(fan.total_revenue ?? 0);
+                      const tips     = Number(fan.tip_revenue ?? 0);
+                      const msgCount = Number(fan.message_count ?? 0);
                       const isSpender = rev > 0;
-                      const isExpanded = expandedFans.has(fan.id);
-                      const campaignTl = fan.first_subscribe_link_id ? tlMap[fan.first_subscribe_link_id] : null;
-                      const revPct = isSpender ? (rev / maxFanRevenue) * 100 : 0;
                       const globalRank = (safePage - 1) * FANS_PER_PAGE + rowIdx + 1;
                       const isTopFan = globalRank === 1 && sortKey === "revenue";
+                      const statusVal = (fan.status ?? "").toLowerCase();
+                      const subDate = fan.first_subscribe_date || fan.first_transaction_at;
 
                       return (
-                        <>
-                          <tr key={fan.id}
-                            onClick={() => toggleExpand(fan.id)}
-                            className={cn(
-                              "border-b border-border/50 cursor-pointer hover:bg-muted/30 transition-colors",
-                              isExpanded && "bg-muted/20"
-                            )}>
-                            <td className="px-3 py-2.5 text-muted-foreground">
-                              {isExpanded
-                                ? <ChevronDown className="w-3.5 h-3.5" />
-                                : <ChevronRight className="w-3.5 h-3.5" />}
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <FanAvatar fan={fan} size={26} />
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-medium text-sm truncate max-w-40">
-                                      {fan.username ? `@${fan.username}` : fan.fan_id}
-                                    </span>
-                                    {isTopFan && (
-                                      <Award className="w-3 h-3 text-amber-400 flex-shrink-0" title="Top spender" />
-                                    )}
-                                  </div>
-                                  {fan.is_cross_poll && (
-                                    <span className="text-[10px] text-violet-500 flex items-center gap-0.5">
-                                      <GitMerge className="w-2.5 h-2.5" /> cross-poll
-                                    </span>
-                                  )}
+                        <tr key={fan.id} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
+                          {/* Fan */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <FanAvatar fan={fan} size={32} />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-sm truncate max-w-44">
+                                    {fan.display_name || fan.username || fan.fan_id}
+                                  </span>
+                                  {isTopFan && <Award className="w-3 h-3 text-amber-400 shrink-0" title="Top spender" />}
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate max-w-44">
+                                  @{fan.username || fan.fan_id}
+                                  {fan.is_cross_poll && <span className="ml-1.5 text-violet-500">· cross-poll</span>}
                                 </div>
                               </div>
-                            </td>
-                            <td className="px-3 py-2.5 hidden lg:table-cell">
-                              {campaignTl ? (
-                                <span className="text-xs text-muted-foreground truncate max-w-36 block">
-                                  {campaignTl.campaign_name || campaignTl.external_tracking_link_id || "—"}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground/40">—</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
-                              {fmtShortDate(fan.first_transaction_at)}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
-                              {fmtShortDate(fan.last_transaction_at)}
-                            </td>
-                            <td className="px-3 py-2.5 text-right">
-                              <span className={cn("font-semibold tabular-nums text-sm", isSpender ? "text-emerald-500" : "text-muted-foreground")}>
-                                {isSpender ? fmt$(rev) : "—"}
+                            </div>
+                          </td>
+                          {/* Lifetime Value */}
+                          <td className="px-4 py-3">
+                            <div className={cn("font-semibold tabular-nums text-sm", isSpender ? "" : "text-muted-foreground")}>
+                              {isSpender ? fmt$(rev) : "—"}
+                            </div>
+                            {tips > 0 && <div className="text-xs text-muted-foreground">Tips: {fmt$(tips)}</div>}
+                          </td>
+                          {/* Messages */}
+                          <td className="px-4 py-3">
+                            <span className="tabular-nums text-sm">{msgCount > 0 ? fmtNum(msgCount) : "—"}</span>
+                          </td>
+                          {/* Subscription Start */}
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            {subDate ? (
+                              <>
+                                <div className="text-sm">{fmtDateTime(subDate)}</div>
+                                <div className="text-xs text-muted-foreground">{timeAgo(subDate)}</div>
+                              </>
+                            ) : <span className="text-muted-foreground text-sm">—</span>}
+                          </td>
+                          {/* Last Active */}
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            {fan.last_transaction_at ? (
+                              <>
+                                <div className="text-sm">{fmtDateTime(fan.last_transaction_at)}</div>
+                                <div className="text-xs text-muted-foreground">{timeAgo(fan.last_transaction_at)}</div>
+                              </>
+                            ) : <span className="text-muted-foreground text-sm">—</span>}
+                          </td>
+                          {/* Subscription status */}
+                          <td className="px-4 py-3 hidden lg:table-cell">
+                            {statusVal ? (
+                              <span className={cn(
+                                "px-2.5 py-1 rounded-full text-xs font-semibold",
+                                statusVal === "active"   ? "bg-emerald-500/20 text-emerald-400" :
+                                statusVal === "expired"  ? "bg-red-500/20 text-red-400" :
+                                statusVal === "inactive" ? "bg-yellow-500/20 text-yellow-400" :
+                                                           "bg-muted text-muted-foreground"
+                              )}>
+                                {statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}
                               </span>
-                              {isSpender && (
-                                <div className="w-full h-1 bg-muted rounded-full mt-1">
-                                  <div className="h-full bg-emerald-500/50 rounded-full"
-                                    style={{ width: `${revPct}%` }} />
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
-                              {fan.total_transactions ?? "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-right"
-                              onClick={e => { e.stopPropagation(); setEditFan(fan); }}>
-                              <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Edit</span>
-                            </td>
-                          </tr>
-                          {isExpanded && (
-                            <tr key={`${fan.id}-tx`} className="bg-muted/10 border-b border-border/50">
-                              <td />
-                              <td colSpan={7} className="py-0">
-                                <InlineTxList fanDbId={fan.id} accountMap={accountMap} showAccount={false} />
-                              </td>
-                            </tr>
-                          )}
-                        </>
+                            ) : <span className="text-muted-foreground text-xs">—</span>}
+                          </td>
+                          {/* Actions */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button onClick={() => setEditFan(fan)}
+                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                title="View details">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => setEditFan(fan)}
+                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                                title="Edit notes">
+                                <Sparkles className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
                       );
                     })
                   )}
