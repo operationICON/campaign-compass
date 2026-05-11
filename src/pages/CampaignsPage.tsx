@@ -1001,7 +1001,6 @@ export default function CampaignsPage() {
                             default: return null;
                           }
                         })}
-                        <th className="text-center whitespace-nowrap bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }} title="Fan sync status">👥</th>
                         <th className="text-center whitespace-nowrap bg-card" style={{ height: "44px", padding: "8px 4px", width: "28px" }}></th>
                         <th className="text-center whitespace-nowrap bg-card text-muted-foreground" style={{ height: "44px", padding: "8px 12px", width: "28px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}></th>
                       </tr>
@@ -1433,16 +1432,6 @@ export default function CampaignsPage() {
                                 default: return null;
                               }
                             })}
-                            <td className="w-7 text-center" style={{ padding: "8px 4px" }} title={link.fans_last_synced_at ? `Fan data synced: ${format(new Date(link.fans_last_synced_at), "MMM d, yyyy")}` : "Fan data not yet synced"}>
-                              {(() => {
-                                const synced = link.fans_last_synced_at;
-                                if (!synced) return <Users className="h-3.5 w-3.5 text-muted-foreground mx-auto" />;
-                                const daysSince = Math.floor((Date.now() - new Date(synced).getTime()) / 86400000);
-                                if (daysSince <= 7) return <Users className="h-3.5 w-3.5 text-primary mx-auto" />;
-                                if (daysSince <= 30) return <Users className="h-3.5 w-3.5 text-[hsl(var(--warning))] mx-auto" />;
-                                return <Users className="h-3.5 w-3.5 text-muted-foreground mx-auto" />;
-                              })()}
-                            </td>
                             <td className="w-7 text-center" style={{ padding: "8px 4px" }} onClick={(e) => e.stopPropagation()}>
                               <button onClick={() => setDrawerCampaign(link)}
                                 className="p-1 rounded hover:bg-secondary transition-colors opacity-0 group-hover:opacity-100">
