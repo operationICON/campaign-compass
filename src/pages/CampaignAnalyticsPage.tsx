@@ -8,15 +8,16 @@ import {
 } from "recharts";
 import {
   ChevronLeft, Search, Info, Copy, Check,
-  TrendingUp, ChevronDown,
+  TrendingUp, ChevronDown, X, ExternalLink,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModelAvatar } from "@/components/ModelAvatar";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { fetchAccounts } from "@/lib/supabase-helpers";
 import {
   getCampaignAnalyticsList, getCampaignTrend,
-  getCampaignSpenders, getCampaignCohortArps,
+  getCampaignSpenders, getCampaignCohortArps, getFan,
 } from "@/lib/api";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -367,10 +368,19 @@ function PerformanceView({
     queryFn: () => getCampaignTrend(campaign.id, trendWindow),
   });
 
-  const { data: spenders = [], isLoading: spendersLoading } = useQuery({
+  const [viewFan, setViewFan] = useState<any | null>(null);
+  const [spendersPage, setSpendersPage] = useState(1);
+  const SPENDERS_PER_PAGE = 50;
+
+  const { data: spendersData, isLoading: spendersLoading } = useQuery({
     queryKey: ["ca_spenders", campaign.id],
-    queryFn: () => getCampaignSpenders(campaign.id, 20),
+    queryFn: () => getCampaignSpenders(campaign.id, 500),
   });
+  const spenders: any[] = spendersData?.rows ?? [];
+  const spendersTotal = spendersData?.total ?? 0;
+  const spenderPages = Math.max(1, Math.ceil(spenders.length / SPENDERS_PER_PAGE));
+  const safePage = Math.min(spendersPage, spenderPages);
+  const pagedSpenders = spenders.slice((safePage - 1) * SPENDERS_PER_PAGE, safePage * SPENDERS_PER_PAGE);
 
   const trendData = useMemo(() => {
     const rows = (trendRaw as any[]).map(r => ({
@@ -575,77 +585,277 @@ function PerformanceView({
         </div>
       </div>
 
-      {/* Top Spenders */}
+      {/* Spenders table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-foreground">Top Spenders</h2>
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-foreground">Spenders</h2>
+            {!spendersLoading && (
+              <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                {spenders.length}{spendersTotal > spenders.length ? ` of ${spendersTotal}` : ""}
+              </span>
+            )}
+          </div>
+          {!spendersLoading && spenders.length > 0 && (
+            <span className="text-xs text-muted-foreground">Click a row to view fan details</span>
+          )}
         </div>
 
         {spendersLoading ? (
           <div className="p-5 space-y-3">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
+            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
           </div>
-        ) : (spenders as any[]).length === 0 ? (
-          <div className="px-5 py-5 text-center text-muted-foreground text-sm">
-            No spender data yet. Fan sync may be needed.
+        ) : spenders.length === 0 ? (
+          <div className="px-5 py-8 text-center text-muted-foreground text-sm">
+            No spender data yet. Run a Fan Sync to populate.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/20">
-                <th className="px-5 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
-                <th className="px-5 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Tracking Period</th>
-                <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Revenue</th>
-                <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(spenders as any[]).map((s: any, i: number) => {
-                const subDate = s.first_subscribe_date
-                  ? parseISO(s.first_subscribe_date)
-                  : null;
-                const endDate = subDate
-                  ? format(new Date(subDate.getTime() + 14 * 86400000), "MMM d, yyyy")
-                  : null;
-                return (
-                  <tr key={s.id ?? i} className="border-b border-border/60 hover:bg-muted/20 transition-colors">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <ModelAvatar avatarUrl={s.avatar_url} name={s.display_name || s.username || s.fan_id} size={32} />
-                        <div>
-                          <div className="font-medium text-foreground text-sm">
-                            {s.display_name || s.username || s.fan_id}
-                          </div>
-                          {s.username && (
-                            <div className="text-[11px] text-muted-foreground">@{s.username}</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-xs text-muted-foreground">
-                      {subDate && endDate
-                        ? `${format(subDate, "MMM d, yyyy")} — ${endDate}`
-                        : "—"}
-                    </td>
-                    <td className="px-5 py-3 text-right font-bold text-green-400">
-                      {fmtC(Number(s.revenue ?? 0))}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <span className="px-3 py-1 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer">
-                        View
-                      </span>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20">
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">#</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Subscribed</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-indigo-400 uppercase tracking-wide">New Sub</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-cyan-400 uppercase tracking-wide">Resub</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-amber-400 uppercase tracking-wide">Tips</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-emerald-400 uppercase tracking-wide">Messages</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-violet-400 uppercase tracking-wide">Posts</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-foreground uppercase tracking-wide">Total</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {pagedSpenders.map((s: any, i: number) => {
+                    const rank = (safePage - 1) * SPENDERS_PER_PAGE + i + 1;
+                    const subDate = s.first_subscribe_date ? format(parseISO(s.first_subscribe_date), "MMM d, yyyy") : "—";
+                    const newSubRev = Number(s.new_sub_revenue ?? 0);
+                    const resubRev  = Number(s.resub_revenue  ?? 0);
+                    const tipRev    = Number(s.tip_revenue    ?? 0);
+                    const msgRev    = Number(s.message_revenue ?? 0);
+                    const postRev   = Number(s.post_revenue   ?? 0);
+                    const total     = Number(s.revenue        ?? 0);
+                    return (
+                      <tr
+                        key={s.id ?? i}
+                        className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                        onClick={() => setViewFan(s)}
+                      >
+                        <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums">{rank}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <ModelAvatar avatarUrl={s.avatar_url} name={s.display_name || s.username || s.fan_id} size={28} />
+                            <div>
+                              <div className="font-medium text-foreground text-sm leading-none">
+                                {s.display_name || s.username || s.fan_id}
+                              </div>
+                              {s.username && s.username !== s.fan_id && (
+                                <div className="text-[10px] text-muted-foreground mt-0.5">@{s.username}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{subDate}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-indigo-400 text-xs">{newSubRev > 0 ? fmtC(newSubRev) : "—"}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-cyan-400 text-xs">{resubRev  > 0 ? fmtC(resubRev)  : "—"}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-amber-400 text-xs">{tipRev    > 0 ? fmtC(tipRev)    : "—"}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-emerald-400 text-xs">{msgRev   > 0 ? fmtC(msgRev)   : "—"}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-violet-400 text-xs">{postRev   > 0 ? fmtC(postRev)   : "—"}</td>
+                        <td className="px-4 py-3 text-right tabular-nums font-bold text-green-400">{fmtC(total)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {spenderPages > 1 && (
+              <div className="px-5 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+                <span>Showing {(safePage - 1) * SPENDERS_PER_PAGE + 1}–{Math.min(safePage * SPENDERS_PER_PAGE, spenders.length)} of {spenders.length}</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSpendersPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                    className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40">
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span>{safePage} / {spenderPages}</span>
+                  <button onClick={() => setSpendersPage(p => Math.min(spenderPages, p + 1))} disabled={safePage === spenderPages}
+                    className="px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-40">
+                    <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Fan detail sheet */}
+      <Sheet open={!!viewFan} onOpenChange={open => { if (!open) setViewFan(null); }}>
+        <SheetContent side="right" className="w-[400px] sm:w-[480px] p-0 overflow-y-auto">
+          {viewFan && <FanDetailPanel fan={viewFan} onClose={() => setViewFan(null)} />}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+// ─── Fan detail panel (used inside Sheet) ─────────────────────────────────────
+function FanDetailPanel({ fan, onClose }: { fan: any; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["fan_detail", fan.id],
+    queryFn: () => getFan(fan.id),
+    staleTime: 60_000,
+    enabled: !!fan.id,
+  });
+
+  const transactions: any[] = data?.transactions ?? [];
+
+  const breakdown = useMemo(() => {
+    const map = new Map<string, { revenue: number; count: number }>();
+    for (const tx of transactions) {
+      const type = tx.type ?? "other";
+      const rev = Number(tx.revenue ?? 0);
+      if (rev <= 0) continue;
+      const cur = map.get(type) ?? { revenue: 0, count: 0 };
+      cur.revenue += rev;
+      cur.count += tx.count ?? 1;
+      map.set(type, cur);
+    }
+    return [...map.entries()].map(([type, d]) => ({ type, ...d })).sort((a, b) => b.revenue - a.revenue);
+  }, [transactions]);
+
+  const totalRevenue = Number(fan.revenue ?? 0);
+  const TYPE_LABEL: Record<string, { label: string; color: string; bar: string }> = {
+    new_subscription:       { label: "New Sub",  color: "text-indigo-400",  bar: "#6366f1" },
+    recurring_subscription: { label: "Resub",    color: "text-cyan-400",    bar: "#22d3ee" },
+    tip:                    { label: "Tip",       color: "text-amber-400",   bar: "#f59e0b" },
+    message:                { label: "Message",   color: "text-emerald-400", bar: "#10b981" },
+    post:                   { label: "Post",      color: "text-violet-400",  bar: "#8b5cf6" },
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="p-5 border-b border-border flex items-start gap-3">
+        <ModelAvatar avatarUrl={fan.avatar_url} name={fan.display_name || fan.username || fan.fan_id} size={44} />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-foreground">
+            {fan.display_name || fan.username || fan.fan_id}
+          </div>
+          {fan.username && (
+            <div className="text-xs text-muted-foreground">@{fan.username}</div>
+          )}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs bg-emerald-500/15 text-emerald-400 rounded px-1.5 py-0.5 font-semibold">
+              {fmtC(totalRevenue)}
+            </span>
+            {fan.first_subscribe_date && (
+              <span className="text-xs text-muted-foreground">
+                Subbed {format(parseISO(fan.first_subscribe_date), "MMM d, yyyy")}
+              </span>
+            )}
+          </div>
+        </div>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground mt-1">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Revenue breakdown */}
+      <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+        {/* Type bars */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-3">Revenue by Type</div>
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1,2,3].map(i => <Skeleton key={i} className="h-8 rounded" />)}
+            </div>
+          ) : breakdown.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No transaction detail available.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {breakdown.map(b => {
+                const meta = TYPE_LABEL[b.type] ?? { label: b.type, color: "text-muted-foreground", bar: "#64748b" };
+                const pct = totalRevenue > 0 ? (b.revenue / totalRevenue) * 100 : 0;
+                return (
+                  <div key={b.type}>
+                    <div className="flex items-center justify-between mb-1 text-xs">
+                      <span className={`font-semibold ${meta.color}`}>{meta.label}</span>
+                      <div className="flex items-center gap-2 tabular-nums">
+                        <span className="font-bold">{fmtC(b.revenue)}</span>
+                        <span className="text-muted-foreground w-8 text-right">{pct.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: meta.bar }} />
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+              <div className="flex justify-between text-xs pt-2 border-t border-border/40">
+                <span className="text-muted-foreground">Total from transactions</span>
+                <span className="font-bold text-emerald-400 tabular-nums">{fmtC(breakdown.reduce((s, b) => s + b.revenue, 0))}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recent transactions */}
+        {!isLoading && transactions.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+              Recent Transactions ({transactions.length})
+            </div>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/30 border-b border-border">
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Type</th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.slice(0, 50).map((tx: any, i: number) => {
+                    const meta = TYPE_LABEL[tx.type ?? ""] ?? { label: tx.type ?? "Other", color: "text-muted-foreground", bar: "#64748b" };
+                    const rev = Number(tx.revenue ?? 0);
+                    return (
+                      <tr key={tx.id ?? i} className={`border-b border-border/30 last:border-0 ${i % 2 === 0 ? "" : "bg-muted/10"}`}>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {tx.date ? format(parseISO(tx.date), "MMM d") : "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`font-medium ${meta.color}`}>{meta.label}</span>
+                        </td>
+                        <td className={`px-3 py-2 text-right tabular-nums font-medium ${rev > 0 ? "text-green-400" : "text-muted-foreground"}`}>
+                          {rev > 0 ? fmtC(rev) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {transactions.length > 50 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border/40">
+                  Showing 50 of {transactions.length} transactions
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
-        {(spenders as any[]).length > 0 && (
-          <div className="px-5 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-            <span>Page 1 of 1</span>
-          </div>
+        {fan.username && (
+          <a
+            href={`https://onlyfans.com/${fan.username}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+          >
+            <ExternalLink className="w-3 h-3" />
+            View on OnlyFans
+          </a>
         )}
       </div>
     </div>

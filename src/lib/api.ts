@@ -287,8 +287,8 @@ export const getCampaignAnalyticsList = (account_id?: string) =>
 export const getCampaignTrend = (id: string, days = 30) =>
   apiFetch<any[]>(`/campaign-analytics/${id}/trend?days=${days}`);
 
-export const getCampaignSpenders = (id: string, limit = 20) =>
-  apiFetch<any[]>(`/campaign-analytics/${id}/spenders?limit=${limit}`);
+export const getCampaignSpenders = (id: string, limit = 500) =>
+  apiFetch<{ rows: any[]; total: number }>(`/campaign-analytics/${id}/spenders?limit=${limit}`);
 
 export const getCampaignCohortArps = (
   id: string,

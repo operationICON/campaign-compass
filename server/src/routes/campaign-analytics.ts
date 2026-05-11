@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { tracking_links, daily_metrics } from "../db/schema.js";
+import { tracking_links, daily_metrics, fan_account_stats, transactions } from "../db/schema.js";
 import { eq, and, isNull, sql, desc, asc } from "drizzle-orm";
 
 const router = new Hono();
@@ -41,12 +41,21 @@ router.get("/:id/trend", async (c) => {
   return c.json(rows);
 });
 
-// GET /campaign-analytics/:id/spenders?limit=20
+// GET /campaign-analytics/:id/spenders?limit=500
 router.get("/:id/spenders", async (c) => {
   const id = c.req.param("id");
-  const limit = Math.min(Number(c.req.query("limit") ?? 20), 100);
+  const limit = Math.min(Number(c.req.query("limit") ?? 500), 2000);
 
   const rows = await db.execute(sql`
+    WITH tx_agg AS (
+      SELECT
+        t.fan_username,
+        SUM(CASE WHEN t.type = 'new_subscription'       THEN t.revenue::numeric ELSE 0 END) AS new_sub_revenue,
+        SUM(CASE WHEN t.type = 'recurring_subscription' THEN t.revenue::numeric ELSE 0 END) AS resub_revenue
+      FROM transactions t
+      WHERE t.revenue IS NOT NULL AND t.revenue::numeric > 0
+      GROUP BY t.fan_username
+    )
     SELECT
       f.id,
       f.fan_id,
@@ -54,22 +63,40 @@ router.get("/:id/spenders", async (c) => {
       f.display_name,
       f.avatar_url,
       f.first_subscribe_date,
-      COALESCE(fs.revenue::numeric, 0) AS revenue,
-      fa.subscribe_date_approx AS tracking_period_start
+      COALESCE(fs.revenue::numeric, 0)          AS revenue,
+      fa.subscribe_date_approx                   AS tracking_period_start,
+      COALESCE(ta.new_sub_revenue,           0)  AS new_sub_revenue,
+      COALESCE(ta.resub_revenue,             0)  AS resub_revenue,
+      COALESCE(fas.tip_revenue::numeric,     0)  AS tip_revenue,
+      COALESCE(fas.message_revenue::numeric, 0)  AS message_revenue,
+      COALESCE(fas.post_revenue::numeric,    0)  AS post_revenue
     FROM fans f
     LEFT JOIN fan_spend fs
-      ON fs.fan_id = f.fan_id
+      ON  fs.fan_id          = f.fan_id
       AND fs.tracking_link_id = ${id}::uuid
     LEFT JOIN fan_attributions fa
-      ON fa.fan_id = f.fan_id
+      ON  fa.fan_id          = f.fan_id
       AND fa.tracking_link_id = ${id}::uuid
+    LEFT JOIN tx_agg ta ON ta.fan_username = f.fan_id
+    LEFT JOIN fan_account_stats fas
+      ON  fas.fan_id     = f.id
+      AND fas.account_id = (SELECT account_id FROM tracking_links WHERE id = ${id}::uuid LIMIT 1)
     WHERE f.first_subscribe_link_id = ${id}::uuid
       AND COALESCE(fs.revenue::numeric, 0) > 0
     ORDER BY COALESCE(fs.revenue::numeric, 0) DESC
     LIMIT ${limit}
   `);
 
-  return c.json(rows.rows);
+  const countRow = await db.execute(sql`
+    SELECT COUNT(*) AS cnt
+    FROM fans f
+    LEFT JOIN fan_spend fs ON fs.fan_id = f.fan_id AND fs.tracking_link_id = ${id}::uuid
+    WHERE f.first_subscribe_link_id = ${id}::uuid
+      AND COALESCE(fs.revenue::numeric, 0) > 0
+  `);
+  const total = Number((countRow.rows[0] as any)?.cnt ?? 0);
+
+  return c.json({ rows: rows.rows, total });
 });
 
 // GET /campaign-analytics/:id/cohort-arps?acq_start=&acq_end=&revenue_basis=net
