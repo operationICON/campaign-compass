@@ -62,7 +62,7 @@ const OT_SPEND_STATUSES = new Set(["completed", "accepted", "active", "waiting"]
 const TL_PREFS_KEY = "tracking_links_preferences";
 
 type TLPrefs = {
-  accountFilter: string;
+  accountFilter: string[];
   activityFilter: LinkActivityFilterValue;
   campaignFilter: CampaignFilter;
   sourceFilter: string;
@@ -73,7 +73,7 @@ type TLPrefs = {
 };
 
 const TL_PREFS_DEFAULTS: TLPrefs = {
-  accountFilter: "all",
+  accountFilter: [],
   activityFilter: "all",
   campaignFilter: "all",
   sourceFilter: "all",
@@ -86,7 +86,14 @@ const TL_PREFS_DEFAULTS: TLPrefs = {
 function loadTLPrefs(): TLPrefs {
   try {
     const raw = localStorage.getItem(TL_PREFS_KEY);
-    if (raw) return { ...TL_PREFS_DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migrate old string accountFilter ("all" or single ID) to string[]
+      if (typeof parsed.accountFilter === "string") {
+        parsed.accountFilter = parsed.accountFilter === "all" ? [] : [parsed.accountFilter];
+      }
+      return { ...TL_PREFS_DEFAULTS, ...parsed };
+    }
   } catch {}
   return { ...TL_PREFS_DEFAULTS };
 }
@@ -199,7 +206,7 @@ export default function CampaignsPage() {
   const [activityFilter, setActivityFilterRaw] = useState<LinkActivityFilterValue>(() => loadTLPrefs().activityFilter);
   const [sourceFilter, setSourceFilterRaw] = useState<string>(() => loadTLPrefs().sourceFilter);
   const [groupFilter, setGroupFilterRaw] = useState<string>(() => loadTLPrefs().groupFilter);
-  const [accountFilter, setAccountFilterRaw] = useState<string>(() => loadTLPrefs().accountFilter);
+  const [accountFilter, setAccountFilterRaw] = useState<string[]>(() => loadTLPrefs().accountFilter);
   const [sortKey, setSortKeyRaw] = useState<SortKey>(() => loadTLPrefs().sortKey);
   const [sortAsc, setSortAscRaw] = useState<boolean>(() => loadTLPrefs().sortAsc);
   const [page, setPage] = useState(1);
@@ -209,7 +216,7 @@ export default function CampaignsPage() {
   const setActivityFilter = useCallback((v: LinkActivityFilterValue) => { setActivityFilterRaw(v); saveTLPref({ activityFilter: v }); }, []);
   const setSourceFilter = useCallback((v: string) => { setSourceFilterRaw(v); saveTLPref({ sourceFilter: v }); }, []);
   const setGroupFilter = useCallback((v: string) => { setGroupFilterRaw(v); saveTLPref({ groupFilter: v }); }, []);
-  const setAccountFilter = useCallback((v: string) => { setAccountFilterRaw(v); saveTLPref({ accountFilter: v }); }, []);
+  const setAccountFilter = useCallback((v: string[]) => { setAccountFilterRaw(v); saveTLPref({ accountFilter: v }); }, []);
   const setSortKey = useCallback((v: SortKey) => { setSortKeyRaw(v); saveTLPref({ sortKey: v }); }, []);
   const setSortAsc = useCallback((v: boolean) => { setSortAscRaw(v); saveTLPref({ sortAsc: v }); }, []);
   const setPerPage = useCallback((v: number) => { setPerPageRaw(v); saveTLPref({ perPage: v }); }, []);
@@ -495,7 +502,7 @@ export default function CampaignsPage() {
       const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
       result = result.filter((l: any) => groupAccountIds.includes(l.account_id));
     }
-    if (accountFilter !== "all") result = result.filter((l: any) => l.account_id === accountFilter);
+    if (accountFilter.length > 0) result = result.filter((l: any) => accountFilter.includes(l.account_id));
     if (sourceFilter === "untagged") result = result.filter((l: any) => !getEffectiveSource(l));
     else if (sourceFilter !== "all") result = result.filter((l: any) => getEffectiveSource(l) === sourceFilter);
     if (campaignFilter === "active") result = result.filter((l: any) => l.isActive);
@@ -639,8 +646,8 @@ export default function CampaignsPage() {
     if (selectedRows.size === paginated.length) setSelectedRows(new Set());
     else setSelectedRows(new Set(paginated.map((l: any) => l.id)));
   };
-  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter("all"); setSourceFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setPage(1); };
-  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter !== "all" ? 1 : 0, campaignFilter !== "all" ? 1 : 0, sourceFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
+  const clearAllFilters = () => { setGroupFilter("all"); setAccountFilter([]); setSourceFilter("all"); setSearchQuery(""); setCampaignFilter("all"); setPage(1); };
+  const activeFilterCount = [groupFilter !== "all" ? 1 : 0, accountFilter.length > 0 ? 1 : 0, campaignFilter !== "all" ? 1 : 0, sourceFilter !== "all" ? 1 : 0].reduce((a, b) => a + b, 0);
 
   // ─── Determine period days for Est Expenses ───
   const isAllTime = timePeriod === "all" && !customRange;
@@ -656,7 +663,7 @@ export default function CampaignsPage() {
       const groupAccountIds = accounts.filter((a: any) => groupUsernames.includes(a.username)).map((a: any) => a.id);
       atLinks = atLinks.filter((l: any) => groupAccountIds.includes(l.account_id));
     }
-    if (accountFilter !== "all") atLinks = atLinks.filter((l: any) => l.account_id === accountFilter);
+    if (accountFilter.length > 0) atLinks = atLinks.filter((l: any) => accountFilter.includes(l.account_id));
 
     // Check if snapshot data exists for period
     const hasSnapshotData = !isAllTime && !!snapshotLookup && Object.keys(snapshotLookup).length > 0;
@@ -918,7 +925,7 @@ export default function CampaignsPage() {
               <div className="bg-card border border-border rounded-2xl p-16 text-center">
                 <Link2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-foreground font-medium mb-1">No tracking links found</p>
-                <p className="text-sm text-muted-foreground">{campaignFilter !== "all" || accountFilter !== "all" || sourceFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
+                <p className="text-sm text-muted-foreground">{campaignFilter !== "all" || accountFilter.length > 0 || sourceFilter !== "all" ? "Try adjusting your filters." : "Run a sync to get started."}</p>
               </div>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
