@@ -4,7 +4,6 @@ import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv, fetchTrackingLinks } from "@/lib/supabase-helpers";
-import { getCrossPollFans } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,33 +55,6 @@ export default function CrossPollPage() {
   const dateScoped = useDateScopedMetrics(timePeriod, customRange, modelFilter.length > 0 ? modelFilter : null);
   void dateScoped;
 
-  // Live cross-poll fan data — used for summary totals (accurate, from transactions)
-  const { data: liveCpFans = [] } = useQuery({
-    queryKey: ["cross_poll_fans"],
-    queryFn: () => getCrossPollFans(1000),
-    staleTime: 120_000,
-  });
-
-  // Live summary: only count revenue on NON-acquisition accounts (true cross-poll)
-  const liveSummary = useMemo(() => {
-    let totalRevenue = 0;
-    let totalFans = 0;
-    const fansSeen = new Set<string>();
-    const byDestAccount: Record<string, number> = {};
-    for (const fan of liveCpFans as any[]) {
-      const homeAccId = fan.acquired_via_account_id || null;
-      let hasCrossRev = false;
-      for (const par of fan.per_account_revenue ?? []) {
-        if (homeAccId && par.account_id === homeAccId) continue;
-        const rev = Number(par.revenue ?? 0);
-        totalRevenue += rev;
-        byDestAccount[par.account_id] = (byDestAccount[par.account_id] || 0) + rev;
-        if (rev > 0) hasCrossRev = true;
-      }
-      if (hasCrossRev && !fansSeen.has(fan.id)) { fansSeen.add(fan.id); totalFans++; }
-    }
-    return { totalRevenue, totalFans, byDestAccount };
-  }, [liveCpFans]);
 
   // Cross-poll LTV data (cumulative, used for campaign table)
   const { data: allLtvDataRaw = [], isLoading: ltvLoading } = useQuery({
@@ -130,23 +102,26 @@ export default function CrossPollPage() {
 
   const filteredLtv = ltvData;
 
-  // Summary cards — use live totals from transactions
+  // Summary cards — aggregate directly from tracking_link_ltv (populated by subscriber sync)
   const summary = useMemo(() => {
-    const totalRevenue = liveSummary.totalRevenue;
-    const totalFans    = liveSummary.totalFans;
-    const avgPerFan    = totalFans > 0 ? totalRevenue / totalFans : 0;
-    const totalNewFans = filteredLtv.reduce((s: number, r: any) => s + Number(r.new_subs_total || 0), 0);
+    const totalRevenue  = filteredLtv.reduce((s: number, r: any) => s + Number(r.cross_poll_revenue || 0), 0);
+    const totalFans     = filteredLtv.reduce((s: number, r: any) => s + Number(r.cross_poll_fans    || 0), 0);
+    const avgPerFan     = totalFans > 0 ? totalRevenue / totalFans : 0;
+    const totalNewFans  = filteredLtv.reduce((s: number, r: any) => s + Number(r.new_subs_total     || 0), 0);
     const conversionPct = totalNewFans > 0 ? (totalFans / totalNewFans) * 100 : 0;
 
-    let topModel = "—";
-    let topVal = 0;
-    let topAccId = "";
-    Object.entries(liveSummary.byDestAccount).forEach(([accId, val]) => {
-      if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[String(accId).toLowerCase()]?.display_name || accId; }
+    const revByAccount: Record<string, number> = {};
+    for (const r of filteredLtv as any[]) {
+      const accId = String(r.account_id ?? "").toLowerCase();
+      revByAccount[accId] = (revByAccount[accId] || 0) + Number(r.cross_poll_revenue || 0);
+    }
+    let topModel = "—", topVal = 0, topAccId = "";
+    Object.entries(revByAccount).forEach(([accId, val]) => {
+      if (val > topVal) { topVal = val; topAccId = accId; topModel = accountLookup[accId]?.display_name || accId; }
     });
 
     return { totalRevenue, totalFans, avgPerFan, topModel, topAccId, conversionPct };
-  }, [liveSummary, filteredLtv, accountLookup]);
+  }, [filteredLtv, accountLookup]);
 
   // Campaign table with new columns + sorting
   const topCampaigns = useMemo(() => {
@@ -282,13 +257,14 @@ export default function CrossPollPage() {
                   <SortHead label="Cross-Poll Fans" k="cross_poll_fans" align="right" />
                   <SortHead label="Conversion %" k="cross_poll_conversion_pct" align="right" />
                   <TableHead className="text-muted-foreground">Received By</TableHead>
+                  <TableHead className="text-muted-foreground">URL</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ltvLoading ? (
                   <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
                 ) : topCampaigns.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
                 ) : topCampaigns.map((r: any) => {
                   // "Received By" = all other models (exclude source)
                   const otherModels = accounts.filter((a: any) => String(a.id).toLowerCase() !== String(r.account_id).toLowerCase());
@@ -315,6 +291,18 @@ export default function CrossPollPage() {
                             <span className="text-xs text-muted-foreground ml-1">+{otherModels.length - 4}</span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()]?.url ? (
+                          <a
+                            href={linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline truncate block max-w-[200px]"
+                          >
+                            {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
+                          </a>
+                        ) : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                     </TableRow>
                   );

@@ -238,6 +238,43 @@ router.get("/campaign-breakdown", async (c) => {
   return c.json(rows.rows);
 });
 
+// ── GET /fans/cross-poll-detail?limit=200&source_account_id=&dest_account_id= ──
+// Per-fan cross-poll rows: fans acquired via one account's link but with spend on another.
+router.get("/cross-poll-detail", async (c) => {
+  const limit  = Math.min(Number(c.req.query("limit") ?? 200), 1000);
+  const srcAcc = c.req.query("source_account_id") ?? null;
+  const dstAcc = c.req.query("dest_account_id")   ?? null;
+
+  const rows = await db.execute(sql`
+    SELECT
+      fs.fan_id,
+      f.username,
+      f.first_subscribe_link_id::text AS tracking_link_id,
+      tl.campaign_name,
+      tl.url                          AS campaign_url,
+      tl.account_id::text             AS source_account_id,
+      src_acc.display_name            AS source_account_name,
+      fs.account_id::text             AS dest_account_id,
+      dst_acc.display_name            AS dest_account_name,
+      fs.revenue::numeric             AS revenue
+    FROM fan_spend fs
+    JOIN fans f ON f.fan_id = fs.fan_id
+    JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
+    JOIN accounts src_acc ON src_acc.id = tl.account_id
+    JOIN accounts dst_acc ON dst_acc.id = fs.account_id::uuid
+    WHERE f.first_subscribe_link_id IS NOT NULL
+      AND fs.account_id::text != tl.account_id::text
+      AND fs.revenue::numeric > 0
+      AND tl.deleted_at IS NULL
+      ${srcAcc ? sql`AND tl.account_id::text = ${srcAcc}` : sql``}
+      ${dstAcc ? sql`AND fs.account_id::text = ${dstAcc}` : sql``}
+    ORDER BY fs.revenue::numeric DESC
+    LIMIT ${limit}
+  `);
+
+  return c.json(rows.rows);
+});
+
 // ── GET /fans/cross-poll?limit=200 ────────────────────────────────────────────
 // Cross-pollinated fans: appear on ≥2 accounts, with per-account tx revenue.
 router.get("/cross-poll", async (c) => {
