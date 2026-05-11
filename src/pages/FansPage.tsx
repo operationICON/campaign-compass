@@ -987,30 +987,13 @@ export default function FansPage() {
                       </div>
                     );
                   })}
-                  {(() => {
-                    const campTotal = (campaignRevenueByTypeQuery.data ?? [])
-                      .reduce((s, r) => s + Number(r.total_revenue), 0);
-                    const unattributed = txGrandTotal - campTotal;
-                    return (
-                      <div className="pt-3 border-t border-border/40 space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Campaign</span>
-                          <span className="font-semibold text-foreground tabular-nums">{fmt$(campTotal)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Unattributed</span>
-                          <span className="font-semibold text-foreground tabular-nums">{fmt$(unattributed)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
-                          <span className="font-semibold text-foreground">Total</span>
-                          <span className="font-bold text-foreground tabular-nums">{fmt$(txGrandTotal)}</span>
-                        </div>
-                        <div className="flex justify-end pt-0.5">
-                          <span className="text-muted-foreground text-[11px]">{fmtNum(txCount)} transactions</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-foreground">Total</span>
+                    <div className="flex items-center gap-3 tabular-nums">
+                      <span className="font-bold text-foreground">{fmt$(txGrandTotal)}</span>
+                      <span className="text-muted-foreground">{fmtNum(txCount)} tx</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
