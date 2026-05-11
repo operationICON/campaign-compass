@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
-import { accounts, tracking_links, sync_logs, sync_settings } from "../../db/schema.js";
+import { accounts, tracking_links, sync_logs } from "../../db/schema.js";
 import { eq, sql, and } from "drizzle-orm";
 import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 
@@ -13,11 +13,9 @@ function extractFanId(sub: any): string | null {
   const raw = sub?.id ?? sub?.user?.id ?? sub?.userId ?? sub?.fan_id ?? sub?.fanId ?? null;
   return raw != null ? String(raw) : null;
 }
-
 function extractUsername(sub: any): string | null {
   return sub?.username ?? sub?.user?.username ?? sub?.userName ?? null;
 }
-
 function extractSubDate(sub: any): string | null {
   const raw = sub?.subscribedAt ?? sub?.subscribeAt ?? sub?.createdAt ?? sub?.joinDate ?? sub?.created_at ?? null;
   return raw ? String(raw).split("T")[0] : null;
@@ -43,16 +41,13 @@ async function updateCrosspollLtv(): Promise<number> {
     GROUP BY f.first_subscribe_link_id, tl.account_id, tl.campaign_name, tl.external_tracking_link_id
   `);
 
-  const results = rows.rows as any[];
   let updated = 0;
-
-  for (const row of results) {
+  for (const row of rows.rows as any[]) {
     const crossFans    = Number(row.cross_poll_fans ?? 0);
     const crossRevenue = Number(row.cross_poll_revenue ?? 0);
     const fansTotal    = Number(row.fans_total ?? 0);
     const avgPerFan    = crossFans > 0 ? Math.round(crossRevenue / crossFans * 100) / 100 : 0;
     const convPct      = fansTotal > 0 ? Math.round(crossFans / fansTotal * 10000) / 100 : 0;
-
     await db.execute(sql`
       INSERT INTO tracking_link_ltv
         (tracking_link_id, external_tracking_link_id, account_id, new_subs_total,
@@ -71,16 +66,25 @@ async function updateCrosspollLtv(): Promise<number> {
     `);
     updated++;
   }
-
   return updated;
 }
 
 // POST /sync/subscribers
-// Iterates over every active tracking link and calls the per-link subscribers
-// endpoint: GET /{ofAccountId}/tracking-links/{extLinkId}/subscribers?limit=100
-// This is the only OFAPI endpoint that actually returns subscriber data.
-// Each page of subscribers is upserted into `fans` with first_subscribe_link_id
-// set to that tracking link's UUID so attribution is exact.
+//
+// Spenders-first attribution strategy:
+//
+// Phase 1 — DB backfill (free, instant):
+//   Copy tracking_link_id from fan_attributions / fan_spend into fans.first_subscribe_link_id
+//   for every fan that already has attribution data in those tables.
+//
+// Phase 2 — OFAPI fetch (targeted, per account):
+//   For a given account, build the set of spender fan IDs (from transactions/fan_spend)
+//   that still lack first_subscribe_link_id. Then iterate the account's tracking link
+//   subscriber pages, matching only against that small target set. Stop a link early
+//   once all known spenders are matched. This is vastly smaller than fetching all subscribers
+//   for all links regardless of whether we care about them.
+//
+// Body: { triggered_by?, force_full?, account_id? }
 router.post("/", async (c) => {
   const apiKey = process.env.ONLYFANS_API_KEY;
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
@@ -94,7 +98,7 @@ router.post("/", async (c) => {
   const [syncLog] = await db.insert(sync_logs).values({
     started_at: new Date(), status: "running", success: false,
     triggered_by: `subscriber_sync_${triggeredBy}`,
-    message: forceFull ? "Subscriber attribution (per-link): full history" : "Subscriber attribution (per-link): incremental",
+    message: "Subscriber attribution: spenders-first",
     records_processed: 0,
   }).returning();
   const syncLogId = syncLog?.id;
@@ -103,11 +107,37 @@ router.post("/", async (c) => {
     const errors: string[] = [];
     let totalAttributed = 0;
     let totalApiCalls = 0;
-    type AccountResult = { account: string; status: string; attributed: number; api_calls: number; links_processed: number; note?: string };
+    type AccountResult = { account: string; status: string; attributed: number; db_backfill: number; api_calls: number; links_processed: number; note?: string };
     const accountResults: AccountResult[] = [];
 
     try {
-      await send({ step: "start", message: "Loading accounts and tracking links..." });
+      // ── Phase 1: DB backfill from fan_attributions ─────────────────────────
+      await send({ step: "start", message: "Phase 1: DB backfill from existing attribution data..." });
+
+      const backfillResult = await db.execute(sql`
+        UPDATE fans f
+        SET
+          first_subscribe_link_id = COALESCE(f.first_subscribe_link_id, fa_tl.tl_id),
+          updated_at              = NOW()
+        FROM (
+          SELECT fa.fan_id, fa.tracking_link_id AS tl_id
+          FROM fan_attributions fa
+          WHERE fa.tracking_link_id IS NOT NULL
+          UNION
+          SELECT fs.fan_id, fs.tracking_link_id AS tl_id
+          FROM fan_spend fs
+          WHERE fs.tracking_link_id IS NOT NULL
+        ) fa_tl
+        WHERE f.fan_id = fa_tl.fan_id
+          AND f.first_subscribe_link_id IS NULL
+          AND fa_tl.tl_id IS NOT NULL
+      `);
+      const dbBackfill = Number((backfillResult as any).rowCount ?? 0);
+      totalAttributed += dbBackfill;
+      await send({ step: "db_backfill", message: `Phase 1 complete: ${dbBackfill} fans attributed from existing data` });
+
+      // ── Phase 2: OFAPI fetch for unattributed spenders ─────────────────────
+      await send({ step: "phase2", message: "Phase 2: OFAPI fetch for remaining unattributed spenders..." });
 
       const enabledAccounts = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })
@@ -123,51 +153,82 @@ router.post("/", async (c) => {
       for (const account of enabledAccounts) {
         if (!account.onlyfans_account_id) continue;
 
-        // Load all tracking links for this account that have an external ID
+        // Build target set: spender fan IDs (OF string IDs) that still need attribution
+        // Sources: transactions.fan_username AND fans joined with fan_spend
+        const spenderRows = await db.execute(sql`
+          SELECT DISTINCT f.fan_id AS of_fan_id, f.username
+          FROM fans f
+          WHERE f.first_subscribe_link_id IS NULL
+            AND f.fan_id IS NOT NULL
+            AND EXISTS (
+              SELECT 1 FROM fan_spend fs
+              JOIN accounts a ON a.id = fs.account_id
+              WHERE fs.fan_id = f.fan_id
+                AND a.id = ${account.id}
+            )
+        `);
+
+        // Also include fans from transactions by username match
+        const txSpenderRows = await db.execute(sql`
+          SELECT DISTINCT t.fan_username AS of_fan_id
+          FROM transactions t
+          JOIN fans f ON f.fan_id = t.fan_username OR LOWER(f.username) = LOWER(t.fan_username)
+          WHERE t.account_id = ${account.id}
+            AND t.fan_username IS NOT NULL
+            AND t.fan_username != ''
+            AND f.first_subscribe_link_id IS NULL
+        `);
+
+        const targetFanIds = new Set<string>();
+        const targetByUsername = new Map<string, string>(); // username → fan_id
+
+        for (const r of spenderRows.rows as any[]) {
+          if (r.of_fan_id) {
+            targetFanIds.add(String(r.of_fan_id));
+            if (r.username) targetByUsername.set(String(r.username).toLowerCase(), String(r.of_fan_id));
+          }
+        }
+        for (const r of txSpenderRows.rows as any[]) {
+          if (r.of_fan_id) targetFanIds.add(String(r.of_fan_id));
+        }
+
+        if (targetFanIds.size === 0) {
+          await send({ step: "account_skip", message: `${account.display_name}: no unattributed spenders, skipping` });
+          accountResults.push({ account: account.display_name ?? account.id, status: "skip", attributed: 0, db_backfill: 0, api_calls: 0, links_processed: 0 });
+          continue;
+        }
+
+        await send({ step: "account_start", message: `${account.display_name}: ${targetFanIds.size} unattributed spenders to find` });
+
+        // Load tracking links for this account
         const accountLinks = await db
           .select({ id: tracking_links.id, external_tracking_link_id: tracking_links.external_tracking_link_id, campaign_name: tracking_links.campaign_name })
           .from(tracking_links)
           .where(sql`account_id = ${account.id} AND deleted_at IS NULL AND external_tracking_link_id IS NOT NULL`);
 
         if (accountLinks.length === 0) {
-          await send({ step: "account_skip", message: `${account.display_name}: no tracking links, skipping` });
-          accountResults.push({ account: account.display_name ?? account.id, status: "no_links", attributed: 0, api_calls: 0, links_processed: 0 });
+          await send({ step: "account_skip", message: `${account.display_name}: no tracking links` });
+          accountResults.push({ account: account.display_name ?? account.id, status: "no_links", attributed: 0, db_backfill: 0, api_calls: 0, links_processed: 0 });
           continue;
         }
 
-        await send({ step: "account_start", message: `${account.display_name}: ${accountLinks.length} tracking links` });
-
         let accountAttributed = 0;
         let accountApiCalls = 0;
+        let linksProcessed = 0;
         let accountStatus = "ok";
         let accountNote: string | undefined;
-        let linksProcessed = 0;
+        const remaining = new Set(targetFanIds); // fans we haven't found yet
 
         for (const link of accountLinks) {
+          if (remaining.size === 0) break; // all spenders found — stop early
+
           const extId = link.external_tracking_link_id!;
           const linkUuid = link.id;
-
-          // Incremental: check checkpoint per tracking link
-          const settingKey = `sub_sync_link_${linkUuid}`;
-          const [settingRow] = await db
-            .select({ value: sync_settings.value })
-            .from(sync_settings)
-            .where(eq(sync_settings.key, settingKey))
-            .limit(1);
-
-          const today = new Date().toISOString().split("T")[0];
-          const storedDate = settingRow?.value ?? null;
-          const checkpointValid = storedDate && storedDate < today;
-          const afterParam = (!forceFull && checkpointValid) ? `&after=${storedDate}` : "";
-
-          const baseUrl = `${API_BASE}/${account.onlyfans_account_id}/tracking-links/${extId}/subscribers?limit=100`;
-          let url: string | null = `${baseUrl}${afterParam}`;
+          let url: string | null = `${API_BASE}/${account.onlyfans_account_id}/tracking-links/${extId}/subscribers?limit=100`;
           let linkApiCalls = 0;
-          let linkAttributed = 0;
-          let newestDate: string | null = null;
           let linkAuthFailed = false;
 
-          while (url && linkApiCalls < 200) {
+          while (url && linkApiCalls < 200 && remaining.size > 0) {
             linkApiCalls++;
             accountApiCalls++;
             totalApiCalls++;
@@ -188,7 +249,6 @@ router.post("/", async (c) => {
               break;
             }
             if (!res.ok) {
-              // Non-fatal per link — log and move on
               errors.push(`${account.display_name} / link ${extId}: HTTP ${res.status}`);
               break;
             }
@@ -197,24 +257,27 @@ router.post("/", async (c) => {
             const page: any[] = json?.data?.list ?? json?.data ?? json?.subscribers ?? json?.list ?? [];
             if (!Array.isArray(page) || page.length === 0) break;
 
-            type UpsertRow = { fan_id: string; username: string | null; sub_date: string | null };
-            const upsertRows: UpsertRow[] = [];
-
+            // Match each subscriber against our target (spender) set
+            const matched: { fan_id: string; username: string | null; sub_date: string | null }[] = [];
             for (const sub of page) {
               const fanId = extractFanId(sub);
-              if (!fanId) continue;
-              linkAttributed++;
+              const username = extractUsername(sub);
+              const isTarget = (fanId && remaining.has(fanId)) ||
+                (username && remaining.has(username)) ||
+                (username && targetByUsername.has(username.toLowerCase()));
+              if (!isTarget) continue;
 
-              const dateStr = extractSubDate(sub);
-              if (dateStr && (!newestDate || dateStr > newestDate)) newestDate = dateStr;
+              const resolvedFanId = fanId ?? (username ? targetByUsername.get(username.toLowerCase()) ?? null : null);
+              if (!resolvedFanId) continue;
+              remaining.delete(resolvedFanId);
+              if (username) remaining.delete(username);
 
-              upsertRows.push({ fan_id: fanId, username: extractUsername(sub), sub_date: dateStr });
+              matched.push({ fan_id: resolvedFanId, username, sub_date: extractSubDate(sub) });
             }
 
-            if (upsertRows.length > 0) {
-              // Chunk into batches of 50 to avoid oversized SQL
-              for (let i = 0; i < upsertRows.length; i += 50) {
-                const chunk = upsertRows.slice(i, i + 50);
+            if (matched.length > 0) {
+              for (let i = 0; i < matched.length; i += 50) {
+                const chunk = matched.slice(i, i + 50);
                 const vals = chunk.map(r => sql`(
                   ${r.fan_id},
                   ${r.username},
@@ -231,6 +294,7 @@ router.post("/", async (c) => {
                     updated_at              = NOW()
                 `);
               }
+              accountAttributed += matched.length;
             }
 
             const nextRaw = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null;
@@ -241,31 +305,15 @@ router.post("/", async (c) => {
             await sleep(100);
           }
 
-          if (linkAuthFailed) break; // auth error — skip remaining links for this account
-
-          // Advance checkpoint for this link
-          if (newestDate) {
-            await db.execute(sql`
-              INSERT INTO sync_settings (key, value, updated_at)
-              VALUES (${settingKey}, ${newestDate}, NOW())
-              ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-            `);
-          }
-
-          accountAttributed += linkAttributed;
+          if (linkAuthFailed) break;
           linksProcessed++;
-
-          if (linksProcessed % 5 === 0) {
-            await send({ step: "progress", message: `${account.display_name}: ${linksProcessed}/${accountLinks.length} links, ${accountAttributed} fans so far...` });
-          }
-
           await sleep(50);
         }
 
         totalAttributed += accountAttributed;
-        accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: accountApiCalls, links_processed: linksProcessed, note: accountNote });
-        await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed (${linksProcessed} links, ${accountApiCalls} API calls)` });
-        // Persist progress periodically so a timeout leaves a useful partial record
+        accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, db_backfill: 0, api_calls: accountApiCalls, links_processed: linksProcessed, note: accountNote });
+        await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} spenders attributed (${linksProcessed} links checked, ${accountApiCalls} API calls, ${remaining.size} still unfound)` });
+
         if (syncLogId) {
           await db.update(sync_logs).set({ records_processed: totalAttributed }).where(eq(sync_logs.id, syncLogId));
         }
@@ -281,7 +329,7 @@ router.post("/", async (c) => {
           success: errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: totalAttributed,
-          message: `${totalAttributed} fans attributed via per-link endpoint (${totalApiCalls} API calls, ${forceFull ? "full" : "incremental"}), ${ltvUpdated} cross-poll links updated${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
+          message: `${totalAttributed} fans attributed (${dbBackfill} from DB, ${totalAttributed - dbBackfill} via OFAPI, ${totalApiCalls} API calls), ${ltvUpdated} cross-poll links updated${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
           details: { attributed: totalAttributed, api_calls: totalApiCalls, ltv_links: ltvUpdated, force_full: forceFull, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
@@ -289,7 +337,7 @@ router.post("/", async (c) => {
 
       await send({
         step: "done",
-        message: `Done — ${totalAttributed} fans attributed, ${ltvUpdated} cross-poll links updated (${totalApiCalls} API calls)`,
+        message: `Done — ${totalAttributed} fans attributed (${dbBackfill} from DB backfill, ${totalAttributed - dbBackfill} via OFAPI), ${ltvUpdated} cross-poll links updated`,
         attributed: totalAttributed,
         ltv_links: ltvUpdated,
         api_calls: totalApiCalls,

@@ -730,6 +730,58 @@ router.post("/", async (c) => {
     return c.json({ accounts: rows.rows, fans_with_attribution: fans_with_link.rows[0]?.cnt });
   }
 
+  // Spender attribution diagnostic — check how many fans/spenders already have tracking link data
+  if (body?.action === "spender_attr_diag") {
+    const [attrStats, spendStats, fansStats, txStats] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COUNT(*)                                                                AS total,
+          COUNT(tracking_link_id)                                                 AS with_tl,
+          COUNT(fan_id)                                                           AS with_fan_id,
+          COUNT(fan_username)                                                     AS with_username
+        FROM fan_attributions
+      `),
+      db.execute(sql`
+        SELECT
+          COUNT(*)                                                                AS total,
+          COUNT(tracking_link_id)                                                 AS with_tl,
+          COUNT(DISTINCT fan_id)                                                  AS distinct_fans,
+          COALESCE(SUM(revenue::numeric), 0)                                      AS total_revenue
+        FROM fan_spend
+      `),
+      db.execute(sql`
+        SELECT
+          COUNT(*)                                                                AS total,
+          COUNT(first_subscribe_link_id)                                          AS with_link,
+          COUNT(CASE WHEN first_subscribe_link_id IS NULL THEN 1 END)             AS without_link,
+          COUNT(fan_id)                                                           AS with_fan_id,
+          COUNT(username)                                                         AS with_username
+        FROM fans
+      `),
+      db.execute(sql`
+        SELECT
+          COUNT(*)                                                                AS total_tx,
+          COUNT(DISTINCT fan_username)                                            AS distinct_fans,
+          COUNT(DISTINCT account_id)                                              AS accounts,
+          COALESCE(SUM(revenue::numeric), 0)                                      AS total_revenue
+        FROM transactions
+        WHERE fan_username IS NOT NULL AND fan_username != ''
+      `),
+    ]);
+    return c.json({
+      fan_attributions: attrStats.rows[0],
+      fan_spend: spendStats.rows[0],
+      fans: fansStats.rows[0],
+      transactions: txStats.rows[0],
+      recommendation: (() => {
+        const withTl = Number((attrStats.rows[0] as any)?.with_tl ?? 0);
+        const spendWithTl = Number((spendStats.rows[0] as any)?.with_tl ?? 0);
+        if (withTl > 0 || spendWithTl > 0) return `USE_EXISTING: ${withTl} fan_attributions + ${spendWithTl} fan_spend rows already have tracking_link_id — run DB backfill first`;
+        return "USE_OFAPI: No existing tracking_link_id data in fan_attributions or fan_spend — need OFAPI subscriber fetch";
+      })(),
+    });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 
