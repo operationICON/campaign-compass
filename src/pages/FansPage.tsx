@@ -968,22 +968,13 @@ export default function FansPage() {
                   })()}
                 </div>
                 <div className="px-5 py-4 space-y-3">
-                  {/* Campaigns row */}
+                  {/* Campaigns — standalone, different source from tx table */}
                   {(() => {
                     const campRev = (allTrackingLinks as any[]).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
-                    const pct = txGrandTotal > 0 ? (campRev / txGrandTotal) * 100 : 0;
                     return (
-                      <div>
-                        <div className="flex items-center justify-between mb-1 text-xs">
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary">Campaigns</span>
-                          <div className="flex items-center gap-3 tabular-nums">
-                            <span className="font-semibold">{fmt$(campRev)}</span>
-                            <span className="text-muted-foreground w-8 text-right">{pct.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-                        </div>
+                      <div className="flex items-center justify-between pb-3 border-b border-border/40 text-xs">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary">Campaigns</span>
+                        <span className="font-bold text-foreground tabular-nums">{fmt$(campRev)}</span>
                       </div>
                     );
                   })()}
