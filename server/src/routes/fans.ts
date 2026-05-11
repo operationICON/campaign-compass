@@ -132,18 +132,24 @@ router.get("/spenders-breakdown", async (c) => {
 
   const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
 
-  // fas JOIN condition: restrict to account when provided, else all accounts
-  const fasJoinExtra = accountId ? sql`AND fas.account_id = ${accountId}::uuid` : sql``;
-
   const rows = await db.execute(sql`
     WITH tx_agg AS (
       SELECT
         t.fan_username,
-        SUM(CASE WHEN t.type = 'new_subscription'       THEN t.revenue::numeric ELSE 0 END) AS new_sub_revenue,
-        SUM(CASE WHEN t.type = 'recurring_subscription' THEN t.revenue::numeric ELSE 0 END) AS resub_revenue
+        SUM(t.revenue::numeric)                                                                 AS total_tx_revenue,
+        SUM(CASE WHEN t.type = 'new_subscription'        THEN t.revenue::numeric ELSE 0 END)   AS new_sub_revenue,
+        SUM(CASE WHEN t.type = 'recurring_subscription'  THEN t.revenue::numeric ELSE 0 END)   AS resub_revenue,
+        SUM(CASE WHEN t.type = 'tip'                     THEN t.revenue::numeric ELSE 0 END)   AS tip_revenue,
+        SUM(CASE WHEN t.type IN ('message','chat','ppv')  THEN t.revenue::numeric ELSE 0 END)  AS message_revenue,
+        SUM(CASE WHEN t.type = 'post'                    THEN t.revenue::numeric ELSE 0 END)   AS post_revenue
       FROM transactions t
       WHERE t.revenue IS NOT NULL AND t.revenue::numeric > 0
       GROUP BY t.fan_username
+    ),
+    fan_accounts AS (
+      SELECT fan_id, STRING_AGG(DISTINCT account_id::text, ',') AS account_ids
+      FROM fan_account_stats
+      GROUP BY fan_id
     )
     SELECT
       f.id,
@@ -156,20 +162,16 @@ router.get("/spenders-breakdown", async (c) => {
       f.first_subscribe_link_id::text                     AS first_subscribe_link_id,
       f.acquired_via_account_id::text                     AS acquired_via_account_id,
       f.last_transaction_at,
-      COALESCE(ta.new_sub_revenue,                     0) AS new_sub_revenue,
-      COALESCE(ta.resub_revenue,                       0) AS resub_revenue,
-      COALESCE(SUM(fas.tip_revenue::numeric),          0) AS tip_revenue,
-      COALESCE(SUM(fas.message_revenue::numeric),      0) AS message_revenue,
-      COALESCE(SUM(fas.post_revenue::numeric),         0) AS post_revenue,
-      COALESCE(STRING_AGG(DISTINCT fas.account_id::text, ','), '') AS account_ids
+      COALESCE(ta.new_sub_revenue,   0)                   AS new_sub_revenue,
+      COALESCE(ta.resub_revenue,     0)                   AS resub_revenue,
+      COALESCE(ta.tip_revenue,       0)                   AS tip_revenue,
+      COALESCE(ta.message_revenue,   0)                   AS message_revenue,
+      COALESCE(ta.post_revenue,      0)                   AS post_revenue,
+      COALESCE(fa.account_ids, '')                        AS account_ids
     FROM fans f
-    LEFT JOIN fan_account_stats fas ON fas.fan_id = f.id ${fasJoinExtra}
     LEFT JOIN tx_agg ta ON ta.fan_username = f.fan_id
+    LEFT JOIN fan_accounts fa ON fa.fan_id = f.id
     ${whereClause}
-    GROUP BY f.id, f.fan_id, f.username, f.display_name, f.avatar_url,
-             f.total_revenue, f.total_transactions, f.first_subscribe_link_id,
-             f.acquired_via_account_id, f.last_transaction_at,
-             ta.new_sub_revenue, ta.resub_revenue
     ORDER BY f.total_revenue::numeric DESC
     LIMIT ${limitRaw}
   `);
