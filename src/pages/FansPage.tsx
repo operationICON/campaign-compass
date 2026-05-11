@@ -979,7 +979,7 @@ export default function FansPage() {
 
   const crossPollQuery = useQuery({
     queryKey: ["cross_poll_fans"],
-    queryFn: () => getCrossPollFans(300),
+    queryFn: () => getCrossPollFans(1000),
     staleTime: 120_000,
     enabled: selectedAccountId === null,
   });
@@ -1096,14 +1096,24 @@ export default function FansPage() {
     return m;
   }, [allTrackingLinks]);
 
-  // Cross-poll grouped: account → campaign → fans
+  // Cross-poll grouped: account (DESTINATION) → campaign (source) → fans
+  // Only counts revenue on OTHER accounts — skips each fan's acquisition/home account
+  // so the total matches the true cross-pollination contribution, not total fan spend.
   const crossPollByAccount = useMemo(() => {
     type CampEntry = { campaignName: string; tlId: string | null; revenue: number; revBefore: number; revAfter: number; fanCount: number; fans: any[] };
     type AccEntry  = { revenue: number; revBefore: number; revAfter: number; fanCount: number; byCampaign: Map<string, CampEntry> };
     const map = new Map<string, AccEntry>();
 
     for (const fan of crossPollQuery.data ?? []) {
+      // Resolve home account: prefer acquired_via_account_id, fall back to the account
+      // that owns their first tracking link.
+      const homeTl     = fan.first_subscribe_link_id ? allTlMap[fan.first_subscribe_link_id] : null;
+      const homeAccId  = fan.acquired_via_account_id || homeTl?.account_id || null;
+
       for (const par of fan.per_account_revenue) {
+        // Skip the fan's own acquisition account — that's regular revenue, not cross-poll.
+        if (homeAccId && par.account_id === homeAccId) continue;
+
         const accId     = par.account_id;
         const rev       = Number(par.revenue ?? 0);
         const revBefore = Number(par.rev_before ?? 0);
