@@ -249,6 +249,7 @@ router.get("/cross-poll", async (c) => {
       WHERE first_subscribe_date IS NOT NULL
     ),
     tx_by_account AS (
+      -- All per-(fan, account) revenue, with before/after split on first_subscribe_date
       SELECT
         t.fan_username,
         t.account_id::text                  AS account_id,
@@ -266,14 +267,25 @@ router.get("/cross-poll", async (c) => {
         AND t.account_id IS NOT NULL
       GROUP BY t.fan_username, t.account_id
     ),
-    fan_accts AS (
-      SELECT
-        fas.fan_id,
-        ARRAY_AGG(DISTINCT fas.account_id::text ORDER BY fas.account_id::text) AS account_ids,
-        COUNT(DISTINCT fas.account_id)::int                                      AS account_count
-      FROM fan_account_stats fas
-      GROUP BY fas.fan_id
-      HAVING COUNT(DISTINCT fas.account_id) > 1
+    -- Detect cross-poll via fan_account_stats (subscription-based)
+    cp_via_stats AS (
+      SELECT fan_id FROM fan_account_stats
+      GROUP BY fan_id
+      HAVING COUNT(DISTINCT account_id) > 1
+    ),
+    -- Detect cross-poll via transactions (catches fans without full fan_account_stats coverage)
+    cp_via_tx AS (
+      SELECT f.id AS fan_id
+      FROM transactions t
+      JOIN fans f ON f.fan_id = t.fan_username
+      WHERE t.account_id IS NOT NULL
+      GROUP BY f.id
+      HAVING COUNT(DISTINCT t.account_id) > 1
+    ),
+    cross_poll_ids AS (
+      SELECT fan_id FROM cp_via_stats
+      UNION
+      SELECT fan_id FROM cp_via_tx
     )
     SELECT
       f.id,
@@ -285,8 +297,10 @@ router.get("/cross-poll", async (c) => {
       f.first_subscribe_link_id::text      AS first_subscribe_link_id,
       f.first_subscribe_date,
       f.acquired_via_account_id::text      AS acquired_via_account_id,
-      fa.account_ids,
-      fa.account_count,
+      (SELECT ARRAY_AGG(DISTINCT fas.account_id::text ORDER BY fas.account_id::text)
+       FROM fan_account_stats fas WHERE fas.fan_id = f.id)  AS account_ids,
+      (SELECT COUNT(DISTINCT fas.account_id)::int
+       FROM fan_account_stats fas WHERE fas.fan_id = f.id)  AS account_count,
       COALESCE(
         JSON_AGG(
           JSON_BUILD_OBJECT(
@@ -300,13 +314,12 @@ router.get("/cross-poll", async (c) => {
         '[]'::json
       ) AS per_account_revenue
     FROM fans f
-    JOIN fan_accts fa ON fa.fan_id = f.id
-    LEFT JOIN fan_account_stats fas2 ON fas2.fan_id = f.id
-    LEFT JOIN tx_by_account tba ON tba.fan_username = f.fan_id AND tba.account_id = fas2.account_id::text
+    JOIN cross_poll_ids cp ON cp.fan_id = f.id
+    LEFT JOIN tx_by_account tba ON tba.fan_username = f.fan_id
     WHERE f.total_revenue IS NOT NULL AND f.total_revenue::numeric > 0
     GROUP BY f.id, f.fan_id, f.username, f.display_name, f.avatar_url,
              f.total_revenue, f.first_subscribe_link_id, f.first_subscribe_date,
-             f.acquired_via_account_id, fa.account_ids, fa.account_count
+             f.acquired_via_account_id
     ORDER BY f.total_revenue::numeric DESC
     LIMIT ${limit}
   `);

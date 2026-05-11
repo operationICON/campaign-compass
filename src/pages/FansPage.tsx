@@ -1510,22 +1510,24 @@ export default function FansPage() {
                                     return (
                                       <div key={campKey} className="border-b border-border/15 last:border-0">
                                         {/* Campaign row */}
+                                        {(() => {
+                                          const tl = camp.tlId ? allTlMap[camp.tlId] : null;
+                                          return (
                                         <button
                                           onClick={() => toggleCpCampaign(campId)}
-                                          className="w-full grid items-center pl-10 pr-4 py-2 hover:bg-muted/20 transition-colors text-left"
+                                          className="w-full grid items-center pl-10 pr-4 py-2.5 hover:bg-muted/20 transition-colors text-left"
                                           style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}
                                         >
                                           <div className="flex items-center gap-1.5 min-w-0">
                                             <ChevronRight className={cn("w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform", isCampOpen && "rotate-90")} />
                                             <div className="min-w-0">
-                                              <div className="text-xs font-medium truncate text-muted-foreground">{camp.campaignName}</div>
-                                              {camp.tlId && allTlMap[camp.tlId]?.url && (
-                                                <a href={allTlMap[camp.tlId].url} target="_blank" rel="noopener noreferrer"
-                                                  onClick={e => e.stopPropagation()}
-                                                  className="text-[10px] text-sky-500 hover:text-sky-400 truncate block max-w-xs"
-                                                  title={allTlMap[camp.tlId].url}>
-                                                  {allTlMap[camp.tlId].url.replace(/^https?:\/\//, "").slice(0, 40)}{allTlMap[camp.tlId].url.length > 46 ? "…" : ""}
-                                                </a>
+                                              <div className="text-xs font-semibold truncate">{camp.campaignName}</div>
+                                              {tl?.url ? (
+                                                <span className="text-[10px] text-sky-500 truncate block max-w-xs" title={tl.url}>
+                                                  {tl.url}
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px] text-muted-foreground/40">No URL</span>
                                               )}
                                             </div>
                                           </div>
@@ -1536,10 +1538,58 @@ export default function FansPage() {
                                           <span className="text-center text-[10px] text-muted-foreground/40">+</span>
                                           <span className="text-right text-xs text-sky-400/80 tabular-nums">{fmt$(camp.revAfter)}</span>
                                         </button>
+                                          );
+                                        })()}
 
-                                        {/* Fan rows */}
-                                        {isCampOpen && (
-                                          <div className="bg-muted/10 border-t border-border/10">
+                                        {/* Campaign detail card + fan rows */}
+                                        {isCampOpen && (() => {
+                                          const tl = camp.tlId ? allTlMap[camp.tlId] : null;
+                                          return (
+                                          <div className="border-t border-border/10">
+                                            {/* Campaign info card */}
+                                            <div className="mx-10 my-3 rounded-xl border border-border/50 bg-card overflow-hidden">
+                                              <div className="px-4 py-3 bg-muted/20 border-b border-border/40 flex items-start justify-between gap-4">
+                                                <div className="min-w-0">
+                                                  <div className="font-semibold text-sm">{camp.campaignName}</div>
+                                                  {tl?.url ? (
+                                                    <a href={tl.url} target="_blank" rel="noopener noreferrer"
+                                                      className="text-xs text-sky-400 hover:text-sky-300 break-all mt-0.5 block">
+                                                      {tl.url}
+                                                    </a>
+                                                  ) : (
+                                                    <span className="text-xs text-muted-foreground/50 mt-0.5 block">No URL set</span>
+                                                  )}
+                                                  {tl?.created_at && (
+                                                    <div className="text-[10px] text-muted-foreground mt-1">
+                                                      Added {fmtDate(tl.created_at)}
+                                                      {tl?.source_tag && <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{tl.source_tag}</span>}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                <div className="shrink-0 text-right">
+                                                  <div className="text-xs text-muted-foreground">Cross-poll rev</div>
+                                                  <div className="font-bold text-sm text-emerald-400 tabular-nums">{fmt$(camp.revenue)}</div>
+                                                  <div className="text-[10px] text-muted-foreground mt-1">{fmtNum(camp.fanCount)} fan{camp.fanCount !== 1 ? "s" : ""}</div>
+                                                </div>
+                                              </div>
+                                              <div className="grid grid-cols-3 divide-x divide-border/30">
+                                                <div className="px-3 py-2 text-center">
+                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</div>
+                                                  <div className="text-sm font-semibold tabular-nums text-emerald-400">{fmt$(camp.revenue)}</div>
+                                                </div>
+                                                <div className="px-3 py-2 text-center">
+                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Before sub</div>
+                                                  <div className="text-sm font-semibold tabular-nums text-amber-400">{fmt$(camp.revBefore)}</div>
+                                                </div>
+                                                <div className="px-3 py-2 text-center">
+                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">After sub</div>
+                                                  <div className="text-sm font-semibold tabular-nums text-sky-400">{fmt$(camp.revAfter)}</div>
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Fan list */}
+                                            <div className="bg-muted/10">
                                             {camp.fans
                                               .sort((a, b) => Number(b.total_revenue ?? 0) - Number(a.total_revenue ?? 0))
                                               .map(fan => {
@@ -1595,8 +1645,10 @@ export default function FansPage() {
                                                   </Fragment>
                                                 );
                                               })}
+                                            </div>{/* /fan list */}
                                           </div>
-                                        )}
+                                          );
+                                        })()}
                                       </div>
                                     );
                                   })}
