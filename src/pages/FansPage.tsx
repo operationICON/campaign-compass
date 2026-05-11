@@ -988,25 +988,32 @@ export default function FansPage() {
                       </div>
                     );
                   })}
-                  {/* Revenue by Campaign */}
-                  {Object.keys(campaignTypeMap).length > 0 && (() => {
+                  {/* Revenue by Campaign — uses allTrackingLinks (always available), enriched by campaignTypeMap when loaded */}
+                  {(() => {
                     const campaignRows = (allTrackingLinks as any[])
-                      .filter((tl: any) => campaignTypeMap[tl.id])
+                      .filter((tl: any) => !tl.deleted_at)
                       .filter((tl: any) => accountGridFilter.length === 0 || accountGridFilter.includes(tl.account_id))
                       .map((tl: any) => ({
                         id: tl.id,
-                        name: tl.campaign_name || "—",
+                        name: tl.campaign_name || "Unnamed",
                         account_id: tl.account_id,
-                        revenue: Number(campaignTypeMap[tl.id]?.total_revenue ?? 0),
+                        // prefer tx-derived total, fall back to tracking link stored value
+                        revenue: Number(campaignTypeMap[tl.id]?.total_revenue ?? tl.revenue ?? 0),
+                        new_sub: Number(campaignTypeMap[tl.id]?.new_sub_revenue ?? 0),
+                        resub:   Number(campaignTypeMap[tl.id]?.resub_revenue   ?? 0),
+                        tip:     Number(campaignTypeMap[tl.id]?.tip_revenue     ?? 0),
+                        message: Number(campaignTypeMap[tl.id]?.message_revenue ?? 0),
+                        post:    Number(campaignTypeMap[tl.id]?.post_revenue    ?? 0),
                       }))
                       .filter(r => r.revenue > 0)
                       .sort((a, b) => b.revenue - a.revenue);
                     const campTotal = campaignRows.reduce((s, r) => s + r.revenue, 0);
                     if (campaignRows.length === 0) return null;
+                    const hasTypeData = campaignRows.some(r => r.new_sub > 0 || r.resub > 0 || r.tip > 0 || r.message > 0 || r.post > 0);
                     return (
                       <div className="pt-3 border-t border-border/40">
                         <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2.5">Revenue by Campaign</div>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {campaignRows.map(r => {
                             const acc = (accounts as any[]).find((a: any) => a.id === r.account_id);
                             const pct = campTotal > 0 ? (r.revenue / campTotal) * 100 : 0;
@@ -1027,6 +1034,15 @@ export default function FansPage() {
                                 <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
                                   <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
                                 </div>
+                                {hasTypeData && (r.new_sub > 0 || r.resub > 0 || r.tip > 0 || r.message > 0 || r.post > 0) && (
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] tabular-nums">
+                                    {r.new_sub  > 0 && <span className="text-indigo-400">New Sub {fmt$(r.new_sub)}</span>}
+                                    {r.resub    > 0 && <span className="text-cyan-400">Resub {fmt$(r.resub)}</span>}
+                                    {r.tip      > 0 && <span className="text-amber-400">Tips {fmt$(r.tip)}</span>}
+                                    {r.message  > 0 && <span className="text-emerald-400">Msg {fmt$(r.message)}</span>}
+                                    {r.post     > 0 && <span className="text-violet-400">Posts {fmt$(r.post)}</span>}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
