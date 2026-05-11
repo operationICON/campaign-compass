@@ -238,6 +238,33 @@ router.get("/campaign-breakdown", async (c) => {
   return c.json(rows.rows);
 });
 
+// ── GET /fans/cross-poll-breakdown?tracking_link_id=<uuid> ───────────────────
+// Per-receiving-account aggregate for one campaign's cross-poll revenue.
+router.get("/cross-poll-breakdown", async (c) => {
+  const tlId = c.req.query("tracking_link_id");
+  if (!tlId) return c.json({ error: "tracking_link_id required" }, 400);
+
+  const rows = await db.execute(sql`
+    SELECT
+      fs.account_id::text             AS dest_account_id,
+      dst_acc.display_name            AS dest_account_name,
+      dst_acc.avatar_thumb_url        AS dest_avatar_url,
+      COUNT(DISTINCT fs.fan_id)::int  AS fans_count,
+      SUM(fs.revenue::numeric)        AS revenue
+    FROM fan_spend fs
+    JOIN fans f ON f.fan_id = fs.fan_id
+    JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
+    JOIN accounts dst_acc ON dst_acc.id = fs.account_id::uuid
+    WHERE f.first_subscribe_link_id = ${tlId}::uuid
+      AND fs.account_id::text != tl.account_id::text
+      AND fs.revenue::numeric > 0
+    GROUP BY fs.account_id, dst_acc.display_name, dst_acc.avatar_thumb_url
+    ORDER BY revenue DESC
+  `);
+
+  return c.json(rows.rows);
+});
+
 // ── GET /fans/cross-poll-detail?limit=200&source_account_id=&dest_account_id= ──
 // Per-fan cross-poll rows: fans acquired via one account's link but with spend on another.
 router.get("/cross-poll-detail", async (c) => {

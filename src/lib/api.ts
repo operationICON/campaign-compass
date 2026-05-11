@@ -276,6 +276,12 @@ export const getCrossPollFans = (limit = 200) =>
     per_account_revenue: Array<{ account_id: string; revenue: number; tx_count: number }>;
   }>>(`/fans/cross-poll?limit=${limit}`);
 
+export const getCrossPollBreakdown = (tracking_link_id: string) =>
+  apiFetch<Array<{
+    dest_account_id: string; dest_account_name: string; dest_avatar_url: string | null;
+    fans_count: number; revenue: number;
+  }>>(`/fans/cross-poll-breakdown?tracking_link_id=${tracking_link_id}`);
+
 export const getCrossPollDetail = (params?: { limit?: number; source_account_id?: string; dest_account_id?: string }) => {
   const q = new URLSearchParams();
   if (params?.limit)             q.set("limit", String(params.limit));

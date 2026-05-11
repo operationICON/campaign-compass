@@ -4,14 +4,59 @@ import { PageFilterBar } from "@/components/PageFilterBar";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv, fetchTrackingLinks } from "@/lib/supabase-helpers";
+import { getCrossPollBreakdown } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { ModelAvatar } from "@/components/ModelAvatar";
-import { GitBranch, Users, DollarSign, Award, Percent, ChevronDown, ChevronUp } from "lucide-react";
+import { GitBranch, Users, DollarSign, Award, Percent, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
 import { useSnapshotMetrics, getSnapshotMetrics } from "@/hooks/useSnapshotMetrics";
 import { useDateScopedMetrics } from "@/hooks/useDateScopedMetrics";
 import { filterLtvByActiveLinks, buildActiveLinkIdSet } from "@/lib/calc-helpers";
+
+const ROWS_PER_PAGE = 20;
+
+const fmtCSmall = (v: number) =>
+  "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function CampaignBreakdown({ trackingLinkId }: { trackingLinkId: string }) {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["crosspoll_breakdown", trackingLinkId],
+    queryFn: () => getCrossPollBreakdown(trackingLinkId),
+    staleTime: 120_000,
+  });
+  if (isLoading) return <div className="px-4 py-3 text-xs text-muted-foreground">Loading breakdown…</div>;
+  if (!data.length) return <div className="px-4 py-3 text-xs text-muted-foreground">No breakdown data</div>;
+  return (
+    <div className="px-4 pb-3 pt-1">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Revenue received by model</div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-muted-foreground border-b border-border">
+            <th className="text-left pb-1 font-medium">Model</th>
+            <th className="text-right pb-1 font-medium">Fans</th>
+            <th className="text-right pb-1 font-medium">Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(data as any[]).map((row: any) => (
+            <tr key={row.dest_account_id} className="border-b border-border/40 last:border-0">
+              <td className="py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <ModelAvatar avatarUrl={row.dest_avatar_url} name={row.dest_account_name} size={20} />
+                  <span className="text-foreground">{row.dest_account_name}</span>
+                </div>
+              </td>
+              <td className="text-right text-foreground py-1.5">{Number(row.fans_count).toLocaleString()}</td>
+              <td className="text-right font-medium text-primary py-1.5">{fmtCSmall(Number(row.revenue))}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 type CampSortKey =
   | "campaignName" | "modelName" | "new_subs_total" | "directLtv"
@@ -28,9 +73,12 @@ export default function CrossPollPage() {
 
   const [sortKey, setSortKey] = useState<CampSortKey>("cross_poll_revenue");
   const [sortAsc, setSortAsc] = useState(false);
+  const [page, setPage] = useState(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const handleSort = (k: CampSortKey) => {
     if (k === sortKey) setSortAsc(!sortAsc);
     else { setSortKey(k); setSortAsc(false); }
+    setPage(0);
   };
   const SortHead = ({ label, k, align = "left" }: { label: string; k: CampSortKey; align?: "left" | "right" }) => (
     <TableHead
@@ -242,12 +290,18 @@ export default function CrossPollPage() {
         {/* Campaigns Table */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold text-foreground">Campaigns by Cross-Poll Revenue</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-foreground">
+                Campaigns by Cross-Poll Revenue
+                <span className="ml-2 text-xs font-normal text-muted-foreground">({topCampaigns.length} campaigns)</span>
+              </CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
+                  <TableHead className="w-6" />
                   <SortHead label="Campaign" k="campaignName" />
                   <SortHead label="Source Model" k="modelName" />
                   <SortHead label="New Fans" k="new_subs_total" align="right" />
@@ -260,53 +314,87 @@ export default function CrossPollPage() {
               </TableHeader>
               <TableBody>
                 {ltvLoading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
                 ) : topCampaigns.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
-                ) : topCampaigns.map((r: any) => {
-                  // "Received By" = all other models (exclude source)
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No cross-pollination data yet</TableCell></TableRow>
+                ) : topCampaigns.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE).map((r: any) => {
+                  const isExpanded = expandedId === r.tracking_link_id;
                   const otherModels = accounts.filter((a: any) => String(a.id).toLowerCase() !== String(r.account_id).toLowerCase());
+                  const linkUrl = linkLookup[String(r.tracking_link_id ?? "").toLowerCase()]?.url;
                   return (
-                    <TableRow key={r.id} className="border-border">
-                      <TableCell className="font-medium text-foreground max-w-[220px]">
-                        <div className="truncate">{r.campaignName}</div>
-                        {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()]?.url && (
-                          <a
-                            href={linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline truncate block"
-                          >
-                            {linkLookup[String(r.tracking_link_id ?? "").toLowerCase()].url}
-                          </a>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <ModelAvatar avatarUrl={r.avatarUrl} name={r.modelName} size={24} />
-                          <span className="text-muted-foreground">{r.modelName}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right text-foreground">{Number(r.new_subs_total || 0).toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-medium text-primary">{fmtC(Number(r.cross_poll_revenue || 0))}</TableCell>
-                      <TableCell className="text-right font-semibold text-foreground">{fmtC(r.totalLtv)}</TableCell>
-                      <TableCell className="text-right text-foreground">{Number(r.cross_poll_fans || 0).toLocaleString()}</TableCell>
-                      <TableCell className="text-right text-foreground">{fmtP(Number(r.cross_poll_conversion_pct || 0))}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {otherModels.slice(0, 4).map((a: any) => (
-                            <ModelAvatar key={a.id} avatarUrl={a.avatar_thumb_url} name={a.display_name} size={20} />
-                          ))}
-                          {otherModels.length > 4 && (
-                            <span className="text-xs text-muted-foreground ml-1">+{otherModels.length - 4}</span>
+                    <>
+                      <TableRow
+                        key={r.tracking_link_id}
+                        className={`border-border cursor-pointer hover:bg-muted/30 transition-colors ${isExpanded ? "bg-muted/20" : ""}`}
+                        onClick={() => setExpandedId(isExpanded ? null : r.tracking_link_id)}
+                      >
+                        <TableCell className="pl-3 pr-0 w-6">
+                          <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground max-w-[220px]">
+                          <div className="truncate">{r.campaignName}</div>
+                          {linkUrl && (
+                            <a
+                              href={linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-xs text-primary hover:underline truncate block"
+                            >
+                              {linkUrl}
+                            </a>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <ModelAvatar avatarUrl={r.avatarUrl} name={r.modelName} size={24} />
+                            <span className="text-muted-foreground">{r.modelName}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-foreground">{Number(r.new_subs_total || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-medium text-primary">{fmtC(Number(r.cross_poll_revenue || 0))}</TableCell>
+                        <TableCell className="text-right font-semibold text-foreground">{fmtC(r.totalLtv)}</TableCell>
+                        <TableCell className="text-right text-foreground">{Number(r.cross_poll_fans || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-foreground">{fmtP(Number(r.cross_poll_conversion_pct || 0))}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {otherModels.slice(0, 4).map((a: any) => (
+                              <ModelAvatar key={a.id} avatarUrl={a.avatar_thumb_url} name={a.display_name} size={20} />
+                            ))}
+                            {otherModels.length > 4 && (
+                              <span className="text-xs text-muted-foreground ml-1">+{otherModels.length - 4}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow key={`${r.tracking_link_id}-breakdown`} className="bg-muted/10 border-border">
+                          <TableCell colSpan={9} className="p-0">
+                            <CampaignBreakdown trackingLinkId={r.tracking_link_id} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   );
                 })}
               </TableBody>
             </Table>
+            {/* Pagination */}
+            {topCampaigns.length > ROWS_PER_PAGE && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <span className="text-xs text-muted-foreground">
+                  {page * ROWS_PER_PAGE + 1}–{Math.min((page + 1) * ROWS_PER_PAGE, topCampaigns.length)} of {topCampaigns.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                    Previous
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={(page + 1) * ROWS_PER_PAGE >= topCampaigns.length} onClick={() => setPage(p => p + 1)}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
