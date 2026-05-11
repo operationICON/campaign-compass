@@ -1044,6 +1044,8 @@ export default function CampaignsPage() {
                         const isExpanded = expandedRow === link.id;
                         const activeInfo = getActiveInfo(link.id, activeLookup);
                         const linkIsActive = isLinkActive(link);
+                        const rowAccount = accounts.find((a: any) => a.id === link.account_id);
+                        const isExModel = rowAccount?.is_active === false;
 
                         return (
                           <React.Fragment key={link.id}>
@@ -1055,8 +1057,8 @@ export default function CampaignsPage() {
                                 : activityFilter === "inactive"
                                 ? "border-l-2 border-l-muted-foreground/40"
                                 : ""
-                            }`}
-                            style={{ minHeight: "46px", opacity: isInactive ? 0.6 : 1 }}
+                            } ${isExModel ? "bg-muted/20" : ""}`}
+                            style={{ minHeight: "46px", opacity: isInactive ? 0.6 : isExModel ? 0.5 : 1 }}
                           >
                             <td style={{ padding: "8px 12px", maxWidth: "40px" }} onClick={(e) => e.stopPropagation()}>
                               <input type="checkbox" checked={selectedRows.has(link.id)} onChange={() => toggleSelectRow(link.id)} className="h-3.5 w-3.5 rounded border-border cursor-pointer" />
@@ -1089,9 +1091,12 @@ export default function CampaignsPage() {
                               switch (c.id) {
                                 case "model": return (
                                   <td key={c.id} style={{ padding: "8px 12px" }}>
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <ModelAvatar avatarUrl={link.accounts?.avatar_thumb_url} name={username} size={24} />
                                       <span className="truncate text-muted-foreground" style={{ fontSize: "12px" }}>@{username}</span>
+                                      {isExModel && (
+                                        <span className="rounded-full bg-red-500/10 text-red-400 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 shrink-0">Ex-Model</span>
+                                      )}
                                     </div>
                                   </td>
                                 );
