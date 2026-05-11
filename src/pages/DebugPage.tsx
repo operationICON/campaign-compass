@@ -37,6 +37,8 @@ export default function DebugPage() {
   const [txCoverageLoading, setTxCoverageLoading] = useState(false);
   const [attrCheckResult, setAttrCheckResult] = useState<any>(null);
   const [attrCheckLoading, setAttrCheckLoading] = useState(false);
+  const [subProbeResult, setSubProbeResult] = useState<any>(null);
+  const [subProbeLoading, setSubProbeLoading] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
@@ -215,6 +217,14 @@ export default function DebugPage() {
     }
   }, []);
 
+  const runSubProbe = useCallback(async () => {
+    setSubProbeLoading(true);
+    setSubProbeResult(null);
+    try { setSubProbeResult(await debugAction("subscriber_probe")); }
+    catch (err: any) { setSubProbeResult({ error: err.message }); }
+    finally { setSubProbeLoading(false); }
+  }, []);
+
   const runTxSample = useCallback(async () => {
     setTxSampleLoading(true);
     setTxSampleResult(null);
@@ -241,6 +251,61 @@ export default function DebugPage() {
 
         {/* Section 5 — Credit Monitor (always visible) */}
         <CreditMonitor balance={creditBalance} sessionUsed={sessionCredits} />
+
+        {/* Subscriber Endpoint Probe */}
+        <div className="bg-card border border-pink-500/30 rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-pink-400" /> Subscriber Endpoint Probe
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tests 10+ OFAPI endpoint variants (subscribers, fans, tracking-link sub-endpoints) to find which one returns fan data
+              </p>
+            </div>
+            <button
+              onClick={runSubProbe}
+              disabled={subProbeLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium bg-pink-500/10 border border-pink-500/30 text-pink-400 hover:bg-pink-500/20 transition-colors disabled:opacity-50"
+            >
+              {subProbeLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              {subProbeLoading ? "Probing endpoints…" : "Probe Subscriber Endpoints"}
+            </button>
+          </div>
+          {subProbeResult && (
+            <div className="space-y-2">
+              {subProbeResult.error && <p className="text-xs text-destructive">{subProbeResult.error}</p>}
+              {subProbeResult.account && (
+                <p className="text-[10px] text-muted-foreground">
+                  Testing on: <span className="text-foreground font-semibold">{subProbeResult.account}</span>
+                  {subProbeResult.tl_ext_id && <span className="ml-2 font-mono">(TL ext id: {subProbeResult.tl_ext_id})</span>}
+                </p>
+              )}
+              <div className="grid grid-cols-[140px_50px_60px_180px_1fr] gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                <span>Endpoint</span><span>Status</span><span>Count</span><span>First item fields</span><span>URL / error</span>
+              </div>
+              {(subProbeResult.results ?? []).map((r: any, i: number) => {
+                const works = r.status === 200 && r.count != null && r.count > 0;
+                const ok200 = r.status === 200;
+                return (
+                  <div key={i} className={`grid grid-cols-[140px_50px_60px_180px_1fr] gap-2 items-center text-[11px] rounded px-2 py-1.5 ${works ? "bg-emerald-500/15 border border-emerald-500/30" : ok200 ? "bg-sky-500/10 border border-sky-500/20" : "bg-secondary/50"}`}>
+                    <span className={`font-mono text-[10px] ${works ? "text-emerald-400 font-bold" : "text-foreground"}`}>{r.id}</span>
+                    <span className={`font-mono text-[10px] font-bold ${r.status === 200 ? "text-emerald-400" : r.status === 404 ? "text-rose-400" : "text-amber-400"}`}>
+                      {r.error ? "ERR" : r.status}
+                    </span>
+                    <span className={works ? "text-emerald-400 font-bold" : "text-muted-foreground/40"}>{r.count ?? "—"}</span>
+                    <span className="font-mono text-[9px] text-muted-foreground truncate">
+                      {r.first_item_keys?.join(", ") ?? r.top_level_keys?.join(", ") ?? "—"}
+                    </span>
+                    <span className="text-muted-foreground/60 text-[10px] truncate">
+                      {r.error ?? r.raw_snippet ?? r.url?.replace("https://app.onlyfansapi.com/api/", "…/") ?? ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Per-Account DB Transaction Check */}
         <div className="bg-card border border-sky-500/30 rounded-lg p-5 space-y-3">

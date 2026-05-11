@@ -643,6 +643,68 @@ router.post("/", async (c) => {
     return c.json({ accounts });
   }
 
+  // Probe OFAPI to find the correct subscribers / fans endpoint
+  if (body?.action === "subscriber_probe") {
+    const accRow = await db.execute(sql`
+      SELECT id, onlyfans_account_id, display_name
+      FROM accounts WHERE is_active = true AND onlyfans_account_id IS NOT NULL
+      AND sync_excluded IS NOT TRUE
+      ORDER BY display_name LIMIT 1
+    `);
+    const acc = accRow.rows[0] as any;
+    if (!acc) return c.json({ error: "No accounts found" }, 404);
+
+    const ofId = acc.onlyfans_account_id;
+
+    // Also grab first tracking link external ID for the per-link variant
+    const tlRow = await db.execute(sql`
+      SELECT external_tracking_link_id FROM tracking_links
+      WHERE account_id = ${acc.id} AND deleted_at IS NULL AND external_tracking_link_id IS NOT NULL
+      LIMIT 1
+    `);
+    const tlExtId = (tlRow.rows[0] as any)?.external_tracking_link_id ?? null;
+
+    const candidates = [
+      { id: "subscribers",                url: `${API_BASE}/${ofId}/subscribers?limit=5` },
+      { id: "fans",                        url: `${API_BASE}/${ofId}/fans?limit=5` },
+      { id: "subscriptions",               url: `${API_BASE}/${ofId}/subscriptions?limit=5` },
+      { id: "fan_subscriptions",           url: `${API_BASE}/${ofId}/fan-subscriptions?limit=5` },
+      { id: "subscribers_v2",              url: `${API_BASE}/${ofId}/v2/subscribers?limit=5` },
+      { id: "subscribers_type_active",     url: `${API_BASE}/${ofId}/subscribers?type=active&limit=5` },
+      { id: "subscribers_status_active",   url: `${API_BASE}/${ofId}/subscribers?status=active&limit=5` },
+      { id: "statistics_subscribers",      url: `${API_BASE}/${ofId}/statistics/subscribers?limit=5` },
+      ...(tlExtId ? [
+        { id: "tl_subscribers",            url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/subscribers?limit=5` },
+        { id: "tl_fans",                   url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/fans?limit=5` },
+      ] : []),
+    ];
+
+    const results: any[] = [];
+    for (const c of candidates) {
+      try {
+        const res = await fetch(c.url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+        const text = await res.text();
+        let parsed: any;
+        try { parsed = JSON.parse(text); } catch { parsed = text; }
+        const list: any[] = parsed?.data?.list ?? parsed?.data ?? parsed?.subscribers ?? parsed?.fans ?? parsed?.list ?? (Array.isArray(parsed) ? parsed : []);
+        const firstItem = Array.isArray(list) ? list[0] : null;
+        results.push({
+          id: c.id,
+          url: c.url,
+          status: res.status,
+          count: Array.isArray(list) ? list.length : null,
+          first_item_keys: firstItem ? Object.keys(firstItem) : null,
+          top_level_keys: typeof parsed === "object" && parsed ? Object.keys(parsed) : null,
+          raw_snippet: res.status !== 200 ? (typeof parsed === "object" ? JSON.stringify(parsed).slice(0, 200) : String(parsed).slice(0, 200)) : undefined,
+        });
+      } catch (err: any) {
+        results.push({ id: c.id, url: c.url, error: err.message });
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+    return c.json({ account: acc.display_name, ofId, tl_ext_id: tlExtId, results });
+  }
+
   return c.json({ error: "Unknown action" }, 400);
 });
 
