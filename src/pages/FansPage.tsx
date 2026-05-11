@@ -691,13 +691,16 @@ export default function FansPage() {
     staleTime: 300_000,
   });
 
+  const activeAccountIds = useMemo(() => new Set((accounts as any[]).map((a: any) => a.id)), [accounts]);
+
   const subsPerAccount = useMemo(() => {
     const map: Record<string, number> = {};
     for (const tl of allTrackingLinks as any[]) {
-      if (tl.account_id) map[tl.account_id] = (map[tl.account_id] ?? 0) + Number(tl.subscribers || 0);
+      if (tl.account_id && activeAccountIds.has(tl.account_id))
+        map[tl.account_id] = (map[tl.account_id] ?? 0) + Number(tl.subscribers || 0);
     }
     return map;
-  }, [allTrackingLinks]);
+  }, [allTrackingLinks, activeAccountIds]);
 
   const totalSubsAll = useMemo(
     () => Object.values(subsPerAccount).reduce((a, b) => a + b, 0),
@@ -963,7 +966,6 @@ export default function FansPage() {
             {(() => {
               const scroll = (dir: 1 | -1) => carouselRef.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
 
-              const activeAccountIds = new Set((accounts as any[]).map((a: any) => a.id));
               const campRev  = (allTrackingLinks as any[]).filter((tl: any) => !tl.deleted_at && activeAccountIds.has(tl.account_id)).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
               const tips     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
               const subs     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
