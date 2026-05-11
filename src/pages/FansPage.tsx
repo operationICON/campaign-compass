@@ -1098,27 +1098,33 @@ export default function FansPage() {
 
   // Cross-poll grouped: account → campaign → fans
   const crossPollByAccount = useMemo(() => {
-    type CampEntry = { campaignName: string; tlId: string | null; revenue: number; fanCount: number; fans: any[] };
-    type AccEntry  = { revenue: number; fanCount: number; byCampaign: Map<string, CampEntry> };
+    type CampEntry = { campaignName: string; tlId: string | null; revenue: number; revBefore: number; revAfter: number; fanCount: number; fans: any[] };
+    type AccEntry  = { revenue: number; revBefore: number; revAfter: number; fanCount: number; byCampaign: Map<string, CampEntry> };
     const map = new Map<string, AccEntry>();
 
     for (const fan of crossPollQuery.data ?? []) {
       for (const par of fan.per_account_revenue) {
-        const accId = par.account_id;
-        const rev   = Number(par.revenue ?? 0);
-        if (!map.has(accId)) map.set(accId, { revenue: 0, fanCount: 0, byCampaign: new Map() });
+        const accId     = par.account_id;
+        const rev       = Number(par.revenue ?? 0);
+        const revBefore = Number(par.rev_before ?? 0);
+        const revAfter  = Number(par.rev_after  ?? 0);
+        if (!map.has(accId)) map.set(accId, { revenue: 0, revBefore: 0, revAfter: 0, fanCount: 0, byCampaign: new Map() });
         const acc = map.get(accId)!;
         acc.revenue   += rev;
+        acc.revBefore += revBefore;
+        acc.revAfter  += revAfter;
         acc.fanCount  += 1;
 
         const tl      = fan.first_subscribe_link_id ? allTlMap[fan.first_subscribe_link_id] : null;
         const campKey = fan.first_subscribe_link_id ?? "none";
         const campName = tl?.campaign_name || tl?.external_tracking_link_id || "Direct / Unknown";
         if (!acc.byCampaign.has(campKey))
-          acc.byCampaign.set(campKey, { campaignName: campName, tlId: fan.first_subscribe_link_id, revenue: 0, fanCount: 0, fans: [] });
+          acc.byCampaign.set(campKey, { campaignName: campName, tlId: fan.first_subscribe_link_id, revenue: 0, revBefore: 0, revAfter: 0, fanCount: 0, fans: [] });
         const camp = acc.byCampaign.get(campKey)!;
-        camp.revenue  += rev;
-        camp.fanCount += 1;
+        camp.revenue   += rev;
+        camp.revBefore += revBefore;
+        camp.revAfter  += revAfter;
+        camp.fanCount  += 1;
         camp.fans.push(fan);
       }
     }
@@ -1400,124 +1406,169 @@ export default function FansPage() {
 
             {/* ── CROSS-POLL FANS ──────────────────────────────────────────── */}
             {(() => {
-              const cpFans  = crossPollQuery.data ?? [];
-              const cpTotal = [...crossPollByAccount.values()].reduce((s, v) => s + v.revenue, 0);
-              const cpCount = cpFans.length;
+              const cpFans    = crossPollQuery.data ?? [];
+              const cpEntries = [...crossPollByAccount.entries()];
+              const cpTotal   = cpEntries.reduce((s, [, v]) => s + v.revenue, 0);
+              const cpBefore  = cpEntries.reduce((s, [, v]) => s + v.revBefore, 0);
+              const cpAfter   = cpEntries.reduce((s, [, v]) => s + v.revAfter,  0);
+              const cpCount   = cpFans.length;
               if (!crossPollQuery.isLoading && cpCount === 0) return null;
 
               return (
                 <div>
-                  {/* Header */}
+                  {/* Section header */}
                   <div className="flex items-center gap-2 mb-3">
                     <GitMerge className="w-4 h-4 text-violet-400" />
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cross-Poll Fans</h2>
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cross-Poll Earnings</h2>
                     {cpCount > 0 && (
                       <span className="text-xs bg-violet-500/15 text-violet-400 px-2 py-0.5 rounded-full font-medium">
-                        {fmtNum(cpCount)} unique fans · {fmt$(cpTotal)}
+                        {fmtNum(cpCount)} fans
                       </span>
                     )}
                   </div>
 
                   {crossPollQuery.isLoading ? (
                     <div className="space-y-2">
-                      {[1,2,3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+                      {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                      {/* Table header */}
+                      <div className="grid items-center px-4 py-2 bg-muted/30 border-b border-border/60 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                        style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}>
+                        <span>Account / Campaign</span>
+                        <span className="text-right">Fans</span>
+                        <span className="text-right">Total</span>
+                        <span />
+                        <span className="text-right">Before</span>
+                        <span />
+                        <span className="text-right">After</span>
+                      </div>
+
+                      {/* Grand total row */}
+                      <div className="grid items-center px-4 py-2.5 border-b border-border/40 bg-violet-500/5"
+                        style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}>
+                        <div className="flex items-center gap-2 font-semibold text-sm">
+                          <GitMerge className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                          All Accounts
+                        </div>
+                        <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtNum(cpCount)}</span>
+                        <span className="text-right font-bold text-sm text-emerald-400 tabular-nums">{fmt$(cpTotal)}</span>
+                        <span className="text-center text-xs text-muted-foreground">=</span>
+                        <span className="text-right text-sm font-semibold text-amber-400 tabular-nums">{fmt$(cpBefore)}</span>
+                        <span className="text-center text-xs text-muted-foreground">+</span>
+                        <span className="text-right text-sm font-semibold text-sky-400 tabular-nums">{fmt$(cpAfter)}</span>
+                      </div>
+
+                      {/* Account rows */}
                       {sortedAccounts.map((acc: any) => {
                         const cpAcc = crossPollByAccount.get(acc.id);
                         if (!cpAcc) return null;
                         const isAccOpen = expandedCpAccounts.has(acc.id);
 
                         return (
-                          <div key={acc.id} className="bg-card border border-border rounded-xl overflow-hidden">
+                          <div key={acc.id} className="border-b border-border/30 last:border-0">
                             {/* Account row */}
                             <button
                               onClick={() => toggleCpAccount(acc.id)}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+                              className="w-full grid items-center px-4 py-2.5 hover:bg-muted/20 transition-colors text-left"
+                              style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}
                             >
-                              <ChevronRight className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", isAccOpen && "rotate-90")} />
-                              {acc.avatar_thumb_url
-                                ? <img src={acc.avatar_thumb_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                                : <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-400 shrink-0">{acc.display_name.slice(0,2).toUpperCase()}</div>}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-sm">{acc.display_name}</div>
-                                <div className="text-xs text-muted-foreground">{fmtNum(cpAcc.fanCount)} cross-poll fans · {fmtNum(cpAcc.byCampaign.size)} campaign{cpAcc.byCampaign.size !== 1 ? "s" : ""}</div>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", isAccOpen && "rotate-90")} />
+                                {acc.avatar_thumb_url
+                                  ? <img src={acc.avatar_thumb_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                  : <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[9px] font-bold text-violet-400 shrink-0">{acc.display_name.slice(0,2).toUpperCase()}</div>}
+                                <span className="font-medium text-sm truncate">{acc.display_name}</span>
                               </div>
-                              <div className="text-right shrink-0">
-                                <div className="font-bold text-sm text-emerald-400 tabular-nums">{fmt$(cpAcc.revenue)}</div>
-                                <div className="text-[10px] text-muted-foreground">from cross-poll</div>
-                              </div>
+                              <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtNum(cpAcc.fanCount)}</span>
+                              <span className="text-right font-semibold text-sm text-emerald-400 tabular-nums">{fmt$(cpAcc.revenue)}</span>
+                              <span className="text-center text-[10px] text-muted-foreground/60">=</span>
+                              <span className="text-right text-sm text-amber-400 tabular-nums">{fmt$(cpAcc.revBefore)}</span>
+                              <span className="text-center text-[10px] text-muted-foreground/60">+</span>
+                              <span className="text-right text-sm text-sky-400 tabular-nums">{fmt$(cpAcc.revAfter)}</span>
                             </button>
 
                             {/* Campaign rows */}
                             {isAccOpen && (
-                              <div className="border-t border-border/40">
+                              <div className="border-t border-border/20 bg-muted/5">
                                 {[...cpAcc.byCampaign.entries()]
                                   .sort(([,a],[,b]) => b.revenue - a.revenue)
                                   .map(([campKey, camp]) => {
-                                    const campId  = acc.id + ":" + campKey;
+                                    const campId     = acc.id + ":" + campKey;
                                     const isCampOpen = expandedCpCampaigns.has(campId);
                                     return (
-                                      <div key={campKey} className="border-b border-border/20 last:border-0">
-                                        {/* Campaign header */}
+                                      <div key={campKey} className="border-b border-border/15 last:border-0">
+                                        {/* Campaign row */}
                                         <button
                                           onClick={() => toggleCpCampaign(campId)}
-                                          className="w-full flex items-center gap-3 pl-12 pr-4 py-2.5 hover:bg-muted/20 transition-colors text-left"
+                                          className="w-full grid items-center pl-10 pr-4 py-2 hover:bg-muted/20 transition-colors text-left"
+                                          style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}
                                         >
-                                          <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", isCampOpen && "rotate-90")} />
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-medium truncate">{camp.campaignName}</div>
-                                            <div className="text-xs text-muted-foreground">{fmtNum(camp.fanCount)} fan{camp.fanCount !== 1 ? "s" : ""}</div>
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <ChevronRight className={cn("w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform", isCampOpen && "rotate-90")} />
+                                            <span className="text-xs font-medium truncate text-muted-foreground">{camp.campaignName}</span>
                                           </div>
-                                          <span className="text-sm font-semibold tabular-nums text-emerald-400 shrink-0">{fmt$(camp.revenue)}</span>
+                                          <span className="text-right text-[11px] text-muted-foreground/70 tabular-nums">{fmtNum(camp.fanCount)}</span>
+                                          <span className="text-right text-xs font-medium text-emerald-400 tabular-nums">{fmt$(camp.revenue)}</span>
+                                          <span className="text-center text-[10px] text-muted-foreground/40">=</span>
+                                          <span className="text-right text-xs text-amber-400/80 tabular-nums">{fmt$(camp.revBefore)}</span>
+                                          <span className="text-center text-[10px] text-muted-foreground/40">+</span>
+                                          <span className="text-right text-xs text-sky-400/80 tabular-nums">{fmt$(camp.revAfter)}</span>
                                         </button>
 
-                                        {/* Fan rows under campaign */}
+                                        {/* Fan rows */}
                                         {isCampOpen && (
-                                          <div className="bg-muted/10">
+                                          <div className="bg-muted/10 border-t border-border/10">
                                             {camp.fans
                                               .sort((a, b) => Number(b.total_revenue ?? 0) - Number(a.total_revenue ?? 0))
                                               .map(fan => {
-                                                const isFanOpen  = expandedCpFans.has(fan.id);
-                                                // revenue this fan generates specifically on this account
-                                                const accRev = fan.per_account_revenue.find((p: any) => p.account_id === acc.id);
+                                                const isFanOpen = expandedCpFans.has(fan.id);
+                                                const accRev    = fan.per_account_revenue.find((p: any) => p.account_id === acc.id);
                                                 const fanAccRev = Number(accRev?.revenue ?? 0);
-                                                // other accounts this fan is also on
+                                                const fanBefore = Number(accRev?.rev_before ?? 0);
+                                                const fanAfter  = Number(accRev?.rev_after  ?? 0);
                                                 const otherAccs = fan.per_account_revenue.filter((p: any) => p.account_id !== acc.id);
                                                 return (
                                                   <Fragment key={fan.id}>
                                                     <div
                                                       onClick={() => toggleCpFan(fan.id)}
-                                                      className={cn("flex items-center gap-3 pl-20 pr-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-t border-border/10", isFanOpen && "bg-muted/20")}
+                                                      className={cn(
+                                                        "grid items-center pl-16 pr-4 py-2 cursor-pointer hover:bg-muted/30 transition-colors border-t border-border/10",
+                                                        isFanOpen && "bg-muted/20"
+                                                      )}
+                                                      style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}
                                                     >
-                                                      <ChevronRight className={cn("w-3 h-3 text-muted-foreground shrink-0 transition-transform", isFanOpen && "rotate-90")} />
-                                                      {fan.avatar_url
-                                                        ? <img src={fan.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
-                                                        : <div className="w-7 h-7 rounded-full bg-violet-500/15 flex items-center justify-center text-[9px] font-bold text-violet-400 shrink-0">
-                                                            {((fan.username ?? fan.fan_id) as string).slice(0,2).toUpperCase()}
-                                                          </div>}
-                                                      <div className="flex-1 min-w-0">
-                                                        <div className="text-xs font-semibold truncate">{fan.display_name || fan.username || fan.fan_id}</div>
-                                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                                          <span className="text-[10px] text-muted-foreground">Also on:</span>
-                                                          {otherAccs.length > 0 ? otherAccs.map((p: any) => {
-                                                            const oa = accountMap[p.account_id];
-                                                            return oa?.avatar_thumb_url
-                                                              ? <img key={p.account_id} src={oa.avatar_thumb_url} alt={oa.display_name} title={`${oa.display_name} · ${fmt$(Number(p.revenue))}`} className="w-4 h-4 rounded-full object-cover" />
-                                                              : <div key={p.account_id} title={`${oa?.display_name || p.account_id} · ${fmt$(Number(p.revenue))}`} className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground">
-                                                                  {(oa?.display_name || "?").slice(0,2).toUpperCase()}
-                                                                </div>;
-                                                          }) : <span className="text-[10px] text-muted-foreground/50">—</span>}
+                                                      <div className="flex items-center gap-2 min-w-0">
+                                                        <ChevronRight className={cn("w-2.5 h-2.5 text-muted-foreground/50 shrink-0 transition-transform", isFanOpen && "rotate-90")} />
+                                                        {fan.avatar_url
+                                                          ? <img src={fan.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+                                                          : <div className="w-5 h-5 rounded-full bg-violet-500/15 flex items-center justify-center text-[8px] font-bold text-violet-400 shrink-0">
+                                                              {((fan.username ?? fan.fan_id) as string).slice(0,2).toUpperCase()}
+                                                            </div>}
+                                                        <div className="min-w-0">
+                                                          <div className="text-[11px] font-medium truncate">{fan.display_name || fan.username || fan.fan_id}</div>
+                                                          <div className="flex items-center gap-1 mt-0.5">
+                                                            {otherAccs.map((p: any) => {
+                                                              const oa = accountMap[p.account_id];
+                                                              return oa?.avatar_thumb_url
+                                                                ? <img key={p.account_id} src={oa.avatar_thumb_url} alt={oa.display_name} title={`${oa.display_name} · ${fmt$(Number(p.revenue))}`} className="w-3.5 h-3.5 rounded-full object-cover" />
+                                                                : <div key={p.account_id} title={`${oa?.display_name || p.account_id} · ${fmt$(Number(p.revenue))}`} className="w-3.5 h-3.5 rounded-full bg-muted flex items-center justify-center text-[7px] font-bold text-muted-foreground">
+                                                                    {(oa?.display_name || "?").slice(0,2).toUpperCase()}
+                                                                  </div>;
+                                                            })}
+                                                          </div>
                                                         </div>
                                                       </div>
-                                                      <div className="text-right shrink-0">
-                                                        <div className="text-xs font-bold tabular-nums text-emerald-400">{fmt$(fanAccRev)}</div>
-                                                        <div className="text-[10px] text-muted-foreground">on {acc.display_name.split(" ")[0]}</div>
-                                                      </div>
+                                                      <span className="text-right text-[10px] text-muted-foreground/50">—</span>
+                                                      <span className="text-right text-[11px] font-medium text-emerald-400 tabular-nums">{fmt$(fanAccRev)}</span>
+                                                      <span className="text-center text-[9px] text-muted-foreground/30">=</span>
+                                                      <span className="text-right text-[11px] text-amber-400/70 tabular-nums">{fmt$(fanBefore)}</span>
+                                                      <span className="text-center text-[9px] text-muted-foreground/30">+</span>
+                                                      <span className="text-right text-[11px] text-sky-400/70 tabular-nums">{fmt$(fanAfter)}</span>
                                                     </div>
                                                     {isFanOpen && (
-                                                      <div className="pl-14 pr-4 pb-3">
+                                                      <div className="pl-14 pr-4 pb-3 border-t border-border/10">
                                                         <FanDetailDropdown fan={fan} allTrackingLinks={allTrackingLinks as any[]} accountMap={accountMap} />
                                                       </div>
                                                     )}

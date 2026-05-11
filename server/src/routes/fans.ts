@@ -243,13 +243,25 @@ router.get("/cross-poll", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 200), 1000);
 
   const rows = await db.execute(sql`
-    WITH tx_by_account AS (
+    WITH fan_dates AS (
+      SELECT DISTINCT ON (fan_id) fan_id, first_subscribe_date
+      FROM fans
+      WHERE first_subscribe_date IS NOT NULL
+    ),
+    tx_by_account AS (
       SELECT
         t.fan_username,
         t.account_id::text                  AS account_id,
         SUM(t.revenue::numeric)             AS revenue,
+        SUM(CASE WHEN fd.first_subscribe_date IS NOT NULL AND t.date IS NOT NULL
+                      AND t.date::date < fd.first_subscribe_date
+                 THEN t.revenue::numeric ELSE 0 END) AS rev_before,
+        SUM(CASE WHEN fd.first_subscribe_date IS NULL OR t.date IS NULL
+                      OR t.date::date >= fd.first_subscribe_date
+                 THEN t.revenue::numeric ELSE 0 END) AS rev_after,
         COUNT(*)::int                       AS tx_count
       FROM transactions t
+      LEFT JOIN fan_dates fd ON fd.fan_id = t.fan_username
       WHERE t.revenue IS NOT NULL AND t.revenue::numeric > 0
         AND t.account_id IS NOT NULL
       GROUP BY t.fan_username, t.account_id
@@ -278,9 +290,11 @@ router.get("/cross-poll", async (c) => {
       COALESCE(
         JSON_AGG(
           JSON_BUILD_OBJECT(
-            'account_id', tba.account_id,
-            'revenue',    tba.revenue,
-            'tx_count',   tba.tx_count
+            'account_id',  tba.account_id,
+            'revenue',     tba.revenue,
+            'rev_before',  tba.rev_before,
+            'rev_after',   tba.rev_after,
+            'tx_count',    tba.tx_count
           ) ORDER BY tba.revenue DESC
         ) FILTER (WHERE tba.account_id IS NOT NULL),
         '[]'::json
