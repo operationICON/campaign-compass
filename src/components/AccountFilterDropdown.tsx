@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 
 interface AccountOption {
   id: string;
@@ -28,18 +28,35 @@ function getInitialColor(username: string) {
 
 export function AccountFilterDropdown({ value, onChange, accounts, className }: AccountFilterDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    if (open) setTimeout(() => searchRef.current?.focus(), 50);
+    else setSearch("");
+  }, [open]);
+
   const selected = value !== "all" ? accounts.find(a => a.id === value) : null;
   const initials = (u: string) => (u || "?").replace("@", "").slice(0, 2).toUpperCase();
+
+  const filtered = search
+    ? accounts.filter(a =>
+        (a.display_name || "").toLowerCase().includes(search.toLowerCase()) ||
+        (a.username || "").toLowerCase().includes(search.toLowerCase())
+      )
+    : accounts;
 
   return (
     <div ref={ref} className={`relative ${className || ""}`}>
@@ -56,7 +73,7 @@ export function AccountFilterDropdown({ value, onChange, accounts, className }: 
                 {initials(selected.username)}
               </span>
             )}
-            <span className="truncate">@{(selected.username || "").replace("@", "")}</span>
+            <span className="truncate">{selected.display_name || `@${(selected.username || "").replace("@", "")}`}</span>
             {selected.is_active === false && (
               <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
                 Ex-Model
@@ -64,39 +81,83 @@ export function AccountFilterDropdown({ value, onChange, accounts, className }: 
             )}
           </>
         ) : (
-          <span>All Accounts</span>
+          <span>All Models ({accounts.length})</span>
         )}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
       </button>
+
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 min-w-[240px] w-full bg-card border border-border rounded-lg shadow-lg py-1 max-h-80 overflow-y-auto">
-          <button
-            onClick={() => { onChange("all"); setOpen(false); }}
-            className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-secondary/50 transition-colors ${value === "all" ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
-          >
-            All Accounts
-          </button>
-          {accounts.map(acc => (
+        <div className="absolute left-0 top-full mt-1 z-50 min-w-[260px] w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search models…"
+                className="w-full h-8 pl-8 pr-3 text-xs rounded-md bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          {/* Select All · Deselect All */}
+          <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border">
             <button
-              key={acc.id}
-              onClick={() => { onChange(acc.id); setOpen(false); }}
-              className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 hover:bg-secondary/50 transition-colors ${value === acc.id ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
+              onClick={() => { onChange("all"); setOpen(false); setSearch(""); }}
+              className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
             >
-              {acc.avatar_thumb_url ? (
-                <img src={acc.avatar_thumb_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
-              ) : (
-                <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: getInitialColor(acc.username) }}>
-                  {initials(acc.username)}
-                </span>
-              )}
-              <span>@{(acc.username || "").replace("@", "")}</span>
-              {acc.is_active === false && (
-                <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
-                  Ex-Model
-                </span>
-              )}
+              Select All
             </button>
-          ))}
+            <span className="text-muted-foreground text-xs">·</span>
+            <button
+              onClick={() => { onChange("all"); setOpen(false); setSearch(""); }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Deselect All
+            </button>
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-64 overflow-y-auto py-1">
+            {!search && (
+              <button
+                onClick={() => { onChange("all"); setOpen(false); }}
+                className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-secondary/50 transition-colors ${value === "all" ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
+              >
+                <span className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                  {accounts.length}
+                </span>
+                All Models
+              </button>
+            )}
+            {filtered.map(acc => (
+              <button
+                key={acc.id}
+                onClick={() => { onChange(acc.id); setOpen(false); setSearch(""); }}
+                className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 hover:bg-secondary/50 transition-colors ${value === acc.id ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
+              >
+                {acc.avatar_thumb_url ? (
+                  <img src={acc.avatar_thumb_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                ) : (
+                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: getInitialColor(acc.username) }}>
+                    {initials(acc.username)}
+                  </span>
+                )}
+                <span className="flex-1 truncate">{acc.display_name || `@${(acc.username || "").replace("@", "")}`}</span>
+                {acc.is_active === false && (
+                  <span className="rounded-full bg-red-500/10 text-red-400 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5">
+                    Ex
+                  </span>
+                )}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-3 py-4 text-xs text-muted-foreground text-center">No models match "{search}"</p>
+            )}
+          </div>
         </div>
       )}
     </div>
