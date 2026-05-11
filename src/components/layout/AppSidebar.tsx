@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutGrid, Users, BarChart3,
-  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator, Heart, ChevronLeft, ChevronRight, LineChart, PieChart
+  Bell, Activity, Settings, Code2, LogOut, ShieldCheck, Tag, GitBranch, Calculator, Heart, ChevronLeft, ChevronRight, PieChart
 } from "lucide-react";
 import { fetchAlerts } from "@/lib/supabase-helpers";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,7 +16,6 @@ const mainNav = [
   { to: "/traffic-sources", icon: Tag, label: "Sources", adminOnly: true },
   { to: "/cross-poll", icon: GitBranch, label: "Cross-Poll", adminOnly: true },
   { to: "/fans", icon: Heart, label: "Fans", adminOnly: true },
-  { to: "/campaign-analytics", icon: LineChart, label: "Campaign Analytics", adminOnly: true },
   { to: "/audit", icon: ShieldCheck, label: "Audit", adminOnly: true },
   { to: "/charts", icon: BarChart3, label: "Charts", adminOnly: true },
 ];

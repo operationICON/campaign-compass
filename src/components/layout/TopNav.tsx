@@ -12,7 +12,6 @@ const PRIMARY: { to: string; label: string; adminOnly?: boolean }[] = [
   { to: "/accounts",           label: "Models",         adminOnly: true  },
   { to: "/traffic-sources",    label: "Sources",        adminOnly: true  },
   { to: "/fans",               label: "Fans",           adminOnly: true  },
-  { to: "/campaign-analytics", label: "Analytics",      adminOnly: true  },
   { to: "/cross-poll",         label: "Cross-Poll",     adminOnly: true  },
 ];
 

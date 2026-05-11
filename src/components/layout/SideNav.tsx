@@ -1,7 +1,7 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  PieChart, LayoutGrid, Users, Tag, Heart, LineChart, GitBranch,
+  PieChart, LayoutGrid, Users, Tag, Heart, GitBranch,
   ShieldCheck, BarChart3, Calculator, Bell, Activity, Settings, Code2,
   ChevronLeft, ChevronRight, LogOut,
 } from "lucide-react";
@@ -16,7 +16,6 @@ const MAIN_NAV = [
   { to: "/accounts",           icon: Users,       label: "Models",         adminOnly: true  },
   { to: "/traffic-sources",    icon: Tag,         label: "Sources",        adminOnly: true  },
   { to: "/fans",               icon: Heart,       label: "Fans",           adminOnly: true  },
-  { to: "/campaign-analytics", icon: LineChart,   label: "Analytics",      adminOnly: true  },
   { to: "/cross-poll",         icon: GitBranch,   label: "Cross-Poll",     adminOnly: true  },
   { to: "/audit",              icon: ShieldCheck, label: "Audit",          adminOnly: true  },
   { to: "/charts",             icon: BarChart3,   label: "Charts",         adminOnly: true  },
