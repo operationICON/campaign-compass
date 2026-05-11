@@ -176,6 +176,18 @@ export function useAccountLinkDeltas(
           cur.rev = Math.max(0, curLatest.rev - curEarliest.rev);
           cur.days = Math.max(1, dayDiff(curEarliest.date, curLatest.date));
           hasCurrent = true;
+        } else if (curLatest && windows.curAnchor && !curEarliest) {
+          // No snapshot at/before range start (custom range extends before coverage) —
+          // sum daily rows within the window instead of boundary-matching.
+          const anchor = windows.curAnchor;
+          const inRange = s.filter(r => r.date >= anchor && r.date <= windows.curTo);
+          if (inRange.length > 0) {
+            cur.subs = inRange.reduce((sum, r) => sum + r.subs, 0);
+            cur.clicks = inRange.reduce((sum, r) => sum + r.clicks, 0);
+            cur.rev = inRange.reduce((sum, r) => sum + r.rev, 0);
+            cur.days = windows.rangeDays;
+            hasCurrent = true;
+          }
         }
         if (windows.prevTo) {
           const pl2 = latestOnOrBefore(s, windows.prevTo);
@@ -185,6 +197,15 @@ export function useAccountLinkDeltas(
             prev.clicks = Math.max(0, pl2.clicks - pe2.clicks);
             prev.rev = Math.max(0, pl2.rev - pe2.rev);
             prev.days = Math.max(1, dayDiff(pe2.date, pl2.date));
+          } else if (pl2 && windows.prevAnchor && !pe2) {
+            const pAnchor = windows.prevAnchor;
+            const inPrev = s.filter(r => r.date >= pAnchor && r.date <= windows.prevTo!);
+            if (inPrev.length > 0) {
+              prev.subs = inPrev.reduce((sum, r) => sum + r.subs, 0);
+              prev.clicks = inPrev.reduce((sum, r) => sum + r.clicks, 0);
+              prev.rev = inPrev.reduce((sum, r) => sum + r.rev, 0);
+              prev.days = windows.rangeDays;
+            }
           }
         }
       }

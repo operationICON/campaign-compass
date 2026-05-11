@@ -15,7 +15,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinks, fetchDailyMetrics, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized, fetchTransactionTypeTotalsByAccount, patchAccount } from "@/lib/supabase-helpers";
 import { isActiveAccount, buildActiveLinkIdSet, filterLtvByActiveLinks } from "@/lib/calc-helpers";
 import { TagBadge } from "@/components/TagBadge";
-import { streamSync, getSnapshotsByDateRange } from "@/lib/api";
+import { streamSync, getSnapshotsByDateRange, getRevenuePeriod } from "@/lib/api";
 import { CampaignDetailDrawer } from "@/components/dashboard/CampaignDetailDrawer";
 import { CampaignAgePill } from "@/components/dashboard/CampaignAgePill";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -195,6 +195,17 @@ export default function AccountsPage() {
       );
     },
     enabled: !!selectedAccount,
+  });
+
+  // Live OFAPI period revenue for the selected model — exact match for any date range.
+  // Used to override the snapshot-based revenue KPIs on the model detail page.
+  const modelPeriodDateFrom = dateFilter.from ? dateFilter.from.slice(0, 10) : null;
+  const modelPeriodDateTo = dateFilter.to ? dateFilter.to.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const { data: modelPeriodRevenueRows = [] } = useQuery({
+    queryKey: ["model_period_rev", selectedAccount?.id, modelPeriodDateFrom, modelPeriodDateTo],
+    queryFn: () => getRevenuePeriod(modelPeriodDateFrom!, modelPeriodDateTo!),
+    enabled: !!selectedAccount && !isAllTime && !!modelPeriodDateFrom,
+    staleTime: 10 * 60 * 1000,
   });
 
   // Fetch transaction breakdowns per account for revenue breakdown
@@ -742,9 +753,13 @@ export default function AccountsPage() {
     // Period-scoped KPI values (when filter active)
     const aCur = accountDeltas.accountTotals.cur;
     const aPrev = accountDeltas.accountTotals.prev;
-    const periodRevenue = aCur.rev * revMultiplier;
+    // Use live OFAPI by-type revenue when available — exact match for any date range.
+    // Falls back to snapshot-based delta when OFAPI data hasn't loaded yet.
+    const ofapiRow = modelPeriodRevenueRows.find((r: any) => r.account_id === acc.id);
+    const ofapiPeriodNet = ofapiRow ? Number(ofapiRow.net) : null;
+    const periodRevenue = (ofapiPeriodNet !== null ? ofapiPeriodNet : aCur.rev) * revMultiplier;
     const periodPrevRevenue = aPrev.rev * revMultiplier;
-    const periodCampaignRev = periodRevenue; // same source: cumulative-snapshot revenue delta
+    const periodCampaignRev = periodRevenue; // OFAPI by-type net (or snapshot fallback)
     const periodSpend = aCur.spend;
     const periodProfit = periodRevenue - periodSpend;
     const periodPrevProfit = periodPrevRevenue - aPrev.spend;
