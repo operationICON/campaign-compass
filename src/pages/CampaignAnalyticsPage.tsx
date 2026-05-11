@@ -221,13 +221,13 @@ function ListView({
                 <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide min-w-[220px]">Name</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Clicks</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Subscribers</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Cost</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Expense</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Revenue (Net)</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Spenders</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Profit</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ROI</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">CVR</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ARPS/Sub</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">LTV/Sub</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Created at</th>
               </tr>
             </thead>
@@ -432,7 +432,7 @@ function PerformanceView({
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
           >
             <TrendingUp className="h-3.5 w-3.5" />
-            Cohort ARPS
+            LTV Analysis
           </button>
         </div>
       </div>
@@ -729,7 +729,7 @@ function CohortArpsView({
 
       {/* Page title */}
       <h1 className="text-xl font-bold text-foreground">
-        {campaign.campaign_name || "Campaign"} — Cohort ARPS
+        {campaign.campaign_name || "Campaign"} — LTV Analysis
       </h1>
 
       {/* Controls */}
@@ -800,13 +800,13 @@ function CohortArpsView({
       {/* ARPS Section */}
       <div className="bg-card rounded-xl border border-border p-5 space-y-5">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold text-foreground">Time-to-Profit Cohort ARPS</h2>
+          <h2 className="font-semibold text-foreground">Time-to-Profit LTV</h2>
           {isLowCoverage && (
             <span className="px-2.5 py-0.5 bg-red-500/15 text-red-400 rounded-full text-[11px] font-semibold">
               Low coverage
             </span>
           )}
-          <InfoTip text="Average Revenue Per Subscriber computed at specific time windows after their first subscription date." />
+          <InfoTip text="Total revenue and LTV/Sub computed at specific time windows after each subscriber's first subscription date." />
         </div>
 
         {isLoading ? (
@@ -850,10 +850,10 @@ function CohortArpsView({
               {arpsCards.map(({ label, arps, rev }) => (
                 <div key={label} className="bg-background rounded-xl border border-border p-3">
                   <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide mb-2">
-                    ARPS After {label}
+                    Revenue After {label}
                   </div>
-                  <div className="text-lg font-bold text-foreground">{fmtC(arps)}</div>
-                  <div className="text-[11px] text-muted-foreground mt-1">Revenue {fmtC(rev)}</div>
+                  <div className="text-lg font-bold text-foreground">{fmtC(rev)}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">LTV/Sub {fmtC(arps)}</div>
                 </div>
               ))}
             </div>
@@ -863,7 +863,7 @@ function CohortArpsView({
               <div className="lg:col-span-2">
                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-semibold uppercase tracking-wide mb-3">
                   Time-to-Profit Curve
-                  <InfoTip text="Cumulative revenue (bars) and ARPS (line) at each time milestone after subscription." />
+                  <InfoTip text="Cumulative revenue (bars) and LTV/Sub (line) at each time milestone after subscription." />
                 </div>
                 <ResponsiveContainer width="100%" height={220}>
                   <ComposedChart data={cohort.curve} margin={{ top: 4, right: 32, left: 0, bottom: 0 }}>
@@ -874,7 +874,7 @@ function CohortArpsView({
                     <RechartsTip
                       {...TT_STYLE}
                       formatter={(v: number, name: string) =>
-                        name === "revenue" ? [fmtC(v), "Cumulative Revenue"] : [fmtC(v), "ARPS"]
+                        name === "revenue" ? [fmtC(v), "Cumulative Revenue"] : [fmtC(v), "LTV/Sub"]
                       }
                     />
                     <Bar yAxisId="left" dataKey="revenue" radius={[4, 4, 0, 0]}>
@@ -887,7 +887,7 @@ function CohortArpsView({
                 </ResponsiveContainer>
                 <div className="flex items-center gap-5 mt-2 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#0891b2]/75 inline-block" /> Revenue</span>
-                  <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 rounded bg-[#f59e0b] inline-block" /> ARPS</span>
+                  <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 rounded bg-[#f59e0b] inline-block" /> LTV/Sub</span>
                 </div>
                 {cohort.cohort_size > 0 && (
                   <div className="text-[11px] text-muted-foreground mt-2">
