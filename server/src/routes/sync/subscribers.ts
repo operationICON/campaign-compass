@@ -17,8 +17,12 @@ function extractUsername(sub: any): string | null {
   return sub?.username ?? sub?.user?.username ?? sub?.userName ?? null;
 }
 function extractSubDate(sub: any): string | null {
-  const raw = sub?.subscribedAt ?? sub?.subscribeAt ?? sub?.createdAt ?? sub?.joinDate ?? sub?.created_at ?? null;
-  return raw ? String(raw).split("T")[0] : null;
+  // subscribedBy is the actual field returned by the tracking-link subscribers endpoint
+  const raw = sub?.subscribedBy ?? sub?.subscribedOn ?? sub?.subscribedAt ?? sub?.subscribeAt ?? sub?.createdAt ?? sub?.joinDate ?? sub?.created_at ?? null;
+  if (!raw) return null;
+  const s = String(raw);
+  // Could be ISO datetime or just a date
+  return s.includes("T") ? s.split("T")[0] : (s.length >= 10 ? s.slice(0, 10) : null);
 }
 
 async function updateCrosspollLtv(): Promise<number> {
@@ -257,19 +261,29 @@ router.post("/", async (c) => {
             const page: any[] = json?.data?.list ?? json?.data ?? json?.subscribers ?? json?.list ?? [];
             if (!Array.isArray(page) || page.length === 0) break;
 
-            // Match each subscriber against our target (spender) set
+            // Match each subscriber against our target (spender) set.
+            // OFAPI returns numeric `id` and string `username`. Our fan_id column
+            // may store either the numeric OF user ID or the username depending on
+            // how the fan was first created (fan_spend uses username-based IDs).
             const matched: { fan_id: string; username: string | null; sub_date: string | null }[] = [];
             for (const sub of page) {
-              const fanId = extractFanId(sub);
-              const username = extractUsername(sub);
-              const isTarget = (fanId && remaining.has(fanId)) ||
-                (username && remaining.has(username)) ||
-                (username && targetByUsername.has(username.toLowerCase()));
-              if (!isTarget) continue;
+              const fanId   = extractFanId(sub);   // numeric OF user id as string
+              const username = extractUsername(sub); // OF username
+              const usernameLower = username ? username.toLowerCase() : null;
 
-              const resolvedFanId = fanId ?? (username ? targetByUsername.get(username.toLowerCase()) ?? null : null);
+              const matchById   = fanId   && remaining.has(fanId);
+              const matchByUser = username && remaining.has(username);
+              const matchByUserLower = usernameLower && targetByUsername.has(usernameLower);
+
+              if (!matchById && !matchByUser && !matchByUserLower) continue;
+
+              // Prefer numeric ID as fan_id; fall back to username if that's what we have
+              const resolvedFanId = matchById ? fanId!
+                : (matchByUser ? username! : targetByUsername.get(usernameLower!)!);
               if (!resolvedFanId) continue;
+
               remaining.delete(resolvedFanId);
+              if (fanId)   remaining.delete(fanId);
               if (username) remaining.delete(username);
 
               matched.push({ fan_id: resolvedFanId, username, sub_date: extractSubDate(sub) });
