@@ -968,13 +968,20 @@ export default function FansPage() {
                   })()}
                 </div>
                 {(() => {
-                    const campRev = (allTrackingLinks as any[]).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
-                    const grandTotal = campRev + txTypeSummary.reduce((s, b) => s + b.revenue, 0);
+                    const campRev   = (allTrackingLinks as any[]).reduce((s, tl) => s + Number(tl.revenue ?? 0), 0);
+                    const messages  = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_messages ?? 0), 0);
+                    const tips      = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_tips ?? 0), 0);
+                    const subs      = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_subscriptions ?? 0), 0);
+                    const posts     = (accounts as any[]).reduce((s, a) => s + Number(a.ltv_posts ?? 0), 0);
+                    const grandTotal = campRev + messages + tips + subs + posts;
                     const pct = (v: number) => grandTotal > 0 ? (v / grandTotal) * 100 : 0;
                     const rows = [
-                      { label: "Campaigns", revenue: campRev, color: "#6366f1", badgeClass: "bg-primary/15 text-primary" },
-                      ...txTypeSummary.map(b => ({ label: txMeta(b.type).label, revenue: b.revenue, color: TYPE_BAR_COLOR[b.type] ?? "#64748b", badgeClass: txMeta(b.type).color })),
-                    ];
+                      { label: "Campaigns",     revenue: campRev,  color: "#6366f1", badgeClass: "bg-primary/15 text-primary" },
+                      { label: "Message",       revenue: messages, color: "#10b981", badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+                      { label: "Tip",           revenue: tips,     color: "#f59e0b", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+                      { label: "Subscriptions", revenue: subs,     color: "#22d3ee", badgeClass: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+                      { label: "Post",          revenue: posts,    color: "#8b5cf6", badgeClass: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+                    ].filter(r => r.revenue > 0);
                     return (
                       <div className="px-5 py-4 space-y-3">
                         {rows.map(r => (
@@ -993,10 +1000,7 @@ export default function FansPage() {
                         ))}
                         <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
                           <span className="font-bold text-foreground">TOTAL</span>
-                          <div className="flex items-center gap-3 tabular-nums">
-                            <span className="font-bold text-foreground">{fmt$(grandTotal)}</span>
-                            <span className="text-muted-foreground">{fmtNum(txCount)} transactions</span>
-                          </div>
+                          <span className="font-bold text-foreground tabular-nums">{fmt$(grandTotal)}</span>
                         </div>
                       </div>
                     );
