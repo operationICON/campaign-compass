@@ -674,8 +674,10 @@ router.post("/", async (c) => {
       { id: "subscribers_status_active",   url: `${API_BASE}/${ofId}/subscribers?status=active&limit=5` },
       { id: "statistics_subscribers",      url: `${API_BASE}/${ofId}/statistics/subscribers?limit=5` },
       ...(tlExtId ? [
-        { id: "tl_subscribers",            url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/subscribers?limit=5` },
-        { id: "tl_fans",                   url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/fans?limit=5` },
+        { id: "tl_subscribers_limit5",     url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/subscribers?limit=5` },
+        { id: "tl_subscribers_limit10",    url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/subscribers?limit=10` },
+        { id: "tl_subscribers_limit100",   url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/subscribers?limit=100` },
+        { id: "tl_fans",                   url: `${API_BASE}/${ofId}/tracking-links/${tlExtId}/fans?limit=10` },
       ] : []),
     ];
 

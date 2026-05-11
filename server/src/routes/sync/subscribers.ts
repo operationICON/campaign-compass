@@ -9,23 +9,18 @@ const API_BASE = "https://app.onlyfansapi.com/api";
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-// OF API field names vary — try all known locations for the tracking link ID.
-function extractTrackingLinkId(sub: any): string | null {
-  return (
-    sub?.tracking_link_id ??
-    sub?.trackingLinkId ??
-    sub?.source_tracking_link_id ??
-    sub?.trackedLinkId ??
-    sub?.subscribedByData?.tracking_link_id ??
-    sub?.subscribedByData?.trackingLinkId ??
-    sub?.trackedLink?.id ??
-    null
-  );
+function extractFanId(sub: any): string | null {
+  const raw = sub?.id ?? sub?.user?.id ?? sub?.userId ?? sub?.fan_id ?? sub?.fanId ?? null;
+  return raw != null ? String(raw) : null;
 }
 
-function extractFanId(sub: any): string | null {
-  const raw = sub?.id ?? sub?.user?.id ?? sub?.userId ?? null;
-  return raw != null ? String(raw) : null;
+function extractUsername(sub: any): string | null {
+  return sub?.username ?? sub?.user?.username ?? sub?.userName ?? null;
+}
+
+function extractSubDate(sub: any): string | null {
+  const raw = sub?.subscribedAt ?? sub?.subscribeAt ?? sub?.createdAt ?? sub?.joinDate ?? sub?.created_at ?? null;
+  return raw ? String(raw).split("T")[0] : null;
 }
 
 async function updateCrosspollLtv(): Promise<number> {
@@ -81,16 +76,11 @@ async function updateCrosspollLtv(): Promise<number> {
 }
 
 // POST /sync/subscribers
-// Body: { triggered_by?, force_full? }
-//
-// Pulls the subscribers list per account from the OF API.
-// Each subscriber includes which tracking link they came from, so this gives
-// exact attribution for all 418K subscribers — not just the ~2K with spend records.
-//
-// Incremental by default: stores the newest subscribe date per account in
-// sync_settings (key: sub_sync_last_{accountId}) and passes it as `after` param
-// on subsequent runs. First run (no stored date) pulls all history.
-// force_full=true ignores stored dates and re-pulls everything.
+// Iterates over every active tracking link and calls the per-link subscribers
+// endpoint: GET /{ofAccountId}/tracking-links/{extLinkId}/subscribers?limit=100
+// This is the only OFAPI endpoint that actually returns subscriber data.
+// Each page of subscribers is upserted into `fans` with first_subscribe_link_id
+// set to that tracking link's UUID so attribution is exact.
 router.post("/", async (c) => {
   const apiKey = process.env.ONLYFANS_API_KEY;
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
@@ -103,7 +93,7 @@ router.post("/", async (c) => {
   const [syncLog] = await db.insert(sync_logs).values({
     started_at: new Date(), status: "running", success: false,
     triggered_by: `subscriber_sync_${triggeredBy}`,
-    message: forceFull ? "Subscriber attribution: full history" : "Subscriber attribution: incremental",
+    message: forceFull ? "Subscriber attribution (per-link): full history" : "Subscriber attribution (per-link): incremental",
     records_processed: 0,
   }).returning();
   const syncLogId = syncLog?.id;
@@ -112,24 +102,11 @@ router.post("/", async (c) => {
     const errors: string[] = [];
     let totalAttributed = 0;
     let totalApiCalls = 0;
-    type AccountResult = { account: string; status: string; attributed: number; api_calls: number; mode: string; note?: string };
+    type AccountResult = { account: string; status: string; attributed: number; api_calls: number; links_processed: number; note?: string };
     const accountResults: AccountResult[] = [];
 
     try {
-      // Build external_tracking_link_id → UUID lookup for fast mapping
-      await send({ step: "start", message: "Loading tracking links..." });
-      const allLinks = await db
-        .select({ id: tracking_links.id, external_tracking_link_id: tracking_links.external_tracking_link_id })
-        .from(tracking_links)
-        .where(sql`deleted_at IS NULL AND external_tracking_link_id IS NOT NULL`);
-
-      const linkByExtId = new Map<string, string>();
-      for (const l of allLinks) {
-        if (l.external_tracking_link_id) {
-          linkByExtId.set(String(l.external_tracking_link_id).toLowerCase(), String(l.id));
-        }
-      }
-      await send({ step: "links", message: `${linkByExtId.size} tracking links loaded` });
+      await send({ step: "start", message: "Loading accounts and tracking links..." });
 
       const enabledAccounts = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })
@@ -141,134 +118,144 @@ router.post("/", async (c) => {
       for (const account of enabledAccounts) {
         if (!account.onlyfans_account_id) continue;
 
-        // Retrieve last sync date for incremental mode
-        const settingKey = `sub_sync_last_${account.id}`;
-        const [settingRow] = await db
-          .select({ value: sync_settings.value })
-          .from(sync_settings)
-          .where(eq(sync_settings.key, settingKey))
-          .limit(1);
-        const today = new Date().toISOString().split("T")[0];
-        // Ignore checkpoint if it's today or in the future — that means a previous
-        // failed run stored today's date and we'd query for 0 new subscribers.
-        const storedDate = settingRow?.value ?? null;
-        const checkpointValid = storedDate && storedDate < today;
-        const lastSyncedAt = !forceFull && checkpointValid ? storedDate : null;
+        // Load all tracking links for this account that have an external ID
+        const accountLinks = await db
+          .select({ id: tracking_links.id, external_tracking_link_id: tracking_links.external_tracking_link_id, campaign_name: tracking_links.campaign_name })
+          .from(tracking_links)
+          .where(sql`account_id = ${account.id} AND deleted_at IS NULL AND external_tracking_link_id IS NOT NULL`);
 
-        const afterParam = lastSyncedAt ? `&after=${lastSyncedAt}` : "";
-        const mode = lastSyncedAt ? `incremental from ${lastSyncedAt}` : "full history";
-        await send({ step: "account_start", message: `${account.display_name}: ${mode}` });
+        if (accountLinks.length === 0) {
+          await send({ step: "account_skip", message: `${account.display_name}: no tracking links, skipping` });
+          accountResults.push({ account: account.display_name ?? account.id, status: "no_links", attributed: 0, api_calls: 0, links_processed: 0 });
+          continue;
+        }
 
-        const baseUrl = `${API_BASE}/${account.onlyfans_account_id}/subscribers?limit=100`;
-        let url: string | null = `${baseUrl}${afterParam}`;
-        let apiCalls = 0;
+        await send({ step: "account_start", message: `${account.display_name}: ${accountLinks.length} tracking links` });
+
         let accountAttributed = 0;
-        let newestDate: string | null = null;
+        let accountApiCalls = 0;
         let accountStatus = "ok";
         let accountNote: string | undefined;
-        let retriedWithoutAfter = false;
+        let linksProcessed = 0;
 
-        while (url && apiCalls < 2000) {
-          apiCalls++;
-          totalApiCalls++;
+        for (const link of accountLinks) {
+          const extId = link.external_tracking_link_id!;
+          const linkUuid = link.id;
 
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+          // Incremental: check checkpoint per tracking link
+          const settingKey = `sub_sync_link_${linkUuid}`;
+          const [settingRow] = await db
+            .select({ value: sync_settings.value })
+            .from(sync_settings)
+            .where(eq(sync_settings.key, settingKey))
+            .limit(1);
 
-          if (res.status === 429) {
-            const retryAfter = Number(res.headers.get("Retry-After") ?? 15);
-            await sleep(retryAfter * 1000);
-            apiCalls--;
-            totalApiCalls--;
-            continue;
+          const today = new Date().toISOString().split("T")[0];
+          const storedDate = settingRow?.value ?? null;
+          const checkpointValid = storedDate && storedDate < today;
+          const afterParam = (!forceFull && checkpointValid) ? `&after=${storedDate}` : "";
+
+          const baseUrl = `${API_BASE}/${account.onlyfans_account_id}/tracking-links/${extId}/subscribers?limit=100`;
+          let url: string | null = `${baseUrl}${afterParam}`;
+          let linkApiCalls = 0;
+          let linkAttributed = 0;
+          let newestDate: string | null = null;
+          let linkAuthFailed = false;
+
+          while (url && linkApiCalls < 500) {
+            linkApiCalls++;
+            accountApiCalls++;
+            totalApiCalls++;
+
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+
+            if (res.status === 429) {
+              const retryAfter = Number(res.headers.get("Retry-After") ?? 15);
+              await sleep(retryAfter * 1000);
+              linkApiCalls--; accountApiCalls--; totalApiCalls--;
+              continue;
+            }
+            if (res.status === 401 || res.status === 403) {
+              accountStatus = "auth_error";
+              accountNote = `HTTP ${res.status}`;
+              errors.push(`${account.display_name}: HTTP ${res.status} (auth)`);
+              linkAuthFailed = true;
+              break;
+            }
+            if (!res.ok) {
+              // Non-fatal per link — log and move on
+              errors.push(`${account.display_name} / link ${extId}: HTTP ${res.status}`);
+              break;
+            }
+
+            const json = await res.json() as any;
+            const page: any[] = json?.data?.list ?? json?.data ?? json?.subscribers ?? json?.list ?? [];
+            if (!Array.isArray(page) || page.length === 0) break;
+
+            type UpsertRow = { fan_id: string; username: string | null; sub_date: string | null };
+            const upsertRows: UpsertRow[] = [];
+
+            for (const sub of page) {
+              const fanId = extractFanId(sub);
+              if (!fanId) continue;
+              linkAttributed++;
+
+              const dateStr = extractSubDate(sub);
+              if (dateStr && (!newestDate || dateStr > newestDate)) newestDate = dateStr;
+
+              upsertRows.push({ fan_id: fanId, username: extractUsername(sub), sub_date: dateStr });
+            }
+
+            if (upsertRows.length > 0) {
+              const vals = upsertRows.map(r => sql`(
+                ${r.fan_id},
+                ${r.username},
+                ${sql`${linkUuid}::uuid`},
+                ${r.sub_date ? sql`${r.sub_date}::date` : sql`NULL::date`}
+              )`);
+              await db.execute(sql`
+                INSERT INTO fans (fan_id, username, first_subscribe_link_id, first_subscribe_date)
+                VALUES ${sql.join(vals, sql`, `)}
+                ON CONFLICT (fan_id) DO UPDATE SET
+                  username                = COALESCE(EXCLUDED.username, fans.username),
+                  first_subscribe_link_id = COALESCE(fans.first_subscribe_link_id, EXCLUDED.first_subscribe_link_id),
+                  first_subscribe_date    = COALESCE(fans.first_subscribe_date, EXCLUDED.first_subscribe_date),
+                  updated_at              = NOW()
+              `);
+            }
+
+            const nextRaw = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null;
+            url = nextRaw
+              ? (String(nextRaw).startsWith("http") ? String(nextRaw) : `${API_BASE}${nextRaw}`)
+              : null;
+
+            await sleep(200);
           }
-          if (res.status === 401 || res.status === 403) {
-            accountStatus = "auth_error";
-            accountNote = `HTTP ${res.status}`;
-            errors.push(`${account.display_name}: HTTP ${res.status} (auth)`);
-            break;
-          }
-          // 404 with an `after` param likely means the API doesn't support that filter
-          // or the checkpoint date is in the future — retry once without it.
-          if (res.status === 404 && afterParam && !retriedWithoutAfter) {
-            retriedWithoutAfter = true;
-            url = baseUrl;
-            apiCalls--;
-            totalApiCalls--;
-            await send({ step: "retry", message: `${account.display_name}: 404 with incremental param, retrying from beginning` });
-            continue;
-          }
-          if (!res.ok) {
-            accountStatus = "error";
-            accountNote = `HTTP ${res.status}`;
-            errors.push(`${account.display_name}: HTTP ${res.status}`);
-            break;
-          }
 
-          const json = await res.json() as any;
-          const page: any[] = json?.data?.list ?? json?.data ?? json?.subscribers ?? json?.list ?? [];
-          if (!Array.isArray(page) || page.length === 0) break;
+          if (linkAuthFailed) break; // auth error — skip remaining links for this account
 
-          type UpsertRow = { fan_id: string; username: string | null; link_uuid: string | null; sub_date: string | null };
-          const upsertRows: UpsertRow[] = [];
-
-          for (const sub of page) {
-            const fanId = extractFanId(sub);
-            if (!fanId) continue;
-
-            const extLinkId = extractTrackingLinkId(sub);
-            const linkUuid = extLinkId ? (linkByExtId.get(String(extLinkId).toLowerCase()) ?? null) : null;
-            if (linkUuid) accountAttributed++;
-
-            const dateRaw = sub?.subscribedAt ?? sub?.subscribeAt ?? sub?.createdAt ?? sub?.joinDate ?? null;
-            const dateStr = dateRaw ? String(dateRaw).split("T")[0] : null;
-            if (dateStr && (!newestDate || dateStr > newestDate)) newestDate = dateStr;
-
-            upsertRows.push({ fan_id: fanId, username: sub?.username ?? null, link_uuid: linkUuid, sub_date: dateStr });
-          }
-
-          if (upsertRows.length > 0) {
-            const vals = upsertRows.map(r => sql`(
-              ${r.fan_id},
-              ${r.username},
-              ${r.link_uuid ? sql`${r.link_uuid}::uuid` : sql`NULL::uuid`},
-              ${r.sub_date ? sql`${r.sub_date}::date` : sql`NULL::date`}
-            )`);
+          // Advance checkpoint for this link
+          if (newestDate) {
             await db.execute(sql`
-              INSERT INTO fans (fan_id, username, first_subscribe_link_id, first_subscribe_date)
-              VALUES ${sql.join(vals, sql`, `)}
-              ON CONFLICT (fan_id) DO UPDATE SET
-                username                = COALESCE(EXCLUDED.username, fans.username),
-                first_subscribe_link_id = COALESCE(fans.first_subscribe_link_id, EXCLUDED.first_subscribe_link_id),
-                first_subscribe_date    = COALESCE(fans.first_subscribe_date, EXCLUDED.first_subscribe_date),
-                updated_at              = NOW()
+              INSERT INTO sync_settings (key, value, updated_at)
+              VALUES (${settingKey}, ${newestDate}, NOW())
+              ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
             `);
           }
 
-          const nextRaw = json?._meta?._pagination?.next_page ?? json?._pagination?.next_page ?? null;
-          url = nextRaw
-            ? (String(nextRaw).startsWith("http") ? String(nextRaw) : `${API_BASE}${nextRaw}`)
-            : null;
+          accountAttributed += linkAttributed;
+          linksProcessed++;
 
-          if (apiCalls % 50 === 0) {
-            await send({ step: "progress", message: `${account.display_name}: ${apiCalls} pages, ${accountAttributed} attributed so far...` });
+          if (linksProcessed % 5 === 0) {
+            await send({ step: "progress", message: `${account.display_name}: ${linksProcessed}/${accountLinks.length} links, ${accountAttributed} fans so far...` });
           }
-          await sleep(200);
-        }
 
-        // Only advance the checkpoint when we actually processed subscribers.
-        // If we got nothing (404 / empty), leave the stored date unchanged so
-        // the next run doesn't query from today and get stuck.
-        if (newestDate) {
-          await db.execute(sql`
-            INSERT INTO sync_settings (key, value, updated_at)
-            VALUES (${settingKey}, ${newestDate}, NOW())
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-          `);
+          await sleep(100);
         }
 
         totalAttributed += accountAttributed;
-        accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: apiCalls, mode, note: accountNote });
-        await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed (${apiCalls} API calls, ${mode})` });
+        accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: accountApiCalls, links_processed: linksProcessed, note: accountNote });
+        await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed (${linksProcessed} links, ${accountApiCalls} API calls)` });
       }
 
       await send({ step: "crosspoll", message: "Updating cross-poll revenue data..." });
@@ -281,7 +268,7 @@ router.post("/", async (c) => {
           success: errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: totalAttributed,
-          message: `${totalAttributed} fans attributed via subscriber endpoint (${totalApiCalls} API calls, ${forceFull ? "full" : "incremental"}), ${ltvUpdated} cross-poll links updated${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
+          message: `${totalAttributed} fans attributed via per-link endpoint (${totalApiCalls} API calls, ${forceFull ? "full" : "incremental"}), ${ltvUpdated} cross-poll links updated${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
           error_message: errors.length > 0 ? errors.join("; ") : null,
           details: { attributed: totalAttributed, api_calls: totalApiCalls, ltv_links: ltvUpdated, force_full: forceFull, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
