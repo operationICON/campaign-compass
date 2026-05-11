@@ -32,21 +32,31 @@ router.get("/revenue-by-type", async (c) => {
     : sql``;
 
   const rows = await db.execute(sql`
+    WITH fan_tx AS (
+      SELECT
+        f.first_subscribe_link_id,
+        t.type,
+        t.revenue::numeric AS rev
+      FROM fans f
+      JOIN transactions t ON (
+        t.fan_username = f.fan_id
+        OR (f.fan_id ~ '^u[0-9]+$' AND t.fan_id = SUBSTRING(f.fan_id, 2))
+      )
+      JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
+      WHERE f.first_subscribe_link_id IS NOT NULL
+        AND t.revenue IS NOT NULL AND t.revenue::numeric > 0
+        ${accountCond}
+    )
     SELECT
-      f.first_subscribe_link_id::text                                                             AS tracking_link_id,
-      SUM(t.revenue::numeric)                                                                     AS total_revenue,
-      SUM(CASE WHEN t.type = 'new_subscription'        THEN t.revenue::numeric ELSE 0 END)       AS new_sub_revenue,
-      SUM(CASE WHEN t.type = 'recurring_subscription'  THEN t.revenue::numeric ELSE 0 END)       AS resub_revenue,
-      SUM(CASE WHEN t.type = 'tip'                     THEN t.revenue::numeric ELSE 0 END)       AS tip_revenue,
-      SUM(CASE WHEN t.type IN ('message','chat','ppv')  THEN t.revenue::numeric ELSE 0 END)      AS message_revenue,
-      SUM(CASE WHEN t.type = 'post'                    THEN t.revenue::numeric ELSE 0 END)       AS post_revenue
-    FROM fans f
-    JOIN transactions t ON t.fan_username = f.fan_id
-    JOIN tracking_links tl ON tl.id = f.first_subscribe_link_id
-    WHERE f.first_subscribe_link_id IS NOT NULL
-      AND t.revenue IS NOT NULL AND t.revenue::numeric > 0
-      ${accountCond}
-    GROUP BY f.first_subscribe_link_id
+      first_subscribe_link_id::text                                                        AS tracking_link_id,
+      SUM(rev)                                                                             AS total_revenue,
+      SUM(CASE WHEN type = 'new_subscription'        THEN rev ELSE 0 END)                 AS new_sub_revenue,
+      SUM(CASE WHEN type = 'recurring_subscription'  THEN rev ELSE 0 END)                 AS resub_revenue,
+      SUM(CASE WHEN type = 'tip'                     THEN rev ELSE 0 END)                 AS tip_revenue,
+      SUM(CASE WHEN type IN ('message','chat','ppv')  THEN rev ELSE 0 END)                AS message_revenue,
+      SUM(CASE WHEN type = 'post'                    THEN rev ELSE 0 END)                 AS post_revenue
+    FROM fan_tx
+    GROUP BY first_subscribe_link_id
   `);
 
   return c.json(rows.rows);
