@@ -115,6 +115,7 @@ router.get("/", async (c) => {
       f.tags, f.notes, f.total_revenue, f.total_transactions,
       f.first_transaction_at, f.last_transaction_at, f.is_cross_poll,
       f.is_new_fan, f.first_subscribe_date, f.first_subscribe_account,
+      f.first_subscribe_link_id,
       f.acquired_via_account_id, f.join_date, f.created_at,
       (SELECT COUNT(DISTINCT fas.account_id) FROM fan_account_stats fas WHERE fas.fan_id = f.id) AS account_count,
       COALESCE(ts.tip_revenue,    0) AS tip_revenue,
