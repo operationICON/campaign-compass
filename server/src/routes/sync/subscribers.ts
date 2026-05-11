@@ -88,6 +88,7 @@ router.post("/", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const triggeredBy = body.triggered_by ?? "manual";
   const forceFull: boolean = !!body.force_full;
+  const filterAccountId: string | null = body.account_id ?? null;
   const { stream, send, close } = createSSEStream();
 
   const [syncLog] = await db.insert(sync_logs).values({
@@ -111,7 +112,11 @@ router.post("/", async (c) => {
       const enabledAccounts = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })
         .from(accounts)
-        .where(and(eq(accounts.is_active, true), sql`accounts.sync_excluded IS NOT TRUE`));
+        .where(and(
+          eq(accounts.is_active, true),
+          sql`accounts.sync_excluded IS NOT TRUE`,
+          filterAccountId ? eq(accounts.id, filterAccountId) : sql`TRUE`,
+        ));
 
       await send({ step: "accounts", message: `${enabledAccounts.length} accounts to process` });
 

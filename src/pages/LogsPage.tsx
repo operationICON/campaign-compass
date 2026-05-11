@@ -538,15 +538,22 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
-  const runSubscriberSync = useCallback(async (forceFull = false) => {
+  const [subSyncAccountId, setSubSyncAccountId] = useState<string>("all");
+
+  const runSubscriberSync = useCallback(async (forceFull = false, accountId?: string) => {
     const ctrl = new AbortController();
     abortRefs.current.subscribers = ctrl;
     setRunning(r => ({ ...r, subscribers: true }));
-    setProgress(p => ({ ...p, subscribers: forceFull ? "Full history scan..." : "Starting incremental..." }));
+    const acctLabel = accountId
+      ? (accounts as any[]).find((a: any) => a.id === accountId)?.display_name ?? "account"
+      : "all accounts";
+    setProgress(p => ({ ...p, subscribers: `${acctLabel} — ${forceFull ? "full history" : "incremental"}...` }));
     try {
+      const body: any = { triggered_by: forceFull ? "manual_full" : "manual", force_full: forceFull };
+      if (accountId) body.account_id = accountId;
       const lastData = await streamSync(
         "/sync/subscribers",
-        { triggered_by: forceFull ? "manual_full" : "manual", force_full: forceFull },
+        body,
         (msg) => { if (!ctrl.signal.aborted) setProgress(p => ({ ...p, subscribers: msg })); },
         ctrl.signal,
       );
@@ -554,11 +561,7 @@ export default function LogsPage() {
       if (lastData?.step === "error") throw new Error(lastData.error ?? "Unknown error");
       const attributed = lastData?.attributed ?? 0;
       const apiCalls = lastData?.api_calls ?? 0;
-      if (attributed === 0) {
-        toast.warning(`Subscriber sync — 0 fans attributed. Check if API supports /subscribers endpoint.`);
-      } else {
-        toast.success(`Subscriber sync complete — ${attributed.toLocaleString()} fans attributed (${apiCalls} API calls)`);
-      }
+      toast.success(`Sub attribution complete (${acctLabel}) — ${attributed.toLocaleString()} fans attributed (${apiCalls} API calls)`);
       queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
       queryClient.invalidateQueries({ queryKey: ["tracking_link_ltv"] });
     } catch (err: any) {
@@ -569,7 +572,7 @@ export default function LogsPage() {
       setRunning(r => ({ ...r, subscribers: false }));
       setProgress(p => ({ ...p, subscribers: "" }));
     }
-  }, [queryClient]);
+  }, [queryClient, accounts]);
 
   const runAllSync = useCallback(async () => {
     setAllRunning(true);
@@ -672,6 +675,34 @@ export default function LogsPage() {
                   >
                     Full Sync
                   </Button>
+                )}
+                {type === "subscribers" && (
+                  <div className="flex gap-1">
+                    <Select value={subSyncAccountId} onValueChange={setSubSyncAccountId}>
+                      <SelectTrigger className="h-6 text-[11px] flex-1 px-1.5 min-w-0">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All accounts</SelectItem>
+                        {(accounts as any[])
+                          .filter((a: any) => a.is_active && !a.sync_excluded)
+                          .sort((a: any, b: any) => (a.display_name ?? "").localeCompare(b.display_name ?? ""))
+                          .map((a: any) => (
+                            <SelectItem key={a.id} value={a.id}>{a.display_name ?? a.username}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => runSubscriberSync(false, subSyncAccountId === "all" ? undefined : subSyncAccountId)}
+                      disabled={showStop || allRunning}
+                      className="text-[11px] text-violet-400 hover:text-violet-300 h-6 px-1.5 shrink-0"
+                      title="Run attribution for selected account only"
+                    >
+                      Run
+                    </Button>
+                  </div>
                 )}
               </div>
             );
