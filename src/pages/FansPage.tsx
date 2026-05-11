@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks } from "@/lib/api";
@@ -594,6 +595,7 @@ const FANS_PER_PAGE = 50;
 export default function FansPage() {
   const queryClient = useQueryClient();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [accountGridFilter, setAccountGridFilter] = useState<string[]>([]);
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -651,12 +653,14 @@ export default function FansPage() {
 
   // Sort accounts by fan revenue descending for the grid
   const sortedAccounts = useMemo(() => {
-    return [...accounts].sort((a: any, b: any) => {
+    const sorted = [...accounts].sort((a: any, b: any) => {
       const revA = Number(accountStatsMap[a.id]?.total_revenue ?? 0);
       const revB = Number(accountStatsMap[b.id]?.total_revenue ?? 0);
       return revB - revA;
     });
-  }, [accounts, accountStatsMap]);
+    if (accountGridFilter.length === 0) return sorted;
+    return sorted.filter((a: any) => accountGridFilter.includes(a.id));
+  }, [accounts, accountStatsMap, accountGridFilter]);
 
   const selectedAccount = useMemo(
     () => selectedAccountId ? accounts.find((a: any) => a.id === selectedAccountId) : null,
@@ -953,9 +957,16 @@ export default function FansPage() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accounts</h2>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{accounts.length}</span>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sortedAccounts.length}</span>
                 </div>
-                <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">Sorted by fan revenue</span>
+                  <AccountFilterDropdown
+                    value={accountGridFilter}
+                    onChange={setAccountGridFilter}
+                    accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+                  />
+                </div>
               </div>
 
               {accountsLoading ? (

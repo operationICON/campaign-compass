@@ -86,8 +86,6 @@ export default function CrossPollPage() {
   // and apply snapshot/model filters.
   const activeLinkIdSet = useMemo(() => buildActiveLinkIdSet(trackingLinks), [trackingLinks]);
   const ltvData = useMemo(() => {
-    // RULE: only keep LTV rows whose tracking_link is non-deleted (shared helper).
-    // Cross-Poll is always agency-wide — no model filter applied.
     let data = filterLtvByActiveLinks(allLtvData, activeLinkIdSet);
     if (!isAllTime && snapshotLookup) {
       data = data.filter((r: any) => {
@@ -95,8 +93,11 @@ export default function CrossPollPage() {
         return snapshotLookup[tlId] !== undefined;
       });
     }
+    if (modelFilter.length > 0) {
+      data = data.filter((r: any) => modelFilter.includes(String(r.account_id)));
+    }
     return data;
-  }, [allLtvData, isAllTime, snapshotLookup, activeLinkIdSet]);
+  }, [allLtvData, isAllTime, snapshotLookup, activeLinkIdSet, modelFilter]);
 
   const filteredLtv = ltvData;
 
@@ -156,7 +157,7 @@ export default function CrossPollPage() {
       if (typeof va === "string" && typeof vb === "string") return dir * va.localeCompare(vb);
       return dir * ((va as number) - (vb as number));
     });
-    return enriched.slice(0, 50);
+    return enriched;
   }, [filteredLtv, linkLookup, accountLookup, sortKey, sortAsc]);
 
   return (
@@ -184,7 +185,6 @@ export default function CrossPollPage() {
           modelFilter={modelFilter}
           onModelFilterChange={setModelFilter}
           accounts={accounts.map((a: any) => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
-          hideModelFilter
         />
 
         {/* Summary Cards */}
