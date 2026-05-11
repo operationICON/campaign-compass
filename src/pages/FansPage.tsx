@@ -989,9 +989,17 @@ export default function FansPage() {
                       <div className="flex items-center h-9 mb-3">
                         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revenue by Type</h2>
                       </div>
-                      <div className="bg-card border border-border rounded-xl overflow-hidden flex-1">
-                        <div className="px-3 py-3 space-y-2.5">
-                          {typeRows.map(r => (
+                      <div className="bg-card border border-border rounded-xl overflow-hidden flex-1 flex flex-col">
+                        <div className="px-3 py-3 flex flex-col justify-between flex-1">
+                          {[
+                            ...typeRows,
+                            { label: "TOTAL", revenue: total, color: "", badgeClass: "", isTotal: true },
+                          ].map((r: any) => r.isTotal ? (
+                            <div key="total" className="border-t border-border/40 pt-2 flex items-center justify-between">
+                              <span className="text-xs font-bold text-foreground">TOTAL</span>
+                              <span className="text-[11px] font-bold text-foreground tabular-nums">{fmt$(total)}</span>
+                            </div>
+                          ) : (
                             <div key={r.label}>
                               <div className="flex items-center justify-between mb-1">
                                 <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0", r.badgeClass)}>{r.label}</span>
@@ -1005,10 +1013,6 @@ export default function FansPage() {
                               </div>
                             </div>
                           ))}
-                          <div className="pt-2 border-t border-border/40 flex items-center justify-between">
-                            <span className="text-xs font-bold text-foreground">TOTAL</span>
-                            <span className="text-[11px] font-bold text-foreground tabular-nums">{fmt$(total)}</span>
-                          </div>
                         </div>
                       </div>
                     </div>
