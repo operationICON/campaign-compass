@@ -676,6 +676,15 @@ export default function FansPage() {
     return sorted.filter((a: any) => accountGridFilter.includes(a.id));
   }, [accounts, accountStatsMap, accountGridFilter]);
 
+  // Default spenders list to the top account once data loads
+  const spendersDefaulted = useRef(false);
+  useEffect(() => {
+    if (!spendersDefaulted.current && sortedAccounts.length > 0 && spendersModelFilter.length === 0) {
+      setSpendersModelFilter([sortedAccounts[0].id]);
+      spendersDefaulted.current = true;
+    }
+  }, [sortedAccounts]);
+
   const selectedAccount = useMemo(
     () => selectedAccountId ? accounts.find((a: any) => a.id === selectedAccountId) : null,
     [accounts, selectedAccountId]
@@ -1097,10 +1106,16 @@ export default function FansPage() {
             })()}
 
             {/* ── ALL SPENDERS TABLE ─────────────────────────────────────── */}
+            {(() => {
+              const singleAccId = spendersModelFilter.length === 1 ? spendersModelFilter[0] : null;
+              const singleAcc = singleAccId ? (accounts as any[]).find((a: any) => a.id === singleAccId) : null;
+              return (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">All Spenders</h2>
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    {singleAcc ? `Spenders — ${singleAcc.display_name}` : "All Spenders"}
+                  </h2>
                   <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{spendersRows.length}</span>
                   {!spendersBreakdownQuery.isLoading && (() => {
                     const kpiSpenders = globalStats?.spenders ?? 0;
@@ -1155,7 +1170,7 @@ export default function FansPage() {
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
                         <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fan</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Model</th>
+                        {!singleAccId && <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Model</th>}
                         <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campaign</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-indigo-400 uppercase tracking-wide">New Subs</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-cyan-400 uppercase tracking-wide">Resub</th>
@@ -1169,12 +1184,12 @@ export default function FansPage() {
                       {spendersBreakdownQuery.isLoading ? (
                         Array.from({ length: 10 }).map((_, i) => (
                           <tr key={i} className="border-b border-border/40">
-                            <td colSpan={9} className="px-4 py-3"><Skeleton className="h-5 w-full" /></td>
+                            <td colSpan={singleAccId ? 8 : 9} className="px-4 py-3"><Skeleton className="h-5 w-full" /></td>
                           </tr>
                         ))
                       ) : paginatedSpenders.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground text-xs">No spenders found</td>
+                          <td colSpan={singleAccId ? 8 : 9} className="px-4 py-8 text-center text-muted-foreground text-xs">No spenders found</td>
                         </tr>
                       ) : paginatedSpenders.map((fan: any, i: number) => {
                         const fanName = fan.username ? `@${fan.username}` : fan.display_name || fan.fan_id;
@@ -1203,20 +1218,22 @@ export default function FansPage() {
                                 <span className="font-medium truncate max-w-[140px]">{fanName}</span>
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              {primaryAcc ? (
-                                <div className="flex items-center gap-1.5">
-                                  {primaryAcc.avatar_thumb_url ? (
-                                    <img src={primaryAcc.avatar_thumb_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-                                  ) : (
-                                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] font-bold text-primary flex-shrink-0">
-                                      {(primaryAcc.display_name || "?").slice(0, 2).toUpperCase()}
-                                    </div>
-                                  )}
-                                  <span className="text-xs text-muted-foreground truncate max-w-[100px]">{primaryAcc.display_name}</span>
-                                </div>
-                              ) : <span className="text-xs text-muted-foreground">—</span>}
-                            </td>
+                            {!singleAccId && (
+                              <td className="px-4 py-3">
+                                {primaryAcc ? (
+                                  <div className="flex items-center gap-1.5">
+                                    {primaryAcc.avatar_thumb_url ? (
+                                      <img src={primaryAcc.avatar_thumb_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] font-bold text-primary flex-shrink-0">
+                                        {(primaryAcc.display_name || "?").slice(0, 2).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <span className="text-xs text-muted-foreground truncate max-w-[100px]">{primaryAcc.display_name}</span>
+                                  </div>
+                                ) : <span className="text-xs text-muted-foreground">—</span>}
+                              </td>
+                            )}
                             <td className="px-4 py-3">
                               <span className="text-xs text-muted-foreground truncate max-w-[160px] block">
                                 {campaignLink?.campaign_name || (fan.first_subscribe_link_id ? "Unknown" : "—")}
@@ -1254,6 +1271,8 @@ export default function FansPage() {
                 )}
               </div>
             </div>
+            );
+            })()}
 
           </div>
 
