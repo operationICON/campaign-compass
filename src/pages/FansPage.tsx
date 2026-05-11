@@ -987,18 +987,12 @@ export default function FansPage() {
                       </div>
                     );
                   })}
-                  {/* Campaign total — sum of all tracking link revenue */}
-                  {(() => {
-                    const campTotal = (campaignRevenueByTypeQuery.data ?? [])
-                      .reduce((s, r) => s + Number(r.total_revenue), 0);
-                    if (campTotal <= 0) return null;
-                    return (
-                      <div className="pt-3 border-t border-border/40 flex items-center justify-between text-xs">
-                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Campaign Total</span>
-                        <span className="font-bold text-foreground tabular-nums">{fmt$(campTotal)}</span>
-                      </div>
-                    );
-                  })()}
+                  {txGrandTotal > 0 && (
+                    <div className="pt-3 border-t border-border/40 flex items-center justify-between text-xs">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Campaign Total</span>
+                      <span className="font-bold text-foreground tabular-nums">{fmt$(txGrandTotal)}</span>
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-border/40 flex justify-between text-xs">
                     <div className="space-y-0.5">
