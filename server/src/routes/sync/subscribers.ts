@@ -105,6 +105,8 @@ router.post("/", async (c) => {
     let totalAttributed = 0;
     let totalApiCalls = 0;
     const startTime = Date.now();
+    let timedOut = false;
+    let skippedAccounts: string[] = [];
     type AccountResult = { account: string; status: string; attributed: number; api_calls: number; links_processed: number; note?: string };
     const accountResults: AccountResult[] = [];
 
@@ -120,12 +122,15 @@ router.post("/", async (c) => {
 
       send({ step: "accounts", message: `${enabledAccounts.length} account(s) to process` });
 
-      for (const account of enabledAccounts) {
+      for (let ai = 0; ai < enabledAccounts.length; ai++) {
+        const account = enabledAccounts[ai];
         if (!account.onlyfans_account_id) continue;
 
         // Hard stop before Railway timeout
         if (Date.now() - startTime > MAX_RUNTIME_MS) {
-          send({ step: "timeout_stop", message: "Approaching time limit — stopping gracefully. Run per-account to continue." });
+          timedOut = true;
+          skippedAccounts = enabledAccounts.slice(ai).map(a => a.display_name ?? a.id);
+          send({ step: "timeout_stop", message: `Time limit reached — ${skippedAccounts.length} account(s) not yet processed: ${skippedAccounts.join(", ")}. Use per-account mode to continue.` });
           break;
         }
 
@@ -263,13 +268,15 @@ router.post("/", async (c) => {
       const now = new Date();
       if (syncLogId) {
         await db.update(sync_logs).set({
-          status: errors.length > 0 ? "partial" : "success",
-          success: errors.length === 0,
+          status: timedOut ? "partial" : errors.length > 0 ? "partial" : "success",
+          success: !timedOut && errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: totalAttributed,
-          message: `${totalAttributed} fans attributed from OFAPI (${totalApiCalls} API calls), ${ltvUpdated} cross-poll links updated${errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""}`,
-          error_message: errors.length > 0 ? errors.join("; ") : null,
-          details: { attributed: totalAttributed, api_calls: totalApiCalls, ltv_links: ltvUpdated, account_results: accountResults },
+          message: `${totalAttributed} fans attributed from OFAPI (${totalApiCalls} API calls), ${ltvUpdated} cross-poll links updated`
+            + (timedOut ? `. TIME LIMIT: ${skippedAccounts.length} accounts skipped — ${skippedAccounts.join(", ")}` : "")
+            + (errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""),
+          error_message: timedOut ? `Time limit reached. Skipped: ${skippedAccounts.join(", ")}${errors.length ? `. Also: ${errors[0]}` : ""}` : errors.length > 0 ? errors.join("; ") : null,
+          details: { attributed: totalAttributed, api_calls: totalApiCalls, ltv_links: ltvUpdated, timed_out: timedOut, skipped_accounts: skippedAccounts, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
       }
 
