@@ -1152,9 +1152,7 @@ export default function LogsPage() {
                                   {/* Per-account rows for non-grouped types */}
                                   {!isGroupedParent && details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
                                     const allRows = details.account_results as any[];
-                                    const rows = syncType === "subscribers"
-                                      ? allRows.filter((r: any) => r.status !== "cached" && r.status !== "no_links" && (Number(r.attributed ?? 0) > 0 || r.status === "auth_error" || r.status === "error"))
-                                      : allRows;
+                                    const rows = allRows;
                                     if (rows.length === 0) return null;
                                     const borderCls = (r: any) => {
                                       if (r.fatal || (r.errors > 0 && r.saved === 0)) return "border-l-destructive";
@@ -1438,9 +1436,7 @@ export default function LogsPage() {
                       {/* ── Per-account rows: NON-GROUPED TYPES — from account_results ── */}
                       {!isGroupedParent && details?.account_results && Array.isArray(details.account_results) && details.account_results.length > 0 && (() => {
                         const allRows = details.account_results as any[];
-                        const rows = syncT === "subscribers"
-                          ? allRows.filter((r: any) => r.status !== "cached" && r.status !== "no_links" && (Number(r.attributed ?? 0) > 0 || r.status === "auth_error" || r.status === "error"))
-                          : allRows;
+                        const rows = allRows;
                         if (rows.length === 0) return null;
                         const borderCls = (status: string | undefined) => {
                           if (status === "ok" || status === "success" || status === "cached") return "border-l-emerald-500";
