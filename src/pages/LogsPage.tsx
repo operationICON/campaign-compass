@@ -1207,7 +1207,7 @@ export default function LogsPage() {
                                     const borderCls = (r: any) => {
                                       if (r.fatal || (r.errors > 0 && r.saved === 0)) return "border-l-destructive";
                                       if (r.errors > 0) return "border-l-amber-500";
-                                      if (r.status === "ok" || r.status === "success" || (r.saved > 0 && !r.errors)) return "border-l-emerald-500";
+                                      if (r.status === "ok" || r.status === "success" || r.status === "cached" || (r.saved > 0 && !r.errors)) return "border-l-emerald-500";
                                       if (r.status === "error" || r.status === "auth_error") return "border-l-destructive";
                                       if (r.status === "partial") return "border-l-amber-500";
                                       return "border-l-border";
@@ -1226,8 +1226,8 @@ export default function LogsPage() {
                                               <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
                                                 {syncType === "subscribers" && (() => {
                                                   const s = r.status;
-                                                  const Icon = s === "ok" || s === "success" ? CheckCircle : s === "auth_error" || s === "error" ? XCircle : s === "no_links" ? Clock : AlertCircle;
-                                                  const cls = s === "ok" || s === "success" ? "text-emerald-500" : s === "auth_error" || s === "error" ? "text-destructive" : "text-muted-foreground";
+                                                  const Icon = s === "ok" || s === "success" || s === "cached" ? CheckCircle : s === "auth_error" || s === "error" ? XCircle : s === "no_links" ? Clock : AlertCircle;
+                                                  const cls = s === "ok" || s === "success" || s === "cached" ? "text-emerald-500" : s === "auth_error" || s === "error" ? "text-destructive" : "text-muted-foreground";
                                                   return <Icon className={`h-3.5 w-3.5 shrink-0 ${cls}`} />;
                                                 })()}
                                                 {avatarUrl ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>}
@@ -1250,9 +1250,12 @@ export default function LogsPage() {
                                                     {r.pages != null && <span><span className="text-muted-foreground">Pages </span><span className="font-mono font-semibold tabular-nums">{Number(r.pages).toLocaleString()}</span></span>}
                                                   </>}
                                                   {syncType === "subscribers" && <>
-                                                    {r.status === "no_links" ? <span className="text-muted-foreground italic">no tracking links</span> : <>
+                                                    {r.status === "no_links" ? <span className="text-muted-foreground italic">no tracking links</span>
+                                                    : r.status === "cached" ? <span className="text-muted-foreground italic">{Number(r.links_skipped ?? 0)} links up to date</span>
+                                                    : <>
                                                       {r.attributed != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.attributed).toLocaleString()}</span><span className="text-muted-foreground"> fans</span></span>}
                                                       {r.links_processed != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.links_processed).toLocaleString()}</span><span className="text-muted-foreground"> links</span></span>}
+                                                      {(r.links_skipped ?? 0) > 0 && <span><span className="font-mono font-semibold tabular-nums">{Number(r.links_skipped).toLocaleString()}</span><span className="text-muted-foreground"> cached</span></span>}
                                                       {r.api_calls != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span><span className="text-muted-foreground"> credits</span></span>}
                                                     </>}
                                                   </>}
