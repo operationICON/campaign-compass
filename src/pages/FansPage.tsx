@@ -126,7 +126,7 @@ function RevenueBreakdown({ txs }: { txs: any[] }) {
 }
 
 // ─── Account revenue chart ────────────────────────────────────────────────────
-function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTotal?: number }) {
+function AccountRevenueChart({ accountId, ltvTotal, fanCount }: { accountId: string; ltvTotal?: number; fanCount?: number }) {
   const [view, setView] = useState<"monthly" | "daily">("monthly");
 
   const monthlyQuery = useQuery({
@@ -206,17 +206,34 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
     </div>
   );
 
+  const TX_TYPES = [
+    { key: "message",      label: "Messages",      color: "#10b981", textColor: "text-emerald-400" },
+    { key: "tip",          label: "Tips",          color: "#f59e0b", textColor: "text-amber-400"   },
+    { key: "subscription", label: "Subscriptions", color: "#6366f1", textColor: "text-indigo-400"  },
+    { key: "post",         label: "Posts",         color: "#8b5cf6", textColor: "text-violet-400"  },
+  ] as const;
+
+  const activeTypes = TX_TYPES.filter(t => typeTotals[t.key as keyof typeof typeTotals] > 0);
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-5 pb-3">
         <div className="flex items-start justify-between gap-4 mb-3">
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">Total Earnings</div>
-            <div className="text-3xl font-bold tabular-nums text-emerald-500">{fmt$(ltvTotal ?? typeTotals.total)}</div>
-            {ltvTotal != null && ltvTotal > typeTotals.total && (
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                {fmt$(typeTotals.total)} captured in transaction records
+          <div className="flex flex-wrap items-end gap-6">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">Total Earnings</div>
+              <div className="text-3xl font-bold tabular-nums text-emerald-500">{fmt$(ltvTotal ?? typeTotals.total)}</div>
+              {ltvTotal != null && ltvTotal > typeTotals.total && (
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {fmt$(typeTotals.total)} captured in transaction records
+                </div>
+              )}
+            </div>
+            {fanCount != null && fanCount > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">Fans w/ Transactions</div>
+                <div className="text-3xl font-bold tabular-nums">{fmtNum(fanCount)}</div>
               </div>
             )}
           </div>
@@ -231,19 +248,16 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
           </div>
         </div>
 
-        {/* Type chips */}
+        {/* Type chips — all types including zero */}
         <div className="flex flex-wrap gap-2">
-          {[
-            { label: "Messages",      value: typeTotals.message,      color: "text-emerald-400", dot: "#10b981" },
-            { label: "Tips",          value: typeTotals.tip,          color: "text-amber-400",   dot: "#f59e0b" },
-            { label: "Subscriptions", value: typeTotals.subscription, color: "text-indigo-400",  dot: "#6366f1" },
-            { label: "Posts",         value: typeTotals.post,         color: "text-violet-400",  dot: "#8b5cf6" },
-          ].filter(b => b.value > 0).map(b => (
-            <div key={b.label} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-1.5">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: b.dot }} />
+          {TX_TYPES.map(t => (
+            <div key={t.key} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-1.5">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.color }} />
               <div>
-                <div className="text-[10px] text-muted-foreground">{b.label}</div>
-                <div className={cn("text-xs font-bold tabular-nums", b.color)}>{fmt$(b.value)}</div>
+                <div className="text-[10px] text-muted-foreground">{t.label}</div>
+                <div className={cn("text-xs font-bold tabular-nums", t.textColor)}>
+                  {fmt$(typeTotals[t.key as keyof typeof typeTotals])}
+                </div>
               </div>
             </div>
           ))}
@@ -251,13 +265,15 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={240}>
         <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id="acRevGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
-            </linearGradient>
+            {TX_TYPES.map(t => (
+              <linearGradient key={t.key} id={`grad_${t.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={t.color} stopOpacity={0.35} />
+                <stop offset="95%" stopColor={t.color} stopOpacity={0.03} />
+              </linearGradient>
+            ))}
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
           <XAxis dataKey="label" tickLine={false} axisLine={false}
@@ -273,10 +289,17 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
             contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 10, fontSize: 12, boxShadow: "0 4px 24px rgba(0,0,0,0.3)" }}
             labelStyle={{ color: "hsl(var(--muted-foreground))", fontWeight: 600 }}
             labelFormatter={tooltipLabelFormatter}
-            formatter={(v: number) => [fmt$(v), "Revenue"]}
+            formatter={(v: number, name: string) => {
+              const t = TX_TYPES.find(x => x.key === name);
+              return [fmt$(v), t?.label ?? name];
+            }}
           />
-          <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2.5}
-            fill="url(#acRevGrad)" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: "#10b981" }} />
+          {activeTypes.map(t => (
+            <Area key={t.key} type="monotone" dataKey={t.key} stackId="tx"
+              stroke={t.color} strokeWidth={1.5}
+              fill={`url(#grad_${t.key})`} dot={false}
+              activeDot={{ r: 3, strokeWidth: 0, fill: t.color }} />
+          ))}
         </AreaChart>
       </ResponsiveContainer>
 
@@ -1705,7 +1728,11 @@ export default function FansPage() {
           <div className="p-6 flex flex-col gap-5">
 
             {/* Revenue trend chart — monthly from transactions */}
-            <AccountRevenueChart accountId={selectedAccountId!} ltvTotal={Number(selectedAccount?.ltv_total ?? 0) || undefined} />
+            <AccountRevenueChart
+              accountId={selectedAccountId!}
+              ltvTotal={Number(selectedAccount?.ltv_total ?? 0) || undefined}
+              fanCount={selectedStats?.spenders ?? undefined}
+            />
 
             {/* Fan metrics row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
