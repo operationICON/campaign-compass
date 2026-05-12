@@ -126,7 +126,7 @@ function RevenueBreakdown({ txs }: { txs: any[] }) {
 }
 
 // ─── Account revenue chart ────────────────────────────────────────────────────
-function AccountRevenueChart({ accountId }: { accountId: string }) {
+function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTotal?: number }) {
   const { data = [], isLoading } = useQuery({
     queryKey: ["tx_by_month", accountId],
     queryFn: () => getTransactionsByMonth(accountId),
@@ -177,8 +177,13 @@ function AccountRevenueChart({ accountId }: { accountId: string }) {
         <div className="flex flex-wrap items-end gap-4 mb-1">
           <div>
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">Total Earnings</div>
-            <div className="text-3xl font-bold tabular-nums text-emerald-500">{fmt$(typeTotals.total)}</div>
+            <div className="text-3xl font-bold tabular-nums text-emerald-500">{fmt$(ltvTotal ?? typeTotals.total)}</div>
           </div>
+          {ltvTotal != null && ltvTotal > typeTotals.total && (
+            <div className="text-xs text-muted-foreground pb-1">
+              Chart shows {fmt$(typeTotals.total)} of available transaction records
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-3 mt-3">
           {[
@@ -1653,7 +1658,7 @@ export default function FansPage() {
           <div className="p-6 flex flex-col gap-5">
 
             {/* Revenue trend chart — monthly from transactions */}
-            <AccountRevenueChart accountId={selectedAccountId!} />
+            <AccountRevenueChart accountId={selectedAccountId!} ltvTotal={Number(selectedAccount?.ltv_total ?? 0) || undefined} />
 
             {/* Fan metrics row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1661,14 +1666,20 @@ export default function FansPage() {
                 Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
               ) : (
                 <>
-                  <KpiCard label="Total Fans" value={fmtNum(selectedStats?.total_fans)} icon={Users} />
-                  <KpiCard label="Spenders" value={fmtNum(selectedStats?.spenders)}
-                    sub={selectedAccountId && subsPerAccount[selectedAccountId] > 0
-                      ? `${((selectedStats.spenders / subsPerAccount[selectedAccountId]) * 100).toFixed(1)}% of ${fmtNum(subsPerAccount[selectedAccountId])} subs`
-                      : undefined}
-                    icon={DollarSign} color="bg-emerald-500" />
-                  <KpiCard label="Avg / Spender" value={fmt$(selectedStats?.avg_per_spender)} icon={DollarSign} />
-                  <KpiCard label="Cross-Poll" value={fmtNum(selectedStats?.cross_poll_fans)} sub={fmt$(selectedStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
+                  {(() => {
+                    const accLtv = Number(selectedAccount?.ltv_total ?? 0);
+                    const spenders = selectedStats?.spenders ?? 0;
+                    const totalSubs = selectedAccountId ? (subsPerAccount[selectedAccountId] ?? 0) : 0;
+                    const avgPerSpender = spenders > 0 ? accLtv / spenders : 0;
+                    return (
+                      <>
+                        <KpiCard label="Total Revenue" value={fmt$(accLtv)} icon={DollarSign} color="bg-emerald-500" />
+                        <KpiCard label="Subscribers" value={fmtNum(totalSubs)} icon={Users} />
+                        <KpiCard label="Avg / Spender" value={avgPerSpender > 0 ? fmt$(avgPerSpender) : "—"} icon={DollarSign} />
+                        <KpiCard label="Cross-Poll" value={fmtNum(selectedStats?.cross_poll_fans)} sub={fmt$(selectedStats?.cross_poll_revenue)} icon={GitMerge} color="bg-violet-500" />
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </div>
