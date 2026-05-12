@@ -1445,29 +1445,21 @@ export default function FansPage() {
                     <div className="bg-card border border-border rounded-xl overflow-hidden">
                       {/* Table header */}
                       <div className="grid items-center px-4 py-2 bg-muted/30 border-b border-border/60 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
-                        style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}>
+                        style={{ gridTemplateColumns: "1fr 60px 110px" }}>
                         <span>Account / Campaign</span>
                         <span className="text-right">Fans</span>
-                        <span className="text-right">Total</span>
-                        <span />
-                        <span className="text-right">Before</span>
-                        <span />
-                        <span className="text-right">After</span>
+                        <span className="text-right">Revenue</span>
                       </div>
 
                       {/* Grand total row */}
                       <div className="grid items-center px-4 py-2.5 border-b border-border/40 bg-violet-500/5"
-                        style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}>
+                        style={{ gridTemplateColumns: "1fr 60px 110px" }}>
                         <div className="flex items-center gap-2 font-semibold text-sm">
                           <GitMerge className="w-3.5 h-3.5 text-violet-400 shrink-0" />
                           All Accounts
                         </div>
                         <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtNum(cpCount)}</span>
                         <span className="text-right font-bold text-sm text-emerald-400 tabular-nums">{fmt$(cpTotal)}</span>
-                        <span className="text-center text-xs text-muted-foreground">=</span>
-                        <span className="text-right text-sm font-semibold text-amber-400 tabular-nums">{fmt$(cpBefore)}</span>
-                        <span className="text-center text-xs text-muted-foreground">+</span>
-                        <span className="text-right text-sm font-semibold text-sky-400 tabular-nums">{fmt$(cpAfter)}</span>
                       </div>
 
                       {/* Account rows */}
@@ -1482,7 +1474,7 @@ export default function FansPage() {
                             <button
                               onClick={() => toggleCpAccount(acc.id)}
                               className="w-full grid items-center px-4 py-2.5 hover:bg-muted/20 transition-colors text-left"
-                              style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}
+                              style={{ gridTemplateColumns: "1fr 60px 110px" }}
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", isAccOpen && "rotate-90")} />
@@ -1493,10 +1485,6 @@ export default function FansPage() {
                               </div>
                               <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtNum(cpAcc.fanCount)}</span>
                               <span className="text-right font-semibold text-sm text-emerald-400 tabular-nums">{fmt$(cpAcc.revenue)}</span>
-                              <span className="text-center text-[10px] text-muted-foreground/60">=</span>
-                              <span className="text-right text-sm text-amber-400 tabular-nums">{fmt$(cpAcc.revBefore)}</span>
-                              <span className="text-center text-[10px] text-muted-foreground/60">+</span>
-                              <span className="text-right text-sm text-sky-400 tabular-nums">{fmt$(cpAcc.revAfter)}</span>
                             </button>
 
                             {/* Campaign rows */}
@@ -1516,7 +1504,7 @@ export default function FansPage() {
                                         <button
                                           onClick={() => toggleCpCampaign(campId)}
                                           className="w-full grid items-center pl-10 pr-4 py-2.5 hover:bg-muted/20 transition-colors text-left"
-                                          style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}
+                                          style={{ gridTemplateColumns: "1fr 60px 110px" }}
                                         >
                                           <div className="flex items-center gap-1.5 min-w-0">
                                             <ChevronRight className={cn("w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform", isCampOpen && "rotate-90")} />
@@ -1533,10 +1521,6 @@ export default function FansPage() {
                                           </div>
                                           <span className="text-right text-[11px] text-muted-foreground/70 tabular-nums">{fmtNum(camp.fanCount)}</span>
                                           <span className="text-right text-xs font-medium text-emerald-400 tabular-nums">{fmt$(camp.revenue)}</span>
-                                          <span className="text-center text-[10px] text-muted-foreground/40">=</span>
-                                          <span className="text-right text-xs text-amber-400/80 tabular-nums">{fmt$(camp.revBefore)}</span>
-                                          <span className="text-center text-[10px] text-muted-foreground/40">+</span>
-                                          <span className="text-right text-xs text-sky-400/80 tabular-nums">{fmt$(camp.revAfter)}</span>
                                         </button>
                                           );
                                         })()}
@@ -1574,16 +1558,16 @@ export default function FansPage() {
                                               </div>
                                               <div className="grid grid-cols-3 divide-x divide-border/30">
                                                 <div className="px-3 py-2 text-center">
-                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</div>
+                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Revenue</div>
                                                   <div className="text-sm font-semibold tabular-nums text-emerald-400">{fmt$(camp.revenue)}</div>
                                                 </div>
                                                 <div className="px-3 py-2 text-center">
-                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Before sub</div>
-                                                  <div className="text-sm font-semibold tabular-nums text-amber-400">{fmt$(camp.revBefore)}</div>
+                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Fans</div>
+                                                  <div className="text-sm font-semibold tabular-nums">{fmtNum(camp.fanCount)}</div>
                                                 </div>
                                                 <div className="px-3 py-2 text-center">
-                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">After sub</div>
-                                                  <div className="text-sm font-semibold tabular-nums text-sky-400">{fmt$(camp.revAfter)}</div>
+                                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg / Fan</div>
+                                                  <div className="text-sm font-semibold tabular-nums text-emerald-400">{camp.fanCount > 0 ? fmt$(camp.revenue / camp.fanCount) : "—"}</div>
                                                 </div>
                                               </div>
                                             </div>
@@ -1607,7 +1591,7 @@ export default function FansPage() {
                                                         "grid items-center pl-16 pr-4 py-2 cursor-pointer hover:bg-muted/30 transition-colors border-t border-border/10",
                                                         isFanOpen && "bg-muted/20"
                                                       )}
-                                                      style={{ gridTemplateColumns: "1fr 60px 110px 16px 110px 16px 110px" }}
+                                                      style={{ gridTemplateColumns: "1fr 60px 110px" }}
                                                     >
                                                       <div className="flex items-center gap-2 min-w-0">
                                                         <ChevronRight className={cn("w-2.5 h-2.5 text-muted-foreground/50 shrink-0 transition-transform", isFanOpen && "rotate-90")} />
@@ -1632,10 +1616,6 @@ export default function FansPage() {
                                                       </div>
                                                       <span className="text-right text-[10px] text-muted-foreground/50">—</span>
                                                       <span className="text-right text-[11px] font-medium text-emerald-400 tabular-nums">{fmt$(fanAccRev)}</span>
-                                                      <span className="text-center text-[9px] text-muted-foreground/30">=</span>
-                                                      <span className="text-right text-[11px] text-amber-400/70 tabular-nums">{fmt$(fanBefore)}</span>
-                                                      <span className="text-center text-[9px] text-muted-foreground/30">+</span>
-                                                      <span className="text-right text-[11px] text-sky-400/70 tabular-nums">{fmt$(fanAfter)}</span>
                                                     </div>
                                                     {isFanOpen && (
                                                       <div className="pl-14 pr-4 pb-3 border-t border-border/10">

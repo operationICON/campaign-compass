@@ -303,54 +303,18 @@ router.get("/cross-poll-detail", async (c) => {
 });
 
 // ── GET /fans/cross-poll?limit=200 ────────────────────────────────────────────
-// Cross-pollinated fans: appear on ≥2 accounts, with per-account tx revenue.
+// Cross-pollinated fans: fans with spend on 2+ accounts, revenue from fan_spend.
 router.get("/cross-poll", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 200), 1000);
 
   const rows = await db.execute(sql`
-    WITH fan_dates AS (
-      SELECT DISTINCT ON (fan_id) fan_id, first_subscribe_date
-      FROM fans
-      WHERE first_subscribe_date IS NOT NULL
-    ),
-    tx_by_account AS (
-      -- All per-(fan, account) revenue, with before/after split on first_subscribe_date
-      SELECT
-        t.fan_username,
-        t.account_id::text                  AS account_id,
-        SUM(t.revenue::numeric)             AS revenue,
-        SUM(CASE WHEN fd.first_subscribe_date IS NOT NULL AND t.date IS NOT NULL
-                      AND t.date::date < fd.first_subscribe_date
-                 THEN t.revenue::numeric ELSE 0 END) AS rev_before,
-        SUM(CASE WHEN fd.first_subscribe_date IS NULL OR t.date IS NULL
-                      OR t.date::date >= fd.first_subscribe_date
-                 THEN t.revenue::numeric ELSE 0 END) AS rev_after,
-        COUNT(*)::int                       AS tx_count
-      FROM transactions t
-      LEFT JOIN fan_dates fd ON fd.fan_id = t.fan_username
-      WHERE t.revenue IS NOT NULL AND t.revenue::numeric > 0
-        AND t.account_id IS NOT NULL
-      GROUP BY t.fan_username, t.account_id
-    ),
-    -- Detect cross-poll via fan_account_stats (subscription-based)
-    cp_via_stats AS (
-      SELECT fan_id FROM fan_account_stats
+    WITH cross_poll_fans AS (
+      -- Fans with fan_spend revenue on 2+ distinct accounts
+      SELECT fan_id
+      FROM fan_spend
+      WHERE revenue::numeric > 0
       GROUP BY fan_id
       HAVING COUNT(DISTINCT account_id) > 1
-    ),
-    -- Detect cross-poll via transactions (catches fans without full fan_account_stats coverage)
-    cp_via_tx AS (
-      SELECT f.id AS fan_id
-      FROM transactions t
-      JOIN fans f ON f.fan_id = t.fan_username
-      WHERE t.account_id IS NOT NULL
-      GROUP BY f.id
-      HAVING COUNT(DISTINCT t.account_id) > 1
-    ),
-    cross_poll_ids AS (
-      SELECT fan_id FROM cp_via_stats
-      UNION
-      SELECT fan_id FROM cp_via_tx
     )
     SELECT
       f.id,
@@ -358,33 +322,30 @@ router.get("/cross-poll", async (c) => {
       f.username,
       f.display_name,
       f.avatar_url,
-      f.total_revenue::numeric             AS total_revenue,
-      f.first_subscribe_link_id::text      AS first_subscribe_link_id,
+      f.total_revenue::numeric            AS total_revenue,
+      f.first_subscribe_link_id::text     AS first_subscribe_link_id,
       f.first_subscribe_date,
-      f.acquired_via_account_id::text      AS acquired_via_account_id,
-      (SELECT ARRAY_AGG(DISTINCT fas.account_id::text ORDER BY fas.account_id::text)
-       FROM fan_account_stats fas WHERE fas.fan_id = f.id)  AS account_ids,
-      (SELECT COUNT(DISTINCT fas.account_id)::int
-       FROM fan_account_stats fas WHERE fas.fan_id = f.id)  AS account_count,
+      f.acquired_via_account_id::text     AS acquired_via_account_id,
       COALESCE(
         JSON_AGG(
           JSON_BUILD_OBJECT(
-            'account_id',  tba.account_id,
-            'revenue',     tba.revenue,
-            'rev_before',  tba.rev_before,
-            'rev_after',   tba.rev_after,
-            'tx_count',    tba.tx_count
-          ) ORDER BY tba.revenue DESC
-        ) FILTER (WHERE tba.account_id IS NOT NULL),
+            'account_id', fs.account_id::text,
+            'revenue',    fs.revenue::numeric,
+            'rev_before', 0,
+            'rev_after',  fs.revenue::numeric,
+            'tx_count',   0
+          ) ORDER BY fs.revenue::numeric DESC
+        ) FILTER (WHERE fs.account_id IS NOT NULL AND fs.revenue::numeric > 0),
         '[]'::json
       ) AS per_account_revenue
     FROM fans f
-    JOIN cross_poll_ids cp ON cp.fan_id = f.id
-    LEFT JOIN tx_by_account tba ON tba.fan_username = f.fan_id
+    JOIN cross_poll_fans cp ON cp.fan_id = f.fan_id
+    LEFT JOIN fan_spend fs ON fs.fan_id = f.fan_id AND fs.revenue::numeric > 0
     WHERE f.total_revenue IS NOT NULL AND f.total_revenue::numeric > 0
-    GROUP BY f.id, f.fan_id, f.username, f.display_name, f.avatar_url,
-             f.total_revenue, f.first_subscribe_link_id, f.first_subscribe_date,
-             f.acquired_via_account_id
+    GROUP BY
+      f.id, f.fan_id, f.username, f.display_name, f.avatar_url,
+      f.total_revenue, f.first_subscribe_link_id, f.first_subscribe_date,
+      f.acquired_via_account_id
     ORDER BY f.total_revenue::numeric DESC
     LIMIT ${limit}
   `);
