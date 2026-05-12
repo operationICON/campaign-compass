@@ -84,15 +84,21 @@ router.post("/", async (c) => {
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
 
   const body = await c.req.json().catch(() => ({}));
-  const triggeredBy      = body.triggered_by ?? "manual";
-  const forceFullSync    = body.force_full === true;
-  const filterAccountId: string | null = body.account_id ?? null;
+  const triggeredBy   = body.triggered_by ?? "manual";
+  const forceFullSync = body.force_full === true;
+  // Accept single account_id OR array account_ids
+  const rawIds: string[] = Array.isArray(body.account_ids)
+    ? body.account_ids
+    : body.account_id ? [body.account_id] : [];
+  const filterAccountIds: string[] | null = rawIds.length > 0 ? rawIds : null;
   const { stream, send, close } = createSSEStream();
 
   const [syncLog] = await db.insert(sync_logs).values({
     started_at: new Date(), status: "running", success: false,
     triggered_by: `subscriber_sync_${triggeredBy}`,
-    message: filterAccountId ? "Subscriber attribution (per account, OFAPI)" : "Subscriber attribution (all accounts, OFAPI)",
+    message: filterAccountIds
+      ? `Subscriber attribution (${filterAccountIds.length} account(s), OFAPI)`
+      : "Subscriber attribution (all accounts, OFAPI)",
     records_processed: 0,
   }).returning();
   const syncLogId = syncLog?.id;
@@ -131,7 +137,9 @@ router.post("/", async (c) => {
         .where(and(
           eq(accounts.is_active, true),
           sql`accounts.sync_excluded IS NOT TRUE`,
-          filterAccountId ? eq(accounts.id, filterAccountId) : sql`TRUE`,
+          filterAccountIds
+            ? sql`accounts.id IN (${sql.join(filterAccountIds.map(id => sql`${id}::uuid`), sql`, `)})`
+            : sql`TRUE`,
         ));
 
       // Count how many links actually need syncing across all accounts

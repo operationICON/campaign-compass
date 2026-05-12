@@ -17,6 +17,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const PAGE_SIZE = 25;
 
@@ -538,19 +540,22 @@ export default function LogsPage() {
     }
   }, [queryClient]);
 
-  const [subSyncAccountId, setSubSyncAccountId] = useState<string>("all");
+  const [subSyncAccountIds, setSubSyncAccountIds] = useState<string[]>([]);
+  const [subSyncPopoverOpen, setSubSyncPopoverOpen] = useState(false);
 
-  const runSubscriberSync = useCallback(async (forceFull = false, accountId?: string) => {
+  const runSubscriberSync = useCallback(async (forceFull = false, accountIds?: string[]) => {
     const ctrl = new AbortController();
     abortRefs.current.subscribers = ctrl;
     setRunning(r => ({ ...r, subscribers: true }));
-    const acctLabel = accountId
-      ? (accounts as any[]).find((a: any) => a.id === accountId)?.display_name ?? "account"
+    const acctLabel = accountIds && accountIds.length > 0
+      ? accountIds.length === 1
+        ? (accounts as any[]).find((a: any) => a.id === accountIds[0])?.display_name ?? "1 account"
+        : `${accountIds.length} accounts`
       : "all accounts";
-    setProgress(p => ({ ...p, subscribers: `${acctLabel} — ${forceFull ? "full history" : "incremental"}...` }));
+    setProgress(p => ({ ...p, subscribers: `${acctLabel} — ${forceFull ? "full sync" : "incremental"}...` }));
     try {
       const body: any = { triggered_by: forceFull ? "manual_full" : "manual", force_full: forceFull };
-      if (accountId) body.account_id = accountId;
+      if (accountIds && accountIds.length > 0) body.account_ids = accountIds;
       const lastData = await streamSync(
         "/sync/subscribers",
         body,
@@ -676,34 +681,65 @@ export default function LogsPage() {
                     Full Sync
                   </Button>
                 )}
-                {type === "subscribers" && (
-                  <div className="flex gap-1">
-                    <Select value={subSyncAccountId} onValueChange={setSubSyncAccountId}>
-                      <SelectTrigger className="h-6 text-[11px] flex-1 px-1.5 min-w-0">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All accounts</SelectItem>
-                        {(accounts as any[])
-                          .filter((a: any) => a.is_active && !a.sync_excluded)
-                          .sort((a: any, b: any) => (a.display_name ?? "").localeCompare(b.display_name ?? ""))
-                          .map((a: any) => (
-                            <SelectItem key={a.id} value={a.id}>{a.display_name ?? a.username}</SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => runSubscriberSync(false, subSyncAccountId === "all" ? undefined : subSyncAccountId)}
-                      disabled={showStop || allRunning}
-                      className="text-[11px] text-violet-400 hover:text-violet-300 h-6 px-1.5 shrink-0"
-                      title="Run attribution for selected account only"
-                    >
-                      Run
-                    </Button>
-                  </div>
-                )}
+                {type === "subscribers" && (() => {
+                  const syncableAccounts = (accounts as any[])
+                    .filter((a: any) => a.is_active && !a.sync_excluded)
+                    .sort((a: any, b: any) => (a.display_name ?? "").localeCompare(b.display_name ?? ""));
+                  const label = subSyncAccountIds.length === 0
+                    ? "All accounts"
+                    : subSyncAccountIds.length === 1
+                      ? syncableAccounts.find((a: any) => a.id === subSyncAccountIds[0])?.display_name ?? "1 account"
+                      : `${subSyncAccountIds.length} accounts`;
+                  return (
+                    <div className="flex gap-1">
+                      <Popover open={subSyncPopoverOpen} onOpenChange={setSubSyncPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-[11px] flex-1 px-1.5 min-w-0 justify-between font-normal"
+                          >
+                            <span className="truncate">{label}</span>
+                            <ChevronDown className="h-3 w-3 ml-1 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-52 p-1" align="start">
+                          <div
+                            className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted/50 text-xs font-medium border-b border-border mb-1 pb-2"
+                            onClick={() => setSubSyncAccountIds([])}
+                          >
+                            <Checkbox checked={subSyncAccountIds.length === 0} className="h-3.5 w-3.5" />
+                            All accounts
+                          </div>
+                          <div className="max-h-52 overflow-y-auto space-y-0.5">
+                            {syncableAccounts.map((a: any) => (
+                              <div
+                                key={a.id}
+                                className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted/50 text-xs"
+                                onClick={() => setSubSyncAccountIds(prev =>
+                                  prev.includes(a.id) ? prev.filter(id => id !== a.id) : [...prev, a.id]
+                                )}
+                              >
+                                <Checkbox checked={subSyncAccountIds.includes(a.id)} className="h-3.5 w-3.5" />
+                                {a.avatar_thumb_url && <img src={a.avatar_thumb_url} className="w-4 h-4 rounded-full object-cover shrink-0" />}
+                                <span className="truncate">{a.display_name ?? a.username}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => runSubscriberSync(false, subSyncAccountIds.length > 0 ? subSyncAccountIds : undefined)}
+                        disabled={showStop || allRunning}
+                        className="text-[11px] text-violet-400 hover:text-violet-300 h-6 px-1.5 shrink-0"
+                      >
+                        Run
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
