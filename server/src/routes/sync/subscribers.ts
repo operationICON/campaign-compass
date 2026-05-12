@@ -118,14 +118,14 @@ router.post("/", async (c) => {
           filterAccountId ? eq(accounts.id, filterAccountId) : sql`TRUE`,
         ));
 
-      await send({ step: "accounts", message: `${enabledAccounts.length} account(s) to process` });
+      send({ step: "accounts", message: `${enabledAccounts.length} account(s) to process` });
 
       for (const account of enabledAccounts) {
         if (!account.onlyfans_account_id) continue;
 
         // Hard stop before Railway timeout
         if (Date.now() - startTime > MAX_RUNTIME_MS) {
-          await send({ step: "timeout_stop", message: "Approaching time limit — stopping gracefully. Run per-account to continue." });
+          send({ step: "timeout_stop", message: "Approaching time limit — stopping gracefully. Run per-account to continue." });
           break;
         }
 
@@ -135,12 +135,12 @@ router.post("/", async (c) => {
           .where(sql`account_id = ${account.id} AND deleted_at IS NULL AND external_tracking_link_id IS NOT NULL`);
 
         if (accountLinks.length === 0) {
-          await send({ step: "account_skip", message: `${account.display_name}: no tracking links` });
+          send({ step: "account_skip", message: `${account.display_name}: no tracking links` });
           accountResults.push({ account: account.display_name ?? account.id, status: "no_links", attributed: 0, api_calls: 0, links_processed: 0 });
           continue;
         }
 
-        await send({ step: "account_start", message: `${account.display_name}: ${accountLinks.length} tracking links` });
+        send({ step: "account_start", message: `${account.display_name}: ${accountLinks.length} tracking links` });
 
         let accountAttributed = 0;
         let accountApiCalls = 0;
@@ -165,7 +165,18 @@ router.post("/", async (c) => {
             accountApiCalls++;
             totalApiCalls++;
 
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+            let res: Response;
+            try {
+              res = await fetch(url, {
+                headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+                signal: AbortSignal.timeout(30_000),
+              });
+            } catch (fetchErr: any) {
+              // Timeout or network error — skip this link, continue with the next
+              errors.push(`${account.display_name}/${extId}: ${fetchErr.name === "TimeoutError" ? "fetch timeout (30s)" : fetchErr.message}`);
+              linkApiCalls--; accountApiCalls--; totalApiCalls--;
+              break;
+            }
 
             if (res.status === 429) {
               const retryAfter = Number(res.headers.get("Retry-After") ?? 15);
@@ -232,21 +243,21 @@ router.post("/", async (c) => {
           linksProcessed++;
 
           if (linksProcessed % 5 === 0) {
-            await send({ step: "progress", message: `${account.display_name}: ${linksProcessed}/${accountLinks.length} links, ${accountAttributed} fans so far...` });
+            send({ step: "progress", message: `${account.display_name}: ${linksProcessed}/${accountLinks.length} links, ${accountAttributed} fans so far...` });
           }
           await sleep(50);
         }
 
         totalAttributed += accountAttributed;
         accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: accountApiCalls, links_processed: linksProcessed, note: accountNote });
-        await send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed across ${linksProcessed} links (${accountApiCalls} API calls)` });
+        send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed across ${linksProcessed} links (${accountApiCalls} API calls)` });
 
         if (syncLogId) {
           await db.update(sync_logs).set({ records_processed: totalAttributed }).where(eq(sync_logs.id, syncLogId));
         }
       }
 
-      await send({ step: "crosspoll", message: "Updating cross-poll revenue data..." });
+      send({ step: "crosspoll", message: "Updating cross-poll revenue data..." });
       const ltvUpdated = await updateCrosspollLtv();
 
       const now = new Date();
@@ -262,7 +273,7 @@ router.post("/", async (c) => {
         }).where(eq(sync_logs.id, syncLogId));
       }
 
-      await send({
+      send({
         step: "done",
         message: `Done — ${totalAttributed} fans attributed from OFAPI, ${ltvUpdated} cross-poll links updated (${totalApiCalls} API calls)`,
         attributed: totalAttributed, ltv_links: ltvUpdated, api_calls: totalApiCalls,
@@ -271,7 +282,7 @@ router.post("/", async (c) => {
       if (syncLogId) {
         await db.update(sync_logs).set({ status: "error", success: false, finished_at: new Date(), completed_at: new Date(), error_message: err.message }).where(eq(sync_logs.id, syncLogId));
       }
-      await send({ step: "error", error: err.message });
+      send({ step: "error", error: err.message });
     } finally { close(); }
   })();
 
