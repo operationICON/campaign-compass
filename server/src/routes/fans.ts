@@ -9,26 +9,35 @@ const router = new Hono();
 router.get("/stats", async (c) => {
   const accountId = c.req.query("account_id");
 
-  // Use UNION of attribution (first_subscribe_link_id) and relationship (fan_account_stats)
-  // to match Campaign Analytics which counts by acquisition campaign.
-  // Attribution catches fans who subscribed via this account's campaigns but may lack
-  // a fan_account_stats row (e.g., unsynced or cross-polled fans).
-  const result = await db.execute(sql`
-    SELECT
-      COUNT(*)                                                                               AS total_fans,
-      COUNT(CASE WHEN total_revenue IS NOT NULL AND total_revenue::numeric > 0 THEN 1 END)   AS spenders,
-      COALESCE(SUM(CASE WHEN total_revenue IS NOT NULL THEN total_revenue::numeric END), 0)  AS total_revenue,
-      COALESCE(AVG(CASE WHEN total_revenue::numeric > 0 THEN total_revenue::numeric END), 0) AS avg_per_spender,
-      COUNT(CASE WHEN is_cross_poll = true THEN 1 END)                                      AS cross_poll_fans,
-      COALESCE(SUM(CASE WHEN is_cross_poll = true AND total_revenue IS NOT NULL THEN total_revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue
-    FROM fans
-    ${accountId ? sql`
-      WHERE (
-        id IN (SELECT fan_id FROM fan_account_stats WHERE account_id = ${accountId}::uuid)
-        OR first_subscribe_link_id IN (SELECT id FROM tracking_links WHERE account_id = ${accountId}::uuid)
-      )
-    ` : sql``}
-  `);
+  let result;
+  if (accountId) {
+    // Per-account: use fan_account_stats.total_revenue so revenue is specific to THIS account,
+    // not each fan's total-across-all-accounts (which inflates/deflates numbers).
+    result = await db.execute(sql`
+      SELECT
+        COUNT(DISTINCT fas.fan_id)::int                                                                    AS total_fans,
+        COUNT(DISTINCT CASE WHEN fas.total_revenue::numeric > 0 THEN fas.fan_id END)::int                 AS spenders,
+        COALESCE(SUM(fas.total_revenue::numeric), 0)                                                      AS total_revenue,
+        COALESCE(AVG(CASE WHEN fas.total_revenue::numeric > 0 THEN fas.total_revenue::numeric END), 0)    AS avg_per_spender,
+        COUNT(DISTINCT CASE WHEN f.is_cross_poll = true THEN fas.fan_id END)::int                         AS cross_poll_fans,
+        COALESCE(SUM(CASE WHEN f.is_cross_poll = true THEN fas.total_revenue::numeric ELSE 0 END), 0)     AS cross_poll_revenue
+      FROM fan_account_stats fas
+      JOIN fans f ON f.id = fas.fan_id
+      WHERE fas.account_id = ${accountId}::uuid
+    `);
+  } else {
+    // Global: sum fans.total_revenue (each fan counted once regardless of cross-poll)
+    result = await db.execute(sql`
+      SELECT
+        COUNT(*)                                                                               AS total_fans,
+        COUNT(CASE WHEN total_revenue IS NOT NULL AND total_revenue::numeric > 0 THEN 1 END)   AS spenders,
+        COALESCE(SUM(CASE WHEN total_revenue IS NOT NULL THEN total_revenue::numeric END), 0)  AS total_revenue,
+        COALESCE(AVG(CASE WHEN total_revenue::numeric > 0 THEN total_revenue::numeric END), 0) AS avg_per_spender,
+        COUNT(CASE WHEN is_cross_poll = true THEN 1 END)                                      AS cross_poll_fans,
+        COALESCE(SUM(CASE WHEN is_cross_poll = true AND total_revenue IS NOT NULL THEN total_revenue::numeric ELSE 0 END), 0) AS cross_poll_revenue
+      FROM fans
+    `);
+  }
 
   const row = (result.rows[0] as any) ?? {};
   return c.json({
@@ -399,11 +408,13 @@ router.get("/:id", async (c) => {
     .from(transactions)
     .where(sql`
       ${transactions.fan_username} = ${fanRow.fan_id}
-      ${altUsername   ? sql`OR ${transactions.fan_username} = ${altUsername}` : sql``}
-      ${numericId     ? sql`OR ${transactions.fan_id} = ${numericId}` : sql``}
+      ${altUsername ? sql`OR ${transactions.fan_username} = ${altUsername}` : sql``}
+      ${numericId   ? sql`OR ${transactions.fan_id} = ${numericId}` : sql``}
+      ${numericId   ? sql`OR ${transactions.user_id}  = ${numericId}` : sql``}
+      OR ${transactions.user_id} = ${fanRow.fan_id}
     `)
     .orderBy(desc(transactions.date))
-    .limit(500);
+    .limit(5000);
 
   return c.json({
     fan: fanRow,

@@ -675,7 +675,7 @@ function InlineTxList({ fanDbId, showAccount, accountMap }: {
             </tr>
           </thead>
           <tbody>
-            {transactions.slice(0, 100).map((tx: any, i: number) => {
+            {transactions.slice(0, 500).map((tx: any, i: number) => {
               const meta = txMeta(tx.type);
               const rev = Number(tx.revenue ?? 0);
               const net = Number(tx.revenue_net ?? tx.revenue ?? 0);
@@ -698,9 +698,9 @@ function InlineTxList({ fanDbId, showAccount, accountMap }: {
             })}
           </tbody>
         </table>
-        {transactions.length > 100 && (
+        {transactions.length > 500 && (
           <p className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border/40">
-            Showing 100 of {transactions.length} transactions
+            Showing 500 of {transactions.length} transactions
           </p>
         )}
       </div>
@@ -951,7 +951,7 @@ export default function FansPage() {
       spenders_only: spendersOnly || undefined,
       sort_by: "total_revenue",
       sort_dir: "desc",
-      limit: 500,
+      limit: 2000,
     }),
     enabled: !!selectedAccountId,
     staleTime: 30_000,
