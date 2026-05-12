@@ -1188,6 +1188,12 @@ export default function LogsPage() {
                                             const truncNote = noteText && noteText.length > 80 ? noteText.slice(0, 80) + "…" : noteText;
                                             return (
                                               <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                                                {syncType === "subscribers" && (() => {
+                                                  const s = r.status;
+                                                  const Icon = s === "ok" || s === "success" ? CheckCircle : s === "auth_error" || s === "error" ? XCircle : s === "no_links" ? Clock : AlertCircle;
+                                                  const cls = s === "ok" || s === "success" ? "text-emerald-500" : s === "auth_error" || s === "error" ? "text-destructive" : "text-muted-foreground";
+                                                  return <Icon className={`h-3.5 w-3.5 shrink-0 ${cls}`} />;
+                                                })()}
                                                 {avatarUrl ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>}
                                                 <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={r.account}>{r.account}</span>
                                                 <div className="flex items-center gap-3 flex-wrap min-w-0 text-[10px]">
@@ -1208,9 +1214,11 @@ export default function LogsPage() {
                                                     {r.pages != null && <span><span className="text-muted-foreground">Pages </span><span className="font-mono font-semibold tabular-nums">{Number(r.pages).toLocaleString()}</span></span>}
                                                   </>}
                                                   {syncType === "subscribers" && <>
-                                                    {r.attributed != null && <span><span className="text-muted-foreground">Attributed </span><span className="font-mono font-semibold tabular-nums">{Number(r.attributed).toLocaleString()}</span></span>}
-                                                    {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
-                                                    {r.mode && <span><span className="text-muted-foreground">Mode </span><span className="font-semibold">{r.mode}</span></span>}
+                                                    {r.status === "no_links" ? <span className="text-muted-foreground italic">no tracking links</span> : <>
+                                                      {r.attributed != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.attributed).toLocaleString()}</span><span className="text-muted-foreground"> fans</span></span>}
+                                                      {r.links_processed != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.links_processed).toLocaleString()}</span><span className="text-muted-foreground"> links</span></span>}
+                                                      {r.api_calls != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span><span className="text-muted-foreground"> credits</span></span>}
+                                                    </>}
                                                   </>}
                                                   {truncNote && <span className={`truncate max-w-[200px] ${noteIsRevenue ? "text-emerald-600 dark:text-emerald-400 font-semibold" : isErrStatus ? "text-destructive" : "text-muted-foreground"}`} title={noteText ?? ""}>{truncNote}</span>}
                                                 </div>
@@ -1457,6 +1465,12 @@ export default function LogsPage() {
                                 const truncNote = noteText && noteText.length > 80 ? noteText.slice(0, 80) + "…" : noteText;
                                 return (
                                   <div key={i} className={`flex items-center gap-2.5 px-3 py-2 border-l-2 border-b border-border/40 last:border-b-0 ${borderCls(r.status)} ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                                    {syncT === "subscribers" && (() => {
+                                      const s = r.status;
+                                      const Icon = s === "ok" || s === "success" ? CheckCircle : s === "auth_error" || s === "error" ? XCircle : s === "no_links" ? Clock : AlertCircle;
+                                      const cls = s === "ok" || s === "success" ? "text-emerald-500" : s === "auth_error" || s === "error" ? "text-destructive" : "text-muted-foreground";
+                                      return <Icon className={`h-3.5 w-3.5 shrink-0 ${cls}`} />;
+                                    })()}
                                     {avatarUrl ? <img src={avatarUrl} alt={r.account} className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-bold text-muted-foreground">{(r.account ?? "?").charAt(0).toUpperCase()}</div>}
                                     <span className="font-medium text-[11px] text-foreground w-28 shrink-0 truncate" title={r.account}>{r.account}</span>
                                     <div className="flex items-center gap-3 flex-wrap min-w-0 text-[10px]">
@@ -1471,9 +1485,11 @@ export default function LogsPage() {
                                         {r.pages != null && <span><span className="text-muted-foreground">Pages </span><span className="font-mono font-semibold tabular-nums">{Number(r.pages).toLocaleString()}</span></span>}
                                       </>}
                                       {syncT === "subscribers" && <>
-                                        {r.attributed != null && <span><span className="text-muted-foreground">Attributed </span><span className="font-mono font-semibold tabular-nums">{Number(r.attributed).toLocaleString()}</span></span>}
-                                        {r.api_calls != null && <span><span className="text-muted-foreground">Credits </span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span></span>}
-                                        {r.mode && <span><span className="text-muted-foreground">Mode </span><span className="font-semibold">{r.mode}</span></span>}
+                                        {r.status === "no_links" ? <span className="text-muted-foreground italic">no tracking links</span> : <>
+                                          {r.attributed != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.attributed).toLocaleString()}</span><span className="text-muted-foreground"> fans</span></span>}
+                                          {r.links_processed != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.links_processed).toLocaleString()}</span><span className="text-muted-foreground"> links</span></span>}
+                                          {r.api_calls != null && <span><span className="font-mono font-semibold tabular-nums">{Number(r.api_calls).toLocaleString()}</span><span className="text-muted-foreground"> credits</span></span>}
+                                        </>}
                                       </>}
                                       {truncNote && (
                                         <span
