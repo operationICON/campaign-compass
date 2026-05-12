@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, Fragment } from "react";
 import { AccountFilterDropdown } from "@/components/AccountFilterDropdown";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTrackingLinks, getCampaignRevenueByType, getCrossPollFans } from "@/lib/api";
+import { getFanStats, getFans, getFan, updateFan, streamSync, getAccounts, getTransactionTotals, getTransactionTypeTotals, getTransactionsByMonth, getTransactionsByDay, getTrackingLinks, getCampaignRevenueByType, getCrossPollFans } from "@/lib/api";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format, formatDistanceToNow } from "date-fns";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -127,18 +127,31 @@ function RevenueBreakdown({ txs }: { txs: any[] }) {
 
 // ─── Account revenue chart ────────────────────────────────────────────────────
 function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTotal?: number }) {
-  const { data = [], isLoading } = useQuery({
+  const [view, setView] = useState<"monthly" | "daily">("monthly");
+
+  const monthlyQuery = useQuery({
     queryKey: ["tx_by_month", accountId],
     queryFn: () => getTransactionsByMonth(accountId),
     staleTime: 300_000,
   });
 
+  const dailyQuery = useQuery({
+    queryKey: ["tx_by_day", accountId],
+    queryFn: () => getTransactionsByDay(accountId),
+    staleTime: 300_000,
+    enabled: view === "daily",
+  });
+
+  const rawData = view === "daily" ? (dailyQuery.data ?? []) : (monthlyQuery.data ?? []);
+  const isLoading = view === "daily" ? dailyQuery.isLoading : monthlyQuery.isLoading;
+
   const chartData = useMemo(() => {
-    const byMonth = new Map<string, { month: string; total: number; message: number; tip: number; subscription: number; post: number }>();
-    for (const row of data) {
-      const m = row.month?.slice(0, 7) ?? "";
-      if (!m) continue;
-      const cur = byMonth.get(m) ?? { month: m, total: 0, message: 0, tip: 0, subscription: 0, post: 0 };
+    const key = view === "daily" ? "day" : "month";
+    const map = new Map<string, { label: string; total: number; message: number; tip: number; subscription: number; post: number }>();
+    for (const row of rawData) {
+      const k = (row as any)[key] ?? "";
+      if (!k) continue;
+      const cur = map.get(k) ?? { label: k, total: 0, message: 0, tip: 0, subscription: 0, post: 0 };
       const rev = Number(row.revenue ?? 0);
       const t = (row.type ?? "").toLowerCase();
       cur.total += rev;
@@ -146,57 +159,91 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
       else if (t.includes("tip")) cur.tip += rev;
       else if (t.includes("sub")) cur.subscription += rev;
       else if (t.includes("post")) cur.post += rev;
-      byMonth.set(m, cur);
+      map.set(k, cur);
     }
-    return [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
-  }, [data]);
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [rawData, view]);
 
-  const typeTotals = useMemo(() => {
-    return chartData.reduce((acc, d) => ({
-      total: acc.total + d.total,
-      message: acc.message + d.message,
-      tip: acc.tip + d.tip,
-      subscription: acc.subscription + d.subscription,
-      post: acc.post + d.post,
-    }), { total: 0, message: 0, tip: 0, subscription: 0, post: 0 });
-  }, [chartData]);
-
-  if (isLoading) return <Skeleton className="h-56 w-full rounded-xl" />;
-  if (chartData.length === 0) return (
-    <div className="bg-card border border-border rounded-xl p-6 flex items-center justify-center h-40 text-xs text-muted-foreground">
-      No transaction history — run Rev Breakdown sync first
-    </div>
-  );
+  const typeTotals = useMemo(() => chartData.reduce((acc, d) => ({
+    total: acc.total + d.total,
+    message: acc.message + d.message,
+    tip: acc.tip + d.tip,
+    subscription: acc.subscription + d.subscription,
+    post: acc.post + d.post,
+  }), { total: 0, message: 0, tip: 0, subscription: 0, post: 0 }), [chartData]);
 
   const fmtY = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v.toFixed(0)}`;
 
+  const xTickFormatter = (label: string) => {
+    try {
+      if (view === "daily") return format(new Date(label), "MMM d");
+      return format(new Date(label + "-01"), "MMM yy");
+    } catch { return label; }
+  };
+  const tooltipLabelFormatter = (label: string) => {
+    try {
+      if (view === "daily") return format(new Date(label), "MMMM d, yyyy");
+      return format(new Date(label + "-01"), "MMMM yyyy");
+    } catch { return label; }
+  };
+
+  const periodLabel = view === "daily"
+    ? `${chartData.length} day${chartData.length !== 1 ? "s" : ""} of data`
+    : `${chartData.length} month${chartData.length !== 1 ? "s" : ""} of data`;
+
+  if (isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (!isLoading && chartData.length === 0) return (
+    <div className="bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center h-40 gap-3">
+      <div className="text-xs text-muted-foreground">No transaction history — run Rev Breakdown sync first</div>
+      <div className="flex gap-1">
+        {(["monthly", "daily"] as const).map(v => (
+          <button key={v} onClick={() => setView(v)}
+            className={cn("h-6 px-2.5 rounded text-xs font-medium transition-colors",
+              view === v ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+            )}>{v === "monthly" ? "Monthly" : "Daily"}</button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Header row: total + type chips */}
-      <div className="px-5 pt-5 pb-4">
-        <div className="flex flex-wrap items-end gap-4 mb-1">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3">
+        <div className="flex items-start justify-between gap-4 mb-3">
           <div>
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">Total Earnings</div>
             <div className="text-3xl font-bold tabular-nums text-emerald-500">{fmt$(ltvTotal ?? typeTotals.total)}</div>
+            {ltvTotal != null && ltvTotal > typeTotals.total && (
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                {fmt$(typeTotals.total)} captured in transaction records
+              </div>
+            )}
           </div>
-          {ltvTotal != null && ltvTotal > typeTotals.total && (
-            <div className="text-xs text-muted-foreground pb-1">
-              Chart shows {fmt$(typeTotals.total)} of available transaction records
-            </div>
-          )}
+          {/* Monthly / Daily toggle */}
+          <div className="flex gap-1 mt-1">
+            {(["monthly", "daily"] as const).map(v => (
+              <button key={v} onClick={() => setView(v)}
+                className={cn("h-7 px-3 rounded-md text-xs font-medium transition-colors",
+                  view === v ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+                )}>{v === "monthly" ? "Monthly" : "Daily"}</button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-3 mt-3">
+
+        {/* Type chips */}
+        <div className="flex flex-wrap gap-2">
           {[
-            { label: "Messages", value: typeTotals.message, color: "text-emerald-400", dot: "#10b981" },
-            { label: "Tips",     value: typeTotals.tip,     color: "text-amber-400",   dot: "#f59e0b" },
-            { label: "Subs",     value: typeTotals.subscription, color: "text-indigo-400", dot: "#6366f1" },
-            { label: "Posts",    value: typeTotals.post,    color: "text-violet-400",  dot: "#8b5cf6" },
+            { label: "Messages",      value: typeTotals.message,      color: "text-emerald-400", dot: "#10b981" },
+            { label: "Tips",          value: typeTotals.tip,          color: "text-amber-400",   dot: "#f59e0b" },
+            { label: "Subscriptions", value: typeTotals.subscription, color: "text-indigo-400",  dot: "#6366f1" },
+            { label: "Posts",         value: typeTotals.post,         color: "text-violet-400",  dot: "#8b5cf6" },
           ].filter(b => b.value > 0).map(b => (
-            <div key={b.label} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+            <div key={b.label} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-1.5">
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: b.dot }} />
               <div>
                 <div className="text-[10px] text-muted-foreground">{b.label}</div>
-                <div className={cn("text-sm font-bold tabular-nums", b.color)}>{fmt$(b.value)}</div>
+                <div className={cn("text-xs font-bold tabular-nums", b.color)}>{fmt$(b.value)}</div>
               </div>
             </div>
           ))}
@@ -204,8 +251,8 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={chartData} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="acRevGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
@@ -213,9 +260,10 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-          <XAxis dataKey="month" tickLine={false} axisLine={false}
+          <XAxis dataKey="label" tickLine={false} axisLine={false}
             tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-            tickFormatter={m => { try { return format(new Date(m + "-01"), "MMM yy"); } catch { return m; } }}
+            tickFormatter={xTickFormatter}
+            interval={view === "daily" ? Math.max(0, Math.floor(chartData.length / 12) - 1) : 0}
           />
           <YAxis tickLine={false} axisLine={false}
             tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
@@ -224,7 +272,7 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
           <Tooltip
             contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 10, fontSize: 12, boxShadow: "0 4px 24px rgba(0,0,0,0.3)" }}
             labelStyle={{ color: "hsl(var(--muted-foreground))", fontWeight: 600 }}
-            labelFormatter={m => { try { return format(new Date(m + "-01"), "MMMM yyyy"); } catch { return m; } }}
+            labelFormatter={tooltipLabelFormatter}
             formatter={(v: number) => [fmt$(v), "Revenue"]}
           />
           <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2.5}
@@ -232,9 +280,8 @@ function AccountRevenueChart({ accountId, ltvTotal }: { accountId: string; ltvTo
         </AreaChart>
       </ResponsiveContainer>
 
-      {/* Historical label */}
       <div className="px-5 pb-3 text-[10px] text-muted-foreground">
-        Historical performance · {chartData.length} month{chartData.length !== 1 ? "s" : ""} of data
+        Transaction records · {periodLabel}
       </div>
     </div>
   );

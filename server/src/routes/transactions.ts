@@ -78,6 +78,27 @@ router.get("/by-month", async (c) => {
   return c.json(rows.rows);
 });
 
+// GET /transactions/by-day?account_id= — daily revenue + type breakdown for one account
+router.get("/by-day", async (c) => {
+  const accountId = c.req.query("account_id");
+  if (!accountId) return c.json({ error: "account_id required" }, 400);
+
+  const rows = await db.execute(sql`
+    SELECT
+      TO_CHAR(date::date, 'YYYY-MM-DD') AS day,
+      type,
+      COALESCE(SUM(revenue::numeric), 0) AS revenue,
+      COUNT(*)                           AS tx_count
+    FROM transactions
+    WHERE account_id = ${accountId}::uuid
+      AND revenue::numeric > 0
+      AND date IS NOT NULL
+    GROUP BY date::date, type
+    ORDER BY day ASC
+  `);
+  return c.json(rows.rows);
+});
+
 // GET /transactions/daily?date_from=&date_to=&account_ids= — per-account per-day revenue for Overview
 router.get("/daily", async (c) => {
   const dateFrom       = c.req.query("date_from");
