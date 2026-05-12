@@ -259,8 +259,11 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
   totalSubs: number; rank: number; typeTotals?: Array<{ type: string; revenue: number; count: number }>; onClick: () => void;
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const spenderPct = totalSubs > 0 ? (stats?.spenders ?? 0) / totalSubs * 100 : 0;
-  const hasData = stats && (stats.total_fans > 0 || stats.total_revenue > 0);
+  const ltvTotal = Number(account.ltv_total ?? 0);
+  const spenders = stats?.spenders ?? 0;
+  const spenderPct = totalSubs > 0 ? spenders / totalSubs * 100 : 0;
+  const avgPerSpender = spenders > 0 ? ltvTotal / spenders : 0;
+  const hasData = ltvTotal > 0 || (stats && stats.total_fans > 0);
   const breakdownTotal = typeTotals?.reduce((s, b) => s + b.revenue, 0) ?? 0;
 
   return (
@@ -294,10 +297,10 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
           <div className="font-bold text-sm truncate">{account.display_name}</div>
           {isLoading ? (
             <Skeleton className="h-4 w-24 mt-0.5" />
-          ) : hasData ? (
-            <div className="text-sm font-bold text-emerald-500 tabular-nums">{fmt$(stats.total_revenue)}</div>
+          ) : ltvTotal > 0 ? (
+            <div className="text-sm font-bold text-emerald-500 tabular-nums">{fmt$(ltvTotal)}</div>
           ) : (
-            <div className="text-xs text-muted-foreground">No fan data yet</div>
+            <div className="text-xs text-muted-foreground">No revenue data yet</div>
           )}
         </div>
       </div>
@@ -318,15 +321,15 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Spenders</div>
-              <div className="text-base font-bold tabular-nums text-emerald-500">{fmtNum(stats.spenders)}</div>
+              <div className="text-base font-bold tabular-nums text-emerald-500">{fmtNum(spenders)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg / Spender</div>
-              <div className="text-xs font-semibold tabular-nums">{fmt$(stats.avg_per_spender)}</div>
+              <div className="text-xs font-semibold tabular-nums">{avgPerSpender > 0 ? fmt$(avgPerSpender) : "—"}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Cross-Poll</div>
-              <div className="text-xs font-semibold tabular-nums text-violet-500">{fmtNum(stats.cross_poll_fans)}</div>
+              <div className="text-xs font-semibold tabular-nums text-violet-500">{fmtNum(stats?.cross_poll_fans ?? 0)}</div>
             </div>
           </div>
 
@@ -334,7 +337,7 @@ function AccountFanCard({ account, stats, isLoading, totalSubs, rank, typeTotals
           {totalSubs > 0 ? (
             <div>
               <div className="flex justify-between text-[10px] text-muted-foreground mb-1.5">
-                <span>{fmtNum(stats.spenders)} spenders of {fmtNum(totalSubs)} subs</span>
+                <span>{fmtNum(spenders)} spenders of {fmtNum(totalSubs)} subs</span>
                 <span className="font-bold text-foreground">{spenderPct.toFixed(1)}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
