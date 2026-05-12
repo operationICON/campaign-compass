@@ -7,7 +7,8 @@ import { createSSEStream, sseHeaders } from "../../lib/sse.js";
 const router = new Hono();
 const API_BASE = "https://app.onlyfansapi.com/api";
 
-const MAX_RUNTIME_MS = 540_000; // 9 minutes — stop gracefully before Railway's 10-min limit
+const MAX_RUNTIME_MS   = 540_000; // 9 minutes — stop gracefully before Railway's 10-min limit
+const CHECKPOINT_TTL_MS = 23 * 60 * 60 * 1000; // skip links synced within last 23 hours
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -19,7 +20,6 @@ function extractUsername(sub: any): string | null {
   return sub?.username ?? sub?.user?.username ?? sub?.userName ?? null;
 }
 function extractSubDate(sub: any): string | null {
-  // subscribedBy is the actual date field from the tracking-link subscribers endpoint
   const raw = sub?.subscribedBy ?? sub?.subscribedOn ?? sub?.subscribedAt ?? sub?.subscribeAt ?? sub?.createdAt ?? sub?.joinDate ?? sub?.created_at ?? null;
   if (!raw) return null;
   const s = String(raw);
@@ -77,18 +77,15 @@ async function updateCrosspollLtv(): Promise<number> {
 // POST /sync/subscribers
 // Body: { triggered_by?, force_full?, account_id? }
 //
-// Iterates every tracking link per account via the OFAPI per-link subscriber endpoint:
-//   GET /{ofAccountId}/tracking-links/{extId}/subscribers?limit=100
-//
-// OFAPI is the single source of truth — always overwrites first_subscribe_link_id.
-// Per-account mode (account_id in body) processes one account at a time to avoid
-// Railway's 10-minute connection timeout.
+// Checkpointed: skips links synced within 23 h. Runs resume where they left off.
+// force_full=true resets all checkpoints and re-syncs everything.
 router.post("/", async (c) => {
   const apiKey = process.env.ONLYFANS_API_KEY;
   if (!apiKey) return c.json({ error: "ONLYFANS_API_KEY not configured" }, 500);
 
   const body = await c.req.json().catch(() => ({}));
-  const triggeredBy   = body.triggered_by ?? "manual";
+  const triggeredBy      = body.triggered_by ?? "manual";
+  const forceFullSync    = body.force_full === true;
   const filterAccountId: string | null = body.account_id ?? null;
   const { stream, send, close } = createSSEStream();
 
@@ -103,14 +100,31 @@ router.post("/", async (c) => {
   (async () => {
     const errors: string[] = [];
     let totalAttributed = 0;
-    let totalApiCalls = 0;
-    const startTime = Date.now();
-    let timedOut = false;
+    let totalApiCalls   = 0;
+    let totalSkipped    = 0;
+    const startTime     = Date.now();
+    let timedOut        = false;
     let skippedAccounts: string[] = [];
-    type AccountResult = { account: string; status: string; attributed: number; api_calls: number; links_processed: number; note?: string };
+    type AccountResult = { account: string; status: string; attributed: number; api_calls: number; links_processed: number; links_skipped: number; note?: string };
     const accountResults: AccountResult[] = [];
 
     try {
+      // ── Load all link checkpoints in one query ────────────────────────────
+      const ckRows = await db.execute(sql`
+        SELECT key, updated_at FROM sync_settings WHERE key LIKE 'sub_sync_link_%'
+      `);
+      const checkpointMap = new Map<string, Date>();
+      for (const r of ckRows.rows as any[]) {
+        checkpointMap.set(r.key, new Date(r.updated_at));
+      }
+
+      if (forceFullSync) {
+        // Clear all link checkpoints so everything gets re-fetched
+        await db.execute(sql`DELETE FROM sync_settings WHERE key LIKE 'sub_sync_link_%'`);
+        checkpointMap.clear();
+        send({ step: "info", message: "Force full sync — all checkpoints cleared" });
+      }
+
       const enabledAccounts = await db
         .select({ id: accounts.id, onlyfans_account_id: accounts.onlyfans_account_id, display_name: accounts.display_name })
         .from(accounts)
@@ -120,17 +134,28 @@ router.post("/", async (c) => {
           filterAccountId ? eq(accounts.id, filterAccountId) : sql`TRUE`,
         ));
 
-      send({ step: "accounts", message: `${enabledAccounts.length} account(s) to process` });
+      // Count how many links actually need syncing across all accounts
+      const allLinks = await db.execute(sql`
+        SELECT id FROM tracking_links
+        WHERE deleted_at IS NULL AND external_tracking_link_id IS NOT NULL
+          AND account_id IN (${sql.join(enabledAccounts.map(a => sql`${a.id}::uuid`), sql`, `)})
+      `);
+      const totalLinks = allLinks.rows.length;
+      const staleCount = (allLinks.rows as any[]).filter(r => {
+        const ck = checkpointMap.get(`sub_sync_link_${r.id}`);
+        return !ck || (Date.now() - ck.getTime()) >= CHECKPOINT_TTL_MS;
+      }).length;
+
+      send({ step: "accounts", message: `${enabledAccounts.length} accounts · ${staleCount} of ${totalLinks} links need syncing` });
 
       for (let ai = 0; ai < enabledAccounts.length; ai++) {
         const account = enabledAccounts[ai];
         if (!account.onlyfans_account_id) continue;
 
-        // Hard stop before Railway timeout
         if (Date.now() - startTime > MAX_RUNTIME_MS) {
           timedOut = true;
           skippedAccounts = enabledAccounts.slice(ai).map(a => a.display_name ?? a.id);
-          send({ step: "timeout_stop", message: `Time limit reached — ${skippedAccounts.length} account(s) not yet processed: ${skippedAccounts.join(", ")}. Use per-account mode to continue.` });
+          send({ step: "timeout_stop", message: `Time limit reached — ${skippedAccounts.length} account(s) not started: ${skippedAccounts.join(", ")}. Run again to continue.` });
           break;
         }
 
@@ -141,27 +166,43 @@ router.post("/", async (c) => {
 
         if (accountLinks.length === 0) {
           send({ step: "account_skip", message: `${account.display_name}: no tracking links` });
-          accountResults.push({ account: account.display_name ?? account.id, status: "no_links", attributed: 0, api_calls: 0, links_processed: 0 });
+          accountResults.push({ account: account.display_name ?? account.id, status: "no_links", attributed: 0, api_calls: 0, links_processed: 0, links_skipped: 0 });
           continue;
         }
 
-        send({ step: "account_start", message: `${account.display_name}: ${accountLinks.length} tracking links` });
+        // Split into stale (need sync) vs fresh (skip)
+        const staleLinks = accountLinks.filter(l => {
+          const ck = checkpointMap.get(`sub_sync_link_${l.id}`);
+          return !ck || (Date.now() - ck.getTime()) >= CHECKPOINT_TTL_MS;
+        });
+        const freshCount = accountLinks.length - staleLinks.length;
+
+        if (staleLinks.length === 0) {
+          send({ step: "account_skip", message: `${account.display_name}: all ${accountLinks.length} links up to date` });
+          accountResults.push({ account: account.display_name ?? account.id, status: "cached", attributed: 0, api_calls: 0, links_processed: 0, links_skipped: freshCount });
+          totalSkipped += freshCount;
+          continue;
+        }
+
+        send({ step: "account_start", message: `${account.display_name}: ${staleLinks.length} links to sync, ${freshCount} up to date` });
 
         let accountAttributed = 0;
-        let accountApiCalls = 0;
-        let linksProcessed = 0;
-        let accountStatus = "ok";
+        let accountApiCalls   = 0;
+        let linksProcessed    = 0;
+        let accountStatus     = "ok";
         let accountNote: string | undefined;
-        let authFailed = false;
+        let authFailed        = false;
 
-        for (const link of accountLinks) {
+        for (const link of staleLinks) {
           if (Date.now() - startTime > MAX_RUNTIME_MS) break;
 
           const extId    = link.external_tracking_link_id!;
           const linkUuid = link.id;
+          const ckKey    = `sub_sync_link_${linkUuid}`;
           let url: string | null = `${API_BASE}/${account.onlyfans_account_id}/tracking-links/${extId}/subscribers?limit=100`;
-          let linkApiCalls = 0;
+          let linkApiCalls  = 0;
           let linkAttributed = 0;
+          let linkOk        = true;
 
           while (url && linkApiCalls < 200) {
             if (Date.now() - startTime > MAX_RUNTIME_MS) { url = null; break; }
@@ -177,9 +218,9 @@ router.post("/", async (c) => {
                 signal: AbortSignal.timeout(30_000),
               });
             } catch (fetchErr: any) {
-              // Timeout or network error — skip this link, continue with the next
               errors.push(`${account.display_name}/${extId}: ${fetchErr.name === "TimeoutError" ? "fetch timeout (30s)" : fetchErr.message}`);
               linkApiCalls--; accountApiCalls--; totalApiCalls--;
+              linkOk = false;
               break;
             }
 
@@ -191,13 +232,15 @@ router.post("/", async (c) => {
             }
             if (res.status === 401 || res.status === 403) {
               accountStatus = "auth_error";
-              accountNote = `HTTP ${res.status}`;
+              accountNote   = `HTTP ${res.status}`;
               errors.push(`${account.display_name}: HTTP ${res.status}`);
               authFailed = true;
+              linkOk     = false;
               break;
             }
             if (!res.ok) {
               errors.push(`${account.display_name}/${extId}: HTTP ${res.status}`);
+              linkOk = false;
               break;
             }
 
@@ -205,7 +248,6 @@ router.post("/", async (c) => {
             const page: any[] = json?.data?.list ?? json?.data ?? json?.subscribers ?? json?.list ?? [];
             if (!Array.isArray(page) || page.length === 0) break;
 
-            // Upsert all subscribers on this page — OFAPI is source of truth, always overwrite
             const rows: { fan_id: string; username: string | null; sub_date: string | null }[] = [];
             for (const sub of page) {
               const fanId = extractFanId(sub);
@@ -244,46 +286,72 @@ router.post("/", async (c) => {
           }
 
           if (authFailed) break;
+
+          // Save checkpoint only on success so failures get retried next run
+          if (linkOk) {
+            await db.execute(sql`
+              INSERT INTO sync_settings (key, value, updated_at)
+              VALUES (${ckKey}, 'synced', NOW())
+              ON CONFLICT (key) DO UPDATE SET value = 'synced', updated_at = NOW()
+            `);
+            checkpointMap.set(ckKey, new Date());
+          }
+
           accountAttributed += linkAttributed;
           linksProcessed++;
 
           if (linksProcessed % 5 === 0) {
-            send({ step: "progress", message: `${account.display_name}: ${linksProcessed}/${accountLinks.length} links, ${accountAttributed} fans so far...` });
+            send({ step: "progress", message: `${account.display_name}: ${linksProcessed}/${staleLinks.length} links, ${accountAttributed} fans so far…` });
           }
           await sleep(50);
         }
 
         totalAttributed += accountAttributed;
-        accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: accountApiCalls, links_processed: linksProcessed, note: accountNote });
-        send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans attributed across ${linksProcessed} links (${accountApiCalls} API calls)` });
+        accountResults.push({ account: account.display_name ?? account.id, status: accountStatus, attributed: accountAttributed, api_calls: accountApiCalls, links_processed: linksProcessed, links_skipped: freshCount, note: accountNote });
+        send({ step: "account_done", message: `${account.display_name}: ${accountAttributed} fans across ${linksProcessed} links (${freshCount} cached, ${accountApiCalls} API calls)` });
 
         if (syncLogId) {
           await db.update(sync_logs).set({ records_processed: totalAttributed }).where(eq(sync_logs.id, syncLogId));
         }
       }
 
-      send({ step: "crosspoll", message: "Updating cross-poll revenue data..." });
+      send({ step: "crosspoll", message: "Updating cross-poll revenue data…" });
       const ltvUpdated = await updateCrosspollLtv();
+
+      // Count remaining stale links for the summary
+      const remainingStale = await db.execute(sql`
+        SELECT COUNT(*) AS cnt FROM tracking_links tl
+        WHERE tl.deleted_at IS NULL AND tl.external_tracking_link_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM sync_settings ss
+            WHERE ss.key = 'sub_sync_link_' || tl.id::text
+              AND ss.updated_at > NOW() - INTERVAL '23 hours'
+          )
+          AND tl.account_id IN (SELECT id FROM accounts WHERE is_active = true AND sync_excluded IS NOT TRUE)
+      `);
+      const remaining = Number((remainingStale.rows[0] as any)?.cnt ?? 0);
 
       const now = new Date();
       if (syncLogId) {
         await db.update(sync_logs).set({
-          status: timedOut ? "partial" : errors.length > 0 ? "partial" : "success",
+          status:  timedOut ? "partial" : errors.length > 0 ? "partial" : "success",
           success: !timedOut && errors.length === 0,
           finished_at: now, completed_at: now,
           records_processed: totalAttributed,
-          message: `${totalAttributed} fans attributed from OFAPI (${totalApiCalls} API calls), ${ltvUpdated} cross-poll links updated`
-            + (timedOut ? `. TIME LIMIT: ${skippedAccounts.length} accounts skipped — ${skippedAccounts.join(", ")}` : "")
+          message: `${totalAttributed} fans attributed (${totalApiCalls} API calls, ${totalSkipped} links cached), ${ltvUpdated} cross-poll links updated`
+            + (remaining > 0 ? `. ${remaining} links still pending — run again to continue` : "")
             + (errors.length ? `. Errors: ${errors.slice(0, 3).join("; ")}` : ""),
-          error_message: timedOut ? `Time limit reached. Skipped: ${skippedAccounts.join(", ")}${errors.length ? `. Also: ${errors[0]}` : ""}` : errors.length > 0 ? errors.join("; ") : null,
-          details: { attributed: totalAttributed, api_calls: totalApiCalls, ltv_links: ltvUpdated, timed_out: timedOut, skipped_accounts: skippedAccounts, account_results: accountResults },
+          error_message: timedOut
+            ? `Time limit reached. ${remaining} links still pending.${errors.length ? ` Also: ${errors[0]}` : ""}`
+            : errors.length > 0 ? errors.join("; ") : null,
+          details: { attributed: totalAttributed, api_calls: totalApiCalls, links_skipped: totalSkipped, ltv_links: ltvUpdated, timed_out: timedOut, remaining_links: remaining, skipped_accounts: skippedAccounts, account_results: accountResults },
         }).where(eq(sync_logs.id, syncLogId));
       }
 
       send({
         step: "done",
-        message: `Done — ${totalAttributed} fans attributed from OFAPI, ${ltvUpdated} cross-poll links updated (${totalApiCalls} API calls)`,
-        attributed: totalAttributed, ltv_links: ltvUpdated, api_calls: totalApiCalls,
+        message: `Done — ${totalAttributed} fans attributed (${totalApiCalls} API calls, ${totalSkipped} links cached)${remaining > 0 ? `. ${remaining} links still pending — run again` : ""}`,
+        attributed: totalAttributed, ltv_links: ltvUpdated, api_calls: totalApiCalls, remaining,
       });
     } catch (err: any) {
       if (syncLogId) {
