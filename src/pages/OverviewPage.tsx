@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  getAccounts, getTransactionDaily,
+  getAccounts, getTransactionDaily, getTransactionAttributionBreakdown,
   getOnlytrafficOrders, getTrackingLinks,
   getFanCampaignBreakdown, getSnapshotLatestDate, getRevenuePeriod,
 } from "@/lib/api";
@@ -284,6 +284,18 @@ export default function OverviewPage() {
   // Transactions cover ~last 30 days; older ranges fall back to revenue_monthly monthly bars
   const txCoverageStart = useMemo(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10), []);
 
+  // Attribution breakdown — revenue-based, from transactions joined to fans
+  const { data: attrBreakdown } = useQuery({
+    queryKey: ["tx_attr_breakdown", dateFrom, dateTo, selectedIds.join(",")],
+    queryFn: () => getTransactionAttributionBreakdown({
+      date_from: dateFrom ?? undefined,
+      date_to:   dateTo   ?? undefined,
+      account_ids: selectedIds,
+    }),
+    enabled: selectedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
   const snapshotPeriod: TimePeriod = timePeriod;
   const snapshotCustomRange = customDateRange;
@@ -494,11 +506,30 @@ export default function OverviewPage() {
       }, 0);
   }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
 
-  // Unattributed is subscriber-based so gross/net revenue mismatch doesn't skew it
-  const unattributedSubs = useMemo(() => Math.max(0, totalFans - campaignSubs), [totalFans, campaignSubs]);
-  const unattributedPct  = useMemo(() =>
-    totalFans > 0 ? (unattributedSubs / totalFans) * 100 : 0,
-  [unattributedSubs, totalFans]);
+  // Unattributed % — revenue-based using transactions joined to fan attribution
+  const unattributedRevenue = useMemo(() => attrBreakdown?.unattributed_revenue ?? 0, [attrBreakdown]);
+  const attrTxTotal         = useMemo(() => attrBreakdown?.total_revenue ?? 0, [attrBreakdown]);
+  const unattributedPct     = useMemo(() =>
+    attrTxTotal > 0 ? (unattributedRevenue / attrTxTotal) * 100 : 0,
+  [unattributedRevenue, attrTxTotal]);
+
+  const unattributedTypeBreakdown = useMemo(() => {
+    if (!attrBreakdown?.by_type?.length) return "";
+    const TYPE_LABELS: Record<string, string> = {
+      message: "Chat", chat_message: "Chat", chat: "Chat",
+      tip: "Tips",
+      post: "Posts", paid_post: "Posts",
+      subscription: "Subs", subscribe: "Subs",
+      stream: "Stream",
+    };
+    return attrBreakdown.by_type
+      .filter(t => t.unattributed_revenue > 0.005)
+      .map(t => {
+        const label = TYPE_LABELS[t.type.toLowerCase()] ?? t.type.charAt(0).toUpperCase() + t.type.slice(1);
+        return `${label} $${t.unattributed_revenue.toFixed(0)}`;
+      })
+      .join(" · ");
+  }, [attrBreakdown]);
 
   // Chart data
   const chartData = useMemo(() => {
@@ -732,7 +763,9 @@ export default function OverviewPage() {
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
-            sub={`Campaign: ${(campaignSubs).toLocaleString()} subs · Unattributed: ${(unattributedSubs).toLocaleString()}`}
+            sub={attrTxTotal > 0
+              ? `Unattributed: $${unattributedRevenue.toFixed(0)} of $${attrTxTotal.toFixed(0)}${unattributedTypeBreakdown ? ` · ${unattributedTypeBreakdown}` : ""}`
+              : `Campaign: ${campaignSubs.toLocaleString()} subs · No tx data`}
             sparkData={revSparkData}
           />
           <KpiCard

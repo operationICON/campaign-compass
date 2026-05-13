@@ -134,6 +134,18 @@ export const getTransactionDaily = (params: { date_from?: string; date_to?: stri
     })}`
   );
 
+export const getTransactionAttributionBreakdown = (params: { date_from?: string; date_to?: string; account_ids?: string[] }) =>
+  apiFetch<{
+    total_revenue: number;
+    campaign_revenue: number;
+    unattributed_revenue: number;
+    by_type: Array<{ type: string; total_revenue: number; campaign_revenue: number; unattributed_revenue: number; tx_count: number }>;
+  }>(`/transactions/attribution-breakdown${buildQuery({
+    date_from:   params.date_from,
+    date_to:     params.date_to,
+    account_ids: params.account_ids?.join(","),
+  })}`);
+
 // ─── Daily Metrics ────────────────────────────────────────────────────────────
 export const getDailyMetrics = (tracking_link_ids?: string[]) =>
   apiFetch(`/daily-metrics${tracking_link_ids?.length ? buildQuery({ ids: tracking_link_ids }) : ""}`);

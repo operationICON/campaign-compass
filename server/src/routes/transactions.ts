@@ -99,6 +99,62 @@ router.get("/by-day", async (c) => {
   return c.json(rows.rows);
 });
 
+// GET /transactions/attribution-breakdown?date_from=&date_to=&account_ids=
+// Returns per-type revenue split by attributed (campaign fan) vs unattributed
+router.get("/attribution-breakdown", async (c) => {
+  const dateFrom      = c.req.query("date_from");
+  const dateTo        = c.req.query("date_to");
+  const accountIdsRaw = c.req.query("account_ids");
+  const accountIds    = accountIdsRaw ? accountIdsRaw.split(",").filter(Boolean) : [];
+
+  const conditions: ReturnType<typeof sql>[] = [
+    sql`t.revenue::numeric > 0`,
+    sql`t.date IS NOT NULL`,
+  ];
+  if (dateFrom)             conditions.push(sql`t.date >= ${dateFrom}`);
+  if (dateTo)               conditions.push(sql`t.date <= ${dateTo}`);
+  if (accountIds.length > 0) conditions.push(sql`t.account_id = ANY(${accountIds}::uuid[])`);
+
+  const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
+
+  const NET = sql`
+    CASE
+      WHEN t.revenue_net IS NOT NULL AND t.revenue_net::text != ''
+        THEN t.revenue_net::numeric
+      WHEN t.fee IS NOT NULL AND t.fee::text != ''
+        THEN t.revenue::numeric - t.fee::numeric
+      ELSE t.revenue::numeric * 0.80
+    END
+  `;
+
+  const rows = await db.execute(sql`
+    SELECT
+      COALESCE(t.type, 'unknown')                  AS type,
+      SUM(${NET})::numeric                         AS total_revenue,
+      SUM(CASE WHEN f.first_subscribe_link_id IS NOT NULL THEN ${NET} ELSE 0 END)::numeric AS campaign_revenue,
+      COUNT(*)                                     AS tx_count
+    FROM transactions t
+    LEFT JOIN fans f ON f.fan_id = t.fan_id
+    ${whereClause}
+    GROUP BY t.type
+    ORDER BY total_revenue DESC
+  `);
+
+  const byType = (rows.rows as any[]).map(r => ({
+    type:                 String(r.type ?? "unknown"),
+    total_revenue:        Number(r.total_revenue ?? 0),
+    campaign_revenue:     Number(r.campaign_revenue ?? 0),
+    unattributed_revenue: Number(r.total_revenue ?? 0) - Number(r.campaign_revenue ?? 0),
+    tx_count:             Number(r.tx_count ?? 0),
+  }));
+
+  const total_revenue        = byType.reduce((s, r) => s + r.total_revenue, 0);
+  const campaign_revenue     = byType.reduce((s, r) => s + r.campaign_revenue, 0);
+  const unattributed_revenue = total_revenue - campaign_revenue;
+
+  return c.json({ total_revenue, campaign_revenue, unattributed_revenue, by_type: byType });
+});
+
 // GET /transactions/daily?date_from=&date_to=&account_ids= — per-account per-day revenue for Overview
 router.get("/daily", async (c) => {
   const dateFrom       = c.req.query("date_from");
