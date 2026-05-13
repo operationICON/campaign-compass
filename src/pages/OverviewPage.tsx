@@ -464,6 +464,22 @@ export default function OverviewPage() {
     return totalFans > 0 ? totalRevenue / totalFans : 0;
   }, [isAllTime, selectedAccounts, revByAcct, totalRevenue, totalFans]);
 
+  // Campaign subs — from snapshot deltas (subscriber-based, avoids gross/net mismatch with revenue)
+  const campaignSubs = useMemo(() => {
+    if (isAllTime) {
+      return (linksRaw as any[])
+        .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
+        .reduce((s: number, l: any) => s + Number(l.fans_count || 0), 0);
+    }
+    return (linksRaw as any[])
+      .filter((l: any) => !l.deleted_at && selectedIds.includes(l.account_id))
+      .reduce((s: number, l: any) => {
+        const delta = fansDeltaLookup[String(l.id).toLowerCase()];
+        return s + (delta?.subsGained || 0);
+      }, 0);
+  }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
+
+  // Keep gross campaign revenue for informational display only
   const campaignRevenue = useMemo(() => {
     if (isAllTime) {
       return (linksRaw as any[])
@@ -478,11 +494,11 @@ export default function OverviewPage() {
       }, 0);
   }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
 
-  const unattributedRevenue = useMemo(() => Math.max(0, totalRevenue - campaignRevenue), [totalRevenue, campaignRevenue]);
-
-  const unattributedPct = useMemo(() =>
-    totalRevenue > 0 ? (unattributedRevenue / totalRevenue) * 100 : 0,
-  [unattributedRevenue, totalRevenue]);
+  // Unattributed is subscriber-based so gross/net revenue mismatch doesn't skew it
+  const unattributedSubs = useMemo(() => Math.max(0, totalFans - campaignSubs), [totalFans, campaignSubs]);
+  const unattributedPct  = useMemo(() =>
+    totalFans > 0 ? (unattributedSubs / totalFans) * 100 : 0,
+  [unattributedSubs, totalFans]);
 
   // Chart data
   const chartData = useMemo(() => {
@@ -562,6 +578,17 @@ export default function OverviewPage() {
         }
       }
     }
+    // Pad every day in the selected range to 0 so the chart legend matches the selection
+    if (!byMonth && !useMonthly && dateFrom && dateTo) {
+      const cur = new Date(dateFrom + "T12:00:00");
+      const end = new Date(dateTo + "T12:00:00");
+      while (cur <= end) {
+        const key = cur.toISOString().slice(0, 10);
+        if (!(key in m)) m[key] = 0;
+        cur.setUTCDate(cur.getUTCDate() + 1);
+      }
+    }
+
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
       date: key, revenue,
       label: key.length === 7 || useMonthly || byMonth
@@ -716,7 +743,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
-            sub={`Campaign: ${fmtMoney(campaignRevenue)} · Unattributed: ${fmtMoney(unattributedRevenue)}`}
+            sub={`Campaign: ${(campaignSubs).toLocaleString()} subs · Unattributed: ${(unattributedSubs).toLocaleString()}`}
             sparkData={revSparkData}
           />
           <KpiCard
