@@ -397,8 +397,9 @@ export default function OverviewPage() {
         if (v > 0) m[a.id] = v;
       });
     } else if (periodRevenueRows.length > 0) {
+      const selectedIdSet = new Set(selectedIds.map(String));
       periodRevenueRows.forEach((r: { account_id: string; net: number }) => {
-        if (r.net > 0) m[r.account_id] = r.net;
+        if (r.net > 0 && selectedIdSet.has(String(r.account_id))) m[r.account_id] = r.net;
       });
     } else {
       // Fallback while live call is loading
@@ -408,7 +409,7 @@ export default function OverviewPage() {
       });
     }
     return m;
-  }, [isAllTime, selectedAccounts, dateFrom, dateTo, periodRevenueRows]);
+  }, [isAllTime, selectedAccounts, selectedIds, dateFrom, dateTo, periodRevenueRows]);
 
   const prevRevByAcct = useMemo(() => {
     const m: Record<string, number> = {};
