@@ -244,6 +244,11 @@ export const bulkUpdateTrackingLinks = (updates: { id: string; [key: string]: an
   apiFetch("/tracking-links/bulk-update", { method: "POST", body: JSON.stringify(updates) });
 
 // ─── Fans ─────────────────────────────────────────────────────────────────────
+export const getFanRevenueAttribution = (account_ids?: string[]) =>
+  apiFetch<{ campaign_revenue: number; unattributed_revenue: number; total_revenue: number }>(
+    `/fans/revenue-attribution${account_ids?.length ? `?account_ids=${account_ids.join(",")}` : ""}`
+  );
+
 export const getFanStats = (params?: { account_id?: string }) =>
   apiFetch<{
     total_fans: number; spenders: number; total_revenue: number;

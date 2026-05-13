@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  getAccounts, getTransactionDaily, getTransactionAttributionBreakdown,
+  getAccounts, getTransactionDaily,
   getOnlytrafficOrders, getTrackingLinks,
   getFanCampaignBreakdown, getSnapshotLatestDate, getRevenuePeriod,
+  getFanRevenueAttribution,
 } from "@/lib/api";
 import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
 import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
@@ -284,16 +285,12 @@ export default function OverviewPage() {
   // Transactions cover ~last 30 days; older ranges fall back to revenue_monthly monthly bars
   const txCoverageStart = useMemo(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10), []);
 
-  // Attribution breakdown — revenue-based, from transactions joined to fans
-  const { data: attrBreakdown } = useQuery({
-    queryKey: ["tx_attr_breakdown", dateFrom, dateTo, selectedIds.join(",")],
-    queryFn: () => getTransactionAttributionBreakdown({
-      date_from: dateFrom ?? undefined,
-      date_to:   dateTo   ?? undefined,
-      account_ids: selectedIds,
-    }),
+  // Revenue attribution — from fan_spend (tracking_link_id = attributed, null = unattributed)
+  const { data: revenueAttribution } = useQuery({
+    queryKey: ["fan_rev_attribution", selectedIds.join(",")],
+    queryFn: () => getFanRevenueAttribution(selectedIds),
     enabled: selectedIds.length > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
 
   // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
@@ -506,18 +503,11 @@ export default function OverviewPage() {
       }, 0);
   }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
 
-  // Unattributed % — fan ratio applied to net OFAPI revenue (avoids gross/net mismatch)
-  const unattributedPct = useMemo(() =>
-    totalFans > 0 ? Math.max(0, (1 - campaignSubs / totalFans)) * 100 : 0,
-  [totalFans, campaignSubs]);
-
-  const campaignRevenueEst = useMemo(() =>
-    totalFans > 0 ? totalRevenue * (Math.min(campaignSubs, totalFans) / totalFans) : 0,
-  [totalRevenue, campaignSubs, totalFans]);
-
-  const unattributedRevenueEst = useMemo(() =>
-    Math.max(0, totalRevenue - campaignRevenueEst),
-  [totalRevenue, campaignRevenueEst]);
+  // Unattributed % — actual attributed vs unattributed revenue from fan_spend table
+  const attrCampaignRev     = revenueAttribution?.campaign_revenue     ?? 0;
+  const attrUnattributedRev = revenueAttribution?.unattributed_revenue ?? 0;
+  const attrTotalRev        = revenueAttribution?.total_revenue        ?? 0;
+  const unattributedPct     = attrTotalRev > 0 ? (attrUnattributedRev / attrTotalRev) * 100 : 0;
 
   // Chart data
   const chartData = useMemo(() => {
@@ -745,7 +735,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
-            sub={`Campaign: ${fmtMoney(campaignRevenueEst)} · Unattributed: ${fmtMoney(unattributedRevenueEst)}`}
+            sub={`Campaign: ${fmtMoney(attrCampaignRev)} · Unattributed: ${fmtMoney(attrUnattributedRev)}`}
             sparkData={revSparkData}
           />
           <KpiCard

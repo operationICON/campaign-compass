@@ -72,6 +72,32 @@ router.get("/count", async (c) => {
   return c.json({ count: Number(result?.count ?? 0) });
 });
 
+// GET /fans/revenue-attribution?account_ids= — attributed vs unattributed revenue from fan_spend
+router.get("/revenue-attribution", async (c) => {
+  const accountIdsRaw = c.req.query("account_ids");
+  const accountIds    = accountIdsRaw ? accountIdsRaw.split(",").filter(Boolean) : [];
+
+  const whereClause = accountIds.length > 0
+    ? sql`WHERE account_id = ANY(${accountIds}::uuid[])`
+    : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      COALESCE(SUM(CASE WHEN tracking_link_id IS NOT NULL THEN revenue::numeric ELSE 0 END), 0) AS campaign_revenue,
+      COALESCE(SUM(CASE WHEN tracking_link_id IS NULL     THEN revenue::numeric ELSE 0 END), 0) AS unattributed_revenue,
+      COALESCE(SUM(revenue::numeric), 0)                                                        AS total_revenue
+    FROM fan_spend
+    ${whereClause}
+  `);
+
+  const row = (result.rows[0] as any) ?? {};
+  return c.json({
+    campaign_revenue:     Number(row.campaign_revenue     ?? 0),
+    unattributed_revenue: Number(row.unattributed_revenue ?? 0),
+    total_revenue:        Number(row.total_revenue        ?? 0),
+  });
+});
+
 // ── GET /fans ─────────────────────────────────────────────────────────────────
 router.get("/", async (c) => {
   const accountId = c.req.query("account_id");
