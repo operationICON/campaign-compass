@@ -553,28 +553,8 @@ export default function OverviewPage() {
         const key = byMonth ? d.slice(0, 7) : d;
         m[key] = (m[key] || 0) + Number(s.revenue || 0);
       });
-      // If transactions cover less than 20% of the OFAPI total, they're too sparse to be useful —
-      // replace with OFAPI period revenue distributed evenly across days so the chart matches the headline
-      const txChartTotal = Object.values(m).reduce((s, v) => s + v, 0);
-      const apiTotal = periodRevenueRows.reduce((s: number, r: any) => s + (r.net || 0), 0);
-      const txIsSparse = apiTotal > 0 && txChartTotal < apiTotal * 0.2;
-
-      if ((!txChartTotal || txIsSparse) && dateFrom && dateTo && periodRevenueRows.length > 0 && apiTotal > 0) {
-        // Distribute OFAPI total evenly across all days in the range
-        const start = new Date(dateFrom + "T12:00:00");
-        const end   = new Date(dateTo + "T12:00:00");
-        const days  = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-        const perDay = apiTotal / days;
-        const cur = new Date(start);
-        // Clear sparse tx data and replace with OFAPI-derived daily estimates
-        for (const k of Object.keys(m)) delete m[k];
-        while (cur <= end) {
-          const key = cur.toISOString().slice(0, 10);
-          m[key] = perDay;
-          cur.setUTCDate(cur.getUTCDate() + 1);
-        }
-      } else if (!txChartTotal && dateFrom && dateTo) {
-        // No transactions and no OFAPI — last resort: revenue_monthly
+      // No transactions in range — fall back to revenue_monthly as last resort
+      if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
         const fromMonth = dateFrom.slice(0, 7);
         const toMonth   = dateTo.slice(0, 7);
         selectedAccounts.forEach((a: any) => {
@@ -775,21 +755,9 @@ export default function OverviewPage() {
               </p>
             </div>
             {chartData.length > 0 && (
-              <div className="flex flex-col items-end gap-0.5">
-                <div className="flex items-center gap-1.5 text-[11px]" style={{ color: T.muted }}>
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: T.blue }} />
-                  {chartData[0]?.label} – {chartData[chartData.length - 1]?.label}
-                </div>
-                {(() => {
-                  const chartTotal = chartData.reduce((s, d) => s + d.revenue, 0);
-                  const isSparse = totalRevenue > 0 && chartTotal > 0 && Math.abs(chartTotal - totalRevenue) / totalRevenue < 0.01;
-                  return !isSparse && chartTotal > 0 && totalRevenue > 0 && Math.abs(chartTotal - totalRevenue) > 1 ? (
-                    <div className="text-[10px]" style={{ color: T.muted }}>
-                      {chartTotal < totalRevenue * 0.2 ? "Est. daily distribution · " : "Partial tx data · "}
-                      {((chartTotal / totalRevenue) * 100).toFixed(0)}% synced
-                    </div>
-                  ) : null;
-                })()}
+              <div className="flex items-center gap-1.5 text-[11px]" style={{ color: T.muted }}>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: T.blue }} />
+                {chartData[0]?.label} – {chartData[chartData.length - 1]?.label}
               </div>
             )}
           </div>
