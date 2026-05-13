@@ -205,13 +205,25 @@ function AccountFilter({ accounts, selected, onChange }: {
 }
 
 // ── Custom tooltip ────────────────────────────────────────────────────────────
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label, accountNames }: { active?: boolean; payload?: any[]; label?: string; accountNames?: Record<string, string> }) {
   if (!active || !payload?.length) return null;
+  const entries = [...payload].filter(p => (p.value || 0) > 0).reverse();
+  const total = entries.reduce((s, p) => s + (p.value || 0), 0);
   return (
-    <div className="px-3 py-2 rounded-lg text-xs"
-      style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.red}` }}>
-      <p className="mb-1" style={{ color: T.muted }}>{label}</p>
-      <p className="font-mono font-semibold" style={{ color: T.white }}>{fmtMoney(payload[0].value)}</p>
+    <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: T.card, border: `1px solid ${T.border}`, minWidth: 160 }}>
+      <p className="mb-1.5 font-medium" style={{ color: T.muted }}>{label}</p>
+      <p className="font-mono font-bold mb-2" style={{ color: T.white }}>{fmtMoney(total)}</p>
+      {entries.map((p: any, i: number) => (
+        <div key={i} className="flex items-center justify-between gap-4 py-0.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: p.fill }} />
+            <span className="truncate" style={{ color: T.muted }}>
+              {accountNames ? (accountNames[p.dataKey?.replace("acct_", "")] ?? p.name) : p.name}
+            </span>
+          </div>
+          <span className="font-mono shrink-0" style={{ color: T.white }}>{fmtMoney(p.value)}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -353,6 +365,18 @@ export default function OverviewPage() {
   }, [fansDeltaLookup, linksRaw, selectedIds]);
 
   const selectedAccounts = useMemo(() => available.filter((a: any) => selectedIds.includes(a.id)), [available, selectedIds]);
+
+  const accountColorMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    available.forEach((a: any, i: number) => { m[String(a.id)] = MODEL_COLORS[i % MODEL_COLORS.length]; });
+    return m;
+  }, [available]);
+
+  const accountNameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    available.forEach((a: any) => { m[String(a.id)] = a.display_name; });
+    return m;
+  }, [available]);
 
 
   // ─── REVENUE SOURCE RULES — DO NOT CHANGE WITHOUT EXPLICIT INSTRUCTION ────────
@@ -500,40 +524,50 @@ export default function OverviewPage() {
   const unattributedRev = Math.max(0, totalRevenue - campaignRevenue);
   const unattributedPct = totalRevenue > 0 ? (unattributedRev / totalRevenue) * 100 : 0;
 
-  // Chart data
+  // Chart data — per-account stacked bars
   const chartData = useMemo(() => {
+    // perKey: dateOrMonth -> accountId (string) -> revenue
+    const perKey: Record<string, Record<string, number>> = {};
+
     if (isAllTime) {
-      // prefer revenue_monthly from account objects (pre-aggregated)
-      const m: Record<string, number> = {};
       let hasMonthlyData = false;
       selectedAccounts.forEach((a: any) => {
         const monthly = a.revenue_monthly as Record<string, number> | null;
         if (!monthly || Object.keys(monthly).length === 0) return;
         hasMonthlyData = true;
         Object.entries(monthly).forEach(([month, amount]) => {
-          m[month] = (m[month] || 0) + Number(amount);
+          if (Number(amount) <= 0) return;
+          if (!perKey[month]) perKey[month] = {};
+          perKey[month][String(a.id)] = (perKey[month][String(a.id)] || 0) + Number(amount);
         });
       });
-      if (hasMonthlyData) {
-        return Object.entries(m)
-          .filter(([, v]) => v > 0)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, revenue]) => ({ date: key, revenue, label: format(new Date(key + "-15"), "MMM yy") }));
-      }
-      return [];
+      if (!hasMonthlyData) return [];
+      return Object.entries(perKey)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, accts]) => ({
+          date: key,
+          label: format(new Date(key + "-15"), "MMM yy"),
+          revenue: Object.values(accts).reduce((s, v) => s + v, 0),
+          ...Object.fromEntries(Object.entries(accts).map(([id, v]) => [`acct_${id}`, v])),
+        }));
     }
+
     const daysDiff = dateFrom && dateTo
       ? Math.ceil((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000)
       : 90;
     const byMonth = daysDiff > 90;
-    // Period predates transaction coverage — show revenue_monthly monthly bars
     const useMonthly = !!dateFrom && dateFrom < txCoverageStart;
-    const m: Record<string, number> = {};
+
     if (useMonthly && dateFrom && dateTo) {
-      // Use live OFAPI period data if available (same source as KPI), else fall back to revenue_monthly
       if (periodRevenueRows.length > 0) {
         const total = periodRevenueRows.reduce((s: number, r: { account_id: string; net: number }) => s + (r.net || 0), 0);
-        if (total > 0) m[dateFrom.slice(0, 7)] = total;
+        if (total > 0) {
+          const monthKey = dateFrom.slice(0, 7);
+          perKey[monthKey] = {};
+          periodRevenueRows.forEach((r: { account_id: string; net: number }) => {
+            if (r.net > 0) perKey[monthKey][String(r.account_id)] = r.net;
+          });
+        }
       } else {
         const fromMonth = dateFrom.slice(0, 7);
         const toMonth   = dateTo.slice(0, 7);
@@ -541,8 +575,10 @@ export default function OverviewPage() {
           const monthly = a.revenue_monthly as Record<string, number> | null;
           if (!monthly) return;
           Object.entries(monthly).forEach(([month, amount]) => {
-            if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
-              m[month] = (m[month] || 0) + Number(amount);
+            if (month >= fromMonth && month <= toMonth && Number(amount) > 0) {
+              if (!perKey[month]) perKey[month] = {};
+              perKey[month][String(a.id)] = (perKey[month][String(a.id)] || 0) + Number(amount);
+            }
           });
         });
       }
@@ -551,32 +587,39 @@ export default function OverviewPage() {
         if (!selectedIds.includes(s.account_id)) return;
         const d = String(s.date).split("T")[0];
         const key = byMonth ? d.slice(0, 7) : d;
-        m[key] = (m[key] || 0) + Number(s.revenue || 0);
+        if (!perKey[key]) perKey[key] = {};
+        perKey[key][String(s.account_id)] = (perKey[key][String(s.account_id)] || 0) + Number(s.revenue || 0);
       });
       // No transactions in range — use OFAPI period total as single bar at dateTo (avoids "May 26" label bug)
-      if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
-        const periodTotal = periodRevenueRows.reduce((s: number, r: { account_id: string; net: number }) => s + (r.net || 0), 0);
-        if (periodTotal > 0) {
-          m[dateTo] = periodTotal;
+      if (!Object.values(perKey).some(accts => Object.values(accts).some(v => v > 0)) && dateFrom && dateTo) {
+        const hasTotal = periodRevenueRows.some((r: { net: number }) => r.net > 0);
+        if (hasTotal) {
+          perKey[dateTo] = {};
+          periodRevenueRows.forEach((r: { account_id: string; net: number }) => {
+            if (r.net > 0) perKey[dateTo][String(r.account_id)] = r.net;
+          });
         }
       }
     }
-    // Pad every day in the selected range to 0 so the chart legend matches the selection
+
+    // Pad every day in the selected range so the chart x-axis is continuous
     if (!byMonth && !useMonthly && dateFrom && dateTo) {
       const cur = new Date(dateFrom + "T12:00:00");
       const end = new Date(dateTo + "T12:00:00");
       while (cur <= end) {
         const key = cur.toISOString().slice(0, 10);
-        if (!(key in m)) m[key] = 0;
+        if (!perKey[key]) perKey[key] = {};
         cur.setUTCDate(cur.getUTCDate() + 1);
       }
     }
 
-    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
-      date: key, revenue,
+    return Object.entries(perKey).sort(([a], [b]) => a.localeCompare(b)).map(([key, accts]) => ({
+      date: key,
+      revenue: Object.values(accts).reduce((s, v) => s + v, 0),
       label: key.length === 7 || useMonthly || byMonth
         ? format(new Date(key + "-15"), "MMM yy")
         : format(new Date(key + "T12:00:00"), "MMM d"),
+      ...Object.fromEntries(Object.entries(accts).map(([id, v]) => [`acct_${id}`, v])),
     }));
   }, [txRows, selectedIds, isAllTime, dateFrom, dateTo, selectedAccounts, txCoverageStart, periodRevenueRows]);
 
@@ -749,9 +792,18 @@ export default function OverviewPage() {
               </p>
             </div>
             {chartData.length > 0 && (
-              <div className="flex items-center gap-1.5 text-[11px]" style={{ color: T.muted }}>
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: T.blue }} />
-                {chartData[0]?.label} – {chartData[chartData.length - 1]?.label}
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="text-[11px]" style={{ color: T.muted }}>
+                  {chartData[0]?.label} – {chartData[chartData.length - 1]?.label}
+                </span>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 justify-end max-w-xs">
+                  {selectedAccounts.map((a: any, i: number) => (
+                    <div key={a.id} className="flex items-center gap-1 text-[10px]" style={{ color: T.muted }}>
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: accountColorMap[String(a.id)] }} />
+                      {a.display_name}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -768,9 +820,19 @@ export default function OverviewPage() {
                     interval={Math.max(0, Math.floor(chartData.length / 8) - 1)} />
                   <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} width={52}
                     tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="revenue" fill={T.blue} radius={[3, 3, 0, 0]} maxBarSize={28}
-                    activeBar={{ fill: "#60a5fa" }} />
+                  <Tooltip content={<ChartTooltip accountNames={accountNameMap} />} />
+                  {selectedAccounts.map((a: any, i: number) => (
+                    <Bar
+                      key={a.id}
+                      dataKey={`acct_${String(a.id)}`}
+                      name={a.display_name}
+                      stackId="stack"
+                      fill={accountColorMap[String(a.id)]}
+                      radius={i === selectedAccounts.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+                      maxBarSize={28}
+                      isAnimationActive={false}
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             )}
