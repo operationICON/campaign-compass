@@ -36,9 +36,15 @@ async function resolveWindow(
 
   switch (timePeriod) {
     case "day": {
-      const dates = await getSnapshotDistinctDates(2);
+      // Fetch 3 dates: [0]=today partial, [1]=yesterday complete, [2]=day-before
+      const dates = await getSnapshotDistinctDates(3);
       if (dates.length < 2) return null;
-      // "day" uses two anchor dates; exclusive start so only the latest day's row is summed
+      // Skip today's in-progress partial sync — show the last COMPLETE day instead.
+      // The daily sync runs at 02:00 UTC and captures "today" (only ~2 hrs old),
+      // so dates[0] is always partial. dates[1] is the previous complete day.
+      if (dates.length >= 3) {
+        return { start: dates[2], end: dates[1], exclusiveStart: true };
+      }
       return { start: dates[1], end: dates[0], exclusiveStart: true };
     }
     case "week": {
