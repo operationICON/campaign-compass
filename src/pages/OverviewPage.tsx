@@ -349,6 +349,24 @@ export default function OverviewPage() {
     return m;
   }, [linksRaw]);
 
+  // Links with any activity (clicks or subs) in the selected period — used for the badge display only
+  const activeLinkCountByAccount = useMemo(() => {
+    const m: Record<string, number> = {};
+    if (isAllTime) {
+      (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => {
+        m[l.account_id] = (m[l.account_id] || 0) + 1;
+      });
+    } else {
+      (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => {
+        const delta = fansDeltaLookup[String(l.id).toLowerCase()];
+        if (delta && (delta.clicksGained > 0 || delta.subsGained > 0 || delta.revenueGained > 0)) {
+          m[l.account_id] = (m[l.account_id] || 0) + 1;
+        }
+      });
+    }
+    return m;
+  }, [linksRaw, isAllTime, fansDeltaLookup]);
+
   const clicksByAccount = useMemo(() => {
     const m: Record<string, number> = {};
     (linksRaw as any[]).filter((l: any) => !l.deleted_at).forEach((l: any) => { m[l.account_id] = (m[l.account_id] || 0) + Number(l.clicks || 0); });
@@ -669,7 +687,7 @@ export default function OverviewPage() {
       const clicks     = isAllTime ? (clicksByAccount[a.id] || 0) : (clicksByAccountPeriod[a.id] || 0);
       const cvr        = clicks > 0 ? (newFans / clicks) * 100 : null;
       const roi        = spend > 0 ? ((rev - spend) / spend) * 100 : null;
-      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, clicks, cvr, roi, linkCount: linkCountByAccount[a.id] || 0 };
+      return { account: a, rev, prevRev, spend, prevSpend, profit, prevProfit, newFans, prevNewFans, clicks, cvr, roi, linkCount: activeLinkCountByAccount[a.id] || 0 };
     });
     const dir = tableSort.dir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
