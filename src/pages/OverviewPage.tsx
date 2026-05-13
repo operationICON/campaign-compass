@@ -6,7 +6,6 @@ import {
   getAccounts, getTransactionDaily,
   getOnlytrafficOrders, getTrackingLinks,
   getFanCampaignBreakdown, getSnapshotLatestDate, getRevenuePeriod,
-  getFanRevenueAttribution,
 } from "@/lib/api";
 import { useSnapshotDeltaMetrics } from "@/hooks/useSnapshotDeltaMetrics";
 import { usePageFilters, TIME_PERIODS } from "@/hooks/usePageFilters";
@@ -285,13 +284,6 @@ export default function OverviewPage() {
   // Transactions cover ~last 30 days; older ranges fall back to revenue_monthly monthly bars
   const txCoverageStart = useMemo(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10), []);
 
-  // Revenue attribution — from fan_spend (tracking_link_id = attributed, null = unattributed)
-  const { data: revenueAttribution } = useQuery({
-    queryKey: ["fan_rev_attribution", selectedIds.join(",")],
-    queryFn: () => getFanRevenueAttribution(selectedIds),
-    enabled: selectedIds.length > 0,
-    staleTime: 10 * 60 * 1000,
-  });
 
   // New Fans: use the exact same hook as Campaigns page — current period + prev period for delta
   const snapshotPeriod: TimePeriod = timePeriod;
@@ -503,11 +495,11 @@ export default function OverviewPage() {
       }, 0);
   }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
 
-  // Unattributed % — actual attributed vs unattributed revenue from fan_spend table
-  const attrCampaignRev     = revenueAttribution?.campaign_revenue     ?? 0;
-  const attrUnattributedRev = revenueAttribution?.unattributed_revenue ?? 0;
-  const attrTotalRev        = revenueAttribution?.total_revenue        ?? 0;
-  const unattributedPct     = attrTotalRev > 0 ? (attrUnattributedRev / attrTotalRev) * 100 : 0;
+  // Unattributed % — campaign gross × 0.80 (net after OF's cut) vs total net OFAPI revenue
+  // campaignRevenue is gross from tracking links; totalRevenue is net from OFAPI — multiply by 0.80 to align
+  const campaignNetRev    = campaignRevenue * 0.80;
+  const unattributedRev   = Math.max(0, totalRevenue - campaignNetRev);
+  const unattributedPct   = totalRevenue > 0 ? (unattributedRev / totalRevenue) * 100 : 0;
 
   // Chart data
   const chartData = useMemo(() => {
@@ -735,7 +727,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
-            sub={`Campaign: ${fmtMoney(attrCampaignRev)} · Unattributed: ${fmtMoney(attrUnattributedRev)}`}
+            sub={`Campaign: ${fmtMoney(campaignNetRev)} · Unattributed: ${fmtMoney(unattributedRev)}`}
             sparkData={revSparkData}
           />
           <KpiCard
