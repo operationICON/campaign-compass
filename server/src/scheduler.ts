@@ -3,7 +3,9 @@ import { db } from "./db/client.js";
 import { sync_settings, sync_logs } from "./db/schema.js";
 import { eq, desc, like } from "drizzle-orm";
 
-const BASE_URL = process.env.SERVER_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+// Always use localhost for internal scheduler calls — avoids Railway proxy timeout
+// (public URL has ~5min SSL proxy limit; revenue-breakdown sync takes 10-15min)
+const BASE_URL = `http://localhost:${process.env.PORT ?? 3000}`;
 
 // Guards — prevent overlapping runs of the same job
 let otSyncRunning = false;
