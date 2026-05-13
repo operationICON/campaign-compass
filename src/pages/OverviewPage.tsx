@@ -537,18 +537,29 @@ export default function OverviewPage() {
         const key = byMonth ? d.slice(0, 7) : d;
         m[key] = (m[key] || 0) + Number(s.revenue || 0);
       });
-      // Fallback to revenue_monthly if transactions empty
+      // Fallback when no transactions in DB for selected range
       if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
-        const fromMonth = dateFrom.slice(0, 7);
-        const toMonth   = dateTo.slice(0, 7);
-        selectedAccounts.forEach((a: any) => {
-          const monthly = a.revenue_monthly as Record<string, number> | null;
-          if (!monthly) return;
-          Object.entries(monthly).forEach(([month, amount]) => {
-            if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
-              m[month] = (m[month] || 0) + Number(amount);
+        // Prefer live OFAPI period revenue — same source as KPIs, correct for the exact date range
+        if (periodRevenueRows.length > 0) {
+          const total = periodRevenueRows.reduce((s: number, r: any) => s + (r.net || 0), 0);
+          if (total > 0) {
+            // Use dateFrom as the single bar key so the label shows the actual selected date
+            const key = byMonth ? dateFrom.slice(0, 7) : dateFrom;
+            m[key] = total;
+          }
+        } else {
+          // Last resort: revenue_monthly (monthly buckets)
+          const fromMonth = dateFrom.slice(0, 7);
+          const toMonth   = dateTo.slice(0, 7);
+          selectedAccounts.forEach((a: any) => {
+            const monthly = a.revenue_monthly as Record<string, number> | null;
+            if (!monthly) return;
+            Object.entries(monthly).forEach(([month, amount]) => {
+              if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
+                m[month] = (m[month] || 0) + Number(amount);
+            });
           });
-        });
+        }
       }
     }
     return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([key, revenue]) => ({
