@@ -104,6 +104,23 @@ async function runDailySync() {
   }
 }
 
+let subSyncRunning = false;
+
+async function runSubAttributionSync() {
+  if (subSyncRunning) {
+    console.log("[Scheduler] Sub attribution sync already running — skipping");
+    return;
+  }
+  subSyncRunning = true;
+  console.log("[Scheduler] Sub attribution sync starting");
+  try {
+    await drainSSE("/sync/subscribers", "cron_daily");
+    console.log("[Scheduler] Sub attribution sync complete");
+  } finally {
+    subSyncRunning = false;
+  }
+}
+
 async function runDashboardSync() {
   if (dashboardSyncRunning) {
     console.log("[Scheduler] Dashboard sync already running — skipping");
@@ -125,6 +142,9 @@ export function startScheduler() {
 
   // 03:00 UTC daily — snapshots (runs after dashboard; fetches yesterday+today so complete prior day is always captured)
   cron.schedule("0 3 * * *", () => { runDailySync().catch(console.error); }, { timezone: "UTC" });
+
+  // 06:00 UTC daily — sub attribution backfill (after all other daily syncs complete)
+  cron.schedule("0 6 * * *", () => { runSubAttributionSync().catch(console.error); }, { timezone: "UTC" });
 
   // 04:00 UTC daily — sync OF earnings snapshots (ground-truth revenue totals)
   cron.schedule("0 4 * * *", async () => {
@@ -157,5 +177,5 @@ export function startScheduler() {
     }
   }, 4 * 60 * 1000);
 
-  console.log("[Scheduler] Active — dashboard 01:00 UTC, rev-breakdown+snapshots+fans 03:00 UTC, earnings-snapshots 04:00 UTC, OT checked every 30min");
+  console.log("[Scheduler] Active — dashboard 01:00 UTC, rev-breakdown+snapshots+fans 03:00 UTC, earnings-snapshots 04:00 UTC, sub-attribution 06:00 UTC, OT checked every 30min");
 }

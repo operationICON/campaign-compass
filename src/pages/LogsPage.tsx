@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef, Fragment } from "rea
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchSyncLogs, fetchAccounts, triggerSync } from "@/lib/supabase-helpers";
-import { streamSync } from "@/lib/api";
+import { streamSync, getSyncSettings, updateSyncSetting } from "@/lib/api";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, Loader2, AlertCircle,
@@ -151,6 +151,17 @@ export default function LogsPage() {
   const queryClient = useQueryClient();
   const { data: logs = [], isLoading } = useQuery({ queryKey: ["sync_logs"], queryFn: fetchSyncLogs });
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
+  const { data: syncSettings = [] } = useQuery({ queryKey: ["sync_settings"], queryFn: getSyncSettings, staleTime: 60_000 });
+  const otIntervalHours = useMemo(() => {
+    const row = (syncSettings as any[]).find((r: any) => r.key === "ot_sync_interval_hours");
+    return row ? Number(row.value) : 4;
+  }, [syncSettings]);
+  const [editingOtInterval, setEditingOtInterval] = useState(false);
+  const [otIntervalInput, setOtIntervalInput] = useState("");
+  const saveOtInterval = useMutation({
+    mutationFn: (val: string) => updateSyncSetting("ot_sync_interval_hours", val),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["sync_settings"] }); setEditingOtInterval(false); },
+  });
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -794,27 +805,55 @@ export default function LogsPage() {
             <h3 className="text-sm font-semibold">Auto-Sync Schedule</h3>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 font-medium">Active</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
             <div className="bg-muted/30 rounded-lg p-3">
               <div className="text-muted-foreground mb-1 font-medium">Dashboard Sync</div>
-              <div className="font-bold text-foreground">Daily at 01:00 UTC</div>
+              <div className="font-bold text-foreground">Daily · 01:00 UTC</div>
               <div className="text-muted-foreground mt-1">Accounts + tracking links</div>
-              <div className="mt-2 text-primary font-medium">
-                Next: {formatDistanceToNow(nextUtcHour(1), { addSuffix: true })}
-              </div>
+              <div className="mt-2 text-primary font-medium">Next: {formatDistanceToNow(nextUtcHour(1), { addSuffix: true })}</div>
+              {statusCards.dashboard?.started_at && (
+                <div className="mt-0.5 text-muted-foreground">Last: {formatDistanceToNow(new Date(statusCards.dashboard.started_at), { addSuffix: true })}</div>
+              )}
             </div>
             <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-muted-foreground mb-1 font-medium">Snapshot Sync</div>
-              <div className="font-bold text-foreground">Daily at 03:00 UTC</div>
-              <div className="text-muted-foreground mt-1">Yesterday + today subscriber data</div>
-              <div className="mt-2 text-primary font-medium">
-                Next: {formatDistanceToNow(nextUtcHour(3), { addSuffix: true })}
-              </div>
+              <div className="text-muted-foreground mb-1 font-medium">Rev Breakdown + Fans</div>
+              <div className="font-bold text-foreground">Daily · 03:00 UTC</div>
+              <div className="text-muted-foreground mt-1">Transactions → snapshots → fan data</div>
+              <div className="mt-2 text-primary font-medium">Next: {formatDistanceToNow(nextUtcHour(3), { addSuffix: true })}</div>
+              {statusCards.revenue_breakdown?.started_at && (
+                <div className="mt-0.5 text-muted-foreground">Last: {formatDistanceToNow(new Date(statusCards.revenue_breakdown.started_at), { addSuffix: true })}</div>
+              )}
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-muted-foreground mb-1 font-medium">Sub Attribution</div>
+              <div className="font-bold text-foreground">Daily · 06:00 UTC</div>
+              <div className="text-muted-foreground mt-1">Fan backfill across all campaigns</div>
+              <div className="mt-2 text-primary font-medium">Next: {formatDistanceToNow(nextUtcHour(6), { addSuffix: true })}</div>
+              {statusCards.subscribers?.started_at && (
+                <div className="mt-0.5 text-muted-foreground">Last: {formatDistanceToNow(new Date(statusCards.subscribers.started_at), { addSuffix: true })}</div>
+              )}
             </div>
             <div className="bg-muted/30 rounded-lg p-3">
               <div className="text-muted-foreground mb-1 font-medium">OnlyTraffic</div>
-              <div className="font-bold text-foreground">Every 30 min (interval-based)</div>
-              <div className="text-muted-foreground mt-1">Only runs when interval has elapsed</div>
+              <div className="font-bold text-foreground flex items-center gap-1.5">
+                Every {otIntervalHours}h
+                <button onClick={() => { setOtIntervalInput(String(otIntervalHours)); setEditingOtInterval(true); }}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 font-normal">edit</button>
+              </div>
+              {editingOtInterval ? (
+                <div className="mt-1 flex items-center gap-1">
+                  <input type="number" min={1} max={24} value={otIntervalInput}
+                    onChange={e => setOtIntervalInput(e.target.value)}
+                    className="w-12 h-6 text-xs rounded border border-border bg-background px-1.5 text-center" />
+                  <span className="text-muted-foreground">hrs</span>
+                  <button onClick={() => saveOtInterval.mutate(otIntervalInput)}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25">save</button>
+                  <button onClick={() => setEditingOtInterval(false)}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted/70">×</button>
+                </div>
+              ) : (
+                <div className="text-muted-foreground mt-1">Checked every 30 min</div>
+              )}
               <div className="mt-2 text-primary font-medium">
                 {statusCards.onlytraffic?.started_at
                   ? `Last: ${formatDistanceToNow(new Date(statusCards.onlytraffic.started_at), { addSuffix: true })}`
