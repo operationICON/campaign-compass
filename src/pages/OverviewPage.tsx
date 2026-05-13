@@ -506,30 +506,18 @@ export default function OverviewPage() {
       }, 0);
   }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
 
-  // Unattributed % — revenue-based using transactions joined to fan attribution
-  const unattributedRevenue = useMemo(() => attrBreakdown?.unattributed_revenue ?? 0, [attrBreakdown]);
-  const attrTxTotal         = useMemo(() => attrBreakdown?.total_revenue ?? 0, [attrBreakdown]);
-  const unattributedPct     = useMemo(() =>
-    attrTxTotal > 0 ? (unattributedRevenue / attrTxTotal) * 100 : 0,
-  [unattributedRevenue, attrTxTotal]);
+  // Unattributed % — fan ratio applied to net OFAPI revenue (avoids gross/net mismatch)
+  const unattributedPct = useMemo(() =>
+    totalFans > 0 ? Math.max(0, (1 - campaignSubs / totalFans)) * 100 : 0,
+  [totalFans, campaignSubs]);
 
-  const unattributedTypeBreakdown = useMemo(() => {
-    if (!attrBreakdown?.by_type?.length) return "";
-    const TYPE_LABELS: Record<string, string> = {
-      message: "Chat", chat_message: "Chat", chat: "Chat",
-      tip: "Tips",
-      post: "Posts", paid_post: "Posts",
-      subscription: "Subs", subscribe: "Subs",
-      stream: "Stream",
-    };
-    return attrBreakdown.by_type
-      .filter(t => t.unattributed_revenue > 0.005)
-      .map(t => {
-        const label = TYPE_LABELS[t.type.toLowerCase()] ?? t.type.charAt(0).toUpperCase() + t.type.slice(1);
-        return `${label} $${t.unattributed_revenue.toFixed(0)}`;
-      })
-      .join(" · ");
-  }, [attrBreakdown]);
+  const campaignRevenueEst = useMemo(() =>
+    totalFans > 0 ? totalRevenue * (Math.min(campaignSubs, totalFans) / totalFans) : 0,
+  [totalRevenue, campaignSubs, totalFans]);
+
+  const unattributedRevenueEst = useMemo(() =>
+    Math.max(0, totalRevenue - campaignRevenueEst),
+  [totalRevenue, campaignRevenueEst]);
 
   // Chart data
   const chartData = useMemo(() => {
@@ -584,18 +572,12 @@ export default function OverviewPage() {
         const key = byMonth ? d.slice(0, 7) : d;
         m[key] = (m[key] || 0) + Number(s.revenue || 0);
       });
-      // No transactions in range — fall back to revenue_monthly as last resort
+      // No transactions in range — use OFAPI period total as single bar at dateTo (avoids "May 26" label bug)
       if (!Object.values(m).some(v => v > 0) && dateFrom && dateTo) {
-        const fromMonth = dateFrom.slice(0, 7);
-        const toMonth   = dateTo.slice(0, 7);
-        selectedAccounts.forEach((a: any) => {
-          const monthly = a.revenue_monthly as Record<string, number> | null;
-          if (!monthly) return;
-          Object.entries(monthly).forEach(([month, amount]) => {
-            if (month >= fromMonth && month <= toMonth && Number(amount) > 0)
-              m[month] = (m[month] || 0) + Number(amount);
-          });
-        });
+        const periodTotal = periodRevenueRows.reduce((s: number, r: { account_id: string; net: number }) => s + (r.net || 0), 0);
+        if (periodTotal > 0) {
+          m[dateTo] = periodTotal;
+        }
       }
     }
     // Pad every day in the selected range to 0 so the chart legend matches the selection
@@ -763,9 +745,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
-            sub={attrTxTotal > 0
-              ? `Unattributed: $${unattributedRevenue.toFixed(0)} of $${attrTxTotal.toFixed(0)}${unattributedTypeBreakdown ? ` · ${unattributedTypeBreakdown}` : ""}`
-              : `Campaign: ${campaignSubs.toLocaleString()} subs · No tx data`}
+            sub={`Campaign: ${fmtMoney(campaignRevenueEst)} · Unattributed: ${fmtMoney(unattributedRevenueEst)}`}
             sparkData={revSparkData}
           />
           <KpiCard
