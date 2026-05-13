@@ -495,11 +495,10 @@ export default function OverviewPage() {
       }, 0);
   }, [isAllTime, linksRaw, selectedIds, fansDeltaLookup]);
 
-  // Unattributed % — campaign gross × 0.80 (net after OF's cut) vs total net OFAPI revenue
-  // campaignRevenue is gross from tracking links; totalRevenue is net from OFAPI — multiply by 0.80 to align
-  const campaignNetRev    = campaignRevenue * 0.80;
-  const unattributedRev   = Math.max(0, totalRevenue - campaignNetRev);
-  const unattributedPct   = totalRevenue > 0 ? (unattributedRev / totalRevenue) * 100 : 0;
+  // Unattributed % — tracking_links.revenue (net, same scale as ltv_total) vs total OFAPI net
+  // Both are net creator earnings from OFAPI — no scaling needed
+  const unattributedRev = Math.max(0, totalRevenue - campaignRevenue);
+  const unattributedPct = totalRevenue > 0 ? (unattributedRev / totalRevenue) * 100 : 0;
 
   // Chart data
   const chartData = useMemo(() => {
@@ -727,7 +726,7 @@ export default function OverviewPage() {
           <KpiCard
             label="Unattributed %"
             value={`${unattributedPct.toFixed(1)}%`}
-            sub={`Campaign: ${fmtMoney(campaignNetRev)} · Unattributed: ${fmtMoney(unattributedRev)}`}
+            sub={`Campaign: ${fmtMoney(campaignRevenue)} · Unattributed: ${fmtMoney(unattributedRev)}`}
             sparkData={revSparkData}
           />
           <KpiCard
