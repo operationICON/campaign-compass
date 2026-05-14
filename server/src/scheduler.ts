@@ -3,14 +3,18 @@ import { db } from "./db/client.js";
 import { sync_settings, sync_logs } from "./db/schema.js";
 import { eq, desc, like } from "drizzle-orm";
 
-// Always use localhost for internal scheduler calls — avoids Railway proxy timeout
+// Always use localhost for sync SSE calls — avoids Railway proxy timeout
 // (public URL has ~5min SSL proxy limit; revenue-breakdown sync takes 10-15min)
 const BASE_URL = `http://localhost:${process.env.PORT ?? 3000}`;
+
+// Public URL for keep-alive — Railway needs external traffic to see the service is active
+const PUBLIC_URL = process.env.SERVER_URL ?? BASE_URL;
 
 // Guards — prevent overlapping runs of the same job
 let otSyncRunning = false;
 let dailySyncRunning = false;
 let dashboardSyncRunning = false;
+let subSyncRunning = false;
 
 async function drainSSE(path: string, triggeredBy: string) {
   const url = `${BASE_URL}${path}`;
@@ -35,6 +39,8 @@ async function drainSSE(path: string, triggeredBy: string) {
     console.error(`[Scheduler] ${path} failed:`, err.message);
   }
 }
+
+// ── OT sync (interval-based) ──────────────────────────────────────────────────
 
 async function getOTSyncIntervalHours(): Promise<number> {
   try {
@@ -87,6 +93,8 @@ async function runOTSyncIfDue() {
     console.log(`[Scheduler] OT sync not due — ${minRemaining}min remaining`);
   }
 }
+
+// ── Daily sync (revenue-breakdown → snapshots → fans) ─────────────────────────
 
 async function getLastDailySyncTime(): Promise<Date | null> {
   try {
@@ -141,20 +149,40 @@ async function runDailySync() {
   }
 }
 
-let subSyncRunning = false;
+// ── Dashboard sync (accounts + tracking links) ────────────────────────────────
 
-async function runSubAttributionSync() {
-  if (subSyncRunning) {
-    console.log("[Scheduler] Sub attribution sync already running — skipping");
+async function getLastDashboardSyncTime(): Promise<Date | null> {
+  try {
+    const [row] = await db
+      .select({ started_at: sync_logs.started_at })
+      .from(sync_logs)
+      .where(like(sync_logs.triggered_by, "cron_dashboard"))
+      .orderBy(desc(sync_logs.started_at))
+      .limit(1);
+    const t = row?.started_at ?? null;
+    console.log(`[Scheduler] Last dashboard sync: ${t?.toISOString() ?? "never"}`);
+    return t;
+  } catch (err: any) {
+    console.error("[Scheduler] Failed to read last dashboard sync time:", err.message);
+    return null;
+  }
+}
+
+async function runDashboardSyncIfDue() {
+  if (dashboardSyncRunning) {
+    console.log("[Scheduler] Dashboard sync already running — skipping due check");
     return;
   }
-  subSyncRunning = true;
-  console.log("[Scheduler] Sub attribution sync starting");
-  try {
-    await drainSSE("/sync/subscribers", "cron_daily");
-    console.log("[Scheduler] Sub attribution sync complete");
-  } finally {
-    subSyncRunning = false;
+  const lastRun = await getLastDashboardSyncTime();
+  const nowMs = Date.now();
+  const dueMs = lastRun ? lastRun.getTime() + 23 * 60 * 60 * 1000 : 0;
+  if (nowMs >= dueMs) {
+    const minSince = lastRun ? Math.round((nowMs - lastRun.getTime()) / 60000) : null;
+    console.log(`[Scheduler] Dashboard sync overdue (${minSince != null ? `${minSince}min` : "never ran"} since last) — running`);
+    runDashboardSync().catch(console.error);
+  } else {
+    const minRemaining = Math.round((dueMs - nowMs) / 60000);
+    console.log(`[Scheduler] Dashboard sync not due — ${minRemaining}min remaining`);
   }
 }
 
@@ -173,17 +201,32 @@ async function runDashboardSync() {
   }
 }
 
+// ── Sub attribution sync ───────────────────────────────────────────────────────
+
+async function runSubAttributionSync() {
+  if (subSyncRunning) {
+    console.log("[Scheduler] Sub attribution sync already running — skipping");
+    return;
+  }
+  subSyncRunning = true;
+  console.log("[Scheduler] Sub attribution sync starting");
+  try {
+    await drainSSE("/sync/subscribers", "cron_daily");
+    console.log("[Scheduler] Sub attribution sync complete");
+  } finally {
+    subSyncRunning = false;
+  }
+}
+
+// ── Startup ────────────────────────────────────────────────────────────────────
+
 export function startScheduler() {
-  // 01:00 UTC daily — full dashboard sync (accounts + tracking links)
+  // ── Cron jobs (exact UTC times, primary schedule) ──────────────────────────
+  // 01:00 UTC — accounts + tracking links
   cron.schedule("0 1 * * *", () => { runDashboardSync().catch(console.error); }, { timezone: "UTC" });
-
-  // 03:00 UTC daily — snapshots (runs after dashboard; fetches yesterday+today so complete prior day is always captured)
+  // 03:00 UTC — revenue-breakdown + snapshots + fans
   cron.schedule("0 3 * * *", () => { runDailySync().catch(console.error); }, { timezone: "UTC" });
-
-  // 06:00 UTC daily — sub attribution backfill (after all other daily syncs complete)
-  cron.schedule("0 6 * * *", () => { runSubAttributionSync().catch(console.error); }, { timezone: "UTC" });
-
-  // 04:00 UTC daily — sync OF earnings snapshots (ground-truth revenue totals)
+  // 04:00 UTC — OF earnings snapshots (ground-truth revenue totals)
   cron.schedule("0 4 * * *", async () => {
     console.log("[Scheduler] Earnings snapshot sync starting");
     try {
@@ -194,35 +237,38 @@ export function startScheduler() {
       console.error("[Scheduler] Earnings snapshot sync failed:", err.message);
     }
   }, { timezone: "UTC" });
+  // 06:00 UTC — sub attribution backfill
+  cron.schedule("0 6 * * *", () => { runSubAttributionSync().catch(console.error); }, { timezone: "UTC" });
 
-  // Every 30 min — check if OT sync interval has elapsed and run if due
+  // ── Interval-based checks (self-healing when cron is missed) ───────────────
+  // Every 30 min — OT sync (checks interval from DB)
   setInterval(async () => {
     try { await runOTSyncIfDue(); } catch (err: any) { console.error("[Scheduler] OT check error:", err.message); }
   }, 30 * 60 * 1000);
 
-  // Check OT sync once 30s after startup (give server time to fully bind)
+  // Every 60 min — daily sync catchup (runs if >23h since last revenue-breakdown)
+  setInterval(async () => {
+    try { await runDailySyncIfDue(); } catch (err: any) { console.error("[Scheduler] Daily interval check error:", err.message); }
+    try { await runDashboardSyncIfDue(); } catch (err: any) { console.error("[Scheduler] Dashboard interval check error:", err.message); }
+  }, 60 * 60 * 1000);
+
+  // ── Startup recovery (catches missed overnight jobs after restart/deploy) ───
   setTimeout(async () => {
     try { await runOTSyncIfDue(); } catch (err: any) { console.error("[Scheduler] OT startup check error:", err.message); }
   }, 30_000);
 
-  // Check daily sync 90s after startup — recovers missed overnight runs after server restarts
+  setTimeout(async () => {
+    try { await runDashboardSyncIfDue(); } catch (err: any) { console.error("[Scheduler] Dashboard startup check error:", err.message); }
+  }, 60_000);
+
   setTimeout(async () => {
     try { await runDailySyncIfDue(); } catch (err: any) { console.error("[Scheduler] Daily startup check error:", err.message); }
-  }, 90_000);
+  }, 120_000);
 
-  // Every 60 min — re-check daily sync in case cron fired but server was mid-restart
+  // ── Keep-alive (uses public URL so Railway counts it as real traffic) ───────
   setInterval(async () => {
-    try { await runDailySyncIfDue(); } catch (err: any) { console.error("[Scheduler] Daily interval check error:", err.message); }
-  }, 60 * 60 * 1000);
-
-  // Keep-alive ping every 4 minutes so Railway doesn't put the service to sleep
-  setInterval(async () => {
-    try {
-      await fetch(`${BASE_URL}/health`);
-    } catch {
-      // ignore — if it fails, nothing to do
-    }
+    try { await fetch(`${PUBLIC_URL}/health`); } catch { /* ignore */ }
   }, 4 * 60 * 1000);
 
-  console.log("[Scheduler] Active — dashboard 01:00 UTC, rev-breakdown+snapshots+fans 03:00 UTC, earnings-snapshots 04:00 UTC, sub-attribution 06:00 UTC, OT every 30min, daily catchup every 60min");
+  console.log(`[Scheduler] Active — crons: dashboard 01:00, daily 03:00, earnings 04:00, subs 06:00 UTC | intervals: OT 30min, catchup 60min | keep-alive → ${PUBLIC_URL}`);
 }
