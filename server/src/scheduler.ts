@@ -88,6 +88,41 @@ async function runOTSyncIfDue() {
   }
 }
 
+async function getLastDailySyncTime(): Promise<Date | null> {
+  try {
+    const [row] = await db
+      .select({ started_at: sync_logs.started_at })
+      .from(sync_logs)
+      .where(like(sync_logs.triggered_by, "revenue_breakdown_sync_cron%"))
+      .orderBy(desc(sync_logs.started_at))
+      .limit(1);
+    const t = row?.started_at ?? null;
+    console.log(`[Scheduler] Last daily sync: ${t?.toISOString() ?? "never"}`);
+    return t;
+  } catch (err: any) {
+    console.error("[Scheduler] Failed to read last daily sync time:", err.message);
+    return null;
+  }
+}
+
+async function runDailySyncIfDue() {
+  if (dailySyncRunning) {
+    console.log("[Scheduler] Daily sync already running — skipping due check");
+    return;
+  }
+  const lastRun = await getLastDailySyncTime();
+  const nowMs = Date.now();
+  const dueMs = lastRun ? lastRun.getTime() + 23 * 60 * 60 * 1000 : 0;
+  if (nowMs >= dueMs) {
+    const minSince = lastRun ? Math.round((nowMs - lastRun.getTime()) / 60000) : null;
+    console.log(`[Scheduler] Daily sync overdue (${minSince != null ? `${minSince}min` : "never ran"} since last) — running`);
+    runDailySync().catch(console.error);
+  } else {
+    const minRemaining = Math.round((dueMs - nowMs) / 60000);
+    console.log(`[Scheduler] Daily sync not due — ${minRemaining}min remaining`);
+  }
+}
+
 async function runDailySync() {
   if (dailySyncRunning) {
     console.log("[Scheduler] Daily sync already running — skipping");
@@ -170,6 +205,16 @@ export function startScheduler() {
     try { await runOTSyncIfDue(); } catch (err: any) { console.error("[Scheduler] OT startup check error:", err.message); }
   }, 30_000);
 
+  // Check daily sync 90s after startup — recovers missed overnight runs after server restarts
+  setTimeout(async () => {
+    try { await runDailySyncIfDue(); } catch (err: any) { console.error("[Scheduler] Daily startup check error:", err.message); }
+  }, 90_000);
+
+  // Every 60 min — re-check daily sync in case cron fired but server was mid-restart
+  setInterval(async () => {
+    try { await runDailySyncIfDue(); } catch (err: any) { console.error("[Scheduler] Daily interval check error:", err.message); }
+  }, 60 * 60 * 1000);
+
   // Keep-alive ping every 4 minutes so Railway doesn't put the service to sleep
   setInterval(async () => {
     try {
@@ -179,5 +224,5 @@ export function startScheduler() {
     }
   }, 4 * 60 * 1000);
 
-  console.log("[Scheduler] Active — dashboard 01:00 UTC, rev-breakdown+snapshots+fans 03:00 UTC, earnings-snapshots 04:00 UTC, sub-attribution 06:00 UTC, OT checked every 30min");
+  console.log("[Scheduler] Active — dashboard 01:00 UTC, rev-breakdown+snapshots+fans 03:00 UTC, earnings-snapshots 04:00 UTC, sub-attribution 06:00 UTC, OT every 30min, daily catchup every 60min");
 }
