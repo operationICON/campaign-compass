@@ -3,7 +3,7 @@ import { getEffectiveSource } from "@/lib/source-helpers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { fetchAccounts, fetchTrackingLinkLtv, fetchAllTrackingLinksNormalized } from "@/lib/supabase-helpers";
-import { updateTrackingLink, deleteTrackingLink, restoreTrackingLink, setTrackingLinkSourceTag } from "@/lib/api";
+import { deleteTrackingLink, restoreTrackingLink, setTrackingLinkSourceTag } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,10 +36,12 @@ function loadFilters() {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      return { model: p.model ?? "all", search: p.search ?? "" };
+      // migrate old single-string "all" / id → array
+      const model = Array.isArray(p.model) ? p.model : [];
+      return { model, search: p.search ?? "" };
     }
   } catch {}
-  return { model: "all", search: "" };
+  return { model: [] as string[], search: "" };
 }
 function saveFilters(f: any) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
 
@@ -198,8 +200,8 @@ export default function AuditPage() {
   );
 
   const setFilter = (key: string, val: string) => setFilters((p: any) => ({ ...p, [key]: val }));
-  const anyFilterActive = filters.model !== "all" || filters.search !== "";
-  const clearFilters = () => setFilters({ model: "all", search: "" });
+  const anyFilterActive = filters.model.length > 0 || filters.search !== "";
+  const clearFilters = () => setFilters({ model: [], search: "" });
 
   const isDeleted = issueFilter === "deleted";
 
@@ -207,7 +209,7 @@ export default function AuditPage() {
     const q = filters.search.trim().toLowerCase();
     const pool = isDeleted ? deletedLinks : activeLinks;
     return pool.filter((l: any) => {
-      if (filters.model !== "all" && l.account_id !== filters.model) return false;
+      if (filters.model.length > 0 && !filters.model.map(String).includes(String(l.account_id))) return false;
       if (q && !(l.campaign_name || "").toLowerCase().includes(q) && !(l.url || "").toLowerCase().includes(q)) return false;
       return true;
     });
@@ -622,8 +624,8 @@ export default function AuditPage() {
             {!isDeleted && (
               <AccountFilterDropdown
                 value={filters.model}
-                onChange={v => setFilter("model", v)}
-                accounts={(accounts as any[]).map(a => ({ id: a.id, username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
+                onChange={(v: string[]) => setFilter("model", v)}
+                accounts={(accounts as any[]).map(a => ({ id: String(a.id), username: a.username || "unknown", display_name: a.display_name, avatar_thumb_url: a.avatar_thumb_url }))}
               />
             )}
             <DropdownMenu>
